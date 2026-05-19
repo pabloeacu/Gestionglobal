@@ -1,100 +1,649 @@
 import { Link } from 'react-router-dom';
-import { ArrowRight, ShieldCheck, Scale, GraduationCap, FileText } from 'lucide-react';
-import { BrandBackdrop } from '@/components/brand/BrandBackdrop';
-import { BrandMark } from '@/components/brand/BrandMark';
+import {
+  ArrowRight,
+  ArrowUpRight,
+  ShieldCheck,
+  RefreshCcw,
+  FileCheck2,
+  ClipboardList,
+  GraduationCap,
+  BookOpen,
+  Monitor,
+  Scale,
+  PlayCircle,
+  CheckCircle2,
+  Sparkles,
+} from 'lucide-react';
+import { SiteNav } from '@/components/site/SiteNav';
+import { SiteFooter } from '@/components/site/SiteFooter';
+import { HighlightMark } from '@/components/brand/HighlightMark';
+import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 
-const PILARES = [
-  { icon: ShieldCheck, label: 'Gestoría RPAC / RPA' },
-  { icon: FileText, label: 'Declaraciones juradas' },
-  { icon: GraduationCap, label: 'Campus y formación' },
-  { icon: Scale, label: 'Asesoría jurídica' },
+// ---------------- data ----------------
+
+type ServicioGrupo = {
+  kicker: string;
+  titulo: string;
+  items: Array<{
+    icon: typeof ShieldCheck;
+    titulo: string;
+    descripcion: string;
+  }>;
+};
+
+const SERVICIOS: ServicioGrupo[] = [
+  {
+    kicker: 'RPAC · Provincia de Buenos Aires',
+    titulo: 'Matrícula al día, sin sobresaltos',
+    items: [
+      {
+        icon: ShieldCheck,
+        titulo: 'Inscripción al RPAC',
+        descripcion:
+          'Te acompañamos en cada paso para que obtengas tu matrícula sin demoras ni observaciones.',
+      },
+      {
+        icon: RefreshCcw,
+        titulo: 'Renovación de matrícula',
+        descripcion:
+          'Gestión integral año a año, cubriendo las nuevas exigencias y con asesoría personalizada.',
+      },
+      {
+        icon: FileCheck2,
+        titulo: 'Certificado de acreditación',
+        descripcion:
+          'Tu matrícula vigente, lista para asambleas u organismos cuando la necesites.',
+      },
+      {
+        icon: ClipboardList,
+        titulo: 'Declaraciones juradas anuales',
+        descripcion:
+          'Plataforma digital guiada paso a paso: orden, respaldo y cero olvidos.',
+      },
+    ],
+  },
+  {
+    kicker: 'Formación · RPAC y RPA',
+    titulo: 'Capacitación que suma reputación',
+    items: [
+      {
+        icon: GraduationCap,
+        titulo: 'Curso de formación RPAC',
+        descripcion:
+          'Curso obligatorio de inscripción · sincrónico · con docentes expertos y campus propio.',
+      },
+      {
+        icon: BookOpen,
+        titulo: 'Actualización RPAC',
+        descripcion:
+          'Para renovación: clases asincrónicas con tutorías sincrónicas, pensadas para la práctica real.',
+      },
+      {
+        icon: BookOpen,
+        titulo: 'Actualización RPA · CABA',
+        descripcion:
+          '100% asincrónico · contenido actualizado · a tu ritmo y según tu disponibilidad.',
+      },
+      {
+        icon: PlayCircle,
+        titulo: 'Capacitaciones gratuitas',
+        descripcion:
+          'Webinars, podcasts y charlas con especialistas — una comunidad que aprende y crece.',
+      },
+    ],
+  },
+  {
+    kicker: 'Operación profesional',
+    titulo: 'Herramientas y respaldo experto',
+    items: [
+      {
+        icon: Monitor,
+        titulo: 'Administración Global',
+        descripcion:
+          'App web integral: ingresos, gastos, comunicaciones y acceso a propietarios.',
+      },
+      {
+        icon: Scale,
+        titulo: 'Asesoría jurídica',
+        descripcion:
+          'Equipo especializado en propiedad horizontal. Respuestas claras, con fundamento y aplicabilidad.',
+      },
+    ],
+  },
 ];
 
-// Landing institucional (placeholder premium de Fase 2: estructura comercial
-// completa más adelante). Identidad: degradé nocturno + logo + grafismos.
+const PAREADOS = [
+  { a: 'Menos apuro.', b: 'Más gestión.' },
+  { a: 'Menos dudas.', b: 'Más seguridad.' },
+  { a: 'Menos trámite.', b: 'Más profesión.' },
+];
+
+const TESTIMONIOS = [
+  {
+    nombre: 'Olga Romero Núñez',
+    rol: 'Administradora',
+    quote:
+      'La atención y dedicación que recibí fue digna de difundir. Recomiendo Gestión Global a colegas sin dudar.',
+  },
+  {
+    nombre: 'Vanesa Agote',
+    rol: 'Administradora',
+    quote:
+      'Me sorprendió todo: la dinámica, las clases, el contenido. Lo súper recomiendo.',
+  },
+  {
+    nombre: 'Julio Ariel Fernández',
+    rol: 'Administrador',
+    quote:
+      'Con Gestión Global la administración de nuestros consorcios fue mucho más eficiente y organizada.',
+  },
+];
+
+const PARTNERS = [
+  'FundPlata',
+  'Gestar',
+  'Centro de Graduados · UNLP',
+  'Asambleas Virtuales',
+  'CALP',
+  'CAMEAC',
+];
+
+// ---------------- page ----------------
+
 export function LandingPage() {
   return (
-    <div className="relative min-h-screen overflow-hidden bg-brand-night font-sans text-white">
-      <BrandBackdrop />
+    <div id="top" className="min-h-screen bg-white font-sans text-brand-ink">
+      <SiteNav />
 
-      {/* top bar */}
-      <header className="relative z-10 mx-auto flex max-w-6xl items-center justify-between px-6 py-6">
-        <BrandMark variant="dark" size={38} />
-        <Link
-          to="/ingresar"
-          className="rounded-full border border-white/20 px-5 py-2 text-sm font-medium text-white/90 backdrop-blur transition hover:border-white/40 hover:bg-white/5"
-        >
-          Ingresar
-        </Link>
-      </header>
+      <Hero />
+      <Pareados />
+      <Servicios />
+      <Plataforma />
+      <Cursos />
+      <Testimonios />
+      <Partners />
+      <FinalCTA />
 
-      {/* hero */}
-      <main className="relative z-10 mx-auto flex max-w-4xl flex-col items-center px-6 pb-24 pt-16 text-center sm:pt-24">
-        <span className="animate-fade-up rounded-full border border-white/15 bg-white/5 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-brand-cyan-light backdrop-blur">
-          Aliados de tu tiempo
+      <SiteFooter />
+    </div>
+  );
+}
+
+// ---------------- sections ----------------
+
+function Hero() {
+  return (
+    <section className="relative overflow-hidden pt-24 sm:pt-28">
+      <TrianglesAccent position="top-right" size={360} tone="cyan" density="rich" />
+      <TrianglesAccent
+        position="bottom-left"
+        size={260}
+        tone="teal"
+        density="soft"
+        className="opacity-70"
+      />
+
+      <div className="mx-auto max-w-6xl px-6 py-20 text-center sm:py-28">
+        <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-brand-cyan animate-fade-up">
+          <Sparkles size={12} /> Aliados de tu tiempo
         </span>
 
         <h1
-          className="mt-8 animate-fade-up font-display text-4xl font-extrabold leading-[1.05] tracking-tight sm:text-6xl"
+          className="mx-auto mt-8 max-w-4xl animate-fade-up font-display text-5xl font-extrabold leading-[1.02] tracking-tight sm:text-7xl"
           style={{ animationDelay: '80ms' }}
         >
           Respaldamos cada paso
           <br />
-          <span className="bg-gradient-to-r from-brand-cyan-light via-white to-brand-teal bg-clip-text text-transparent">
-            de tu gestión.
-          </span>
+          de <HighlightMark tone="cyan">tu gestión</HighlightMark>.
         </h1>
 
         <p
-          className="mt-6 max-w-xl animate-fade-up text-base leading-relaxed text-white/65 sm:text-lg"
+          className="mx-auto mt-7 max-w-2xl animate-fade-up text-lg leading-relaxed text-brand-muted"
           style={{ animationDelay: '160ms' }}
         >
-          El ecosistema integral para administradores de consorcios: trámites,
-          matrículas, facturación, campus y gestión — en un solo lugar, bajo
-          gestionglobal.ar.
+          El ecosistema integral para administradores de consorcios:
+          matrícula, declaraciones juradas, formación, jurídico y la suite
+          Administración Global — en un solo lugar.
         </p>
 
         <div
-          className="mt-10 flex animate-fade-up flex-col items-center gap-4 sm:flex-row"
+          className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row animate-fade-up"
           style={{ animationDelay: '240ms' }}
         >
           <Link
             to="/ingresar"
-            className="group relative inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-brand-cyan to-brand-blue px-8 py-3.5 font-semibold text-white shadow-[0_8px_30px_-8px_rgba(0,158,202,0.7)] transition hover:shadow-[0_12px_40px_-8px_rgba(0,158,202,0.9)]"
+            className="group inline-flex items-center gap-2 rounded-full bg-brand-ink px-7 py-3.5 font-semibold text-white shadow-[0_10px_30px_-12px_rgba(18,34,48,0.5)] transition hover:bg-brand-cyan hover:shadow-[0_14px_40px_-12px_rgba(0,158,202,0.55)]"
           >
             Ingresar a la plataforma
-            <ArrowRight size={18} className="transition group-hover:translate-x-1" />
+            <ArrowRight size={17} className="transition group-hover:translate-x-1" />
           </Link>
           <a
             href="#servicios"
-            className="rounded-full px-6 py-3.5 text-sm font-medium text-white/70 transition hover:text-white"
+            className="rounded-full border border-slate-200 bg-white px-6 py-3.5 text-sm font-medium text-brand-ink transition hover:border-brand-cyan hover:text-brand-cyan"
           >
             Conocer los servicios
           </a>
         </div>
 
-        {/* pilares */}
+        {/* metrics tira */}
         <div
-          id="servicios"
-          className="mt-20 grid w-full animate-fade-up grid-cols-2 gap-3 sm:grid-cols-4"
+          className="mx-auto mt-20 grid w-full max-w-3xl grid-cols-3 divide-x divide-slate-200 rounded-2xl border border-slate-200 bg-white animate-fade-up"
           style={{ animationDelay: '320ms' }}
         >
-          {PILARES.map(({ icon: Icon, label }) => (
-            <div
-              key={label}
-              className="rounded-2xl border border-white/10 bg-white/[0.04] p-5 backdrop-blur transition hover:border-white/20 hover:bg-white/[0.07]"
-            >
-              <Icon size={22} className="mx-auto text-brand-cyan-light" />
-              <p className="mt-3 text-xs font-medium text-white/75">{label}</p>
+          <Metric value="+20 años" label="de trayectoria en PH" />
+          <Metric value="2 jurisdicciones" label="PBA · CABA" />
+          <Metric value="100%" label="online · sin moverte" />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function Metric({ value, label }: { value: string; label: string }) {
+  return (
+    <div className="px-6 py-6 text-center">
+      <p className="font-display text-2xl font-extrabold text-brand-ink">{value}</p>
+      <p className="mt-1 text-xs uppercase tracking-wider text-brand-muted">{label}</p>
+    </div>
+  );
+}
+
+function Pareados() {
+  return (
+    <section className="relative border-y border-slate-100 bg-brand-zebra/40 py-20">
+      <div className="mx-auto grid max-w-6xl gap-12 px-6 sm:grid-cols-3">
+        {PAREADOS.map((p) => (
+          <div key={p.a} className="text-center sm:text-left">
+            <p className="font-display text-2xl font-bold text-brand-ink sm:text-3xl">
+              <HighlightMark tone="cyan" variant="underline">
+                {p.a}
+              </HighlightMark>
+            </p>
+            <p className="mt-2 font-display text-2xl font-bold text-brand-ink sm:text-3xl">
+              {p.b}
+            </p>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function Servicios() {
+  return (
+    <section id="servicios" className="relative bg-white py-24 sm:py-28">
+      <div className="mx-auto max-w-6xl px-6">
+        <header className="mx-auto max-w-3xl text-center">
+          <p className="kicker text-brand-cyan">Servicios</p>
+          <h2 className="mt-2 font-display text-4xl font-extrabold leading-tight tracking-tight sm:text-5xl">
+            Soluciones concretas, pensadas para tu día a día.
+          </h2>
+          <p className="mt-5 text-brand-muted">
+            No ofrecemos trámites: ofrecemos respaldo real, acompañamiento
+            cercano y soluciones que funcionan.
+          </p>
+        </header>
+
+        <div className="mt-16 space-y-16">
+          {SERVICIOS.map((grupo) => (
+            <div key={grupo.titulo}>
+              <div className="mb-8 flex flex-col items-baseline gap-2 sm:flex-row sm:justify-between">
+                <div>
+                  <p className="kicker text-brand-cyan">{grupo.kicker}</p>
+                  <h3 className="mt-1 font-display text-2xl font-bold sm:text-3xl">
+                    {grupo.titulo}
+                  </h3>
+                </div>
+              </div>
+              <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+                {grupo.items.map(({ icon: Icon, titulo, descripcion }) => (
+                  <article
+                    key={titulo}
+                    className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-6 transition hover:-translate-y-0.5 hover:border-brand-cyan/50 hover:shadow-[0_18px_40px_-24px_rgba(0,158,202,0.45)]"
+                  >
+                    <span className="grid h-10 w-10 place-items-center rounded-xl bg-brand-cyan-pale/40 text-brand-cyan transition group-hover:bg-brand-cyan group-hover:text-white">
+                      <Icon size={20} />
+                    </span>
+                    <h4 className="mt-5 font-display text-lg font-bold">
+                      {titulo}
+                    </h4>
+                    <p className="mt-2 text-sm leading-relaxed text-brand-muted">
+                      {descripcion}
+                    </p>
+                  </article>
+                ))}
+              </div>
             </div>
           ))}
         </div>
-      </main>
+      </div>
+    </section>
+  );
+}
 
-      <footer className="relative z-10 mx-auto max-w-6xl px-6 pb-10 text-center text-xs text-white/40">
-        #AliadosDeTuTiempo · contacto@gestionglobal.ar · Global Servicios
-        Integrados SRL
-      </footer>
+function Plataforma() {
+  const FEATURES = [
+    'Gestión integral de ingresos y gastos',
+    'Comunicaciones unificadas con propietarios',
+    'Reportes y dashboards en tiempo real',
+    'Soporte personalizado, capacitaciones y asistencia',
+  ];
+
+  return (
+    <section
+      id="plataforma"
+      className="relative overflow-hidden bg-brand-ink py-24 text-white sm:py-28"
+    >
+      <TrianglesAccent
+        position="top-right"
+        size={320}
+        tone="cyan"
+        density="rich"
+        className="opacity-40"
+      />
+      <TrianglesAccent
+        position="bottom-left"
+        size={260}
+        tone="teal"
+        density="soft"
+        className="opacity-40"
+      />
+
+      <div className="mx-auto grid max-w-6xl items-center gap-12 px-6 lg:grid-cols-2">
+        <div>
+          <p className="kicker text-brand-cyan-light">Plataforma · SaaS</p>
+          <h2 className="mt-2 font-display text-4xl font-extrabold leading-tight tracking-tight sm:text-5xl">
+            Administración{' '}
+            <HighlightMark tone="cyan">Global</HighlightMark>
+          </h2>
+          <p className="mt-5 max-w-md text-white/70">
+            Una aplicación web pensada para maximizar tu eficiencia y
+            fortalecer tu relación con los propietarios. Menos papeles, menos
+            errores, más tiempo libre.
+          </p>
+
+          <ul className="mt-8 space-y-3">
+            {FEATURES.map((f) => (
+              <li key={f} className="flex items-start gap-3 text-sm text-white/85">
+                <CheckCircle2
+                  size={18}
+                  className="mt-0.5 shrink-0 text-brand-cyan-light"
+                />
+                {f}
+              </li>
+            ))}
+          </ul>
+
+          <Link
+            to="/ingresar"
+            className="mt-10 inline-flex items-center gap-2 rounded-full bg-white px-6 py-3 font-semibold text-brand-ink transition hover:bg-brand-cyan hover:text-white"
+          >
+            Probar la plataforma <ArrowUpRight size={16} />
+          </Link>
+        </div>
+
+        {/* mock visual */}
+        <div className="relative">
+          <div className="absolute -inset-4 rounded-3xl bg-gradient-to-br from-brand-cyan/30 to-brand-teal/30 blur-2xl" />
+          <div className="relative rounded-2xl border border-white/15 bg-white/[0.06] p-2 backdrop-blur">
+            <div className="overflow-hidden rounded-xl bg-brand-ink">
+              <div className="flex items-center gap-1.5 px-4 py-3">
+                <span className="h-2.5 w-2.5 rounded-full bg-white/20" />
+                <span className="h-2.5 w-2.5 rounded-full bg-white/20" />
+                <span className="h-2.5 w-2.5 rounded-full bg-white/20" />
+              </div>
+              <div className="grid grid-cols-3 gap-3 px-4 pb-5">
+                <DashCard kicker="Facturado" value="$ 4.8 M" />
+                <DashCard kicker="Cobranzas" value="$ 3.2 M" tone="cyan" />
+                <DashCard kicker="Saldo" value="$ 1.6 M" />
+                <div className="col-span-3 rounded-lg bg-white/[0.04] p-4">
+                  <p className="kicker text-white/60">Cash flow mensual</p>
+                  <div className="mt-3 flex items-end gap-1.5 h-20">
+                    {[40, 65, 50, 80, 70, 90, 75, 95].map((h, i) => (
+                      <span
+                        key={i}
+                        style={{ height: `${h}%` }}
+                        className={
+                          'flex-1 rounded-t ' +
+                          (i % 2 === 0
+                            ? 'bg-brand-cyan/80'
+                            : 'bg-brand-teal/70')
+                        }
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function DashCard({
+  kicker,
+  value,
+  tone,
+}: {
+  kicker: string;
+  value: string;
+  tone?: 'cyan';
+}) {
+  return (
+    <div
+      className={
+        'rounded-lg p-3 ' +
+        (tone === 'cyan' ? 'bg-brand-cyan/20' : 'bg-white/[0.04]')
+      }
+    >
+      <p className="text-[10px] uppercase tracking-wider text-white/55">
+        {kicker}
+      </p>
+      <p className="mt-1 font-display text-base font-bold text-white">
+        {value}
+      </p>
     </div>
+  );
+}
+
+function Cursos() {
+  return (
+    <section
+      id="cursos"
+      className="relative overflow-hidden bg-white py-24 sm:py-28"
+    >
+      <TrianglesAccent
+        position="top-left"
+        size={220}
+        tone="cyan"
+        density="soft"
+        className="opacity-60"
+      />
+
+      <div className="mx-auto grid max-w-6xl items-center gap-12 px-6 lg:grid-cols-5">
+        <div className="lg:col-span-3">
+          <p className="kicker text-brand-cyan">Capacitación</p>
+          <h2 className="mt-2 font-display text-4xl font-extrabold leading-tight tracking-tight sm:text-5xl">
+            <HighlightMark tone="cyan">Formate</HighlightMark> con los
+            mejores.
+          </h2>
+          <p className="mt-5 max-w-xl text-brand-muted">
+            Coordinamos los cursos oficiales para inscripción y renovación
+            de matrícula en PBA y CABA. Modalidad flexible, contenidos
+            actualizados y enfoque práctico.
+          </p>
+
+          <ul className="mt-8 space-y-4 text-sm text-brand-ink/90">
+            <li className="flex items-start gap-3">
+              <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-brand-cyan" />
+              <span>
+                <strong className="font-semibold">Curso de Formación RPAC</strong>{' '}
+                · sincrónico · con clases en vivo y campus propio.
+              </span>
+            </li>
+            <li className="flex items-start gap-3">
+              <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-brand-cyan" />
+              <span>
+                <strong className="font-semibold">Actualización RPAC</strong> ·
+                asincrónico con tutorías sincrónicas.
+              </span>
+            </li>
+            <li className="flex items-start gap-3">
+              <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-brand-cyan" />
+              <span>
+                <strong className="font-semibold">Actualización RPA · CABA</strong>{' '}
+                · 100% asincrónico, a tu ritmo.
+              </span>
+            </li>
+          </ul>
+        </div>
+
+        <div className="lg:col-span-2">
+          <div className="relative rounded-3xl border border-slate-200 bg-brand-zebra p-8">
+            <p className="kicker text-brand-cyan">Aliados académicos</p>
+            <h3 className="mt-2 font-display text-2xl font-bold">
+              Entidades habilitadas
+            </h3>
+            <p className="mt-3 text-sm text-brand-muted">
+              Certificaciones oficiales en PBA con <strong>FundPlata</strong>{' '}
+              y capacitaciones en CABA con <strong>Gestar</strong>.
+            </p>
+            <div className="mt-6 flex flex-wrap gap-2">
+              {['FundPlata', 'Gestar', 'UNLP'].map((p) => (
+                <span
+                  key={p}
+                  className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-brand-ink/80"
+                >
+                  {p}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function Testimonios() {
+  return (
+    <section
+      id="nosotros"
+      className="relative border-y border-slate-100 bg-brand-zebra/40 py-24"
+    >
+      <div className="mx-auto max-w-6xl px-6">
+        <header className="mx-auto max-w-2xl text-center">
+          <p className="kicker text-brand-cyan">Confían en nosotros</p>
+          <h2 className="mt-2 font-display text-4xl font-extrabold leading-tight tracking-tight sm:text-5xl">
+            Lo dicen quienes ya están adentro.
+          </h2>
+        </header>
+
+        <div className="mt-14 grid gap-5 md:grid-cols-3">
+          {TESTIMONIOS.map((t) => (
+            <figure
+              key={t.nombre}
+              className="rounded-2xl border border-slate-200 bg-white p-7 transition hover:-translate-y-0.5 hover:border-brand-cyan/50"
+            >
+              <svg
+                aria-hidden
+                viewBox="0 0 24 24"
+                fill="currentColor"
+                className="h-6 w-6 text-brand-cyan"
+              >
+                <path d="M9 7H5a2 2 0 0 0-2 2v4a2 2 0 0 0 2 2h2v2a2 2 0 0 1-2 2H4v2h1a4 4 0 0 0 4-4V7Zm10 0h-4a2 2 0 0 0-2 2v4a2 2 0 0 0 2 2h2v2a2 2 0 0 1-2 2h-1v2h1a4 4 0 0 0 4-4V7Z" />
+              </svg>
+              <blockquote className="mt-4 text-[15px] leading-relaxed text-brand-ink/85">
+                {t.quote}
+              </blockquote>
+              <figcaption className="mt-6 border-t border-slate-100 pt-4">
+                <p className="text-sm font-semibold text-brand-ink">
+                  {t.nombre}
+                </p>
+                <p className="text-xs text-brand-muted">{t.rol}</p>
+              </figcaption>
+            </figure>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function Partners() {
+  return (
+    <section className="bg-white py-16">
+      <div className="mx-auto max-w-6xl px-6 text-center">
+        <p className="kicker text-brand-muted">
+          Trabajamos con
+        </p>
+        <div className="mt-6 flex flex-wrap items-center justify-center gap-x-10 gap-y-4">
+          {PARTNERS.map((p) => (
+            <span
+              key={p}
+              className="font-display text-base font-bold tracking-tight text-brand-muted/80 transition hover:text-brand-ink"
+            >
+              {p}
+            </span>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function FinalCTA() {
+  return (
+    <section className="relative overflow-hidden bg-white py-24">
+      <div className="mx-auto max-w-6xl px-6">
+        <div className="relative overflow-hidden rounded-3xl border border-slate-200 bg-gradient-to-br from-white via-brand-cyan-pale/30 to-brand-teal/15 p-12 text-center sm:p-16">
+          <TrianglesAccent
+            position="top-right"
+            size={280}
+            tone="cyan"
+            density="rich"
+            className="opacity-50"
+          />
+          <TrianglesAccent
+            position="bottom-left"
+            size={200}
+            tone="teal"
+            density="soft"
+            className="opacity-50"
+          />
+          <div className="relative">
+            <p className="kicker text-brand-cyan">Empezá hoy</p>
+            <h2 className="mx-auto mt-3 max-w-2xl font-display text-3xl font-extrabold leading-tight tracking-tight sm:text-5xl">
+              Tu gestión, con el respaldo que{' '}
+              <HighlightMark tone="cyan">se nota</HighlightMark>.
+            </h2>
+            <p className="mx-auto mt-5 max-w-xl text-brand-muted">
+              Sumate a la comunidad de administradores que ya trabajan con
+              Gestión Global.
+            </p>
+            <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+              <Link
+                to="/ingresar"
+                className="group inline-flex items-center gap-2 rounded-full bg-brand-ink px-7 py-3.5 font-semibold text-white transition hover:bg-brand-cyan"
+              >
+                Ingresar a la plataforma
+                <ArrowRight
+                  size={17}
+                  className="transition group-hover:translate-x-1"
+                />
+              </Link>
+              <a
+                href="mailto:contacto@gestionglobal.ar"
+                className="rounded-full border border-slate-300 bg-white/70 px-6 py-3.5 text-sm font-medium text-brand-ink transition hover:border-brand-cyan hover:text-brand-cyan"
+              >
+                Escribinos a contacto@gestionglobal.ar
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
   );
 }
