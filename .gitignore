@@ -1,0 +1,20 @@
+node_modules
+dist
+dist-ssr
+*.local
+.env
+.env.*
+!.env.example
+.DS_Store
+*.log
+npm-debug.log*
+.vscode/*
+!.vscode/extensions.json
+.idea
+coverage
+supabase/.temp
+supabase/.branches
+# Material de referencia (no es código de la app — el bagaje vive en knowledge-base/)
+Para gestión global.zip
+Para gestión global/
+GESTIÓN GLOBAL - Presentación.pdf

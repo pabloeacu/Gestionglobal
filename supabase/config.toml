@@ -1,0 +1,27 @@
+# Configuración del proyecto Supabase (se completa el project_id al crear el
+# proyecto remoto). Edge functions con verify_jwt = false + validación interna
+# (P-API-05 / E14).
+project_id = "gestion-global"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public"]
+extra_search_path = ["public"]
+
+[db]
+port = 54322
+major_version = 15
+
+[studio]
+enabled = true
+port = 54323
+
+[auth]
+enabled = true
+site_url = "http://localhost:5173"
+
+# Las edge functions se declararán acá a medida que se creen (Fase 1: ARCA).
+# Ejemplo:
+# [functions.arca-autorizar-comprobante]
+# verify_jwt = false

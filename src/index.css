@@ -1,0 +1,29 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    @apply bg-white text-brand-ink antialiased;
+  }
+}
+
+@layer components {
+  .kicker {
+    @apply text-[11px] font-semibold uppercase tracking-wider text-brand-muted;
+  }
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+  .card-premium {
+    @apply rounded-xl border border-slate-200 bg-white shadow-sm;
+  }
+}
