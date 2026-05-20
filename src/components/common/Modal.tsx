@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { useSounds } from '@/contexts/SoundContext';
@@ -47,7 +48,9 @@ export function Modal({
 
   if (!open) return null;
 
-  return (
+  // Portal a body para escapar cualquier ancestor con transform que rompe
+  // position: fixed (ver nota en Drawer.tsx).
+  return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-brand-ink/40 p-4 backdrop-blur-sm motion-safe:animate-fade-in"
       onMouseDown={(e) => closeOnBackdrop && e.target === e.currentTarget && onClose()}
@@ -85,6 +88,7 @@ export function Modal({
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

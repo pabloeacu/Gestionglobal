@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { useSounds } from '@/contexts/SoundContext';
 
@@ -46,7 +47,11 @@ export function Drawer({
 
   if (!open) return null;
 
-  return (
+  // Portal a document.body para escapar cualquier ancestor con transform
+  // (las animate-* de Tailwind crean containing block para position: fixed,
+  // lo que termina anclando el drawer al wrapper de Outlet y reduciendo su
+  // alto). El portal lo monta como hijo directo del body.
+  return createPortal(
     <div
       className="fixed inset-0 z-50 flex justify-end bg-brand-ink/40 backdrop-blur-sm motion-safe:animate-fade-in"
       onMouseDown={(e) => e.target === e.currentTarget && onClose()}
@@ -83,6 +88,7 @@ export function Drawer({
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
