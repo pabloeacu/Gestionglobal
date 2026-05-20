@@ -11,6 +11,7 @@ import {
   GraduationCap,
   BarChart3,
   Settings,
+  Inbox,
   LogOut,
   Menu,
   X,
@@ -42,12 +43,13 @@ const NAV: NavItem[] = [
   { to: '/gerencia/clientes', label: 'Clientes', icon: Users },
   { to: '/gerencia/servicios', label: 'Servicios', icon: Briefcase, disabled: true },
   { to: '/gerencia/facturacion', label: 'Facturación', icon: FileText },
+  { to: '/gerencia/tramites', label: 'Trámites', icon: Inbox },
   { to: '/gerencia/cuenta-corriente', label: 'Cuenta corriente', icon: Wallet, disabled: true },
   { to: '/gerencia/finanzas', label: 'Finanzas', icon: PiggyBank, disabled: true },
   { to: '/gerencia/recupero', label: 'Recupero', icon: AlertCircle, disabled: true },
   { to: '/gerencia/campus', label: 'Campus', icon: GraduationCap, disabled: true },
   { to: '/gerencia/reportes', label: 'Reportes', icon: BarChart3, disabled: true },
-  { to: '/gerencia/configuracion', label: 'Configuración', icon: Settings, disabled: true },
+  { to: '/gerencia/configuracion', label: 'Configuración', icon: Settings },
 ];
 
 export function GerenciaLayout() {

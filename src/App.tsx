@@ -10,6 +10,12 @@ import { AdministracionesListPage } from '@/modules/clientes/pages/Administracio
 import { AdministracionDetailPage } from '@/modules/clientes/pages/AdministracionDetailPage';
 import { ComprobantesListPage } from '@/modules/facturacion/pages/ComprobantesListPage';
 import { ComprobanteDetailPage } from '@/modules/facturacion/pages/ComprobanteDetailPage';
+import { ConfiguracionLayout } from '@/modules/configuracion/components/ConfiguracionLayout';
+import { ArcaConfigPage } from '@/modules/configuracion/pages/ArcaConfigPage';
+import { ArcaQueuePage } from '@/modules/configuracion/pages/ArcaQueuePage';
+import { TramitesListPage } from '@/modules/tramites/pages/TramitesListPage';
+import { TramitesKanbanPage } from '@/modules/tramites/pages/TramitesKanbanPage';
+import { TramiteDetailPage } from '@/modules/tramites/pages/TramiteDetailPage';
 import { PortalLayout } from '@/modules/portal/components/PortalLayout';
 import { PortalHome } from '@/modules/portal/pages/PortalHome';
 import { PortalComprobantesPage } from '@/modules/portal/pages/PortalComprobantesPage';
@@ -93,6 +99,14 @@ export function App() {
           <Route path="clientes/:id" element={<AdministracionDetailPage />} />
           <Route path="facturacion" element={<ComprobantesListPage />} />
           <Route path="facturacion/:id" element={<ComprobanteDetailPage />} />
+          <Route path="tramites" element={<TramitesListPage />} />
+          <Route path="tramites/kanban" element={<TramitesKanbanPage />} />
+          <Route path="tramites/:id" element={<TramiteDetailPage />} />
+          <Route path="configuracion" element={<ConfiguracionLayout />}>
+            <Route index element={<Navigate to="arca" replace />} />
+            <Route path="arca" element={<ArcaConfigPage />} />
+            <Route path="arca/cola" element={<ArcaQueuePage />} />
+          </Route>
         </Route>
 
         <Route

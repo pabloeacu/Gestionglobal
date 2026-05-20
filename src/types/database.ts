@@ -2119,6 +2119,288 @@ export type Database = {
           },
         ]
       }
+      tramite_adjuntos: {
+        Row: {
+          filename_original: string
+          id: string
+          mime_type: string | null
+          size_bytes: number | null
+          storage_path: string
+          subido_por: string | null
+          tramite_id: string
+          uploaded_at: string
+        }
+        Insert: {
+          filename_original: string
+          id?: string
+          mime_type?: string | null
+          size_bytes?: number | null
+          storage_path: string
+          subido_por?: string | null
+          tramite_id: string
+          uploaded_at?: string
+        }
+        Update: {
+          filename_original?: string
+          id?: string
+          mime_type?: string | null
+          size_bytes?: number | null
+          storage_path?: string
+          subido_por?: string | null
+          tramite_id?: string
+          uploaded_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tramite_adjuntos_subido_por_fkey"
+            columns: ["subido_por"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tramite_adjuntos_tramite_id_fkey"
+            columns: ["tramite_id"]
+            isOneToOne: false
+            referencedRelation: "tramites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tramite_comentarios: {
+        Row: {
+          autor_id: string | null
+          autor_nombre: string
+          autor_role: string
+          contenido: string
+          created_at: string
+          id: string
+          tramite_id: string
+          visible_para: string
+        }
+        Insert: {
+          autor_id?: string | null
+          autor_nombre: string
+          autor_role: string
+          contenido: string
+          created_at?: string
+          id?: string
+          tramite_id: string
+          visible_para?: string
+        }
+        Update: {
+          autor_id?: string | null
+          autor_nombre?: string
+          autor_role?: string
+          contenido?: string
+          created_at?: string
+          id?: string
+          tramite_id?: string
+          visible_para?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tramite_comentarios_autor_id_fkey"
+            columns: ["autor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tramite_comentarios_tramite_id_fkey"
+            columns: ["tramite_id"]
+            isOneToOne: false
+            referencedRelation: "tramites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tramite_eventos: {
+        Row: {
+          actor_id: string | null
+          actor_nombre: string | null
+          created_at: string
+          data: Json
+          id: string
+          tipo: string
+          tramite_id: string
+        }
+        Insert: {
+          actor_id?: string | null
+          actor_nombre?: string | null
+          created_at?: string
+          data?: Json
+          id?: string
+          tipo: string
+          tramite_id: string
+        }
+        Update: {
+          actor_id?: string | null
+          actor_nombre?: string | null
+          created_at?: string
+          data?: Json
+          id?: string
+          tipo?: string
+          tramite_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tramite_eventos_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tramite_eventos_tramite_id_fkey"
+            columns: ["tramite_id"]
+            isOneToOne: false
+            referencedRelation: "tramites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tramites: {
+        Row: {
+          administracion_id: string | null
+          asignado_a: string | null
+          categoria: string
+          codigo: string
+          comprobante_id: string | null
+          consorcio_id: string | null
+          created_at: string
+          created_by: string | null
+          descripcion: string | null
+          estado: string
+          formulario_submission_id: string | null
+          id: string
+          prioridad: string
+          resuelto_at: string | null
+          resuelto_por: string | null
+          solicitante_email: string | null
+          solicitante_nombre: string | null
+          solicitante_telefono: string | null
+          titulo: string
+          total_adjuntos: number
+          total_comentarios: number
+          total_vistas: number
+          ultima_actividad_at: string
+          updated_at: string
+          vence_at: string | null
+        }
+        Insert: {
+          administracion_id?: string | null
+          asignado_a?: string | null
+          categoria: string
+          codigo: string
+          comprobante_id?: string | null
+          consorcio_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          descripcion?: string | null
+          estado?: string
+          formulario_submission_id?: string | null
+          id?: string
+          prioridad?: string
+          resuelto_at?: string | null
+          resuelto_por?: string | null
+          solicitante_email?: string | null
+          solicitante_nombre?: string | null
+          solicitante_telefono?: string | null
+          titulo: string
+          total_adjuntos?: number
+          total_comentarios?: number
+          total_vistas?: number
+          ultima_actividad_at?: string
+          updated_at?: string
+          vence_at?: string | null
+        }
+        Update: {
+          administracion_id?: string | null
+          asignado_a?: string | null
+          categoria?: string
+          codigo?: string
+          comprobante_id?: string | null
+          consorcio_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          descripcion?: string | null
+          estado?: string
+          formulario_submission_id?: string | null
+          id?: string
+          prioridad?: string
+          resuelto_at?: string | null
+          resuelto_por?: string | null
+          solicitante_email?: string | null
+          solicitante_nombre?: string | null
+          solicitante_telefono?: string | null
+          titulo?: string
+          total_adjuntos?: number
+          total_comentarios?: number
+          total_vistas?: number
+          ultima_actividad_at?: string
+          updated_at?: string
+          vence_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tramites_administracion_id_fkey"
+            columns: ["administracion_id"]
+            isOneToOne: false
+            referencedRelation: "administraciones"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tramites_asignado_a_fkey"
+            columns: ["asignado_a"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tramites_comprobante_id_fkey"
+            columns: ["comprobante_id"]
+            isOneToOne: false
+            referencedRelation: "comprobantes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tramites_comprobante_id_fkey"
+            columns: ["comprobante_id"]
+            isOneToOne: false
+            referencedRelation: "vw_comprobantes_para_avisar"
+            referencedColumns: ["comprobante_id"]
+          },
+          {
+            foreignKeyName: "tramites_consorcio_id_fkey"
+            columns: ["consorcio_id"]
+            isOneToOne: false
+            referencedRelation: "consorcios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tramites_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tramites_formulario_submission_id_fkey"
+            columns: ["formulario_submission_id"]
+            isOneToOne: false
+            referencedRelation: "formulario_submissions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tramites_resuelto_por_fkey"
+            columns: ["resuelto_por"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       cajas_con_saldo: {
@@ -2217,6 +2499,31 @@ export type Database = {
           sent_email_id: string
         }[]
       }
+      crear_comprobante_borrador_fiscal: {
+        Args: {
+          p_administracion_id: string
+          p_comprobante_referencia_id: string
+          p_concepto: string
+          p_consorcio_id: string
+          p_fecha: string
+          p_items: Json
+          p_observaciones: string
+          p_punto_venta: number
+          p_tipo: string
+          p_vencimiento: string
+        }
+        Returns: string
+      }
+      crear_tramite_desde_submission: {
+        Args: {
+          p_asignado_a?: string
+          p_categoria: string
+          p_prioridad?: string
+          p_submission_id: string
+          p_titulo?: string
+        }
+        Returns: string
+      }
       desimputar_cobranza: {
         Args: { p_imputacion_id: string }
         Returns: string
@@ -2261,6 +2568,10 @@ export type Database = {
       reset_arca_jobs_colgados: {
         Args: { p_max_age_min?: number }
         Returns: number
+      }
+      tramite_incrementar_vistas: {
+        Args: { p_tramite_id: string }
+        Returns: undefined
       }
     }
     Enums: {
@@ -2394,3 +2705,4 @@ export const Constants = {
     Enums: {},
   },
 } as const
+
