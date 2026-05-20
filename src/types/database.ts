@@ -1783,6 +1783,74 @@ export type Database = {
         }
         Relationships: []
       }
+      precio_audit: {
+        Row: {
+          accion: string
+          autor: string | null
+          created_at: string
+          id: string
+          monto_anterior: number | null
+          monto_nuevo: number | null
+          motivo: string | null
+          servicio_id: string | null
+          tabulador_precio_anterior_id: string | null
+          tabulador_precio_nuevo_id: string | null
+        }
+        Insert: {
+          accion: string
+          autor?: string | null
+          created_at?: string
+          id?: string
+          monto_anterior?: number | null
+          monto_nuevo?: number | null
+          motivo?: string | null
+          servicio_id?: string | null
+          tabulador_precio_anterior_id?: string | null
+          tabulador_precio_nuevo_id?: string | null
+        }
+        Update: {
+          accion?: string
+          autor?: string | null
+          created_at?: string
+          id?: string
+          monto_anterior?: number | null
+          monto_nuevo?: number | null
+          motivo?: string | null
+          servicio_id?: string | null
+          tabulador_precio_anterior_id?: string | null
+          tabulador_precio_nuevo_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "precio_audit_autor_fkey"
+            columns: ["autor"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "precio_audit_servicio_id_fkey"
+            columns: ["servicio_id"]
+            isOneToOne: false
+            referencedRelation: "servicios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "precio_audit_tabulador_precio_anterior_id_fkey"
+            columns: ["tabulador_precio_anterior_id"]
+            isOneToOne: false
+            referencedRelation: "tabulador_precios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "precio_audit_tabulador_precio_nuevo_id_fkey"
+            columns: ["tabulador_precio_nuevo_id"]
+            isOneToOne: false
+            referencedRelation: "tabulador_precios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           activo: boolean
@@ -2052,11 +2120,14 @@ export type Database = {
       tabulador_precios: {
         Row: {
           administracion_id: string | null
+          consorcio_id: string | null
           convenio: string | null
           created_at: string
           created_by: string | null
           id: string
+          moneda: string
           motivo: string | null
+          notas: string | null
           origen: string
           porcentaje_aplicado: number | null
           precio: number
@@ -2067,11 +2138,14 @@ export type Database = {
         }
         Insert: {
           administracion_id?: string | null
+          consorcio_id?: string | null
           convenio?: string | null
           created_at?: string
           created_by?: string | null
           id?: string
+          moneda?: string
           motivo?: string | null
+          notas?: string | null
           origen?: string
           porcentaje_aplicado?: number | null
           precio: number
@@ -2082,11 +2156,14 @@ export type Database = {
         }
         Update: {
           administracion_id?: string | null
+          consorcio_id?: string | null
           convenio?: string | null
           created_at?: string
           created_by?: string | null
           id?: string
+          moneda?: string
           motivo?: string | null
+          notas?: string | null
           origen?: string
           porcentaje_aplicado?: number | null
           precio?: number
@@ -2101,6 +2178,13 @@ export type Database = {
             columns: ["administracion_id"]
             isOneToOne: false
             referencedRelation: "administraciones"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tabulador_precios_consorcio_id_fkey"
+            columns: ["consorcio_id"]
+            isOneToOne: false
+            referencedRelation: "consorcios"
             referencedColumns: ["id"]
           },
           {
@@ -2483,6 +2567,21 @@ export type Database = {
       }
     }
     Functions: {
+      ajuste_masivo_precios: {
+        Args: {
+          p_categoria_codigo?: string
+          p_motivo?: string
+          p_porcentaje?: number
+          p_servicio_id?: string
+        }
+        Returns: {
+          precio_anterior: number
+          precio_nuevo: number
+          servicio_id: string
+          tabulador_anterior_id: string
+          tabulador_nuevo_id: string
+        }[]
+      }
       anular_comprobante: {
         Args: { p_comprobante_id: string; p_motivo: string }
         Returns: string
@@ -2568,6 +2667,22 @@ export type Database = {
       reset_arca_jobs_colgados: {
         Args: { p_max_age_min?: number }
         Returns: number
+      }
+      resolver_precio_servicio: {
+        Args: {
+          p_administracion_id?: string
+          p_consorcio_id?: string
+          p_fecha?: string
+          p_servicio_id: string
+        }
+        Returns: {
+          modo: string
+          origen: string
+          precio_total: number
+          precio_unitario: number
+          tabulador_precio_id: string
+          unidades: number
+        }[]
       }
       tramite_incrementar_vistas: {
         Args: { p_tramite_id: string }
