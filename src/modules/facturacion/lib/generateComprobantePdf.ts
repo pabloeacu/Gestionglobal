@@ -159,9 +159,8 @@ export async function generateComprobantePdf({
   // Aliados de tu tiempo"). Tamaño grande para que ocupe casi toda la franja.
   // Usa el aspect real del contenido (post-trim del whitespace).
   if (logoAsset) {
-    // Logo ocupa el header con 6mm padding arriba/abajo (reducción 20%
-    // desde 'casi borde a borde')
-    const logoH = coverH - 12;
+    // Logo a 21mm de alto (otro -20% sobre la versión anterior de 26mm)
+    const logoH = 21;
     const logoW = logoH * logoAsset.aspect;
     doc.addImage(logoAsset.dataUrl, 'PNG', margin, (coverH - logoH) / 2, logoW, logoH, undefined, 'FAST');
   } else {
