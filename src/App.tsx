@@ -10,7 +10,13 @@ import { AdministracionesListPage } from '@/modules/clientes/pages/Administracio
 import { AdministracionDetailPage } from '@/modules/clientes/pages/AdministracionDetailPage';
 import { ComprobantesListPage } from '@/modules/facturacion/pages/ComprobantesListPage';
 import { ComprobanteDetailPage } from '@/modules/facturacion/pages/ComprobanteDetailPage';
+import { PortalLayout } from '@/modules/portal/components/PortalLayout';
 import { PortalHome } from '@/modules/portal/pages/PortalHome';
+import { PortalComprobantesPage } from '@/modules/portal/pages/PortalComprobantesPage';
+import { PortalComprobanteDetailPage } from '@/modules/portal/pages/PortalComprobanteDetailPage';
+import { PortalCtaCtePage } from '@/modules/portal/pages/PortalCtaCtePage';
+import { PortalConsorciosPage } from '@/modules/portal/pages/PortalConsorciosPage';
+import { PerfilPage } from '@/modules/auth/pages/PerfilPage';
 import { FormularioPublicoPage } from '@/modules/public/pages/FormularioPublicoPage';
 
 type Role = 'gerente' | 'operador' | 'administrador';
@@ -90,13 +96,23 @@ export function App() {
         </Route>
 
         <Route
-          path="/portal/*"
+          path="/portal"
           element={
             <Protected allow={['administrador']}>
-              <PortalHome />
+              <PortalLayout />
             </Protected>
           }
-        />
+        >
+          <Route index element={<PortalHome />} />
+          <Route path="comprobantes" element={<PortalComprobantesPage />} />
+          <Route
+            path="comprobantes/:id"
+            element={<PortalComprobanteDetailPage />}
+          />
+          <Route path="cuenta-corriente" element={<PortalCtaCtePage />} />
+          <Route path="consorcios" element={<PortalConsorciosPage />} />
+          <Route path="perfil" element={<PerfilPage />} />
+        </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
