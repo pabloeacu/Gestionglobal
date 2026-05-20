@@ -17,34 +17,62 @@ interface Args {
   items: ComprobanteItemRow[];
 }
 
+// Logo PNG cacheado entre llamadas (se descarga una vez por sesión).
+let cachedLogo: HTMLImageElement | null | undefined;
+async function loadLogo(): Promise<HTMLImageElement | null> {
+  if (cachedLogo !== undefined) return cachedLogo;
+  try {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.src = '/brand/logo-white.png';
+    await img.decode();
+    cachedLogo = img;
+    return img;
+  } catch {
+    cachedLogo = null;
+    return null;
+  }
+}
+
 // Genera PDF A4 del comprobante con la marca Gestión Global. Devuelve el doc
 // jsPDF — el caller decide guardar (doc.save), abrir (doc.output('bloburl'))
 // o adjuntar a email (doc.output('arraybuffer') → base64).
-export function generateComprobantePdf({ comprobante: c, items }: Args): jsPDF {
+export async function generateComprobantePdf({
+  comprobante: c,
+  items,
+}: Args): Promise<jsPDF> {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
   const margin = 16;
 
   // -------------------- header band con gradient (manual) --------------------
-  // jspdf no soporta gradients reales: simulamos con dos rectángulos translúcidos
   doc.setFillColor(...BRAND_CYAN);
-  doc.rect(0, 0, pageW, 30, 'F');
+  doc.rect(0, 0, pageW, 32, 'F');
   doc.setFillColor(...BRAND_TEAL);
-  doc.rect(pageW * 0.6, 0, pageW * 0.4, 30, 'F');
+  doc.rect(pageW * 0.62, 0, pageW * 0.38, 32, 'F');
 
-  // Triángulos brand en esquina top-right
-  drawTriangles(doc, pageW - 38, 4, 30);
+  // Triángulos brand en esquina top-right (sutil, no compiten con el logo)
+  drawTriangles(doc, pageW - 40, 4, 28);
 
-  // Logo / brand text
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(18);
-  doc.setTextColor(255, 255, 255);
-  doc.text('GESTIÓN GLOBAL', margin, 14);
-  doc.setFontSize(8);
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(220, 240, 245);
-  doc.text('ALIADOS DE TU TIEMPO', margin, 19);
+  // Logo institucional (PNG blanco transparente). Si no está disponible,
+  // fallback al wordmark tipográfico.
+  const logo = await loadLogo();
+  if (logo) {
+    const logoH = 18;                            // mm
+    const aspect = logo.naturalWidth / Math.max(1, logo.naturalHeight);
+    const logoW = logoH * aspect;
+    doc.addImage(logo, 'PNG', margin, 7, logoW, logoH, undefined, 'FAST');
+  } else {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(18);
+    doc.setTextColor(255, 255, 255);
+    doc.text('GESTIÓN GLOBAL', margin, 15);
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(220, 240, 245);
+    doc.text('ALIADOS DE TU TIEMPO', margin, 20);
+  }
 
   // Bloque del número y tipo (lado derecho)
   doc.setFont('helvetica', 'bold');
@@ -54,11 +82,11 @@ export function generateComprobantePdf({ comprobante: c, items }: Args): jsPDF {
     ? `${String(c.punto_venta).padStart(5, '0')}-${String(c.numero).padStart(8, '0')}`
     : 'SIN NÚMERO';
   doc.text(`COMPROBANTE ${c.tipo}`, pageW - margin, 14, { align: 'right' });
-  doc.setFontSize(14);
-  doc.text(numStr, pageW - margin, 21, { align: 'right' });
+  doc.setFontSize(15);
+  doc.text(numStr, pageW - margin, 22, { align: 'right' });
 
   // -------------------- meta box (fecha / periodo / venc) --------------------
-  let y = 38;
+  let y = 40;
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
   doc.setTextColor(...BRAND_MUTED);
@@ -183,12 +211,12 @@ export function generateComprobantePdf({ comprobante: c, items }: Args): jsPDF {
   if (Number(c.exento) > 0) drawTotalRow('Exento', Number(c.exento));
   if (Number(c.no_gravado) > 0) drawTotalRow('No gravado', Number(c.no_gravado));
   drawTotalRow('IVA total', Number(c.total_iva ?? 0));
-  ty += 2;
-  // separator line
+  // separator line con respiración suficiente para que no atraviese el TOTAL
+  ty += 3;
   doc.setDrawColor(...BRAND_CYAN);
   doc.setLineWidth(0.6);
-  doc.line(labelX - 6, ty - 1, totalsRight, ty - 1);
-  ty += 2;
+  doc.line(labelX - 6, ty, totalsRight, ty);
+  ty += 8;
   drawTotalRow('TOTAL', Number(c.total ?? 0), true, true);
 
   // -------------------- observaciones (opcional) --------------------

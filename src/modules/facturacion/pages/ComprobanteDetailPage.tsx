@@ -118,10 +118,10 @@ export function ComprobanteDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  function onDescargarPdf() {
+  async function onDescargarPdf() {
     if (!comp) return;
     try {
-      const doc = generateComprobantePdf({ comprobante: comp, items });
+      const doc = await generateComprobantePdf({ comprobante: comp, items });
       const numStr = comp.numero
         ? `${String(comp.punto_venta).padStart(5, '0')}-${String(comp.numero).padStart(8, '0')}`
         : 'sin-numero';
@@ -261,7 +261,7 @@ export function ComprobanteDetailPage() {
               </div>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Button variant="secondary" onClick={onDescargarPdf}>
+              <Button variant="secondary" onClick={() => void onDescargarPdf()}>
                 <Download size={14} /> PDF
               </Button>
               {comp.estado !== 'anulado' && (

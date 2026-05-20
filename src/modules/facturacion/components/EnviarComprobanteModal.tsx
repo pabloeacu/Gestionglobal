@@ -107,7 +107,7 @@ export function EnviarComprobanteModal({
     let pdf_filename: string | undefined;
     if (adjuntarPdf) {
       try {
-        const doc = generateComprobantePdf({ comprobante, items });
+        const doc = await generateComprobantePdf({ comprobante, items });
         pdf_base64 = pdfToBase64(doc);
         pdf_filename = `comprobante-${numStr}.pdf`;
       } catch (e) {
