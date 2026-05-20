@@ -2,15 +2,14 @@
 // Tabs entre "ARCA" y "Cola de emisión". Lo wirea el parent agent en App.tsx.
 
 import { NavLink, Outlet } from 'react-router-dom';
-import { ShieldCheck, Layers } from 'lucide-react';
+import { ShieldCheck, Layers, Mail, Send } from 'lucide-react';
 import { cn } from '@/lib/cn';
 
 const TABS = [
   { to: '/gerencia/configuracion/arca', label: 'ARCA', icon: ShieldCheck, end: true },
   { to: '/gerencia/configuracion/arca/cola', label: 'Cola de emisión', icon: Layers },
-  // TODO parent agent · cablear cuando se agreguen rutas en App.tsx:
-  //   { to: '/gerencia/configuracion/emails/templates', label: 'Plantillas email', icon: Mail (de lucide) },
-  //   { to: '/gerencia/configuracion/emails/cola',      label: 'Cola de envíos',   icon: Send (de lucide) },
+  { to: '/gerencia/configuracion/emails/templates', label: 'Plantillas email', icon: Mail },
+  { to: '/gerencia/configuracion/emails/cola', label: 'Cola de envíos', icon: Send },
 ];
 
 export function ConfiguracionLayout() {

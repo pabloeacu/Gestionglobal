@@ -16,6 +16,10 @@ import { ArcaQueuePage } from '@/modules/configuracion/pages/ArcaQueuePage';
 import { TramitesListPage } from '@/modules/tramites/pages/TramitesListPage';
 import { TramitesKanbanPage } from '@/modules/tramites/pages/TramitesKanbanPage';
 import { TramiteDetailPage } from '@/modules/tramites/pages/TramiteDetailPage';
+import { ServiciosListPage, ServicioDetailPage } from '@/modules/servicios';
+import { VencimientosListPage, VencimientosConfigPage } from '@/modules/vencimientos';
+import { EmailTemplatesPage } from '@/modules/configuracion/pages/EmailTemplatesPage';
+import { EmailQueuePage } from '@/modules/configuracion/pages/EmailQueuePage';
 import { PortalLayout } from '@/modules/portal/components/PortalLayout';
 import { PortalHome } from '@/modules/portal/pages/PortalHome';
 import { PortalComprobantesPage } from '@/modules/portal/pages/PortalComprobantesPage';
@@ -102,10 +106,16 @@ export function App() {
           <Route path="tramites" element={<TramitesListPage />} />
           <Route path="tramites/kanban" element={<TramitesKanbanPage />} />
           <Route path="tramites/:id" element={<TramiteDetailPage />} />
+          <Route path="servicios" element={<ServiciosListPage />} />
+          <Route path="servicios/:id" element={<ServicioDetailPage />} />
+          <Route path="vencimientos" element={<VencimientosListPage />} />
+          <Route path="vencimientos/configuracion" element={<VencimientosConfigPage />} />
           <Route path="configuracion" element={<ConfiguracionLayout />}>
             <Route index element={<Navigate to="arca" replace />} />
             <Route path="arca" element={<ArcaConfigPage />} />
             <Route path="arca/cola" element={<ArcaQueuePage />} />
+            <Route path="emails/templates" element={<EmailTemplatesPage />} />
+            <Route path="emails/cola" element={<EmailQueuePage />} />
           </Route>
           <Route path="perfil" element={<PerfilPage />} />
         </Route>

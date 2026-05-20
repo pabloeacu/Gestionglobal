@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { Users, Briefcase, FileText, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
+import { ProximosVencimientosWidget } from '@/modules/vencimientos';
 
 const QUICK = [
   {
@@ -16,7 +17,7 @@ const QUICK = [
     label: 'Servicios',
     description: 'Catálogo y tabulador de precios',
     icon: Briefcase,
-    available: false,
+    available: true,
   },
   {
     to: '/gerencia/facturacion',
@@ -96,6 +97,10 @@ export function GerenciaHome() {
             ),
           )}
         </div>
+      </section>
+
+      <section>
+        <ProximosVencimientosWidget />
       </section>
     </div>
   );
