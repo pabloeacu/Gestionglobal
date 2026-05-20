@@ -33,7 +33,7 @@ export function FormularioPublicoPage() {
 
   return (
     <div className="min-h-screen bg-white font-sans">
-      <SiteNav />
+      <SiteNav darkHero />
 
       {loading ? (
         <div className="grid min-h-[60vh] place-items-center">

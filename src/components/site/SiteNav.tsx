@@ -11,8 +11,15 @@ const LINKS = [
   { href: '#nosotros', label: 'Nosotros' },
 ];
 
+interface SiteNavProps {
+  // El hero detrás del nav es oscuro (gradiente cyan/teal). El logo + links
+  // cambian a versión blanca mientras no se scrollee. Una vez scrolleado el
+  // header se vuelve blanco y volvemos a la versión ink.
+  darkHero?: boolean;
+}
+
 // Top bar fija. Transparente en hero, blanca con borde inferior al scrollear.
-export function SiteNav() {
+export function SiteNav({ darkHero = false }: SiteNavProps) {
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
@@ -21,6 +28,8 @@ export function SiteNav() {
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
+
+  const onDark = darkHero && !scrolled;
 
   return (
     <header
@@ -33,7 +42,15 @@ export function SiteNav() {
     >
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
         <a href="#top" className="flex items-center">
-          <BrandMark variant="light" size={32} />
+          {onDark ? (
+            <img
+              src="/brand/logo-white-trim.png"
+              alt="Gestión Global"
+              className="h-8 w-auto object-contain"
+            />
+          ) : (
+            <BrandMark variant="light" size={32} />
+          )}
         </a>
 
         <nav className="hidden items-center gap-9 md:flex">
@@ -41,7 +58,12 @@ export function SiteNav() {
             <a
               key={l.href}
               href={l.href}
-              className="text-sm font-medium text-brand-ink/75 transition hover:text-brand-ink"
+              className={cn(
+                'text-sm font-medium transition',
+                onDark
+                  ? 'text-white/85 hover:text-white'
+                  : 'text-brand-ink/75 hover:text-brand-ink',
+              )}
             >
               {l.label}
             </a>
@@ -50,7 +72,12 @@ export function SiteNav() {
 
         <Link
           to="/ingresar"
-          className="group inline-flex items-center gap-1.5 rounded-full bg-brand-ink px-5 py-2 text-sm font-medium text-white transition hover:bg-brand-cyan"
+          className={cn(
+            'group inline-flex items-center gap-1.5 rounded-full px-5 py-2 text-sm font-medium transition',
+            onDark
+              ? 'bg-white text-brand-ink hover:bg-white/90'
+              : 'bg-brand-ink text-white hover:bg-brand-cyan',
+          )}
         >
           Ingresar
           <ArrowRight

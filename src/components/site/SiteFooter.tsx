@@ -8,9 +8,8 @@ export function SiteFooter() {
         <div className="md:col-span-2">
           <BrandMark variant="light" size={40} withSlogan />
           <p className="mt-5 max-w-sm text-sm leading-relaxed text-brand-muted">
-            Plataforma integral para administradores de consorcios. Gestoría,
-            cursos, declaraciones juradas, jurídico y la suite de gestión —
-            todo en un único lugar.
+            Gestoría, capacitación, declaraciones juradas, asesoramiento
+            jurídico y la suite de gestión — todo en un único lugar.
           </p>
         </div>
 
