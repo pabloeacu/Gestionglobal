@@ -1,18 +1,21 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { Toaster } from 'sonner';
 import { AuthProvider } from '@/contexts/AuthContext';
+import { SoundProvider } from '@/contexts/SoundContext';
 import { DialogProvider } from '@/components/common';
+import { ToastViewport } from '@/components/common/ToastViewport';
 import { App } from '@/App';
 import '@/index.css';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <AuthProvider>
-      <DialogProvider>
-        <App />
-        <Toaster richColors position="top-right" />
-      </DialogProvider>
-    </AuthProvider>
+    <SoundProvider>
+      <AuthProvider>
+        <DialogProvider>
+          <App />
+          <ToastViewport />
+        </DialogProvider>
+      </AuthProvider>
+    </SoundProvider>
   </StrictMode>,
 );

@@ -1,6 +1,7 @@
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 import { cn } from '@/lib/cn';
+import { useSounds } from '@/contexts/SoundContext';
 
 interface ModalProps {
   open: boolean;
@@ -27,6 +28,16 @@ export function Modal({
   width = 480,
   closeOnBackdrop = true,
 }: ModalProps) {
+  const { play } = useSounds();
+  const [prevOpen, setPrevOpen] = useState(false);
+
+  useEffect(() => {
+    if (open && !prevOpen) play('open');
+    if (!open && prevOpen) play('close');
+    setPrevOpen(open);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
@@ -38,11 +49,11 @@ export function Modal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-brand-ink/40 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-brand-ink/40 p-4 backdrop-blur-sm motion-safe:animate-fade-in"
       onMouseDown={(e) => closeOnBackdrop && e.target === e.currentTarget && onClose()}
     >
       <div
-        className="card-premium flex max-h-[85vh] w-full flex-col overflow-hidden"
+        className="card-premium flex max-h-[85vh] w-full flex-col overflow-hidden motion-safe:animate-spring-in"
         style={{ maxWidth: width }}
         role="dialog"
         aria-modal="true"

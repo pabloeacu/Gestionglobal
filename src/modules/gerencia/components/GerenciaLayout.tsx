@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { NavLink, Outlet, Link } from 'react-router-dom';
+import { NavLink, Outlet, Link, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
   Users,
@@ -14,9 +14,12 @@ import {
   LogOut,
   Menu,
   X,
+  Volume2,
+  VolumeX,
 } from 'lucide-react';
 import { BrandMark } from '@/components/brand/BrandMark';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSounds } from '@/contexts/SoundContext';
 import { cn } from '@/lib/cn';
 
 interface NavItem {
@@ -43,6 +46,7 @@ const NAV: NavItem[] = [
 export function GerenciaLayout() {
   const { user, signOut } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const location = useLocation();
 
   const initials = (user?.fullName ?? user?.email ?? '?')
     .split(/\s+/)
@@ -121,7 +125,13 @@ export function GerenciaLayout() {
         </header>
 
         <main className="flex-1 px-5 py-8 md:px-8">
-          <Outlet />
+          {/* Route transition: re-mount con animate-route-in en cada cambio */}
+          <div
+            key={location.pathname}
+            className="motion-safe:animate-route-in"
+          >
+            <Outlet />
+          </div>
         </main>
       </div>
     </div>
@@ -185,6 +195,7 @@ function SidebarUser({
   initials: string;
   onSignOut: () => Promise<void>;
 }) {
+  const { enabled, setEnabled, play } = useSounds();
   return (
     <div className="border-t border-slate-100 p-3">
       <div className="flex items-center gap-3 rounded-lg px-2 py-2">
@@ -203,6 +214,24 @@ function SidebarUser({
                 : user?.role}
           </p>
         </div>
+        <button
+          type="button"
+          onClick={() => {
+            const next = !enabled;
+            setEnabled(next);
+            if (next) play('click');
+          }}
+          className={cn(
+            'rounded-md p-2 transition',
+            enabled
+              ? 'text-brand-cyan hover:bg-brand-cyan-pale/40'
+              : 'text-brand-muted hover:bg-slate-100 hover:text-brand-ink',
+          )}
+          aria-label={enabled ? 'Silenciar sonidos' : 'Activar sonidos'}
+          title={enabled ? 'Sonidos activados' : 'Sonidos silenciados'}
+        >
+          {enabled ? <Volume2 size={15} /> : <VolumeX size={15} />}
+        </button>
         <button
           type="button"
           onClick={() => void onSignOut()}

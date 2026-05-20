@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 import {
   ArrowLeft,
   Building2,

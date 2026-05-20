@@ -1,5 +1,6 @@
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { X } from 'lucide-react';
+import { useSounds } from '@/contexts/SoundContext';
 
 interface DrawerProps {
   open: boolean;
@@ -26,6 +27,16 @@ export function Drawer({
   footer,
   width = 720,
 }: DrawerProps) {
+  const { play } = useSounds();
+  const [prevOpen, setPrevOpen] = useState(false);
+
+  useEffect(() => {
+    if (open && !prevOpen) play('open');
+    if (!open && prevOpen) play('close');
+    setPrevOpen(open);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
@@ -36,9 +47,12 @@ export function Drawer({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-brand-ink/40">
+    <div
+      className="fixed inset-0 z-50 flex justify-end bg-brand-ink/40 backdrop-blur-sm motion-safe:animate-fade-in"
+      onMouseDown={(e) => e.target === e.currentTarget && onClose()}
+    >
       <div
-        className="flex h-full w-full flex-col bg-white shadow-xl"
+        className="flex h-full w-full flex-col bg-white shadow-xl motion-safe:animate-slide-in-right"
         style={{ maxWidth: width }}
         role="dialog"
         aria-modal="true"
