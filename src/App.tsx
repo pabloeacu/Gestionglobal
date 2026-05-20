@@ -11,6 +11,7 @@ import { AdministracionDetailPage } from '@/modules/clientes/pages/Administracio
 import { ComprobantesListPage } from '@/modules/facturacion/pages/ComprobantesListPage';
 import { ComprobanteDetailPage } from '@/modules/facturacion/pages/ComprobanteDetailPage';
 import { PortalHome } from '@/modules/portal/pages/PortalHome';
+import { FormularioPublicoPage } from '@/modules/public/pages/FormularioPublicoPage';
 
 type Role = 'gerente' | 'operador' | 'administrador';
 
@@ -71,6 +72,7 @@ export function App() {
         <Route path="/" element={<RoleHomeOrLanding />} />
         <Route path="/inicio" element={<LandingPage />} />
         <Route path="/ingresar" element={<LoginPage />} />
+        <Route path="/formulario/:slug" element={<FormularioPublicoPage />} />
 
         <Route
           path="/gerencia"
