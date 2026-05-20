@@ -983,6 +983,33 @@ export type Database = {
           },
         ]
       }
+      dispatch_vencimientos_log: {
+        Row: {
+          corrida_at: string
+          duracion_ms: number | null
+          emails_encolados: number
+          errores: Json
+          id: string
+          vencimientos_procesados: number
+        }
+        Insert: {
+          corrida_at?: string
+          duracion_ms?: number | null
+          emails_encolados?: number
+          errores?: Json
+          id?: string
+          vencimientos_procesados?: number
+        }
+        Update: {
+          corrida_at?: string
+          duracion_ms?: number | null
+          emails_encolados?: number
+          errores?: Json
+          id?: string
+          vencimientos_procesados?: number
+        }
+        Relationships: []
+      }
       email_plantillas: {
         Row: {
           activo: boolean
@@ -1045,24 +1072,35 @@ export type Database = {
           consorcio_id: string | null
           created_at: string
           created_by: string | null
+          enviado_at: string | null
           error_msg: string | null
           html_body: string | null
           id: string
+          intento: number
           kind: string
           lote_id: string | null
           max_attempts: number
+          max_intentos: number
           parte: number
           partes_total: number
           plantilla_tipo: string | null
+          prioridad: number
+          programado_para: string
+          related_id: string | null
+          related_table: string | null
           reply_to: string | null
           resend_id: string | null
-          scheduled_at: string
+          scheduled_at: string | null
           sending_started_at: string | null
           sent_at: string | null
           status: string
-          subject: string
+          subject: string | null
+          template_slug: string | null
           to_email: string
+          to_nombre: string | null
+          ultimo_error: string | null
           updated_at: string
+          variables: Json
           zip_size_bytes: number | null
         }
         Insert: {
@@ -1075,24 +1113,35 @@ export type Database = {
           consorcio_id?: string | null
           created_at?: string
           created_by?: string | null
+          enviado_at?: string | null
           error_msg?: string | null
           html_body?: string | null
           id?: string
+          intento?: number
           kind?: string
           lote_id?: string | null
           max_attempts?: number
+          max_intentos?: number
           parte?: number
           partes_total?: number
           plantilla_tipo?: string | null
+          prioridad?: number
+          programado_para?: string
+          related_id?: string | null
+          related_table?: string | null
           reply_to?: string | null
           resend_id?: string | null
-          scheduled_at: string
+          scheduled_at?: string | null
           sending_started_at?: string | null
           sent_at?: string | null
           status?: string
-          subject: string
+          subject?: string | null
+          template_slug?: string | null
           to_email: string
+          to_nombre?: string | null
+          ultimo_error?: string | null
           updated_at?: string
+          variables?: Json
           zip_size_bytes?: number | null
         }
         Update: {
@@ -1105,24 +1154,35 @@ export type Database = {
           consorcio_id?: string | null
           created_at?: string
           created_by?: string | null
+          enviado_at?: string | null
           error_msg?: string | null
           html_body?: string | null
           id?: string
+          intento?: number
           kind?: string
           lote_id?: string | null
           max_attempts?: number
+          max_intentos?: number
           parte?: number
           partes_total?: number
           plantilla_tipo?: string | null
+          prioridad?: number
+          programado_para?: string
+          related_id?: string | null
+          related_table?: string | null
           reply_to?: string | null
           resend_id?: string | null
-          scheduled_at?: string
+          scheduled_at?: string | null
           sending_started_at?: string | null
           sent_at?: string | null
           status?: string
-          subject?: string
+          subject?: string | null
+          template_slug?: string | null
           to_email?: string
+          to_nombre?: string | null
+          ultimo_error?: string | null
           updated_at?: string
+          variables?: Json
           zip_size_bytes?: number | null
         }
         Relationships: [
@@ -1168,7 +1228,80 @@ export type Database = {
             referencedRelation: "lotes_facturacion"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "email_queue_template_slug_fkey"
+            columns: ["template_slug"]
+            isOneToOne: false
+            referencedRelation: "email_templates"
+            referencedColumns: ["slug"]
+          },
         ]
+      }
+      email_templates: {
+        Row: {
+          activo: boolean
+          asunto: string
+          body_html: string
+          body_text: string | null
+          created_at: string
+          descripcion: string | null
+          from_casilla: string
+          id: string
+          nombre: string
+          reply_to: string | null
+          slug: string
+          updated_at: string
+          variables: Json
+        }
+        Insert: {
+          activo?: boolean
+          asunto: string
+          body_html: string
+          body_text?: string | null
+          created_at?: string
+          descripcion?: string | null
+          from_casilla?: string
+          id?: string
+          nombre: string
+          reply_to?: string | null
+          slug: string
+          updated_at?: string
+          variables?: Json
+        }
+        Update: {
+          activo?: boolean
+          asunto?: string
+          body_html?: string
+          body_text?: string | null
+          created_at?: string
+          descripcion?: string | null
+          from_casilla?: string
+          id?: string
+          nombre?: string
+          reply_to?: string | null
+          slug?: string
+          updated_at?: string
+          variables?: Json
+        }
+        Relationships: []
+      }
+      email_throttle: {
+        Row: {
+          key: string
+          last_sent_at: string
+          updated_at: string
+        }
+        Insert: {
+          key: string
+          last_sent_at?: string
+          updated_at?: string
+        }
+        Update: {
+          key?: string
+          last_sent_at?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       formulario_adjuntos: {
         Row: {
@@ -1915,6 +2048,7 @@ export type Database = {
           error_msg: string | null
           estado: string
           events: Json
+          from_casilla: string | null
           from_email: string
           html: string | null
           id: string
@@ -1922,10 +2056,13 @@ export type Database = {
           last_event_at: string | null
           opened_at: string | null
           plantilla: string | null
+          provider_msg_id: string | null
           reply_to: string | null
           resend_id: string | null
+          template_slug: string | null
           to_email: string
           updated_at: string
+          webhook_status: string | null
           zip_attached: boolean | null
         }
         Insert: {
@@ -1947,6 +2084,7 @@ export type Database = {
           error_msg?: string | null
           estado?: string
           events?: Json
+          from_casilla?: string | null
           from_email?: string
           html?: string | null
           id?: string
@@ -1954,10 +2092,13 @@ export type Database = {
           last_event_at?: string | null
           opened_at?: string | null
           plantilla?: string | null
+          provider_msg_id?: string | null
           reply_to?: string | null
           resend_id?: string | null
+          template_slug?: string | null
           to_email: string
           updated_at?: string
+          webhook_status?: string | null
           zip_attached?: boolean | null
         }
         Update: {
@@ -1979,6 +2120,7 @@ export type Database = {
           error_msg?: string | null
           estado?: string
           events?: Json
+          from_casilla?: string | null
           from_email?: string
           html?: string | null
           id?: string
@@ -1986,10 +2128,13 @@ export type Database = {
           last_event_at?: string | null
           opened_at?: string | null
           plantilla?: string | null
+          provider_msg_id?: string | null
           reply_to?: string | null
           resend_id?: string | null
+          template_slug?: string | null
           to_email?: string
           updated_at?: string
+          webhook_status?: string | null
           zip_attached?: boolean | null
         }
         Relationships: [
@@ -2485,6 +2630,144 @@ export type Database = {
           },
         ]
       }
+      vencimientos: {
+        Row: {
+          administracion_id: string
+          alerta_10d_enviada: string | null
+          alerta_20d_enviada: string | null
+          alerta_30d_enviada: string | null
+          consorcio_id: string | null
+          created_at: string
+          descripcion: string | null
+          estado: string
+          fecha_emision: string | null
+          fecha_vencimiento: string
+          id: string
+          observaciones: string | null
+          origen: string
+          renovado_por: string | null
+          servicio_sugerido_id: string | null
+          sujeto: string
+          sujeto_id: string
+          tipo: string
+          updated_at: string
+        }
+        Insert: {
+          administracion_id: string
+          alerta_10d_enviada?: string | null
+          alerta_20d_enviada?: string | null
+          alerta_30d_enviada?: string | null
+          consorcio_id?: string | null
+          created_at?: string
+          descripcion?: string | null
+          estado?: string
+          fecha_emision?: string | null
+          fecha_vencimiento: string
+          id?: string
+          observaciones?: string | null
+          origen?: string
+          renovado_por?: string | null
+          servicio_sugerido_id?: string | null
+          sujeto: string
+          sujeto_id: string
+          tipo: string
+          updated_at?: string
+        }
+        Update: {
+          administracion_id?: string
+          alerta_10d_enviada?: string | null
+          alerta_20d_enviada?: string | null
+          alerta_30d_enviada?: string | null
+          consorcio_id?: string | null
+          created_at?: string
+          descripcion?: string | null
+          estado?: string
+          fecha_emision?: string | null
+          fecha_vencimiento?: string
+          id?: string
+          observaciones?: string | null
+          origen?: string
+          renovado_por?: string | null
+          servicio_sugerido_id?: string | null
+          sujeto?: string
+          sujeto_id?: string
+          tipo?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vencimientos_administracion_id_fkey"
+            columns: ["administracion_id"]
+            isOneToOne: false
+            referencedRelation: "administraciones"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vencimientos_consorcio_id_fkey"
+            columns: ["consorcio_id"]
+            isOneToOne: false
+            referencedRelation: "consorcios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vencimientos_renovado_por_fkey"
+            columns: ["renovado_por"]
+            isOneToOne: false
+            referencedRelation: "vencimientos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vencimientos_config: {
+        Row: {
+          activo: boolean
+          administracion_id: string | null
+          created_at: string
+          dias_alerta_1: number
+          dias_alerta_2: number
+          dias_alerta_3: number
+          email_destinatario: string | null
+          id: string
+          sugerencia_servicio_slug: string | null
+          tipo: string
+          updated_at: string
+        }
+        Insert: {
+          activo?: boolean
+          administracion_id?: string | null
+          created_at?: string
+          dias_alerta_1?: number
+          dias_alerta_2?: number
+          dias_alerta_3?: number
+          email_destinatario?: string | null
+          id?: string
+          sugerencia_servicio_slug?: string | null
+          tipo: string
+          updated_at?: string
+        }
+        Update: {
+          activo?: boolean
+          administracion_id?: string | null
+          created_at?: string
+          dias_alerta_1?: number
+          dias_alerta_2?: number
+          dias_alerta_3?: number
+          email_destinatario?: string | null
+          id?: string
+          sugerencia_servicio_slug?: string | null
+          tipo?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vencimientos_config_administracion_id_fkey"
+            columns: ["administracion_id"]
+            isOneToOne: false
+            referencedRelation: "administraciones"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       cajas_con_saldo: {
@@ -2642,14 +2925,63 @@ export type Database = {
         }
         Returns: string
       }
+      encolar_email: {
+        Args: {
+          p_administracion_id: string
+          p_consorcio_id: string
+          p_prioridad: number
+          p_related_id: string
+          p_related_table: string
+          p_template: string
+          p_to_email: string
+          p_to_nombre: string
+          p_variables: Json
+        }
+        Returns: string
+      }
       enqueue_emision_comprobante: {
         Args: { p_comprobante_id: string }
+        Returns: string
+      }
+      lote_consolidado_administracion: {
+        Args: {
+          p_administracion_id: string
+          p_template: string
+          p_variables: Json
+        }
+        Returns: string
+      }
+      marcar_renovado: {
+        Args: { p_nueva_fecha_vencimiento: string; p_vencimiento_id: string }
         Returns: string
       }
       normalizar_nombre: { Args: { p: string }; Returns: string }
       peek_proximo_numero: {
         Args: { p_punto_venta: number; p_tipo: string }
         Returns: number
+      }
+      proximos_vencimientos: {
+        Args: { p_administracion_id?: string; p_dias?: number }
+        Returns: {
+          administracion_id: string
+          administracion_nombre: string
+          alerta_10d_enviada: string
+          alerta_20d_enviada: string
+          alerta_30d_enviada: string
+          consorcio_id: string
+          consorcio_nombre: string
+          descripcion: string
+          dias_restantes: number
+          estado: string
+          fecha_emision: string
+          fecha_vencimiento: string
+          id: string
+          observaciones: string
+          sugerencia_servicio_slug: string
+          sujeto: string
+          sujeto_id: string
+          tipo: string
+        }[]
       }
       registrar_cobranza_comprobante: {
         Args: {
