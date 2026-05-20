@@ -12,11 +12,21 @@ import {
   Hash,
   Download,
   Send,
+  Wallet,
+  CreditCard,
+  Plus,
+  XCircle,
 } from 'lucide-react';
 import {
   generateComprobantePdf,
 } from '../lib/generateComprobantePdf';
 import { EnviarComprobanteModal } from '../components/EnviarComprobanteModal';
+import { RegistrarCobranzaDrawer } from '../components/RegistrarCobranzaDrawer';
+import {
+  listCobranzasDeComprobante,
+  desimputarCobranza,
+  type CobranzaListItem,
+} from '@/services/api/cobranzas';
 import {
   Button,
   AnimatedNumber,
@@ -65,11 +75,16 @@ export function ComprobanteDetailPage() {
   const [items, setItems] = useState<ComprobanteItemRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [enviarOpen, setEnviarOpen] = useState(false);
+  const [cobranzaOpen, setCobranzaOpen] = useState(false);
+  const [cobranzas, setCobranzas] = useState<CobranzaListItem[]>([]);
 
   async function load() {
     if (!id) return;
     setLoading(true);
-    const res = await getComprobante(id);
+    const [res, cobRes] = await Promise.all([
+      getComprobante(id),
+      listCobranzasDeComprobante(id),
+    ]);
     setLoading(false);
     if (!res.ok) {
       toast.error(res.error.message);
@@ -77,6 +92,25 @@ export function ComprobanteDetailPage() {
     }
     setComp(res.data.comprobante);
     setItems(res.data.items);
+    if (cobRes.ok) setCobranzas(cobRes.data);
+  }
+
+  async function onDesimputar(imputacion_id: string) {
+    const ok = await confirm({
+      title: 'Desimputar cobranza',
+      message: 'Vas a anular este pago del comprobante. El movimiento de caja se borra si solo estaba imputado acá. El saldo del comprobante vuelve a subir.',
+      confirmLabel: 'Desimputar',
+      cancelLabel: 'Volver',
+      danger: true,
+    });
+    if (!ok) return;
+    const res = await desimputarCobranza(imputacion_id);
+    if (!res.ok) {
+      toast.error(res.error.message);
+      return;
+    }
+    toast.success('Cobranza desimputada');
+    void load();
   }
 
   useEffect(() => {
@@ -469,6 +503,102 @@ export function ComprobanteDetailPage() {
         </div>
       </section>
 
+      {/* Cobranzas */}
+      <section className="card-premium relative overflow-hidden">
+        <TrianglesAccent
+          position="top-right" size={140} tone="teal" density="soft"
+          className="opacity-25"
+        />
+        <div className="relative">
+          <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+            <div className="flex items-center gap-3">
+              <span className="grid h-10 w-10 place-items-center rounded-xl bg-brand-cyan-pale/40 text-brand-cyan">
+                <Wallet size={18} />
+              </span>
+              <div>
+                <p className="kicker text-brand-cyan">Cobranzas</p>
+                <h3 className="font-display text-lg font-bold text-brand-ink">
+                  {cobranzas.length === 0
+                    ? 'Sin pagos registrados'
+                    : `${cobranzas.length} ${cobranzas.length === 1 ? 'pago registrado' : 'pagos registrados'}`}
+                </h3>
+              </div>
+            </div>
+            {Number(comp.saldo_pendiente) > 0 &&
+              comp.estado !== 'anulado' && (
+                <Button onClick={() => setCobranzaOpen(true)}>
+                  <Plus size={15} /> Registrar pago
+                </Button>
+              )}
+          </div>
+          {cobranzas.length === 0 ? (
+            <div className="flex flex-col items-center gap-2 px-5 py-10 text-center">
+              <span className="grid h-12 w-12 place-items-center rounded-xl bg-brand-cyan-pale/40 text-brand-cyan">
+                <CreditCard size={20} />
+              </span>
+              <p className="text-sm text-brand-muted">
+                Aún no se registró ningún pago para este comprobante.
+              </p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-100 bg-brand-zebra/40 text-left text-[11px] font-semibold uppercase tracking-wider text-brand-muted">
+                    <th className="px-4 py-2.5">Fecha</th>
+                    <th className="px-4 py-2.5">Caja</th>
+                    <th className="px-4 py-2.5">Categoría</th>
+                    <th className="px-4 py-2.5">Referencia</th>
+                    <th className="px-4 py-2.5 text-right">Monto</th>
+                    <th className="px-4 py-2.5 w-10"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {cobranzas.map((c, idx) => (
+                    <tr
+                      key={c.id}
+                      className="border-b border-slate-100 motion-safe:animate-fade-up"
+                      style={{ animationDelay: `${Math.min(idx, 6) * 30}ms` }}
+                    >
+                      <td className="px-4 py-3 tabular text-brand-muted">
+                        {formatDateShort(c.movimiento.fecha)}
+                      </td>
+                      <td className="px-4 py-3 text-brand-ink">
+                        {c.movimiento.caja_nombre ?? '—'}
+                      </td>
+                      <td className="px-4 py-3 text-xs text-brand-muted">
+                        {c.movimiento.categoria_nombre ?? '—'}
+                      </td>
+                      <td className="px-4 py-3 text-xs">
+                        {c.movimiento.referencia ? (
+                          <CopyButton value={c.movimiento.referencia} label="Referencia" />
+                        ) : (
+                          <span className="text-brand-muted">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-right tabular font-medium text-emerald-700">
+                        {formatMoney(Number(c.monto_imputado))}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        {comp.estado !== 'anulado' && (
+                          <button
+                            onClick={() => void onDesimputar(c.id)}
+                            className="rounded-md p-1.5 text-brand-muted hover:bg-red-50 hover:text-red-600"
+                            title="Desimputar (revierte el pago)"
+                          >
+                            <XCircle size={14} />
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </section>
+
       {comp.observaciones && (
         <section className="card-premium p-5">
           <p className="kicker text-brand-cyan">Observaciones internas</p>
@@ -485,8 +615,20 @@ export function ComprobanteDetailPage() {
         items={items}
         onSent={() => void load()}
       />
+      <RegistrarCobranzaDrawer
+        open={cobranzaOpen}
+        onClose={() => setCobranzaOpen(false)}
+        comprobante={comp}
+        onSaved={() => void load()}
+      />
     </div>
   );
+}
+
+function formatDateShort(d: string): string {
+  return new Date(d).toLocaleDateString('es-AR', {
+    day: '2-digit', month: 'short', year: '2-digit',
+  });
 }
 
 function Row({ label, value }: { label: string; value: React.ReactNode }) {

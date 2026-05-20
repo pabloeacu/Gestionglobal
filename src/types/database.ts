@@ -1633,6 +1633,10 @@ export type Database = {
           sent_email_id: string
         }[]
       }
+      desimputar_cobranza: {
+        Args: { p_imputacion_id: string }
+        Returns: string
+      }
       emitir_comprobante_manual: {
         Args: {
           p_administracion_id: string
@@ -1652,6 +1656,18 @@ export type Database = {
       peek_proximo_numero: {
         Args: { p_punto_venta: number; p_tipo: string }
         Returns: number
+      }
+      registrar_cobranza_comprobante: {
+        Args: {
+          p_caja_id: string
+          p_categoria_id: string
+          p_comprobante_id: string
+          p_descripcion: string
+          p_fecha: string
+          p_monto: number
+          p_referencia: string
+        }
+        Returns: string
       }
     }
     Enums: {

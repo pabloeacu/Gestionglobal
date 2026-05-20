@@ -40,9 +40,13 @@ import {
   setConsorcioActivo,
   type ConsorcioRow,
 } from '@/services/api/consorcios';
+import {
+  listCtaCteAdministracion,
+  type CtaCteEntry,
+} from '@/services/api/cobranzas';
 import { cn } from '@/lib/cn';
 
-type TabKey = 'general' | 'fiscal' | 'registral' | 'consorcios' | 'emails';
+type TabKey = 'general' | 'fiscal' | 'registral' | 'consorcios' | 'ctacte' | 'emails';
 
 const ESTADO_BADGES: Record<AdministracionEstado, { label: string; cls: string }> = {
   activo: { label: 'Activo', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
@@ -168,6 +172,7 @@ export function AdministracionDetailPage() {
           { key: 'fiscal', label: 'Fiscal' },
           { key: 'registral', label: 'Registral' },
           { key: 'consorcios', label: 'Consorcios', badge: consorcios.length || undefined },
+          { key: 'ctacte', label: 'Cta. corriente' },
           { key: 'emails', label: 'Emails' },
         ]}
         activeKey={tab}
@@ -212,6 +217,7 @@ export function AdministracionDetailPage() {
               }}
             />
           )}
+          {tab === 'ctacte' && <TabCtaCte administracionId={admin.id} />}
           {tab === 'emails' && <TabEmailsPlaceholder />}
         </div>
       </div>
@@ -835,6 +841,159 @@ function TabConsorcios({
       </div>
     </div>
   );
+}
+
+function TabCtaCte({ administracionId }: { administracionId: string }) {
+  const [rows, setRows] = useState<CtaCteEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setLoading(true);
+    setError(null);
+    void listCtaCteAdministracion(administracionId).then((res) => {
+      setLoading(false);
+      if (!res.ok) {
+        setError(res.error.message);
+        return;
+      }
+      setRows(res.data);
+    });
+  }, [administracionId]);
+
+  if (loading) {
+    return (
+      <div className="space-y-2 py-4">
+        <div className="h-12 animate-pulse rounded-lg bg-slate-100" />
+        <div className="h-12 animate-pulse rounded-lg bg-slate-100" />
+        <div className="h-12 animate-pulse rounded-lg bg-slate-100" />
+      </div>
+    );
+  }
+  if (error) {
+    return <div className="p-8 text-center text-sm text-red-600">{error}</div>;
+  }
+  if (rows.length === 0) {
+    return (
+      <div className="flex flex-col items-center gap-3 py-10 text-center">
+        <span className="grid h-12 w-12 place-items-center rounded-xl bg-brand-cyan-pale/40 text-brand-cyan">
+          <Wallet size={20} />
+        </span>
+        <h3 className="font-display text-lg font-bold">Cuenta corriente vacía</h3>
+        <p className="max-w-sm text-sm text-brand-muted">
+          Cuando emitas comprobantes y registres cobranzas, vas a ver acá la
+          línea de tiempo y el saldo acumulado del cliente.
+        </p>
+      </div>
+    );
+  }
+
+  const saldoActual = rows[0]?.saldo ?? 0;
+  const totalCargos = rows.filter((r) => r.signo === 1).reduce((s, r) => s + r.monto, 0);
+  const totalAbonos = rows.filter((r) => r.signo === -1).reduce((s, r) => s + r.monto, 0);
+
+  return (
+    <div className="space-y-5">
+      <div className="grid grid-cols-3 gap-3">
+        <div className="rounded-xl border border-slate-200 bg-white p-3 text-center">
+          <p className="kicker text-brand-muted">Cargos</p>
+          <p className="mt-0.5 font-display text-lg font-bold tabular text-brand-ink">
+            $<AnimatedNumber value={Math.round(totalCargos)} />
+          </p>
+        </div>
+        <div className="rounded-xl border border-slate-200 bg-white p-3 text-center">
+          <p className="kicker text-brand-muted">Cobranzas</p>
+          <p className="mt-0.5 font-display text-lg font-bold tabular text-emerald-700">
+            $<AnimatedNumber value={Math.round(totalAbonos)} />
+          </p>
+        </div>
+        <div className={`rounded-xl border-2 p-3 text-center ${
+          saldoActual > 0
+            ? 'border-amber-300/60 bg-amber-50'
+            : 'border-emerald-300/60 bg-emerald-50'
+        }`}>
+          <p className="kicker text-brand-muted">Saldo actual</p>
+          <p className={`mt-0.5 font-display text-lg font-bold tabular ${
+            saldoActual > 0 ? 'text-amber-700' : 'text-emerald-700'
+          }`}>
+            $<AnimatedNumber value={Math.round(saldoActual)} />
+          </p>
+        </div>
+      </div>
+
+      <div className="overflow-hidden rounded-xl border border-slate-200">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-slate-100 bg-brand-zebra/40 text-left text-[11px] font-semibold uppercase tracking-wider text-brand-muted">
+              <th className="px-4 py-2.5">Fecha</th>
+              <th className="px-4 py-2.5">Movimiento</th>
+              <th className="px-4 py-2.5 text-right">Cargo</th>
+              <th className="px-4 py-2.5 text-right">Cobranza</th>
+              <th className="px-4 py-2.5 text-right">Saldo</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r, idx) => (
+              <tr
+                key={r.id}
+                className="border-b border-slate-100 hover:bg-brand-zebra/30 motion-safe:animate-fade-up"
+                style={{ animationDelay: `${Math.min(idx, 10) * 25}ms` }}
+              >
+                <td className="px-4 py-3 tabular text-xs text-brand-muted">
+                  {new Date(r.fecha).toLocaleDateString('es-AR', {
+                    day: '2-digit', month: 'short', year: '2-digit',
+                  })}
+                </td>
+                <td className="px-4 py-3">
+                  {r.tipo === 'comprobante' && r.comprobante_id ? (
+                    <Link
+                      to={`/gerencia/facturacion/${r.comprobante_id}`}
+                      className="font-medium text-brand-ink hover:text-brand-cyan"
+                    >
+                      {r.titulo}
+                    </Link>
+                  ) : (
+                    <span className="text-brand-ink">{r.titulo}</span>
+                  )}
+                  {r.consorcio_nombre && (
+                    <span className="block text-xs text-brand-muted">
+                      · {r.consorcio_nombre}
+                    </span>
+                  )}
+                </td>
+                <td className="px-4 py-3 text-right tabular">
+                  {r.signo === 1 ? (
+                    <span className="text-brand-ink">{moneyTab(r.monto)}</span>
+                  ) : (
+                    <span className="text-brand-muted">—</span>
+                  )}
+                </td>
+                <td className="px-4 py-3 text-right tabular">
+                  {r.signo === -1 ? (
+                    <span className="text-emerald-700">{moneyTab(r.monto)}</span>
+                  ) : (
+                    <span className="text-brand-muted">—</span>
+                  )}
+                </td>
+                <td className={`px-4 py-3 text-right tabular font-semibold ${
+                  r.saldo > 0 ? 'text-amber-700' : r.saldo < 0 ? 'text-emerald-700' : 'text-brand-muted'
+                }`}>
+                  {moneyTab(r.saldo)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function moneyTab(n: number): string {
+  return new Intl.NumberFormat('es-AR', {
+    style: 'currency', currency: 'ARS',
+    minimumFractionDigits: 0, maximumFractionDigits: 0,
+  }).format(n);
 }
 
 function TabEmailsPlaceholder() {
