@@ -181,6 +181,73 @@ export async function emitirComprobanteManual(
   return ok({ id: data as string });
 }
 
+// Tipos fiscales (A/B/C y sus NC/ND). Crea el borrador (sin numerador) y
+// devuelve el id. El caller debería llamar luego a enqueueComprobante() de
+// services/api/arca para que la cola lo autorice y le asigne CAE/número.
+export type TipoFiscal =
+  | 'A' | 'B' | 'C'
+  | 'NC_A' | 'NC_B' | 'NC_C'
+  | 'ND_A' | 'ND_B' | 'ND_C';
+
+export interface CrearBorradorFiscalInput {
+  administracion_id: string;
+  consorcio_id: string | null;
+  tipo: TipoFiscal;
+  punto_venta: number;
+  fecha: string;
+  vencimiento: string;
+  concepto: 'productos' | 'servicios' | 'productos_servicios';
+  items: ItemDraft[];
+  observaciones?: string;
+  comprobante_referencia_id?: string | null;
+}
+
+export async function crearComprobanteBorradorFiscal(
+  input: CrearBorradorFiscalInput,
+): Promise<ApiResponse<{ id: string }>> {
+  const args = {
+    p_administracion_id: input.administracion_id,
+    p_consorcio_id: input.consorcio_id,
+    p_tipo: input.tipo,
+    p_punto_venta: input.punto_venta,
+    p_fecha: input.fecha,
+    p_vencimiento: input.vencimiento,
+    p_concepto: input.concepto,
+    p_items: input.items.map((it) => ({
+      descripcion: it.descripcion,
+      cantidad: it.cantidad,
+      precio_unitario: it.precio_unitario,
+      bonificacion_porc: it.bonificacion_porc,
+      alicuota_iva: it.alicuota_iva,
+      servicio_id: it.servicio_id ?? null,
+      consorcio_id: it.consorcio_id ?? null,
+    })),
+    p_observaciones: input.observaciones ?? '',
+    p_comprobante_referencia_id: input.comprobante_referencia_id ?? null,
+  } as unknown as {
+    p_administracion_id: string;
+    p_comprobante_referencia_id: string;
+    p_concepto: string;
+    p_consorcio_id: string;
+    p_fecha: string;
+    p_items: Json;
+    p_observaciones: string;
+    p_punto_venta: number;
+    p_tipo: string;
+    p_vencimiento: string;
+  };
+  // rpc name not in generated types yet (mig 0013a) — cast supabase to any para evitar narrow.
+  const { data, error } = await (supabase.rpc as unknown as (
+    name: string,
+    args: unknown,
+  ) => Promise<{ data: unknown; error: { message: string } | null }>)(
+    'crear_comprobante_borrador_fiscal',
+    args,
+  );
+  if (error) return fail('COMP_CREAR_FISCAL', error.message, error);
+  return ok({ id: data as string });
+}
+
 export async function anularComprobante(
   id: string,
   motivo: string,

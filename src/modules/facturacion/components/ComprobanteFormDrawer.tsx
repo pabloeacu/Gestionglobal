@@ -25,9 +25,11 @@ import {
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import {
   emitirComprobanteManual,
+  crearComprobanteBorradorFiscal,
   peekProximoNumero,
   type AlicuotaIva,
   type ItemDraft,
+  type TipoFiscal,
 } from '@/services/api/comprobantes';
 import {
   listAdministraciones,
@@ -41,6 +43,12 @@ import {
   listServiciosActivos,
   type ServicioListItem,
 } from '@/services/api/servicios';
+import {
+  getArcaConfig,
+  enqueueComprobante,
+  arcaListo,
+  type ArcaConfig,
+} from '@/services/api/arca';
 
 interface ComprobanteFormDrawerProps {
   open: boolean;
@@ -57,8 +65,14 @@ const STEPS: { key: StepKey; label: string }[] = [
   { key: 'confirmar', label: 'Confirmar' },
 ];
 
-type Tipo = 'X' | 'NC_X' | 'ND_X';
+type Tipo =
+  | 'X' | 'NC_X' | 'ND_X'
+  | 'A' | 'B' | 'C' | 'NC_A' | 'NC_B' | 'NC_C' | 'ND_A' | 'ND_B' | 'ND_C';
 type Concepto = 'servicios' | 'productos' | 'productos_servicios';
+
+function esFiscal(t: Tipo): t is TipoFiscal {
+  return t !== 'X' && t !== 'NC_X' && t !== 'ND_X';
+}
 
 interface ItemRow extends ItemDraft {
   id: string; // local key (drag-reorder)
@@ -111,6 +125,8 @@ export function ComprobanteFormDrawer({
   const [consorcios, setConsorcios] = useState<ConsorcioRow[]>([]);
   const [servicios, setServicios] = useState<ServicioListItem[]>([]);
   const [proxNumero, setProxNumero] = useState<number | null>(null);
+  const [arcaCfg, setArcaCfg] = useState<ArcaConfig | null>(null);
+  const arcaReady = arcaListo(arcaCfg);
 
   // -------- errors --------
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -134,12 +150,14 @@ export function ComprobanteFormDrawer({
   }, [open]);
 
   async function loadSources() {
-    const [admins, servs] = await Promise.all([
+    const [admins, servs, arca] = await Promise.all([
       listAdministraciones({ estado: 'activo', limit: 100 }),
       listServiciosActivos(),
+      getArcaConfig(),
     ]);
     if (admins.ok) setAdministraciones(admins.data.rows);
     if (servs.ok) setServicios(servs.data);
+    if (arca.ok) setArcaCfg(arca.data);
   }
 
   // Cargar consorcios cuando cambia la administración
@@ -277,23 +295,63 @@ export function ComprobanteFormDrawer({
       return;
     }
     setSaving(true);
+    const itemsPayload = items.map((it) => ({
+      descripcion: it.descripcion.trim(),
+      cantidad: Number(it.cantidad),
+      precio_unitario: Number(it.precio_unitario),
+      bonificacion_porc: Number(it.bonificacion_porc),
+      alicuota_iva: it.alicuota_iva,
+      servicio_id: it.servicio_id,
+      consorcio_id: it.consorcio_id ?? consorcioId ?? null,
+    }));
+
+    if (esFiscal(tipo)) {
+      // Path fiscal: crear borrador + encolar para que ARCA autorice y asigne CAE.
+      const res = await crearComprobanteBorradorFiscal({
+        administracion_id: administracionId,
+        consorcio_id: consorcioId || null,
+        tipo,
+        punto_venta: puntoVenta,
+        fecha,
+        vencimiento,
+        concepto,
+        items: itemsPayload,
+        observaciones: observaciones.trim() || undefined,
+      });
+      if (!res.ok) {
+        setSaving(false);
+        toast.error('No pudimos crear el borrador fiscal', { description: res.error.message });
+        return;
+      }
+      // Enqueue ARCA.
+      const enq = await enqueueComprobante(res.data.id);
+      setSaving(false);
+      if (!enq.ok) {
+        toast.error('Comprobante creado pero no encolado en ARCA', {
+          description: `${enq.error.message} · Podés reintentar desde la cola.`,
+        });
+        onSaved?.(res.data.id);
+        onClose();
+        return;
+      }
+      toast.success(`Comprobante ${tipo} encolado en ARCA`, {
+        description: 'El cron lo autoriza en ~1 min. Mirá el progreso en Configuración → Cola.',
+      });
+      onSaved?.(res.data.id);
+      onClose();
+      return;
+    }
+
+    // Path simple (tipo X / NC_X / ND_X).
     const res = await emitirComprobanteManual({
       administracion_id: administracionId,
       consorcio_id: consorcioId || null,
-      tipo,
+      tipo: tipo as 'X' | 'NC_X' | 'ND_X',
       punto_venta: puntoVenta,
       fecha,
       vencimiento,
       concepto,
-      items: items.map((it) => ({
-        descripcion: it.descripcion.trim(),
-        cantidad: Number(it.cantidad),
-        precio_unitario: Number(it.precio_unitario),
-        bonificacion_porc: Number(it.bonificacion_porc),
-        alicuota_iva: it.alicuota_iva,
-        servicio_id: it.servicio_id,
-        consorcio_id: it.consorcio_id ?? consorcioId ?? null,
-      })),
+      items: itemsPayload,
       observaciones: observaciones.trim() || undefined,
     });
     setSaving(false);
@@ -330,7 +388,11 @@ export function ComprobanteFormDrawer({
       width={960}
       kicker="Nuevo comprobante"
       title="Emitir comprobante manual"
-      description="Comprobante simple (tipo X) sin ARCA. Para facturas A/B/C, esperá a Phase 2A-3."
+      description={
+        arcaReady
+          ? 'Tipo X = comprobante simple sin AFIP. A/B/C = factura fiscal con CAE (autoriza ARCA en ~1 min).'
+          : 'Comprobante simple (tipo X) sin ARCA. Para facturas A/B/C configurá ARCA en Configuración → ARCA.'
+      }
       icon={<Receipt size={20} />}
       footer={
         <div className="flex w-full items-center justify-between gap-3">
@@ -437,14 +499,35 @@ export function ComprobanteFormDrawer({
               )}
 
               <div className="grid gap-4 sm:grid-cols-3">
-                <Field label="Tipo" required>
+                <Field
+                  label="Tipo"
+                  required
+                  hint={
+                    arcaReady
+                      ? 'A/B/C requieren ARCA y emiten CAE. X son comprobantes simples (sin AFIP).'
+                      : 'ARCA no está configurado · solo podés emitir tipo X. Configurá ARCA en /gerencia/configuracion/arca.'
+                  }
+                >
                   <Select
                     value={tipo}
                     onChange={(e) => setTipo(e.target.value as Tipo)}
                   >
-                    <option value="X">X · Comprobante simple</option>
-                    <option value="NC_X">NC X · Nota de crédito</option>
-                    <option value="ND_X">ND X · Nota de débito</option>
+                    <optgroup label="Simples (sin ARCA)">
+                      <option value="X">X · Comprobante simple</option>
+                      <option value="NC_X">NC X · Nota de crédito</option>
+                      <option value="ND_X">ND X · Nota de débito</option>
+                    </optgroup>
+                    <optgroup label={arcaReady ? 'Fiscales (con ARCA · CAE)' : 'Fiscales (ARCA pendiente)'}>
+                      <option value="A" disabled={!arcaReady}>A · Factura A</option>
+                      <option value="B" disabled={!arcaReady}>B · Factura B</option>
+                      <option value="C" disabled={!arcaReady}>C · Factura C (Monotributo)</option>
+                      <option value="NC_A" disabled={!arcaReady}>NC A</option>
+                      <option value="NC_B" disabled={!arcaReady}>NC B</option>
+                      <option value="NC_C" disabled={!arcaReady}>NC C</option>
+                      <option value="ND_A" disabled={!arcaReady}>ND A</option>
+                      <option value="ND_B" disabled={!arcaReady}>ND B</option>
+                      <option value="ND_C" disabled={!arcaReady}>ND C</option>
+                    </optgroup>
                   </Select>
                 </Field>
                 <Field label="Punto de venta" required error={errors['punto_venta']}>
