@@ -78,8 +78,9 @@ export async function generateComprobantePdf({
     doc.rect(splitX - 8 + i, 0, 1.1, coverH, 'F');
   }
 
-  // Triángulos brand en esquina superior derecha (overlay sutil)
-  drawTrianglesGroup(doc, pageW - 56, 6, 50, 22, [255, 255, 255], 0.55);
+  // Triángulos brand en la esquina superior derecha (más chicos y pegados al
+  // borde para no tapar el texto "COMPROBANTE" ni la "X" XL).
+  drawTrianglesGroup(doc, pageW - 30, 4, 26, 12, [255, 255, 255], 0.45);
 
   // Subtle dot pattern en el lado izquierdo, abajo
   drawDotPattern(doc, margin, coverH - 24, splitX - margin - 6, 16, [255, 255, 255], 0.15);
@@ -351,7 +352,12 @@ export async function generateComprobantePdf({
   // ============================================================
   // 7. FOOTER — agradecimiento + brand + slot CAE/QR
   // ============================================================
-  const footerY = pageH - 38;
+  // El footer es dinámico: se posiciona después del contenido si éste se
+  // extendió, sino se ancla al pie. Esto evita que el divider cyan + el
+  // triangulito caigan ENCIMA del card de observaciones cuando el comprobante
+  // tiene más items o texto largo.
+  const FOOTER_BLOCK_H = 38;            // alto que ocupa el footer
+  const footerY = Math.max(y + 12, pageH - FOOTER_BLOCK_H);
 
   // Línea divisora superior del footer (con un punto triangular brand)
   doc.setDrawColor(...CYAN);
