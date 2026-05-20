@@ -36,7 +36,7 @@ const ESTADO_BADGES: Record<ComprobanteEstado, { label: string; cls: string }> =
   autorizado: { label: 'Autorizado', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
   observado:  { label: 'Observado',  cls: 'bg-amber-50 text-amber-700 border-amber-200' },
   rechazado:  { label: 'Rechazado',  cls: 'bg-red-50 text-red-700 border-red-200' },
-  anulado:    { label: 'Anulado',    cls: 'bg-slate-100 text-slate-500 border-slate-200' },
+  anulado:    { label: 'Anulado',    cls: 'bg-red-50 text-red-700 border-red-200' },
   compensado: { label: 'Compensado', cls: 'bg-violet-50 text-violet-700 border-violet-200' },
   error:      { label: 'Error',      cls: 'bg-red-50 text-red-700 border-red-200' },
 };
@@ -186,11 +186,16 @@ export function ComprobanteDetailPage() {
                   >
                     {estado.label}
                   </span>
-                  <span
-                    className={`inline-block rounded-full border px-2.5 py-0.5 font-semibold ${cobranza.cls}`}
-                  >
-                    {cobranza.label}
-                  </span>
+                  {/* Cuando el comprobante está anulado, el chip de cobranza
+                      diría también "Anulado" — redundante. Solo lo mostramos
+                      si aporta información distinta al estado. */}
+                  {comp.estado !== 'anulado' && (
+                    <span
+                      className={`inline-block rounded-full border px-2.5 py-0.5 font-semibold ${cobranza.cls}`}
+                    >
+                      {cobranza.label}
+                    </span>
+                  )}
                   {comp.cae && (
                     <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 font-semibold text-emerald-700">
                       CAE <span className="tabular">{comp.cae}</span>

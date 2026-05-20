@@ -41,7 +41,7 @@ const ESTADO_BADGES: Record<ComprobanteEstado, { label: string; cls: string }> =
   autorizado: { label: 'Autorizado', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
   observado:  { label: 'Observado',  cls: 'bg-amber-50 text-amber-700 border-amber-200' },
   rechazado:  { label: 'Rechazado',  cls: 'bg-red-50 text-red-700 border-red-200' },
-  anulado:    { label: 'Anulado',    cls: 'bg-slate-100 text-slate-500 border-slate-200' },
+  anulado:    { label: 'Anulado',    cls: 'bg-red-50 text-red-700 border-red-200' },
   compensado: { label: 'Compensado', cls: 'bg-violet-50 text-violet-700 border-violet-200' },
   error:      { label: 'Error',      cls: 'bg-red-50 text-red-700 border-red-200' },
 };
@@ -52,7 +52,7 @@ const COBRANZA_BADGES: Record<CobranzaEstado, { label: string; cls: string }> = 
   pagado:      { label: 'Pagado',      cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
   vencido:     { label: 'Vencido',     cls: 'bg-red-50 text-red-700 border-red-200' },
   en_recupero: { label: 'Recupero',    cls: 'bg-orange-50 text-orange-700 border-orange-200' },
-  anulado:     { label: 'Anulado',     cls: 'bg-slate-100 text-slate-500 border-slate-200' },
+  anulado:     { label: '—',           cls: 'bg-transparent text-transparent border-transparent' },
 };
 
 export function ComprobantesListPage() {
@@ -362,14 +362,21 @@ export function ComprobantesListPage() {
                             )}
                         </td>
                         <td className="px-4 py-3">
-                          <span
-                            className={cn(
-                              'inline-block rounded-full border px-2 py-0.5 text-[11px] font-semibold',
-                              cobranzaBadge?.cls ?? '',
-                            )}
-                          >
-                            {cobranzaBadge?.label ?? r.estado_cobranza}
-                          </span>
+                          {/* Si el comprobante está anulado, no mostramos el
+                              estado de cobranza (sería redundante con el chip
+                              "Anulado" rojo del estado). */}
+                          {r.estado !== 'anulado' ? (
+                            <span
+                              className={cn(
+                                'inline-block rounded-full border px-2 py-0.5 text-[11px] font-semibold',
+                                cobranzaBadge?.cls ?? '',
+                              )}
+                            >
+                              {cobranzaBadge?.label ?? r.estado_cobranza}
+                            </span>
+                          ) : (
+                            <span className="text-brand-muted">—</span>
+                          )}
                         </td>
                         <td className="px-4 py-3">
                           <span
