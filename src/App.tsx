@@ -3,15 +3,49 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { LandingPage } from '@/modules/public/pages/LandingPage';
 import { LoginPage } from '@/modules/auth/pages/LoginPage';
+import { GerenciaLayout } from '@/modules/gerencia/components/GerenciaLayout';
 import { GerenciaHome } from '@/modules/gerencia/pages/GerenciaHome';
+import { AdministracionesListPage } from '@/modules/clientes/pages/AdministracionesListPage';
+import { AdministracionDetailPage } from '@/modules/clientes/pages/AdministracionDetailPage';
 import { PortalHome } from '@/modules/portal/pages/PortalHome';
 
-// Redirección por rol (P-AUTH-01: route guard + RLS + RPC). Login único →
-// destino según el rol del profile.
-function RoleHome() {
-  const { loading, user } = useAuth();
+type Role = 'gerente' | 'operador' | 'administrador';
+
+function FullScreen({ children }: { children: ReactNode }) {
+  return (
+    <div className="grid min-h-screen place-items-center text-sm text-brand-muted">
+      {children}
+    </div>
+  );
+}
+
+// Redirección por rol (P-AUTH-01). Sin sesión → landing pública.
+function RoleHomeOrLanding() {
+  const { loading, user, profileMissing } = useAuth();
   if (loading) return <FullScreen>Cargando…</FullScreen>;
-  if (!user) return <Navigate to="/ingresar" replace />;
+  if (!user) {
+    if (profileMissing) {
+      return (
+        <FullScreen>
+          <div className="space-y-2 text-center">
+            <p className="font-semibold text-brand-ink">No encontramos tu perfil.</p>
+            <p>
+              Hablá con un gerente para que active tu acceso. Mientras tanto,
+              podés{' '}
+              <button
+                onClick={() => location.reload()}
+                className="underline hover:text-brand-cyan"
+              >
+                reintentar
+              </button>
+              .
+            </p>
+          </div>
+        </FullScreen>
+      );
+    }
+    return <LandingPage />;
+  }
   return user.role === 'administrador' ? (
     <Navigate to="/portal" replace />
   ) : (
@@ -23,7 +57,7 @@ function Protected({
   allow,
   children,
 }: {
-  allow: ('gerente' | 'operador' | 'administrador')[];
+  allow: Role[];
   children: ReactNode;
 }) {
   const { loading, user } = useAuth();
@@ -33,14 +67,6 @@ function Protected({
   return <>{children}</>;
 }
 
-function FullScreen({ children }: { children: ReactNode }) {
-  return (
-    <div className="grid min-h-screen place-items-center text-sm text-brand-muted">
-      {children}
-    </div>
-  );
-}
-
 export function App() {
   return (
     <BrowserRouter>
@@ -48,14 +74,20 @@ export function App() {
         <Route path="/" element={<RoleHomeOrLanding />} />
         <Route path="/inicio" element={<LandingPage />} />
         <Route path="/ingresar" element={<LoginPage />} />
+
         <Route
-          path="/gerencia/*"
+          path="/gerencia"
           element={
             <Protected allow={['gerente', 'operador']}>
-              <GerenciaHome />
+              <GerenciaLayout />
             </Protected>
           }
-        />
+        >
+          <Route index element={<GerenciaHome />} />
+          <Route path="clientes" element={<AdministracionesListPage />} />
+          <Route path="clientes/:id" element={<AdministracionDetailPage />} />
+        </Route>
+
         <Route
           path="/portal/*"
           element={
@@ -64,15 +96,9 @@ export function App() {
             </Protected>
           }
         />
+
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
   );
-}
-
-// Sin sesión muestra la landing; con sesión redirige al panel por rol.
-function RoleHomeOrLanding() {
-  const { loading, user } = useAuth();
-  if (loading) return <FullScreen>Cargando…</FullScreen>;
-  return user ? <RoleHome /> : <LandingPage />;
 }

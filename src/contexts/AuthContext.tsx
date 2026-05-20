@@ -1,19 +1,25 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+  type ReactNode,
+} from 'react';
 import type { Session } from '@supabase/supabase-js';
-import { supabase, isSupabaseConfigured } from '@/lib/supabase';
+import {
+  supabase,
+  isSupabaseConfigured,
+  readStoredSession,
+  persistSession,
+  clearLegacySupabaseStorage,
+} from '@/lib/supabase';
+import { getCurrentProfile, type CurrentProfile, type Role } from '@/services/api/profiles';
 
-// Roles (adaptados de doc 01 a single-tenant Gestión Global):
-//  gerente       → los 2 socios, acceso total (≈ apex/partner MANAXER)
-//  operador      → futuro, permisos granulares (≈ pulse)
-//  administrador → cliente, ve sólo su administración (portal)
-export type Role = 'gerente' | 'operador' | 'administrador';
+export type { Role } from '@/services/api/profiles';
 
-export interface CurrentUser {
-  id: string;
+export interface CurrentUser extends CurrentProfile {
   email: string;
-  role: Role;
-  fullName: string | null;
-  administracionId: string | null;
 }
 
 interface AuthState {
@@ -21,17 +27,64 @@ interface AuthState {
   session: Session | null;
   user: CurrentUser | null;
   configured: boolean;
+  /** El profile aún no apareció en DB después de auth (trigger en vuelo). */
+  profileMissing: boolean;
   signOut: () => Promise<void>;
+  reloadProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthState | null>(null);
 
-// Fuente única de verdad del usuario actual (E10): un solo contexto, nada de
-// estados de usuario paralelos.
+// Fuente única de verdad del usuario actual (E10). Carga session + profile y
+// los mantiene sincronizados con auth state changes y refresh manual.
+//
+// Bootstrap: leemos session de localStorage sincrónicamente para que el shell
+// no haga "flash" de Cargando… en cada navegación. Luego onAuthStateChange
+// confirma/actualiza con la sesión real.
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const stored = isSupabaseConfigured ? readStoredSession() : null;
   const [loading, setLoading] = useState(true);
-  const [session, setSession] = useState<Session | null>(null);
+  const [session, setSession] = useState<Session | null>(
+    stored
+      ? ({
+          access_token: stored.access_token,
+          refresh_token: stored.refresh_token,
+          expires_at: stored.expires_at,
+          user: { id: stored.user.id, email: stored.user.email ?? '' },
+        } as unknown as Session)
+      : null,
+  );
   const [user, setUser] = useState<CurrentUser | null>(null);
+  const [profileMissing, setProfileMissing] = useState(false);
+
+  const loadProfile = useCallback(async (s: Session | null) => {
+    if (!s) {
+      setUser(null);
+      setProfileMissing(false);
+      return;
+    }
+    const res = await getCurrentProfile(s.user.id);
+    if (!res.ok) {
+      setUser(null);
+      setProfileMissing(true);
+      return;
+    }
+    if (!res.data) {
+      // trigger handle_new_user puede estar en vuelo; reintentamos una vez
+      await new Promise((r) => setTimeout(r, 350));
+      const retry = await getCurrentProfile(s.user.id);
+      if (retry.ok && retry.data) {
+        setUser({ ...retry.data, email: s.user.email ?? '' });
+        setProfileMissing(false);
+        return;
+      }
+      setUser(null);
+      setProfileMissing(true);
+      return;
+    }
+    setUser({ ...res.data, email: s.user.email ?? '' });
+    setProfileMissing(false);
+  }, []);
 
   useEffect(() => {
     if (!isSupabaseConfigured) {
@@ -40,47 +93,78 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     let active = true;
 
-    supabase.auth.getSession().then(({ data }) => {
-      if (active) {
-        setSession(data.session);
-        setLoading(false);
+    // Limpiar storage legacy (supabase-js con persistSession activo) por las
+    // dudas, para que no nos contamine.
+    clearLegacySupabaseStorage();
+
+    (async () => {
+      const stored = readStoredSession();
+      if (stored) {
+        // Re-inyectamos la session en el cliente (in-memory) para que las
+        // siguientes queries lleven Authorization.
+        await supabase.auth.setSession({
+          access_token: stored.access_token,
+          refresh_token: stored.refresh_token,
+        });
+      }
+      const { data } = await supabase.auth.getSession();
+      const s = data.session;
+      if (!active) return;
+      setSession(s);
+      await loadProfile(s);
+      if (active) setLoading(false);
+    })();
+
+    // Persistimos manualmente cada cambio de auth (signIn / signOut / refresh).
+    const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
+      if (!active) return;
+      if (s) {
+        persistSession({
+          access_token: s.access_token,
+          refresh_token: s.refresh_token,
+          expires_at: s.expires_at ?? 0,
+          user: { id: s.user.id, email: s.user.email },
+        });
+      } else {
+        persistSession(null);
+      }
+      // Re-cargamos profile solo en cambios reales (signin/signout); el
+      // INITIAL_SESSION lo manejamos arriba con la lectura de storage.
+      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED') {
+        setSession(s);
+        void loadProfile(s);
       }
     });
 
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
-      setSession(s);
-    });
     return () => {
       active = false;
       sub.subscription.unsubscribe();
     };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadProfile]);
 
-  // El profile (role / administracion) se cargará desde services/api cuando
-  // exista la tabla `profiles` (Fase 1). Por ahora derivamos sólo del session.
-  useEffect(() => {
-    if (!session) {
-      setUser(null);
-      return;
-    }
-    setUser({
-      id: session.user.id,
-      email: session.user.email ?? '',
-      role: 'gerente',
-      fullName: (session.user.user_metadata?.full_name as string) ?? null,
-      administracionId: null,
-    });
-  }, [session]);
-
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
     if (isSupabaseConfigured) await supabase.auth.signOut();
     setSession(null);
     setUser(null);
-  };
+    setProfileMissing(false);
+  }, []);
+
+  const reloadProfile = useCallback(async () => {
+    await loadProfile(session);
+  }, [loadProfile, session]);
 
   return (
     <AuthContext.Provider
-      value={{ loading, session, user, configured: isSupabaseConfigured, signOut }}
+      value={{
+        loading,
+        session,
+        user,
+        configured: isSupabaseConfigured,
+        profileMissing,
+        signOut,
+        reloadProfile,
+      }}
     >
       {children}
     </AuthContext.Provider>
@@ -91,4 +175,9 @@ export function useAuth(): AuthState {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error('useAuth debe usarse dentro de <AuthProvider>');
   return ctx;
+}
+
+// Convenience: rol actual o null
+export function useRole(): Role | null {
+  return useAuth().user?.role ?? null;
 }
