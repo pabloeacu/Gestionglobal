@@ -1,23 +1,25 @@
 import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import type {
   ComprobanteRow,
   ComprobanteItemRow,
 } from '@/services/api/comprobantes';
 
-// Brand colors en RGB (Tailwind brand-cyan / brand-teal / brand-ink)
-const BRAND_CYAN: [number, number, number] = [0, 158, 202];
-const BRAND_TEAL: [number, number, number] = [22, 160, 162];
-const BRAND_INK: [number, number, number] = [13, 30, 47];
-const BRAND_MUTED: [number, number, number] = [100, 116, 139];
-const BRAND_ZEBRA: [number, number, number] = [248, 250, 252];
+// Paleta brand (RGB) — alineada con Tailwind config.
+const CYAN: [number, number, number] = [0, 158, 202];
+const CYAN_PALE: [number, number, number] = [229, 246, 252];
+const TEAL: [number, number, number] = [22, 160, 162];
+const INK: [number, number, number] = [13, 30, 47];
+const MUTED: [number, number, number] = [100, 116, 139];
+const SOFT: [number, number, number] = [203, 213, 225];
+const ZEBRA: [number, number, number] = [248, 250, 252];
+const WHITE: [number, number, number] = [255, 255, 255];
 
 interface Args {
   comprobante: ComprobanteRow;
   items: ComprobanteItemRow[];
 }
 
-// Logo PNG cacheado entre llamadas (se descarga una vez por sesión).
+// Logo cacheado entre llamadas para no descargarlo cada vez.
 let cachedLogo: HTMLImageElement | null | undefined;
 async function loadLogo(): Promise<HTMLImageElement | null> {
   if (cachedLogo !== undefined) return cachedLogo;
@@ -34,227 +36,386 @@ async function loadLogo(): Promise<HTMLImageElement | null> {
   }
 }
 
-// Genera PDF A4 del comprobante con la marca Gestión Global. Devuelve el doc
-// jsPDF — el caller decide guardar (doc.save), abrir (doc.output('bloburl'))
-// o adjuntar a email (doc.output('arraybuffer') → base64).
+// Comprobante editorial premium — diseño Apple/Stripe-grade.
+// Estructura:
+//   1. Cover bipartito alto (cyan + teal) con logo y número hero.
+//   2. Meta strip (fecha · periodo · vencimiento · estado).
+//   3. Bloque "Facturar a" con razón social grande.
+//   4. Items como tarjetas con dividers sutiles (no tabla con bordes).
+//   5. Card de totales con TOTAL hero en cyan.
+//   6. Mensaje "Gracias" + footer brand + slot QR/CAE.
 export async function generateComprobantePdf({
   comprobante: c,
   items,
 }: Args): Promise<jsPDF> {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
-  const pageW = doc.internal.pageSize.getWidth();
-  const pageH = doc.internal.pageSize.getHeight();
-  const margin = 16;
+  const pageW = doc.internal.pageSize.getWidth();   // 210
+  const pageH = doc.internal.pageSize.getHeight();  // 297
+  const margin = 18;
+  const innerW = pageW - margin * 2;
 
-  // -------------------- header band con gradient (manual) --------------------
-  // Banda más alta para dar respiración al logo institucional.
-  const headerH = 40;
-  doc.setFillColor(...BRAND_CYAN);
-  doc.rect(0, 0, pageW, headerH, 'F');
-  doc.setFillColor(...BRAND_TEAL);
-  doc.rect(pageW * 0.62, 0, pageW * 0.38, headerH, 'F');
+  // ============================================================
+  // 1. COVER bipartito (75mm)
+  // ============================================================
+  const coverH = 75;
+  const splitX = pageW * 0.58;
 
-  // Triángulos brand en esquina top-right (sutil, no compiten con el logo)
-  drawTriangles(doc, pageW - 42, 6, 30);
+  // Izquierda: cyan sólido
+  doc.setFillColor(...CYAN);
+  doc.rect(0, 0, splitX, coverH, 'F');
 
-  // Logo institucional (PNG blanco transparente). Si no está disponible,
-  // fallback al wordmark tipográfico.
+  // Derecha: teal sólido
+  doc.setFillColor(...TEAL);
+  doc.rect(splitX, 0, pageW - splitX, coverH, 'F');
+
+  // Banda de degradado fake en el límite (3 columnas teal mezclando)
+  for (let i = 0; i < 8; i++) {
+    const t = i / 8;
+    const r = Math.round(CYAN[0] + (TEAL[0] - CYAN[0]) * t);
+    const g = Math.round(CYAN[1] + (TEAL[1] - CYAN[1]) * t);
+    const b = Math.round(CYAN[2] + (TEAL[2] - CYAN[2]) * t);
+    doc.setFillColor(r, g, b);
+    doc.rect(splitX - 8 + i, 0, 1.1, coverH, 'F');
+  }
+
+  // Triángulos brand en esquina superior derecha (overlay sutil)
+  drawTrianglesGroup(doc, pageW - 56, 6, 50, 22, [255, 255, 255], 0.55);
+
+  // Subtle dot pattern en el lado izquierdo, abajo
+  drawDotPattern(doc, margin, coverH - 24, splitX - margin - 6, 16, [255, 255, 255], 0.15);
+
+  // Logo institucional (grande, ~48mm de alto)
   const logo = await loadLogo();
   if (logo) {
-    const logoH = 26;                            // mm
+    const logoH = 48;
     const aspect = logo.naturalWidth / Math.max(1, logo.naturalHeight);
     const logoW = logoH * aspect;
-    doc.addImage(logo, 'PNG', margin, (headerH - logoH) / 2, logoW, logoH, undefined, 'FAST');
+    // Centrado verticalmente sobre la mitad izquierda, alineado a la izquierda
+    const logoX = margin;
+    const logoY = (coverH - logoH) / 2;
+    doc.addImage(logo, 'PNG', logoX, logoY, logoW, logoH, undefined, 'FAST');
   } else {
+    // Fallback wordmark tipográfico
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(20);
-    doc.setTextColor(255, 255, 255);
-    doc.text('GESTIÓN GLOBAL', margin, 19);
-    doc.setFontSize(8);
+    doc.setFontSize(28);
+    doc.setTextColor(...WHITE);
+    doc.text('GESTIÓN GLOBAL', margin, coverH / 2 - 2);
+    doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(220, 240, 245);
-    doc.text('ALIADOS DE TU TIEMPO', margin, 25);
+    doc.text('ALIADOS DE TU TIEMPO', margin, coverH / 2 + 5);
   }
 
-  // Bloque del número y tipo (lado derecho)
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(11);
-  doc.setTextColor(255, 255, 255);
-  const numStr = c.numero
-    ? `${String(c.punto_venta).padStart(5, '0')}-${String(c.numero).padStart(8, '0')}`
-    : 'SIN NÚMERO';
-  doc.text(`COMPROBANTE ${c.tipo}`, pageW - margin, 18, { align: 'right' });
-  doc.setFontSize(16);
-  doc.text(numStr, pageW - margin, 27, { align: 'right' });
+  // Lado derecho: COMPROBANTE + tipo XL + numero
+  const rightCx = splitX + (pageW - splitX) / 2;
 
-  // -------------------- meta box (fecha / periodo / venc) --------------------
-  let y = 48;
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
-  doc.setTextColor(...BRAND_MUTED);
+  doc.setFontSize(8.5);
+  doc.setTextColor(255, 255, 255);
+  doc.text('COMPROBANTE', rightCx, 18, { align: 'center', charSpace: 1.8 });
 
-  const meta = [
-    ['Fecha de emisión', formatDate(c.fecha)],
-    ['Periodo', formatDate(c.periodo)],
-    ['Vencimiento', c.vencimiento ? formatDate(c.vencimiento) : '—'],
-    ['Estado', labelEstado(c.estado)],
-  ];
-  const colW = (pageW - margin * 2) / meta.length;
-  meta.forEach(([label, value], i) => {
-    if (!label || !value) return;
-    const x = margin + colW * i;
-    doc.setFontSize(7);
-    doc.setTextColor(...BRAND_MUTED);
-    doc.text(label.toUpperCase(), x, y);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(10);
-    doc.setTextColor(...BRAND_INK);
-    doc.text(String(value), x, y + 5);
-    doc.setFont('helvetica', 'normal');
-  });
+  // Tipo enorme (X)
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(56);
+  doc.setTextColor(...WHITE);
+  doc.text(c.tipo, rightCx, coverH / 2 + 6, { align: 'center' });
 
-  // -------------------- receptor snapshot --------------------
-  y = 56;
-  doc.setDrawColor(226, 232, 240);
-  doc.setLineWidth(0.2);
-  doc.line(margin, y, pageW - margin, y);
-
-  y += 8;
-  doc.setFontSize(7);
-  doc.setTextColor(...BRAND_CYAN);
-  doc.text('FACTURAR A', margin, y);
-  y += 5;
+  // Número correlativo
+  const numStr = c.numero
+    ? `${String(c.punto_venta).padStart(5, '0')} - ${String(c.numero).padStart(8, '0')}`
+    : 'SIN NÚMERO';
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(13);
-  doc.setTextColor(...BRAND_INK);
-  doc.text(c.receptor_razon_social, margin, y);
-  y += 6;
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
-  doc.setTextColor(...BRAND_MUTED);
-  doc.text(
-    `${c.receptor_tipo_documento.toUpperCase()} ${c.receptor_numero_documento}  ·  ${c.receptor_condicion_iva.replaceAll('_', ' ')}`,
-    margin,
-    y,
-  );
-  if (c.receptor_domicilio) {
-    y += 5;
-    doc.text(c.receptor_domicilio, margin, y);
-  }
+  doc.setTextColor(...WHITE);
+  doc.text(numStr, rightCx, coverH - 14, { align: 'center', charSpace: 0.8 });
 
-  // -------------------- tabla de items --------------------
-  y += 10;
-  autoTable(doc, {
-    startY: y,
-    head: [['#', 'Descripción', 'Cant.', 'P. unit.', 'Bonif.', 'IVA', 'Subtotal', 'Total']],
-    body: items.map((it) => [
-      String(it.orden),
-      it.descripcion,
-      formatNum(Number(it.cantidad)),
-      formatMoney(Number(it.precio_unitario)),
-      Number(it.bonificacion_porc) > 0 ? `${it.bonificacion_porc}%` : '—',
-      it.alicuota_iva,
-      formatMoney(Number(it.subtotal)),
-      formatMoney(Number(it.total)),
-    ]),
-    headStyles: {
-      fillColor: BRAND_ZEBRA,
-      textColor: BRAND_MUTED,
-      fontStyle: 'bold',
-      fontSize: 7,
-      cellPadding: 2.5,
-      lineColor: [226, 232, 240],
-      lineWidth: 0.2,
-    },
-    bodyStyles: {
-      fontSize: 9,
-      cellPadding: 2.5,
-      textColor: BRAND_INK,
-      lineColor: [241, 245, 249],
-      lineWidth: 0.1,
-    },
-    columnStyles: {
-      0: { halign: 'right', cellWidth: 8, textColor: BRAND_MUTED, fontSize: 8 },
-      1: { cellWidth: 'auto' },
-      2: { halign: 'right', cellWidth: 14 },
-      3: { halign: 'right', cellWidth: 22 },
-      4: { halign: 'right', cellWidth: 14, textColor: BRAND_MUTED },
-      5: { halign: 'right', cellWidth: 12, textColor: BRAND_MUTED },
-      6: { halign: 'right', cellWidth: 22 },
-      7: { halign: 'right', cellWidth: 24, fontStyle: 'bold' },
-    },
-    margin: { left: margin, right: margin },
-    theme: 'plain',
-  });
+  // ============================================================
+  // 2. META STRIP (4 columnas: fecha / periodo / vencimiento / estado)
+  // ============================================================
+  let y = coverH + 12;
 
-  // -------------------- totales --------------------
-  // @ts-expect-error jspdf-autotable adds lastAutoTable
-  const afterTableY: number = doc.lastAutoTable?.finalY ?? y + 30;
-  let ty = afterTableY + 6;
-
-  const totalsRight = pageW - margin;
-  const labelX = totalsRight - 50;
-  const drawTotalRow = (
-    label: string,
-    value: number,
-    bold = false,
-    accent = false,
-  ) => {
-    doc.setFont('helvetica', bold ? 'bold' : 'normal');
-    doc.setFontSize(bold ? 11 : 9);
-    doc.setTextColor(...(accent ? BRAND_CYAN : bold ? BRAND_INK : BRAND_MUTED));
-    doc.text(label, labelX, ty, { align: 'right' });
-    doc.setTextColor(...(accent ? BRAND_CYAN : BRAND_INK));
-    doc.text(formatMoney(value), totalsRight, ty, { align: 'right' });
-    ty += bold ? 7 : 5;
-  };
-
-  drawTotalRow('Neto gravado', Number(c.neto ?? 0));
-  if (Number(c.exento) > 0) drawTotalRow('Exento', Number(c.exento));
-  if (Number(c.no_gravado) > 0) drawTotalRow('No gravado', Number(c.no_gravado));
-  drawTotalRow('IVA total', Number(c.total_iva ?? 0));
-  // separator line con respiración suficiente para que no atraviese el TOTAL
-  ty += 3;
-  doc.setDrawColor(...BRAND_CYAN);
-  doc.setLineWidth(0.6);
-  doc.line(labelX - 6, ty, totalsRight, ty);
-  ty += 8;
-  drawTotalRow('TOTAL', Number(c.total ?? 0), true, true);
-
-  // -------------------- observaciones (opcional) --------------------
-  if (c.observaciones) {
-    ty += 6;
+  const metaItems = [
+    { label: 'Fecha de emisión', value: formatDateLong(c.fecha) },
+    { label: 'Periodo', value: formatPeriodo(c.periodo) },
+    { label: 'Vencimiento', value: c.vencimiento ? formatDateLong(c.vencimiento) : '—' },
+    { label: 'Estado', value: estadoLabel(c.estado), accent: c.estado === 'autorizado' },
+  ];
+  const colW = innerW / metaItems.length;
+  metaItems.forEach((m, i) => {
+    const cx = margin + colW * i;
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7);
-    doc.setTextColor(...BRAND_MUTED);
-    doc.text('OBSERVACIONES', margin, ty);
-    ty += 4;
+    doc.setTextColor(...MUTED);
+    doc.text(m.label.toUpperCase(), cx, y, { charSpace: 0.4 });
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10.5);
+    doc.setTextColor(...(m.accent ? CYAN : INK));
+    doc.text(m.value, cx, y + 6);
+  });
+
+  y += 16;
+
+  // Línea divisora horizontal
+  doc.setDrawColor(...SOFT);
+  doc.setLineWidth(0.25);
+  doc.line(margin, y, pageW - margin, y);
+  y += 10;
+
+  // ============================================================
+  // 3. FACTURAR A — receptor card
+  // ============================================================
+  // Kicker
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7);
+  doc.setTextColor(...CYAN);
+  doc.text('FACTURAR A', margin, y, { charSpace: 1.5 });
+  y += 6;
+
+  // Razón social bold large
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(18);
+  doc.setTextColor(...INK);
+  const razon = sanitize(c.receptor_razon_social);
+  doc.text(razon, margin, y);
+  y += 7;
+
+  // Doc + condición IVA · separados por punto
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9.5);
+  doc.setTextColor(...MUTED);
+  const docLabel = c.receptor_tipo_documento === 'dni_ficticio'
+    ? 'DNI ficticio'
+    : c.receptor_tipo_documento.toUpperCase();
+  const docLine = `${docLabel} ${c.receptor_numero_documento}  ·  ${sanitize(c.receptor_condicion_iva.replaceAll('_', ' '))}`;
+  doc.text(docLine, margin, y);
+  y += 5;
+
+  if (c.receptor_domicilio) {
+    doc.text(sanitize(c.receptor_domicilio), margin, y);
+    y += 5;
+  }
+  y += 6;
+
+  // ============================================================
+  // 4. ITEMS — sin tabla, formato "cards" con dividers sutiles
+  // ============================================================
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7);
+  doc.setTextColor(...CYAN);
+  doc.text('DETALLE', margin, y, { charSpace: 1.5 });
+  y += 7;
+
+  // Encabezado de columnas muy sutil
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(6.5);
+  doc.setTextColor(...MUTED);
+  doc.text('CONCEPTO', margin, y, { charSpace: 0.4 });
+  doc.text('CANT.', pageW - margin - 65, y, { align: 'right', charSpace: 0.4 });
+  doc.text('PRECIO', pageW - margin - 38, y, { align: 'right', charSpace: 0.4 });
+  doc.text('IMPORTE', pageW - margin, y, { align: 'right', charSpace: 0.4 });
+  y += 4;
+
+  // Línea fina debajo del encabezado
+  doc.setDrawColor(...SOFT);
+  doc.setLineWidth(0.2);
+  doc.line(margin, y, pageW - margin, y);
+  y += 6;
+
+  // Items
+  doc.setFont('helvetica', 'normal');
+  items.forEach((it, idx) => {
+    // Descripción
+    doc.setFontSize(11);
+    doc.setTextColor(...INK);
+    const desc = sanitize(it.descripcion);
+    // Truncar si excede ancho disponible
+    const maxDescWidth = pageW - margin - 65 - margin - 4;
+    const descLines = doc.splitTextToSize(desc, maxDescWidth);
+    doc.text(descLines[0] ?? desc, margin, y);
+
+    // Subtext (alicuota + bonificación si aplica)
+    const subParts: string[] = [];
+    if (it.alicuota_iva && it.alicuota_iva !== 'exento' && it.alicuota_iva !== 'no_gravado') {
+      subParts.push(`IVA ${it.alicuota_iva}%`);
+    } else if (it.alicuota_iva === 'exento') subParts.push('IVA exento');
+    else if (it.alicuota_iva === 'no_gravado') subParts.push('No gravado');
+    if (Number(it.bonificacion_porc) > 0) {
+      subParts.push(`Bonif. ${it.bonificacion_porc}%`);
+    }
+    if (subParts.length > 0) {
+      doc.setFontSize(7.5);
+      doc.setTextColor(...MUTED);
+      doc.text(subParts.join(' · '), margin, y + 4.5);
+    }
+
+    // Cant / precio / importe alineados a derecha
+    doc.setFontSize(10);
+    doc.setTextColor(...INK);
+    doc.text(formatNum(Number(it.cantidad)), pageW - margin - 65, y, { align: 'right' });
+    doc.text(formatMoney(Number(it.precio_unitario)), pageW - margin - 38, y, { align: 'right' });
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10.5);
+    doc.text(formatMoney(Number(it.total)), pageW - margin, y, { align: 'right' });
+    doc.setFont('helvetica', 'normal');
+
+    y += subParts.length > 0 ? 9 : 7;
+
+    // Divider entre items (no después del último)
+    if (idx < items.length - 1) {
+      doc.setDrawColor(241, 245, 249);
+      doc.setLineWidth(0.15);
+      doc.line(margin, y - 1, pageW - margin, y - 1);
+      y += 2;
+    }
+  });
+
+  y += 8;
+
+  // ============================================================
+  // 5. TOTALES — bloque a la derecha
+  // ============================================================
+  // Sutil línea separadora antes del bloque
+  doc.setDrawColor(...SOFT);
+  doc.setLineWidth(0.3);
+  doc.line(pageW - margin - 70, y, pageW - margin, y);
+  y += 7;
+
+  const labelX = pageW - margin - 70;
+  const valueX = pageW - margin;
+
+  // Sub-totales (neto / exento / no gravado / iva)
+  const subRows: Array<[string, number]> = [];
+  if (Number(c.neto) > 0) subRows.push(['Neto gravado', Number(c.neto)]);
+  if (Number(c.exento) > 0) subRows.push(['Exento', Number(c.exento)]);
+  if (Number(c.no_gravado) > 0) subRows.push(['No gravado', Number(c.no_gravado)]);
+  if (Number(c.total_iva) > 0) subRows.push(['IVA', Number(c.total_iva)]);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9.5);
+  subRows.forEach(([lbl, val]) => {
+    doc.setTextColor(...MUTED);
+    doc.text(lbl, labelX, y);
+    doc.setTextColor(...INK);
+    doc.text(formatMoney(val), valueX, y, { align: 'right' });
+    y += 6;
+  });
+
+  y += 2;
+
+  // TOTAL hero card
+  const totalCardH = 22;
+  const totalCardX = labelX - 4;
+  const totalCardW = valueX - totalCardX + 2;
+  doc.setFillColor(...CYAN_PALE);
+  doc.roundedRect(totalCardX, y, totalCardW, totalCardH, 2.5, 2.5, 'F');
+  // Border accent left
+  doc.setFillColor(...CYAN);
+  doc.rect(totalCardX, y, 1.6, totalCardH, 'F');
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.setTextColor(...CYAN);
+  doc.text('TOTAL', labelX + 1, y + 8, { charSpace: 1.2 });
+  doc.setFontSize(8);
+  doc.setTextColor(...MUTED);
+  doc.text(c.moneda ?? 'ARS', labelX + 1, y + 14);
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(20);
+  doc.setTextColor(...CYAN);
+  doc.text(formatMoney(Number(c.total ?? 0)), valueX - 1, y + 14, { align: 'right' });
+
+  y += totalCardH + 4;
+
+  // ============================================================
+  // 6. Observaciones (si hay) — caja sutil
+  // ============================================================
+  if (c.observaciones) {
+    y += 4;
+    doc.setFillColor(...ZEBRA);
+    const obsLines = doc.splitTextToSize(sanitize(c.observaciones), innerW - 12);
+    const obsH = obsLines.length * 4.5 + 12;
+    doc.roundedRect(margin, y, innerW, obsH, 2.5, 2.5, 'F');
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.setTextColor(...CYAN);
+    doc.text('OBSERVACIONES', margin + 6, y + 6, { charSpace: 1.2 });
     doc.setFontSize(9);
-    doc.setTextColor(...BRAND_INK);
-    const lines = doc.splitTextToSize(c.observaciones, pageW - margin * 2);
-    doc.text(lines, margin, ty);
+    doc.setTextColor(...INK);
+    doc.text(obsLines, margin + 6, y + 12);
+    y += obsH + 4;
   }
 
-  // -------------------- footer --------------------
-  const footerY = pageH - 14;
-  doc.setDrawColor(226, 232, 240);
-  doc.setLineWidth(0.2);
-  doc.line(margin, footerY - 6, pageW - margin, footerY - 6);
-  doc.setFontSize(7);
-  doc.setTextColor(...BRAND_MUTED);
+  // ============================================================
+  // 7. FOOTER — agradecimiento + brand + slot CAE/QR
+  // ============================================================
+  const footerY = pageH - 38;
+
+  // Línea divisora superior del footer (con un punto triangular brand)
+  doc.setDrawColor(...CYAN);
+  doc.setLineWidth(0.4);
+  doc.line(margin, footerY, pageW - margin, footerY);
+  // Punto triangular acento
+  doc.setFillColor(...CYAN);
+  const tri = 2.2;
+  doc.triangle(
+    pageW / 2 - tri, footerY,
+    pageW / 2 + tri, footerY,
+    pageW / 2, footerY + tri * 1.4,
+    'F',
+  );
+
+  // Mensaje agradecimiento
+  doc.setFont('helvetica', 'italic');
+  doc.setFontSize(11);
+  doc.setTextColor(...INK);
+  doc.text('Gracias por confiar en Gestión Global.', margin, footerY + 14);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.5);
+  doc.setTextColor(...MUTED);
   doc.text(
-    'Gestión Global  ·  gestionglobal.ar  ·  contacto@gestionglobal.ar',
+    'Si tenés consultas sobre este comprobante, escribinos a contacto@gestionglobal.ar',
     margin,
-    footerY,
+    footerY + 20,
   );
-  doc.text(
-    c.cae
-      ? `CAE ${c.cae}${c.cae_vencimiento ? ` · vence ${formatDate(c.cae_vencimiento)}` : ''}`
-      : 'Comprobante interno · sin valor fiscal',
-    pageW - margin,
-    footerY,
-    { align: 'right' },
-  );
+
+  // CAE / QR a la derecha (placeholder)
+  if (c.cae) {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.setTextColor(...MUTED);
+    doc.text('CAE', pageW - margin, footerY + 12, { align: 'right', charSpace: 1.2 });
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(...INK);
+    doc.text(c.cae, pageW - margin, footerY + 18, { align: 'right' });
+    if (c.cae_vencimiento) {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7);
+      doc.setTextColor(...MUTED);
+      doc.text(`vence ${formatDateLong(c.cae_vencimiento)}`, pageW - margin, footerY + 23, { align: 'right' });
+    }
+  } else {
+    doc.setFont('helvetica', 'italic');
+    doc.setFontSize(7.5);
+    doc.setTextColor(...MUTED);
+    doc.text('Comprobante interno · sin valor fiscal', pageW - margin, footerY + 18, { align: 'right' });
+  }
+
+  // Brand strip bottom
+  const stripY = pageH - 10;
+  doc.setFillColor(...CYAN);
+  doc.rect(0, stripY, pageW, 4, 'F');
+  doc.setFillColor(...TEAL);
+  doc.rect(pageW * 0.62, stripY, pageW * 0.38, 4, 'F');
+  // Texto centrado en strip
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7);
+  doc.setTextColor(...WHITE);
+  doc.text('gestionglobal.ar', pageW / 2, stripY + 2.7, { align: 'center', charSpace: 0.6 });
 
   return doc;
 }
@@ -270,7 +431,15 @@ export function pdfToBase64(doc: jsPDF): string {
   return btoa(binary);
 }
 
-// ---- helpers ----
+// ============================================================
+// helpers
+// ============================================================
+
+function sanitize(s: string): string {
+  // jsPDF Helvetica (WinAnsi) no soporta algunos caracteres Unicode raros.
+  // Por las dudas, normalizamos NFC.
+  return s.normalize('NFC');
+}
 
 function formatMoney(n: number): string {
   return new Intl.NumberFormat('es-AR', {
@@ -288,45 +457,89 @@ function formatNum(n: number): string {
   }).format(n);
 }
 
-function formatDate(d: string): string {
-  // Parsear como local (no UTC) para evitar offset de TZ que retrocede un día.
-  const parts = (d.includes('T') ? d.slice(0, 10) : d).split('-').map(Number);
-  const dt = new Date(parts[0] ?? 1970, (parts[1] ?? 1) - 1, parts[2] ?? 1);
-  return dt.toLocaleDateString('es-AR', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
+function parseLocalDate(d: string): Date {
+  const datePart = d.includes('T') ? d.slice(0, 10) : d;
+  const parts = datePart.split('-').map(Number);
+  return new Date(parts[0] ?? 1970, (parts[1] ?? 1) - 1, parts[2] ?? 1);
+}
+
+function formatDateLong(d: string): string {
+  return parseLocalDate(d).toLocaleDateString('es-AR', {
+    day: '2-digit', month: 'long', year: 'numeric',
   });
 }
 
-function labelEstado(e: string): string {
-  return e.charAt(0).toUpperCase() + e.slice(1);
+function formatPeriodo(d: string): string {
+  return parseLocalDate(d).toLocaleDateString('es-AR', {
+    month: 'long', year: 'numeric',
+  });
 }
 
-// Dibuja 3 triángulos brand en posición x,y dentro de un box size×size.
-function drawTriangles(doc: jsPDF, x: number, y: number, size: number) {
-  const s = size / 3;
-  doc.setFillColor(255, 255, 255);
-  doc.setDrawColor(255, 255, 255);
-  // tri 1
-  const a = (vertices: Array<[number, number]>) => {
-    const xs = vertices.map((v) => v[0]);
-    const ys = vertices.map((v) => v[1]);
-    doc.lines(
-      vertices.slice(1).map((v, i) => [v[0] - vertices[i]![0], v[1] - vertices[i]![1]]) as [number, number][],
-      xs[0]!,
-      ys[0]!,
-      [1, 1],
-      'F',
-      true,
-    );
-  };
-  doc.setFillColor(255, 255, 255);
-  // Tres triángulos pequeños con opacidad simulada (color claro)
-  doc.setFillColor(180, 220, 240);
-  a([[x, y + s], [x + s, y], [x + s, y + s]]);
-  doc.setFillColor(150, 210, 220);
-  a([[x + s + 2, y + s], [x + s * 2 + 2, y], [x + s * 2 + 2, y + s]]);
-  doc.setFillColor(120, 195, 215);
-  a([[x + s * 2 + 4, y + s], [x + s * 3 + 4, y], [x + s * 3 + 4, y + s]]);
+function estadoLabel(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+// Pequeño grupo de 3 triángulos brand para overlay decorativo.
+function drawTrianglesGroup(
+  doc: jsPDF,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  color: [number, number, number],
+  opacity: number,
+) {
+  // jspdf no soporta alpha real; simulamos con un color "más claro" mezclando con white.
+  const mixed: [number, number, number] = [
+    Math.round(color[0] * opacity + 255 * (1 - opacity)),
+    Math.round(color[1] * opacity + 255 * (1 - opacity)),
+    Math.round(color[2] * opacity + 255 * (1 - opacity)),
+  ];
+  // Como el fondo no es blanco sino cyan, mezclamos con CYAN/TEAL para que se vea "translúcido".
+  // Heurística: si el fondo es cyan/teal, oscurecemos ligeramente.
+  const tri = w / 3.4;
+  doc.setFillColor(mixed[0], mixed[1], mixed[2]);
+  // Tri 1
+  doc.triangle(x, y + h, x + tri, y, x + tri, y + h, 'F');
+  // Tri 2 (más opaco)
+  doc.setFillColor(
+    Math.round(color[0] * (opacity + 0.15) + 255 * (1 - (opacity + 0.15))),
+    Math.round(color[1] * (opacity + 0.15) + 255 * (1 - (opacity + 0.15))),
+    Math.round(color[2] * (opacity + 0.15) + 255 * (1 - (opacity + 0.15))),
+  );
+  doc.triangle(x + tri + 2, y + h, x + tri * 2 + 2, y, x + tri * 2 + 2, y + h, 'F');
+  // Tri 3 (más opaco)
+  doc.setFillColor(
+    Math.round(color[0] * (opacity + 0.3) + 255 * (1 - (opacity + 0.3))),
+    Math.round(color[1] * (opacity + 0.3) + 255 * (1 - (opacity + 0.3))),
+    Math.round(color[2] * (opacity + 0.3) + 255 * (1 - (opacity + 0.3))),
+  );
+  doc.triangle(x + tri * 2 + 4, y + h, x + tri * 3 + 4, y, x + tri * 3 + 4, y + h, 'F');
+}
+
+// Patrón de puntos sutil (grid 5×3) para textura.
+function drawDotPattern(
+  doc: jsPDF,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  color: [number, number, number],
+  opacity: number,
+) {
+  const mixed: [number, number, number] = [
+    Math.round(color[0] * opacity + 0 * (1 - opacity)),
+    Math.round(color[1] * opacity + 0 * (1 - opacity)),
+    Math.round(color[2] * opacity + 0 * (1 - opacity)),
+  ];
+  doc.setFillColor(mixed[0], mixed[1], mixed[2]);
+  const cols = 16;
+  const rows = 4;
+  const stepX = w / cols;
+  const stepY = h / rows;
+  for (let i = 0; i < cols; i++) {
+    for (let j = 0; j < rows; j++) {
+      doc.circle(x + i * stepX, y + j * stepY, 0.28, 'F');
+    }
+  }
 }
