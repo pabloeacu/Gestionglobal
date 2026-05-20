@@ -40,31 +40,38 @@ export async function updateMyProfile(
   return ok(data);
 }
 
-// Sube avatar a `avatars/<uid>/avatar-<timestamp>.<ext>` (timestamp evita
-// caché vieja en CDN/browser). Después actualiza profiles.avatar_url y
-// devuelve la public URL.
-export async function uploadAvatar(file: File): Promise<ApiResponse<{ publicUrl: string }>> {
+// Sube avatar a `avatars/<uid>/avatar-<timestamp>.jpg`. El front procesa la
+// imagen (crop + zoom + rotación) antes de invocar esta función, así que el
+// payload típico ronda los 30-150 KB independientemente del archivo original.
+// Aceptamos cualquier Blob de tipo imagen — el editor garantiza el output
+// JPEG cuadrado de 512 px.
+export async function uploadAvatar(
+  blob: Blob,
+  ext = 'jpg',
+): Promise<ApiResponse<{ publicUrl: string }>> {
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) return fail('NO_SESSION', 'Sin sesión activa.');
 
-  const MAX_BYTES = 2 * 1024 * 1024; // 2MB
-  if (file.size > MAX_BYTES) {
-    return fail('AVATAR_TOO_LARGE', 'La imagen supera los 2MB. Probá con una más liviana.');
+  // Tope generoso defensivo: ni el editor ni un PNG cuadrado de 512 deberían
+  // pasar de unos pocos MB; si llega algo enorme, frenamos antes de quemar
+  // ancho de banda del usuario.
+  const MAX_BYTES = 8 * 1024 * 1024;
+  if (blob.size > MAX_BYTES) {
+    return fail('AVATAR_TOO_LARGE', 'La imagen procesada supera los 8MB.');
   }
-  if (!file.type.startsWith('image/')) {
+  if (!blob.type.startsWith('image/')) {
     return fail('AVATAR_INVALID_TYPE', 'El archivo no es una imagen válida.');
   }
 
-  const ext = (file.name.split('.').pop() ?? 'png').toLowerCase().replace(/[^a-z0-9]/g, '');
-  const safeExt = ext.length > 0 && ext.length <= 5 ? ext : 'png';
+  const safeExt = ext.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 5) || 'jpg';
   const path = `${auth.user.id}/avatar-${Date.now()}.${safeExt}`;
 
   const { error: upErr } = await supabase.storage
     .from('avatars')
-    .upload(path, file, {
+    .upload(path, blob, {
       cacheControl: '3600',
       upsert: false,
-      contentType: file.type,
+      contentType: blob.type,
     });
   if (upErr) return fail('AVATAR_UPLOAD', upErr.message, toApiError(upErr));
 

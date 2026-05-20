@@ -27,6 +27,7 @@ import {
   updateMyProfile,
   uploadAvatar,
 } from '@/services/api/perfil';
+import { AvatarEditor } from '@/modules/auth/components/AvatarEditor';
 import { cn } from '@/lib/cn';
 
 // "Mi perfil" — único lugar donde el usuario edita su propio nombre/avatar/
@@ -99,6 +100,7 @@ function PerfilCover({
 }) {
   const fileRef = useRef<HTMLInputElement | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
   const confirm = useConfirm();
 
   const initials = (user!.fullName ?? user!.email ?? '?')
@@ -109,22 +111,24 @@ function PerfilCover({
     .join('')
     .toUpperCase();
 
-  async function onFileSelected(e: ChangeEvent<HTMLInputElement>) {
+  function onFileSelected(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    e.target.value = ''; // reset así el mismo archivo dispara onChange si lo vuelven a elegir
+    e.target.value = ''; // reset así el mismo archivo vuelve a disparar onChange
     if (!file) return;
-    if (file.size > 2 * 1024 * 1024) {
-      toast.error('La imagen supera los 2MB.');
-      play('error');
-      return;
-    }
     if (!file.type.startsWith('image/')) {
       toast.error('Tiene que ser una imagen.');
       play('error');
       return;
     }
+    // No bloqueamos por tamaño: el editor procesa cualquier original y
+    // exporta un JPEG cuadrado liviano.
+    setPendingFile(file);
+  }
+
+  async function onEditorConfirm(blob: Blob) {
     setUploading(true);
-    const res = await uploadAvatar(file);
+    setPendingFile(null);
+    const res = await uploadAvatar(blob, 'jpg');
     setUploading(false);
     if (!res.ok) {
       toast.error(res.error.message);
@@ -216,7 +220,12 @@ function PerfilCover({
                 type="file"
                 accept="image/*"
                 className="hidden"
-                onChange={(e) => void onFileSelected(e)}
+                onChange={onFileSelected}
+              />
+              <AvatarEditor
+                file={pendingFile}
+                onCancel={() => setPendingFile(null)}
+                onConfirm={onEditorConfirm}
               />
             </div>
             <div className="min-w-0 pb-1">
