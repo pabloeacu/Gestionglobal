@@ -44,6 +44,7 @@ import {
   listCtaCteAdministracion,
   type CtaCteEntry,
 } from '@/services/api/cobranzas';
+import { formatDateShort } from '@/lib/dates';
 import { cn } from '@/lib/cn';
 
 type TabKey = 'general' | 'fiscal' | 'registral' | 'consorcios' | 'ctacte' | 'emails';
@@ -940,9 +941,7 @@ function TabCtaCte({ administracionId }: { administracionId: string }) {
                 style={{ animationDelay: `${Math.min(idx, 10) * 25}ms` }}
               >
                 <td className="px-4 py-3 tabular text-xs text-brand-muted">
-                  {new Date(r.fecha).toLocaleDateString('es-AR', {
-                    day: '2-digit', month: 'short', year: '2-digit',
-                  })}
+                  {formatDateShort(r.fecha)}
                 </td>
                 <td className="px-4 py-3">
                   {r.tipo === 'comprobante' && r.comprobante_id ? (

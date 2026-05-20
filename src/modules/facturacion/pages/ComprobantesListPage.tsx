@@ -24,6 +24,7 @@ import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import { IllustratedEmpty } from '@/components/brand/IllustratedEmpty';
 import { ComprobanteFormDrawer } from '../components/ComprobanteFormDrawer';
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
+import { formatDateShort as formatDate } from '@/lib/dates';
 import {
   listComprobantes,
   type ComprobanteListItem,
@@ -487,15 +488,6 @@ function formatMoney(n: number | string | null): string {
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   }).format(v);
-}
-
-function formatDate(d: string | null): string {
-  if (!d) return '—';
-  return new Date(d).toLocaleDateString('es-AR', {
-    day: '2-digit',
-    month: 'short',
-    year: '2-digit',
-  });
 }
 
 function currentPeriodo(): string {

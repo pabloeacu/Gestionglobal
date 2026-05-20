@@ -287,7 +287,10 @@ function formatNum(n: number): string {
 }
 
 function formatDate(d: string): string {
-  return new Date(d).toLocaleDateString('es-AR', {
+  // Parsear como local (no UTC) para evitar offset de TZ que retrocede un día.
+  const parts = (d.includes('T') ? d.slice(0, 10) : d).split('-').map(Number);
+  const dt = new Date(parts[0] ?? 1970, (parts[1] ?? 1) - 1, parts[2] ?? 1);
+  return dt.toLocaleDateString('es-AR', {
     day: '2-digit',
     month: 'short',
     year: 'numeric',

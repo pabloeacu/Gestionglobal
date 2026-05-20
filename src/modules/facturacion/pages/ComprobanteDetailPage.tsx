@@ -32,6 +32,11 @@ import {
   type SentEmailRow,
 } from '@/services/api/sentEmails';
 import {
+  formatDateShort,
+  formatDateTime,
+  parseLocalDate,
+} from '@/lib/dates';
+import {
   Button,
   AnimatedNumber,
   CopyButton,
@@ -193,7 +198,7 @@ export function ComprobanteDetailPage() {
     : '—';
   const venceEnDias = comp.vencimiento
     ? Math.ceil(
-        (new Date(comp.vencimiento).getTime() - new Date().getTime()) /
+        (parseLocalDate(comp.vencimiento).getTime() - new Date().getTime()) /
           (1000 * 60 * 60 * 24),
       )
     : null;
@@ -715,17 +720,6 @@ export function ComprobanteDetailPage() {
       />
     </div>
   );
-}
-
-function formatDateShort(d: string): string {
-  return new Date(d).toLocaleDateString('es-AR', {
-    day: '2-digit', month: 'short', year: '2-digit',
-  });
-}
-
-function formatDateTime(d: string): string {
-  const dt = new Date(d);
-  return `${dt.toLocaleDateString('es-AR', { day: '2-digit', month: 'short' })} · ${dt.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}`;
 }
 
 const RESEND_BADGES: Record<string, { label: string; cls: string }> = {
