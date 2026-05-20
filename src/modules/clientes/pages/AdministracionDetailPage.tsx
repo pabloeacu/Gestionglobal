@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { toast } from '@/lib/toast';
 import {
@@ -12,8 +12,18 @@ import {
   CheckCircle2,
   Scale,
   Trash2,
+  Wallet,
+  CalendarClock,
+  Layers,
 } from 'lucide-react';
-import { Button, Tabs, useConfirm } from '@/components/common';
+import {
+  Button,
+  Tabs,
+  useConfirm,
+  AnimatedNumber,
+  CopyButton,
+  InlineEdit,
+} from '@/components/common';
 import { BrandLoader } from '@/components/brand/BrandLoader';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import { AdministracionFormDrawer } from '../components/AdministracionFormDrawer';
@@ -21,6 +31,7 @@ import { ConsorcioFormDrawer } from '../components/ConsorcioFormDrawer';
 import {
   getAdministracion,
   archiveAdministracion,
+  updateAdministracion,
   type AdministracionRow,
   type AdministracionEstado,
 } from '@/services/api/administraciones';
@@ -92,6 +103,23 @@ export function AdministracionDetailPage() {
     void load();
   }
 
+  // Edición inline: actualiza el campo y refresca admin con la nueva fila.
+  async function patchField<K extends keyof AdministracionRow>(
+    field: K,
+    value: AdministracionRow[K] | null,
+  ): Promise<void> {
+    if (!admin) return;
+    const res = await updateAdministracion(admin.id, {
+      [field]: value,
+    } as Partial<AdministracionRow>);
+    if (!res.ok) {
+      toast.error(res.error.message);
+      throw new Error(res.error.message);
+    }
+    setAdmin(res.data);
+    toast.success('Guardado');
+  }
+
   if (loading && !admin) {
     return (
       <div className="grid place-items-center p-16">
@@ -112,58 +140,26 @@ export function AdministracionDetailPage() {
   }
 
   const badge = ESTADO_BADGES[admin.estado as AdministracionEstado];
-  const consorciosActivos = consorcios.filter((c) => c.activo).length;
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
-      {/* Header */}
-      <div>
-        <Link
-          to="/gerencia/clientes"
-          className="inline-flex items-center gap-1.5 text-sm text-brand-muted hover:text-brand-ink"
-        >
-          <ArrowLeft size={14} /> Administraciones
-        </Link>
-        <div className="mt-3 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div className="flex min-w-0 items-start gap-4">
-            <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-brand-cyan-pale/40 text-brand-cyan">
-              <Building2 size={26} />
-            </span>
-            <div className="min-w-0">
-              <p className="kicker text-brand-cyan">Ficha de administración</p>
-              <h1 className="break-words font-display text-3xl font-bold leading-tight text-brand-ink">
-                {admin.nombre}
-              </h1>
-              <p className="mt-1 text-sm text-brand-muted">
-                Código <span className="font-medium text-brand-ink">{admin.codigo}</span>
-                {admin.cuit && (
-                  <>
-                    {' · '}CUIT <span className="font-medium tabular text-brand-ink">{admin.cuit}</span>
-                  </>
-                )}
-              </p>
-              <p className="mt-2">
-                <span className={`inline-block rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${badge.cls}`}>
-                  {badge.label}
-                </span>
-                <span className="ml-2 inline-block rounded-full border border-slate-200 bg-white px-2.5 py-0.5 text-[11px] font-semibold text-brand-muted">
-                  {consorciosActivos} consorcios activos
-                </span>
-              </p>
-            </div>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Button variant="secondary" onClick={() => setEditOpen(true)}>
-              <Pencil size={14} /> Editar
-            </Button>
-            {admin.estado !== 'baja' && (
-              <Button variant="ghost" onClick={() => void onArchive()}>
-                <Trash2 size={14} /> Dar de baja
-              </Button>
-            )}
-          </div>
-        </div>
-      </div>
+      <Link
+        to="/gerencia/clientes"
+        className="inline-flex items-center gap-1.5 text-sm text-brand-muted transition hover:text-brand-ink"
+      >
+        <ArrowLeft size={14} /> Administraciones
+      </Link>
+
+      {/* Cover header con gradient + triángulos */}
+      <FichaCover
+        admin={admin}
+        badge={badge}
+        onEdit={() => setEditOpen(true)}
+        onArchive={() => void onArchive()}
+      />
+
+      {/* KPI strip */}
+      <KpiStrip admin={admin} consorcios={consorcios} />
 
       {/* Tabs */}
       <Tabs
@@ -194,29 +190,29 @@ export function AdministracionDetailPage() {
           className="opacity-25"
         />
         <div className="relative">
-        {tab === 'general' && <TabGeneral admin={admin} />}
-        {tab === 'fiscal' && <TabFiscal admin={admin} />}
-        {tab === 'registral' && <TabRegistral admin={admin} />}
-        {tab === 'consorcios' && (
-          <TabConsorcios
-            consorcios={consorcios}
-            onCreate={() => {
-              setEditingConsorcio(null);
-              setConsorcioFormOpen(true);
-            }}
-            onEdit={(c) => {
-              setEditingConsorcio(c);
-              setConsorcioFormOpen(true);
-            }}
-            onToggleActivo={async (c, activo) => {
-              const res = await setConsorcioActivo(c.id, activo);
-              if (!res.ok) return toast.error(res.error.message);
-              toast.success(activo ? 'Consorcio reactivado' : 'Consorcio dado de baja');
-              void load();
-            }}
-          />
-        )}
-        {tab === 'emails' && <TabEmailsPlaceholder />}
+          {tab === 'general' && <TabGeneral admin={admin} onPatch={patchField} />}
+          {tab === 'fiscal' && <TabFiscal admin={admin} onPatch={patchField} />}
+          {tab === 'registral' && <TabRegistral admin={admin} />}
+          {tab === 'consorcios' && (
+            <TabConsorcios
+              consorcios={consorcios}
+              onCreate={() => {
+                setEditingConsorcio(null);
+                setConsorcioFormOpen(true);
+              }}
+              onEdit={(c) => {
+                setEditingConsorcio(c);
+                setConsorcioFormOpen(true);
+              }}
+              onToggleActivo={async (c, activo) => {
+                const res = await setConsorcioActivo(c.id, activo);
+                if (!res.ok) return toast.error(res.error.message);
+                toast.success(activo ? 'Consorcio reactivado' : 'Consorcio dado de baja');
+                void load();
+              }}
+            />
+          )}
+          {tab === 'emails' && <TabEmailsPlaceholder />}
         </div>
       </div>
 
@@ -237,56 +233,421 @@ export function AdministracionDetailPage() {
   );
 }
 
-// ---------------- tab content ----------------
+// ---------------- cover header ----------------
 
-function DataRow({ label, value }: { label: string; value: React.ReactNode }) {
+function FichaCover({
+  admin,
+  badge,
+  onEdit,
+  onArchive,
+}: {
+  admin: AdministracionRow;
+  badge: { label: string; cls: string };
+  onEdit: () => void;
+  onArchive: () => void;
+}) {
+  const initials = (admin.nombre ?? '?')
+    .split(/\s+/)
+    .map((p) => p[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join('')
+    .toUpperCase();
   return (
-    <div className="grid grid-cols-1 gap-1 border-b border-slate-100 py-3 sm:grid-cols-3">
-      <dt className="kicker">{label}</dt>
-      <dd className="text-sm text-brand-ink sm:col-span-2">{value || <span className="text-brand-muted">—</span>}</dd>
+    <section className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm motion-safe:animate-fade-up">
+      {/* Cover gradient */}
+      <div className="relative h-28 bg-gradient-to-br from-brand-cyan via-brand-cyan to-brand-teal sm:h-32">
+        <TrianglesAccent
+          position="top-right"
+          size={220}
+          tone="cyan"
+          density="rich"
+          className="opacity-60"
+        />
+        <TrianglesAccent
+          position="bottom-left"
+          size={160}
+          tone="teal"
+          density="soft"
+          className="opacity-40"
+        />
+        <span
+          aria-hidden
+          className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(255,255,255,0.35),transparent_55%)]"
+        />
+      </div>
+      {/* Avatar + meta */}
+      <div className="relative px-6 pb-5 pt-0 sm:px-8">
+        <div className="-mt-10 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div className="flex items-end gap-4">
+            <span className="grid h-20 w-20 shrink-0 place-items-center rounded-2xl border-4 border-white bg-gradient-to-br from-brand-cyan to-brand-teal font-display text-2xl font-bold text-white shadow-lg sm:h-24 sm:w-24 sm:text-3xl">
+              {initials || <Building2 size={32} />}
+            </span>
+            <div className="min-w-0 pb-1">
+              <p className="kicker text-brand-cyan">Ficha de administración</p>
+              <h1 className="break-words font-display text-2xl font-bold leading-tight text-brand-ink sm:text-3xl">
+                {admin.nombre}
+              </h1>
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                <span
+                  className={`inline-block rounded-full border px-2.5 py-0.5 font-semibold ${badge.cls}`}
+                >
+                  {badge.label}
+                </span>
+                <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2.5 py-0.5 font-semibold text-brand-muted">
+                  <span className="text-brand-ink">Código</span>
+                  <span className="tabular">{admin.codigo}</span>
+                </span>
+                {admin.cuit && (
+                  <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-0.5 font-semibold text-brand-muted">
+                    <span>CUIT</span>
+                    <CopyButton value={admin.cuit} label="CUIT" tabular className="px-1 py-0 text-brand-ink" />
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="secondary" onClick={onEdit}>
+              <Pencil size={14} /> Editar
+            </Button>
+            {admin.estado !== 'baja' && (
+              <Button variant="ghost" onClick={onArchive}>
+                <Trash2 size={14} /> Dar de baja
+              </Button>
+            )}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ---------------- KPI strip ----------------
+
+function KpiStrip({
+  admin,
+  consorcios,
+}: {
+  admin: AdministracionRow;
+  consorcios: ConsorcioRow[];
+}) {
+  const stats = useMemo(() => {
+    const activos = consorcios.filter((c) => c.activo).length;
+    const totales = consorcios.length;
+    const abono = consorcios
+      .filter((c) => c.activo)
+      .reduce((s, c) => s + Number(c.monto_abono ?? 0), 0);
+    const venceRpac = admin.matricula_rpac_vencimiento
+      ? new Date(admin.matricula_rpac_vencimiento)
+      : null;
+    const today = new Date();
+    const dias = venceRpac
+      ? Math.ceil((venceRpac.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+      : null;
+    return { activos, totales, abono, venceRpac, dias };
+  }, [consorcios, admin.matricula_rpac_vencimiento]);
+
+  const venceTone =
+    stats.dias === null
+      ? 'slate'
+      : stats.dias < 0
+        ? 'red'
+        : stats.dias <= 30
+          ? 'amber'
+          : 'emerald';
+
+  return (
+    <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <KpiCard
+        icon={Layers}
+        label="Consorcios activos"
+        value={<AnimatedNumber value={stats.activos} />}
+        hint={`${stats.totales} totales`}
+        tone="cyan"
+        delay={0}
+      />
+      <KpiCard
+        icon={Building}
+        label="Cartera"
+        value={<AnimatedNumber value={stats.totales} />}
+        hint={stats.totales === 1 ? 'consorcio' : 'consorcios'}
+        tone="teal"
+        delay={60}
+      />
+      <KpiCard
+        icon={Wallet}
+        label="Abono mensual"
+        value={
+          <span className="tabular">
+            $<AnimatedNumber value={Math.round(stats.abono)} />
+          </span>
+        }
+        hint="suma activos"
+        tone="cyan"
+        delay={120}
+      />
+      <KpiCard
+        icon={CalendarClock}
+        label="Vence RPAC"
+        value={
+          stats.dias === null ? (
+            <span className="text-brand-muted">—</span>
+          ) : stats.dias < 0 ? (
+            <span className="text-red-600">vencida</span>
+          ) : (
+            <span>
+              <AnimatedNumber value={stats.dias} /> d
+            </span>
+          )
+        }
+        hint={
+          stats.venceRpac
+            ? stats.venceRpac.toLocaleDateString('es-AR', {
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric',
+              })
+            : 'sin matrícula'
+        }
+        tone={venceTone === 'red' || venceTone === 'amber' ? 'amber' : 'teal'}
+        delay={180}
+      />
+    </section>
+  );
+}
+
+function KpiCard({
+  icon: Icon,
+  label,
+  value,
+  hint,
+  tone,
+  delay = 0,
+}: {
+  icon: typeof Wallet;
+  label: string;
+  value: React.ReactNode;
+  hint?: string;
+  tone: 'cyan' | 'teal' | 'amber';
+  delay?: number;
+}) {
+  const ring =
+    tone === 'cyan'
+      ? 'border-brand-cyan/30 hover:border-brand-cyan/60'
+      : tone === 'teal'
+        ? 'border-brand-teal/30 hover:border-brand-teal/60'
+        : 'border-amber-300/50 hover:border-amber-400/70';
+  const iconCls =
+    tone === 'cyan'
+      ? 'bg-brand-cyan-pale/50 text-brand-cyan'
+      : tone === 'teal'
+        ? 'bg-brand-teal/10 text-brand-teal'
+        : 'bg-amber-100 text-amber-700';
+  const glow =
+    tone === 'cyan'
+      ? 'bg-brand-cyan/15'
+      : tone === 'teal'
+        ? 'bg-brand-teal/15'
+        : 'bg-amber-300/20';
+  return (
+    <div
+      className={cn(
+        'group relative overflow-hidden rounded-2xl border bg-white p-4 transition motion-safe:animate-fade-up hover:-translate-y-0.5',
+        ring,
+      )}
+      style={{ animationDelay: `${delay}ms` }}
+    >
+      <TrianglesAccent
+        position="top-right"
+        size={110}
+        tone={tone === 'amber' ? 'cyan' : tone}
+        density="soft"
+        className="opacity-35"
+      />
+      <span
+        aria-hidden
+        className={cn(
+          'pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full blur-2xl opacity-0 transition-opacity duration-500 group-hover:opacity-100',
+          glow,
+        )}
+      />
+      <div className="relative flex items-start gap-3">
+        <span className={cn('grid h-9 w-9 shrink-0 place-items-center rounded-xl', iconCls)}>
+          <Icon size={16} />
+        </span>
+        <div className="min-w-0">
+          <p className="kicker text-brand-muted">{label}</p>
+          <p className="mt-0.5 font-display text-xl font-bold leading-none text-brand-ink">
+            {value}
+          </p>
+          {hint && <p className="mt-1 text-xs text-brand-muted">{hint}</p>}
+        </div>
+      </div>
     </div>
   );
 }
 
-function TabGeneral({ admin }: { admin: AdministracionRow }) {
+// ---------------- tab content ----------------
+
+type PatchFn = <K extends keyof AdministracionRow>(
+  field: K,
+  value: AdministracionRow[K] | null,
+) => Promise<void>;
+
+function DataRow({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="grid grid-cols-1 items-center gap-1 border-b border-slate-100 py-3 sm:grid-cols-3">
+      <dt className="kicker">{label}</dt>
+      <dd className="text-sm text-brand-ink sm:col-span-2">{children}</dd>
+    </div>
+  );
+}
+
+function TabGeneral({
+  admin,
+  onPatch,
+}: {
+  admin: AdministracionRow;
+  onPatch: PatchFn;
+}) {
   return (
     <dl>
-      <DataRow
-        label="Responsable"
-        value={
-          [admin.responsable_nombre, admin.responsable_apellido]
+      <DataRow label="Responsable nombre">
+        <InlineEdit
+          value={admin.responsable_nombre}
+          placeholder="Sin asignar"
+          onSave={(v) => onPatch('responsable_nombre', v)}
+        />
+      </DataRow>
+      <DataRow label="Responsable apellido">
+        <InlineEdit
+          value={admin.responsable_apellido}
+          placeholder="Sin asignar"
+          onSave={(v) => onPatch('responsable_apellido', v)}
+        />
+      </DataRow>
+      <DataRow label="Email">
+        {admin.email ? (
+          <CopyButton value={admin.email} label="Email" />
+        ) : (
+          <InlineEdit
+            value={admin.email}
+            placeholder="agregar email"
+            type="email"
+            onSave={(v) => onPatch('email', v)}
+          />
+        )}
+      </DataRow>
+      <DataRow label="Teléfono">
+        {admin.telefono ? (
+          <CopyButton value={admin.telefono} label="Teléfono" tabular />
+        ) : (
+          <InlineEdit
+            value={admin.telefono}
+            placeholder="agregar teléfono"
+            type="tel"
+            onSave={(v) => onPatch('telefono', v)}
+          />
+        )}
+      </DataRow>
+      <DataRow label="WhatsApp">
+        {admin.whatsapp ? (
+          <CopyButton value={admin.whatsapp} label="WhatsApp" tabular />
+        ) : (
+          <InlineEdit
+            value={admin.whatsapp}
+            placeholder="agregar WhatsApp"
+            type="tel"
+            onSave={(v) => onPatch('whatsapp', v)}
+          />
+        )}
+      </DataRow>
+      <DataRow label="Dirección">
+        <InlineEdit
+          value={admin.direccion}
+          placeholder="agregar dirección"
+          onSave={(v) => onPatch('direccion', v)}
+        />
+      </DataRow>
+      <DataRow label="Localidad / Provincia">
+        <span className="text-sm">
+          {[admin.localidad, admin.provincia, admin.codigo_postal]
             .filter(Boolean)
-            .join(' ') || null
-        }
-      />
-      <DataRow label="Email" value={admin.email} />
-      <DataRow label="Teléfono" value={admin.telefono} />
-      <DataRow label="WhatsApp" value={admin.whatsapp} />
-      <DataRow
-        label="Dirección"
-        value={
-          [admin.direccion, admin.localidad, admin.provincia, admin.codigo_postal]
-            .filter(Boolean)
-            .join(', ') || null
-        }
-      />
-      <DataRow label="Origen / Canal" value={admin.origen} />
-      <DataRow label="Convenio" value={admin.convenio} />
-      <DataRow
-        label="Descuento"
-        value={admin.descuento_porc > 0 ? `${admin.descuento_porc}%` : null}
-      />
-      <DataRow label="Observaciones" value={<pre className="whitespace-pre-wrap font-sans">{admin.observaciones ?? ''}</pre>} />
+            .join(', ') || <span className="text-brand-muted">—</span>}
+        </span>
+      </DataRow>
+      <DataRow label="Origen / Canal">
+        <InlineEdit
+          value={admin.origen}
+          placeholder="referencia, web, partner…"
+          onSave={(v) => onPatch('origen', v)}
+        />
+      </DataRow>
+      <DataRow label="Convenio">
+        <InlineEdit
+          value={admin.convenio}
+          placeholder="sin convenio"
+          onSave={(v) => onPatch('convenio', v)}
+        />
+      </DataRow>
+      <DataRow label="Descuento">
+        {admin.descuento_porc > 0 ? (
+          <span className="tabular font-medium text-emerald-700">
+            {admin.descuento_porc}%
+          </span>
+        ) : (
+          <span className="text-brand-muted">—</span>
+        )}
+      </DataRow>
+      <DataRow label="Observaciones">
+        <InlineEdit
+          value={admin.observaciones}
+          placeholder="Notas internas, contexto, próximos pasos…"
+          multiline
+          onSave={(v) => onPatch('observaciones', v)}
+        />
+      </DataRow>
     </dl>
   );
 }
 
-function TabFiscal({ admin }: { admin: AdministracionRow }) {
+function TabFiscal({
+  admin,
+  onPatch,
+}: {
+  admin: AdministracionRow;
+  onPatch: PatchFn;
+}) {
   return (
     <dl>
-      <DataRow label="CUIT" value={admin.cuit} />
-      <DataRow label="Condición IVA" value={admin.condicion_iva?.replaceAll('_', ' ')} />
-      <DataRow label="Domicilio fiscal" value={admin.domicilio_fiscal} />
+      <DataRow label="CUIT">
+        {admin.cuit ? (
+          <CopyButton value={admin.cuit} label="CUIT" tabular />
+        ) : (
+          <InlineEdit
+            value={admin.cuit}
+            placeholder="agregar CUIT"
+            onSave={(v) => onPatch('cuit', v)}
+          />
+        )}
+      </DataRow>
+      <DataRow label="Condición IVA">
+        <span>{admin.condicion_iva?.replaceAll('_', ' ') ?? <span className="text-brand-muted">—</span>}</span>
+      </DataRow>
+      <DataRow label="Domicilio fiscal">
+        <InlineEdit
+          value={admin.domicilio_fiscal}
+          placeholder="agregar domicilio fiscal"
+          onSave={(v) => onPatch('domicilio_fiscal', v)}
+        />
+      </DataRow>
     </dl>
   );
 }
@@ -311,28 +672,29 @@ function TabRegistral({ admin }: { admin: AdministracionRow }) {
           </p>
         </div>
         <dl>
-          <DataRow label="Matrícula" value={admin.matricula_rpac} />
-          <DataRow label="Fecha de matriculación" value={admin.matricula_rpac_fecha} />
-          <DataRow
-            label="Vencimiento"
-            value={
-              admin.matricula_rpac_vencimiento ? (
-                <span
-                  className={cn(
-                    'inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-semibold',
-                    vencidoOClose
-                      ? 'bg-red-50 text-red-700'
-                      : 'bg-emerald-50 text-emerald-700',
-                  )}
-                >
-                  {vencidoOClose ? <AlertCircle size={12} /> : <CheckCircle2 size={12} />}
-                  {admin.matricula_rpac_vencimiento}
-                  {diasParaVencer !== null &&
-                    ` · ${diasParaVencer < 0 ? `vencida hace ${-diasParaVencer} d` : `en ${diasParaVencer} días`}`}
-                </span>
-              ) : null
-            }
-          />
+          <DataRow label="Matrícula">
+            <span>{admin.matricula_rpac ?? <span className="text-brand-muted">—</span>}</span>
+          </DataRow>
+          <DataRow label="Fecha de matriculación">
+            <span>{admin.matricula_rpac_fecha ?? <span className="text-brand-muted">—</span>}</span>
+          </DataRow>
+          <DataRow label="Vencimiento">
+            {admin.matricula_rpac_vencimiento ? (
+              <span
+                className={cn(
+                  'inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-semibold',
+                  vencidoOClose ? 'bg-red-50 text-red-700' : 'bg-emerald-50 text-emerald-700',
+                )}
+              >
+                {vencidoOClose ? <AlertCircle size={12} /> : <CheckCircle2 size={12} />}
+                {admin.matricula_rpac_vencimiento}
+                {diasParaVencer !== null &&
+                  ` · ${diasParaVencer < 0 ? `vencida hace ${-diasParaVencer} d` : `en ${diasParaVencer} días`}`}
+              </span>
+            ) : (
+              <span className="text-brand-muted">—</span>
+            )}
+          </DataRow>
         </dl>
       </div>
       <div className="rounded-xl border border-slate-200 bg-white p-5">
@@ -343,9 +705,15 @@ function TabRegistral({ admin }: { admin: AdministracionRow }) {
           </p>
         </div>
         <dl>
-          <DataRow label="Matrícula" value={admin.matricula_rpa} />
-          <DataRow label="Fecha" value={admin.matricula_rpa_fecha} />
-          <DataRow label="Vencimiento" value={admin.matricula_rpa_vencimiento} />
+          <DataRow label="Matrícula">
+            <span>{admin.matricula_rpa ?? <span className="text-brand-muted">—</span>}</span>
+          </DataRow>
+          <DataRow label="Fecha">
+            <span>{admin.matricula_rpa_fecha ?? <span className="text-brand-muted">—</span>}</span>
+          </DataRow>
+          <DataRow label="Vencimiento">
+            <span>{admin.matricula_rpa_vencimiento ?? <span className="text-brand-muted">—</span>}</span>
+          </DataRow>
         </dl>
       </div>
     </div>
@@ -420,12 +788,14 @@ function TabConsorcios({
                   <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] uppercase tracking-wider">
                     {c.tipo_documento === 'cuit' ? 'CUIT' : 'DNI'}
                   </span>{' '}
-                  {c.numero_documento}
+                  <CopyButton
+                    value={c.numero_documento}
+                    label={c.tipo_documento === 'cuit' ? 'CUIT' : 'DNI'}
+                    tabular
+                  />
                 </td>
                 <td className="px-4 py-3 text-right tabular">{c.unidades_funcionales}</td>
-                <td className="px-4 py-3 text-right tabular">
-                  {formatMoney(c.monto_abono)}
-                </td>
+                <td className="px-4 py-3 text-right tabular">{formatMoney(c.monto_abono)}</td>
                 <td className="px-4 py-3 text-xs text-brand-muted">
                   {c.facturar_con_cuit_administracion ? 'Administración' : 'Consorcio'}
                 </td>

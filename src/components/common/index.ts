@@ -7,3 +7,5 @@ export { Tabs, type TabItem } from './Tabs';
 export { Skeleton, SkeletonText, SkeletonRow } from './Skeleton';
 export { AnimatedNumber } from './AnimatedNumber';
 export { Stepper, StepPanel, type Step } from './Stepper';
+export { CopyButton } from './CopyButton';
+export { InlineEdit } from './InlineEdit';

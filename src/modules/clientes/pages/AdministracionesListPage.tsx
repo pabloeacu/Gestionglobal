@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { toast } from '@/lib/toast';
 import {
   Plus,
@@ -17,7 +17,9 @@ import {
   AnimatedNumber,
 } from '@/components/common';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
+import { IllustratedEmpty } from '@/components/brand/IllustratedEmpty';
 import { AdministracionFormDrawer } from '../components/AdministracionFormDrawer';
+import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
 import {
   listAdministraciones,
   type AdministracionListItem,
@@ -41,6 +43,17 @@ export function AdministracionesListPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Abrir el drawer si vienen desde el command palette con ?new=1
+  useEffect(() => {
+    if (searchParams.get('new') === '1') {
+      setDrawerOpen(true);
+      searchParams.delete('new');
+      setSearchParams(searchParams, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   async function load() {
     setLoading(true);
@@ -67,6 +80,11 @@ export function AdministracionesListPage() {
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search]);
+
+  // Realtime: si alguien crea/edita en otra sesión, refrescamos.
+  useRealtimeRefresh(['administraciones', 'consorcios'], () => {
+    void load();
+  });
 
   const kpis = useMemo(() => {
     const activos = rows.filter((r) => r.estado === 'activo').length;
@@ -289,18 +307,22 @@ function Kpi({
 
 function EmptyState({ onCreate }: { onCreate: () => void }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-3 p-12 text-center">
-      <span className="grid h-14 w-14 place-items-center rounded-2xl bg-brand-cyan-pale/40 text-brand-cyan">
-        <Building2 size={24} />
-      </span>
-      <h3 className="font-display text-xl font-bold">Todavía no hay administraciones</h3>
-      <p className="max-w-sm text-sm text-brand-muted">
-        Las administraciones son tus clientes contractuales. Cada una agrupa los
-        consorcios y centraliza facturación, trámites y portal.
-      </p>
-      <Button onClick={onCreate} className="mt-1">
-        <Plus size={15} /> Crear la primera
-      </Button>
-    </div>
+    <IllustratedEmpty
+      illustration="consorcio"
+      title="Todavía no hay administraciones"
+      description={
+        <>
+          Cada administración es tu cliente contractual: agrupa los consorcios,
+          centraliza facturación y trámites, y dispara las plantillas de email.
+          <br />
+          Arrancá creando la primera y después le sumás los edificios.
+        </>
+      }
+      action={
+        <Button onClick={onCreate}>
+          <Plus size={15} /> Crear la primera
+        </Button>
+      }
+    />
   );
 }

@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { NavLink, Outlet, Link, useLocation } from 'react-router-dom';
+import { useMemo, useState } from 'react';
+import { NavLink, Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
   Users,
@@ -16,10 +16,17 @@ import {
   X,
   Volume2,
   VolumeX,
+  Search,
+  Plus,
+  Command as CommandIcon,
 } from 'lucide-react';
 import { BrandMark } from '@/components/brand/BrandMark';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSounds } from '@/contexts/SoundContext';
+import {
+  useCommandPalette,
+  useRegisterCommand,
+} from '@/contexts/CommandPaletteContext';
 import { cn } from '@/lib/cn';
 
 interface NavItem {
@@ -47,6 +54,47 @@ export function GerenciaLayout() {
   const { user, signOut } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const palette = useCommandPalette();
+
+  // Comandos base del palette (re-creados solo si cambia navigate)
+  const cmdInicio = useMemo(
+    () => ({
+      id: 'nav.inicio',
+      label: 'Ir a Inicio',
+      description: 'Atajos y resumen del panel',
+      group: 'navegar' as const,
+      icon: LayoutDashboard,
+      action: () => navigate('/gerencia'),
+    }),
+    [navigate],
+  );
+  const cmdClientes = useMemo(
+    () => ({
+      id: 'nav.clientes',
+      label: 'Ir a Clientes',
+      description: 'Administraciones y consorcios',
+      group: 'navegar' as const,
+      icon: Users,
+      action: () => navigate('/gerencia/clientes'),
+    }),
+    [navigate],
+  );
+  const cmdNuevaAdmin = useMemo(
+    () => ({
+      id: 'action.new-admin',
+      label: 'Nueva administración',
+      description: 'Crear un cliente desde cero',
+      group: 'acciones' as const,
+      icon: Plus,
+      action: () => navigate('/gerencia/clientes?new=1'),
+    }),
+    [navigate],
+  );
+
+  useRegisterCommand(cmdInicio);
+  useRegisterCommand(cmdClientes);
+  useRegisterCommand(cmdNuevaAdmin);
 
   const initials = (user?.fullName ?? user?.email ?? '?')
     .split(/\s+/)
@@ -111,6 +159,17 @@ export function GerenciaLayout() {
             </p>
           </div>
           <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => palette.open()}
+              className="hidden items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs text-brand-muted transition hover:border-brand-cyan hover:text-brand-ink sm:inline-flex"
+              title="Buscar en la plataforma (⌘ K)"
+            >
+              <Search size={13} /> Buscar
+              <kbd className="ml-1 inline-flex items-center gap-0.5 rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[10px] font-semibold text-brand-muted">
+                <CommandIcon size={9} />K
+              </kbd>
+            </button>
             <button
               type="button"
               onClick={() => void signOut()}
