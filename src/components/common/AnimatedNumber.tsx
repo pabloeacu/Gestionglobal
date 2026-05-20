@@ -48,6 +48,11 @@ export function AnimatedNumber({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value, durationMs]);
 
-  const text = format ? format(Math.round(display)) : String(Math.round(display));
+  const rounded = Math.round(display);
+  const text = format ? format(rounded) : DEFAULT_NF.format(rounded);
   return <span className={className}>{text}</span>;
 }
+
+// Formato por default: separadores de miles es-AR. Para casos especiales
+// (porcentajes, monedas, etc) pasar `format` explícito.
+const DEFAULT_NF = new Intl.NumberFormat('es-AR');

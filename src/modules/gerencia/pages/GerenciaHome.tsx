@@ -21,9 +21,9 @@ const QUICK = [
   {
     to: '/gerencia/facturacion',
     label: 'Facturación',
-    description: 'Comprobantes, lotes y ARCA',
+    description: 'Comprobantes tipo X · ARCA pronto',
     icon: FileText,
-    available: false,
+    available: true,
   },
   {
     to: '/gerencia/recupero',
