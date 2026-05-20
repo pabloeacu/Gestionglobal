@@ -20,6 +20,7 @@ import {
   Search,
   Plus,
   Command as CommandIcon,
+  UserRound,
 } from 'lucide-react';
 import { BrandMark } from '@/components/brand/BrandMark';
 import { useAuth } from '@/contexts/AuthContext';
@@ -285,21 +286,35 @@ function SidebarUser({
   return (
     <div className="border-t border-slate-100 p-3">
       <div className="flex items-center gap-3 rounded-lg px-2 py-2">
-        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-brand-cyan text-sm font-bold text-white">
-          {initials}
-        </span>
-        <div className="min-w-0 flex-1 text-xs">
-          <p className="truncate font-semibold text-brand-ink">
-            {user?.fullName ?? user?.email}
-          </p>
-          <p className="truncate text-brand-muted">
-            {user?.role === 'gerente'
-              ? 'Gerente'
-              : user?.role === 'operador'
-                ? 'Operador'
-                : user?.role}
-          </p>
-        </div>
+        <Link
+          to="/gerencia/perfil"
+          className="flex min-w-0 flex-1 items-center gap-3 rounded-md py-1 transition hover:bg-slate-100"
+          title="Mi perfil"
+        >
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-brand-cyan text-sm font-bold text-white">
+            {initials}
+          </span>
+          <div className="min-w-0 flex-1 text-xs">
+            <p className="truncate font-semibold text-brand-ink">
+              {user?.fullName ?? user?.email}
+            </p>
+            <p className="truncate text-brand-muted">
+              {user?.role === 'gerente'
+                ? 'Gerente'
+                : user?.role === 'operador'
+                  ? 'Operador'
+                  : user?.role}
+            </p>
+          </div>
+        </Link>
+        <Link
+          to="/gerencia/perfil"
+          className="rounded-md p-2 text-brand-muted transition hover:bg-slate-100 hover:text-brand-ink"
+          aria-label="Mi perfil"
+          title="Mi perfil"
+        >
+          <UserRound size={15} />
+        </Link>
         <button
           type="button"
           onClick={() => {

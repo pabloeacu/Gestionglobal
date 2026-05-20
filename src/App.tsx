@@ -107,6 +107,7 @@ export function App() {
             <Route path="arca" element={<ArcaConfigPage />} />
             <Route path="arca/cola" element={<ArcaQueuePage />} />
           </Route>
+          <Route path="perfil" element={<PerfilPage />} />
         </Route>
 
         <Route

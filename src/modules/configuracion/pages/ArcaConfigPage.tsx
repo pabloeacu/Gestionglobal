@@ -15,7 +15,9 @@ import {
   RefreshCcw,
   FileText,
   Copy,
+  BookOpen,
 } from 'lucide-react';
+import { descargarTutorialArca } from '../lib/generateArcaTutorialPdf';
 import {
   Button,
   Field,
@@ -512,25 +514,56 @@ function AmbienteBadge({
   busy: boolean;
 }) {
   const isProd = ambiente === 'produccion';
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
+  async function onDownloadTutorial() {
+    setDownloadingPdf(true);
+    try {
+      await descargarTutorialArca();
+      toast.success('Tutorial descargado', {
+        description: 'Gestion-Global-Tutorial-ARCA.pdf',
+      });
+    } catch (e) {
+      toast.error('No pudimos generar el PDF', {
+        description: e instanceof Error ? e.message : String(e),
+      });
+    } finally {
+      setDownloadingPdf(false);
+    }
+  }
   return (
-    <div className="flex items-center gap-2">
-      <span
-        className={cn(
-          'inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wider',
-          isProd ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700',
-        )}
-      >
-        <ShieldCheck size={12} />
-        {isProd ? 'Producción' : 'Homologación'}
-        {listo && <CheckCircle2 size={12} />}
-      </span>
+    <div className="flex flex-col items-end gap-2">
+      <div className="flex items-center gap-2">
+        <span
+          className={cn(
+            'inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wider',
+            isProd ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700',
+          )}
+        >
+          <ShieldCheck size={12} />
+          {isProd ? 'Producción' : 'Homologación'}
+          {listo && <CheckCircle2 size={12} />}
+        </span>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => onChange(isProd ? 'homologacion' : 'produccion')}
+          className="rounded-md border border-slate-200 px-2 py-1 text-xs font-medium text-brand-muted hover:border-brand-cyan hover:text-brand-cyan disabled:opacity-50"
+        >
+          {busy ? <Loader2 size={11} className="animate-spin" /> : isProd ? 'Volver a homologación' : 'Cambiar...'}
+        </button>
+      </div>
       <button
         type="button"
-        disabled={busy}
-        onClick={() => onChange(isProd ? 'homologacion' : 'produccion')}
-        className="rounded-md border border-slate-200 px-2 py-1 text-xs font-medium text-brand-muted hover:border-brand-cyan hover:text-brand-cyan disabled:opacity-50"
+        onClick={onDownloadTutorial}
+        disabled={downloadingPdf}
+        className="inline-flex items-center gap-1.5 rounded-md border border-brand-cyan/30 bg-brand-cyan-pale/40 px-2.5 py-1 text-xs font-medium text-brand-cyan transition hover:bg-brand-cyan-pale/70 disabled:opacity-50"
       >
-        {busy ? <Loader2 size={11} className="animate-spin" /> : isProd ? 'Volver a homologación' : 'Cambiar...'}
+        {downloadingPdf ? (
+          <Loader2 size={11} className="animate-spin" />
+        ) : (
+          <BookOpen size={11} />
+        )}
+        Descargar tutorial PDF
       </button>
     </div>
   );
