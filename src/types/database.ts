@@ -183,6 +183,203 @@ export type Database = {
           },
         ]
       }
+      arca_anomalias: {
+        Row: {
+          created_at: string
+          detalle: Json
+          id: string
+          resuelto_at: string | null
+          resuelto_by: string | null
+          tipo: string
+        }
+        Insert: {
+          created_at?: string
+          detalle?: Json
+          id?: string
+          resuelto_at?: string | null
+          resuelto_by?: string | null
+          tipo: string
+        }
+        Update: {
+          created_at?: string
+          detalle?: Json
+          id?: string
+          resuelto_at?: string | null
+          resuelto_by?: string | null
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "arca_anomalias_resuelto_by_fkey"
+            columns: ["resuelto_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      arca_config: {
+        Row: {
+          ambiente: string
+          cert_alias: string | null
+          cert_b64: string | null
+          cert_subido_at: string | null
+          cert_valido_desde: string | null
+          cert_valido_hasta: string | null
+          created_at: string
+          csr_b64: string | null
+          csr_generado_at: string | null
+          id: number
+          key_b64: string | null
+          punto_venta_default: number
+          ultimo_test_at: string | null
+          ultimo_test_latencia_ms: number | null
+          ultimo_test_msg: string | null
+          ultimo_test_ok: boolean | null
+          updated_at: string
+        }
+        Insert: {
+          ambiente?: string
+          cert_alias?: string | null
+          cert_b64?: string | null
+          cert_subido_at?: string | null
+          cert_valido_desde?: string | null
+          cert_valido_hasta?: string | null
+          created_at?: string
+          csr_b64?: string | null
+          csr_generado_at?: string | null
+          id?: number
+          key_b64?: string | null
+          punto_venta_default?: number
+          ultimo_test_at?: string | null
+          ultimo_test_latencia_ms?: number | null
+          ultimo_test_msg?: string | null
+          ultimo_test_ok?: boolean | null
+          updated_at?: string
+        }
+        Update: {
+          ambiente?: string
+          cert_alias?: string | null
+          cert_b64?: string | null
+          cert_subido_at?: string | null
+          cert_valido_desde?: string | null
+          cert_valido_hasta?: string | null
+          created_at?: string
+          csr_b64?: string | null
+          csr_generado_at?: string | null
+          id?: number
+          key_b64?: string | null
+          punto_venta_default?: number
+          ultimo_test_at?: string | null
+          ultimo_test_latencia_ms?: number | null
+          ultimo_test_msg?: string | null
+          ultimo_test_ok?: boolean | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      arca_emision_queue: {
+        Row: {
+          attempt: number
+          cae: string | null
+          cae_vencimiento: string | null
+          comprobante_id: string
+          created_at: string
+          finished_at: string | null
+          id: string
+          last_error: string | null
+          max_attempts: number
+          request_xml: string | null
+          response_xml: string | null
+          scheduled_at: string
+          started_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          attempt?: number
+          cae?: string | null
+          cae_vencimiento?: string | null
+          comprobante_id: string
+          created_at?: string
+          finished_at?: string | null
+          id?: string
+          last_error?: string | null
+          max_attempts?: number
+          request_xml?: string | null
+          response_xml?: string | null
+          scheduled_at?: string
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          attempt?: number
+          cae?: string | null
+          cae_vencimiento?: string | null
+          comprobante_id?: string
+          created_at?: string
+          finished_at?: string | null
+          id?: string
+          last_error?: string | null
+          max_attempts?: number
+          request_xml?: string | null
+          response_xml?: string | null
+          scheduled_at?: string
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "arca_emision_queue_comprobante_id_fkey"
+            columns: ["comprobante_id"]
+            isOneToOne: false
+            referencedRelation: "comprobantes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "arca_emision_queue_comprobante_id_fkey"
+            columns: ["comprobante_id"]
+            isOneToOne: false
+            referencedRelation: "vw_comprobantes_para_avisar"
+            referencedColumns: ["comprobante_id"]
+          },
+        ]
+      }
+      arca_tokens: {
+        Row: {
+          ambiente: string
+          created_at: string
+          expires_at: string
+          id: string
+          obtained_at: string
+          service: string
+          sign: string
+          token: string
+        }
+        Insert: {
+          ambiente: string
+          created_at?: string
+          expires_at: string
+          id?: string
+          obtained_at?: string
+          service?: string
+          sign: string
+          token: string
+        }
+        Update: {
+          ambiente?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          obtained_at?: string
+          service?: string
+          sign?: string
+          token?: string
+        }
+        Relationships: []
+      }
       auditoria_cambios: {
         Row: {
           created_at: string
@@ -369,6 +566,49 @@ export type Database = {
         }
         Relationships: []
       }
+      comprobante_avisos_vencimiento: {
+        Row: {
+          comprobante_id: string
+          enviado_at: string
+          sent_email_id: string | null
+          umbral_dias: number
+        }
+        Insert: {
+          comprobante_id: string
+          enviado_at?: string
+          sent_email_id?: string | null
+          umbral_dias: number
+        }
+        Update: {
+          comprobante_id?: string
+          enviado_at?: string
+          sent_email_id?: string | null
+          umbral_dias?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comprobante_avisos_vencimiento_comprobante_id_fkey"
+            columns: ["comprobante_id"]
+            isOneToOne: false
+            referencedRelation: "comprobantes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comprobante_avisos_vencimiento_comprobante_id_fkey"
+            columns: ["comprobante_id"]
+            isOneToOne: false
+            referencedRelation: "vw_comprobantes_para_avisar"
+            referencedColumns: ["comprobante_id"]
+          },
+          {
+            foreignKeyName: "comprobante_avisos_vencimiento_sent_email_id_fkey"
+            columns: ["sent_email_id"]
+            isOneToOne: false
+            referencedRelation: "sent_emails"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       comprobantes: {
         Row: {
           administracion_id: string
@@ -537,6 +777,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "comprobantes"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comprobantes_comprobante_referencia_id_fkey"
+            columns: ["comprobante_referencia_id"]
+            isOneToOne: false
+            referencedRelation: "vw_comprobantes_para_avisar"
+            referencedColumns: ["comprobante_id"]
           },
           {
             foreignKeyName: "comprobantes_consorcio_id_fkey"
@@ -894,6 +1141,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "email_queue_comprobante_id_fkey"
+            columns: ["comprobante_id"]
+            isOneToOne: false
+            referencedRelation: "vw_comprobantes_para_avisar"
+            referencedColumns: ["comprobante_id"]
+          },
+          {
             foreignKeyName: "email_queue_consorcio_id_fkey"
             columns: ["consorcio_id"]
             isOneToOne: false
@@ -912,6 +1166,245 @@ export type Database = {
             columns: ["lote_id"]
             isOneToOne: false
             referencedRelation: "lotes_facturacion"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      formulario_adjuntos: {
+        Row: {
+          field_name: string
+          filename_original: string
+          id: string
+          mime_type: string | null
+          size_bytes: number | null
+          storage_path: string
+          submission_id: string
+          uploaded_at: string
+        }
+        Insert: {
+          field_name: string
+          filename_original: string
+          id?: string
+          mime_type?: string | null
+          size_bytes?: number | null
+          storage_path: string
+          submission_id: string
+          uploaded_at?: string
+        }
+        Update: {
+          field_name?: string
+          filename_original?: string
+          id?: string
+          mime_type?: string | null
+          size_bytes?: number | null
+          storage_path?: string
+          submission_id?: string
+          uploaded_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "formulario_adjuntos_submission_id_fkey"
+            columns: ["submission_id"]
+            isOneToOne: false
+            referencedRelation: "formulario_submissions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      formulario_submissions: {
+        Row: {
+          administracion_id: string | null
+          comprobante_id: string | null
+          created_at: string
+          cuit_detectado: string | null
+          datos: Json
+          email_contacto: string | null
+          estado: string
+          formulario_id: string
+          id: string
+          ip_address: unknown
+          nombre_contacto: string | null
+          observaciones_internas: string | null
+          origen: string
+          procesado_at: string | null
+          procesado_por: string | null
+          referer_url: string | null
+          telefono_contacto: string | null
+          tipo_persona: string | null
+          updated_at: string
+          user_agent: string | null
+        }
+        Insert: {
+          administracion_id?: string | null
+          comprobante_id?: string | null
+          created_at?: string
+          cuit_detectado?: string | null
+          datos: Json
+          email_contacto?: string | null
+          estado?: string
+          formulario_id: string
+          id?: string
+          ip_address?: unknown
+          nombre_contacto?: string | null
+          observaciones_internas?: string | null
+          origen?: string
+          procesado_at?: string | null
+          procesado_por?: string | null
+          referer_url?: string | null
+          telefono_contacto?: string | null
+          tipo_persona?: string | null
+          updated_at?: string
+          user_agent?: string | null
+        }
+        Update: {
+          administracion_id?: string | null
+          comprobante_id?: string | null
+          created_at?: string
+          cuit_detectado?: string | null
+          datos?: Json
+          email_contacto?: string | null
+          estado?: string
+          formulario_id?: string
+          id?: string
+          ip_address?: unknown
+          nombre_contacto?: string | null
+          observaciones_internas?: string | null
+          origen?: string
+          procesado_at?: string | null
+          procesado_por?: string | null
+          referer_url?: string | null
+          telefono_contacto?: string | null
+          tipo_persona?: string | null
+          updated_at?: string
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "formulario_submissions_administracion_id_fkey"
+            columns: ["administracion_id"]
+            isOneToOne: false
+            referencedRelation: "administraciones"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "formulario_submissions_comprobante_id_fkey"
+            columns: ["comprobante_id"]
+            isOneToOne: false
+            referencedRelation: "comprobantes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "formulario_submissions_comprobante_id_fkey"
+            columns: ["comprobante_id"]
+            isOneToOne: false
+            referencedRelation: "vw_comprobantes_para_avisar"
+            referencedColumns: ["comprobante_id"]
+          },
+          {
+            foreignKeyName: "formulario_submissions_formulario_id_fkey"
+            columns: ["formulario_id"]
+            isOneToOne: false
+            referencedRelation: "formularios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "formulario_submissions_procesado_por_fkey"
+            columns: ["procesado_por"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      formularios: {
+        Row: {
+          activo: boolean
+          categoria: string
+          cierre_at: string | null
+          created_at: string
+          created_by: string | null
+          descripcion: string | null
+          excel_modelo_url: string | null
+          exige_aceptacion_terminos: boolean
+          hero_imagen_url: string | null
+          id: string
+          mensaje_confirmacion: string
+          notificar_a_emails: string[]
+          orden: number
+          pdf_descargable_url: string | null
+          publico: boolean
+          redirect_url_after: string | null
+          schema: Json
+          servicio_id: string | null
+          slug: string
+          textos_legales: string | null
+          titulo: string
+          total_envios: number
+          updated_at: string
+        }
+        Insert: {
+          activo?: boolean
+          categoria: string
+          cierre_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          descripcion?: string | null
+          excel_modelo_url?: string | null
+          exige_aceptacion_terminos?: boolean
+          hero_imagen_url?: string | null
+          id?: string
+          mensaje_confirmacion?: string
+          notificar_a_emails?: string[]
+          orden?: number
+          pdf_descargable_url?: string | null
+          publico?: boolean
+          redirect_url_after?: string | null
+          schema: Json
+          servicio_id?: string | null
+          slug: string
+          textos_legales?: string | null
+          titulo: string
+          total_envios?: number
+          updated_at?: string
+        }
+        Update: {
+          activo?: boolean
+          categoria?: string
+          cierre_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          descripcion?: string | null
+          excel_modelo_url?: string | null
+          exige_aceptacion_terminos?: boolean
+          hero_imagen_url?: string | null
+          id?: string
+          mensaje_confirmacion?: string
+          notificar_a_emails?: string[]
+          orden?: number
+          pdf_descargable_url?: string | null
+          publico?: boolean
+          redirect_url_after?: string | null
+          schema?: Json
+          servicio_id?: string | null
+          slug?: string
+          textos_legales?: string | null
+          titulo?: string
+          total_envios?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "formularios_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "formularios_servicio_id_fkey"
+            columns: ["servicio_id"]
+            isOneToOne: false
+            referencedRelation: "servicios"
             referencedColumns: ["id"]
           },
         ]
@@ -972,6 +1465,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "comprobantes"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "items_comprobantes_comprobante_id_fkey"
+            columns: ["comprobante_id"]
+            isOneToOne: false
+            referencedRelation: "vw_comprobantes_para_avisar"
+            referencedColumns: ["comprobante_id"]
           },
           {
             foreignKeyName: "items_comprobantes_consorcio_id_fkey"
@@ -1101,6 +1601,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "movimiento_imputaciones_comprobante_id_fkey"
+            columns: ["comprobante_id"]
+            isOneToOne: false
+            referencedRelation: "vw_comprobantes_para_avisar"
+            referencedColumns: ["comprobante_id"]
+          },
+          {
             foreignKeyName: "movimiento_imputaciones_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
@@ -1224,6 +1731,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "comprobantes"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "movimientos_comprobante_id_fkey"
+            columns: ["comprobante_id"]
+            isOneToOne: false
+            referencedRelation: "vw_comprobantes_para_avisar"
+            referencedColumns: ["comprobante_id"]
           },
           {
             foreignKeyName: "movimientos_consorcio_id_fkey"
@@ -1426,6 +1940,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "sent_emails_comprobante_id_fkey"
+            columns: ["comprobante_id"]
+            isOneToOne: false
+            referencedRelation: "vw_comprobantes_para_avisar"
+            referencedColumns: ["comprobante_id"]
+          },
+          {
             foreignKeyName: "sent_emails_consorcio_id_fkey"
             columns: ["consorcio_id"]
             isOneToOne: false
@@ -1615,6 +2136,69 @@ export type Database = {
         }
         Relationships: []
       }
+      vw_comprobantes_para_avisar: {
+        Row: {
+          administracion_id: string | null
+          comprobante_id: string | null
+          consorcio_id: string | null
+          dias_para_vto: number | null
+          estado_cobranza: string | null
+          fecha: string | null
+          numero: number | null
+          punto_venta: number | null
+          receptor_razon_social: string | null
+          saldo_pendiente: number | null
+          tipo: string | null
+          total: number | null
+          vencimiento: string | null
+        }
+        Insert: {
+          administracion_id?: string | null
+          comprobante_id?: string | null
+          consorcio_id?: string | null
+          dias_para_vto?: never
+          estado_cobranza?: string | null
+          fecha?: string | null
+          numero?: number | null
+          punto_venta?: number | null
+          receptor_razon_social?: string | null
+          saldo_pendiente?: number | null
+          tipo?: string | null
+          total?: number | null
+          vencimiento?: string | null
+        }
+        Update: {
+          administracion_id?: string | null
+          comprobante_id?: string | null
+          consorcio_id?: string | null
+          dias_para_vto?: never
+          estado_cobranza?: string | null
+          fecha?: string | null
+          numero?: number | null
+          punto_venta?: number | null
+          receptor_razon_social?: string | null
+          saldo_pendiente?: number | null
+          tipo?: string | null
+          total?: number | null
+          vencimiento?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comprobantes_administracion_id_fkey"
+            columns: ["administracion_id"]
+            isOneToOne: false
+            referencedRelation: "administraciones"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comprobantes_consorcio_id_fkey"
+            columns: ["consorcio_id"]
+            isOneToOne: false
+            referencedRelation: "consorcios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       anular_comprobante: {
@@ -1652,6 +2236,10 @@ export type Database = {
         }
         Returns: string
       }
+      enqueue_emision_comprobante: {
+        Args: { p_comprobante_id: string }
+        Returns: string
+      }
       normalizar_nombre: { Args: { p: string }; Returns: string }
       peek_proximo_numero: {
         Args: { p_punto_venta: number; p_tipo: string }
@@ -1668,6 +2256,11 @@ export type Database = {
           p_referencia: string
         }
         Returns: string
+      }
+      reintentar_arca_job: { Args: { p_job_id: string }; Returns: string }
+      reset_arca_jobs_colgados: {
+        Args: { p_max_age_min?: number }
+        Returns: number
       }
     }
     Enums: {
