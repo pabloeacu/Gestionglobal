@@ -6,10 +6,16 @@ import {
   Search,
   Building2,
   ChevronRight,
-  Loader2,
   Filter,
 } from 'lucide-react';
-import { Button, Field, Input, Select } from '@/components/common';
+import {
+  Button,
+  Field,
+  Input,
+  Select,
+  SkeletonRow,
+  AnimatedNumber,
+} from '@/components/common';
 import { AdministracionFormDrawer } from '../components/AdministracionFormDrawer';
 import {
   listAdministraciones,
@@ -133,8 +139,10 @@ export function AdministracionesListPage() {
       {/* Table */}
       <section className="card-premium overflow-hidden">
         {loading ? (
-          <div className="flex items-center justify-center gap-2 p-10 text-sm text-brand-muted">
-            <Loader2 size={16} className="animate-spin" /> Cargando…
+          <div className="divide-y divide-slate-100">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <SkeletonRow key={i} cols={5} />
+            ))}
           </div>
         ) : error ? (
           <div className="p-8 text-center text-sm text-red-600">{error}</div>
@@ -154,19 +162,20 @@ export function AdministracionesListPage() {
                 </tr>
               </thead>
               <tbody>
-                {rows.map((r) => {
+                {rows.map((r, idx) => {
                   const badge = ESTADO_BADGES[r.estado as AdministracionEstado];
                   return (
                     <tr
                       key={r.id}
-                      className="border-b border-slate-100 transition hover:bg-brand-zebra/40"
+                      className="group border-b border-slate-100 transition-colors hover:bg-brand-zebra/40 motion-safe:animate-fade-up"
+                      style={{ animationDelay: `${Math.min(idx, 12) * 35}ms` }}
                     >
                       <td className="px-4 py-3">
                         <Link
                           to={`/gerencia/clientes/${r.id}`}
-                          className="flex items-center gap-3 font-medium text-brand-ink hover:text-brand-cyan"
+                          className="flex items-center gap-3 font-medium text-brand-ink transition group-hover:text-brand-cyan"
                         >
-                          <span className="grid h-9 w-9 place-items-center rounded-lg bg-brand-cyan-pale/40 text-brand-cyan">
+                          <span className="grid h-9 w-9 place-items-center rounded-lg bg-brand-cyan-pale/40 text-brand-cyan transition group-hover:scale-105 group-hover:bg-brand-cyan group-hover:text-white">
                             <Building2 size={16} />
                           </span>
                           <span className="min-w-0">
@@ -196,7 +205,7 @@ export function AdministracionesListPage() {
                       <td className="px-4 py-3">
                         <Link
                           to={`/gerencia/clientes/${r.id}`}
-                          className="text-brand-muted hover:text-brand-cyan"
+                          className="inline-flex text-brand-muted transition-transform group-hover:translate-x-1 group-hover:text-brand-cyan"
                           aria-label="Abrir ficha"
                         >
                           <ChevronRight size={16} />
@@ -227,20 +236,32 @@ function Kpi({
   tone,
 }: {
   label: string;
-  value: number | string;
+  value: number;
   hint?: string;
   tone?: 'cyan' | 'teal';
 }) {
   const ring =
     tone === 'cyan'
-      ? 'border-brand-cyan/30'
+      ? 'border-brand-cyan/30 hover:border-brand-cyan/60'
       : tone === 'teal'
-        ? 'border-brand-teal/30'
-        : 'border-slate-200';
+        ? 'border-brand-teal/30 hover:border-brand-teal/60'
+        : 'border-slate-200 hover:border-slate-300';
   return (
-    <div className={`rounded-2xl border ${ring} bg-white p-4`}>
+    <div
+      className={`group relative overflow-hidden rounded-2xl border ${ring} bg-white p-4 transition hover:-translate-y-0.5`}
+    >
+      {tone && (
+        <span
+          aria-hidden
+          className={`pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full blur-2xl transition-opacity duration-500 ${
+            tone === 'cyan' ? 'bg-brand-cyan/15' : 'bg-brand-teal/15'
+          } opacity-0 group-hover:opacity-100`}
+        />
+      )}
       <p className="kicker text-brand-muted">{label}</p>
-      <p className="mt-1 font-display text-2xl font-bold tabular text-brand-ink">{value}</p>
+      <p className="mt-1 font-display text-2xl font-bold tabular text-brand-ink">
+        <AnimatedNumber value={value} />
+      </p>
       {hint && <p className="text-xs text-brand-muted">{hint}</p>}
     </div>
   );

@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { BrandLoaderScreen } from '@/components/brand/BrandLoader';
 import { LandingPage } from '@/modules/public/pages/LandingPage';
 import { LoginPage } from '@/modules/auth/pages/LoginPage';
 import { GerenciaLayout } from '@/modules/gerencia/components/GerenciaLayout';
@@ -11,37 +12,31 @@ import { PortalHome } from '@/modules/portal/pages/PortalHome';
 
 type Role = 'gerente' | 'operador' | 'administrador';
 
-function FullScreen({ children }: { children: ReactNode }) {
-  return (
-    <div className="grid min-h-screen place-items-center text-sm text-brand-muted">
-      {children}
-    </div>
-  );
-}
-
 // Redirección por rol (P-AUTH-01). Sin sesión → landing pública.
 function RoleHomeOrLanding() {
   const { loading, user, profileMissing } = useAuth();
-  if (loading) return <FullScreen>Cargando…</FullScreen>;
+  if (loading) return <BrandLoaderScreen />;
   if (!user) {
     if (profileMissing) {
       return (
-        <FullScreen>
-          <div className="space-y-2 text-center">
-            <p className="font-semibold text-brand-ink">No encontramos tu perfil.</p>
-            <p>
-              Hablá con un gerente para que active tu acceso. Mientras tanto,
-              podés{' '}
+        <div className="grid min-h-screen place-items-center bg-white px-6 text-center">
+          <div className="max-w-sm space-y-3">
+            <p className="font-display text-xl font-bold text-brand-ink">
+              No encontramos tu perfil.
+            </p>
+            <p className="text-sm text-brand-muted">
+              Hablá con un gerente para activar tu acceso. Si recién te
+              registraste, podés{' '}
               <button
                 onClick={() => location.reload()}
-                className="underline hover:text-brand-cyan"
+                className="font-medium text-brand-cyan underline-offset-2 hover:underline"
               >
                 reintentar
               </button>
               .
             </p>
           </div>
-        </FullScreen>
+        </div>
       );
     }
     return <LandingPage />;
@@ -61,7 +56,7 @@ function Protected({
   children: ReactNode;
 }) {
   const { loading, user } = useAuth();
-  if (loading) return <FullScreen>Cargando…</FullScreen>;
+  if (loading) return <BrandLoaderScreen />;
   if (!user) return <Navigate to="/ingresar" replace />;
   if (!allow.includes(user.role)) return <Navigate to="/" replace />;
   return <>{children}</>;

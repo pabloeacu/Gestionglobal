@@ -4,7 +4,6 @@ import { toast } from 'sonner';
 import {
   ArrowLeft,
   Building2,
-  Loader2,
   Pencil,
   Plus,
   Building,
@@ -15,6 +14,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { Button, Tabs, useConfirm } from '@/components/common';
+import { BrandLoader } from '@/components/brand/BrandLoader';
 import { AdministracionFormDrawer } from '../components/AdministracionFormDrawer';
 import { ConsorcioFormDrawer } from '../components/ConsorcioFormDrawer';
 import {
@@ -93,8 +93,8 @@ export function AdministracionDetailPage() {
 
   if (loading && !admin) {
     return (
-      <div className="flex items-center justify-center gap-2 p-12 text-sm text-brand-muted">
-        <Loader2 size={16} className="animate-spin" /> Cargando ficha…
+      <div className="grid place-items-center p-16">
+        <BrandLoader size={56} label="Abriendo ficha" />
       </div>
     );
   }
