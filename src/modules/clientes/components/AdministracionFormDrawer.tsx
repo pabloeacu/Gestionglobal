@@ -1,7 +1,18 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { toast } from '@/lib/toast';
-import { Building2, Loader2, Save } from 'lucide-react';
-import { Drawer, Button, Field, Input, Select, Textarea } from '@/components/common';
+import { Building2, Save, ArrowLeft, ArrowRight, Loader2 } from 'lucide-react';
+import {
+  Drawer,
+  Button,
+  Field,
+  Input,
+  Select,
+  Textarea,
+  Stepper,
+  StepPanel,
+  type Step,
+} from '@/components/common';
+import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import {
   createAdministracion,
   updateAdministracion,
@@ -11,7 +22,6 @@ import {
 interface AdministracionFormDrawerProps {
   open: boolean;
   onClose: () => void;
-  /** Si viene, es edición; sino, alta. */
   editing?: AdministracionRow | null;
   onSaved?: (row: AdministracionRow) => void;
 }
@@ -21,23 +31,23 @@ type FormState = {
   nombre: string;
   responsable_nombre: string;
   responsable_apellido: string;
+  estado: 'prospecto' | 'activo' | 'suspendido' | 'baja';
   cuit: string;
   condicion_iva: '' | 'consumidor_final' | 'responsable_inscripto' | 'monotributo' | 'exento';
   domicilio_fiscal: string;
+  email: string;
+  telefono: string;
+  whatsapp: string;
   direccion: string;
   localidad: string;
   provincia: string;
   codigo_postal: string;
-  telefono: string;
-  whatsapp: string;
-  email: string;
   matricula_rpac: string;
   matricula_rpac_fecha: string;
   matricula_rpac_vencimiento: string;
   matricula_rpa: string;
   origen: string;
   convenio: string;
-  estado: 'prospecto' | 'activo' | 'suspendido' | 'baja';
   observaciones: string;
 };
 
@@ -46,23 +56,23 @@ const EMPTY: FormState = {
   nombre: '',
   responsable_nombre: '',
   responsable_apellido: '',
+  estado: 'activo',
   cuit: '',
   condicion_iva: '',
   domicilio_fiscal: '',
+  email: '',
+  telefono: '',
+  whatsapp: '',
   direccion: '',
   localidad: '',
   provincia: '',
   codigo_postal: '',
-  telefono: '',
-  whatsapp: '',
-  email: '',
   matricula_rpac: '',
   matricula_rpac_fecha: '',
   matricula_rpac_vencimiento: '',
   matricula_rpa: '',
   origen: '',
   convenio: '',
-  estado: 'activo',
   observaciones: '',
 };
 
@@ -72,26 +82,35 @@ function rowToForm(r: AdministracionRow): FormState {
     nombre: r.nombre,
     responsable_nombre: r.responsable_nombre ?? '',
     responsable_apellido: r.responsable_apellido ?? '',
+    estado: r.estado as FormState['estado'],
     cuit: r.cuit ?? '',
     condicion_iva: (r.condicion_iva as FormState['condicion_iva']) ?? '',
     domicilio_fiscal: r.domicilio_fiscal ?? '',
+    email: r.email ?? '',
+    telefono: r.telefono ?? '',
+    whatsapp: r.whatsapp ?? '',
     direccion: r.direccion ?? '',
     localidad: r.localidad ?? '',
     provincia: r.provincia ?? '',
     codigo_postal: r.codigo_postal ?? '',
-    telefono: r.telefono ?? '',
-    whatsapp: r.whatsapp ?? '',
-    email: r.email ?? '',
     matricula_rpac: r.matricula_rpac ?? '',
     matricula_rpac_fecha: r.matricula_rpac_fecha ?? '',
     matricula_rpac_vencimiento: r.matricula_rpac_vencimiento ?? '',
     matricula_rpa: r.matricula_rpa ?? '',
     origen: r.origen ?? '',
     convenio: r.convenio ?? '',
-    estado: r.estado as FormState['estado'],
     observaciones: r.observaciones ?? '',
   };
 }
+
+const STEPS: Step[] = [
+  { key: 'identidad', label: 'Identidad', description: 'Quién es' },
+  { key: 'fiscal', label: 'Fiscal', description: 'CUIT y condición' },
+  { key: 'contacto', label: 'Contacto', description: 'Bandejas y domicilio' },
+  { key: 'extra', label: 'Matrícula y comercial', description: 'RPAC, RPA y notas' },
+];
+
+type StepKey = (typeof STEPS)[number]['key'];
 
 export function AdministracionFormDrawer({
   open,
@@ -101,6 +120,7 @@ export function AdministracionFormDrawer({
 }: AdministracionFormDrawerProps) {
   const [form, setForm] = useState<FormState>(EMPTY);
   const [saving, setSaving] = useState(false);
+  const [step, setStep] = useState(0);
   const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>({});
 
   // P-FE-02: resetear form local on-open
@@ -108,6 +128,7 @@ export function AdministracionFormDrawer({
     if (open) {
       setForm(editing ? rowToForm(editing) : EMPTY);
       setErrors({});
+      setStep(0);
     }
   }, [open, editing?.id]);
 
@@ -116,19 +137,36 @@ export function AdministracionFormDrawer({
     if (errors[key]) setErrors((e) => ({ ...e, [key]: undefined }));
   }
 
-  function validate(): boolean {
-    const e: Partial<Record<keyof FormState, string>> = {};
-    if (!form.codigo.trim()) e.codigo = 'Requerido';
-    if (!form.nombre.trim()) e.nombre = 'Requerido';
-    if (form.cuit && !/^\d{11}$/.test(form.cuit)) e.cuit = 'Debe tener 11 dígitos numéricos';
-    if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) e.email = 'Email inválido';
-    setErrors(e);
-    return Object.keys(e).length === 0;
+  const stepErrors = useMemo(() => stepValidations(form), [form]);
+
+  function validateStep(idx: number): boolean {
+    const errs = stepErrors[idx] ?? {};
+    if (Object.keys(errs).length === 0) return true;
+    setErrors((prev) => ({ ...prev, ...errs }));
+    return false;
+  }
+
+  function validateAll(): boolean {
+    const all = stepErrors.reduce((acc, e) => ({ ...acc, ...e }), {});
+    setErrors(all);
+    return Object.keys(all).length === 0;
+  }
+
+  function next() {
+    if (validateStep(step) && step < STEPS.length - 1) setStep(step + 1);
+  }
+  function back() {
+    if (step > 0) setStep(step - 1);
   }
 
   async function onSubmit(ev: FormEvent) {
     ev.preventDefault();
-    if (!validate()) return;
+    if (!validateAll()) {
+      // Saltar al primer paso con error
+      const firstErrIdx = stepErrors.findIndex((e) => Object.keys(e).length > 0);
+      if (firstErrIdx >= 0) setStep(firstErrIdx);
+      return;
+    }
     setSaving(true);
     const payload = {
       codigo: form.codigo.trim(),
@@ -163,8 +201,9 @@ export function AdministracionFormDrawer({
     if (!res.ok) {
       toast.error(
         editing
-          ? `No pudimos actualizar la administración: ${res.error.message}`
-          : `No pudimos crear la administración: ${res.error.message}`,
+          ? 'No pudimos actualizar la administración'
+          : 'No pudimos crear la administración',
+        { description: res.error.message },
       );
       return;
     }
@@ -175,229 +214,342 @@ export function AdministracionFormDrawer({
     onClose();
   }
 
+  // Marcar steps con error visible (rojo en stepper)
+  const stepsWithStatus: Step[] = STEPS.map((s, i) => ({
+    ...s,
+    invalid: i !== step && Object.keys(stepErrors[i] ?? {}).length > 0
+      && Object.keys(stepErrors[i] ?? {}).some((k) => errors[k as keyof FormState]),
+  }));
+
+  const isLast = step === STEPS.length - 1;
+  const stepKey: StepKey = STEPS[step]?.key as StepKey;
+
   return (
     <Drawer
       open={open}
       onClose={onClose}
-      width={720}
+      width={920}
       kicker={editing ? 'Editar' : 'Nueva administración'}
       title={editing ? editing.nombre : 'Alta de administración'}
-      description="Datos comerciales, fiscales y registrales. Podés completar la matrícula RPAC y los emails después."
+      description="Cargá los datos en 4 pasos. Podés saltear lo que no tengas todavía y completarlo después."
       icon={<Building2 size={20} />}
       footer={
-        <>
-          <Button variant="secondary" onClick={onClose} disabled={saving}>
-            Cancelar
-          </Button>
-          <Button type="submit" form="admin-form" loading={saving}>
-            <Save size={15} /> Guardar
-          </Button>
-        </>
+        <div className="flex w-full items-center justify-between gap-3">
+          <div className="text-xs text-brand-muted">
+            Paso {step + 1} de {STEPS.length}
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="secondary" onClick={onClose} disabled={saving}>
+              Cancelar
+            </Button>
+            {step > 0 && (
+              <Button variant="secondary" onClick={back} disabled={saving}>
+                <ArrowLeft size={14} /> Atrás
+              </Button>
+            )}
+            {!isLast ? (
+              <Button onClick={next} disabled={saving}>
+                Siguiente <ArrowRight size={14} />
+              </Button>
+            ) : (
+              <Button type="submit" form="admin-form" loading={saving}>
+                <Save size={15} /> Guardar
+              </Button>
+            )}
+          </div>
+        </div>
       }
     >
-      <form id="admin-form" onSubmit={onSubmit} className="space-y-7">
-        <fieldset className="space-y-4">
-          <p className="kicker text-brand-cyan">Identificación</p>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Código interno" required error={errors.codigo}>
-              <Input
-                value={form.codigo}
-                onChange={(e) => setField('codigo', e.target.value)}
-                placeholder="ADM-001"
+      <form id="admin-form" onSubmit={onSubmit} className="relative">
+        {/* Decoración sutil del fondo del drawer */}
+        <TrianglesAccent
+          position="top-right"
+          size={170}
+          tone="cyan"
+          density="soft"
+          className="opacity-50"
+        />
+        <TrianglesAccent
+          position="bottom-left"
+          size={140}
+          tone="teal"
+          density="soft"
+          className="opacity-40"
+        />
+
+        <div className="relative">
+          <div className="mb-7">
+            <Stepper steps={stepsWithStatus} current={step} onJump={setStep} />
+          </div>
+
+          {stepKey === 'identidad' && (
+            <StepPanel
+              stepKey="identidad"
+              title="Identificación"
+              subtitle="Cómo aparece en el sistema y quién es el responsable."
+            >
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="Código interno" required error={errors.codigo}>
+                  <Input
+                    value={form.codigo}
+                    onChange={(e) => setField('codigo', e.target.value)}
+                    placeholder="ADM-001"
+                    autoFocus
+                    required
+                  />
+                </Field>
+                <Field label="Estado">
+                  <Select
+                    value={form.estado}
+                    onChange={(e) =>
+                      setField('estado', e.target.value as FormState['estado'])
+                    }
+                  >
+                    <option value="prospecto">Prospecto</option>
+                    <option value="activo">Activo</option>
+                    <option value="suspendido">Suspendido</option>
+                    <option value="baja">Baja</option>
+                  </Select>
+                </Field>
+              </div>
+              <Field
+                label="Razón social / Nombre comercial"
                 required
-              />
-            </Field>
-            <Field label="Estado">
-              <Select
-                value={form.estado}
-                onChange={(e) => setField('estado', e.target.value as FormState['estado'])}
+                error={errors.nombre}
               >
-                <option value="prospecto">Prospecto</option>
-                <option value="activo">Activo</option>
-                <option value="suspendido">Suspendido</option>
-                <option value="baja">Baja</option>
-              </Select>
-            </Field>
-          </div>
-          <Field label="Razón social / Nombre comercial" required error={errors.nombre}>
-            <Input
-              value={form.nombre}
-              onChange={(e) => setField('nombre', e.target.value)}
-              placeholder="Administración Sol y Luna"
-              required
-            />
-          </Field>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Responsable · Nombre">
-              <Input
-                value={form.responsable_nombre}
-                onChange={(e) => setField('responsable_nombre', e.target.value)}
-              />
-            </Field>
-            <Field label="Responsable · Apellido">
-              <Input
-                value={form.responsable_apellido}
-                onChange={(e) => setField('responsable_apellido', e.target.value)}
-              />
-            </Field>
-          </div>
-        </fieldset>
+                <Input
+                  value={form.nombre}
+                  onChange={(e) => setField('nombre', e.target.value)}
+                  placeholder="Administración Sol y Luna"
+                  required
+                />
+              </Field>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="Responsable · Nombre">
+                  <Input
+                    value={form.responsable_nombre}
+                    onChange={(e) =>
+                      setField('responsable_nombre', e.target.value)
+                    }
+                  />
+                </Field>
+                <Field label="Responsable · Apellido">
+                  <Input
+                    value={form.responsable_apellido}
+                    onChange={(e) =>
+                      setField('responsable_apellido', e.target.value)
+                    }
+                  />
+                </Field>
+              </div>
+            </StepPanel>
+          )}
 
-        <fieldset className="space-y-4">
-          <p className="kicker text-brand-cyan">Fiscal</p>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="CUIT" hint="11 dígitos sin guiones" error={errors.cuit}>
-              <Input
-                inputMode="numeric"
-                maxLength={11}
-                value={form.cuit}
-                onChange={(e) =>
-                  setField('cuit', e.target.value.replace(/\D/g, '').slice(0, 11))
-                }
-                placeholder="20123456786"
-              />
-            </Field>
-            <Field label="Condición frente a IVA">
-              <Select
-                value={form.condicion_iva}
-                onChange={(e) =>
-                  setField('condicion_iva', e.target.value as FormState['condicion_iva'])
-                }
+          {stepKey === 'fiscal' && (
+            <StepPanel
+              stepKey="fiscal"
+              title="Datos fiscales"
+              subtitle="CUIT y condición frente a IVA. Estos datos van al snapshot de cada comprobante."
+            >
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field
+                  label="CUIT"
+                  hint="11 dígitos sin guiones"
+                  error={errors.cuit}
+                >
+                  <Input
+                    inputMode="numeric"
+                    maxLength={11}
+                    value={form.cuit}
+                    onChange={(e) =>
+                      setField(
+                        'cuit',
+                        e.target.value.replace(/\D/g, '').slice(0, 11),
+                      )
+                    }
+                    placeholder="20123456786"
+                  />
+                </Field>
+                <Field label="Condición frente a IVA">
+                  <Select
+                    value={form.condicion_iva}
+                    onChange={(e) =>
+                      setField(
+                        'condicion_iva',
+                        e.target.value as FormState['condicion_iva'],
+                      )
+                    }
+                  >
+                    <option value="">— Sin definir —</option>
+                    <option value="consumidor_final">Consumidor final</option>
+                    <option value="responsable_inscripto">
+                      Responsable inscripto
+                    </option>
+                    <option value="monotributo">Monotributo</option>
+                    <option value="exento">Exento</option>
+                  </Select>
+                </Field>
+              </div>
+              <Field
+                label="Domicilio fiscal"
+                hint="El que figura en AFIP / ARCA"
               >
-                <option value="">— Sin definir —</option>
-                <option value="consumidor_final">Consumidor final</option>
-                <option value="responsable_inscripto">Responsable inscripto</option>
-                <option value="monotributo">Monotributo</option>
-                <option value="exento">Exento</option>
-              </Select>
-            </Field>
-          </div>
-          <Field label="Domicilio fiscal">
-            <Input
-              value={form.domicilio_fiscal}
-              onChange={(e) => setField('domicilio_fiscal', e.target.value)}
-            />
-          </Field>
-        </fieldset>
+                <Input
+                  value={form.domicilio_fiscal}
+                  onChange={(e) => setField('domicilio_fiscal', e.target.value)}
+                />
+              </Field>
+            </StepPanel>
+          )}
 
-        <fieldset className="space-y-4">
-          <p className="kicker text-brand-cyan">Contacto</p>
-          <Field label="Email" error={errors.email}>
-            <Input
-              type="email"
-              value={form.email}
-              onChange={(e) => setField('email', e.target.value)}
-              placeholder="contacto@administracion.com"
-            />
-          </Field>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Teléfono">
-              <Input
-                value={form.telefono}
-                onChange={(e) => setField('telefono', e.target.value)}
-              />
-            </Field>
-            <Field label="WhatsApp">
-              <Input
-                value={form.whatsapp}
-                onChange={(e) => setField('whatsapp', e.target.value)}
-              />
-            </Field>
-          </div>
-          <Field label="Dirección">
-            <Input
-              value={form.direccion}
-              onChange={(e) => setField('direccion', e.target.value)}
-            />
-          </Field>
-          <div className="grid gap-4 sm:grid-cols-3">
-            <Field label="Localidad">
-              <Input
-                value={form.localidad}
-                onChange={(e) => setField('localidad', e.target.value)}
-              />
-            </Field>
-            <Field label="Provincia">
-              <Input
-                value={form.provincia}
-                onChange={(e) => setField('provincia', e.target.value)}
-              />
-            </Field>
-            <Field label="CP">
-              <Input
-                value={form.codigo_postal}
-                onChange={(e) => setField('codigo_postal', e.target.value)}
-              />
-            </Field>
-          </div>
-        </fieldset>
+          {stepKey === 'contacto' && (
+            <StepPanel
+              stepKey="contacto"
+              title="Contacto"
+              subtitle="Bandejas y domicilio comercial. Los emails para facturación los cargás en la ficha."
+            >
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="Email" error={errors.email}>
+                  <Input
+                    type="email"
+                    value={form.email}
+                    onChange={(e) => setField('email', e.target.value)}
+                    placeholder="contacto@administracion.com"
+                  />
+                </Field>
+                <Field label="Teléfono">
+                  <Input
+                    value={form.telefono}
+                    onChange={(e) => setField('telefono', e.target.value)}
+                  />
+                </Field>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="WhatsApp">
+                  <Input
+                    value={form.whatsapp}
+                    onChange={(e) => setField('whatsapp', e.target.value)}
+                  />
+                </Field>
+                <Field label="Dirección">
+                  <Input
+                    value={form.direccion}
+                    onChange={(e) => setField('direccion', e.target.value)}
+                  />
+                </Field>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-3">
+                <Field label="Localidad">
+                  <Input
+                    value={form.localidad}
+                    onChange={(e) => setField('localidad', e.target.value)}
+                  />
+                </Field>
+                <Field label="Provincia">
+                  <Input
+                    value={form.provincia}
+                    onChange={(e) => setField('provincia', e.target.value)}
+                  />
+                </Field>
+                <Field label="CP">
+                  <Input
+                    value={form.codigo_postal}
+                    onChange={(e) => setField('codigo_postal', e.target.value)}
+                  />
+                </Field>
+              </div>
+            </StepPanel>
+          )}
 
-        <fieldset className="space-y-4">
-          <p className="kicker text-brand-cyan">Registral</p>
-          <Field label="Matrícula RPAC">
-            <Input
-              value={form.matricula_rpac}
-              onChange={(e) => setField('matricula_rpac', e.target.value)}
-              placeholder="Nº de matrícula"
-            />
-          </Field>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Fecha de matriculación">
-              <Input
-                type="date"
-                value={form.matricula_rpac_fecha}
-                onChange={(e) => setField('matricula_rpac_fecha', e.target.value)}
-              />
-            </Field>
-            <Field label="Vencimiento de matrícula">
-              <Input
-                type="date"
-                value={form.matricula_rpac_vencimiento}
-                onChange={(e) =>
-                  setField('matricula_rpac_vencimiento', e.target.value)
-                }
-              />
-            </Field>
-          </div>
-          <Field label="Matrícula RPA (CABA)">
-            <Input
-              value={form.matricula_rpa}
-              onChange={(e) => setField('matricula_rpa', e.target.value)}
-            />
-          </Field>
-        </fieldset>
-
-        <fieldset className="space-y-4">
-          <p className="kicker text-brand-cyan">Comercial</p>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Origen / Canal de adquisición" hint="Recomendación, Instagram, Cámara, etc.">
-              <Input
-                value={form.origen}
-                onChange={(e) => setField('origen', e.target.value)}
-              />
-            </Field>
-            <Field label="Convenio" hint="Si pertenece a CALP / CAMEAC u otro">
-              <Input
-                value={form.convenio}
-                onChange={(e) => setField('convenio', e.target.value)}
-              />
-            </Field>
-          </div>
-          <Field label="Observaciones">
-            <Textarea
-              value={form.observaciones}
-              onChange={(e) => setField('observaciones', e.target.value)}
-              rows={4}
-            />
-          </Field>
-        </fieldset>
+          {stepKey === 'extra' && (
+            <StepPanel
+              stepKey="extra"
+              title="Matrículas y notas"
+              subtitle="RPAC / RPA, canal por el que llegó y observaciones internas."
+            >
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="Matrícula RPAC">
+                  <Input
+                    value={form.matricula_rpac}
+                    onChange={(e) => setField('matricula_rpac', e.target.value)}
+                    placeholder="Nº de matrícula"
+                  />
+                </Field>
+                <Field label="Matrícula RPA · CABA">
+                  <Input
+                    value={form.matricula_rpa}
+                    onChange={(e) => setField('matricula_rpa', e.target.value)}
+                  />
+                </Field>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="Fecha de matriculación RPAC">
+                  <Input
+                    type="date"
+                    value={form.matricula_rpac_fecha}
+                    onChange={(e) =>
+                      setField('matricula_rpac_fecha', e.target.value)
+                    }
+                  />
+                </Field>
+                <Field label="Vencimiento RPAC">
+                  <Input
+                    type="date"
+                    value={form.matricula_rpac_vencimiento}
+                    onChange={(e) =>
+                      setField('matricula_rpac_vencimiento', e.target.value)
+                    }
+                  />
+                </Field>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field
+                  label="Origen / Canal"
+                  hint="Recomendación, Instagram, Cámara, etc."
+                >
+                  <Input
+                    value={form.origen}
+                    onChange={(e) => setField('origen', e.target.value)}
+                  />
+                </Field>
+                <Field label="Convenio" hint="CALP, CAMEAC, etc.">
+                  <Input
+                    value={form.convenio}
+                    onChange={(e) => setField('convenio', e.target.value)}
+                  />
+                </Field>
+              </div>
+              <Field label="Observaciones internas">
+                <Textarea
+                  rows={3}
+                  value={form.observaciones}
+                  onChange={(e) => setField('observaciones', e.target.value)}
+                />
+              </Field>
+            </StepPanel>
+          )}
+        </div>
 
         {saving && (
-          <p className="flex items-center gap-2 text-xs text-brand-muted">
+          <p className="mt-6 flex items-center gap-2 text-xs text-brand-muted">
             <Loader2 size={14} className="animate-spin" /> Guardando…
           </p>
         )}
       </form>
     </Drawer>
   );
+}
+
+// ---------------- validation per step ----------------
+function stepValidations(
+  form: FormState,
+): Array<Partial<Record<keyof FormState, string>>> {
+  const out: Array<Partial<Record<keyof FormState, string>>> = [{}, {}, {}, {}];
+  if (!form.codigo.trim()) out[0]!.codigo = 'Requerido';
+  if (!form.nombre.trim()) out[0]!.nombre = 'Requerido';
+  if (form.cuit && !/^\d{11}$/.test(form.cuit))
+    out[1]!.cuit = 'Debe tener 11 dígitos numéricos';
+  if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))
+    out[2]!.email = 'Email inválido';
+  return out;
 }

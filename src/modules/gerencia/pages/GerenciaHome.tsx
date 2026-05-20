@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Users, Briefcase, FileText, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 
 const QUICK = [
   {
@@ -56,12 +57,19 @@ export function GerenciaHome() {
               <Link
                 key={to}
                 to={to}
-                className="group flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-5 transition hover:-translate-y-0.5 hover:border-brand-cyan/50 hover:shadow-[0_18px_40px_-24px_rgba(0,158,202,0.4)]"
+                className="group relative flex items-center gap-4 overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 transition hover:-translate-y-0.5 hover:border-brand-cyan/50 hover:shadow-[0_18px_40px_-24px_rgba(0,158,202,0.4)]"
               >
-                <span className="grid h-11 w-11 place-items-center rounded-xl bg-brand-cyan-pale/40 text-brand-cyan transition group-hover:bg-brand-cyan group-hover:text-white">
+                <TrianglesAccent
+                  position="top-right"
+                  size={130}
+                  tone="cyan"
+                  density="soft"
+                  className="opacity-40 transition-opacity group-hover:opacity-70"
+                />
+                <span className="relative grid h-11 w-11 place-items-center rounded-xl bg-brand-cyan-pale/40 text-brand-cyan transition group-hover:bg-brand-cyan group-hover:text-white">
                   <Icon size={20} />
                 </span>
-                <div>
+                <div className="relative">
                   <p className="font-display text-base font-bold text-brand-ink">
                     {label}
                   </p>

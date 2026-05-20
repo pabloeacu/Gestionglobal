@@ -16,6 +16,7 @@ import {
   SkeletonRow,
   AnimatedNumber,
 } from '@/components/common';
+import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import { AdministracionFormDrawer } from '../components/AdministracionFormDrawer';
 import {
   listAdministraciones,
@@ -137,7 +138,15 @@ export function AdministracionesListPage() {
       </section>
 
       {/* Table */}
-      <section className="card-premium overflow-hidden">
+      <section className="card-premium relative overflow-hidden">
+        <TrianglesAccent
+          position="top-right"
+          size={140}
+          tone="cyan"
+          density="soft"
+          className="opacity-25"
+        />
+        <div className="relative">
         {loading ? (
           <div className="divide-y divide-slate-100">
             {Array.from({ length: 5 }).map((_, i) => (
@@ -218,6 +227,7 @@ export function AdministracionesListPage() {
             </table>
           </div>
         )}
+        </div>
       </section>
 
       <AdministracionFormDrawer
@@ -250,6 +260,14 @@ function Kpi({
     <div
       className={`group relative overflow-hidden rounded-2xl border ${ring} bg-white p-4 transition hover:-translate-y-0.5`}
     >
+      {/* Marca de agua de triángulos en la esquina */}
+      <TrianglesAccent
+        position="top-right"
+        size={120}
+        tone={tone ?? 'cyan'}
+        density="soft"
+        className="opacity-40"
+      />
       {tone && (
         <span
           aria-hidden
@@ -258,11 +276,13 @@ function Kpi({
           } opacity-0 group-hover:opacity-100`}
         />
       )}
-      <p className="kicker text-brand-muted">{label}</p>
-      <p className="mt-1 font-display text-2xl font-bold tabular text-brand-ink">
-        <AnimatedNumber value={value} />
-      </p>
-      {hint && <p className="text-xs text-brand-muted">{hint}</p>}
+      <div className="relative">
+        <p className="kicker text-brand-muted">{label}</p>
+        <p className="mt-1 font-display text-2xl font-bold tabular text-brand-ink">
+          <AnimatedNumber value={value} />
+        </p>
+        {hint && <p className="text-xs text-brand-muted">{hint}</p>}
+      </div>
     </div>
   );
 }

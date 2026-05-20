@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { Button, Tabs, useConfirm } from '@/components/common';
 import { BrandLoader } from '@/components/brand/BrandLoader';
+import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import { AdministracionFormDrawer } from '../components/AdministracionFormDrawer';
 import { ConsorcioFormDrawer } from '../components/ConsorcioFormDrawer';
 import {
@@ -177,7 +178,22 @@ export function AdministracionDetailPage() {
         onChange={(k) => setTab(k as TabKey)}
       />
 
-      <div className="card-premium p-6">
+      <div className="card-premium relative overflow-hidden p-6">
+        <TrianglesAccent
+          position="top-right"
+          size={180}
+          tone="cyan"
+          density="soft"
+          className="opacity-30"
+        />
+        <TrianglesAccent
+          position="bottom-left"
+          size={140}
+          tone="teal"
+          density="soft"
+          className="opacity-25"
+        />
+        <div className="relative">
         {tab === 'general' && <TabGeneral admin={admin} />}
         {tab === 'fiscal' && <TabFiscal admin={admin} />}
         {tab === 'registral' && <TabRegistral admin={admin} />}
@@ -201,6 +217,7 @@ export function AdministracionDetailPage() {
           />
         )}
         {tab === 'emails' && <TabEmailsPlaceholder />}
+        </div>
       </div>
 
       <AdministracionFormDrawer
