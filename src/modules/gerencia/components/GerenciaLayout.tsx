@@ -12,24 +12,20 @@ import {
   BarChart3,
   Settings,
   Inbox,
-  LogOut,
   Menu,
   X,
-  Volume2,
-  VolumeX,
   Search,
   Plus,
   Command as CommandIcon,
-  UserRound,
 } from 'lucide-react';
 import { BrandMark } from '@/components/brand/BrandMark';
 import { useAuth } from '@/contexts/AuthContext';
-import { useSounds } from '@/contexts/SoundContext';
 import {
   useCommandPalette,
   useRegisterCommand,
 } from '@/contexts/CommandPaletteContext';
 import { cn } from '@/lib/cn';
+import { UserMenu } from './UserMenu';
 
 interface NavItem {
   to: string;
@@ -54,7 +50,7 @@ const NAV: NavItem[] = [
 ];
 
 export function GerenciaLayout() {
-  const { user, signOut } = useAuth();
+  const { user } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
@@ -124,14 +120,6 @@ export function GerenciaLayout() {
   useRegisterCommand(cmdNuevaAdmin);
   useRegisterCommand(cmdNuevoComprobante);
 
-  const initials = (user?.fullName ?? user?.email ?? '?')
-    .split(/\s+/)
-    .map((p) => p[0])
-    .filter(Boolean)
-    .slice(0, 2)
-    .join('')
-    .toUpperCase();
-
   return (
     <div className="flex min-h-screen bg-brand-zebra/40 font-sans">
       {/* Sidebar (desktop) */}
@@ -142,7 +130,6 @@ export function GerenciaLayout() {
           </Link>
         </div>
         <SidebarNav />
-        <SidebarUser user={user} initials={initials} onSignOut={signOut} />
       </aside>
 
       {/* Sidebar (mobile) */}
@@ -164,7 +151,6 @@ export function GerenciaLayout() {
               </button>
             </div>
             <SidebarNav onNavigate={() => setMobileOpen(false)} />
-            <SidebarUser user={user} initials={initials} onSignOut={signOut} />
           </aside>
         </div>
       )}
@@ -198,16 +184,7 @@ export function GerenciaLayout() {
                 <CommandIcon size={9} />K
               </kbd>
             </button>
-            <button
-              type="button"
-              onClick={() => void signOut()}
-              className="hidden items-center gap-2 rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-brand-ink transition hover:border-brand-cyan hover:text-brand-cyan sm:inline-flex"
-            >
-              <LogOut size={14} /> Salir
-            </button>
-            <span className="grid h-9 w-9 place-items-center rounded-full bg-brand-cyan text-sm font-bold text-white">
-              {initials}
-            </span>
+            <UserMenu perfilHref="/gerencia/perfil" />
           </div>
         </header>
 
@@ -270,79 +247,6 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
         })}
       </ul>
     </nav>
-  );
-}
-
-function SidebarUser({
-  user,
-  initials,
-  onSignOut,
-}: {
-  user: ReturnType<typeof useAuth>['user'];
-  initials: string;
-  onSignOut: () => Promise<void>;
-}) {
-  const { enabled, setEnabled, play } = useSounds();
-  return (
-    <div className="border-t border-slate-100 p-3">
-      <div className="flex items-center gap-3 rounded-lg px-2 py-2">
-        <Link
-          to="/gerencia/perfil"
-          className="flex min-w-0 flex-1 items-center gap-3 rounded-md py-1 transition hover:bg-slate-100"
-          title="Mi perfil"
-        >
-          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-brand-cyan text-sm font-bold text-white">
-            {initials}
-          </span>
-          <div className="min-w-0 flex-1 text-xs">
-            <p className="truncate font-semibold text-brand-ink">
-              {user?.fullName ?? user?.email}
-            </p>
-            <p className="truncate text-brand-muted">
-              {user?.role === 'gerente'
-                ? 'Gerente'
-                : user?.role === 'operador'
-                  ? 'Operador'
-                  : user?.role}
-            </p>
-          </div>
-        </Link>
-        <Link
-          to="/gerencia/perfil"
-          className="rounded-md p-2 text-brand-muted transition hover:bg-slate-100 hover:text-brand-ink"
-          aria-label="Mi perfil"
-          title="Mi perfil"
-        >
-          <UserRound size={15} />
-        </Link>
-        <button
-          type="button"
-          onClick={() => {
-            const next = !enabled;
-            setEnabled(next);
-            if (next) play('click');
-          }}
-          className={cn(
-            'rounded-md p-2 transition',
-            enabled
-              ? 'text-brand-cyan hover:bg-brand-cyan-pale/40'
-              : 'text-brand-muted hover:bg-slate-100 hover:text-brand-ink',
-          )}
-          aria-label={enabled ? 'Silenciar sonidos' : 'Activar sonidos'}
-          title={enabled ? 'Sonidos activados' : 'Sonidos silenciados'}
-        >
-          {enabled ? <Volume2 size={15} /> : <VolumeX size={15} />}
-        </button>
-        <button
-          type="button"
-          onClick={() => void onSignOut()}
-          className="rounded-md p-2 text-brand-muted hover:bg-slate-100 hover:text-brand-ink"
-          aria-label="Salir"
-        >
-          <LogOut size={15} />
-        </button>
-      </div>
-    </div>
   );
 }
 
