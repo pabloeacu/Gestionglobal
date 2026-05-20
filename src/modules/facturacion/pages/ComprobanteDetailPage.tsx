@@ -10,7 +10,13 @@ import {
   CalendarClock,
   Receipt,
   Hash,
+  Download,
+  Send,
 } from 'lucide-react';
+import {
+  generateComprobantePdf,
+} from '../lib/generateComprobantePdf';
+import { EnviarComprobanteModal } from '../components/EnviarComprobanteModal';
 import {
   Button,
   AnimatedNumber,
@@ -58,6 +64,7 @@ export function ComprobanteDetailPage() {
   const [comp, setComp] = useState<ComprobanteRow | null>(null);
   const [items, setItems] = useState<ComprobanteItemRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [enviarOpen, setEnviarOpen] = useState(false);
 
   async function load() {
     if (!id) return;
@@ -76,6 +83,21 @@ export function ComprobanteDetailPage() {
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  function onDescargarPdf() {
+    if (!comp) return;
+    try {
+      const doc = generateComprobantePdf({ comprobante: comp, items });
+      const numStr = comp.numero
+        ? `${String(comp.punto_venta).padStart(5, '0')}-${String(comp.numero).padStart(8, '0')}`
+        : 'sin-numero';
+      doc.save(`comprobante-${comp.tipo}-${numStr}.pdf`);
+    } catch (e) {
+      toast.error('No pudimos generar el PDF', {
+        description: (e as Error).message,
+      });
+    }
+  }
 
   async function onAnular() {
     if (!comp) return;
@@ -205,6 +227,14 @@ export function ComprobanteDetailPage() {
               </div>
             </div>
             <div className="flex flex-wrap gap-2">
+              <Button variant="secondary" onClick={onDescargarPdf}>
+                <Download size={14} /> PDF
+              </Button>
+              {comp.estado !== 'anulado' && (
+                <Button onClick={() => setEnviarOpen(true)}>
+                  <Send size={14} /> Enviar
+                </Button>
+              )}
               {comp.estado !== 'anulado' && !comp.cae && (
                 <Button variant="ghost" onClick={() => void onAnular()}>
                   <Trash2 size={14} /> Anular
@@ -447,6 +477,14 @@ export function ComprobanteDetailPage() {
           </p>
         </section>
       )}
+
+      <EnviarComprobanteModal
+        open={enviarOpen}
+        onClose={() => setEnviarOpen(false)}
+        comprobante={comp}
+        items={items}
+        onSent={() => void load()}
+      />
     </div>
   );
 }
