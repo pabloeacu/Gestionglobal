@@ -76,8 +76,11 @@ Deno.serve(async (req) => {
     return jsonError(502, `OAuth refresh fallo: ${(e as Error).message}`);
   }
 
+  // Codificar el display name del From con RFC 2047 si tiene UTF-8 (Gestión).
+  const fromHeader = `${encodeRfc2047(fromName)} <${senderEmail}>`;
+
   const mime = buildMimeMessage({
-    from: `${fromName} <${senderEmail}>`,
+    from: fromHeader,
     to: payload.to,
     cc: payload.cc,
     bcc: payload.bcc,
@@ -178,7 +181,7 @@ function buildMimeMessage(a: MimeArgs): string {
   if (a.cc && a.cc.length > 0) headers.push(`Cc: ${a.cc.join(', ')}`);
   if (a.bcc && a.bcc.length > 0) headers.push(`Bcc: ${a.bcc.join(', ')}`);
   if (a.replyTo) headers.push(`Reply-To: ${a.replyTo}`);
-  headers.push(`Subject: ${encodeSubject(a.subject)}`);
+  headers.push(`Subject: ${encodeRfc2047(a.subject)}`);
   headers.push('MIME-Version: 1.0');
 
   if (a.attachment) {
@@ -206,7 +209,10 @@ function buildMimeMessage(a: MimeArgs): string {
   return headers.join('\r\n') + '\r\n\r\n' + chunkBase64(btoa(unescape(encodeURIComponent(a.html))));
 }
 
-function encodeSubject(s: string): string {
+// RFC 2047: si el string tiene caracteres no ASCII, lo encodea como
+// =?UTF-8?B?...?=. Si es ASCII puro, lo devuelve tal cual.
+// Usado para el display name del From y el Subject del email.
+function encodeRfc2047(s: string): string {
   if (/^[\x20-\x7E]*$/.test(s)) return s;
   return `=?UTF-8?B?${btoa(unescape(encodeURIComponent(s)))}?=`;
 }

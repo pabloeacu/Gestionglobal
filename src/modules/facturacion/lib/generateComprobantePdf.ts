@@ -47,31 +47,33 @@ export async function generateComprobantePdf({
   const margin = 16;
 
   // -------------------- header band con gradient (manual) --------------------
+  // Banda más alta para dar respiración al logo institucional.
+  const headerH = 40;
   doc.setFillColor(...BRAND_CYAN);
-  doc.rect(0, 0, pageW, 32, 'F');
+  doc.rect(0, 0, pageW, headerH, 'F');
   doc.setFillColor(...BRAND_TEAL);
-  doc.rect(pageW * 0.62, 0, pageW * 0.38, 32, 'F');
+  doc.rect(pageW * 0.62, 0, pageW * 0.38, headerH, 'F');
 
   // Triángulos brand en esquina top-right (sutil, no compiten con el logo)
-  drawTriangles(doc, pageW - 40, 4, 28);
+  drawTriangles(doc, pageW - 42, 6, 30);
 
   // Logo institucional (PNG blanco transparente). Si no está disponible,
   // fallback al wordmark tipográfico.
   const logo = await loadLogo();
   if (logo) {
-    const logoH = 18;                            // mm
+    const logoH = 26;                            // mm
     const aspect = logo.naturalWidth / Math.max(1, logo.naturalHeight);
     const logoW = logoH * aspect;
-    doc.addImage(logo, 'PNG', margin, 7, logoW, logoH, undefined, 'FAST');
+    doc.addImage(logo, 'PNG', margin, (headerH - logoH) / 2, logoW, logoH, undefined, 'FAST');
   } else {
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(18);
+    doc.setFontSize(20);
     doc.setTextColor(255, 255, 255);
-    doc.text('GESTIÓN GLOBAL', margin, 15);
+    doc.text('GESTIÓN GLOBAL', margin, 19);
     doc.setFontSize(8);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(220, 240, 245);
-    doc.text('ALIADOS DE TU TIEMPO', margin, 20);
+    doc.text('ALIADOS DE TU TIEMPO', margin, 25);
   }
 
   // Bloque del número y tipo (lado derecho)
@@ -81,12 +83,12 @@ export async function generateComprobantePdf({
   const numStr = c.numero
     ? `${String(c.punto_venta).padStart(5, '0')}-${String(c.numero).padStart(8, '0')}`
     : 'SIN NÚMERO';
-  doc.text(`COMPROBANTE ${c.tipo}`, pageW - margin, 14, { align: 'right' });
-  doc.setFontSize(15);
-  doc.text(numStr, pageW - margin, 22, { align: 'right' });
+  doc.text(`COMPROBANTE ${c.tipo}`, pageW - margin, 18, { align: 'right' });
+  doc.setFontSize(16);
+  doc.text(numStr, pageW - margin, 27, { align: 'right' });
 
   // -------------------- meta box (fecha / periodo / venc) --------------------
-  let y = 40;
+  let y = 48;
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
   doc.setTextColor(...BRAND_MUTED);
