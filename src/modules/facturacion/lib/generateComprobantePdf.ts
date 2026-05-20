@@ -21,34 +21,75 @@ interface Args {
   items: ComprobanteItemRow[];
 }
 
-// Logo cacheado entre llamadas. Hacemos downsample a 220×220 (mantiene la
-// proporción del original 4501×4501) para reducir el peso embebido en el
-// PDF de ~174KB → ~6-10KB.
-let cachedLogoDataUrl: string | null | undefined;
-async function loadLogo(): Promise<string | null> {
-  if (cachedLogoDataUrl !== undefined) return cachedLogoDataUrl;
+// Logo procesado: PNG original tiene mucho whitespace transparente alrededor
+// del contenido visible (libro + wordmark). Trimming → calculamos el aspect
+// real del contenido y exportamos solo eso. Resultado: el logo se ve
+// proporcional y ocupa toda la altura disponible sin "perderse en aire".
+interface LogoAsset {
+  dataUrl: string;
+  aspect: number; // ancho / alto del contenido visible
+}
+let cachedLogo: LogoAsset | null | undefined;
+
+async function loadLogo(): Promise<LogoAsset | null> {
+  if (cachedLogo !== undefined) return cachedLogo;
   try {
     const img = new Image();
     img.crossOrigin = 'anonymous';
     img.src = '/brand/logo-white.png';
     await img.decode();
-    const TARGET = 220;
-    const canvas = document.createElement('canvas');
-    const aspect = img.naturalWidth / Math.max(1, img.naturalHeight);
-    const w = aspect >= 1 ? TARGET : Math.round(TARGET * aspect);
-    const h = aspect >= 1 ? Math.round(TARGET / aspect) : TARGET;
-    canvas.width = w;
-    canvas.height = h;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) {
-      cachedLogoDataUrl = null;
-      return null;
+
+    // 1. Dibujar el original en un canvas trabajable (max 600 de lado)
+    const SCAN = 600;
+    const tmp = document.createElement('canvas');
+    const sAspect = img.naturalWidth / Math.max(1, img.naturalHeight);
+    tmp.width = sAspect >= 1 ? SCAN : Math.round(SCAN * sAspect);
+    tmp.height = sAspect >= 1 ? Math.round(SCAN / sAspect) : SCAN;
+    const tctx = tmp.getContext('2d');
+    if (!tctx) { cachedLogo = null; return null; }
+    tctx.drawImage(img, 0, 0, tmp.width, tmp.height);
+
+    // 2. Trim de transparente: encontrar bounding box del contenido visible
+    const data = tctx.getImageData(0, 0, tmp.width, tmp.height).data;
+    let minX = tmp.width, minY = tmp.height, maxX = 0, maxY = 0;
+    let found = false;
+    for (let y = 0; y < tmp.height; y++) {
+      for (let x = 0; x < tmp.width; x++) {
+        const alpha = data[(y * tmp.width + x) * 4 + 3] ?? 0;
+        if (alpha > 12) {
+          found = true;
+          if (x < minX) minX = x;
+          if (y < minY) minY = y;
+          if (x > maxX) maxX = x;
+          if (y > maxY) maxY = y;
+        }
+      }
     }
-    ctx.drawImage(img, 0, 0, w, h);
-    cachedLogoDataUrl = canvas.toDataURL('image/png');
-    return cachedLogoDataUrl;
+    if (!found) {
+      // Logo todo transparente; fallback al original
+      cachedLogo = { dataUrl: tmp.toDataURL('image/png'), aspect: sAspect };
+      return cachedLogo;
+    }
+    const cw = maxX - minX + 1;
+    const ch = maxY - minY + 1;
+
+    // 3. Re-canvas final: solo el contenido visible, escalado a 320 de lado
+    //    más grande para mantener nitidez al imprimir el PDF.
+    const TARGET_LONG = 320;
+    const trimAspect = cw / ch;
+    const outW = trimAspect >= 1 ? TARGET_LONG : Math.round(TARGET_LONG * trimAspect);
+    const outH = trimAspect >= 1 ? Math.round(TARGET_LONG / trimAspect) : TARGET_LONG;
+    const out = document.createElement('canvas');
+    out.width = outW;
+    out.height = outH;
+    const octx = out.getContext('2d');
+    if (!octx) { cachedLogo = null; return null; }
+    octx.drawImage(tmp, minX, minY, cw, ch, 0, 0, outW, outH);
+
+    cachedLogo = { dataUrl: out.toDataURL('image/png'), aspect: trimAspect };
+    return cachedLogo;
   } catch {
-    cachedLogoDataUrl = null;
+    cachedLogo = null;
     return null;
   }
 }
@@ -83,7 +124,7 @@ export async function generateComprobantePdf({
   const margin = 18;
   const innerW = pageW - margin * 2;
 
-  const [logoDataUrl, emisor] = await Promise.all([loadLogo(), loadEmisor()]);
+  const [logoAsset, emisor] = await Promise.all([loadLogo(), loadEmisor()]);
   const discriminaIva = debeDiscriminarIva(c.tipo, emisor?.condicion_iva);
 
   // ============================================================
@@ -116,10 +157,12 @@ export async function generateComprobantePdf({
 
   // Logo solo (sin wordmark texto al lado — el logo ya dice "Gestión Global ·
   // Aliados de tu tiempo"). Tamaño grande para que ocupe casi toda la franja.
-  if (logoDataUrl) {
-    const logoH = 30;
-    const logoW = logoH;
-    doc.addImage(logoDataUrl, 'PNG', margin, (coverH - logoH) / 2, logoW, logoH, undefined, 'FAST');
+  // Usa el aspect real del contenido (post-trim del whitespace).
+  if (logoAsset) {
+    // Logo ocupa casi toda la altura del header (con 3mm padding arriba/abajo)
+    const logoH = coverH - 6;
+    const logoW = logoH * logoAsset.aspect;
+    doc.addImage(logoAsset.dataUrl, 'PNG', margin, (coverH - logoH) / 2, logoW, logoH, undefined, 'FAST');
   } else {
     // Fallback tipográfico si el PNG no cargó (debería ser muy raro).
     doc.setFont('helvetica', 'bold');
