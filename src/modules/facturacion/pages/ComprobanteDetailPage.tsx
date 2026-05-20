@@ -28,6 +28,10 @@ import {
   type CobranzaListItem,
 } from '@/services/api/cobranzas';
 import {
+  listSentEmailsDeComprobante,
+  type SentEmailRow,
+} from '@/services/api/sentEmails';
+import {
   Button,
   AnimatedNumber,
   CopyButton,
@@ -77,13 +81,15 @@ export function ComprobanteDetailPage() {
   const [enviarOpen, setEnviarOpen] = useState(false);
   const [cobranzaOpen, setCobranzaOpen] = useState(false);
   const [cobranzas, setCobranzas] = useState<CobranzaListItem[]>([]);
+  const [envios, setEnvios] = useState<SentEmailRow[]>([]);
 
   async function load() {
     if (!id) return;
     setLoading(true);
-    const [res, cobRes] = await Promise.all([
+    const [res, cobRes, sentRes] = await Promise.all([
       getComprobante(id),
       listCobranzasDeComprobante(id),
+      listSentEmailsDeComprobante(id),
     ]);
     setLoading(false);
     if (!res.ok) {
@@ -93,6 +99,7 @@ export function ComprobanteDetailPage() {
     setComp(res.data.comprobante);
     setItems(res.data.items);
     if (cobRes.ok) setCobranzas(cobRes.data);
+    if (sentRes.ok) setEnvios(sentRes.data);
   }
 
   async function onDesimputar(imputacion_id: string) {
@@ -599,6 +606,91 @@ export function ComprobanteDetailPage() {
         </div>
       </section>
 
+      {/* Histórico de envíos */}
+      <section className="card-premium relative overflow-hidden">
+        <TrianglesAccent
+          position="top-right" size={140} tone="cyan" density="soft"
+          className="opacity-20"
+        />
+        <div className="relative">
+          <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+            <div className="flex items-center gap-3">
+              <span className="grid h-10 w-10 place-items-center rounded-xl bg-brand-cyan-pale/40 text-brand-cyan">
+                <Send size={18} />
+              </span>
+              <div>
+                <p className="kicker text-brand-cyan">Histórico de envíos</p>
+                <h3 className="font-display text-lg font-bold text-brand-ink">
+                  {envios.length === 0
+                    ? 'Sin envíos por email'
+                    : `${envios.length} ${envios.length === 1 ? 'envío' : 'envíos'}`}
+                </h3>
+              </div>
+            </div>
+            {comp.estado !== 'anulado' && (
+              <Button variant="secondary" onClick={() => setEnviarOpen(true)}>
+                <Send size={14} /> Reenviar
+              </Button>
+            )}
+          </div>
+          {envios.length === 0 ? (
+            <div className="flex flex-col items-center gap-2 px-5 py-10 text-center">
+              <p className="text-sm text-brand-muted">
+                Este comprobante todavía no se envió por email.
+              </p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-100 bg-brand-zebra/40 text-left text-[11px] font-semibold uppercase tracking-wider text-brand-muted">
+                    <th className="px-4 py-2.5">Fecha</th>
+                    <th className="px-4 py-2.5">Destinatario</th>
+                    <th className="px-4 py-2.5">Asunto</th>
+                    <th className="px-4 py-2.5">Plantilla</th>
+                    <th className="px-4 py-2.5">Estado</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {envios.map((e, idx) => (
+                    <tr
+                      key={e.id}
+                      className="border-b border-slate-100 motion-safe:animate-fade-up"
+                      style={{ animationDelay: `${Math.min(idx, 6) * 30}ms` }}
+                    >
+                      <td className="px-4 py-3 tabular text-xs text-brand-muted">
+                        {formatDateTime(e.enviado_at)}
+                      </td>
+                      <td className="px-4 py-3 text-brand-ink">
+                        {e.to_email}
+                        {e.cc && (
+                          <span className="block text-[11px] text-brand-muted">
+                            cc: {e.cc}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-xs text-brand-ink">
+                        {e.asunto}
+                      </td>
+                      <td className="px-4 py-3 text-xs">
+                        {e.plantilla ? (
+                          <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-mono uppercase tracking-wider text-brand-muted">
+                            {e.plantilla}
+                          </span>
+                        ) : '—'}
+                      </td>
+                      <td className="px-4 py-3">
+                        <ResendEstadoBadge estado={e.estado} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </section>
+
       {comp.observaciones && (
         <section className="card-premium p-5">
           <p className="kicker text-brand-cyan">Observaciones internas</p>
@@ -629,6 +721,33 @@ function formatDateShort(d: string): string {
   return new Date(d).toLocaleDateString('es-AR', {
     day: '2-digit', month: 'short', year: '2-digit',
   });
+}
+
+function formatDateTime(d: string): string {
+  const dt = new Date(d);
+  return `${dt.toLocaleDateString('es-AR', { day: '2-digit', month: 'short' })} · ${dt.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}`;
+}
+
+const RESEND_BADGES: Record<string, { label: string; cls: string }> = {
+  sent:              { label: 'Enviado',      cls: 'bg-blue-50 text-blue-700 border-blue-200' },
+  delivered:         { label: 'Entregado',    cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  opened:            { label: 'Abierto',      cls: 'bg-violet-50 text-violet-700 border-violet-200' },
+  clicked:           { label: 'Click',        cls: 'bg-violet-50 text-violet-700 border-violet-200' },
+  bounced:           { label: 'Rebotó',       cls: 'bg-red-50 text-red-700 border-red-200' },
+  complained:        { label: 'Spam',         cls: 'bg-red-50 text-red-700 border-red-200' },
+  delivery_delayed:  { label: 'Demorado',     cls: 'bg-amber-50 text-amber-700 border-amber-200' },
+  failed:            { label: 'Falló',        cls: 'bg-red-50 text-red-700 border-red-200' },
+};
+
+function ResendEstadoBadge({ estado }: { estado: string }) {
+  const b = RESEND_BADGES[estado];
+  return (
+    <span
+      className={`inline-block rounded-full border px-2 py-0.5 text-[11px] font-semibold ${b?.cls ?? 'bg-slate-100 text-slate-600 border-slate-200'}`}
+    >
+      {b?.label ?? estado}
+    </span>
+  );
 }
 
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
