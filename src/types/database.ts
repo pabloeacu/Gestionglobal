@@ -1,6 +1,3 @@
-// GENERADO: regenerar con `bash scripts/generate-types.sh` después de cada
-// migración (regla 6 / doc 05 §5). NO editar a mano.
-
 export type Json =
   | string
   | number
@@ -1620,6 +1617,10 @@ export type Database = {
       }
     }
     Functions: {
+      anular_comprobante: {
+        Args: { p_comprobante_id: string; p_motivo: string }
+        Returns: string
+      }
       apply_resend_event: {
         Args: {
           p_data: Json
@@ -1632,7 +1633,26 @@ export type Database = {
           sent_email_id: string
         }[]
       }
+      emitir_comprobante_manual: {
+        Args: {
+          p_administracion_id: string
+          p_comprobante_referencia_id: string
+          p_concepto: string
+          p_consorcio_id: string
+          p_fecha: string
+          p_items: Json
+          p_observaciones: string
+          p_punto_venta: number
+          p_tipo: string
+          p_vencimiento: string
+        }
+        Returns: string
+      }
       normalizar_nombre: { Args: { p: string }; Returns: string }
+      peek_proximo_numero: {
+        Args: { p_punto_venta: number; p_tipo: string }
+        Returns: number
+      }
     }
     Enums: {
       [_ in never]: never

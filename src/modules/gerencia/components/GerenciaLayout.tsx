@@ -41,7 +41,7 @@ const NAV: NavItem[] = [
   { to: '/gerencia', label: 'Inicio', icon: LayoutDashboard, end: true },
   { to: '/gerencia/clientes', label: 'Clientes', icon: Users },
   { to: '/gerencia/servicios', label: 'Servicios', icon: Briefcase, disabled: true },
-  { to: '/gerencia/facturacion', label: 'Facturación', icon: FileText, disabled: true },
+  { to: '/gerencia/facturacion', label: 'Facturación', icon: FileText },
   { to: '/gerencia/cuenta-corriente', label: 'Cuenta corriente', icon: Wallet, disabled: true },
   { to: '/gerencia/finanzas', label: 'Finanzas', icon: PiggyBank, disabled: true },
   { to: '/gerencia/recupero', label: 'Recupero', icon: AlertCircle, disabled: true },
@@ -92,9 +92,34 @@ export function GerenciaLayout() {
     [navigate],
   );
 
+  const cmdFacturacion = useMemo(
+    () => ({
+      id: 'nav.facturacion',
+      label: 'Ir a Facturación',
+      description: 'Comprobantes emitidos, pendientes y vencidos',
+      group: 'navegar' as const,
+      icon: FileText,
+      action: () => navigate('/gerencia/facturacion'),
+    }),
+    [navigate],
+  );
+  const cmdNuevoComprobante = useMemo(
+    () => ({
+      id: 'action.new-comprobante',
+      label: 'Nuevo comprobante',
+      description: 'Emitir un comprobante simple (tipo X)',
+      group: 'acciones' as const,
+      icon: Plus,
+      action: () => navigate('/gerencia/facturacion?new=1'),
+    }),
+    [navigate],
+  );
+
   useRegisterCommand(cmdInicio);
   useRegisterCommand(cmdClientes);
+  useRegisterCommand(cmdFacturacion);
   useRegisterCommand(cmdNuevaAdmin);
+  useRegisterCommand(cmdNuevoComprobante);
 
   const initials = (user?.fullName ?? user?.email ?? '?')
     .split(/\s+/)

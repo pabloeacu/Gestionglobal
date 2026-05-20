@@ -8,6 +8,8 @@ import { GerenciaLayout } from '@/modules/gerencia/components/GerenciaLayout';
 import { GerenciaHome } from '@/modules/gerencia/pages/GerenciaHome';
 import { AdministracionesListPage } from '@/modules/clientes/pages/AdministracionesListPage';
 import { AdministracionDetailPage } from '@/modules/clientes/pages/AdministracionDetailPage';
+import { ComprobantesListPage } from '@/modules/facturacion/pages/ComprobantesListPage';
+import { ComprobanteDetailPage } from '@/modules/facturacion/pages/ComprobanteDetailPage';
 import { PortalHome } from '@/modules/portal/pages/PortalHome';
 
 type Role = 'gerente' | 'operador' | 'administrador';
@@ -81,6 +83,8 @@ export function App() {
           <Route index element={<GerenciaHome />} />
           <Route path="clientes" element={<AdministracionesListPage />} />
           <Route path="clientes/:id" element={<AdministracionDetailPage />} />
+          <Route path="facturacion" element={<ComprobantesListPage />} />
+          <Route path="facturacion/:id" element={<ComprobanteDetailPage />} />
         </Route>
 
         <Route

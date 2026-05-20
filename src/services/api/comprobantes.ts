@@ -1,0 +1,206 @@
+import { supabase } from '@/lib/supabase';
+import { ok, fail, type ApiResponse } from '@/lib/errors';
+import type { Database, Json } from '@/types/database';
+
+export type ComprobanteRow = Database['public']['Tables']['comprobantes']['Row'];
+export type ComprobanteItemRow = Database['public']['Tables']['items_comprobantes']['Row'];
+
+export const COMPROBANTE_TIPOS = [
+  'A','B','C','X','NC_A','NC_B','NC_C','NC_X','ND_A','ND_B','ND_C','ND_X',
+] as const;
+export type ComprobanteTipo = (typeof COMPROBANTE_TIPOS)[number];
+
+export const COMPROBANTE_ESTADOS = [
+  'borrador','procesando','autorizado','observado','rechazado','anulado','compensado','error',
+] as const;
+export type ComprobanteEstado = (typeof COMPROBANTE_ESTADOS)[number];
+
+export const COBRANZA_ESTADOS = [
+  'pendiente','parcial','pagado','vencido','en_recupero','anulado',
+] as const;
+export type CobranzaEstado = (typeof COBRANZA_ESTADOS)[number];
+
+export const ALICUOTAS_IVA = ['0','10.5','21','27','exento','no_gravado'] as const;
+export type AlicuotaIva = (typeof ALICUOTAS_IVA)[number];
+
+export interface ComprobanteListItem extends ComprobanteRow {
+  administracion_nombre: string;
+  consorcio_nombre: string | null;
+}
+
+export interface ListComprobantesParams {
+  search?: string;
+  estado?: ComprobanteEstado | 'todos';
+  estadoCobranza?: CobranzaEstado | 'todos';
+  tipo?: ComprobanteTipo | 'todos';
+  administracionId?: string;
+  periodo?: string; // YYYY-MM-01 (primer día del mes)
+  limit?: number;
+  offset?: number;
+}
+
+export async function listComprobantes(
+  params: ListComprobantesParams = {},
+): Promise<ApiResponse<{ rows: ComprobanteListItem[]; total: number }>> {
+  const limit = params.limit ?? 50;
+  const offset = params.offset ?? 0;
+
+  let q = supabase
+    .from('comprobantes')
+    .select(
+      `*,
+       administraciones!inner(id,nombre),
+       consorcios(id,nombre)`,
+      { count: 'exact' },
+    )
+    .order('fecha', { ascending: false })
+    .order('numero', { ascending: false })
+    .range(offset, offset + limit - 1);
+
+  if (params.estado && params.estado !== 'todos') {
+    q = q.eq('estado', params.estado);
+  }
+  if (params.estadoCobranza && params.estadoCobranza !== 'todos') {
+    q = q.eq('estado_cobranza', params.estadoCobranza);
+  }
+  if (params.tipo && params.tipo !== 'todos') {
+    q = q.eq('tipo', params.tipo);
+  }
+  if (params.administracionId) {
+    q = q.eq('administracion_id', params.administracionId);
+  }
+  if (params.periodo) {
+    q = q.eq('periodo', params.periodo);
+  }
+  if (params.search && params.search.trim().length > 0) {
+    const s = params.search.trim();
+    q = q.or(
+      `receptor_razon_social.ilike.%${s}%,receptor_numero_documento.ilike.%${s}%`,
+    );
+  }
+
+  const { data, error, count } = await q;
+  if (error) return fail('COMP_LIST', error.message, error);
+
+  type Joined = ComprobanteRow & {
+    administraciones: { id: string; nombre: string } | null;
+    consorcios: { id: string; nombre: string } | null;
+  };
+  const rows: ComprobanteListItem[] = (data ?? []).map((raw) => {
+    const r = raw as Joined;
+    const { administraciones, consorcios, ...rest } = r;
+    return {
+      ...(rest as ComprobanteRow),
+      administracion_nombre: administraciones?.nombre ?? '—',
+      consorcio_nombre: consorcios?.nombre ?? null,
+    };
+  });
+
+  return ok({ rows, total: count ?? rows.length });
+}
+
+export async function getComprobante(
+  id: string,
+): Promise<
+  ApiResponse<{ comprobante: ComprobanteRow; items: ComprobanteItemRow[] }>
+> {
+  const [{ data: comp, error: e1 }, { data: items, error: e2 }] = await Promise.all([
+    supabase.from('comprobantes').select('*').eq('id', id).single(),
+    supabase
+      .from('items_comprobantes')
+      .select('*')
+      .eq('comprobante_id', id)
+      .order('orden', { ascending: true }),
+  ]);
+  if (e1) return fail('COMP_GET', e1.message, e1);
+  if (e2) return fail('COMP_ITEMS', e2.message, e2);
+  return ok({ comprobante: comp as ComprobanteRow, items: items ?? [] });
+}
+
+export interface ItemDraft {
+  descripcion: string;
+  cantidad: number;
+  precio_unitario: number;
+  bonificacion_porc: number;
+  alicuota_iva: AlicuotaIva;
+  servicio_id?: string | null;
+  consorcio_id?: string | null;
+}
+
+export interface EmitirComprobanteInput {
+  administracion_id: string;
+  consorcio_id: string | null;
+  tipo: 'X' | 'NC_X' | 'ND_X';
+  punto_venta: number;
+  fecha: string;
+  vencimiento: string;
+  concepto: 'productos' | 'servicios' | 'productos_servicios';
+  items: ItemDraft[];
+  observaciones?: string;
+  comprobante_referencia_id?: string | null;
+}
+
+export async function emitirComprobanteManual(
+  input: EmitirComprobanteInput,
+): Promise<ApiResponse<{ id: string }>> {
+  // El type generator marca los args como `string` no-null, pero el PL/pgSQL
+  // acepta NULL en consorcio_id y comprobante_referencia_id. Cast deliberado.
+  const args = {
+    p_administracion_id: input.administracion_id,
+    p_consorcio_id: input.consorcio_id,
+    p_tipo: input.tipo,
+    p_punto_venta: input.punto_venta,
+    p_fecha: input.fecha,
+    p_vencimiento: input.vencimiento,
+    p_concepto: input.concepto,
+    p_items: input.items.map((it) => ({
+      descripcion: it.descripcion,
+      cantidad: it.cantidad,
+      precio_unitario: it.precio_unitario,
+      bonificacion_porc: it.bonificacion_porc,
+      alicuota_iva: it.alicuota_iva,
+      servicio_id: it.servicio_id ?? null,
+      consorcio_id: it.consorcio_id ?? null,
+    })),
+    p_observaciones: input.observaciones ?? '',
+    p_comprobante_referencia_id: input.comprobante_referencia_id ?? null,
+  } as unknown as {
+    p_administracion_id: string;
+    p_comprobante_referencia_id: string;
+    p_concepto: string;
+    p_consorcio_id: string;
+    p_fecha: string;
+    p_items: Json;
+    p_observaciones: string;
+    p_punto_venta: number;
+    p_tipo: string;
+    p_vencimiento: string;
+  };
+  const { data, error } = await supabase.rpc('emitir_comprobante_manual', args);
+  if (error) return fail('COMP_EMITIR', error.message, error);
+  return ok({ id: data as string });
+}
+
+export async function anularComprobante(
+  id: string,
+  motivo: string,
+): Promise<ApiResponse<{ id: string }>> {
+  const { data, error } = await supabase.rpc('anular_comprobante', {
+    p_comprobante_id: id,
+    p_motivo: motivo,
+  });
+  if (error) return fail('COMP_ANULAR', error.message, error);
+  return ok({ id: data as string });
+}
+
+export async function peekProximoNumero(
+  puntoVenta: number,
+  tipo: ComprobanteTipo,
+): Promise<ApiResponse<number>> {
+  const { data, error } = await supabase.rpc('peek_proximo_numero', {
+    p_punto_venta: puntoVenta,
+    p_tipo: tipo,
+  });
+  if (error) return fail('COMP_PEEK', error.message, error);
+  return ok((data as number) ?? 1);
+}
