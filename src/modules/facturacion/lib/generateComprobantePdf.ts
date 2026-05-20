@@ -93,9 +93,9 @@ export async function generateComprobantePdf({
   drawWatermarkTriangles(doc, pageW, pageH);
 
   // ============================================================
-  // 1. COVER bipartito 48mm (la mitad de antes)
+  // 1. COVER bipartito 38mm (más compacto; el logo lleva la voz)
   // ============================================================
-  const coverH = 48;
+  const coverH = 38;
   const splitX = pageW * 0.58;
 
   doc.setFillColor(...CYAN);
@@ -114,51 +114,44 @@ export async function generateComprobantePdf({
     doc.rect(splitX - 8 + i, 0, 1.1, coverH, 'F');
   }
 
-  // Logo institucional (downsampled a 220px) — alto 28mm
+  // Logo solo (sin wordmark texto al lado — el logo ya dice "Gestión Global ·
+  // Aliados de tu tiempo"). Tamaño grande para que ocupe casi toda la franja.
   if (logoDataUrl) {
-    const logoH = 28;
-    const logoW = logoH; // canvas es cuadrado por construcción
+    const logoH = 30;
+    const logoW = logoH;
     doc.addImage(logoDataUrl, 'PNG', margin, (coverH - logoH) / 2, logoW, logoH, undefined, 'FAST');
-    // Texto wordmark al lado (más sutil ahora que el logo cuadrado se ve bien)
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(16);
-    doc.setTextColor(...WHITE);
-    doc.text('GESTIÓN GLOBAL', margin + logoW + 4, coverH / 2 - 1);
-    doc.setFontSize(7);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(220, 240, 245);
-    doc.text('ALIADOS DE TU TIEMPO', margin + logoW + 4, coverH / 2 + 4, { charSpace: 0.8 });
   } else {
+    // Fallback tipográfico si el PNG no cargó (debería ser muy raro).
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(20);
+    doc.setFontSize(18);
     doc.setTextColor(...WHITE);
     doc.text('GESTIÓN GLOBAL', margin, coverH / 2 - 1);
-    doc.setFontSize(8);
+    doc.setFontSize(7.5);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(220, 240, 245);
-    doc.text('ALIADOS DE TU TIEMPO', margin, coverH / 2 + 5, { charSpace: 0.8 });
+    doc.text('ALIADOS DE TU TIEMPO', margin, coverH / 2 + 4, { charSpace: 0.8 });
   }
 
   // Lado derecho: COMPROBANTE + tipo XL + numero
   const rightCx = splitX + (pageW - splitX) / 2;
 
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7.5);
+  doc.setFontSize(7);
   doc.setTextColor(...WHITE);
-  doc.text('COMPROBANTE', rightCx, 10, { align: 'center', charSpace: 1.6 });
+  doc.text('COMPROBANTE', rightCx, 8, { align: 'center', charSpace: 1.6 });
 
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(34);
+  doc.setFontSize(26);
   doc.setTextColor(...WHITE);
-  doc.text(c.tipo, rightCx, coverH / 2 + 4, { align: 'center' });
+  doc.text(c.tipo, rightCx, coverH / 2 + 3, { align: 'center' });
 
   const numStr = c.numero
     ? `${String(c.punto_venta).padStart(5, '0')} - ${String(c.numero).padStart(8, '0')}`
     : 'SIN NÚMERO';
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(11);
+  doc.setFontSize(10.5);
   doc.setTextColor(...WHITE);
-  doc.text(numStr, rightCx, coverH - 8, { align: 'center', charSpace: 0.6 });
+  doc.text(numStr, rightCx, coverH - 5, { align: 'center', charSpace: 0.6 });
 
   // ============================================================
   // 2. EMISOR (datos impositivos obligatorios)

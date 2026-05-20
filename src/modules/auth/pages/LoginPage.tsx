@@ -41,10 +41,10 @@ export function LoginPage() {
           <BrandMark variant="dark" size={40} withSlogan />
           <div>
             <h2 className="font-display text-4xl font-extrabold leading-tight tracking-tight">
-              Tu operación,
+              Todo fluye
               <br />
               <span className="bg-gradient-to-r from-brand-cyan-light to-brand-teal bg-clip-text text-transparent">
-                bajo control total.
+                cuando todo está conectado.
               </span>
             </h2>
             <p className="mt-4 max-w-md text-white/60">
