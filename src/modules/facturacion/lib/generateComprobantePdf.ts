@@ -331,33 +331,29 @@ export async function generateComprobantePdf({
   y += totalCardH + 4;
 
   // ============================================================
-  // 6. Observaciones (si hay) — caja sutil
+  // 6. FOOTER fijo + observaciones que respeten el espacio
   // ============================================================
+  const FOOTER_BLOCK_H = 38;
+  const footerY = pageH - FOOTER_BLOCK_H;
+
+  // Observaciones: solo si caben antes del footer; si no, se omiten del PDF
+  // (igual quedan en la ficha web del comprobante).
   if (c.observaciones) {
-    y += 4;
-    doc.setFillColor(...ZEBRA);
     const obsLines = doc.splitTextToSize(sanitize(c.observaciones), innerW - 12);
     const obsH = obsLines.length * 4.5 + 12;
-    doc.roundedRect(margin, y, innerW, obsH, 2.5, 2.5, 'F');
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(7);
-    doc.setTextColor(...CYAN);
-    doc.text('OBSERVACIONES', margin + 6, y + 6, { charSpace: 1.2 });
-    doc.setFontSize(9);
-    doc.setTextColor(...INK);
-    doc.text(obsLines, margin + 6, y + 12);
-    y += obsH + 4;
+    if (y + obsH + 6 <= footerY) {
+      y += 4;
+      doc.setFillColor(...ZEBRA);
+      doc.roundedRect(margin, y, innerW, obsH, 2.5, 2.5, 'F');
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7);
+      doc.setTextColor(...CYAN);
+      doc.text('OBSERVACIONES', margin + 6, y + 6, { charSpace: 1.2 });
+      doc.setFontSize(9);
+      doc.setTextColor(...INK);
+      doc.text(obsLines, margin + 6, y + 12);
+    }
   }
-
-  // ============================================================
-  // 7. FOOTER — agradecimiento + brand + slot CAE/QR
-  // ============================================================
-  // El footer es dinámico: se posiciona después del contenido si éste se
-  // extendió, sino se ancla al pie. Esto evita que el divider cyan + el
-  // triangulito caigan ENCIMA del card de observaciones cuando el comprobante
-  // tiene más items o texto largo.
-  const FOOTER_BLOCK_H = 38;            // alto que ocupa el footer
-  const footerY = Math.max(y + 12, pageH - FOOTER_BLOCK_H);
 
   // Línea divisora superior del footer (con un punto triangular brand)
   doc.setDrawColor(...CYAN);
