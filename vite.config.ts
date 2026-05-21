@@ -29,18 +29,11 @@ export default defineConfig({
     'import.meta.env.VITE_APP_VERSION': JSON.stringify(getAppVersion()),
   },
   build: {
-    // Chunks manuales: las libs pesadas se aíslan para que el bundle inicial
-    // las cargue por separado (browser cachea cada chunk independiente).
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
-          'vendor-supabase': ['@supabase/supabase-js'],
-          'vendor-pdf': ['jspdf', 'jspdf-autotable'],
-          'vendor-xlsx': ['exceljs', 'xlsx'],
-        },
-      },
-    },
     chunkSizeWarningLimit: 800,
+    // El manualChunks de vendor-react se quitó: rompía en producción (los
+    // sub-paths de React como `react/jsx-runtime` y `react-dom/client`
+    // quedaban en chunks separados causando duplicación del runtime).
+    // El code splitting via React.lazy() ya nos da chunks por página, que
+    // es lo importante para el TTI.
   },
 });
