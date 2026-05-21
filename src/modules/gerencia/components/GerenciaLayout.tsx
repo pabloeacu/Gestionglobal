@@ -201,6 +201,28 @@ export function GerenciaLayout() {
             <Outlet />
           </div>
         </main>
+
+        {/* Footer mini institucional */}
+        <footer className="mt-auto border-t border-slate-200 bg-white/60 px-5 py-3 text-xs text-brand-muted md:px-8">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p>
+              © {new Date().getFullYear()} Gestión Global · Aliados de tu
+              tiempo
+            </p>
+            <p className="flex items-center gap-3">
+              <a
+                href="mailto:contacto@gestionglobal.ar"
+                className="hover:text-brand-cyan"
+              >
+                Soporte
+              </a>
+              <span className="opacity-30">·</span>
+              <span title="Versión del deploy" className="font-mono">
+                v{import.meta.env.VITE_APP_VERSION ?? 'dev'}
+              </span>
+            </p>
+          </div>
+        </footer>
       </div>
     </div>
   );
