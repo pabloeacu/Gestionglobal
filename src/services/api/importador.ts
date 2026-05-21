@@ -283,11 +283,15 @@ export async function importarLote(
   }
 
   // El RPC `import_comprobantes_batch` se creó en la migración 0030; los
-  // types regenerados aún no lo incluyen, así que casteamos para invocarlo.
-  const rpc = supabase.rpc as unknown as (
+  // types regenerados aún no lo incluyen, así que invocamos vía cast pero
+  // PRESERVANDO el `this` binding (asignarlo a una variable suelta lo
+  // rompe — ver fix en services/api/ctaCte.ts).
+  type RawRpc = (
     fn: string,
     args: Record<string, unknown>,
   ) => Promise<{ data: unknown; error: { message: string } | null }>;
+  const rpc: RawRpc = (name, args) =>
+    (supabase.rpc as unknown as RawRpc).call(supabase, name, args);
   const { data, error } = await rpc('import_comprobantes_batch', {
     p_archivo: archivo,
     p_filas: payload,

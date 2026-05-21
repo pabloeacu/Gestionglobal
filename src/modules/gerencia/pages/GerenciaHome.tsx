@@ -1,59 +1,64 @@
 import { Link } from 'react-router-dom';
-import { Users, Briefcase, FileText, AlertCircle } from 'lucide-react';
+import {
+  Users,
+  Briefcase,
+  FileText,
+  AlertCircle,
+  Inbox,
+  CalendarClock,
+  Wallet,
+  Handshake,
+  GraduationCap,
+  BarChart3,
+  Settings,
+} from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import { ProximosVencimientosWidget } from '@/modules/vencimientos';
 import { MorososWidget } from '@/modules/cta_cte';
 
-const QUICK = [
-  {
-    to: '/gerencia/clientes',
-    label: 'Clientes',
-    description: 'Administraciones y consorcios',
-    icon: Users,
-    available: true,
-  },
-  {
-    to: '/gerencia/servicios',
-    label: 'Servicios',
-    description: 'Catálogo y tabulador de precios',
-    icon: Briefcase,
-    available: true,
-  },
-  {
-    to: '/gerencia/facturacion',
-    label: 'Facturación',
-    description: 'Comprobantes tipo X · ARCA pronto',
-    icon: FileText,
-    available: true,
-  },
-  {
-    to: '/gerencia/recupero',
-    label: 'Recupero',
-    description: 'Cobranzas y reclamos',
-    icon: AlertCircle,
-    available: false,
-  },
+interface QuickItem {
+  to: string;
+  label: string;
+  description: string;
+  icon: typeof Users;
+  available: boolean;
+}
+
+// Grilla completa de atajos. El sidebar tiene exactamente estos mismos items
+// (menos los hubs internos), pero la home los muestra como "tarjetas
+// premium" para acelerar el flujo del primer click.
+const QUICK: QuickItem[] = [
+  { to: '/gerencia/clientes', label: 'Clientes', description: 'Administraciones y consorcios', icon: Users, available: true },
+  { to: '/gerencia/servicios', label: 'Servicios', description: 'Catálogo y tabulador de precios', icon: Briefcase, available: true },
+  { to: '/gerencia/facturacion', label: 'Facturación', description: 'Comprobantes X, A, B y C con ARCA', icon: FileText, available: true },
+  { to: '/gerencia/tramites', label: 'Trámites', description: 'Expedientes y solicitudes', icon: Inbox, available: true },
+  { to: '/gerencia/vencimientos', label: 'Vencimientos', description: 'Matrículas, DDJJ y certificados', icon: CalendarClock, available: true },
+  { to: '/gerencia/cuenta-corriente', label: 'Cuenta corriente', description: 'Saldos consolidados y extractos', icon: Wallet, available: true },
+  { to: '/gerencia/recupero', label: 'Recupero', description: 'Cobranzas R1 · R2 · R3', icon: AlertCircle, available: true },
+  { to: '/gerencia/partners', label: 'Partners', description: 'Convenios y rendiciones', icon: Handshake, available: true },
+  { to: '/gerencia/campus', label: 'Campus', description: 'Cursos y exámenes autocorregibles', icon: GraduationCap, available: true },
+  { to: '/gerencia/reportes', label: 'Reportes', description: 'Exportes PDF/Excel + importador', icon: BarChart3, available: true },
+  { to: '/gerencia/configuracion', label: 'Configuración', description: 'ARCA, emails, plantillas', icon: Settings, available: true },
 ];
 
 export function GerenciaHome() {
   const { user } = useAuth();
   return (
-    <div className="mx-auto max-w-5xl space-y-8">
+    <div className="mx-auto max-w-6xl space-y-8">
       <header>
         <p className="kicker text-brand-cyan">Inicio</p>
         <h1 className="font-display text-3xl font-bold text-brand-ink sm:text-4xl">
           Hola{user?.fullName ? `, ${user.fullName.split(' ')[0]}` : ''}.
         </h1>
         <p className="mt-2 text-brand-muted">
-          Empezá administrando tus clientes y consorcios; el resto del
-          ecosistema se va activando módulo por módulo.
+          Todo el ecosistema en un solo panel. Elegí por dónde arrancar.
         </p>
       </header>
 
       <section>
         <p className="kicker mb-3 text-brand-muted">Atajos</p>
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {QUICK.map(({ to, label, description, icon: Icon, available }) =>
             available ? (
               <Link
@@ -63,7 +68,7 @@ export function GerenciaHome() {
               >
                 <TrianglesAccent
                   position="top-right"
-                  size={130}
+                  size={120}
                   tone="cyan"
                   density="soft"
                   className="opacity-40 transition-opacity group-hover:opacity-70"
@@ -71,11 +76,13 @@ export function GerenciaHome() {
                 <span className="relative grid h-11 w-11 place-items-center rounded-xl bg-brand-cyan-pale/40 text-brand-cyan transition group-hover:bg-brand-cyan group-hover:text-white">
                   <Icon size={20} />
                 </span>
-                <div className="relative">
+                <div className="relative min-w-0">
                   <p className="font-display text-base font-bold text-brand-ink">
                     {label}
                   </p>
-                  <p className="text-xs text-brand-muted">{description}</p>
+                  <p className="truncate text-xs text-brand-muted">
+                    {description}
+                  </p>
                 </div>
               </Link>
             ) : (

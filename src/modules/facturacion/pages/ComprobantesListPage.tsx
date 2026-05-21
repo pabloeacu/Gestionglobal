@@ -132,8 +132,8 @@ export function ComprobantesListPage() {
             Facturación
           </h1>
           <p className="mt-1 text-sm text-brand-muted">
-            Comprobantes simples (tipo X) sin CAE. Próximamente: facturas A/B/C
-            con ARCA, envío por email y conciliación.
+            Comprobantes simples (tipo X) y fiscales A/B/C con CAE vía ARCA.
+            Envío por email, cobranzas e imputación a cuenta corriente.
           </p>
         </div>
         <Button onClick={() => setDrawerOpen(true)}>
@@ -183,8 +183,8 @@ export function ComprobantesListPage() {
               $<AnimatedNumber value={Math.round(kpis.totalVencido)} />
             </span>
           }
-          hint="acción requerida"
-          tone="amber"
+          hint={kpis.totalVencido > 0 ? 'acción requerida' : 'todo al día'}
+          tone={kpis.totalVencido > 0 ? 'amber' : 'cyan'}
           delay={180}
         />
       </section>

@@ -149,13 +149,11 @@ export function ReportesHubPage() {
           <BarChart3 className="mt-0.5 text-brand-cyan" size={18} />
           <div className="text-sm text-brand-muted">
             <p>
-              <strong className="text-brand-ink">Tip ARCH-REVIEW:</strong>{' '}
-              los reportes corren del lado del cliente (no consultan más que
-              tablas con índice en {' '}
-              <code className="rounded bg-white px-1 py-0.5 text-xs">
-                administracion_id, fecha
-              </code>
-              ). Si el período supera 12 meses, considerá segmentar la consulta.
+              <strong className="text-brand-ink">Tip:</strong>{' '}
+              los reportes se generan en tu propio navegador — no enviamos los
+              datos por fuera. Para períodos largos (más de 12 meses), filtrá
+              por administración o segmentá por trimestre para acelerar la
+              exportación.
             </p>
           </div>
         </div>

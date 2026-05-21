@@ -19,7 +19,11 @@ type RawRpc = (
   args: Record<string, unknown>,
 ) => Promise<{ data: unknown; error: { message: string } | null }>;
 
-const rpc = supabase.rpc as unknown as RawRpc;
+// Wrapper que preserva el `this` binding de supabase. Asignar
+// `supabase.rpc` a una constante pierde `this` y rompe en runtime con
+// "Cannot read properties of undefined (reading 'rest')".
+const rpc: RawRpc = (name, args) =>
+  (supabase.rpc as unknown as RawRpc).call(supabase, name, args);
 
 // ---------------------------------------------------------------------------
 // Tipos

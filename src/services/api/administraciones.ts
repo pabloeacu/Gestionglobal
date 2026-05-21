@@ -57,7 +57,11 @@ export async function listAdministraciones(
     return { ...(rest as AdministracionRow), consorcios_count };
   });
 
-  return ok({ rows, total: count ?? rows.length });
+  // PostgREST a veces devuelve count=0 cuando el select tiene relaciones
+  // embebidas (`consorcios:consorcios(count)`). Si count es null o 0 pero
+  // tenemos rows, usamos rows.length como fallback realista.
+  const safeTotal = count && count > 0 ? count : rows.length;
+  return ok({ rows, total: safeTotal });
 }
 
 export async function getAdministracion(

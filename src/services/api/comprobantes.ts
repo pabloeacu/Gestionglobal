@@ -96,7 +96,9 @@ export async function listComprobantes(
     };
   });
 
-  return ok({ rows, total: count ?? rows.length });
+  // PostgREST a veces devuelve count=0 con joins; fallback a rows.length.
+  const safeTotal = count && count > 0 ? count : rows.length;
+  return ok({ rows, total: safeTotal });
 }
 
 export async function getComprobante(
@@ -236,11 +238,15 @@ export async function crearComprobanteBorradorFiscal(
     p_tipo: string;
     p_vencimiento: string;
   };
-  // rpc name not in generated types yet (mig 0013a) — cast supabase to any para evitar narrow.
-  const { data, error } = await (supabase.rpc as unknown as (
+  // rpc name not in generated types yet (mig 0013a). Cast inline pero
+  // PRESERVANDO `this` con .call(supabase) — sin esto, supabase-js v2
+  // explota con "Cannot read properties of undefined (reading 'rest')".
+  type RawRpc = (
     name: string,
     args: unknown,
-  ) => Promise<{ data: unknown; error: { message: string } | null }>)(
+  ) => Promise<{ data: unknown; error: { message: string } | null }>;
+  const { data, error } = await (supabase.rpc as unknown as RawRpc).call(
+    supabase,
     'crear_comprobante_borrador_fiscal',
     args,
   );

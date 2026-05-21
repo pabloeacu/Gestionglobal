@@ -237,7 +237,8 @@ export async function listEnvios(
     rows = rows.filter(r => r.estado === filters.estado);
   }
 
-  return ok({ rows, total: count ?? rows.length });
+  const safeTotal = count && count > 0 ? count : rows.length;
+  return ok({ rows, total: safeTotal });
 }
 
 export async function reintentar(emailId: string): Promise<ApiResponse<true>> {
