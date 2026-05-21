@@ -1,6 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { useNavigate } from 'react-router-dom';
+// No usamos `useNavigate` porque CommandPalette se monta fuera de
+// <BrowserRouter> (en main.tsx, junto al AuthProvider). Para navegar
+// usamos un push manual al history del browser via window.location o
+// history.pushState + popstate, evitando el hook violation.
 import {
   Search as SearchIcon,
   CornerDownLeft,
@@ -88,7 +91,12 @@ function score(needle: string, hay: string): number {
 
 export function CommandPalette() {
   const { isOpen, close, search, setSearch, registered } = useCommandPalette();
-  const navigate = useNavigate();
+  // Push manual al history del browser. React Router escucha popstate y
+  // re-rendea la ruta. Mejor que window.location.href (no recarga la app).
+  const navigate = useCallback((path: string) => {
+    window.history.pushState({}, '', path);
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  }, []);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [active, setActive] = useState(0);
 
