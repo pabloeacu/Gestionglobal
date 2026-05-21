@@ -1,3 +1,4 @@
+import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Users,
@@ -16,6 +17,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import { ProximosVencimientosWidget } from '@/modules/vencimientos';
 import { MorososWidget } from '@/modules/cta_cte';
+import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
+import { getDashboardGlobal, type DashboardKpis } from '@/services/api/dashboard';
+import { DashboardKpiStrip } from '@/modules/gerencia/components/DashboardKpiStrip';
+import { SparklineFacturado } from '@/modules/gerencia/components/SparklineFacturado';
 
 interface QuickItem {
   to: string;
@@ -44,6 +49,26 @@ const QUICK: QuickItem[] = [
 
 export function GerenciaHome() {
   const { user } = useAuth();
+  const [kpis, setKpis] = useState<DashboardKpis | null>(null);
+  const [loadingKpis, setLoadingKpis] = useState(true);
+
+  const reload = useCallback(async () => {
+    const res = await getDashboardGlobal(30);
+    if (res.ok) setKpis(res.data);
+    setLoadingKpis(false);
+  }, []);
+
+  useEffect(() => {
+    void reload();
+  }, [reload]);
+
+  // Realtime: si entra/cambia algo relevante para los KPIs, recargamos.
+  // RLS filtra por staff (regla 2). Debounce interno del hook agrupa ráfagas.
+  useRealtimeRefresh(
+    ['comprobantes', 'movimientos', 'tramites', 'vencimientos'],
+    reload,
+  );
+
   return (
     <div className="mx-auto max-w-6xl space-y-8">
       <header>
@@ -55,6 +80,12 @@ export function GerenciaHome() {
           Todo el ecosistema en un solo panel. Elegí por dónde arrancar.
         </p>
       </header>
+
+      <DashboardKpiStrip data={kpis} loading={loadingKpis} />
+      <SparklineFacturado
+        serie={kpis?.serie_facturado ?? []}
+        loading={loadingKpis}
+      />
 
       <section>
         <p className="kicker mb-3 text-brand-muted">Atajos</p>
