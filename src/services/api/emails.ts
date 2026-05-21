@@ -241,6 +241,34 @@ export async function listEnvios(
   return ok({ rows, total: safeTotal });
 }
 
+// --- test send ----------------------------------------------------------
+// Encola un email con el template indicado hacia un destinatario de prueba y
+// dispara el dispatcher para que el envío sea inmediato (no espera al cron).
+// Pasa por la RPC `encolar_email` (regla 5) y luego invoca la edge function
+// `dispatch-emails` (regla 7) sin payload — el dispatcher recorre la cola.
+export async function sendTestEmail(
+  templateSlug: string,
+  toEmail: string,
+  variables: Record<string, unknown>,
+): Promise<ApiResponse<{ queueId: string }>> {
+  const encolado = await encolarEmail({
+    template: templateSlug,
+    to: toEmail,
+    to_nombre: 'Prueba editor',
+    variables,
+    prioridad: 1,
+  });
+  if (!encolado.ok) return encolado;
+  // Disparamos el dispatcher; si falla, el email igual está en cola y saldrá
+  // en el próximo tick del cron, así que no propagamos error aquí.
+  try {
+    await supabase.functions.invoke('dispatch-emails', { body: {} });
+  } catch {
+    /* noop — la cola lo procesará en el próximo tick */
+  }
+  return ok({ queueId: encolado.data });
+}
+
 export async function reintentar(emailId: string): Promise<ApiResponse<true>> {
   const { error } = await supabase
     .from('email_queue')
