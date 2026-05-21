@@ -3,6 +3,7 @@ import { Users, Briefcase, FileText, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import { ProximosVencimientosWidget } from '@/modules/vencimientos';
+import { MorososWidget } from '@/modules/cta_cte';
 
 const QUICK = [
   {
@@ -99,8 +100,9 @@ export function GerenciaHome() {
         </div>
       </section>
 
-      <section>
+      <section className="grid gap-6 lg:grid-cols-2">
         <ProximosVencimientosWidget />
+        <MorososWidget limit={5} />
       </section>
     </div>
   );

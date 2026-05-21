@@ -20,6 +20,25 @@ import { ServiciosListPage, ServicioDetailPage } from '@/modules/servicios';
 import { VencimientosListPage, VencimientosConfigPage } from '@/modules/vencimientos';
 import { EmailTemplatesPage } from '@/modules/configuracion/pages/EmailTemplatesPage';
 import { EmailQueuePage } from '@/modules/configuracion/pages/EmailQueuePage';
+import {
+  RecuperoListPage,
+  MorososPage,
+  RecuperoConfigPage,
+  PlantillasPage as RecuperoPlantillasPage,
+} from '@/modules/recupero';
+import {
+  PartnersListPage,
+  PartnerDetailPage,
+  RendicionDetailPage,
+} from '@/modules/partners';
+import {
+  CampusListPage,
+  CursoEditorPage,
+  CursoDetalleAlumnoPage,
+  MisCursosPage,
+} from '@/modules/campus';
+import { ReportesHubPage, ImportadorPage } from '@/modules/reportes';
+import { CtaCteListPage, CtaCteDetailPage } from '@/modules/cta_cte';
 import { PortalLayout } from '@/modules/portal/components/PortalLayout';
 import { PortalHome } from '@/modules/portal/pages/PortalHome';
 import { PortalComprobantesPage } from '@/modules/portal/pages/PortalComprobantesPage';
@@ -110,6 +129,19 @@ export function App() {
           <Route path="servicios/:id" element={<ServicioDetailPage />} />
           <Route path="vencimientos" element={<VencimientosListPage />} />
           <Route path="vencimientos/configuracion" element={<VencimientosConfigPage />} />
+          <Route path="cuenta-corriente" element={<CtaCteListPage />} />
+          <Route path="cuenta-corriente/:adminId" element={<CtaCteDetailPage />} />
+          <Route path="recupero" element={<RecuperoListPage />} />
+          <Route path="recupero/morosos" element={<MorososPage />} />
+          <Route path="recupero/configuracion" element={<RecuperoConfigPage />} />
+          <Route path="recupero/plantillas" element={<RecuperoPlantillasPage />} />
+          <Route path="partners" element={<PartnersListPage />} />
+          <Route path="partners/:id" element={<PartnerDetailPage />} />
+          <Route path="partners/:partnerId/rendiciones/:id" element={<RendicionDetailPage />} />
+          <Route path="campus" element={<CampusListPage />} />
+          <Route path="campus/:id" element={<CursoEditorPage />} />
+          <Route path="reportes" element={<ReportesHubPage />} />
+          <Route path="reportes/importador" element={<ImportadorPage />} />
           <Route path="configuracion" element={<ConfiguracionLayout />}>
             <Route index element={<Navigate to="arca" replace />} />
             <Route path="arca" element={<ArcaConfigPage />} />
@@ -136,6 +168,8 @@ export function App() {
           />
           <Route path="cuenta-corriente" element={<PortalCtaCtePage />} />
           <Route path="consorcios" element={<PortalConsorciosPage />} />
+          <Route path="campus" element={<MisCursosPage />} />
+          <Route path="campus/:slug" element={<CursoDetalleAlumnoPage />} />
           <Route path="perfil" element={<PerfilPage />} />
         </Route>
 
