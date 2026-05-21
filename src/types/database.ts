@@ -983,6 +983,503 @@ export type Database = {
           },
         ]
       }
+      curso_bibliografia: {
+        Row: {
+          archivo_url: string | null
+          autor: string | null
+          created_at: string
+          curso_id: string
+          descripcion: string | null
+          id: string
+          titulo: string
+          url: string | null
+        }
+        Insert: {
+          archivo_url?: string | null
+          autor?: string | null
+          created_at?: string
+          curso_id: string
+          descripcion?: string | null
+          id?: string
+          titulo: string
+          url?: string | null
+        }
+        Update: {
+          archivo_url?: string | null
+          autor?: string | null
+          created_at?: string
+          curso_id?: string
+          descripcion?: string | null
+          id?: string
+          titulo?: string
+          url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "curso_bibliografia_curso_id_fkey"
+            columns: ["curso_id"]
+            isOneToOne: false
+            referencedRelation: "cursos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      curso_clases: {
+        Row: {
+          created_at: string
+          descripcion: string | null
+          duracion_min: number | null
+          id: string
+          material_url: string | null
+          modulo_id: string
+          orden: number
+          tipo: string
+          titulo: string
+          updated_at: string
+          youtube_url: string | null
+          zoom_fecha_hora: string | null
+          zoom_url: string | null
+        }
+        Insert: {
+          created_at?: string
+          descripcion?: string | null
+          duracion_min?: number | null
+          id?: string
+          material_url?: string | null
+          modulo_id: string
+          orden?: number
+          tipo?: string
+          titulo: string
+          updated_at?: string
+          youtube_url?: string | null
+          zoom_fecha_hora?: string | null
+          zoom_url?: string | null
+        }
+        Update: {
+          created_at?: string
+          descripcion?: string | null
+          duracion_min?: number | null
+          id?: string
+          material_url?: string | null
+          modulo_id?: string
+          orden?: number
+          tipo?: string
+          titulo?: string
+          updated_at?: string
+          youtube_url?: string | null
+          zoom_fecha_hora?: string | null
+          zoom_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "curso_clases_modulo_id_fkey"
+            columns: ["modulo_id"]
+            isOneToOne: false
+            referencedRelation: "curso_modulos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      curso_examenes: {
+        Row: {
+          created_at: string
+          curso_id: string
+          descripcion: string | null
+          fecha_cierre: string | null
+          fecha_habilitacion: string | null
+          id: string
+          intentos_max: number
+          mezclar_preguntas: boolean
+          modulo_id: string | null
+          mostrar_resultados: boolean
+          nota_aprobacion: number
+          titulo: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          curso_id: string
+          descripcion?: string | null
+          fecha_cierre?: string | null
+          fecha_habilitacion?: string | null
+          id?: string
+          intentos_max?: number
+          mezclar_preguntas?: boolean
+          modulo_id?: string | null
+          mostrar_resultados?: boolean
+          nota_aprobacion?: number
+          titulo: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          curso_id?: string
+          descripcion?: string | null
+          fecha_cierre?: string | null
+          fecha_habilitacion?: string | null
+          id?: string
+          intentos_max?: number
+          mezclar_preguntas?: boolean
+          modulo_id?: string | null
+          mostrar_resultados?: boolean
+          nota_aprobacion?: number
+          titulo?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "curso_examenes_curso_id_fkey"
+            columns: ["curso_id"]
+            isOneToOne: false
+            referencedRelation: "cursos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "curso_examenes_modulo_id_fkey"
+            columns: ["modulo_id"]
+            isOneToOne: false
+            referencedRelation: "curso_modulos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      curso_matriculas: {
+        Row: {
+          administracion_id: string | null
+          created_at: string
+          curso_id: string
+          estado: string
+          id: string
+          inscripto_at: string
+          observaciones: string | null
+          profile_id: string
+          submission_origen: string | null
+          updated_at: string
+          vigencia_hasta: string | null
+        }
+        Insert: {
+          administracion_id?: string | null
+          created_at?: string
+          curso_id: string
+          estado?: string
+          id?: string
+          inscripto_at?: string
+          observaciones?: string | null
+          profile_id: string
+          submission_origen?: string | null
+          updated_at?: string
+          vigencia_hasta?: string | null
+        }
+        Update: {
+          administracion_id?: string | null
+          created_at?: string
+          curso_id?: string
+          estado?: string
+          id?: string
+          inscripto_at?: string
+          observaciones?: string | null
+          profile_id?: string
+          submission_origen?: string | null
+          updated_at?: string
+          vigencia_hasta?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "curso_matriculas_administracion_id_fkey"
+            columns: ["administracion_id"]
+            isOneToOne: false
+            referencedRelation: "administraciones"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "curso_matriculas_curso_id_fkey"
+            columns: ["curso_id"]
+            isOneToOne: false
+            referencedRelation: "cursos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "curso_matriculas_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "curso_matriculas_submission_origen_fkey"
+            columns: ["submission_origen"]
+            isOneToOne: false
+            referencedRelation: "formulario_submissions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      curso_modulos: {
+        Row: {
+          created_at: string
+          curso_id: string
+          descripcion: string | null
+          id: string
+          orden: number
+          titulo: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          curso_id: string
+          descripcion?: string | null
+          id?: string
+          orden?: number
+          titulo: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          curso_id?: string
+          descripcion?: string | null
+          id?: string
+          orden?: number
+          titulo?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "curso_modulos_curso_id_fkey"
+            columns: ["curso_id"]
+            isOneToOne: false
+            referencedRelation: "cursos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      curso_opciones: {
+        Row: {
+          correcta: boolean
+          created_at: string
+          id: string
+          orden: number
+          pregunta_id: string
+          retroalimentacion: string | null
+          texto: string
+        }
+        Insert: {
+          correcta?: boolean
+          created_at?: string
+          id?: string
+          orden?: number
+          pregunta_id: string
+          retroalimentacion?: string | null
+          texto: string
+        }
+        Update: {
+          correcta?: boolean
+          created_at?: string
+          id?: string
+          orden?: number
+          pregunta_id?: string
+          retroalimentacion?: string | null
+          texto?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "curso_opciones_pregunta_id_fkey"
+            columns: ["pregunta_id"]
+            isOneToOne: false
+            referencedRelation: "curso_preguntas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      curso_preguntas: {
+        Row: {
+          created_at: string
+          enunciado: string
+          examen_id: string
+          id: string
+          orden: number
+          puntaje: number
+          tipo: string
+        }
+        Insert: {
+          created_at?: string
+          enunciado: string
+          examen_id: string
+          id?: string
+          orden?: number
+          puntaje?: number
+          tipo?: string
+        }
+        Update: {
+          created_at?: string
+          enunciado?: string
+          examen_id?: string
+          id?: string
+          orden?: number
+          puntaje?: number
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "curso_preguntas_examen_id_fkey"
+            columns: ["examen_id"]
+            isOneToOne: false
+            referencedRelation: "curso_examenes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      curso_progreso: {
+        Row: {
+          clase_id: string
+          completada: boolean
+          completada_at: string | null
+          created_at: string
+          id: string
+          matricula_id: string
+        }
+        Insert: {
+          clase_id: string
+          completada?: boolean
+          completada_at?: string | null
+          created_at?: string
+          id?: string
+          matricula_id: string
+        }
+        Update: {
+          clase_id?: string
+          completada?: boolean
+          completada_at?: string | null
+          created_at?: string
+          id?: string
+          matricula_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "curso_progreso_clase_id_fkey"
+            columns: ["clase_id"]
+            isOneToOne: false
+            referencedRelation: "curso_clases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "curso_progreso_matricula_id_fkey"
+            columns: ["matricula_id"]
+            isOneToOne: false
+            referencedRelation: "curso_matriculas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cursos: {
+        Row: {
+          activo: boolean
+          banner_url: string | null
+          categoria: string | null
+          created_at: string
+          created_by: string | null
+          cupo_max: number | null
+          descripcion: string | null
+          descripcion_html: string | null
+          duracion_horas: number | null
+          fecha_fin: string | null
+          fecha_inicio: string | null
+          id: string
+          instructor_bio: string | null
+          instructor_nombre: string | null
+          modalidad: string
+          observaciones: string | null
+          precio_lista: number | null
+          requisitos_html: string | null
+          slug: string
+          titulo: string
+          updated_at: string
+          vigencia_meses: number
+        }
+        Insert: {
+          activo?: boolean
+          banner_url?: string | null
+          categoria?: string | null
+          created_at?: string
+          created_by?: string | null
+          cupo_max?: number | null
+          descripcion?: string | null
+          descripcion_html?: string | null
+          duracion_horas?: number | null
+          fecha_fin?: string | null
+          fecha_inicio?: string | null
+          id?: string
+          instructor_bio?: string | null
+          instructor_nombre?: string | null
+          modalidad?: string
+          observaciones?: string | null
+          precio_lista?: number | null
+          requisitos_html?: string | null
+          slug: string
+          titulo: string
+          updated_at?: string
+          vigencia_meses?: number
+        }
+        Update: {
+          activo?: boolean
+          banner_url?: string | null
+          categoria?: string | null
+          created_at?: string
+          created_by?: string | null
+          cupo_max?: number | null
+          descripcion?: string | null
+          descripcion_html?: string | null
+          duracion_horas?: number | null
+          fecha_fin?: string | null
+          fecha_inicio?: string | null
+          id?: string
+          instructor_bio?: string | null
+          instructor_nombre?: string | null
+          modalidad?: string
+          observaciones?: string | null
+          precio_lista?: number | null
+          requisitos_html?: string | null
+          slug?: string
+          titulo?: string
+          updated_at?: string
+          vigencia_meses?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cursos_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dispatch_recupero_log: {
+        Row: {
+          corrida_at: string
+          duracion_ms: number | null
+          encolados: number
+          errores: Json
+          id: string
+          procesados: number
+        }
+        Insert: {
+          corrida_at?: string
+          duracion_ms?: number | null
+          encolados?: number
+          errores?: Json
+          id?: string
+          procesados?: number
+        }
+        Update: {
+          corrida_at?: string
+          duracion_ms?: number | null
+          encolados?: number
+          errores?: Json
+          id?: string
+          procesados?: number
+        }
+        Relationships: []
+      }
       dispatch_vencimientos_log: {
         Row: {
           corrida_at: string
@@ -1303,6 +1800,57 @@ export type Database = {
         }
         Relationships: []
       }
+      examen_intentos: {
+        Row: {
+          aprobado: boolean | null
+          examen_id: string
+          id: string
+          iniciado_at: string
+          intento: number
+          matricula_id: string
+          nota: number | null
+          respuestas: Json
+          terminado_at: string | null
+        }
+        Insert: {
+          aprobado?: boolean | null
+          examen_id: string
+          id?: string
+          iniciado_at?: string
+          intento?: number
+          matricula_id: string
+          nota?: number | null
+          respuestas?: Json
+          terminado_at?: string | null
+        }
+        Update: {
+          aprobado?: boolean | null
+          examen_id?: string
+          id?: string
+          iniciado_at?: string
+          intento?: number
+          matricula_id?: string
+          nota?: number | null
+          respuestas?: Json
+          terminado_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "examen_intentos_examen_id_fkey"
+            columns: ["examen_id"]
+            isOneToOne: false
+            referencedRelation: "curso_examenes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "examen_intentos_matricula_id_fkey"
+            columns: ["matricula_id"]
+            isOneToOne: false
+            referencedRelation: "curso_matriculas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       formulario_adjuntos: {
         Row: {
           field_name: string
@@ -1538,6 +2086,47 @@ export type Database = {
             columns: ["servicio_id"]
             isOneToOne: false
             referencedRelation: "servicios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      import_log: {
+        Row: {
+          archivo: string
+          autor: string | null
+          created_at: string
+          errores: Json
+          id: string
+          insertados: number
+          saltados: number
+          total_filas: number
+        }
+        Insert: {
+          archivo: string
+          autor?: string | null
+          created_at?: string
+          errores?: Json
+          id?: string
+          insertados?: number
+          saltados?: number
+          total_filas?: number
+        }
+        Update: {
+          archivo?: string
+          autor?: string | null
+          created_at?: string
+          errores?: Json
+          id?: string
+          insertados?: number
+          saltados?: number
+          total_filas?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "import_log_autor_fkey"
+            columns: ["autor"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -1981,6 +2570,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "partner_atribuciones_comprobante_id_fkey"
+            columns: ["comprobante_id"]
+            isOneToOne: false
+            referencedRelation: "vw_comprobantes_para_avisar"
+            referencedColumns: ["comprobante_id"]
+          },
+          {
             foreignKeyName: "partner_atribuciones_convenio_id_fkey"
             columns: ["convenio_id"]
             isOneToOne: false
@@ -2167,6 +2763,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "partner_rendiciones_comprobante_id_fkey"
+            columns: ["comprobante_id"]
+            isOneToOne: false
+            referencedRelation: "vw_comprobantes_para_avisar"
+            referencedColumns: ["comprobante_id"]
+          },
+          {
             foreignKeyName: "partner_rendiciones_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
@@ -2349,6 +2952,193 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      recupero_acciones: {
+        Row: {
+          administracion_id: string
+          autor: string | null
+          comprobante_id: string
+          consorcio_id: string | null
+          created_at: string
+          dias_vencido: number | null
+          email_queue_id: string | null
+          enviado_at: string
+          id: string
+          monto_adeudado: number | null
+          nivel: number
+          observaciones: string | null
+          plantilla_slug: string | null
+        }
+        Insert: {
+          administracion_id: string
+          autor?: string | null
+          comprobante_id: string
+          consorcio_id?: string | null
+          created_at?: string
+          dias_vencido?: number | null
+          email_queue_id?: string | null
+          enviado_at?: string
+          id?: string
+          monto_adeudado?: number | null
+          nivel: number
+          observaciones?: string | null
+          plantilla_slug?: string | null
+        }
+        Update: {
+          administracion_id?: string
+          autor?: string | null
+          comprobante_id?: string
+          consorcio_id?: string | null
+          created_at?: string
+          dias_vencido?: number | null
+          email_queue_id?: string | null
+          enviado_at?: string
+          id?: string
+          monto_adeudado?: number | null
+          nivel?: number
+          observaciones?: string | null
+          plantilla_slug?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recupero_acciones_administracion_id_fkey"
+            columns: ["administracion_id"]
+            isOneToOne: false
+            referencedRelation: "administraciones"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recupero_acciones_autor_fkey"
+            columns: ["autor"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recupero_acciones_comprobante_id_fkey"
+            columns: ["comprobante_id"]
+            isOneToOne: false
+            referencedRelation: "comprobantes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recupero_acciones_comprobante_id_fkey"
+            columns: ["comprobante_id"]
+            isOneToOne: false
+            referencedRelation: "vw_comprobantes_para_avisar"
+            referencedColumns: ["comprobante_id"]
+          },
+          {
+            foreignKeyName: "recupero_acciones_consorcio_id_fkey"
+            columns: ["consorcio_id"]
+            isOneToOne: false
+            referencedRelation: "consorcios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recupero_acciones_email_queue_id_fkey"
+            columns: ["email_queue_id"]
+            isOneToOne: false
+            referencedRelation: "email_queue"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recupero_acciones_plantilla_slug_fkey"
+            columns: ["plantilla_slug"]
+            isOneToOne: false
+            referencedRelation: "recupero_plantillas"
+            referencedColumns: ["slug"]
+          },
+        ]
+      }
+      recupero_config: {
+        Row: {
+          activo_r1: boolean
+          activo_r2: boolean
+          activo_r3: boolean
+          administracion_id: string | null
+          created_at: string
+          dias_r1: number
+          dias_r2: number
+          dias_r3: number
+          email_destinatario_override: string | null
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          activo_r1?: boolean
+          activo_r2?: boolean
+          activo_r3?: boolean
+          administracion_id?: string | null
+          created_at?: string
+          dias_r1?: number
+          dias_r2?: number
+          dias_r3?: number
+          email_destinatario_override?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          activo_r1?: boolean
+          activo_r2?: boolean
+          activo_r3?: boolean
+          administracion_id?: string | null
+          created_at?: string
+          dias_r1?: number
+          dias_r2?: number
+          dias_r3?: number
+          email_destinatario_override?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recupero_config_administracion_id_fkey"
+            columns: ["administracion_id"]
+            isOneToOne: false
+            referencedRelation: "administraciones"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      recupero_plantillas: {
+        Row: {
+          activo: boolean
+          asunto: string
+          body: string
+          created_at: string
+          descripcion: string | null
+          dias_desde_vencimiento_min: number
+          id: string
+          nivel: number
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          activo?: boolean
+          asunto: string
+          body: string
+          created_at?: string
+          descripcion?: string | null
+          dias_desde_vencimiento_min?: number
+          id?: string
+          nivel: number
+          slug: string
+          updated_at?: string
+        }
+        Update: {
+          activo?: boolean
+          asunto?: string
+          body?: string
+          created_at?: string
+          descripcion?: string | null
+          dias_desde_vencimiento_min?: number
+          id?: string
+          nivel?: number
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       sent_emails: {
         Row: {
@@ -3203,6 +3993,28 @@ export type Database = {
           sent_email_id: string
         }[]
       }
+      comprobantes_morosos: {
+        Args: { p_administracion_id?: string }
+        Returns: {
+          administracion_id: string
+          administracion_nombre: string
+          comprobante_id: string
+          comprobante_numero: number
+          comprobante_tipo: string
+          consorcio_id: string
+          consorcio_nombre: string
+          dias_vencido: number
+          estado_cobranza: string
+          fecha: string
+          nivel_sugerido: number
+          punto_venta: number
+          saldo_pendiente: number
+          total: number
+          ultima_accion_at: string
+          ultima_accion_nivel: number
+          vencimiento: string
+        }[]
+      }
       crear_comprobante_borrador_fiscal: {
         Args: {
           p_administracion_id: string
@@ -3228,8 +4040,91 @@ export type Database = {
         }
         Returns: string
       }
+      cuenta_corriente_extracto: {
+        Args: { p_administracion_id: string; p_desde: string; p_hasta: string }
+        Returns: {
+          comprobante_id: string
+          consorcio_nombre: string
+          debe: number
+          descripcion: string
+          fecha: string
+          haber: number
+          imputacion_id: string
+          movimiento_id: string
+          saldo: number
+          tipo: string
+        }[]
+      }
+      cuenta_corriente_morosos: {
+        Args: { p_limit?: number }
+        Returns: {
+          administracion_id: string
+          administracion_nombre: string
+          comprobantes_pendientes: number
+          comprobantes_vencidos: number
+          deuda_total: number
+          mayor_dias_vencido: number
+        }[]
+      }
+      cuenta_corriente_resumen: {
+        Args: {
+          p_administracion_id: string
+          p_desde?: string
+          p_hasta?: string
+        }
+        Returns: {
+          comprobantes_pendientes: number
+          comprobantes_vencidos: number
+          deuda_total: number
+          proximo_vencimiento: string
+          saldo_actual: number
+          saldo_inicial: number
+          total_cobrado: number
+          total_facturado: number
+        }[]
+      }
+      cuenta_corriente_resumen_global: {
+        Args: { p_desde?: string; p_hasta?: string }
+        Returns: {
+          administracion_id: string
+          administracion_nombre: string
+          comprobantes_pendientes: number
+          comprobantes_vencidos: number
+          deuda_total: number
+          total_cobrado: number
+          total_facturado: number
+        }[]
+      }
+      curso_marcar_clase_completada: {
+        Args: { p_clase_id: string; p_matricula_id: string }
+        Returns: undefined
+      }
+      curso_matricular: {
+        Args: {
+          p_administracion_id: string
+          p_curso_id: string
+          p_profile_id: string
+        }
+        Returns: string
+      }
+      curso_progreso_resumen: {
+        Args: { p_matricula_id: string }
+        Returns: Json
+      }
+      curso_responder_examen: {
+        Args: { p_intento_id: string; p_respuestas: Json }
+        Returns: Json
+      }
       desimputar_cobranza: {
         Args: { p_imputacion_id: string }
+        Returns: string
+      }
+      disparar_recupero_manual: {
+        Args: {
+          p_comprobante_id: string
+          p_nivel: number
+          p_observaciones?: string
+        }
         Returns: string
       }
       emitir_comprobante_manual: {
@@ -3264,6 +4159,10 @@ export type Database = {
       enqueue_emision_comprobante: {
         Args: { p_comprobante_id: string }
         Returns: string
+      }
+      import_comprobantes_batch: {
+        Args: { p_archivo: string; p_filas: Json }
+        Returns: Json
       }
       lote_consolidado_administracion: {
         Args: {
@@ -3486,4 +4385,3 @@ export const Constants = {
     Enums: {},
   },
 } as const
-
