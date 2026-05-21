@@ -52,6 +52,12 @@ const FormularioPublicoPage = lazy(() => import('@/modules/public/pages/Formular
 const FormulariosAdminListPage = lazy(() => import('@/modules/formularios-admin').then(m => ({ default: m.FormulariosAdminListPage })));
 const FormularioBuilderPage = lazy(() => import('@/modules/formularios-admin').then(m => ({ default: m.FormularioBuilderPage })));
 const FormularioVersionesPage = lazy(() => import('@/modules/formularios-admin').then(m => ({ default: m.FormularioVersionesPage })));
+// Ronda 5 · Flujo Maestro
+const SolicitudesListPage = lazy(() => import('@/modules/solicitudes').then(m => ({ default: m.SolicitudesListPage })));
+const SolicitudDetailPage = lazy(() => import('@/modules/solicitudes').then(m => ({ default: m.SolicitudDetailPage })));
+const TrackingDetailPage = lazy(() => import('@/modules/trackings').then(m => ({ default: m.TrackingDetailPage })));
+const AgendaPage = lazy(() => import('@/modules/agenda').then(m => ({ default: m.AgendaPage })));
+const AccesoExternoPage = lazy(() => import('@/modules/acceso-externo').then(m => ({ default: m.AccesoExternoPage })));
 
 type Role = 'gerente' | 'operador' | 'administrador';
 
@@ -114,6 +120,7 @@ export function App() {
         <Route path="/inicio" element={<LandingPage />} />
         <Route path="/ingresar" element={<LoginPage />} />
         <Route path="/formulario/:slug" element={<FormularioPublicoPage />} />
+        <Route path="/externo/:token" element={<AccesoExternoPage />} />
 
         <Route
           path="/gerencia"
@@ -128,9 +135,17 @@ export function App() {
           <Route path="clientes/:id" element={<AdministracionDetailPage />} />
           <Route path="facturacion" element={<ComprobantesListPage />} />
           <Route path="facturacion/:id" element={<ComprobanteDetailPage />} />
+          <Route path="solicitudes" element={<SolicitudesListPage />} />
+          <Route path="solicitudes/:id" element={<SolicitudDetailPage />} />
           <Route path="tramites" element={<TramitesListPage />} />
           <Route path="tramites/kanban" element={<TramitesKanbanPage />} />
+          {/* TrackingDetail vista enriquecida del nuevo subsistema. La
+              ruta legacy /tramites/:id queda con TramiteDetailPage por
+              compatibilidad; el sidebar y los enlaces nuevos apuntan al
+              tracking. */}
           <Route path="tramites/:id" element={<TramiteDetailPage />} />
+          <Route path="trackings/:id" element={<TrackingDetailPage />} />
+          <Route path="agenda" element={<AgendaPage />} />
           <Route path="servicios" element={<ServiciosListPage />} />
           <Route path="servicios/:id" element={<ServicioDetailPage />} />
           <Route path="vencimientos" element={<VencimientosListPage />} />

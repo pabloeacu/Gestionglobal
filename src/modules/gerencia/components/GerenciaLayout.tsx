@@ -12,7 +12,9 @@ import {
   BarChart3,
   Settings,
   Inbox,
+  Bell,
   CalendarClock,
+  CalendarDays,
   Handshake,
   ClipboardList,
   Menu,
@@ -40,10 +42,12 @@ interface NavItem {
 
 const NAV: NavItem[] = [
   { to: '/gerencia', label: 'Inicio', icon: LayoutDashboard, end: true },
+  { to: '/gerencia/solicitudes', label: 'Solicitudes', icon: Bell },
   { to: '/gerencia/clientes', label: 'Clientes', icon: Users },
   { to: '/gerencia/servicios', label: 'Servicios', icon: Briefcase },
   { to: '/gerencia/facturacion', label: 'Facturación', icon: FileText },
   { to: '/gerencia/tramites', label: 'Trámites', icon: Inbox },
+  { to: '/gerencia/agenda', label: 'Agenda', icon: CalendarDays },
   { to: '/gerencia/vencimientos', label: 'Vencimientos', icon: CalendarClock },
   { to: '/gerencia/cuenta-corriente', label: 'Cuenta corriente', icon: Wallet },
   { to: '/gerencia/recupero', label: 'Recupero', icon: AlertCircle },
