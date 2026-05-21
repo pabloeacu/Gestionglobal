@@ -1775,6 +1775,7 @@ export type Database = {
           motivo_pendiente: string | null
           movimiento_revertido_id: string | null
           origen: string
+          partner_id_atribucion: string | null
           referencia: string | null
           revertido_at: string | null
           tipo: string
@@ -1799,6 +1800,7 @@ export type Database = {
           motivo_pendiente?: string | null
           movimiento_revertido_id?: string | null
           origen?: string
+          partner_id_atribucion?: string | null
           referencia?: string | null
           revertido_at?: string | null
           tipo: string
@@ -1823,6 +1825,7 @@ export type Database = {
           motivo_pendiente?: string | null
           movimiento_revertido_id?: string | null
           origen?: string
+          partner_id_atribucion?: string | null
           referencia?: string | null
           revertido_at?: string | null
           tipo?: string
@@ -1893,6 +1896,13 @@ export type Database = {
             referencedRelation: "movimientos"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "movimientos_partner_id_atribucion_fkey"
+            columns: ["partner_id_atribucion"]
+            isOneToOne: false
+            referencedRelation: "partners"
+            referencedColumns: ["id"]
+          },
         ]
       }
       numeradores: {
@@ -1915,6 +1925,318 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      partner_atribuciones: {
+        Row: {
+          comprobante_id: string | null
+          convenio_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          monto_atribuido: number
+          monto_base: number
+          movimiento_id: string | null
+          observaciones: string | null
+          partner_id: string
+          porcentaje: number
+          rendicion_id: string | null
+          tipo: string
+        }
+        Insert: {
+          comprobante_id?: string | null
+          convenio_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          monto_atribuido: number
+          monto_base: number
+          movimiento_id?: string | null
+          observaciones?: string | null
+          partner_id: string
+          porcentaje: number
+          rendicion_id?: string | null
+          tipo: string
+        }
+        Update: {
+          comprobante_id?: string | null
+          convenio_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          monto_atribuido?: number
+          monto_base?: number
+          movimiento_id?: string | null
+          observaciones?: string | null
+          partner_id?: string
+          porcentaje?: number
+          rendicion_id?: string | null
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_atribuciones_comprobante_id_fkey"
+            columns: ["comprobante_id"]
+            isOneToOne: false
+            referencedRelation: "comprobantes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_atribuciones_convenio_id_fkey"
+            columns: ["convenio_id"]
+            isOneToOne: false
+            referencedRelation: "partner_convenios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_atribuciones_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_atribuciones_movimiento_id_fkey"
+            columns: ["movimiento_id"]
+            isOneToOne: false
+            referencedRelation: "movimientos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_atribuciones_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "partners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_atribuciones_rendicion_id_fkey"
+            columns: ["rendicion_id"]
+            isOneToOne: false
+            referencedRelation: "partner_rendiciones"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      partner_convenios: {
+        Row: {
+          activo: boolean
+          created_at: string
+          created_by: string | null
+          id: string
+          moneda: string
+          observaciones: string | null
+          partner_id: string
+          porc_costos: number
+          porc_ingresos: number
+          updated_at: string
+          vigencia_desde: string
+          vigencia_hasta: string | null
+        }
+        Insert: {
+          activo?: boolean
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          moneda?: string
+          observaciones?: string | null
+          partner_id: string
+          porc_costos: number
+          porc_ingresos: number
+          updated_at?: string
+          vigencia_desde: string
+          vigencia_hasta?: string | null
+        }
+        Update: {
+          activo?: boolean
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          moneda?: string
+          observaciones?: string | null
+          partner_id?: string
+          porc_costos?: number
+          porc_ingresos?: number
+          updated_at?: string
+          vigencia_desde?: string
+          vigencia_hasta?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_convenios_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_convenios_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "partners"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      partner_rendiciones: {
+        Row: {
+          cancelada_at: string | null
+          cancelada_por: string | null
+          cerrada_at: string | null
+          cerrada_por: string | null
+          comprobante_id: string | null
+          created_at: string
+          created_by: string | null
+          estado: string
+          id: string
+          motivo_cancelacion: string | null
+          neto: number | null
+          observaciones: string | null
+          partner_id: string
+          periodo_desde: string
+          periodo_hasta: string
+          total_costos_atribuidos: number
+          total_costos_brutos: number
+          total_ingresos_atribuidos: number
+          total_ingresos_brutos: number
+          updated_at: string
+        }
+        Insert: {
+          cancelada_at?: string | null
+          cancelada_por?: string | null
+          cerrada_at?: string | null
+          cerrada_por?: string | null
+          comprobante_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          estado?: string
+          id?: string
+          motivo_cancelacion?: string | null
+          neto?: number | null
+          observaciones?: string | null
+          partner_id: string
+          periodo_desde: string
+          periodo_hasta: string
+          total_costos_atribuidos?: number
+          total_costos_brutos?: number
+          total_ingresos_atribuidos?: number
+          total_ingresos_brutos?: number
+          updated_at?: string
+        }
+        Update: {
+          cancelada_at?: string | null
+          cancelada_por?: string | null
+          cerrada_at?: string | null
+          cerrada_por?: string | null
+          comprobante_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          estado?: string
+          id?: string
+          motivo_cancelacion?: string | null
+          neto?: number | null
+          observaciones?: string | null
+          partner_id?: string
+          periodo_desde?: string
+          periodo_hasta?: string
+          total_costos_atribuidos?: number
+          total_costos_brutos?: number
+          total_ingresos_atribuidos?: number
+          total_ingresos_brutos?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_rendiciones_cancelada_por_fkey"
+            columns: ["cancelada_por"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_rendiciones_cerrada_por_fkey"
+            columns: ["cerrada_por"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_rendiciones_comprobante_id_fkey"
+            columns: ["comprobante_id"]
+            isOneToOne: false
+            referencedRelation: "comprobantes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_rendiciones_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_rendiciones_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "partners"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      partners: {
+        Row: {
+          activo: boolean
+          condicion_iva: string | null
+          created_at: string
+          created_by: string | null
+          cuit: string | null
+          domicilio: string | null
+          email: string | null
+          id: string
+          nombre_legal: string
+          observaciones: string | null
+          slug: string
+          telefono: string | null
+          updated_at: string
+        }
+        Insert: {
+          activo?: boolean
+          condicion_iva?: string | null
+          created_at?: string
+          created_by?: string | null
+          cuit?: string | null
+          domicilio?: string | null
+          email?: string | null
+          id?: string
+          nombre_legal: string
+          observaciones?: string | null
+          slug: string
+          telefono?: string | null
+          updated_at?: string
+        }
+        Update: {
+          activo?: boolean
+          condicion_iva?: string | null
+          created_at?: string
+          created_by?: string | null
+          cuit?: string | null
+          domicilio?: string | null
+          email?: string | null
+          id?: string
+          nombre_legal?: string
+          observaciones?: string | null
+          slug?: string
+          telefono?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partners_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       precio_audit: {
         Row: {
@@ -2956,6 +3278,18 @@ export type Database = {
         Returns: string
       }
       normalizar_nombre: { Args: { p: string }; Returns: string }
+      partner_anular_rendicion: {
+        Args: { p_motivo: string; p_rendicion_id: string }
+        Returns: string
+      }
+      partner_cerrar_rendicion: {
+        Args: { p_rendicion_id: string }
+        Returns: string
+      }
+      partner_crear_rendicion: {
+        Args: { p_desde: string; p_hasta: string; p_partner_id: string }
+        Returns: string
+      }
       peek_proximo_numero: {
         Args: { p_punto_venta: number; p_tipo: string }
         Returns: number
