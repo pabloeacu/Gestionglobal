@@ -119,3 +119,29 @@ Detectado durante test browser: **el editor de cursos crashea** con React #310, 
 - **Vencimientos + alertas estratégicas** · ✅ Hecho
 - **DNS apuntando a Vercel** · ⏳ Pendiente (acción del usuario en Cloudflare/NIC.ar)
 - **Importador histórico Excel** · ✅ Hecho
+
+---
+
+## Agenda ultra-premium · referencia obligada
+
+El usuario aportó el documento `/Users/paulair/Desktop/MDC Plataforma/mdc-platform/AGENDA_GERENCIAL_HANDOFF.md` (1030 líneas) — handoff de la Agenda Gerencial que armaron en la plataforma MDC. Después de que F termine la versión inicial (CRUD + push + accesos), aplicar las **mejoras del patrón MDC** en una segunda pasada:
+
+1. **Parser NL rioplatense** — "comprar pañales mañana 9am #personal" → evento listo (incluye fechas relativas, horas, categoría con `#`, prioridad con `!`, recurrencia textual).
+2. **Recurrencia virtual** — regla en fila madre + tabla `event_overrides` con status `moved/skipped/done`. Las ocurrencias se calculan en runtime, no se materializan.
+3. **Gestos premium** sobre Semana/Día — drag para mover bloque (con ghost preview de rango), resize por borde inferior, paint franja vacía para crear (sin persistir hasta confirmar — regla E1).
+4. **Círculo de tilde Apple Tasks** embebido (stopPropagation en pointerdown — regla E12).
+5. **AccionesMenu flotante** con clamp robusto que recalcula con `useLayoutEffect` (regla E7).
+6. **Posponer relativo a la fecha del evento** (regla E11), no a hoy.
+7. **Cadencia humana de recordatorios** — 1° aviso a la hora, re-alerta cada 5 h, cierre a las 20:00, pendientes 09:00-09:20 una sola vez. Descartar alarmas configurables tipo Google.
+8. **Modal con panel lateral animado** (NO expandir hacia abajo — regla E8).
+9. **Command palette ⌘K** ya existe global; agregar acciones scope-aware "saltar a hoy/mañana/próximo lunes".
+10. **Copy rioplatense** ("no te cuelgues", "te marco de nuevo", "última por hoy") + emojis SOLO en notifications (UI usa lucide).
+
+**14 lecciones (E1-E14) en el documento — releerlas antes de tocar Agenda.**
+
+Adaptaciones para Gestión Global:
+- Owner: ya tenemos rol `gerente` (no `gerencia`).
+- Categorías default: Liquidaciones, Asambleas, Cobranzas, Proveedores, Reclamos, Personal, Banco, Otros.
+- Vínculos: consorcios, administraciones, comprobantes, trámites/trackings (en vez de edificios/empleados/facturas de MDC).
+- Color primario: cyan/teal Gestión Global (NO turquesa).
+- Tono: mantener rioplatense pero alineado a la voz de Gestión Global (institucional pero cercano).
