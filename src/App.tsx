@@ -49,6 +49,9 @@ const PortalCtaCtePage = lazy(() => import('@/modules/portal/pages/PortalCtaCteP
 const PortalConsorciosPage = lazy(() => import('@/modules/portal/pages/PortalConsorciosPage').then(m => ({ default: m.PortalConsorciosPage })));
 const PerfilPage = lazy(() => import('@/modules/auth/pages/PerfilPage').then(m => ({ default: m.PerfilPage })));
 const FormularioPublicoPage = lazy(() => import('@/modules/public/pages/FormularioPublicoPage').then(m => ({ default: m.FormularioPublicoPage })));
+const FormulariosAdminListPage = lazy(() => import('@/modules/formularios-admin').then(m => ({ default: m.FormulariosAdminListPage })));
+const FormularioBuilderPage = lazy(() => import('@/modules/formularios-admin').then(m => ({ default: m.FormularioBuilderPage })));
+const FormularioVersionesPage = lazy(() => import('@/modules/formularios-admin').then(m => ({ default: m.FormularioVersionesPage })));
 
 type Role = 'gerente' | 'operador' | 'administrador';
 
@@ -141,6 +144,9 @@ export function App() {
           <Route path="partners" element={<PartnersListPage />} />
           <Route path="partners/:id" element={<PartnerDetailPage />} />
           <Route path="partners/:partnerId/rendiciones/:id" element={<RendicionDetailPage />} />
+          <Route path="formularios" element={<FormulariosAdminListPage />} />
+          <Route path="formularios/:id" element={<FormularioBuilderPage />} />
+          <Route path="formularios/:id/versiones" element={<FormularioVersionesPage />} />
           <Route path="campus" element={<CampusListPage />} />
           <Route path="campus/:id" element={<CursoEditorPage />} />
           <Route path="reportes" element={<ReportesHubPage />} />

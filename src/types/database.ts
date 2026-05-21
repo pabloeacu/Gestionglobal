@@ -14,6 +14,54 @@ export type Database = {
   }
   public: {
     Tables: {
+      accesos_externos: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          email_destinatario: string
+          nombre_destinatario: string | null
+          observaciones: string | null
+          recurso_id: string
+          recurso_tipo: string
+          revocado_at: string | null
+          token: string
+          total_visitas: number
+          ultima_visita_at: string | null
+          usado_at: string | null
+          vence_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          email_destinatario: string
+          nombre_destinatario?: string | null
+          observaciones?: string | null
+          recurso_id: string
+          recurso_tipo: string
+          revocado_at?: string | null
+          token: string
+          total_visitas?: number
+          ultima_visita_at?: string | null
+          usado_at?: string | null
+          vence_at: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          email_destinatario?: string
+          nombre_destinatario?: string | null
+          observaciones?: string | null
+          recurso_id?: string
+          recurso_tipo?: string
+          revocado_at?: string | null
+          token?: string
+          total_visitas?: number
+          ultima_visita_at?: string | null
+          usado_at?: string | null
+          vence_at?: string
+        }
+        Relationships: []
+      }
       administracion_emails: {
         Row: {
           activo: boolean
@@ -179,6 +227,107 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agenda_eventos: {
+        Row: {
+          cancelado_at: string | null
+          categoria: string
+          cliente_id: string | null
+          completado_at: string | null
+          created_at: string
+          created_by: string | null
+          descripcion: string | null
+          fecha_fin: string | null
+          fecha_inicio: string
+          id: string
+          origen: string
+          prioridad: string
+          recordatorio_enviado_at: string | null
+          recordatorio_minutos_antes: number
+          responsable_id: string | null
+          servicio_id: string | null
+          titulo: string
+          todo_el_dia: boolean
+          tramite_id: string | null
+          updated_at: string
+          vencimiento_id: string | null
+        }
+        Insert: {
+          cancelado_at?: string | null
+          categoria?: string
+          cliente_id?: string | null
+          completado_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          descripcion?: string | null
+          fecha_fin?: string | null
+          fecha_inicio: string
+          id?: string
+          origen?: string
+          prioridad?: string
+          recordatorio_enviado_at?: string | null
+          recordatorio_minutos_antes?: number
+          responsable_id?: string | null
+          servicio_id?: string | null
+          titulo: string
+          todo_el_dia?: boolean
+          tramite_id?: string | null
+          updated_at?: string
+          vencimiento_id?: string | null
+        }
+        Update: {
+          cancelado_at?: string | null
+          categoria?: string
+          cliente_id?: string | null
+          completado_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          descripcion?: string | null
+          fecha_fin?: string | null
+          fecha_inicio?: string
+          id?: string
+          origen?: string
+          prioridad?: string
+          recordatorio_enviado_at?: string | null
+          recordatorio_minutos_antes?: number
+          responsable_id?: string | null
+          servicio_id?: string | null
+          titulo?: string
+          todo_el_dia?: boolean
+          tramite_id?: string | null
+          updated_at?: string
+          vencimiento_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agenda_eventos_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "administraciones"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agenda_eventos_servicio_id_fkey"
+            columns: ["servicio_id"]
+            isOneToOne: false
+            referencedRelation: "servicios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agenda_eventos_tramite_id_fkey"
+            columns: ["tramite_id"]
+            isOneToOne: false
+            referencedRelation: "tramites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agenda_eventos_vencimiento_id_fkey"
+            columns: ["vencimiento_id"]
+            isOneToOne: false
+            referencedRelation: "vencimientos"
             referencedColumns: ["id"]
           },
         ]
@@ -1997,6 +2146,41 @@ export type Database = {
           },
         ]
       }
+      formulario_versiones: {
+        Row: {
+          formulario_id: string
+          guardado_at: string
+          guardado_por: string | null
+          id: string
+          schema: Json
+          version_num: number
+        }
+        Insert: {
+          formulario_id: string
+          guardado_at?: string
+          guardado_por?: string | null
+          id?: string
+          schema: Json
+          version_num: number
+        }
+        Update: {
+          formulario_id?: string
+          guardado_at?: string
+          guardado_por?: string | null
+          id?: string
+          schema?: Json
+          version_num?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "formulario_versiones_formulario_id_fkey"
+            columns: ["formulario_id"]
+            isOneToOne: false
+            referencedRelation: "formularios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       formularios: {
         Row: {
           activo: boolean
@@ -2022,6 +2206,7 @@ export type Database = {
           titulo: string
           total_envios: number
           updated_at: string
+          version_actual: number
         }
         Insert: {
           activo?: boolean
@@ -2047,6 +2232,7 @@ export type Database = {
           titulo: string
           total_envios?: number
           updated_at?: string
+          version_actual?: number
         }
         Update: {
           activo?: boolean
@@ -2072,6 +2258,7 @@ export type Database = {
           titulo?: string
           total_envios?: number
           updated_at?: string
+          version_actual?: number
         }
         Relationships: [
           {
@@ -2953,6 +3140,81 @@ export type Database = {
           },
         ]
       }
+      push_notifications_queue: {
+        Row: {
+          click_url: string | null
+          created_at: string
+          cuerpo: string | null
+          enviada_at: string | null
+          error: string | null
+          icono_url: string | null
+          id: string
+          intento: number
+          max_intentos: number
+          titulo: string
+          user_id: string
+        }
+        Insert: {
+          click_url?: string | null
+          created_at?: string
+          cuerpo?: string | null
+          enviada_at?: string | null
+          error?: string | null
+          icono_url?: string | null
+          id?: string
+          intento?: number
+          max_intentos?: number
+          titulo: string
+          user_id: string
+        }
+        Update: {
+          click_url?: string | null
+          created_at?: string
+          cuerpo?: string | null
+          enviada_at?: string | null
+          error?: string | null
+          icono_url?: string | null
+          id?: string
+          intento?: number
+          max_intentos?: number
+          titulo?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      push_subscriptions: {
+        Row: {
+          created_at: string
+          endpoint: string
+          id: string
+          keys_auth: string
+          keys_p256dh: string
+          last_used_at: string | null
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          endpoint: string
+          id?: string
+          keys_auth: string
+          keys_p256dh: string
+          last_used_at?: string | null
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          endpoint?: string
+          id?: string
+          keys_auth?: string
+          keys_p256dh?: string
+          last_used_at?: string | null
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       recupero_acciones: {
         Row: {
           administracion_id: string
@@ -3374,6 +3636,152 @@ export type Database = {
           },
         ]
       }
+      solicitud_derivaciones: {
+        Row: {
+          acceso_externo_token: string | null
+          acceso_externo_url: string | null
+          creada_por: string | null
+          destinatario_email: string
+          destinatario_nombre: string | null
+          email_queue_id: string | null
+          enviada_at: string
+          id: string
+          observaciones: string | null
+          plantilla_email_slug: string | null
+          solicitud_id: string
+        }
+        Insert: {
+          acceso_externo_token?: string | null
+          acceso_externo_url?: string | null
+          creada_por?: string | null
+          destinatario_email: string
+          destinatario_nombre?: string | null
+          email_queue_id?: string | null
+          enviada_at?: string
+          id?: string
+          observaciones?: string | null
+          plantilla_email_slug?: string | null
+          solicitud_id: string
+        }
+        Update: {
+          acceso_externo_token?: string | null
+          acceso_externo_url?: string | null
+          creada_por?: string | null
+          destinatario_email?: string
+          destinatario_nombre?: string | null
+          email_queue_id?: string | null
+          enviada_at?: string
+          id?: string
+          observaciones?: string | null
+          plantilla_email_slug?: string | null
+          solicitud_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "solicitud_derivaciones_email_queue_id_fkey"
+            columns: ["email_queue_id"]
+            isOneToOne: false
+            referencedRelation: "email_queue"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solicitud_derivaciones_solicitud_id_fkey"
+            columns: ["solicitud_id"]
+            isOneToOne: false
+            referencedRelation: "solicitudes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      solicitudes: {
+        Row: {
+          activada_at: string | null
+          asignada_a: string | null
+          cliente_id: string | null
+          created_at: string
+          derivada_at: string | null
+          estado: string
+          formulario_submission_id: string | null
+          id: string
+          motivo_descarte: string | null
+          observaciones: string | null
+          servicio_slug: string | null
+          servicio_solicitado_id: string | null
+          solicitante_email: string | null
+          solicitante_nombre: string | null
+          solicitante_telefono: string | null
+          tramite_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          activada_at?: string | null
+          asignada_a?: string | null
+          cliente_id?: string | null
+          created_at?: string
+          derivada_at?: string | null
+          estado?: string
+          formulario_submission_id?: string | null
+          id?: string
+          motivo_descarte?: string | null
+          observaciones?: string | null
+          servicio_slug?: string | null
+          servicio_solicitado_id?: string | null
+          solicitante_email?: string | null
+          solicitante_nombre?: string | null
+          solicitante_telefono?: string | null
+          tramite_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          activada_at?: string | null
+          asignada_a?: string | null
+          cliente_id?: string | null
+          created_at?: string
+          derivada_at?: string | null
+          estado?: string
+          formulario_submission_id?: string | null
+          id?: string
+          motivo_descarte?: string | null
+          observaciones?: string | null
+          servicio_slug?: string | null
+          servicio_solicitado_id?: string | null
+          solicitante_email?: string | null
+          solicitante_nombre?: string | null
+          solicitante_telefono?: string | null
+          tramite_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "solicitudes_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "administraciones"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solicitudes_formulario_submission_id_fkey"
+            columns: ["formulario_submission_id"]
+            isOneToOne: false
+            referencedRelation: "formulario_submissions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solicitudes_servicio_solicitado_id_fkey"
+            columns: ["servicio_solicitado_id"]
+            isOneToOne: false
+            referencedRelation: "servicios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solicitudes_tramite_id_fkey"
+            columns: ["tramite_id"]
+            isOneToOne: false
+            referencedRelation: "tramites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tabulador_precios: {
         Row: {
           administracion_id: string | null
@@ -3456,6 +3864,132 @@ export type Database = {
             columns: ["servicio_id"]
             isOneToOne: false
             referencedRelation: "servicios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tracking_categorias_config: {
+        Row: {
+          color: string
+          created_at: string
+          icono: string | null
+          id: string
+          label: string
+          orden: number
+          servicio_id: string | null
+          slug: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          icono?: string | null
+          id?: string
+          label: string
+          orden?: number
+          servicio_id?: string | null
+          slug: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          icono?: string | null
+          id?: string
+          label?: string
+          orden?: number
+          servicio_id?: string | null
+          slug?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tracking_categorias_config_servicio_id_fkey"
+            columns: ["servicio_id"]
+            isOneToOne: false
+            referencedRelation: "servicios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tracking_estados_config: {
+        Row: {
+          color: string
+          created_at: string
+          es_final: boolean
+          id: string
+          label: string
+          orden: number
+          servicio_id: string | null
+          slug: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          es_final?: boolean
+          id?: string
+          label: string
+          orden?: number
+          servicio_id?: string | null
+          slug: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          es_final?: boolean
+          id?: string
+          label?: string
+          orden?: number
+          servicio_id?: string | null
+          slug?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tracking_estados_config_servicio_id_fkey"
+            columns: ["servicio_id"]
+            isOneToOne: false
+            referencedRelation: "servicios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tracking_lineas: {
+        Row: {
+          alerta_en: string | null
+          archivos_urls: string[]
+          autor_id: string | null
+          categoria: string
+          created_at: string
+          descripcion: string
+          estado_asociado: string | null
+          id: string
+          tramite_id: string
+        }
+        Insert: {
+          alerta_en?: string | null
+          archivos_urls?: string[]
+          autor_id?: string | null
+          categoria: string
+          created_at?: string
+          descripcion: string
+          estado_asociado?: string | null
+          id?: string
+          tramite_id: string
+        }
+        Update: {
+          alerta_en?: string | null
+          archivos_urls?: string[]
+          autor_id?: string | null
+          categoria?: string
+          created_at?: string
+          descripcion?: string
+          estado_asociado?: string | null
+          id?: string
+          tramite_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tracking_lineas_tramite_id_fkey"
+            columns: ["tramite_id"]
+            isOneToOne: false
+            referencedRelation: "tramites"
             referencedColumns: ["id"]
           },
         ]
@@ -3612,12 +4146,18 @@ export type Database = {
           created_at: string
           created_by: string | null
           descripcion: string | null
+          documento_final_url: string | null
           estado: string
+          fecha_fin: string | null
+          fecha_inicio: string | null
           formulario_submission_id: string | null
           id: string
+          parent_tracking_id: string | null
+          periodo: string | null
           prioridad: string
           resuelto_at: string | null
           resuelto_por: string | null
+          servicio_id: string | null
           solicitante_email: string | null
           solicitante_nombre: string | null
           solicitante_telefono: string | null
@@ -3639,12 +4179,18 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           descripcion?: string | null
+          documento_final_url?: string | null
           estado?: string
+          fecha_fin?: string | null
+          fecha_inicio?: string | null
           formulario_submission_id?: string | null
           id?: string
+          parent_tracking_id?: string | null
+          periodo?: string | null
           prioridad?: string
           resuelto_at?: string | null
           resuelto_por?: string | null
+          servicio_id?: string | null
           solicitante_email?: string | null
           solicitante_nombre?: string | null
           solicitante_telefono?: string | null
@@ -3666,12 +4212,18 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           descripcion?: string | null
+          documento_final_url?: string | null
           estado?: string
+          fecha_fin?: string | null
+          fecha_inicio?: string | null
           formulario_submission_id?: string | null
           id?: string
+          parent_tracking_id?: string | null
+          periodo?: string | null
           prioridad?: string
           resuelto_at?: string | null
           resuelto_por?: string | null
+          servicio_id?: string | null
           solicitante_email?: string | null
           solicitante_nombre?: string | null
           solicitante_telefono?: string | null
@@ -3734,10 +4286,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "tramites_parent_tracking_id_fkey"
+            columns: ["parent_tracking_id"]
+            isOneToOne: false
+            referencedRelation: "tramites"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "tramites_resuelto_por_fkey"
             columns: ["resuelto_por"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tramites_servicio_id_fkey"
+            columns: ["servicio_id"]
+            isOneToOne: false
+            referencedRelation: "servicios"
             referencedColumns: ["id"]
           },
         ]
@@ -3994,14 +4560,14 @@ export type Database = {
         }[]
       }
       busqueda_global: {
-        Args: { p_q: string; p_limit?: number }
+        Args: { p_limit?: number; p_q: string }
         Returns: {
-          kind: string
           id: string
-          titulo: string
-          subtitulo: string | null
-          url_path: string
+          kind: string
           rank: number
+          subtitulo: string
+          titulo: string
+          url_path: string
         }[]
       }
       comprobantes_morosos: {
@@ -4167,13 +4733,69 @@ export type Database = {
         }
         Returns: string
       }
+      encolar_push: {
+        Args: {
+          p_click_url?: string
+          p_cuerpo?: string
+          p_icono_url?: string
+          p_titulo: string
+          p_user_id: string
+        }
+        Returns: string
+      }
       enqueue_emision_comprobante: {
         Args: { p_comprobante_id: string }
+        Returns: string
+      }
+      generar_acceso_externo: {
+        Args: {
+          p_dias_validez?: number
+          p_email_destinatario: string
+          p_nombre_destinatario?: string
+          p_observaciones?: string
+          p_recurso_id: string
+          p_recurso_tipo: string
+        }
         Returns: string
       }
       import_comprobantes_batch: {
         Args: { p_archivo: string; p_filas: Json }
         Returns: Json
+      }
+      kpis_dashboard_global: { Args: { p_desde?: string }; Returns: Json }
+      listar_eventos_agenda: {
+        Args: {
+          p_categoria?: string
+          p_cliente?: string
+          p_desde: string
+          p_hasta: string
+          p_incluir_completados?: boolean
+          p_prioridad?: string
+          p_responsable?: string
+          p_servicio?: string
+        }
+        Returns: {
+          cancelado_at: string
+          categoria: string
+          cliente_id: string
+          cliente_nombre: string
+          completado_at: string
+          descripcion: string
+          fecha_fin: string
+          fecha_inicio: string
+          id: string
+          origen: string
+          prioridad: string
+          recordatorio_minutos_antes: number
+          responsable_id: string
+          responsable_nombre: string
+          servicio_id: string
+          servicio_nombre: string
+          titulo: string
+          todo_el_dia: boolean
+          tramite_id: string
+          vencimiento_id: string
+        }[]
       }
       lote_consolidado_administracion: {
         Args: {
@@ -4259,6 +4881,96 @@ export type Database = {
           tabulador_precio_id: string
           unidades: number
         }[]
+      }
+      restaurar_formulario_version: {
+        Args: { p_formulario_id: string; p_version_num: number }
+        Returns: string
+      }
+      revocar_acceso_externo: { Args: { p_token: string }; Returns: undefined }
+      solicitud_activar: {
+        Args: {
+          p_cliente_id?: string
+          p_crear_cliente_input?: Json
+          p_fecha_inicio?: string
+          p_periodo?: string
+          p_solicitud_id: string
+        }
+        Returns: string
+      }
+      solicitud_derivar: {
+        Args: {
+          p_destinatario_email: string
+          p_destinatario_nombre: string
+          p_observaciones?: string
+          p_plantilla_slug?: string
+          p_solicitud_id: string
+        }
+        Returns: string
+      }
+      solicitud_descartar: {
+        Args: { p_motivo: string; p_solicitud_id: string }
+        Returns: undefined
+      }
+      solicitud_marcar_en_revision: {
+        Args: { p_observaciones?: string; p_solicitud_id: string }
+        Returns: undefined
+      }
+      tracking_agregar_linea: {
+        Args: {
+          p_alerta_en?: string
+          p_archivos_urls?: string[]
+          p_categoria: string
+          p_descripcion: string
+          p_estado_asociado?: string
+          p_tramite_id: string
+        }
+        Returns: string
+      }
+      tracking_cerrar: {
+        Args: { p_documento_final_url: string; p_tramite_id: string }
+        Returns: undefined
+      }
+      tracking_historial_cliente: {
+        Args: { p_administracion_id: string; p_servicio_slug: string }
+        Returns: {
+          administracion_id: string | null
+          asignado_a: string | null
+          categoria: string
+          codigo: string
+          comprobante_id: string | null
+          consorcio_id: string | null
+          created_at: string
+          created_by: string | null
+          descripcion: string | null
+          documento_final_url: string | null
+          estado: string
+          fecha_fin: string | null
+          fecha_inicio: string | null
+          formulario_submission_id: string | null
+          id: string
+          parent_tracking_id: string | null
+          periodo: string | null
+          prioridad: string
+          resuelto_at: string | null
+          resuelto_por: string | null
+          servicio_id: string | null
+          solicitante_email: string | null
+          solicitante_nombre: string | null
+          solicitante_telefono: string | null
+          titulo: string
+          total_adjuntos: number
+          total_comentarios: number
+          total_vistas: number
+          ultima_actividad_at: string
+          updated_at: string
+          vence_at: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "tramites"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       tramite_incrementar_vistas: {
         Args: { p_tramite_id: string }
@@ -4396,3 +5108,4 @@ export const Constants = {
     Enums: {},
   },
 } as const
+
