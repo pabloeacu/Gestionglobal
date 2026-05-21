@@ -83,10 +83,16 @@ const TIPO_LABEL: Record<string, string> = {
 Deno.serve(async (req) => {
   const t0 = Date.now();
 
-  const authHeader = req.headers.get('Authorization') ?? '';
+  // Auth: si CRON_SECRET está seteado lo exigimos; sino aceptamos cualquier
+  // call (verify_jwt=false). Patrón heredado de dispatch-emails: la función
+  // es internal-only (solo lee/escribe tablas propias, dispara emails con
+  // flag idempotente), así que la superficie de abuso es mínima.
   const cronSecret = Deno.env.get('CRON_SECRET');
-  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
-    return json({ ok: false, error: 'unauthorized' }, 401);
+  if (cronSecret) {
+    const authHeader = req.headers.get('Authorization') ?? '';
+    if (authHeader !== `Bearer ${cronSecret}`) {
+      return json({ ok: false, error: 'unauthorized' }, 401);
+    }
   }
 
   const supabase = createClient(
