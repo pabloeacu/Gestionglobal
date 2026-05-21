@@ -41,6 +41,46 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
+// Web Push notifications (VAPID). El payload viene cifrado por el
+// dispatcher (dispatch-push edge function) y el browser lo descifra
+// antes de pasarlo a este handler.
+self.addEventListener('push', (event) => {
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch (_) {
+    data = { titulo: 'Notificación', cuerpo: event.data ? event.data.text() : '' };
+  }
+  const title = data.titulo || 'Gestión Global';
+  const options = {
+    body: data.cuerpo || '',
+    icon: data.icono_url || '/icons/icon-192.png',
+    badge: '/icons/icon-192.png',
+    data: { url: data.click_url || '/' },
+  };
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const targetUrl = event.notification.data?.url || '/';
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((wins) => {
+      for (const w of wins) {
+        if ('focus' in w) {
+          // Si ya hay una ventana abierta, foco + navegar.
+          w.focus();
+          if ('navigate' in w) {
+            try { w.navigate(targetUrl); } catch (_) { /* noop */ }
+          }
+          return;
+        }
+      }
+      if (self.clients.openWindow) return self.clients.openWindow(targetUrl);
+    }),
+  );
+});
+
 self.addEventListener('fetch', (event) => {
   const req = event.request;
   if (req.method !== 'GET') return;

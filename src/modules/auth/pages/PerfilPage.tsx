@@ -1,5 +1,7 @@
-import { useRef, useState, type ChangeEvent, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import {
+  Bell,
+  BellOff,
   Camera,
   LogOut,
   Mail,
@@ -8,6 +10,7 @@ import {
   UserRound,
   KeyRound,
   Loader2,
+  Send,
 } from 'lucide-react';
 import { useAuth, type Role } from '@/contexts/AuthContext';
 import { useSounds } from '@/contexts/SoundContext';
@@ -27,6 +30,13 @@ import {
   updateMyProfile,
   uploadAvatar,
 } from '@/services/api/perfil';
+import {
+  desuscribirPush,
+  encolarPushDePrueba,
+  estadoSuscripcion,
+  pedirPermisoYSuscribir,
+  pushSoportado,
+} from '@/services/api/push';
 import { AvatarEditor } from '@/modules/auth/components/AvatarEditor';
 import { cn } from '@/lib/cn';
 
@@ -66,6 +76,8 @@ export function PerfilPage() {
       <PerfilDatos user={user} onReload={() => void reloadProfile()} play={play} />
 
       <PerfilPassword play={play} />
+
+      <PerfilNotificacionesPush userId={user.id} play={play} />
 
       <PerfilSesion
         onSignOut={async () => {
@@ -479,6 +491,111 @@ function PerfilPassword({
             </Button>
           </div>
         </form>
+      </div>
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Notificaciones push (web push VAPID)
+// ---------------------------------------------------------------------------
+
+function PerfilNotificacionesPush({
+  userId,
+  play,
+}: {
+  userId: string;
+  play: (e: 'success' | 'error' | 'click' | 'open' | 'close') => void;
+}) {
+  const [soportado, setSoportado] = useState<boolean>(true);
+  const [activas, setActivas] = useState<boolean>(false);
+  const [actuando, setActuando] = useState<boolean>(false);
+
+  async function refresh() {
+    setSoportado(pushSoportado());
+    const res = await estadoSuscripcion();
+    if (res.ok) setActivas(res.data.activa);
+  }
+
+  useEffect(() => {
+    void refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function onActivar() {
+    setActuando(true);
+    const res = await pedirPermisoYSuscribir();
+    setActuando(false);
+    if (!res.ok) {
+      toast.error(res.error.message);
+      play('error');
+      return;
+    }
+    toast.success('Notificaciones activadas');
+    play('success');
+    setActivas(true);
+  }
+
+  async function onDesactivar() {
+    setActuando(true);
+    const res = await desuscribirPush();
+    setActuando(false);
+    if (!res.ok) {
+      toast.error(res.error.message);
+      play('error');
+      return;
+    }
+    toast.success('Notificaciones desactivadas');
+    play('success');
+    setActivas(false);
+  }
+
+  async function onProbar() {
+    setActuando(true);
+    const res = await encolarPushDePrueba(userId);
+    setActuando(false);
+    if (!res.ok) {
+      toast.error(res.error.message);
+      play('error');
+      return;
+    }
+    toast.success('Push de prueba en cola. Llegará en hasta 2 min.');
+    play('success');
+  }
+
+  return (
+    <section className="card-premium relative overflow-hidden p-5 motion-safe:animate-fade-up">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <h2 className="flex items-center gap-2 font-display text-base font-bold text-brand-ink">
+            <Bell size={14} className="text-brand-cyan" /> Notificaciones push
+          </h2>
+          <p className="mt-1 text-sm text-brand-muted">
+            Recibí avisos en tiempo real de vencimientos, trámites y recordatorios — incluso con la pestaña cerrada.
+          </p>
+          {!soportado && (
+            <p className="mt-2 text-xs text-amber-700">
+              Este browser no soporta notificaciones push.
+            </p>
+          )}
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {soportado && !activas && (
+            <Button onClick={() => void onActivar()} loading={actuando}>
+              <Bell size={14} /> Activar
+            </Button>
+          )}
+          {soportado && activas && (
+            <>
+              <Button variant="ghost" onClick={() => void onProbar()} loading={actuando}>
+                <Send size={14} /> Probar
+              </Button>
+              <Button variant="ghost" onClick={() => void onDesactivar()} loading={actuando}>
+                <BellOff size={14} /> Desactivar
+              </Button>
+            </>
+          )}
+        </div>
       </div>
     </section>
   );
