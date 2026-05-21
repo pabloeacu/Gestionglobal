@@ -1,0 +1,414 @@
+import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
+import {
+  Wallet,
+  AlertCircle,
+  TrendingUp,
+  TrendingDown,
+  Filter,
+  Eye,
+  FileDown,
+  Search,
+} from 'lucide-react';
+import {
+  Field,
+  Input,
+  Select,
+  Skeleton,
+} from '@/components/common';
+import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
+import { BrandLoader } from '@/components/brand/BrandLoader';
+import {
+  getResumenGlobal,
+  type ResumenGlobalRow,
+} from '@/services/api/ctaCte';
+import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
+import { cn } from '@/lib/cn';
+import { KpiStripCtaCte } from '../components/KpiStripCtaCte';
+import { formatMoney, defaultDesde, defaultHasta } from '../lib/format';
+
+type SortKey = 'deuda' | 'facturado' | 'cobrado' | 'nombre';
+type SortDir = 'asc' | 'desc';
+
+// Listado global de cuenta corriente (gerencia). Cita IDs: D09 (saldo
+// derivado), regla 12 (assert_administracion_access en RPCs por admin),
+// regla 13 (UX premium).
+export function CtaCteListPage() {
+  const [rows, setRows] = useState<ResumenGlobalRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const [desde, setDesde] = useState<string>(defaultDesde());
+  const [hasta, setHasta] = useState<string>(defaultHasta());
+  const [search, setSearch] = useState('');
+  const [estadoFilter, setEstadoFilter] =
+    useState<'todos' | 'con_deuda' | 'con_vencidos' | 'al_dia'>('con_deuda');
+  const [sortKey, setSortKey] = useState<SortKey>('deuda');
+  const [sortDir, setSortDir] = useState<SortDir>('desc');
+
+  async function load() {
+    setLoading(true);
+    setError(null);
+    const res = await getResumenGlobal(desde || undefined, hasta || undefined);
+    setLoading(false);
+    if (!res.ok) {
+      setError(res.error.message);
+      return;
+    }
+    setRows(res.data);
+  }
+
+  useEffect(() => {
+    void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [desde, hasta]);
+
+  useRealtimeRefresh(
+    ['comprobantes', 'movimientos', 'movimiento_imputaciones'],
+    () => void load(),
+  );
+
+  const filtered = useMemo(() => {
+    const s = search.trim().toLowerCase();
+    return rows
+      .filter((r) => {
+        if (s && !r.administracion_nombre.toLowerCase().includes(s))
+          return false;
+        if (estadoFilter === 'con_deuda' && r.deuda_total <= 0) return false;
+        if (estadoFilter === 'con_vencidos' && r.comprobantes_vencidos === 0)
+          return false;
+        if (estadoFilter === 'al_dia' && r.deuda_total > 0) return false;
+        return true;
+      })
+      .sort((a, b) => {
+        const dir = sortDir === 'asc' ? 1 : -1;
+        switch (sortKey) {
+          case 'nombre':
+            return (
+              dir *
+              a.administracion_nombre.localeCompare(b.administracion_nombre)
+            );
+          case 'facturado':
+            return dir * (a.total_facturado - b.total_facturado);
+          case 'cobrado':
+            return dir * (a.total_cobrado - b.total_cobrado);
+          case 'deuda':
+          default:
+            return dir * (a.deuda_total - b.deuda_total);
+        }
+      });
+  }, [rows, search, estadoFilter, sortKey, sortDir]);
+
+  const kpis = useMemo(() => {
+    const sum = (key: keyof ResumenGlobalRow) =>
+      rows.reduce((s, r) => s + Number(r[key] ?? 0), 0);
+    const vencidos = rows.reduce(
+      (s, r) => s + (r.comprobantes_vencidos ?? 0),
+      0,
+    );
+    return {
+      facturado: sum('total_facturado'),
+      cobrado: sum('total_cobrado'),
+      pendiente: sum('deuda_total'),
+      vencidos,
+    };
+  }, [rows]);
+
+  function toggleSort(key: SortKey) {
+    if (sortKey === key) {
+      setSortDir(sortDir === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortKey(key);
+      setSortDir(key === 'nombre' ? 'asc' : 'desc');
+    }
+  }
+
+  if (loading && rows.length === 0) {
+    return (
+      <div className="grid place-items-center p-16">
+        <BrandLoader size={56} label="Cargando cuenta corriente" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="mx-auto max-w-7xl space-y-6">
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="kicker text-brand-cyan">Cuenta corriente</p>
+          <h1 className="font-display text-3xl font-bold text-brand-ink sm:text-4xl">
+            Cuenta corriente global
+          </h1>
+          <p className="mt-1 text-sm text-brand-muted">
+            Saldos consolidados por administración para el período elegido.
+          </p>
+        </div>
+        <button
+          type="button"
+          disabled
+          title="Próximamente · se integrará con el módulo de Reportes"
+          className="inline-flex cursor-not-allowed items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-brand-muted opacity-60"
+        >
+          <FileDown size={16} /> Generar reporte
+        </button>
+      </header>
+
+      <KpiStripCtaCte
+        items={[
+          {
+            label: 'Facturado',
+            value: kpis.facturado,
+            icon: <TrendingUp size={18} />,
+            tone: 'cyan',
+            hint: 'Total emitido en el período',
+          },
+          {
+            label: 'Cobrado',
+            value: kpis.cobrado,
+            icon: <TrendingDown size={18} />,
+            tone: 'emerald',
+            hint: 'Imputado en el período',
+          },
+          {
+            label: 'Pendiente',
+            value: kpis.pendiente,
+            icon: <Wallet size={18} />,
+            tone: 'amber',
+            hint: `${rows.filter((r) => r.deuda_total > 0).length} admins con deuda`,
+          },
+          {
+            label: 'Vencidos',
+            value: kpis.vencidos,
+            icon: <AlertCircle size={18} />,
+            tone: 'rose',
+            prefix: '',
+            hint: 'Comprobantes vencidos sin pago',
+          },
+        ]}
+      />
+
+      {/* Filtros */}
+      <section className="card-premium flex flex-col gap-3 p-4 sm:flex-row sm:flex-wrap sm:items-end">
+        <Field label="Desde" className="flex-1 sm:max-w-[160px]">
+          <Input
+            type="date"
+            value={desde}
+            onChange={(e) => setDesde(e.target.value)}
+          />
+        </Field>
+        <Field label="Hasta" className="flex-1 sm:max-w-[160px]">
+          <Input
+            type="date"
+            value={hasta}
+            onChange={(e) => setHasta(e.target.value)}
+          />
+        </Field>
+        <Field label="Estado" className="flex-1 sm:max-w-[200px]">
+          <Select
+            value={estadoFilter}
+            onChange={(e) =>
+              setEstadoFilter(e.target.value as typeof estadoFilter)
+            }
+          >
+            <option value="todos">Todas</option>
+            <option value="con_deuda">Con deuda</option>
+            <option value="con_vencidos">Con vencidos</option>
+            <option value="al_dia">Al día</option>
+          </Select>
+        </Field>
+        <Field label="Buscar" className="flex-1">
+          <div className="relative">
+            <Search
+              size={14}
+              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-brand-muted"
+            />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Administración…"
+              className="pl-8"
+            />
+          </div>
+        </Field>
+      </section>
+
+      {/* Tabla */}
+      <section className="card-premium relative overflow-hidden">
+        <TrianglesAccent
+          position="top-right"
+          size={160}
+          tone="cyan"
+          density="soft"
+          className="opacity-20"
+        />
+        <div className="relative">
+          {error ? (
+            <div className="p-8 text-center text-sm text-red-600">{error}</div>
+          ) : filtered.length === 0 ? (
+            <div className="flex flex-col items-center gap-3 py-12 text-center">
+              <span className="grid h-12 w-12 place-items-center rounded-xl bg-brand-cyan-pale/40 text-brand-cyan">
+                <Filter size={20} />
+              </span>
+              <h3 className="font-display text-lg font-bold">
+                Sin resultados
+              </h3>
+              <p className="max-w-sm text-sm text-brand-muted">
+                Ajustá los filtros o cambiá el rango de fechas.
+              </p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-100 bg-brand-zebra/40 text-left text-[11px] font-semibold uppercase tracking-wider text-brand-muted">
+                    <SortHeader
+                      label="Administración"
+                      k="nombre"
+                      sortKey={sortKey}
+                      sortDir={sortDir}
+                      onClick={toggleSort}
+                    />
+                    <SortHeader
+                      label="Facturado"
+                      k="facturado"
+                      sortKey={sortKey}
+                      sortDir={sortDir}
+                      onClick={toggleSort}
+                      align="right"
+                    />
+                    <SortHeader
+                      label="Cobrado"
+                      k="cobrado"
+                      sortKey={sortKey}
+                      sortDir={sortDir}
+                      onClick={toggleSort}
+                      align="right"
+                    />
+                    <SortHeader
+                      label="Deuda"
+                      k="deuda"
+                      sortKey={sortKey}
+                      sortDir={sortDir}
+                      onClick={toggleSort}
+                      align="right"
+                    />
+                    <th className="px-4 py-2.5 text-center">Pendientes</th>
+                    <th className="px-4 py-2.5 text-center">Vencidos</th>
+                    <th className="px-4 py-2.5 text-right"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {loading && rows.length === 0
+                    ? Array.from({ length: 5 }).map((_, i) => (
+                        <tr key={i} className="border-b border-slate-100">
+                          <td colSpan={7} className="p-3">
+                            <Skeleton className="h-8 w-full rounded" />
+                          </td>
+                        </tr>
+                      ))
+                    : filtered.map((r, idx) => (
+                        <tr
+                          key={r.administracion_id}
+                          className="border-b border-slate-100 hover:bg-brand-zebra/30 motion-safe:animate-fade-up"
+                          style={{
+                            animationDelay: `${Math.min(idx, 10) * 22}ms`,
+                          }}
+                        >
+                          <td className="px-4 py-3">
+                            <Link
+                              to={`/gerencia/cuenta-corriente/${r.administracion_id}`}
+                              className="font-medium text-brand-ink transition hover:text-brand-cyan"
+                            >
+                              {r.administracion_nombre}
+                            </Link>
+                          </td>
+                          <td className="px-4 py-3 text-right tabular">
+                            {formatMoney(r.total_facturado, 0)}
+                          </td>
+                          <td className="px-4 py-3 text-right tabular text-emerald-700">
+                            {formatMoney(r.total_cobrado, 0)}
+                          </td>
+                          <td
+                            className={cn(
+                              'px-4 py-3 text-right tabular font-semibold',
+                              r.deuda_total > 0
+                                ? 'text-amber-700'
+                                : 'text-brand-muted',
+                            )}
+                          >
+                            {formatMoney(r.deuda_total, 0)}
+                          </td>
+                          <td className="px-4 py-3 text-center tabular text-xs text-brand-muted">
+                            {r.comprobantes_pendientes}
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            {r.comprobantes_vencidos > 0 ? (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-700">
+                                <AlertCircle size={11} />
+                                {r.comprobantes_vencidos}
+                              </span>
+                            ) : (
+                              <span className="text-xs text-brand-muted">—</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <Link
+                              to={`/gerencia/cuenta-corriente/${r.administracion_id}`}
+                              className="inline-flex items-center gap-1 rounded-md border border-slate-200 px-2.5 py-1 text-xs font-medium text-brand-muted transition hover:border-brand-cyan hover:text-brand-cyan"
+                            >
+                              <Eye size={12} /> Ver
+                            </Link>
+                          </td>
+                        </tr>
+                      ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function SortHeader({
+  label,
+  k,
+  sortKey,
+  sortDir,
+  onClick,
+  align = 'left',
+}: {
+  label: string;
+  k: SortKey;
+  sortKey: SortKey;
+  sortDir: SortDir;
+  onClick: (k: SortKey) => void;
+  align?: 'left' | 'right';
+}) {
+  const active = sortKey === k;
+  return (
+    <th
+      className={cn(
+        'px-4 py-2.5 select-none',
+        align === 'right' && 'text-right',
+      )}
+    >
+      <button
+        type="button"
+        onClick={() => onClick(k)}
+        className={cn(
+          'inline-flex items-center gap-1 transition',
+          active ? 'text-brand-cyan' : 'text-brand-muted hover:text-brand-ink',
+        )}
+      >
+        {label}
+        {active && (
+          <span className="text-[10px]">
+            {sortDir === 'asc' ? '▲' : '▼'}
+          </span>
+        )}
+      </button>
+    </th>
+  );
+}
