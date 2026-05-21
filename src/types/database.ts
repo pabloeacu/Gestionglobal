@@ -3993,6 +3993,17 @@ export type Database = {
           sent_email_id: string
         }[]
       }
+      busqueda_global: {
+        Args: { p_q: string; p_limit?: number }
+        Returns: {
+          kind: string
+          id: string
+          titulo: string
+          subtitulo: string | null
+          url_path: string
+          rank: number
+        }[]
+      }
       comprobantes_morosos: {
         Args: { p_administracion_id?: string }
         Returns: {
