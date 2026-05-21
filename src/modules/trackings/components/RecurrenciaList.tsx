@@ -67,7 +67,7 @@ export function RecurrenciaList({
         return (
           <li key={t.id}>
             <Link
-              to={`/gerencia/tramites/${t.id}`}
+              to={`/gerencia/trackings/${t.id}`}
               className={cn(
                 'group flex items-center gap-3 rounded-xl border bg-white p-4 transition',
                 isCurrent

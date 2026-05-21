@@ -90,6 +90,23 @@ function ToastCard({ item }: { item: ToastItem }) {
         {item.description && (
           <p className="mt-0.5 text-xs text-brand-muted">{item.description}</p>
         )}
+        {/* 3.C / 1.F · botón de acción inline (undo, restaurar, …). */}
+        {item.action && (
+          <button
+            type="button"
+            onClick={() => {
+              try {
+                item.action?.onClick();
+              } finally {
+                toastStore.dismiss(item.id);
+              }
+            }}
+            className="mt-1.5 inline-flex items-center gap-1 rounded-md border border-current/20 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider transition hover:bg-slate-50"
+            style={{ color: 'var(--icon)' }}
+          >
+            {item.action.label}
+          </button>
+        )}
       </div>
       <button
         onClick={() => toastStore.dismiss(item.id)}

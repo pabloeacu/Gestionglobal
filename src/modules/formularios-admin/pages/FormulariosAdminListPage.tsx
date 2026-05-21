@@ -15,6 +15,7 @@ import {
   FileText,
   CheckCircle2,
   CircleSlash,
+  Link2,
 } from 'lucide-react';
 import { Button, Field, Input, Modal, Select, Textarea, useConfirm } from '@/components/common';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
@@ -211,7 +212,33 @@ export function FormulariosAdminListPage() {
                 <h2 className="font-display text-lg font-bold text-brand-ink">
                   {f.titulo}
                 </h2>
-                <p className="text-xs text-brand-muted">/formulario/{f.slug}</p>
+                {/* 4.G · slug + botón rápido para copiar la URL pública. */}
+                <div className="flex items-center gap-1.5">
+                  <p className="truncate text-xs text-brand-muted">
+                    /formulario/{f.slug}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={async (e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      const url = `${window.location.origin}/formulario/${f.slug}`;
+                      try {
+                        await navigator.clipboard.writeText(url);
+                        toast.success('Link copiado', {
+                          description: 'Listo para pegarlo donde quieras.',
+                        });
+                      } catch {
+                        toast.error('No pudimos copiar — copialo a mano');
+                      }
+                    }}
+                    className="grid h-5 w-5 place-items-center rounded-md text-brand-muted transition hover:bg-brand-cyan-pale/40 hover:text-brand-cyan"
+                    aria-label="Copiar URL pública"
+                    title="Copiar URL pública"
+                  >
+                    <Link2 size={11} />
+                  </button>
+                </div>
                 {f.descripcion && (
                   <p className="line-clamp-2 text-sm text-brand-muted">
                     {f.descripcion}

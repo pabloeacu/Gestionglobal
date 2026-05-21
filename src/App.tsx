@@ -1,5 +1,5 @@
 import { lazy, Suspense, type ReactNode } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { BrandLoaderScreen } from '@/components/brand/BrandLoader';
 
@@ -21,7 +21,6 @@ const ArcaConfigPage = lazy(() => import('@/modules/configuracion/pages/ArcaConf
 const ArcaQueuePage = lazy(() => import('@/modules/configuracion/pages/ArcaQueuePage').then(m => ({ default: m.ArcaQueuePage })));
 const TramitesListPage = lazy(() => import('@/modules/tramites/pages/TramitesListPage').then(m => ({ default: m.TramitesListPage })));
 const TramitesKanbanPage = lazy(() => import('@/modules/tramites/pages/TramitesKanbanPage').then(m => ({ default: m.TramitesKanbanPage })));
-const TramiteDetailPage = lazy(() => import('@/modules/tramites/pages/TramiteDetailPage').then(m => ({ default: m.TramiteDetailPage })));
 const ServiciosListPage = lazy(() => import('@/modules/servicios').then(m => ({ default: m.ServiciosListPage })));
 const ServicioDetailPage = lazy(() => import('@/modules/servicios').then(m => ({ default: m.ServicioDetailPage })));
 const VencimientosListPage = lazy(() => import('@/modules/vencimientos').then(m => ({ default: m.VencimientosListPage })));
@@ -60,6 +59,13 @@ const AgendaPage = lazy(() => import('@/modules/agenda').then(m => ({ default: m
 const AccesoExternoPage = lazy(() => import('@/modules/acceso-externo').then(m => ({ default: m.AccesoExternoPage })));
 
 type Role = 'gerente' | 'operador' | 'administrador';
+
+// 7.A · redirige rutas legacy `/gerencia/tramites/:id` al TrackingDetail
+// nuevo conservando el id. Cita E-GG-01.
+function TramiteLegacyRedirect() {
+  const { id } = useParams<{ id: string }>();
+  return <Navigate to={`/gerencia/trackings/${id ?? ''}`} replace />;
+}
 
 // Redirección por rol (P-AUTH-01). Sin sesión → landing pública.
 function RoleHomeOrLanding() {
@@ -139,13 +145,18 @@ export function App() {
           <Route path="solicitudes/:id" element={<SolicitudDetailPage />} />
           <Route path="tramites" element={<TramitesListPage />} />
           <Route path="tramites/kanban" element={<TramitesKanbanPage />} />
-          {/* TrackingDetail vista enriquecida del nuevo subsistema. La
-              ruta legacy /tramites/:id queda con TramiteDetailPage por
-              compatibilidad; el sidebar y los enlaces nuevos apuntan al
-              tracking. */}
-          <Route path="tramites/:id" element={<TramiteDetailPage />} />
+          {/* 7.A · ruta legacy `/gerencia/tramites/:id` redirige al
+              TrackingDetail nuevo (cierre de ciclo, alarmas, recurrencia).
+              El listado y kanban legacy quedan accesibles, pero el
+              detalle siempre es el nuevo. */}
+          <Route
+            path="tramites/:id"
+            element={<TramiteLegacyRedirect />}
+          />
           <Route path="trackings/:id" element={<TrackingDetailPage />} />
           <Route path="agenda" element={<AgendaPage />} />
+          {/* Tab "Vencimientos" anidado en la Agenda (unificación temporal). */}
+          <Route path="agenda/vencimientos" element={<AgendaPage initialTab="vencimientos" />} />
           <Route path="servicios" element={<ServiciosListPage />} />
           <Route path="servicios/:id" element={<ServicioDetailPage />} />
           <Route path="vencimientos" element={<VencimientosListPage />} />

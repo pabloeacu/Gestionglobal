@@ -13,7 +13,6 @@ import {
   Settings,
   Inbox,
   Bell,
-  CalendarClock,
   CalendarDays,
   Handshake,
   ClipboardList,
@@ -48,7 +47,9 @@ const NAV: NavItem[] = [
   { to: '/gerencia/facturacion', label: 'Facturación', icon: FileText },
   { to: '/gerencia/tramites', label: 'Trámites', icon: Inbox },
   { to: '/gerencia/agenda', label: 'Agenda', icon: CalendarDays },
-  { to: '/gerencia/vencimientos', label: 'Vencimientos', icon: CalendarClock },
+  // Vencimientos pasa a vivir como TAB dentro de /gerencia/agenda
+  // (unificación temporal — mig 0040 + Agenda como hub de TODO lo que tiene fecha).
+  // La ruta directa /gerencia/vencimientos sigue activa por compat de deep-links.
   { to: '/gerencia/cuenta-corriente', label: 'Cuenta corriente', icon: Wallet },
   { to: '/gerencia/recupero', label: 'Recupero', icon: AlertCircle },
   { to: '/gerencia/partners', label: 'Partners', icon: Handshake },

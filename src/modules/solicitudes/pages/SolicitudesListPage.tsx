@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Eye,
   Inbox,
@@ -6,6 +7,7 @@ import {
   Sparkles,
   Search,
   Filter,
+  Tag,
 } from 'lucide-react';
 import {
   AnimatedNumber,
@@ -31,11 +33,18 @@ import {
 type EstadoFilter = SolicitudEstado | 'todos' | 'activas';
 
 export function SolicitudesListPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [rows, setRows] = useState<SolicitudListItem[]>([]);
   const [kpis, setKpis] = useState<SolicitudesKpis | null>(null);
   const [loading, setLoading] = useState(true);
-  const [estado, setEstado] = useState<EstadoFilter>('activas');
+  const [estado, setEstado] = useState<EstadoFilter>(
+    (searchParams.get('estado') as EstadoFilter) || 'activas',
+  );
   const [search, setSearch] = useState('');
+  // 1.E · filtro por categoría compartible vía URL (?cat=…).
+  const [categoria, setCategoria] = useState<string>(
+    searchParams.get('cat') ?? '',
+  );
 
   async function reload() {
     setLoading(true);
@@ -60,6 +69,30 @@ export function SolicitudesListPage() {
   }, [search]);
 
   useRealtimeRefresh(['solicitudes', 'solicitud_derivaciones'], reload);
+
+  // 1.E · categorías presentes en el set para filtrar.
+  const categoriasDisponibles = useMemo(() => {
+    const set = new Set<string>();
+    for (const r of rows) if (r.formulario_categoria) set.add(r.formulario_categoria);
+    return Array.from(set).sort();
+  }, [rows]);
+
+  // 1.E · aplicar filtro categoría client-side + sync URL.
+  const rowsFiltrados = useMemo(
+    () => (categoria ? rows.filter((r) => r.formulario_categoria === categoria) : rows),
+    [rows, categoria],
+  );
+
+  // 1.E · sync filtros relevantes a la URL para que el link sea compartible.
+  useEffect(() => {
+    const params = new URLSearchParams(searchParams);
+    if (estado !== 'activas') params.set('estado', estado);
+    else params.delete('estado');
+    if (categoria) params.set('cat', categoria);
+    else params.delete('cat');
+    setSearchParams(params, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [estado, categoria]);
 
   const kpiCards = useMemo(
     () => [
@@ -158,6 +191,29 @@ export function SolicitudesListPage() {
             </Select>
           </div>
         </Field>
+        {/* 1.E · filtro categoría — sólo se muestra si hay categorías. */}
+        {categoriasDisponibles.length > 0 && (
+          <Field label="Categoría" className="sm:w-48">
+            <div className="relative">
+              <Tag
+                size={14}
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-brand-muted"
+              />
+              <Select
+                value={categoria}
+                onChange={(e) => setCategoria(e.target.value)}
+                className="pl-9"
+              >
+                <option value="">Todas</option>
+                {categoriasDisponibles.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </Select>
+            </div>
+          </Field>
+        )}
       </section>
 
       {/* Grilla de cards */}
@@ -167,7 +223,7 @@ export function SolicitudesListPage() {
             <SolicitudCardSkeleton key={i} />
           ))}
         </div>
-      ) : rows.length === 0 ? (
+      ) : rowsFiltrados.length === 0 ? (
         <IllustratedEmpty
           illustration="lista"
           title="Sin solicitudes en este filtro"
@@ -175,7 +231,7 @@ export function SolicitudesListPage() {
         />
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {rows.map((r) => (
+          {rowsFiltrados.map((r) => (
             <SolicitudCard key={r.id} s={r} />
           ))}
         </div>

@@ -8,6 +8,7 @@ import {
   AlertTriangle,
   Sliders,
   RefreshCcw,
+  Download,
   type LucideIcon,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -116,6 +117,64 @@ export function VencimientosListPage() {
     return { vigentes, proximos30, vencidos, renovados };
   }, [rows]);
 
+  // 6.D · export CSV con los filtros aplicados. Cabeceras en español y
+  // escapado RFC4180 (comillas + LF). Compatible con Excel/Sheets.
+  function exportarCSV() {
+    if (filtered.length === 0) {
+      toast.error('No hay vencimientos para exportar');
+      return;
+    }
+    const headers = [
+      'Tipo',
+      'Administración',
+      'Consorcio',
+      'Fecha vencimiento',
+      'Días restantes',
+      'Estado',
+      'Descripción',
+    ];
+    const escape = (v: unknown) => {
+      const s = v == null ? '' : String(v);
+      return /[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const rowsCsv = filtered.map((r) =>
+      [
+        VENCIMIENTO_TIPO_LABEL[r.tipo],
+        r.administracion_nombre,
+        r.consorcio_nombre ?? '',
+        r.fecha_vencimiento,
+        r.dias_restantes,
+        VENCIMIENTO_ESTADO_LABEL[r.estado] ?? r.estado,
+        r.descripcion ?? '',
+      ]
+        .map(escape)
+        .join(','),
+    );
+    const csv = '﻿' + [headers.join(','), ...rowsCsv].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `vencimientos-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success('CSV descargado', {
+      description: `${filtered.length} vencimientos exportados.`,
+    });
+  }
+
+  // 6.E · vencimientos críticos HOY (dias_restantes <= 0 && vigente).
+  const [bannerCerrado, setBannerCerrado] = useState(false);
+  const venceHoy = useMemo(
+    () =>
+      rows.filter(
+        (r) => r.estado === 'vigente' && r.dias_restantes <= 0,
+      ),
+    [rows],
+  );
+
   async function onCancelar(v: ProximoVencimiento) {
     const okConf = await confirm({
       title: 'Cancelar vencimiento',
@@ -150,6 +209,10 @@ export function VencimientosListPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {/* 6.D · export CSV. */}
+          <Button variant="ghost" onClick={exportarCSV} title="Exportar CSV con los filtros aplicados">
+            <Download size={15} /> Export CSV
+          </Button>
           <Link
             to="/gerencia/vencimientos/configuracion"
             className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-brand-ink transition hover:border-brand-cyan hover:text-brand-cyan"
@@ -161,6 +224,47 @@ export function VencimientosListPage() {
           </Button>
         </div>
       </header>
+
+      {/* 6.E · banner crítico: vencimientos HOY o vencidos sin renovar. Cierra
+          por sesión hasta que se procesen o el usuario los descarte. */}
+      {!bannerCerrado && venceHoy.length > 0 && (
+        <section
+          role="alert"
+          className="flex items-center gap-3 rounded-2xl border border-red-300 bg-gradient-to-r from-red-50 via-red-50/90 to-rose-50 p-4 text-sm shadow-sm motion-safe:animate-fade-up"
+        >
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-red-100 text-red-600">
+            <AlertTriangle size={18} />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="font-display text-base font-bold text-red-800">
+              {venceHoy.length === 1
+                ? '1 vencimiento requiere acción HOY'
+                : `${venceHoy.length} vencimientos requieren acción HOY`}
+            </p>
+            <p className="mt-0.5 text-xs text-red-700/90">
+              Tocá &laquo;Ver&raquo; para enfocarte y resolverlos uno por uno.
+            </p>
+          </div>
+          <Button
+            variant="primary"
+            onClick={() => {
+              setEstado('vigente');
+              setHorizonte(30);
+            }}
+          >
+            Ver
+          </Button>
+          <button
+            type="button"
+            onClick={() => setBannerCerrado(true)}
+            className="rounded-md p-1 text-red-700/70 transition hover:bg-red-100"
+            aria-label="Cerrar"
+            title="Cerrar hasta la próxima carga"
+          >
+            ×
+          </button>
+        </section>
+      )}
 
       {/* KPIs */}
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">

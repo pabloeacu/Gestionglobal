@@ -1,9 +1,10 @@
 // ============================================================================
 // TrackingDetailPage · Subsistema de Tracking (puntos 9-17 Flujo Maestro)
 //
-// Vive sobre la ruta `/gerencia/tramites/:id` (mismo path para no romper
-// links; el detalle viejo `TramiteDetailPage` queda en src/modules/tramites/
-// hasta que G1 lo refactorice).
+// Vive sobre la ruta `/gerencia/trackings/:id`. La ruta legacy
+// `/gerencia/tramites/:id` redirige acá (ver App.tsx · TramiteLegacyRedirect,
+// fix 7.A / E-GG-01). El detalle viejo `TramiteDetailPage` quedó archivado
+// en src/modules/tramites/ pero ya no se renderiza desde el router.
 //
 // Premium UX: TrianglesAccent header + AnimatedNumber KPIs + tabs sticky +
 // timeline categorizada + drawer "agregar línea" + cierre con doc final +
@@ -15,27 +16,37 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft,
   Briefcase,
+  CalendarClock,
   CalendarRange,
   CheckCircle2,
   Clock,
+  Copy,
   FileText,
   History,
   Layers,
+  Link2,
   ListChecks,
+  Loader2,
   Paperclip,
   Plus,
   Settings,
+  Share2,
   Sparkles,
 } from 'lucide-react';
 import { toast } from '@/lib/toast';
 import {
   AnimatedNumber,
   Button,
+  Field,
+  Input,
+  Modal,
+  Select,
   Tabs,
   useConfirm,
   usePrompt,
   type TabItem,
 } from '@/components/common';
+import { generarAcceso } from '@/services/api/accesos';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import { BrandLoader } from '@/components/brand/BrandLoader';
 import { useAuth } from '@/contexts/AuthContext';
@@ -54,6 +65,7 @@ import { AgregarLineaDrawer } from '../components/AgregarLineaDrawer';
 import { RecurrenciaList } from '../components/RecurrenciaList';
 import { EstadosConfigManager } from '../components/EstadosConfigManager';
 import { CategoriasConfigManager } from '../components/CategoriasConfigManager';
+import { ProgramarVencimientoModal } from '../components/ProgramarVencimientoModal';
 
 type TabKey = 'resumen' | 'lineas' | 'documentacion' | 'recurrencia' | 'config';
 
@@ -71,6 +83,9 @@ export function TrackingDetailPage() {
   const [tab, setTab] = useState<TabKey>('resumen');
   const [filtroCategoria, setFiltroCategoria] = useState<string>('');
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [programarOpen, setProgramarOpen] = useState(false);
+  // 2.B · estado del modal "Compartir externo"
+  const [compartirOpen, setCompartirOpen] = useState(false);
 
   async function load() {
     if (!id) return;
@@ -245,9 +260,32 @@ export function TrackingDetailPage() {
             <Button onClick={() => setDrawerOpen(true)}>
               <Plus className="h-4 w-4" /> Agregar línea
             </Button>
+            {/* 2.B · botón "Compartir externo" inline → modal con email +
+                vigencia + copia/envío del link público. */}
+            {isStaff && (
+              <Button
+                variant="ghost"
+                onClick={() => setCompartirOpen(true)}
+                title="Generar y compartir un acceso externo sin login"
+              >
+                <Share2 className="h-4 w-4" /> Compartir externo
+              </Button>
+            )}
             {isStaff && data.estado !== 'cerrado' && (
               <Button variant="secondary" onClick={() => void handleCerrar()}>
                 <CheckCircle2 className="h-4 w-4" /> Cerrar tracking
+              </Button>
+            )}
+            {/* Programar próximo vencimiento — visible cuando el tracking está
+                cerrado/resuelto (renovable). Genera un vencimiento ligado al
+                tracking via tracking_cerrar_ciclo (mig 0040). */}
+            {isStaff && (data.estado === 'cerrado' || data.estado === 'resuelto') && (
+              <Button
+                variant="primary"
+                onClick={() => setProgramarOpen(true)}
+                className="!bg-cyan-100 !text-cyan-700 hover:!bg-cyan-200"
+              >
+                <CalendarClock className="h-4 w-4" /> Programar próximo vencimiento
               </Button>
             )}
           </div>
@@ -429,7 +467,164 @@ export function TrackingDetailPage() {
         permiteCambiarEstado={isStaff}
         onSaved={() => void load()}
       />
+
+      <ProgramarVencimientoModal
+        open={programarOpen}
+        onClose={() => setProgramarOpen(false)}
+        trackingId={data.id}
+        trackingTitulo={data.titulo}
+        onProgramado={() => void load()}
+      />
+
+      {/* 2.B · modal "Compartir externo" — genera token, copia URL, envía mail. */}
+      <CompartirExternoModal
+        open={compartirOpen}
+        onClose={() => setCompartirOpen(false)}
+        trackingId={data.id}
+        trackingTitulo={data.titulo}
+        emailSugerido={data.administracion?.email ?? data.solicitante_email ?? ''}
+      />
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// 2.B · CompartirExternoModal
+// ---------------------------------------------------------------------------
+function CompartirExternoModal({
+  open,
+  onClose,
+  trackingId,
+  trackingTitulo,
+  emailSugerido,
+}: {
+  open: boolean;
+  onClose: () => void;
+  trackingId: string;
+  trackingTitulo: string;
+  emailSugerido: string;
+}) {
+  const [email, setEmail] = useState(emailSugerido);
+  const [dias, setDias] = useState('14');
+  const [busy, setBusy] = useState(false);
+  const [link, setLink] = useState<string | null>(null);
+
+  // Si cambia la sugerencia (al abrir con datos frescos), reseteamos.
+  useEffect(() => {
+    if (open) {
+      setEmail(emailSugerido);
+      setLink(null);
+    }
+  }, [open, emailSugerido]);
+
+  async function handleGenerar() {
+    if (!email.trim()) {
+      toast.error('Necesitamos un email para compartir');
+      return;
+    }
+    setBusy(true);
+    const res = await generarAcceso({
+      recursoTipo: 'tramite',
+      recursoId: trackingId,
+      emailDestinatario: email.trim(),
+      diasValidez: Math.max(1, Math.min(60, parseInt(dias, 10) || 14)),
+      observaciones: `Tracking: ${trackingTitulo}`,
+    });
+    setBusy(false);
+    if (!res.ok) {
+      toast.error('No pudimos generar el acceso', { description: res.error.message });
+      return;
+    }
+    setLink(res.data.url);
+    // Copia automática al portapapeles para acortar el flujo.
+    try {
+      await navigator.clipboard.writeText(res.data.url);
+      toast.success('Link copiado', {
+        description: 'También se envió por mail al destinatario.',
+      });
+    } catch {
+      toast.success('Acceso generado', {
+        description: 'Copialo manualmente si no se copió solo.',
+      });
+    }
+  }
+
+  async function handleCopiar() {
+    if (!link) return;
+    try {
+      await navigator.clipboard.writeText(link);
+      toast.success('Link copiado');
+    } catch {
+      toast.error('No pudimos copiar — copialo a mano');
+    }
+  }
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Compartir con el cliente"
+      kicker="Acceso externo sin login"
+      width={520}
+    >
+      <div className="space-y-4">
+        <p className="text-sm text-brand-muted">
+          Generamos un link de acceso seguro al tracking, válido por el
+          período que elijas. El destinatario lo recibe por mail y también
+          podés copiarlo y pegarlo donde quieras.
+        </p>
+        <Field label="Email del destinatario" required>
+          <Input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="cliente@ejemplo.com"
+          />
+        </Field>
+        <Field label="Vigencia">
+          <Select value={dias} onChange={(e) => setDias(e.target.value)}>
+            <option value="7">7 días</option>
+            <option value="14">14 días (recomendado)</option>
+            <option value="30">30 días</option>
+            <option value="60">60 días</option>
+          </Select>
+        </Field>
+
+        {link && (
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-3 text-xs">
+            <p className="mb-2 font-semibold text-emerald-800">
+              <Link2 size={12} className="mr-1 inline" /> Link generado
+            </p>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 truncate rounded bg-white px-2 py-1 font-mono text-[11px] text-brand-ink">
+                {link}
+              </code>
+              <button
+                type="button"
+                onClick={handleCopiar}
+                className="rounded-md border border-emerald-300 bg-white p-1.5 text-emerald-700 transition hover:bg-emerald-100"
+                title="Copiar"
+                aria-label="Copiar link"
+              >
+                <Copy size={13} />
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div className="flex justify-end gap-2 pt-2">
+          <Button variant="ghost" onClick={onClose} disabled={busy}>
+            {link ? 'Cerrar' : 'Cancelar'}
+          </Button>
+          {!link && (
+            <Button onClick={handleGenerar} loading={busy} disabled={busy}>
+              {busy ? <Loader2 size={14} className="animate-spin" /> : <Share2 size={14} />}
+              Generar y compartir
+            </Button>
+          )}
+        </div>
+      </div>
+    </Modal>
   );
 }
 

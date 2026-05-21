@@ -239,6 +239,47 @@ export async function cerrarTracking(
 }
 
 // ----------------------------------------------------------------------------
+// CERRAR CICLO + programar próximo vencimiento (mig 0040)
+// Genera un vencimiento ligado al tracking con offsets de alarma personalizados
+// y marca cycle_closed_at en la fila de tramites.
+// ----------------------------------------------------------------------------
+export interface CerrarCicloTrackingInput {
+  trackingId: string;
+  proximaFecha: string; // YYYY-MM-DD
+  alarmasOffsets: number[];
+  notificarCliente?: boolean;
+}
+
+export interface CerrarCicloTrackingResult {
+  vencimientoId: string;
+  alarmasPlanificadas: string[]; // YYYY-MM-DD
+}
+
+export async function cerrarCicloTracking(
+  input: CerrarCicloTrackingInput,
+): Promise<ApiResponse<CerrarCicloTrackingResult>> {
+  const { data, error } = await supabase.rpc('tracking_cerrar_ciclo', {
+    p_tracking_id: input.trackingId,
+    p_proxima_fecha: input.proximaFecha,
+    p_alarmas_offsets: input.alarmasOffsets,
+    p_notificar_cliente: input.notificarCliente ?? true,
+  });
+  if (error) return fail('TRACKING_CERRAR_CICLO', error.message, error);
+  const rows = (data ?? []) as Array<{
+    vencimiento_id: string;
+    alarmas_planificadas: string[];
+  }>;
+  const first = rows[0];
+  if (!first) {
+    return fail('TRACKING_CERRAR_CICLO_EMPTY', 'La RPC no devolvió filas.');
+  }
+  return ok({
+    vencimientoId: first.vencimiento_id,
+    alarmasPlanificadas: first.alarmas_planificadas ?? [],
+  });
+}
+
+// ----------------------------------------------------------------------------
 // RECURRENCIA — historial del mismo cliente para un servicio
 // ----------------------------------------------------------------------------
 export async function historialPorCliente(

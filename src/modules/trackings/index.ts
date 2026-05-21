@@ -8,3 +8,4 @@ export { AgregarLineaDrawer } from './components/AgregarLineaDrawer';
 export { RecurrenciaList } from './components/RecurrenciaList';
 export { EstadosConfigManager } from './components/EstadosConfigManager';
 export { CategoriasConfigManager } from './components/CategoriasConfigManager';
+export { ProgramarVencimientoModal } from './components/ProgramarVencimientoModal';

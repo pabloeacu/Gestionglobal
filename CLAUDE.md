@@ -1,9 +1,17 @@
 # CLAUDE.md — Plataforma Gestión Global
 
-> Contrato del proyecto. El bagaje completo (capitalizado de MANAXER, plataforma
-> gemela en producción) vive en `knowledge-base/`. Leer en orden:
-> `00_LEEME_PRIMERO` → `01` … → `05` (el contrato extendido). Citar los IDs
-> (E##, D##, P-XX-NN, regla N) al justificar decisiones.
+> **Si arrancás una sesión nueva, leé en este orden:**
+>   1. `PROJECT_STATUS.md` (raíz) — snapshot vivo de dónde quedó el proyecto,
+>      qué se hizo, qué falta, qué se pateó. **OBLIGATORIO antes de cualquier
+>      cambio**. Se actualiza después de cada chunk verificado (DGG-09).
+>   2. Este archivo (`CLAUDE.md`) — contrato y 13 reglas no negociables.
+>   3. `BACKLOG.md` (raíz) — plan maestro + rondas + backlog de mejoras.
+>   4. `knowledge-base/DECISIONES.md` — decisiones DGG-##.
+>   5. `knowledge-base/ERRORES.md` — bugs E## con causa raíz y fix.
+>   6. (Si lo requiere el problema) `knowledge-base/00_LEEME_PRIMERO` → `05_*`
+>      el contrato extendido capitalizado de MANAXER.
+>
+> Citar los IDs (E##, D##/DGG-##, P-XX-NN, regla N) al justificar decisiones.
 
 ## 1. Qué es
 
@@ -75,6 +83,8 @@ Vercel → GitHub → Supabase → Google Workspace.
 Ciclo de cierre: `npm run build` limpio (incluye `tsc --noEmit` — D13) →
 migraciones aplicadas → edge fns deployadas → commit del *por qué* → push a
 `origin/main` (Vercel auto-deploya; "no pushear sin pedir" NO aplica acá) →
-`ERRORES.md`/`DECISIONES.md` actualizados desde el día 1 (D10).
+**browser test en vivo (URL Vercel) de cada cambio: apariencia + funcionalidad,
+desktop + mobile 360px, casos borde** (método obligatorio 2026-05-21) →
+`ERRORES.md`/`DECISIONES.md`/`PROJECT_STATUS.md` actualizados desde el día 1 (D10).
 Operaciones destructivas: flujo de 8 pasos (doc 05 §5). Regenerar types tras
 toda migración (`bash scripts/generate-types.sh`).

@@ -46,6 +46,42 @@ const STEPS: { key: string; label: string }[] = [
 
 // Wizard 3 pasos: derivar a gestoría externa → alta cliente (o vincular) →
 // crear tracking del servicio. Cita Documento "Flujo Maestro" §6-8.
+// 1.A · clave de persistencia por solicitud en sessionStorage.
+const WIZARD_DRAFT_KEY = (id: string) => `wizardActivacion:draft:${id}`;
+type WizardDraft = {
+  step: number;
+  destinatarioEmail: string;
+  destinatarioNombre: string;
+  observDerivacion: string;
+  paso1Hecho: boolean;
+  modoCliente: 'nuevo' | 'existente';
+  clienteIdExistente: string;
+  periodo: string;
+  fechaInicio: string;
+};
+function leerDraft(id: string): Partial<WizardDraft> | null {
+  try {
+    const raw = sessionStorage.getItem(WIZARD_DRAFT_KEY(id));
+    return raw ? (JSON.parse(raw) as WizardDraft) : null;
+  } catch {
+    return null;
+  }
+}
+function escribirDraft(id: string, draft: WizardDraft) {
+  try {
+    sessionStorage.setItem(WIZARD_DRAFT_KEY(id), JSON.stringify(draft));
+  } catch {
+    /* quota / private mode → ignorar */
+  }
+}
+function limpiarDraft(id: string) {
+  try {
+    sessionStorage.removeItem(WIZARD_DRAFT_KEY(id));
+  } catch {
+    /* ignorar */
+  }
+}
+
 export function WizardActivacion({
   open,
   onClose,
@@ -53,21 +89,33 @@ export function WizardActivacion({
   onActivated,
 }: Props) {
   const navigate = useNavigate();
-  const [step, setStep] = useState(0);
+  // 1.A · carga inicial desde sessionStorage si hay borrador.
+  const draftInicial = useMemo(() => leerDraft(solicitud.id), [solicitud.id]);
+  const huboBorrador = !!draftInicial;
+  const [step, setStep] = useState(draftInicial?.step ?? 0);
 
   // PASO 1 — Derivación
-  const [destinatarioEmail, setDestinatarioEmail] = useState('');
-  const [destinatarioNombre, setDestinatarioNombre] = useState('');
-  const [observDerivacion, setObservDerivacion] = useState('');
+  const [destinatarioEmail, setDestinatarioEmail] = useState(
+    draftInicial?.destinatarioEmail ?? '',
+  );
+  const [destinatarioNombre, setDestinatarioNombre] = useState(
+    draftInicial?.destinatarioNombre ?? '',
+  );
+  const [observDerivacion, setObservDerivacion] = useState(
+    draftInicial?.observDerivacion ?? '',
+  );
   const [busy1, setBusy1] = useState(false);
-  const [paso1Hecho, setPaso1Hecho] = useState(false);
+  const [paso1Hecho, setPaso1Hecho] = useState(
+    draftInicial?.paso1Hecho ?? false,
+  );
 
   // PASO 2 — Cliente (nuevo o existente)
   const [modoCliente, setModoCliente] = useState<'nuevo' | 'existente'>(
-    solicitud.cliente_id ? 'existente' : 'nuevo',
+    draftInicial?.modoCliente ??
+      (solicitud.cliente_id ? 'existente' : 'nuevo'),
   );
   const [clienteIdExistente, setClienteIdExistente] = useState<string>(
-    solicitud.cliente_id ?? '',
+    draftInicial?.clienteIdExistente ?? solicitud.cliente_id ?? '',
   );
   const [clienteSearch, setClienteSearch] = useState('');
   const [clientesEncontrados, setClientesEncontrados] = useState<
@@ -86,11 +134,59 @@ export function WizardActivacion({
 
   // PASO 3 — Tracking
   const periodoDefault = new Date().getFullYear().toString();
-  const [periodo, setPeriodo] = useState(periodoDefault);
+  const [periodo, setPeriodo] = useState(draftInicial?.periodo ?? periodoDefault);
   const [fechaInicio, setFechaInicio] = useState(
-    new Date().toISOString().slice(0, 10),
+    draftInicial?.fechaInicio ?? new Date().toISOString().slice(0, 10),
   );
   const [busyActivar, setBusyActivar] = useState(false);
+  // 1.A · chip de "continuando borrador" sólo en la sesión inicial.
+  const [mostrarChipBorrador, setMostrarChipBorrador] = useState(huboBorrador);
+
+  // 1.A · persistir el borrador en sessionStorage cada vez que cambie algo
+  // relevante. Limpio al activar (en handleActivar) o al pedir "empezar de
+  // cero". No persistimos `nuevoCliente` para evitar guardar datos sensibles
+  // del solicitante en el storage del navegador.
+  useEffect(() => {
+    if (!open) return;
+    escribirDraft(solicitud.id, {
+      step,
+      destinatarioEmail,
+      destinatarioNombre,
+      observDerivacion,
+      paso1Hecho,
+      modoCliente,
+      clienteIdExistente,
+      periodo,
+      fechaInicio,
+    });
+  }, [
+    open,
+    solicitud.id,
+    step,
+    destinatarioEmail,
+    destinatarioNombre,
+    observDerivacion,
+    paso1Hecho,
+    modoCliente,
+    clienteIdExistente,
+    periodo,
+    fechaInicio,
+  ]);
+
+  function empezarDeCero() {
+    limpiarDraft(solicitud.id);
+    setStep(0);
+    setDestinatarioEmail('');
+    setDestinatarioNombre('');
+    setObservDerivacion('');
+    setPaso1Hecho(false);
+    setModoCliente(solicitud.cliente_id ? 'existente' : 'nuevo');
+    setClienteIdExistente(solicitud.cliente_id ?? '');
+    setPeriodo(periodoDefault);
+    setFechaInicio(new Date().toISOString().slice(0, 10));
+    setMostrarChipBorrador(false);
+    toast.success('Borrador descartado');
+  }
 
   // Búsqueda de clientes existentes
   useEffect(() => {
@@ -172,10 +268,14 @@ export function WizardActivacion({
           ? 'Cliente creado y tracking iniciado.'
           : 'Tracking iniciado en el cliente existente.',
     });
+    // 1.A · limpiamos el borrador al activar; ya no tiene sentido conservarlo.
+    limpiarDraft(solicitud.id);
     onActivated?.(res.data.trackingId);
     onClose();
-    // Llevamos al gerente al tracking recién creado
-    navigate(`/gerencia/tramites/${res.data.trackingId}`);
+    // 7.A · llevamos al gerente al TrackingDetailPage nuevo (no a la
+    // ruta legacy /tramites/:id, que resuelve a TramiteDetailPage viejo
+    // sin cierre de ciclo / alarmas / recurrencia).
+    navigate(`/gerencia/trackings/${res.data.trackingId}`);
   }
 
   const canSiguienteStep2 =
@@ -193,6 +293,22 @@ export function WizardActivacion({
       closeOnBackdrop={false}
     >
       <div className="space-y-5">
+        {/* 1.A · chip "continuando borrador" si veníamos de una sesión previa. */}
+        {mostrarChipBorrador && (
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50/70 px-3 py-2 text-xs text-amber-900">
+            <span className="inline-flex items-center gap-2 font-medium">
+              <Sparkles size={12} />
+              Continuando borrador en el paso {step + 1}.
+            </span>
+            <button
+              type="button"
+              onClick={empezarDeCero}
+              className="rounded-md border border-amber-300 bg-white px-2 py-0.5 font-semibold text-amber-800 transition hover:bg-amber-100"
+            >
+              Empezar de cero
+            </button>
+          </div>
+        )}
         {/* Stepper */}
         <div className="rounded-xl border border-slate-200 bg-brand-zebra/30 p-3">
           <Stepper steps={stepsWithStatus} current={step} onJump={setStep} />

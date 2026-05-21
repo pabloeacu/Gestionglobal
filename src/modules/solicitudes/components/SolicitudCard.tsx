@@ -34,11 +34,49 @@ interface Props {
   s: SolicitudListItem;
 }
 
-export function SolicitudCard({ s }: Props) {
-  const fecha = new Date(s.created_at ?? '').toLocaleDateString('es-AR', {
+// 1.G · helper para tiempo relativo + color creciente (verde <24h, ambar
+// <72h, rojo >72h). Tooltip muestra la fecha exacta. Pensado para detectar
+// backlog crítico de un vistazo.
+function tiempoRelativo(iso: string | null | undefined): {
+  texto: string;
+  color: string;
+  fechaExacta: string;
+} {
+  if (!iso) {
+    return { texto: '—', color: 'text-brand-muted', fechaExacta: '' };
+  }
+  const date = new Date(iso);
+  const ahora = Date.now();
+  const deltaMs = ahora - date.getTime();
+  const horas = deltaMs / (1000 * 60 * 60);
+  const dias = horas / 24;
+
+  let texto: string;
+  if (horas < 1) texto = 'hace minutos';
+  else if (horas < 24) texto = `hace ${Math.round(horas)} h`;
+  else if (dias < 7) texto = `hace ${Math.round(dias)} d`;
+  else if (dias < 30) texto = `hace ${Math.round(dias / 7)} sem`;
+  else texto = `hace ${Math.round(dias / 30)} m`;
+
+  let color = 'text-emerald-700';
+  if (horas >= 24 && horas < 72) color = 'text-amber-700';
+  else if (horas >= 72) color = 'text-red-700';
+
+  const fechaExacta = date.toLocaleString('es-AR', {
     day: '2-digit',
-    month: 'short',
+    month: 'long',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
   });
+
+  return { texto, color, fechaExacta };
+}
+
+export function SolicitudCard({ s }: Props) {
+  const { texto: tiempoTexto, color: tiempoColor, fechaExacta } = tiempoRelativo(
+    s.created_at,
+  );
   const estado = (s.estado ?? 'recibida') as SolicitudEstado;
 
   return (
@@ -64,8 +102,14 @@ export function SolicitudCard({ s }: Props) {
         >
           {ESTADO_LABEL[estado]}
         </span>
-        <span className="inline-flex items-center gap-1 text-[11px] text-brand-muted">
-          <Calendar size={11} /> {fecha}
+        <span
+          className={cn(
+            'inline-flex items-center gap-1 text-[11px] font-medium',
+            tiempoColor,
+          )}
+          title={fechaExacta}
+        >
+          <Calendar size={11} /> {tiempoTexto}
         </span>
       </div>
 

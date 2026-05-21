@@ -1,6 +1,14 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Loader2, ShieldCheck, AlertCircle, ExternalLink, FileText } from 'lucide-react';
+import {
+  Loader2,
+  ShieldCheck,
+  AlertCircle,
+  ExternalLink,
+  FileText,
+  CalendarPlus,
+  Clock,
+} from 'lucide-react';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import { cn } from '@/lib/cn';
 import {
@@ -88,6 +96,15 @@ export function AccesoExternoPage() {
 
         {!loading && !error && data && (
           <div className="space-y-6">
+            {/* 5.E · indicador "Última actualización". Si fue actualizado
+                hace <1 día, mostramos badge "Reciente" verde para dar
+                confianza inmediata al destinatario. */}
+            <UltimaActualizacion payload={data} />
+
+            {/* 5.A · si el recurso tiene fecha estimada/vencimiento,
+                ofrecemos agregar al calendario en .ics descargable. */}
+            <AgregarAlCalendario payload={data} />
+
             {/* Recurso */}
             <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
               <div className="kicker mb-3 text-brand-cyan">Detalle</div>
@@ -210,6 +227,120 @@ function fmt(d?: string): string | undefined {
   } catch {
     return d;
   }
+}
+
+// 5.E · ---------------------------------------------------------------------
+function UltimaActualizacion({ payload }: { payload: AccesoExternoPayload }) {
+  const r = (payload.recurso ?? {}) as Record<string, unknown>;
+  const ts =
+    (r.ultima_actividad_at as string | undefined) ??
+    (r.updated_at as string | undefined) ??
+    (r.fecha_estimada as string | undefined);
+  if (!ts) return null;
+  const date = new Date(ts);
+  if (Number.isNaN(date.getTime())) return null;
+  const horas = (Date.now() - date.getTime()) / (1000 * 60 * 60);
+  const reciente = horas < 24;
+  const texto = (() => {
+    if (horas < 1) return 'hace minutos';
+    if (horas < 24) return `hace ${Math.round(horas)} h`;
+    const dias = horas / 24;
+    if (dias < 7) return `hace ${Math.round(dias)} d`;
+    if (dias < 30) return `hace ${Math.round(dias / 7)} sem`;
+    return date.toLocaleDateString('es-AR', { day: '2-digit', month: 'long', year: 'numeric' });
+  })();
+  return (
+    <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-brand-muted shadow-sm">
+      <Clock size={12} className="text-brand-cyan" />
+      <span>Actualizado {texto}</span>
+      {reciente && (
+        <span className="ml-auto inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-emerald-700">
+          Reciente
+        </span>
+      )}
+    </div>
+  );
+}
+
+// 5.A · ---------------------------------------------------------------------
+// Genera y descarga un .ics para el recurso si tiene fecha.
+function AgregarAlCalendario({ payload }: { payload: AccesoExternoPayload }) {
+  const r = (payload.recurso ?? {}) as Record<string, unknown>;
+  const fechaIso =
+    (r.fecha_estimada as string | undefined) ??
+    (r.fecha as string | undefined) ??
+    (r.vence_at as string | undefined);
+  if (!fechaIso) return null;
+  const fecha = new Date(fechaIso);
+  if (Number.isNaN(fecha.getTime())) return null;
+
+  const tipo = payload.acceso?.tipo ?? 'recurso';
+  const titulo =
+    (r.titulo as string | undefined) ??
+    (r.codigo as string | undefined) ??
+    `${tituloPorTipo(tipo)} · Gestión Global`;
+  const descripcion =
+    (r.descripcion as string | undefined) ??
+    'Vinculado a tu acceso de Gestión Global.';
+
+  function descargar() {
+    const dtStart = formatICSDate(fecha);
+    const dtEnd = formatICSDate(new Date(fecha.getTime() + 30 * 60 * 1000));
+    const uid = `gg-${Date.now()}@gestionglobal.ar`;
+    const lines = [
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'PRODID:-//Gestion Global//Acceso Externo//ES',
+      'CALSCALE:GREGORIAN',
+      'BEGIN:VEVENT',
+      `UID:${uid}`,
+      `DTSTAMP:${formatICSDate(new Date())}`,
+      `DTSTART:${dtStart}`,
+      `DTEND:${dtEnd}`,
+      `SUMMARY:${escapeICS(titulo)}`,
+      `DESCRIPTION:${escapeICS(descripcion)}`,
+      'END:VEVENT',
+      'END:VCALENDAR',
+    ].join('\r\n');
+    const blob = new Blob([lines], { type: 'text/calendar;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `gestion-global-${tipo}.ics`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={descargar}
+      className="inline-flex items-center gap-2 rounded-xl border border-brand-cyan/30 bg-brand-cyan-pale/30 px-3 py-2 text-sm font-medium text-brand-cyan transition hover:bg-brand-cyan-pale/50"
+    >
+      <CalendarPlus size={14} />
+      Agregar al calendario ({fecha.toLocaleDateString('es-AR', { day: '2-digit', month: 'short' })})
+    </button>
+  );
+}
+
+function formatICSDate(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return (
+    d.getUTCFullYear().toString() +
+    pad(d.getUTCMonth() + 1) +
+    pad(d.getUTCDate()) +
+    'T' +
+    pad(d.getUTCHours()) +
+    pad(d.getUTCMinutes()) +
+    pad(d.getUTCSeconds()) +
+    'Z'
+  );
+}
+
+function escapeICS(s: string): string {
+  return s.replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/,/g, '\\,').replace(/;/g, '\\;');
 }
 
 export default AccesoExternoPage;

@@ -145,3 +145,68 @@ Adaptaciones para Gestión Global:
 - Vínculos: consorcios, administraciones, comprobantes, trámites/trackings (en vez de edificios/empleados/facturas de MDC).
 - Color primario: cyan/teal Gestión Global (NO turquesa).
 - Tono: mantener rioplatense pero alineado a la voz de Gestión Global (institucional pero cercano).
+
+---
+
+## Unificación temporal · Agenda como hub de TODO lo que tiene fecha (Ronda 6 — decisión 2026-05-21)
+
+**Pilar estratégico**: el usuario explicitó que la **integración orgánica del flujo** es uno de los pilares de optimización, experiencia premium y "delicia del usuario". Ningún módulo con fechas puede vivir aislado.
+
+### Arquitectura "proyección, no duplicación"
+
+La **Agenda** se vuelve la ventana única hacia todo lo temporal. Cada módulo sigue siendo dueño de sus datos y workflows; la Agenda los proyecta como ocurrencias virtuales vía `vw_agenda_unificada`.
+
+Fuentes que se proyectan:
+1. **`agenda_events`** → fuente `personal` (editable full desde Agenda).
+2. **`vencimientos`** → fuente `vencimiento` (read-only desde Agenda; click abre modal del módulo origen embebido).
+3. **`tramites`** con `fecha_objetivo` → fuente `tramite`.
+4. **`comprobantes`** con `fecha_vencimiento` y `estado != pagado` → fuente `comprobante`.
+5. **`solicitudes`** con `fecha_objetivo` → fuente `solicitud`.
+
+Reglas:
+- Eventos proyectados llevan icono `Lock` + color tenue + badge del tipo origen. No se editan desde Agenda.
+- Click → modal embebido del módulo origen (renovar, marcar pagado, etc.). Al cerrar, Agenda refresca.
+- "Recordatorio personal" en cualquier item del módulo origen crea un evento Agenda **vinculado** (sí editable, complementa al proyectado).
+- Filtros por fuente en chips: `Todo` · `Personal` · `Vencimientos` · `Trámites` · `Cobranzas` · `Solicitudes` (persistente en localStorage).
+- **Vencimientos** sale del sidebar y vive como **tab dentro de Agenda** (con su workflow renovar/config intacto).
+
+### Tracking de servicios → vencimientos automáticos con alertas (CRÍTICO)
+
+Cuando se cierra el ciclo de un servicio en un tracking (ej.: "renovación matrícula RPAC 2026" completada), debe poder **programarse automáticamente** el próximo vencimiento con alertas configurables. El usuario quiere botones de acceso directo en cada ficha de tracking para esto.
+
+**Modelo de alertas configurables**:
+- Offsets preset (días antes): **30**, **15**, **7**, **2**, **1**, **0**.
+- Personalizado (input numérico libre).
+- Multi-selección: la gerente puede programar 30+15+7+2 al mismo tiempo.
+- Cada alerta dispara **dos canales**: push interno (para nosotros, vía cron `gg_agenda_procesar_recordatorios` o un cron paralelo) **y email automático al cliente administrador** (vía cola `email_outbox` con plantilla parametrizada).
+
+**Esquema de datos sugerido** (a confirmar en implementación):
+- `vencimientos` ya tiene columna `dias_alerta_antes` (revisar tipo actual): migrar/agregar `alarmas_offsets integer[] NOT NULL DEFAULT '{30,7,2}'` y `notificar_cliente boolean NOT NULL DEFAULT true`.
+- `tracking_lineas` (o tabla equivalente del módulo trackings): al cerrar ciclo, RPC `tracking_cerrar_ciclo(p_tracking_id, p_proxima_fecha, p_alarmas_offsets[])` que:
+  1. Marca el ciclo actual como cerrado.
+  2. INSERT en `vencimientos` con `fecha_vencimiento = p_proxima_fecha`, `alarmas_offsets`, `administracion_id` y `consorcio_id` heredados.
+  3. Devuelve el id del nuevo vencimiento para feedback al UI.
+- Cron de dispatch existente (`venc_auto_clasificar_vencido` + dispatcher de mails) extendido para respetar el array de offsets (hoy probablemente usa un único offset).
+
+**UI esperada en la ficha de tracking**:
+- Botón "Programar próximo vencimiento" → modal con:
+  - Date picker (próxima fecha, sugerido = fecha cierre + 1 año o periodo del servicio).
+  - Chips multi-select: `1 mes` · `15 días` · `1 semana` · `2 días` · `1 día` · `el día` · `Personalizado…`.
+  - Switch "Notificar al administrador por email" (default ON).
+  - Preview de cronograma: "Se enviarán 4 avisos: 30/03 (1 mes), 30/04 (...) ..." con fechas calculadas.
+- Confirmación → toast "Vencimiento programado · 4 avisos en agenda".
+
+### Fix UX de gestos del calendario (parte del mismo entregable)
+
+Hoy los gestos (paint, drag, resize, drag&drop día↔día) **están implementados** pero ocultos: la vista default es Lista. Acciones:
+- **Default = Semana** (Lista queda como opción del toggle).
+- Cursor `crosshair` en áreas vacías de Semana/Día (afford visual).
+- Hint flotante al hover en columna vacía: "Pintá para crear · arrastrá un bloque para mover · borde inferior para duración".
+- Manijas de drag/resize visibles al hover del bloque.
+- Ghost de drop reforzado en Mes (chip-fantasma con fecha destino, no solo ring).
+
+### Sidebar tras la unificación
+
+`Inicio · Solicitudes · Clientes · Servicios · Facturación · Trámites · **Agenda** (con tabs internos: Mi agenda / Vencimientos) · Cuenta corriente · Recupero · Partners · Finanzas · Formularios · Campus · Reportes · Configuración`.
+
+Vencimientos deja de ser entrada de sidebar; queda accesible como tab y desde links contextuales (tracking, ficha de cliente, etc.).

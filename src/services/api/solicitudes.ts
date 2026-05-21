@@ -126,6 +126,12 @@ export interface SolicitudDetalle extends SolicitudListItem {
   submission_payload: Record<string, unknown> | null;
   submission_adjuntos: Array<{ campo: string; nombre: string; url: string }>;
   derivaciones: SolicitudDerivacionRow[];
+  /**
+   * 1.C · schema del formulario al que pertenece este submission. Sirve
+   * para resolver `field.name → field.label` y renderizar el payload con
+   * etiquetas legibles en lugar de keys crudas.
+   */
+  formulario_schema: Json | null;
 }
 
 export async function getSolicitud(
@@ -140,7 +146,7 @@ export async function getSolicitud(
            formulario_submissions:formulario_submission_id(
              id,
              payload,
-             formularios:formulario_id(titulo,categoria)
+             formularios:formulario_id(titulo,categoria,schema)
            ),
            administraciones:cliente_id(nombre),
            servicios:servicio_solicitado_id(nombre)`,
@@ -161,7 +167,11 @@ export async function getSolicitud(
     formulario_submissions: {
       id: string;
       payload: Json | null;
-      formularios: { titulo: string; categoria: string } | null;
+      formularios: {
+        titulo: string;
+        categoria: string;
+        schema: Json | null;
+      } | null;
     } | null;
     administraciones: { nombre: string } | null;
     servicios: { nombre: string } | null;
@@ -209,6 +219,7 @@ export async function getSolicitud(
       (formulario_submissions?.payload as Record<string, unknown>) ?? null,
     submission_adjuntos: adjuntos,
     derivaciones: (derivs ?? []) as SolicitudDerivacionRow[],
+    formulario_schema: formulario_submissions?.formularios?.schema ?? null,
   });
 }
 

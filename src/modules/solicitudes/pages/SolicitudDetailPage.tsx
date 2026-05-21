@@ -291,24 +291,21 @@ export function SolicitudDetailPage() {
         )}
       </section>
 
-      {/* Payload del formulario */}
+      {/* Payload del formulario · 1.C · labels legibles del schema. */}
       {data.submission_payload && (
         <section className="card-premium p-5">
           <p className="kicker mb-3 text-brand-cyan">Datos del formulario</p>
           <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
-            {Object.entries(data.submission_payload).map(([key, val]) => {
-              if (val === null || val === undefined || val === '') return null;
-              return (
-                <div key={key}>
-                  <dt className="kicker text-brand-muted">{key}</dt>
+            {payloadEnOrden(data.submission_payload, data.formulario_schema).map(
+              (entry) => (
+                <div key={entry.name}>
+                  <dt className="kicker text-brand-muted">{entry.label}</dt>
                   <dd className="break-words text-brand-ink">
-                    {typeof val === 'object'
-                      ? JSON.stringify(val)
-                      : String(val)}
+                    {entry.valor}
                   </dd>
                 </div>
-              );
-            })}
+              ),
+            )}
           </dl>
         </section>
       )}
@@ -359,8 +356,9 @@ export function SolicitudDetailPage() {
               className="mr-1 inline text-emerald-600"
             />
             Esta solicitud ya fue activada como tracking.{' '}
+            {/* 7.A · link al TrackingDetailPage nuevo (no al legacy). */}
             <Link
-              to={`/gerencia/tramites/${data.tramite_id}`}
+              to={`/gerencia/trackings/${data.tramite_id}`}
               className="font-semibold text-brand-cyan hover:underline"
             >
               Abrir el tracking →
@@ -420,4 +418,74 @@ function DataChip({
       {inner}
     </div>
   );
+}
+
+// 1.C · humaniza una key cruda ("dni_solicitante" → "Dni solicitante").
+function humanize(key: string): string {
+  const base = key.replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim();
+  return base.charAt(0).toUpperCase() + base.slice(1);
+}
+
+// 1.C · extrae lista de campos del schema del builder, recorriendo
+// secciones cuando aplica. Tolera schemas de distintos shapes.
+type CampoSchema = { name: string; label: string };
+function camposDelSchema(schema: unknown): CampoSchema[] {
+  if (!schema || typeof schema !== 'object') return [];
+  const out: CampoSchema[] = [];
+  const visit = (node: unknown) => {
+    if (!node || typeof node !== 'object') return;
+    if (Array.isArray(node)) {
+      node.forEach(visit);
+      return;
+    }
+    const obj = node as Record<string, unknown>;
+    if (typeof obj.name === 'string') {
+      out.push({
+        name: obj.name,
+        label:
+          typeof obj.label === 'string' && obj.label.trim()
+            ? obj.label
+            : humanize(obj.name),
+      });
+    }
+    if (Array.isArray(obj.fields)) obj.fields.forEach(visit);
+    if (Array.isArray(obj.secciones)) obj.secciones.forEach(visit);
+    if (Array.isArray(obj.sections)) obj.sections.forEach(visit);
+    if (Array.isArray(obj.campos)) obj.campos.forEach(visit);
+  };
+  visit(schema);
+  return out;
+}
+
+// 1.C · ordena las entries por el orden del schema y resuelve labels.
+function payloadEnOrden(
+  payload: Record<string, unknown>,
+  schema: unknown,
+): Array<{ name: string; label: string; valor: string }> {
+  const campos = camposDelSchema(schema);
+  const indexByName = new Map(campos.map((c, i) => [c.name, i] as const));
+  const renderValue = (v: unknown): string => {
+    if (v === null || v === undefined) return '—';
+    if (typeof v === 'object') return JSON.stringify(v);
+    if (typeof v === 'boolean') return v ? 'Sí' : 'No';
+    return String(v);
+  };
+
+  const entries = Object.entries(payload).filter(
+    ([, v]) => v !== null && v !== undefined && v !== '',
+  );
+  entries.sort(([a], [b]) => {
+    const ai = indexByName.get(a) ?? 999;
+    const bi = indexByName.get(b) ?? 999;
+    return ai - bi;
+  });
+
+  return entries.map(([k, v]) => {
+    const def = campos.find((c) => c.name === k);
+    return {
+      name: k,
+      label: def?.label ?? humanize(k),
+      valor: renderValue(v),
+    };
+  });
 }

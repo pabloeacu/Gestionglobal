@@ -1,18 +1,12 @@
-// Subsistema agenda operativa (Documento Maestro puntos 23–25).
-// Pages:
-//   - AgendaPage          → /gerencia/agenda
-// Componentes para incrustar:
-//   - EventoCard
-//   - CalendarioMes
-//   - CalendarioSemana
-//   - TimelineDia
-//   - CrearEventoDrawer
-//   - EventoDetailModal
-
+// Subsistema Agenda (patrón MDC capitalizado — handoff E1..E14).
+// Page principal: AgendaPage → /gerencia/agenda
 export { AgendaPage } from './pages/AgendaPage';
-export { EventoCard } from './components/EventoCard';
-export { CalendarioMes } from './components/CalendarioMes';
-export { CalendarioSemana } from './components/CalendarioSemana';
-export { TimelineDia } from './components/TimelineDia';
-export { CrearEventoDrawer } from './components/CrearEventoDrawer';
-export { EventoDetailModal } from './components/EventoDetailModal';
+export { BarraMagica } from './components/BarraMagica';
+export { VistaLista } from './components/VistaLista';
+export { VistaMes } from './components/VistaMes';
+export { VistaSemana } from './components/VistaSemana';
+export { VistaDia } from './components/VistaDia';
+export { CirculoHecha } from './components/CirculoHecha';
+export { AccionesMenu } from './components/AccionesMenu';
+export { ChipCategoria } from './components/ChipCategoria';
+export { EventoModal } from './components/EventoModal';
