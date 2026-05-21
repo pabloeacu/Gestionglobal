@@ -24,3 +24,17 @@ createRoot(document.getElementById('root')!).render(
     </SoundProvider>
   </StrictMode>,
 );
+
+// Registro del service worker (PWA). En desarrollo (vite dev) o sobre
+// localhost lo saltamos para no interferir con HMR.
+if (
+  'serviceWorker' in navigator &&
+  window.location.protocol === 'https:' &&
+  !window.location.hostname.includes('localhost')
+) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker
+      .register('/service-worker.js')
+      .catch((err) => console.warn('SW registration failed:', err));
+  });
+}

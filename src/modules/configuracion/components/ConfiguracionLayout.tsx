@@ -15,7 +15,7 @@ const TABS = [
 export function ConfiguracionLayout() {
   return (
     <div className="space-y-5">
-      <nav className="flex items-center gap-1 border-b border-slate-200">
+      <nav className="sticky top-16 z-20 -mx-5 flex items-center gap-1 border-b border-slate-200 bg-white/95 px-5 backdrop-blur md:-mx-8 md:px-8">
         {TABS.map((t) => {
           const Icon = t.icon;
           return (

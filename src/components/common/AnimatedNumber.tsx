@@ -20,6 +20,12 @@ export function AnimatedNumber({
   const [display, setDisplay] = useState(value);
   const fromRef = useRef(value);
   const startRef = useRef<number | null>(null);
+  // Marca si ya recibimos un valor "real" después del mount.
+  // Patrón: si el componente se monta con value=0 y el padre todavía está
+  // cargando datos, no queremos animar 0 → N — eso da sensación de "los KPIs
+  // estaban en cero". En vez de eso, saltamos directo a value la primera vez
+  // que el padre nos entrega un valor distinto del initial.
+  const settledRef = useRef(false);
 
   useEffect(() => {
     const reduce =
@@ -27,6 +33,15 @@ export function AnimatedNumber({
       window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
     if (reduce) {
       setDisplay(value);
+      settledRef.current = true;
+      return;
+    }
+    // Primer "asentamiento" después del mount: si arrancamos en 0 pero el
+    // padre nos entrega un valor positivo, saltamos directo (data inicial).
+    if (!settledRef.current) {
+      settledRef.current = true;
+      setDisplay(value);
+      fromRef.current = value;
       return;
     }
     fromRef.current = display;

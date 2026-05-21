@@ -1,52 +1,54 @@
-import type { ReactNode } from 'react';
+import { lazy, Suspense, type ReactNode } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { BrandLoaderScreen } from '@/components/brand/BrandLoader';
+
+// Críticos en el árbol inicial (landing/login/layouts) → import directo.
 import { LandingPage } from '@/modules/public/pages/LandingPage';
 import { LoginPage } from '@/modules/auth/pages/LoginPage';
 import { GerenciaLayout } from '@/modules/gerencia/components/GerenciaLayout';
 import { GerenciaHome } from '@/modules/gerencia/pages/GerenciaHome';
-import { AdministracionesListPage } from '@/modules/clientes/pages/AdministracionesListPage';
-import { AdministracionDetailPage } from '@/modules/clientes/pages/AdministracionDetailPage';
-import { ComprobantesListPage } from '@/modules/facturacion/pages/ComprobantesListPage';
-import { ComprobanteDetailPage } from '@/modules/facturacion/pages/ComprobanteDetailPage';
-import { ConfiguracionLayout } from '@/modules/configuracion/components/ConfiguracionLayout';
-import { ArcaConfigPage } from '@/modules/configuracion/pages/ArcaConfigPage';
-import { ArcaQueuePage } from '@/modules/configuracion/pages/ArcaQueuePage';
-import { TramitesListPage } from '@/modules/tramites/pages/TramitesListPage';
-import { TramitesKanbanPage } from '@/modules/tramites/pages/TramitesKanbanPage';
-import { TramiteDetailPage } from '@/modules/tramites/pages/TramiteDetailPage';
-import { ServiciosListPage, ServicioDetailPage } from '@/modules/servicios';
-import { VencimientosListPage, VencimientosConfigPage } from '@/modules/vencimientos';
-import { EmailTemplatesPage } from '@/modules/configuracion/pages/EmailTemplatesPage';
-import { EmailQueuePage } from '@/modules/configuracion/pages/EmailQueuePage';
-import {
-  RecuperoListPage,
-  MorososPage,
-  RecuperoConfigPage,
-  PlantillasPage as RecuperoPlantillasPage,
-} from '@/modules/recupero';
-import {
-  PartnersListPage,
-  PartnerDetailPage,
-  RendicionDetailPage,
-} from '@/modules/partners';
-import {
-  CampusListPage,
-  CursoEditorPage,
-  CursoDetalleAlumnoPage,
-  MisCursosPage,
-} from '@/modules/campus';
-import { ReportesHubPage, ImportadorPage } from '@/modules/reportes';
-import { CtaCteListPage, CtaCteDetailPage } from '@/modules/cta_cte';
 import { PortalLayout } from '@/modules/portal/components/PortalLayout';
 import { PortalHome } from '@/modules/portal/pages/PortalHome';
-import { PortalComprobantesPage } from '@/modules/portal/pages/PortalComprobantesPage';
-import { PortalComprobanteDetailPage } from '@/modules/portal/pages/PortalComprobanteDetailPage';
-import { PortalCtaCtePage } from '@/modules/portal/pages/PortalCtaCtePage';
-import { PortalConsorciosPage } from '@/modules/portal/pages/PortalConsorciosPage';
-import { PerfilPage } from '@/modules/auth/pages/PerfilPage';
-import { FormularioPublicoPage } from '@/modules/public/pages/FormularioPublicoPage';
+
+// El resto se carga bajo demanda (lazy chunks) para bajar el bundle inicial.
+const AdministracionesListPage = lazy(() => import('@/modules/clientes/pages/AdministracionesListPage').then(m => ({ default: m.AdministracionesListPage })));
+const AdministracionDetailPage = lazy(() => import('@/modules/clientes/pages/AdministracionDetailPage').then(m => ({ default: m.AdministracionDetailPage })));
+const ComprobantesListPage = lazy(() => import('@/modules/facturacion/pages/ComprobantesListPage').then(m => ({ default: m.ComprobantesListPage })));
+const ComprobanteDetailPage = lazy(() => import('@/modules/facturacion/pages/ComprobanteDetailPage').then(m => ({ default: m.ComprobanteDetailPage })));
+const ConfiguracionLayout = lazy(() => import('@/modules/configuracion/components/ConfiguracionLayout').then(m => ({ default: m.ConfiguracionLayout })));
+const ArcaConfigPage = lazy(() => import('@/modules/configuracion/pages/ArcaConfigPage').then(m => ({ default: m.ArcaConfigPage })));
+const ArcaQueuePage = lazy(() => import('@/modules/configuracion/pages/ArcaQueuePage').then(m => ({ default: m.ArcaQueuePage })));
+const TramitesListPage = lazy(() => import('@/modules/tramites/pages/TramitesListPage').then(m => ({ default: m.TramitesListPage })));
+const TramitesKanbanPage = lazy(() => import('@/modules/tramites/pages/TramitesKanbanPage').then(m => ({ default: m.TramitesKanbanPage })));
+const TramiteDetailPage = lazy(() => import('@/modules/tramites/pages/TramiteDetailPage').then(m => ({ default: m.TramiteDetailPage })));
+const ServiciosListPage = lazy(() => import('@/modules/servicios').then(m => ({ default: m.ServiciosListPage })));
+const ServicioDetailPage = lazy(() => import('@/modules/servicios').then(m => ({ default: m.ServicioDetailPage })));
+const VencimientosListPage = lazy(() => import('@/modules/vencimientos').then(m => ({ default: m.VencimientosListPage })));
+const VencimientosConfigPage = lazy(() => import('@/modules/vencimientos').then(m => ({ default: m.VencimientosConfigPage })));
+const EmailTemplatesPage = lazy(() => import('@/modules/configuracion/pages/EmailTemplatesPage').then(m => ({ default: m.EmailTemplatesPage })));
+const EmailQueuePage = lazy(() => import('@/modules/configuracion/pages/EmailQueuePage').then(m => ({ default: m.EmailQueuePage })));
+const RecuperoListPage = lazy(() => import('@/modules/recupero').then(m => ({ default: m.RecuperoListPage })));
+const MorososPage = lazy(() => import('@/modules/recupero').then(m => ({ default: m.MorososPage })));
+const RecuperoConfigPage = lazy(() => import('@/modules/recupero').then(m => ({ default: m.RecuperoConfigPage })));
+const RecuperoPlantillasPage = lazy(() => import('@/modules/recupero').then(m => ({ default: m.PlantillasPage })));
+const PartnersListPage = lazy(() => import('@/modules/partners').then(m => ({ default: m.PartnersListPage })));
+const PartnerDetailPage = lazy(() => import('@/modules/partners').then(m => ({ default: m.PartnerDetailPage })));
+const RendicionDetailPage = lazy(() => import('@/modules/partners').then(m => ({ default: m.RendicionDetailPage })));
+const CampusListPage = lazy(() => import('@/modules/campus').then(m => ({ default: m.CampusListPage })));
+const CursoEditorPage = lazy(() => import('@/modules/campus').then(m => ({ default: m.CursoEditorPage })));
+const CursoDetalleAlumnoPage = lazy(() => import('@/modules/campus').then(m => ({ default: m.CursoDetalleAlumnoPage })));
+const MisCursosPage = lazy(() => import('@/modules/campus').then(m => ({ default: m.MisCursosPage })));
+const ReportesHubPage = lazy(() => import('@/modules/reportes').then(m => ({ default: m.ReportesHubPage })));
+const ImportadorPage = lazy(() => import('@/modules/reportes').then(m => ({ default: m.ImportadorPage })));
+const CtaCteListPage = lazy(() => import('@/modules/cta_cte').then(m => ({ default: m.CtaCteListPage })));
+const CtaCteDetailPage = lazy(() => import('@/modules/cta_cte').then(m => ({ default: m.CtaCteDetailPage })));
+const PortalComprobantesPage = lazy(() => import('@/modules/portal/pages/PortalComprobantesPage').then(m => ({ default: m.PortalComprobantesPage })));
+const PortalComprobanteDetailPage = lazy(() => import('@/modules/portal/pages/PortalComprobanteDetailPage').then(m => ({ default: m.PortalComprobanteDetailPage })));
+const PortalCtaCtePage = lazy(() => import('@/modules/portal/pages/PortalCtaCtePage').then(m => ({ default: m.PortalCtaCtePage })));
+const PortalConsorciosPage = lazy(() => import('@/modules/portal/pages/PortalConsorciosPage').then(m => ({ default: m.PortalConsorciosPage })));
+const PerfilPage = lazy(() => import('@/modules/auth/pages/PerfilPage').then(m => ({ default: m.PerfilPage })));
+const FormularioPublicoPage = lazy(() => import('@/modules/public/pages/FormularioPublicoPage').then(m => ({ default: m.FormularioPublicoPage })));
 
 type Role = 'gerente' | 'operador' | 'administrador';
 
@@ -103,6 +105,7 @@ function Protected({
 export function App() {
   return (
     <BrowserRouter>
+      <Suspense fallback={<BrandLoaderScreen />}>
       <Routes>
         <Route path="/" element={<RoleHomeOrLanding />} />
         <Route path="/inicio" element={<LandingPage />} />
@@ -175,6 +178,7 @@ export function App() {
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      </Suspense>
     </BrowserRouter>
   );
 }

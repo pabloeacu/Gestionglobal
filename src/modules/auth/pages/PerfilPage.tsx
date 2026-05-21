@@ -128,7 +128,10 @@ function PerfilCover({
   async function onEditorConfirm(blob: Blob) {
     setUploading(true);
     setPendingFile(null);
-    const res = await uploadAvatar(blob, 'jpg');
+    // El blob trae su mime real (webp o jpeg según soporte del browser).
+    // Derivo la extensión para el path en Storage.
+    const ext = blob.type === 'image/webp' ? 'webp' : 'jpg';
+    const res = await uploadAvatar(blob, ext);
     setUploading(false);
     if (!res.ok) {
       toast.error(res.error.message);
