@@ -136,6 +136,37 @@
   con valor (verificable, condicionado), no un catálogo de videos.
 - **Fecha:** 2026-05-22
 
+### DGG-10bis · Refinamientos de Campus (2026-05-22, tras auditoría + diseño)
+- **Estado base:** Campus YA existe (10 tablas, quiz autocorregido server-side,
+  video embed, progreso, portal alumno). El rebuild es **extender + corregir**,
+  no rehacer. Ver `CAMPUS_DESIGN.md`.
+- **Cerrar autoservicio:** hoy el alumno se auto-inscribe (catálogo público +
+  `matricularse()`). DGG-10 exige **asignación manual de gerencia** → cerrar el
+  self-service, agregar RPC `curso_asignar_alumno` + drawer de asignación, y
+  restringir `cursos_select_public`.
+- **Pago del curso:** lo registra **gerencia manualmente** al verificar la
+  acreditación (requiere revisión humana). NO emite facturación necesariamente
+  (pero la habilita) y **SÍ registra un asiento de ingreso en la parte
+  financiera** (movimiento de ingreso). Es una de las condiciones del
+  certificado.
+- **Asistencia sincrónica:** **registro formal por encuentro desde el MVP** —
+  tabla de encuentros sincrónicos (fecha, link Zoom, tema) + asistencia
+  tildada por alumno por encuentro. (Reutilizable para Webinars / DGG-11.)
+- **Verificación del certificado:** página **pública sin login**
+  (`/verificar/:codigo`) que confirma autenticidad con datos mínimos no
+  sensibles.
+- **Datos del certificado:** nombre del alumno + curso + fecha de emisión +
+  instructor + **código verificable (QR)** + **nota del examen** + **logos y
+  leyendas de entidades habilitadas** (aprobación oficial). Diseño visual:
+  el usuario provee un **modelo de referencia** (ASSET — para construir algo
+  similar). Fase 2.
+- **Fases:** Fase 1 (M) = cerrar autoservicio + asignación manual + condiciones
+  configurables por curso + checklist por matrícula + encuentros/asistencia +
+  pago manual con asiento de ingreso. Fase 2 (M-L) = certificado PDF con QR +
+  motor "certificado listo" + email + página pública de verificación (el render
+  final espera el modelo del usuario).
+- **Fecha:** 2026-05-22
+
 ## DGG-11 · Webinars/Eventos = subsistema de captación (post-Campus)
 - **Decisión:** Los formularios tipo `evento` dejan de ser submission crudo
   y alimentan un subsistema de captación comercial:
