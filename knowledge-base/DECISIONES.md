@@ -207,7 +207,18 @@
 - Premium sin gastar más en Zoom: maximizar SDK gratuito, simplificar gerencia.
 - Evaluar accesos externos solo-por-link (no hay roles docente/moderador aún;
   a futuro: docente con acceso de edición a material/ejercicios).
-- Fecha: 2026-05-22. (Diseño pendiente.)
+- **Decisiones del usuario (2026-05-22, tras `CAMPUS_FASE3_DESIGN.md`):**
+  - **Plan Zoom: Pro** → cloud recording disponible (grabación automática que
+    queda como clase asincrónica), reuniones largas. 
+  - **Crear roles `docente` y `moderador` en la plataforma YA** (no solo link
+    host/co-host): auth + permisos + acceso al campus; a futuro el docente
+    edita material/ejercicios.
+  - **Config del Marketplace por browser automation** (Claude in Chrome con el
+    usuario logueado en Zoom): crear las 2 apps (S2S OAuth + Meeting SDK),
+    obtener las 6 credenciales, cargarlas en Supabase secrets.
+  - Webinars con Meetings normales (no add-on). Acceso de prospecto sin login
+    vía magic-link (molde acceso-externo) → `/webinar/:token`.
+- Fecha: 2026-05-22.
 
 ## DGG-15 · Webinars dictados dentro del campus (públicos para prospectos)
 - Los webinars (DGG-11) se dictan dentro del campus. Pueden ser **gratuitos y
