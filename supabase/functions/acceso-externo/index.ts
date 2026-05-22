@@ -92,7 +92,9 @@ Deno.serve(async (req) => {
   if (row.recurso_tipo === 'tramite' || row.recurso_tipo === 'tracking') {
     const { data: t } = await admin
       .from('tramites')
-      .select('id, codigo, titulo, descripcion, categoria, estado, prioridad, fecha_solicitud, fecha_estimada, created_at, updated_at, ultima_actividad_at, responsable_id')
+      // E-GG-06: columnas reales de `tramites` (no existían fecha_solicitud /
+      // fecha_estimada → el select fallaba y devolvía "Sin datos disponibles").
+      .select('id, codigo, titulo, descripcion, categoria, estado, prioridad, periodo, fecha_inicio, fecha_fin, vence_at, created_at, updated_at, ultima_actividad_at, responsable_id')
       .eq('id', row.recurso_id)
       .maybeSingle();
     recurso = (t as Record<string, unknown>) ?? null;
@@ -105,13 +107,16 @@ Deno.serve(async (req) => {
   } else if (row.recurso_tipo === 'solicitud') {
     const { data: s } = await admin
       .from('formulario_submissions')
-      .select('id, formulario_slug, estado, datos, created_at')
+      // E-GG-06: la columna real es formulario_id; el slug vive en formularios.
+      .select('id, estado, datos, created_at, formularios:formulario_id(slug,titulo)')
       .eq('id', row.recurso_id)
       .maybeSingle();
     if (s) {
+      const form = (s as { formularios?: { slug?: string; titulo?: string } | null }).formularios;
       recurso = {
         id: s.id,
-        formulario_slug: s.formulario_slug,
+        formulario_slug: form?.slug ?? null,
+        titulo: form?.titulo ?? null,
         estado: s.estado,
         created_at: s.created_at,
         // Campos sanitizados sin datos sensibles (sólo etiquetas comunes).

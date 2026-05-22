@@ -126,14 +126,27 @@
   `extensions` en el search_path. Revisar otros RPCs que usen pgcrypto.
 - **Fecha / módulo:** 2026-05-22 · acceso externo · descubierto en QA.
 
-## E-GG-06 (ABIERTO) · Acceso externo público no muestra el detalle del recurso
-- **Síntoma:** `/externo/:token` carga el shell (hero, saludo, expiración,
-  footer) pero el bloque DETALLE dice "Sin datos disponibles". No se ven las
-  tarjetas 5.A (agregar al calendario), 5.B (contacto responsable — además
-  el tracking de prueba tiene responsable_id NULL) ni 5.E (última
-  actualización). 5.C (registro de apertura) SÍ funciona (apertura logueada).
-- **Sospecha:** el edge function `acceso-externo` (v2) no resuelve/devuelve
-  los datos del recurso `tramite` (el tracking), o los devuelve en una forma
-  que el front renderiza como vacío. Falta investigar el edge function Deno.
-- **Estado:** PENDIENTE de fix (requiere editar + redeploy del edge function).
-- **Fecha / módulo:** 2026-05-22 · acceso externo (edge function).
+## E-GG-06 · Acceso externo público mostraba "Sin datos disponibles"
+- **Síntoma:** `/externo/:token` cargaba el shell (hero, saludo, expiración,
+  footer) pero el bloque DETALLE decía "Sin datos disponibles". No se veían
+  las tarjetas 5.A (agregar al calendario) ni 5.E (última actualización).
+  5.C (registro de apertura) SÍ funcionaba. (5.B contacto responsable no se
+  mostraba porque el tracking de prueba tiene responsable_id NULL — eso es
+  falta de dato, no bug.)
+- **Causa raíz:** el edge function `acceso-externo` seleccionaba de `tramites`
+  las columnas `fecha_solicitud` y `fecha_estimada` que **no existen** (las
+  reales: `vence_at`, `fecha_inicio`, `fecha_fin`, `periodo`). PostgREST
+  devolvía error → `data=null` → `recurso=null` → "Sin datos". El branch
+  `solicitud` tenía el mismo problema con `formulario_slug` (real:
+  `formulario_id`; el slug vive en `formularios`).
+- **Fix (edge v3):** columnas reales en el select de tramites; en el branch
+  solicitud, embed `formularios:formulario_id(slug,titulo)`. Validado vía
+  curl: el edge devuelve `recurso` con datos completos.
+- **Prevención:** mismo aprendizaje que E-GG-02 — verificar
+  `information_schema.columns` antes de escribir queries; el browser/curl test
+  detecta lo que tsc no ve. Las edge functions Deno NO pasan por tsc del
+  proyecto → testear siempre su respuesta real.
+- **Bug menor relacionado (anotado, no crítico):** el wizard de activación NO
+  guarda el `periodo` ni `fecha_inicio` en el tracking creado (quedan NULL
+  pese a cargarse 2026 / fecha en el paso 3). Revisar `solicitud_activar`.
+- **Fecha / módulo:** 2026-05-22 · acceso externo (edge function) · QA.
