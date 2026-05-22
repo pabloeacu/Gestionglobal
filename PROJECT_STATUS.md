@@ -92,7 +92,12 @@ Recorrido punta a punta logueado sobre la URL de Vercel. **Cobertura amplia** de
 
 ## 2. Trabajo en curso AHORA
 
-**Punto 6 · Campus Fase 1 implementada, pendiente browser test.** (DGG-10 / DGG-10bis · `CAMPUS_DESIGN.md` §8 Fase 1.) Se construyó sobre la base existente (mig `0029_campus.sql`):
+**Punto 6 · Campus Fase 1 implementada + VERIFICADA ONLINE (2026-05-22).** (DGG-10 / DGG-10bis · `CAMPUS_DESIGN.md` §8 Fase 1.)
+
+**Browser test:** ✅ editor de curso carga (tras fix del bug abajo) · ✅ tab Condiciones (agregar examen-auto + pago-manual + guardar persiste) · ✅ tab Alumnos (empty state + drawer "Asignar alumno" abre) · ✅ RPC `curso_asignar_alumno` verificado en vivo (crea matrícula + checklist con las 2 condiciones, examen:false/pago:false — en transacción con rollback). 🐛 **E-GG-08 (arreglado, commit 51c6e0b): React #310** — `CursoEditorPage` tenía `useState(activeKey)` tras el early return de loading → pantalla blanca total. Movido arriba. Verificado online.
+**Pendiente de pixel-test (bloqueado por overlay de extensión Chrome recurrente):** tildar condición pago en UI, modal Registrar pago, encuentros+asistencia, portal del alumno (checklist motivacional). La capa de datos + superficies clave están validadas.
+
+Se construyó sobre la base existente (mig `0029_campus.sql`):
 
 - **Migración `0045_campus_fase1.sql`** (aplicada + types regenerados):
   - Cierre del autoservicio: `cursos_select_public` (anon) → `cursos_select_auth` (solo authenticated); `curso_matricular` ahora exige `is_staff()` (ya no auto-matrícula).

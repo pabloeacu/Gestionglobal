@@ -168,3 +168,19 @@
 - **Prevención:** cuando se desactiva `autoRefreshToken`, hay que implementar
   refresh manual sí o sí. No descartar el refresh_token al vencer el access.
 - **Fecha / módulo:** 2026-05-22 · auth (AuthContext + lib/supabase) · QA.
+
+## E-GG-08 · React #310 en CursoEditorPage (hook tras early return)
+- **Síntoma:** abrir el editor de un curso (`/gerencia/campus/:id`) daba
+  **pantalla blanca total**. Consola: `Minified React error #310` (rendered
+  more hooks than during the previous render).
+- **Causa raíz:** Campus Fase 1 agregó `const [activeKey] = useState('datos')`
+  DESPUÉS del early return de loading (`if (loading || !data) return <Loader/>`).
+  En el primer render (loading=true) ese hook nunca se llamaba; en el segundo
+  (cargado) sí → cambia la cantidad de hooks entre renders.
+- **Fix:** mover el `useState` de `activeKey` arriba, junto a los demás hooks,
+  antes de cualquier early return.
+- **Prevención:** **TODOS los hooks van antes de cualquier return condicional**
+  (regla de hooks de React). Al agregar estado a un componente que ya tiene un
+  guard de loading, ponerlo arriba. El build/tsc NO detecta esto → sólo se ve
+  en runtime (browser test obligatorio).
+- **Fecha / módulo:** 2026-05-22 · campus (CursoEditorPage) · Fase 1 · QA.
