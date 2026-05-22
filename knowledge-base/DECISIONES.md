@@ -112,3 +112,48 @@
 - **Razón:** Las sesiones pueden romperse y la continuidad debe sobrevivir.
   La plataforma es ambiciosa, ningún dato/elemento puede pasar desapercibido.
 - **Fecha:** 2026-05-21
+
+## DGG-10 · Campus = aula virtual real (Punto 6) — alcance definido
+- **Decisión:** Rebuild de Campus de catálogo → aula virtual con:
+  - **Cursos → módulos → lecciones**. Videos vía **embeds externos**
+    (YouTube/Vimeo no listados), NO Supabase Storage (costo de egress).
+  - **Acceso por asignación manual de gerencia** (sin autoservicio ni
+    inscripción abierta). El gerente habilita alumno × curso.
+  - **Alumnos**: administradores clientes (y potencialmente sus designados).
+  - **Evaluación**: quiz de opción múltiple **autocorregido** (única
+    condición que se completa sola).
+  - **Certificado**: PDF automático con **QR verificable** (verifica que se
+    emitió desde el campus). Diseño según modelo que el usuario proveerá
+    (ASSET PENDIENTE).
+  - **Condiciones del certificado configurables por curso** (combinación de
+    opciones 3+1): cada curso define qué exige (aprobación de examen +
+    asistencia a encuentros sincrónicos + pago completo + las que se
+    definan). Gerencia/instructor tilda manualmente cada condición a medida
+    que se cumple; la aprobación del examen es la única automática. **El
+    envío del certificado por mail se dispara SOLO cuando TODAS las
+    condiciones activas del curso están verificadas.**
+- **Razón:** El usuario quiere un campus pedagógico real y un certificado
+  con valor (verificable, condicionado), no un catálogo de videos.
+- **Fecha:** 2026-05-22
+
+## DGG-11 · Webinars/Eventos = subsistema de captación (post-Campus)
+- **Decisión:** Los formularios tipo `evento` dejan de ser submission crudo
+  y alimentan un subsistema de captación comercial:
+  - **Lista de inscriptos por evento** con recordatorios programados + link
+    de Zoom hasta la fecha del encuentro.
+  - **Segmentación cliente vs no-cliente** (no mandar invitaciones
+    redundantes a clientes existentes).
+  - **Centro de promociones** para empujar a la contratación efectiva.
+  - Cada inscripto se registra como **servicio gratuito en cuenta corriente**
+    para capitalizar la info del formulario, medir conversión webinar→cliente
+    y fidelización de clientes existentes.
+  - **No-cliente → entidad `prospecto` liviana** (separada de la cartera de
+    clientes reales) con su línea de servicio $0 en cuenta corriente;
+    convertible a cliente con un click al contratar. NO se ensucia la lista
+    de clientes con leads no convertidos.
+- **Momento:** se construye **después de Campus** (Punto 6). Por ahora queda
+  documentado; el comportamiento actual (evento no genera solicitud) se
+  mantiene hasta entonces.
+- **Razón:** Los webinars son la fuente principal de captación de potenciales
+  clientes; el subsistema debe ser un motor comercial, no un buzón pasivo.
+- **Fecha:** 2026-05-22

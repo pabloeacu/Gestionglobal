@@ -46,7 +46,18 @@ Plataforma SaaS premium single-tenant para Gestión Global (administración de c
 
 ## 2. Trabajo en curso AHORA
 
-**Punto 5 completo. Próximo: Punto 6 (Campus rebuild).** Segundo pase L/M ejecutado (2026-05-21): 13 items sobre la migración consolidada `0042_p5_resto.sql` (RPC `restaurar_solicitud`, `solicitud_responder` + `sent_emails.solicitud_id` + template `solicitud-respuesta-libre`, `servicios.sla_dias`, `tramites.responsable_id` con trigger backfill, tabla `accesos_externos_log` + RPC anon `registrar_apertura_acceso` + vista `vw_accesos_externos_aperturas`, `formularios.schema_draft`). Edge function `acceso-externo` redeployada (v2) con contacto del responsable. Build limpio (`tsc --noEmit` + `vite build`).
+**QA browser test en vivo del Punto 5 (en curso, 2026-05-21).** Recorrido punta a punta sobre la URL de Vercel logueado como gerente. Hallazgos:
+
+- ✅ Validados en vivo: form público (envío+confirmación), trigger submission→solicitud (categorías tramite/servicio/consulta), 4.A autosave (3 estados), 4.C preview dual Desktop/Móvil/Ambos, 4.F validador schema, 4.G copiar URL, 1.E filtro categoría dinámico + URL params, 1.G tiempo relativo, 1.D derivar en hover.
+- 🔴 **E-GG-02 (arreglado, commit f900b78)**: detalle de solicitud 100% roto — `getSolicitud` usaba `payload` (col real `datos`), adjuntos `campo/nombre_original` (reales `field_name/filename_original`), `getPublicUrl` en bucket privado (→ `createSignedUrl`). Error runtime SQL invisible para tsc/build.
+- 🟠 **Flash de landing post-login (arreglado, f900b78)**: `RoleHomeOrLanding` pintaba landing mientras resolvía el profile → ahora muestra loader si hay `session`.
+- 🟠 **E-GG-03 (recuperado)**: `ProgramarVencimientoModal.tsx` desaparecido del working tree (Finder/iCloud).
+- 🟡 **Decisión pendiente del usuario**: formularios tipo `evento` NO generan solicitud (trigger `crear_tramite_desde_submission_auto` sólo procesa tramite/servicio/consulta). ¿Intencional?
+- 🟢 **Backlog menor**: contador `envios` del formulario desincronizado (incrementa pero no decrementa al borrar submission).
+
+**Pendiente del recorrido (tras deploy de f900b78)**: re-verificar detalle de solicitud, 1.H responder, 1.F undo descartar, 1.B lightbox (necesita adjunto), activar wizard → 7.A redirect → tracking; Trackings (2.B compartir, 2.D SLA, 2.G alarmas, programar vencimiento); Agenda (modo enfoque, undo, leyenda, gestos, proyecciones); Vencimientos (banner HOY, CSV, agrupador); Acceso externo (5.B contacto, 5.C aperturas).
+
+**Punto 5 implementación**: completa (28 items + migración `0042_p5_resto.sql`, edge `acceso-externo` v2). Próximo macro: Punto 6 (Campus rebuild) una vez cerrado el QA.
 
 ---
 

@@ -167,14 +167,18 @@ export interface TrackingDetail extends TrackingRow {
 }
 
 export async function getTracking(id: string): Promise<ApiResponse<TrackingDetail>> {
+  // NOTA: NO usamos el embed self-referencial `parent:tramites!fkey(...)`.
+  // PostgREST resuelve los self-joins vía schema cache, que queda stale tras
+  // agregar el FK por migración y rompe con "Could not find a relationship
+  // between 'tramites' and 'tramites'". Traemos el parent con una query
+  // separada — robusto e independiente del cache. (E-GG-04)
   const { data: t, error } = await supabase
     .from('tramites')
     .select(
       `*,
        servicio:servicios(id,nombre,codigo,sla_dias),
        administracion:administraciones(id,nombre,email),
-       consorcio:consorcios(id,nombre),
-       parent:tramites!tramites_parent_tracking_id_fkey(id,periodo,estado)`,
+       consorcio:consorcios(id,nombre)`,
     )
     .eq('id', id)
     .single();
@@ -186,6 +190,17 @@ export async function getTracking(id: string): Promise<ApiResponse<TrackingDetai
     consorcio: TrackingDetail['consorcio'];
     parent: TrackingDetail['parent'];
   };
+
+  // Parent (continuación de tracking previo) — query separada.
+  let parent: TrackingDetail['parent'] = null;
+  if (tt.parent_tracking_id) {
+    const { data: p } = await supabase
+      .from('tramites')
+      .select('id,periodo,estado')
+      .eq('id', tt.parent_tracking_id)
+      .maybeSingle();
+    if (p) parent = p as TrackingDetail['parent'];
+  }
 
   const [lineasRes, estadosRes, categoriasRes, vencRes] = await Promise.all([
     supabase
@@ -212,6 +227,7 @@ export async function getTracking(id: string): Promise<ApiResponse<TrackingDetai
 
   return ok({
     ...tt,
+    parent,
     lineas: lineasRes.data ?? [],
     estados_disponibles: estadosRes.data,
     categorias_disponibles: categoriasRes.data,

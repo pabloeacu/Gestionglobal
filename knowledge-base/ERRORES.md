@@ -83,3 +83,29 @@
   Evaluar `.gitignore` para `* 2.*` y desactivar sync de iCloud en la carpeta
   del proyecto.
 - **Fecha / módulo:** 2026-05-21 · trackings · infraestructura local.
+
+## E-GG-04 · Detalle de tracking roto: embed self-referencial de PostgREST + schema cache stale
+- **Síntoma:** activar una solicitud (wizard) creaba el cliente y el tracking
+  OK (toast verde "¡Solicitud activada!"), pero el redirect a
+  `/gerencia/trackings/:id` tiraba toast rojo `Could not find a relationship
+  between 'tramites' and 'tramites' in the schema cache` y rebotaba al
+  listado `/gerencia/tramites`. El detalle de cualquier tracking quedaba
+  inaccesible. Invisible para tsc/build (runtime PostgREST). Detectado en
+  browser test en vivo.
+- **Causa raíz:** `getTracking` embebía el tracking padre con un self-join
+  PostgREST: `parent:tramites!tramites_parent_tracking_id_fkey(...)`. El FK
+  existe en la BD, pero PostgREST resuelve relaciones vía un **schema cache**
+  que quedó stale tras crearse el FK por migración → no "ve" la relación.
+  `NOTIFY pgrst, 'reload schema'` no surtió efecto inmediato (pooler Supabase).
+- **Fix:** eliminé el embed self-referencial; el parent se trae con una
+  **query separada** (`select id,periodo,estado where id=parent_tracking_id`)
+  sólo si `parent_tracking_id` no es null. Robusto e independiente del cache.
+- **Prevención:** **evitar embeds self-referenciales de PostgREST** (mismo
+  tabla → misma tabla); son frágiles ante cambios de schema. Para relaciones
+  recursivas (parent/continuación), preferir query separada. Si se usa embed,
+  recordar que el cache puede quedar stale tras DDL.
+- **Bonus detectado:** `TrackingDetailPage.load()` ante error hace
+  `navigate('/gerencia/tramites')` (listado legacy) en vez de mostrar el error
+  in-place — enmascara fallos. Queda como mejora UX de baja prioridad.
+- **Fecha / módulo:** 2026-05-22 · trackings (detalle) · descubierto en QA
+  del Flujo Maestro (wizard de activación).
