@@ -33,7 +33,7 @@ Plataforma SaaS premium single-tenant para Gestión Global (administración de c
 3. ✅ **Ronda 5 (Flujo Maestro)** — agentes E/F/G2/G1 en paralelo → módulos Solicitudes + Trackings + Agenda inicial + Formularios admin.
 4. ✅ **Browser review aspectos nuevos** — hecho parcialmente.
 5. ✅ **CERRADO + VERIFICADO ONLINE** — 28 items (pase rápido 15 + L/M 13) + QA browser test punta a punta que destapó y arregló 7 bugs reales (E-GG-02..07 + flash login). Ver §2bis/§2ter y `ERRORES.md`.
-6. 🔜 **SIGUIENTE · Link-by-link review + rebuild Campus** — Campus = aula virtual real (DGG-10): cursos/módulos, videos embed, quiz autocorregido, certificado PDF con QR verificable, condiciones configurables por curso.
+6. ✅ **Campus rebuild COMPLETO + VERIFICADO ONLINE** — Fase 1 (acceso manual, condiciones configurables, encuentros, pago→asiento financiero) + Fase 2 (certificado verificable PDF+QR, motor de emisión automática por trigger, `/verificar/:codigo` público). Migraciones 0045+0046. Cert de prueba emitido `GG-CURS-2026-554DC0` validado en vivo (gerencia + /verificar). PDF descargable (revisión visual del diseño → usuario). Pendiente: link-by-link review del resto de módulos; verificación de impacto en caja (espera Finanzas).
 7. ⏳ **Mockup web mejorada con documentación** — pendiente.
 8. ⏳ **Revisión end-to-end del proyecto** — pendiente.
 9. ⏳ **Planning del trabajo remanente** — pendiente.
