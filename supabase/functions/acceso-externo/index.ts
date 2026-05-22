@@ -82,14 +82,26 @@ Deno.serve(async (req) => {
   let recurso: Record<string, unknown> | null = null;
   let historial: unknown[] = [];
   let adjuntos: { nombre: string; url: string }[] = [];
+  // 5.B · datos de contacto del gerente responsable (si el recurso lo tiene).
+  let responsable: {
+    nombre: string | null;
+    email: string | null;
+    telefono: string | null;
+  } | null = null;
 
-  if (row.recurso_tipo === 'tramite') {
+  if (row.recurso_tipo === 'tramite' || row.recurso_tipo === 'tracking') {
     const { data: t } = await admin
       .from('tramites')
-      .select('id, codigo, titulo, descripcion, categoria, estado, prioridad, fecha_solicitud, fecha_estimada, created_at, updated_at')
+      .select('id, codigo, titulo, descripcion, categoria, estado, prioridad, fecha_solicitud, fecha_estimada, created_at, updated_at, ultima_actividad_at, responsable_id')
       .eq('id', row.recurso_id)
       .maybeSingle();
     recurso = (t as Record<string, unknown>) ?? null;
+    // 5.B · resolver el responsable → profile (nombre/teléfono) + auth (email).
+    const responsableId = (t as { responsable_id?: string | null } | null)
+      ?.responsable_id;
+    if (responsableId) {
+      responsable = await resolverResponsable(admin, responsableId);
+    }
   } else if (row.recurso_tipo === 'solicitud') {
     const { data: s } = await admin
       .from('formulario_submissions')
@@ -106,9 +118,6 @@ Deno.serve(async (req) => {
         datos_resumen: sanitizeDatos(s.datos),
       };
     }
-  } else if (row.recurso_tipo === 'tracking') {
-    // tracking aún no existe (G2). Mostramos placeholder.
-    recurso = { id: row.recurso_id, info: 'Tracking pendiente de implementación.' };
   } else if (row.recurso_tipo === 'documento') {
     recurso = { id: row.recurso_id };
     // Si en el futuro tenemos `documentos`, firmamos su URL.
@@ -124,8 +133,36 @@ Deno.serve(async (req) => {
     recurso,
     historial,
     adjuntos,
+    // 5.B · contacto del responsable (si lo hay).
+    responsable,
   });
 });
+
+// 5.B · resuelve el contacto del gerente/operador responsable: nombre +
+// teléfono de profiles, email de auth.users (vía admin API).
+async function resolverResponsable(
+  admin: ReturnType<typeof createClient>,
+  responsableId: string,
+): Promise<{ nombre: string | null; email: string | null; telefono: string | null }> {
+  const { data: prof } = await admin
+    .from('profiles')
+    .select('full_name, phone')
+    .eq('id', responsableId)
+    .maybeSingle();
+  let email: string | null = null;
+  try {
+    const { data: au } = await admin.auth.admin.getUserById(responsableId);
+    email = au?.user?.email ?? null;
+  } catch {
+    email = null;
+  }
+  const p = prof as { full_name?: string | null; phone?: string | null } | null;
+  return {
+    nombre: p?.full_name ?? null,
+    email,
+    telefono: p?.phone ?? null,
+  };
+}
 
 function sanitizeDatos(d: unknown): Record<string, unknown> {
   if (!d || typeof d !== 'object') return {};

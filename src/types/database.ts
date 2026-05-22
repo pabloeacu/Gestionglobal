@@ -62,6 +62,30 @@ export type Database = {
         }
         Relationships: []
       }
+      accesos_externos_log: {
+        Row: {
+          abierto_at: string
+          id: string
+          ip: string | null
+          token: string
+          user_agent: string | null
+        }
+        Insert: {
+          abierto_at?: string
+          id?: string
+          ip?: string | null
+          token: string
+          user_agent?: string | null
+        }
+        Update: {
+          abierto_at?: string
+          id?: string
+          ip?: string | null
+          token?: string
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
       administracion_emails: {
         Row: {
           activo: boolean
@@ -2430,6 +2454,8 @@ export type Database = {
           publico: boolean
           redirect_url_after: string | null
           schema: Json
+          schema_draft: Json | null
+          schema_draft_at: string | null
           servicio_id: string | null
           slug: string
           textos_legales: string | null
@@ -2456,6 +2482,8 @@ export type Database = {
           publico?: boolean
           redirect_url_after?: string | null
           schema: Json
+          schema_draft?: Json | null
+          schema_draft_at?: string | null
           servicio_id?: string | null
           slug: string
           textos_legales?: string | null
@@ -2482,6 +2510,8 @@ export type Database = {
           publico?: boolean
           redirect_url_after?: string | null
           schema?: Json
+          schema_draft?: Json | null
+          schema_draft_at?: string | null
           servicio_id?: string | null
           slug?: string
           textos_legales?: string | null
@@ -3663,6 +3693,7 @@ export type Database = {
           provider_msg_id: string | null
           reply_to: string | null
           resend_id: string | null
+          solicitud_id: string | null
           template_slug: string | null
           to_email: string
           updated_at: string
@@ -3699,6 +3730,7 @@ export type Database = {
           provider_msg_id?: string | null
           reply_to?: string | null
           resend_id?: string | null
+          solicitud_id?: string | null
           template_slug?: string | null
           to_email: string
           updated_at?: string
@@ -3735,6 +3767,7 @@ export type Database = {
           provider_msg_id?: string | null
           reply_to?: string | null
           resend_id?: string | null
+          solicitud_id?: string | null
           template_slug?: string | null
           to_email?: string
           updated_at?: string
@@ -3777,6 +3810,13 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "sent_emails_solicitud_id_fkey"
+            columns: ["solicitud_id"]
+            isOneToOne: false
+            referencedRelation: "solicitudes"
+            referencedColumns: ["id"]
+          },
         ]
       }
       servicios: {
@@ -3801,6 +3841,7 @@ export type Database = {
           precio_modo: string
           requiere_administracion: boolean
           requiere_consorcio: boolean
+          sla_dias: number | null
           updated_at: string
         }
         Insert: {
@@ -3824,6 +3865,7 @@ export type Database = {
           precio_modo: string
           requiere_administracion?: boolean
           requiere_consorcio?: boolean
+          sla_dias?: number | null
           updated_at?: string
         }
         Update: {
@@ -3847,6 +3889,7 @@ export type Database = {
           precio_modo?: string
           requiere_administracion?: boolean
           requiere_consorcio?: boolean
+          sla_dias?: number | null
           updated_at?: string
         }
         Relationships: [
@@ -4386,6 +4429,7 @@ export type Database = {
           parent_tracking_id: string | null
           periodo: string | null
           prioridad: string
+          responsable_id: string | null
           resuelto_at: string | null
           resuelto_por: string | null
           servicio_id: string | null
@@ -4420,6 +4464,7 @@ export type Database = {
           parent_tracking_id?: string | null
           periodo?: string | null
           prioridad?: string
+          responsable_id?: string | null
           resuelto_at?: string | null
           resuelto_por?: string | null
           servicio_id?: string | null
@@ -4454,6 +4499,7 @@ export type Database = {
           parent_tracking_id?: string | null
           periodo?: string | null
           prioridad?: string
+          responsable_id?: string | null
           resuelto_at?: string | null
           resuelto_por?: string | null
           servicio_id?: string | null
@@ -4523,6 +4569,13 @@ export type Database = {
             columns: ["parent_tracking_id"]
             isOneToOne: false
             referencedRelation: "tramites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tramites_responsable_id_fkey"
+            columns: ["responsable_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
@@ -4709,6 +4762,14 @@ export type Database = {
           orden: number | null
           saldo: number | null
           tipo: string | null
+        }
+        Relationships: []
+      }
+      vw_accesos_externos_aperturas: {
+        Row: {
+          token: string | null
+          total_aperturas: number | null
+          ultima_apertura: string | null
         }
         Relationships: []
       }
@@ -5167,6 +5228,10 @@ export type Database = {
           tipo: string
         }[]
       }
+      registrar_apertura_acceso: {
+        Args: { p_ip?: string; p_token: string; p_user_agent?: string }
+        Returns: undefined
+      }
       registrar_cobranza_comprobante: {
         Args: {
           p_caja_id: string
@@ -5204,6 +5269,7 @@ export type Database = {
         Args: { p_formulario_id: string; p_version_num: number }
         Returns: string
       }
+      restaurar_solicitud: { Args: { p_solicitud_id: string }; Returns: string }
       revocar_acceso_externo: { Args: { p_token: string }; Returns: undefined }
       solicitud_activar: {
         Args: {
@@ -5232,6 +5298,15 @@ export type Database = {
       solicitud_marcar_en_revision: {
         Args: { p_observaciones?: string; p_solicitud_id: string }
         Returns: undefined
+      }
+      solicitud_responder: {
+        Args: {
+          p_asunto: string
+          p_cuerpo: string
+          p_from_casilla?: string
+          p_solicitud_id: string
+        }
+        Returns: string
       }
       tracking_agregar_linea: {
         Args: {
@@ -5282,6 +5357,7 @@ export type Database = {
           parent_tracking_id: string | null
           periodo: string | null
           prioridad: string
+          responsable_id: string | null
           resuelto_at: string | null
           resuelto_por: string | null
           servicio_id: string | null

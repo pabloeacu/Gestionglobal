@@ -1,22 +1,28 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   AlertCircle,
   ArrowLeft,
   Eye,
+  ExternalLink,
   FileText,
   Mail,
   Paperclip,
   Phone,
+  Reply,
   Sparkles,
   Trash2,
   User,
   Loader2,
   Send,
+  X,
 } from 'lucide-react';
 import {
   Button,
   Field,
+  Input,
+  Modal,
+  Select,
   Textarea,
   usePrompt,
 } from '@/components/common';
@@ -27,11 +33,23 @@ import {
   descartar,
   getSolicitud,
   marcarEnRevision,
+  responderSolicitud,
+  restaurarSolicitud,
+  type RespuestaCasilla,
   type SolicitudDetalle,
   type SolicitudEstado,
 } from '@/services/api/solicitudes';
 import { WizardActivacion } from '../components/WizardActivacion';
 import { cn } from '@/lib/cn';
+
+// 1.H · aliases de dominio elegibles como FROM (espejan email_templates.from_casilla).
+const CASILLAS_RESPUESTA: { value: RespuestaCasilla; label: string }[] = [
+  { value: 'tramites', label: 'tramites@gestionglobal.ar' },
+  { value: 'info', label: 'info@gestionglobal.ar' },
+  { value: 'cursos', label: 'cursos@gestionglobal.ar' },
+  { value: 'facturacion', label: 'facturacion@gestionglobal.ar' },
+  { value: 'recupero', label: 'recupero@gestionglobal.ar' },
+];
 
 const ESTADO_BADGE: Record<SolicitudEstado, string> = {
   recibida: 'bg-blue-50 text-blue-700 border-blue-200',
@@ -53,12 +71,20 @@ export function SolicitudDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const prompt = usePrompt();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [data, setData] = useState<SolicitudDetalle | null>(null);
   const [loading, setLoading] = useState(true);
   const [wizardOpen, setWizardOpen] = useState(false);
   const [observ, setObserv] = useState('');
   const [savingObserv, setSavingObserv] = useState(false);
+  // 1.B · lightbox de adjuntos.
+  const [lightbox, setLightbox] = useState<{
+    url: string;
+    nombre: string;
+  } | null>(null);
+  // 1.H · modal "Responder".
+  const [responderOpen, setResponderOpen] = useState(false);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -76,6 +102,18 @@ export function SolicitudDetailPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  // 1.D · si llegamos con ?wizard=derivar (acción rápida desde la card),
+  // abrimos el wizard en su paso 1 y limpiamos el query param.
+  useEffect(() => {
+    if (searchParams.get('wizard') === 'derivar' && data) {
+      setWizardOpen(true);
+      const next = new URLSearchParams(searchParams);
+      next.delete('wizard');
+      setSearchParams(next, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, data]);
 
   async function handleEnRevision() {
     if (!data) return;
@@ -100,12 +138,29 @@ export function SolicitudDetailPage() {
       confirmLabel: 'Descartar',
     });
     if (!motivo) return;
-    const res = await descartar(data.id, motivo);
+    const solId = data.id;
+    const res = await descartar(solId, motivo);
     if (!res.ok) {
       toast.error(res.error.message);
       return;
     }
-    toast.success('Solicitud descartada');
+    // 1.F · red de seguridad: 5 s de gracia para deshacer (Gmail "Undo send").
+    toast.success('Solicitud descartada', {
+      duration: 5000,
+      action: {
+        label: 'Deshacer',
+        onClick: async () => {
+          const r = await restaurarSolicitud(solId);
+          if (!r.ok) {
+            toast.error('No pudimos restaurar', { description: r.error.message });
+            return;
+          }
+          toast.success('Solicitud restaurada');
+          // Si seguimos en el detalle, recargamos; si navegamos, volvemos.
+          await load();
+        },
+      },
+    });
     navigate('/gerencia/solicitudes');
   }
 
@@ -231,6 +286,13 @@ export function SolicitudDetailPage() {
               <Sparkles size={15} />
               Abrir wizard de activación
             </Button>
+            {/* 1.H · responder desde la plataforma (motor Workspace). */}
+            {data.solicitante_email && (
+              <Button variant="secondary" onClick={() => setResponderOpen(true)}>
+                <Reply size={15} />
+                Responder
+              </Button>
+            )}
             <Button variant="ghost" onClick={handleEnRevision} loading={savingObserv}>
               <Eye size={15} />
               Marcar en revisión
@@ -270,21 +332,29 @@ export function SolicitudDetailPage() {
           <ul className="space-y-2">
             {data.submission_adjuntos.map((a, i) => (
               <li key={i}>
-                <a
-                  href={a.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm hover:border-brand-cyan hover:bg-brand-cyan-pale/30"
-                >
-                  <span className="flex items-center gap-2">
+                {/* 1.B · click abre el lightbox (PDF iframe / imagen img); el
+                    ícono abre en pestaña como fallback. */}
+                <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm transition hover:border-brand-cyan hover:bg-brand-cyan-pale/30">
+                  <button
+                    type="button"
+                    onClick={() => setLightbox({ url: a.url, nombre: a.nombre })}
+                    className="flex flex-1 items-center gap-2 text-left"
+                  >
                     <Paperclip size={14} className="text-brand-cyan" />
-                    <span className="font-medium text-brand-ink">
-                      {a.nombre}
-                    </span>
+                    <span className="font-medium text-brand-ink">{a.nombre}</span>
                     <span className="text-xs text-brand-muted">({a.campo})</span>
-                  </span>
-                  <FileText size={14} className="text-brand-muted" />
-                </a>
+                  </button>
+                  <a
+                    href={a.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="ml-2 rounded p-1 text-brand-muted transition hover:bg-slate-100 hover:text-brand-cyan"
+                    title="Abrir en pestaña nueva"
+                    aria-label={`Abrir ${a.nombre} en pestaña nueva`}
+                  >
+                    <ExternalLink size={14} />
+                  </a>
+                </div>
               </li>
             ))}
           </ul>
@@ -374,7 +444,233 @@ export function SolicitudDetailPage() {
         solicitud={data}
         onActivated={() => void load()}
       />
+
+      {/* 1.B · lightbox de adjuntos */}
+      <AdjuntoLightbox
+        adjunto={lightbox}
+        onClose={() => setLightbox(null)}
+      />
+
+      {/* 1.H · modal "Responder" */}
+      {data.solicitante_email && (
+        <ResponderModal
+          open={responderOpen}
+          onClose={() => setResponderOpen(false)}
+          solicitudId={data.id}
+          destinatario={data.solicitante_email}
+          asuntoSugerido={`Re: ${
+            data.formulario_titulo ?? data.servicio_nombre ?? 'tu solicitud'
+          } · Gestión Global`}
+        />
+      )}
     </div>
+  );
+}
+
+// ----------------------------------------------------------------------------
+// 1.B · Lightbox de adjuntos. PDFs en <iframe>, imágenes en <img>, resto con
+// fallback "abrir en pestaña". Detecta el tipo por extensión de la URL.
+// ----------------------------------------------------------------------------
+function AdjuntoLightbox({
+  adjunto,
+  onClose,
+}: {
+  adjunto: { url: string; nombre: string } | null;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    if (!adjunto) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [adjunto, onClose]);
+
+  if (!adjunto) return null;
+
+  const ext = (adjunto.url.split('?')[0]?.split('.').pop() ?? '').toLowerCase();
+  const esPdf = ext === 'pdf';
+  const esImg = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'avif', 'svg'].includes(ext);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 grid place-items-center bg-brand-ink/70 p-4 backdrop-blur-sm motion-safe:animate-fade-in"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Vista previa de ${adjunto.nombre}`}
+    >
+      <div
+        className="relative flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <header className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
+          <span className="flex min-w-0 items-center gap-2 text-sm font-medium text-brand-ink">
+            <Paperclip size={14} className="shrink-0 text-brand-cyan" />
+            <span className="truncate">{adjunto.nombre}</span>
+          </span>
+          <div className="flex items-center gap-1">
+            <a
+              href={adjunto.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="rounded-md p-1.5 text-brand-muted transition hover:bg-slate-100 hover:text-brand-cyan"
+              title="Abrir en pestaña nueva"
+            >
+              <ExternalLink size={16} />
+            </a>
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-md p-1.5 text-brand-muted transition hover:bg-slate-100"
+              aria-label="Cerrar"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        </header>
+        <div className="grid flex-1 place-items-center overflow-auto bg-slate-50">
+          {esPdf ? (
+            <iframe
+              src={adjunto.url}
+              title={adjunto.nombre}
+              className="h-[75vh] w-full border-0"
+            />
+          ) : esImg ? (
+            <img
+              src={adjunto.url}
+              alt={adjunto.nombre}
+              className="max-h-[75vh] w-auto object-contain"
+            />
+          ) : (
+            <div className="grid place-items-center gap-3 p-12 text-center">
+              <FileText size={40} className="text-brand-muted" />
+              <p className="text-sm text-brand-muted">
+                No podemos previsualizar este tipo de archivo.
+              </p>
+              <a
+                href={adjunto.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 rounded-lg bg-brand-cyan px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-blue"
+              >
+                <ExternalLink size={14} /> Abrir en pestaña nueva
+              </a>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ----------------------------------------------------------------------------
+// 1.H · Modal "Responder". Textarea + asunto pre-cargado + FROM elegible.
+// Persiste vía RPC solicitud_responder (encola + audita en sent_emails).
+// ----------------------------------------------------------------------------
+function ResponderModal({
+  open,
+  onClose,
+  solicitudId,
+  destinatario,
+  asuntoSugerido,
+}: {
+  open: boolean;
+  onClose: () => void;
+  solicitudId: string;
+  destinatario: string;
+  asuntoSugerido: string;
+}) {
+  const [asunto, setAsunto] = useState(asuntoSugerido);
+  const [cuerpo, setCuerpo] = useState('');
+  const [casilla, setCasilla] = useState<RespuestaCasilla>('tramites');
+  const [enviando, setEnviando] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setAsunto(asuntoSugerido);
+      setCuerpo('');
+      setCasilla('tramites');
+    }
+  }, [open, asuntoSugerido]);
+
+  async function handleEnviar() {
+    if (!cuerpo.trim()) {
+      toast.error('Escribí un mensaje antes de enviar');
+      return;
+    }
+    setEnviando(true);
+    const res = await responderSolicitud(solicitudId, {
+      asunto: asunto.trim(),
+      cuerpo: cuerpo.trim(),
+      fromCasilla: casilla,
+    });
+    setEnviando(false);
+    if (!res.ok) {
+      toast.error('No pudimos enviar la respuesta', {
+        description: res.error.message,
+      });
+      return;
+    }
+    toast.success('Respuesta enviada', {
+      description: 'Quedó registrada en el historial de la solicitud.',
+    });
+    onClose();
+  }
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Responder al solicitante"
+      kicker="Email desde Gestión Global"
+      icon={<Reply className="h-5 w-5 text-brand-cyan" />}
+      width={560}
+      footer={
+        <div className="flex items-center justify-end gap-2">
+          <Button variant="ghost" onClick={onClose} disabled={enviando}>
+            Cancelar
+          </Button>
+          <Button onClick={() => void handleEnviar()} loading={enviando}>
+            <Send size={14} /> Enviar respuesta
+          </Button>
+        </div>
+      }
+    >
+      <div className="space-y-4">
+        <Field label="Para">
+          <Input value={destinatario} disabled />
+        </Field>
+        <Field label="Desde (remitente)">
+          <Select
+            value={casilla}
+            onChange={(e) => setCasilla(e.target.value as RespuestaCasilla)}
+          >
+            {CASILLAS_RESPUESTA.map((c) => (
+              <option key={c.value} value={c.value}>
+                {c.label}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        <Field label="Asunto">
+          <Input value={asunto} onChange={(e) => setAsunto(e.target.value)} />
+        </Field>
+        <Field label="Mensaje" required>
+          <Textarea
+            rows={6}
+            value={cuerpo}
+            onChange={(e) => setCuerpo(e.target.value)}
+            placeholder="Escribí tu respuesta…"
+          />
+        </Field>
+        <p className="text-xs text-brand-muted">
+          La respuesta se envía por el motor de email de Gestión Global y queda
+          registrada en el historial de la solicitud.
+        </p>
+      </div>
+    </Modal>
   );
 }
 

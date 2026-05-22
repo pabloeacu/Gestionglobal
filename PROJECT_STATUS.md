@@ -4,7 +4,7 @@
 >
 > **Mantenimiento**: actualizar después de cada chunk de trabajo verificado y cerrado. No esperar al final. Si un paso se postergó, registrarlo abajo en "Pateado para el final".
 
-**Última actualización**: 2026-05-21 (Punto 5 · pase rápido ejecutado · 15 items)
+**Última actualización**: 2026-05-21 (Punto 5 · pase rápido + L/M · 28 items totales)
 **Sesión actual**: continuación de la sesión de las rondas 4–6 + Punto 5
 
 ---
@@ -32,7 +32,7 @@ Plataforma SaaS premium single-tenant para Gestión Global (administración de c
 2. ⏳ **38 mejoras premium/robustez** — 13 de 38 hechas; 25 pendientes (ver `BACKLOG.md`).
 3. ✅ **Ronda 5 (Flujo Maestro)** — agentes E/F/G2/G1 en paralelo → módulos Solicitudes + Trackings + Agenda inicial + Formularios admin.
 4. ✅ **Browser review aspectos nuevos** — hecho parcialmente.
-5. ✅ **Propuestas premium sobre aspectos nuevos · pase rápido ejecutado · 15 items entregados** — fix bug 7.A (E-GG-01) + top 5 M + todas las S "Sí" de la matriz. Detalle en sección 8 de este archivo y en `PROPUESTAS_PUNTO_5.md`.
+5. ✅ **pase rápido + L/M (28 items totales)** — pase rápido (15 S/M) + segundo pase L/M (13 items): Solicitudes 1.B/1.D/1.F/1.H, Trackings 2.D/2.G, Formularios 4.A/4.C/4.F, Acceso externo 5.B/5.C, Vencimientos 6.A, Cross 7.B. Detalle en sección 8 y en `PROPUESTAS_PUNTO_5.md`.
 6. ⏳ **Link-by-link review + rebuild Campus** — pendiente. Campus = aula virtual con cursos/módulos/videos/evaluaciones/certificados/progreso (NO catálogo).
 7. ⏳ **Mockup web mejorada con documentación** — pendiente.
 8. ⏳ **Revisión end-to-end del proyecto** — pendiente.
@@ -46,7 +46,7 @@ Plataforma SaaS premium single-tenant para Gestión Global (administración de c
 
 ## 2. Trabajo en curso AHORA
 
-**Punto 5 · pase rápido ejecutado (2026-05-21)**. Se entregaron 15 items en el orden de la spec (Bloques A–G). Bug crítico 7.A resuelto y documentado como **E-GG-01** en `knowledge-base/ERRORES.md` (legacy `tramites/:id` redirige al nuevo `trackings/:id` vía `TramiteLegacyRedirect`). Build limpio (`tsc --noEmit` + `vite build`). Próximo: esperar feedback del usuario sobre URL Vercel y avanzar al Punto 6 (link-by-link review + Campus rebuild) cuando confirme.
+**Punto 5 completo. Próximo: Punto 6 (Campus rebuild).** Segundo pase L/M ejecutado (2026-05-21): 13 items sobre la migración consolidada `0042_p5_resto.sql` (RPC `restaurar_solicitud`, `solicitud_responder` + `sent_emails.solicitud_id` + template `solicitud-respuesta-libre`, `servicios.sla_dias`, `tramites.responsable_id` con trigger backfill, tabla `accesos_externos_log` + RPC anon `registrar_apertura_acceso` + vista `vw_accesos_externos_aperturas`, `formularios.schema_draft`). Edge function `acceso-externo` redeployada (v2) con contacto del responsable. Build limpio (`tsc --noEmit` + `vite build`).
 
 ---
 
@@ -74,7 +74,7 @@ La entrada `Vencimientos` se quita del sidebar de gerencia. Vencimientos vive co
 Ninguno · Ronda 6 cerrada.
 
 ### Siguiente · Punto 6 (link-by-link review + Campus rebuild)
-Punto 5 cerrado en pase rápido. Pendientes del Punto 5 mayores se listan abajo en "Punto 5 · resto pendiente (L y M no top)".
+Punto 5 completo (pase rápido + L/M, 28 items). Sólo quedan los items grandes (L) deliberadamente postergados, listados abajo.
 
 ### Punto 6 (link-by-link + Campus rebuild)
 - Auditoría visual de cada ruta del módulo gerencia.
@@ -90,16 +90,16 @@ Punto 5 cerrado en pase rápido. Pendientes del Punto 5 mayores se listan abajo 
 - Integrar parser NL al CommandPalette global ⌘K (opcional).
 - (Hecho · mig 0041) Idempotencia de `dispatch_vencimientos_log` por `(vencimiento_id, offset, canal)`.
 
-### Punto 5 · resto pendiente (L y M no top)
-Pateados por esfuerzo o por requerir migración SQL. Referencia: `PROPUESTAS_PUNTO_5.md` sección correspondiente.
+### Punto 5 · sub-items pendientes (sólo los L deliberadamente postergados)
+Lo de pase rápido + L/M ya entró. Quedan sólo los de esfuerzo L (timeline,
+PDF, undo/redo, diff, search global, etc.). Referencia: `PROPUESTAS_PUNTO_5.md`.
 
-- **Solicitudes**: 1.B (lightbox adjuntos), 1.D (derivar inline desde card), 1.F (toast undo descartar · requiere RPC `restaurar_solicitud`), 1.H (responder dentro de la plataforma).
-- **Trackings**: 2.A (timeline visual), 2.C (export PDF), 2.D (SLA en header · requiere `servicios.sla_dias`), 2.F (drag&drop archivos), 2.G (preview cronograma alarmas en card).
-- **Agenda**: 3.B (tooltip hover en proyectadas), 3.F (skeleton de carga proyectadas), 3.G (quick-edit inline título), 3.H (popover "+N más").
-- **Formularios**: 4.A (autosave del builder), 4.C (preview móvil + desktop), 4.D (undo/redo editor), 4.E (diff de versiones), 4.F (validador del schema).
-- **Acceso externo**: 5.B (gerente responsable + contacto), 5.C (tracking de aperturas), 5.D (CTA "pedir link nuevo"), 5.F (print stylesheet).
-- **Vencimientos**: 6.A (agrupador por administración), 6.B (bulk renovar), 6.C (mini-mapa calendario), 6.F (chip "generado desde tracking" · requiere ampliar RPC `proximos_vencimientos` para devolver `tracking_id`).
-- **Cross-cutting**: 7.B (barrido tonos / Button variants), 7.C (centro de notificaciones in-app), 7.D (search global ⌘K), 7.E (pull-to-refresh), 7.F (a11y focus rings + aria), 7.G (persistencia de filtros en URL · ya cubierto parcial en 1.E).
+- **Trackings**: 2.A (timeline visual · L), 2.C (export PDF · L), 2.F (drag&drop archivos sobre detalle · M, no top).
+- **Agenda**: 3.B (tooltip hover en proyectadas), 3.F (skeleton de carga proyectadas), 3.G (quick-edit inline título), 3.H (popover "+N más"). (Bloque Agenda quedó fuera de este pase por scope.)
+- **Formularios**: 4.B (atajo ⌘+número insertar campo), 4.D (undo/redo editor · L), 4.E (diff de versiones · L).
+- **Acceso externo**: 5.D (CTA "pedir link nuevo"), 5.F (print stylesheet).
+- **Vencimientos**: 6.B (bulk renovar · L), 6.C (mini-mapa calendario), 6.F (chip "generado desde tracking" · requiere ampliar RPC `proximos_vencimientos` para devolver `tracking_id`).
+- **Cross-cutting**: 7.C (centro de notificaciones in-app · L), 7.D (search global ⌘K · L), 7.E (pull-to-refresh), 7.F (a11y focus rings + aria), 7.G (persistencia de filtros en URL · ya cubierto parcial en 1.E).
 
 ### Acciones del usuario (no las puedo hacer yo)
 - Generar **VAPID keys** y setearlas en Vercel + Supabase secrets.
@@ -172,3 +172,4 @@ Reglas y preferencias que el usuario fue puntualizando durante las sesiones. Deb
 | 2026-05-21 | Ronda 6 cierre · proyecciones in-line + edge dispatch nuevo | Ronda 6 cerrada completa | Punto 5 (propuestas premium) |
 | 2026-05-21 | Punto 5 · auditoría módulos nuevos + entrega `PROPUESTAS_PUNTO_5.md` (49 propuestas + bug crítico ruta tramites/trackings) | Punto 5 entregado | Selección del usuario · ejecutar pase rápido S/M |
 | 2026-05-21 | Punto 5 · **pase rápido ejecutado** · 15 items (7.A bug + 1.A 1.C 1.E 1.G + 2.B + 3.A 3.C 3.D 3.E + 4.G + 5.A 5.E + 6.D 6.E) · build limpio · E-GG-01 registrado | Punto 5 cerrado en pase rápido | Punto 6 (link-by-link + Campus rebuild) |
+| 2026-05-21 | Punto 5 · **segundo pase L/M** · 13 items (1.B 1.D 1.F 1.H + 2.D 2.G + 4.A 4.C 4.F + 5.B 5.C + 6.A + 7.B) · migración consolidada `0042_p5_resto.sql` + types regenerados + edge `acceso-externo` v2 + Button `variant="tonal"` · build limpio | Punto 5 completo (28 items) | Punto 6 (Campus rebuild) |

@@ -129,6 +129,48 @@ export async function toggleActivo(
   return actualizarFormulario(id, { activo });
 }
 
+// 4.A · autosave silencioso del builder. Escribe en `schema_draft` (NO en
+// `schema`), de modo que NO dispara el trigger de versionado (mig 0034). El
+// versionado real se reserva para "Guardar versión" (actualizarFormulario con
+// schema). Devuelve el timestamp del guardado para el indicador "Guardado
+// hace Xs".
+export async function autosaveSchema(
+  id: string,
+  schema: FormularioSchemaDef,
+): Promise<ApiResponse<{ at: string }>> {
+  const at = new Date().toISOString();
+  const { error } = await supabase
+    .from('formularios')
+    .update({
+      schema_draft: schema as unknown as Database['public']['Tables']['formularios']['Update']['schema_draft'],
+      schema_draft_at: at,
+    })
+    .eq('id', id);
+  if (error) return fail('FORM_AUTOSAVE', error.message, error);
+  return ok({ at });
+}
+
+// 4.A · "Guardar versión": promueve el schema actual (dispara versionado SQL) y
+// limpia el draft pendiente. Es el actualizarFormulario con schema + reset de
+// schema_draft en una sola escritura.
+export async function guardarVersion(
+  id: string,
+  schema: FormularioSchemaDef,
+): Promise<ApiResponse<FormularioRow>> {
+  const { data, error } = await supabase
+    .from('formularios')
+    .update({
+      schema: schema as unknown as Database['public']['Tables']['formularios']['Update']['schema'],
+      schema_draft: null,
+      schema_draft_at: null,
+    })
+    .eq('id', id)
+    .select('*')
+    .single();
+  if (error) return fail('FORM_GUARDAR_VERSION', error.message, error);
+  return ok(data);
+}
+
 export async function duplicarFormulario(
   id: string,
   nuevoSlug: string,
@@ -201,6 +243,105 @@ export function slugify(input: string): string {
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
     .slice(0, 60);
+}
+
+// 4.F · validador de schema en tiempo real. Detecta problemas que de otro modo
+// sólo aparecen en runtime público. Cada advertencia trae una referencia
+// (sectionIdx/fieldIdx) para hacer scroll al campo desde el popover.
+export type SchemaWarningKind =
+  | 'condition_huerfana'
+  | 'name_duplicado'
+  | 'max_files_inconsistente'
+  | 'seccion_vacia'
+  | 'name_vacio';
+
+export interface SchemaWarning {
+  kind: SchemaWarningKind;
+  mensaje: string;
+  sectionIdx: number;
+  fieldIdx?: number;
+}
+
+const TIPOS_SIN_NAME = ['separator', 'heading', 'html'];
+
+export function validarSchema(schema: FormularioSchemaDef): SchemaWarning[] {
+  const out: SchemaWarning[] = [];
+  // names existentes (para detectar conditions huérfanas).
+  const namesPresentes = new Set<string>();
+  const nameCount = new Map<string, number>();
+  schema.sections.forEach((sec) => {
+    sec.fields.forEach((f) => {
+      if (f.name && !TIPOS_SIN_NAME.includes(f.type)) {
+        namesPresentes.add(f.name);
+        nameCount.set(f.name, (nameCount.get(f.name) ?? 0) + 1);
+      }
+    });
+  });
+
+  schema.sections.forEach((sec, si) => {
+    // Sección vacía.
+    if (sec.fields.length === 0) {
+      out.push({
+        kind: 'seccion_vacia',
+        mensaje: `La sección "${sec.title ?? `#${si + 1}`}" no tiene campos.`,
+        sectionIdx: si,
+      });
+    }
+    sec.fields.forEach((f, fi) => {
+      const esVisible = !TIPOS_SIN_NAME.includes(f.type);
+      // Name vacío.
+      if (esVisible && !f.name) {
+        out.push({
+          kind: 'name_vacio',
+          mensaje: `Campo "${f.label || `#${fi + 1}`}" sin key interna.`,
+          sectionIdx: si,
+          fieldIdx: fi,
+        });
+      }
+      // Name duplicado.
+      if (f.name && (nameCount.get(f.name) ?? 0) > 1) {
+        out.push({
+          kind: 'name_duplicado',
+          mensaje: `Key duplicada: "${f.name}".`,
+          sectionIdx: si,
+          fieldIdx: fi,
+        });
+      }
+      // Condition huérfana.
+      if (f.condition?.field && !namesPresentes.has(f.condition.field)) {
+        out.push({
+          kind: 'condition_huerfana',
+          mensaje: `"${f.label || f.name}" depende de un campo inexistente ("${f.condition.field}").`,
+          sectionIdx: si,
+          fieldIdx: fi,
+        });
+      }
+      // max_files inconsistente: requerido pero permite 0 archivos.
+      if (
+        f.type === 'file' &&
+        f.required &&
+        typeof f.max_files === 'number' &&
+        f.max_files < 1
+      ) {
+        out.push({
+          kind: 'max_files_inconsistente',
+          mensaje: `"${f.label || f.name}" es obligatorio pero permite 0 archivos.`,
+          sectionIdx: si,
+          fieldIdx: fi,
+        });
+      }
+    });
+  });
+
+  // Dedup de duplicados (sólo una advertencia por name duplicado).
+  const seen = new Set<string>();
+  return out.filter((w) => {
+    if (w.kind !== 'name_duplicado') return true;
+    const key = `dup:${w.mensaje}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 // Garantiza un `name` único de campo dentro del schema (autosugerido desde

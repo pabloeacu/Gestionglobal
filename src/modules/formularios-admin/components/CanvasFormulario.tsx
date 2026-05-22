@@ -192,6 +192,7 @@ function SectionBlock(props: SectionBlockProps) {
 
   return (
     <section
+      id={`fb-section-${sectionIdx}`}
       onClick={onSelectSection}
       className={cn(
         'card-premium relative overflow-hidden p-5 transition motion-safe:animate-fade-up',
@@ -264,7 +265,8 @@ function SectionBlock(props: SectionBlockProps) {
             onDrop={(e) => handleDrop(0, e)}
           />
           {section.fields.map((field, fIdx) => (
-            <div key={fIdx}>
+            // 4.F · anchor para que el validador haga scroll al campo.
+            <div key={fIdx} id={`fb-field-${sectionIdx}-${fIdx}`}>
               <FieldRow
                 field={field}
                 selected={selectedFieldIdx === fIdx}

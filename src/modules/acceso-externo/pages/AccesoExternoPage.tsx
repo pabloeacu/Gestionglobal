@@ -8,11 +8,15 @@ import {
   FileText,
   CalendarPlus,
   Clock,
+  User,
+  Mail,
+  Phone,
 } from 'lucide-react';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import { cn } from '@/lib/cn';
 import {
   fetchAccesoExterno,
+  registrarApertura,
   type AccesoExternoPayload,
 } from '@/services/api/accesos';
 
@@ -34,6 +38,8 @@ export function AccesoExternoPage() {
         setLoading(false);
         return;
       }
+      // 5.C · registramos la apertura (best-effort, no bloquea la vista).
+      void registrarApertura(token);
       const res = await fetchAccesoExterno(token);
       if (cancelled) return;
       setLoading(false);
@@ -111,6 +117,9 @@ export function AccesoExternoPage() {
               <RecursoView payload={data} />
             </section>
 
+            {/* 5.B · tarjeta "Tu contacto" — humaniza el acceso. */}
+            <TuContacto responsable={data.responsable} />
+
             {/* Adjuntos */}
             {data.adjuntos && data.adjuntos.length > 0 && (
               <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -142,6 +151,51 @@ export function AccesoExternoPage() {
         Gestión Global · gestionglobal.ar — Acceso temporal y seguro. No compartas este link.
       </footer>
     </div>
+  );
+}
+
+// 5.B · ---------------------------------------------------------------------
+// Tarjeta "Tu contacto": avatar + nombre + mailto/tel directos del responsable.
+function TuContacto({
+  responsable,
+}: {
+  responsable: AccesoExternoPayload['responsable'];
+}) {
+  if (!responsable || (!responsable.nombre && !responsable.email && !responsable.telefono)) {
+    return null;
+  }
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="kicker mb-3 text-brand-cyan">Tu contacto</div>
+      <div className="flex items-center gap-4">
+        <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-brand-cyan-pale/50 text-brand-cyan">
+          <User size={22} />
+        </span>
+        <div className="min-w-0">
+          <p className="font-display text-base font-bold text-brand-ink">
+            {responsable.nombre ?? 'Tu gestor en Gestión Global'}
+          </p>
+          <div className="mt-1 flex flex-col gap-1 text-sm sm:flex-row sm:flex-wrap sm:gap-4">
+            {responsable.email && (
+              <a
+                href={`mailto:${responsable.email}`}
+                className="inline-flex items-center gap-1.5 text-brand-cyan hover:underline"
+              >
+                <Mail size={13} /> {responsable.email}
+              </a>
+            )}
+            {responsable.telefono && (
+              <a
+                href={`tel:${responsable.telefono}`}
+                className="inline-flex items-center gap-1.5 text-brand-cyan hover:underline"
+              >
+                <Phone size={13} /> {responsable.telefono}
+              </a>
+            )}
+          </div>
+        </div>
+      </div>
+    </section>
   );
 }
 

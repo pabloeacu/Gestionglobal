@@ -312,6 +312,43 @@ export async function descartar(
   return ok(true);
 }
 
+// 1.F · restaura una solicitud descartada (revierte estado + limpia
+// motivo_descarte). Devuelve el nuevo estado al que se restauró. Usado por el
+// toast "Deshacer" tras descartar.
+export async function restaurarSolicitud(
+  id: string,
+): Promise<ApiResponse<{ estado: SolicitudEstado }>> {
+  const { data, error } = await rpc('restaurar_solicitud', {
+    p_solicitud_id: id,
+  });
+  if (error) return fail('SOL_RESTAURAR', error.message, error);
+  return ok({ estado: data as SolicitudEstado });
+}
+
+// 1.H · responde una solicitud desde la plataforma (motor de email Workspace).
+// Persiste en sent_emails ligado a la solicitud. `fromCasilla` elige el alias
+// del dominio (info/cursos/facturacion/tramites/recupero).
+export type RespuestaCasilla =
+  | 'info'
+  | 'cursos'
+  | 'facturacion'
+  | 'tramites'
+  | 'recupero';
+
+export async function responderSolicitud(
+  id: string,
+  input: { asunto: string; cuerpo: string; fromCasilla?: RespuestaCasilla },
+): Promise<ApiResponse<{ sentEmailId: string }>> {
+  const { data, error } = await rpc('solicitud_responder', {
+    p_solicitud_id: id,
+    p_asunto: input.asunto,
+    p_cuerpo: input.cuerpo,
+    p_from_casilla: input.fromCasilla ?? 'tramites',
+  });
+  if (error) return fail('SOL_RESPONDER', error.message, error);
+  return ok({ sentEmailId: data as string });
+}
+
 // ----------------------------------------------------------------------------
 // KPIs
 // ----------------------------------------------------------------------------

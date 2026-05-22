@@ -21,6 +21,8 @@ import {
   CheckCircle2,
   Clock,
   Copy,
+  Eye,
+  EyeOff,
   FileText,
   History,
   Layers,
@@ -28,10 +30,12 @@ import {
   ListChecks,
   Loader2,
   Paperclip,
+  Pencil,
   Plus,
   Settings,
   Share2,
   Sparkles,
+  Timer,
 } from 'lucide-react';
 import { toast } from '@/lib/toast';
 import {
@@ -46,7 +50,11 @@ import {
   usePrompt,
   type TabItem,
 } from '@/components/common';
-import { generarAcceso } from '@/services/api/accesos';
+import {
+  generarAcceso,
+  listAccesosDeRecurso,
+  type AccesoConAperturas,
+} from '@/services/api/accesos';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import { BrandLoader } from '@/components/brand/BrandLoader';
 import { useAuth } from '@/contexts/AuthContext';
@@ -59,6 +67,7 @@ import {
   colorBadge,
   type TrackingDetail,
   type TrackingLineaRow,
+  type TrackingVencimientoLigado,
 } from '@/services/api/trackings';
 import { LineaTrackingCard } from '../components/LineaTrackingCard';
 import { AgregarLineaDrawer } from '../components/AgregarLineaDrawer';
@@ -84,8 +93,13 @@ export function TrackingDetailPage() {
   const [filtroCategoria, setFiltroCategoria] = useState<string>('');
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [programarOpen, setProgramarOpen] = useState(false);
+  // 2.G · cuando true, el modal de programar abre en modo edición del
+  // vencimiento ligado (precarga fecha + offsets + notificar).
+  const [editandoCronograma, setEditandoCronograma] = useState(false);
   // 2.B · estado del modal "Compartir externo"
   const [compartirOpen, setCompartirOpen] = useState(false);
+  // 5.C · accesos externos del tracking + sus aperturas.
+  const [accesos, setAccesos] = useState<AccesoConAperturas[]>([]);
 
   async function load() {
     if (!id) return;
@@ -98,6 +112,9 @@ export function TrackingDetailPage() {
       return;
     }
     setData(res.data);
+    // 5.C · accesos externos generados para este tracking + aperturas.
+    const acc = await listAccesosDeRecurso('tramite', id);
+    if (acc.ok) setAccesos(acc.data);
   }
 
   useEffect(() => {
@@ -279,11 +296,11 @@ export function TrackingDetailPage() {
             {/* Programar próximo vencimiento — visible cuando el tracking está
                 cerrado/resuelto (renovable). Genera un vencimiento ligado al
                 tracking via tracking_cerrar_ciclo (mig 0040). */}
+            {/* 7.B · variant tonal del sistema (antes hardcode cyan). */}
             {isStaff && (data.estado === 'cerrado' || data.estado === 'resuelto') && (
               <Button
-                variant="primary"
+                variant="tonal"
                 onClick={() => setProgramarOpen(true)}
-                className="!bg-cyan-100 !text-cyan-700 hover:!bg-cyan-200"
               >
                 <CalendarClock className="h-4 w-4" /> Programar próximo vencimiento
               </Button>
@@ -307,6 +324,22 @@ export function TrackingDetailPage() {
             icon={<Layers />}
           />
         </div>
+
+        {/* 2.D · indicador de SLA. Sólo si el servicio tiene sla_dias cargado y
+            el tracking sigue abierto. Barra de progreso con semáforo:
+            verde <50%, ámbar 50-90%, rojo >90% o atrasado. */}
+        {data.servicio?.sla_dias && data.estado !== 'cerrado' && (
+          <SlaBar
+            diasAbiertos={Math.max(
+              0,
+              Math.floor(
+                (Date.now() - new Date(data.created_at).getTime()) /
+                  (1000 * 60 * 60 * 24),
+              ),
+            )}
+            slaDias={data.servicio.sla_dias}
+          />
+        )}
       </header>
 
       <div className="sticky top-0 z-10 bg-white/85 backdrop-blur">
@@ -332,6 +365,23 @@ export function TrackingDetailPage() {
             <Dl label="Creado" value={formatDateTime(data.created_at)} />
             <Dl label="Última actividad" value={formatDateTime(data.ultima_actividad_at)} />
           </Panel>
+
+          {/* 2.G · panel "Próximas alarmas" si hay un vencimiento ligado al
+              tracking (DGG-07). Calcula fechas = fecha_venc - offset. */}
+          {data.vencimiento_ligado && (
+            <ProximasAlarmasPanel
+              venc={data.vencimiento_ligado}
+              onEditar={() => {
+                setEditandoCronograma(true);
+                setProgramarOpen(true);
+              }}
+            />
+          )}
+
+          {/* 5.C · accesos externos compartidos + tracking de aperturas. */}
+          {accesos.length > 0 && (
+            <AccesosCompartidosPanel accesos={accesos} />
+          )}
 
           {data.descripcion && (
             <Panel title="Descripción" className="md:col-span-2">
@@ -470,10 +520,24 @@ export function TrackingDetailPage() {
 
       <ProgramarVencimientoModal
         open={programarOpen}
-        onClose={() => setProgramarOpen(false)}
+        onClose={() => {
+          setProgramarOpen(false);
+          setEditandoCronograma(false);
+        }}
         trackingId={data.id}
         trackingTitulo={data.titulo}
         onProgramado={() => void load()}
+        // 2.G · si estamos editando, precargamos el vencimiento ligado.
+        vencimientoExistente={
+          editandoCronograma && data.vencimiento_ligado
+            ? {
+                id: data.vencimiento_ligado.id,
+                fecha_vencimiento: data.vencimiento_ligado.fecha_vencimiento,
+                alarmas_offsets: data.vencimiento_ligado.alarmas_offsets,
+                notificar_cliente: data.vencimiento_ligado.notificar_cliente,
+              }
+            : null
+        }
       />
 
       {/* 2.B · modal "Compartir externo" — genera token, copia URL, envía mail. */}
@@ -483,6 +547,7 @@ export function TrackingDetailPage() {
         trackingId={data.id}
         trackingTitulo={data.titulo}
         emailSugerido={data.administracion?.email ?? data.solicitante_email ?? ''}
+        onGenerado={() => void load()}
       />
     </div>
   );
@@ -497,12 +562,14 @@ function CompartirExternoModal({
   trackingId,
   trackingTitulo,
   emailSugerido,
+  onGenerado,
 }: {
   open: boolean;
   onClose: () => void;
   trackingId: string;
   trackingTitulo: string;
   emailSugerido: string;
+  onGenerado?: () => void;
 }) {
   const [email, setEmail] = useState(emailSugerido);
   const [dias, setDias] = useState('14');
@@ -536,6 +603,7 @@ function CompartirExternoModal({
       return;
     }
     setLink(res.data.url);
+    onGenerado?.(); // 5.C · refresca la lista de accesos del tracking.
     // Copia automática al portapapeles para acortar el flujo.
     try {
       await navigator.clipboard.writeText(res.data.url);
@@ -625,6 +693,181 @@ function CompartirExternoModal({
         </div>
       </div>
     </Modal>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// 5.C · Panel "Accesos compartidos" con tracking de aperturas.
+// ---------------------------------------------------------------------------
+function tiempoRelativoCorto(iso: string | null): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  const h = (Date.now() - d.getTime()) / 3_600_000;
+  if (h < 1) return 'hace minutos';
+  if (h < 24) return `hace ${Math.round(h)} h`;
+  const dias = h / 24;
+  if (dias < 7) return `hace ${Math.round(dias)} d`;
+  return d.toLocaleDateString('es-AR', { day: '2-digit', month: 'short' });
+}
+
+function AccesosCompartidosPanel({
+  accesos,
+}: {
+  accesos: AccesoConAperturas[];
+}) {
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:col-span-2">
+      <h2 className="mb-3 inline-flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-brand-muted">
+        <Share2 className="h-4 w-4 text-brand-cyan" /> Accesos compartidos
+      </h2>
+      <ul className="space-y-2">
+        {accesos.map((a) => {
+          const vencido = new Date(a.vence_at).getTime() < Date.now();
+          const revocado = !!a.revocado_at;
+          const visto = a.total_aperturas > 0;
+          return (
+            <li
+              key={a.token}
+              className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2 text-sm"
+            >
+              <div className="min-w-0">
+                <p className="truncate font-medium text-brand-ink">
+                  {a.email_destinatario}
+                </p>
+                <p className="text-xs text-brand-muted">
+                  {revocado
+                    ? 'Revocado'
+                    : vencido
+                      ? 'Vencido'
+                      : `Vigente hasta ${new Date(a.vence_at).toLocaleDateString('es-AR', { day: '2-digit', month: 'short' })}`}
+                </p>
+              </div>
+              {/* 5.C · badge "Visto N veces · última hace …" */}
+              <span
+                className={cn(
+                  'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium',
+                  visto
+                    ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                    : 'border-slate-200 bg-white text-brand-muted',
+                )}
+                title={
+                  a.ultima_apertura
+                    ? `Última apertura: ${new Date(a.ultima_apertura).toLocaleString('es-AR')}`
+                    : 'Sin aperturas registradas'
+                }
+              >
+                {visto ? <Eye size={12} /> : <EyeOff size={12} />}
+                {visto
+                  ? `Visto ${a.total_aperturas} ${a.total_aperturas === 1 ? 'vez' : 'veces'} · ${tiempoRelativoCorto(a.ultima_apertura)}`
+                  : 'Sin abrir'}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// 2.D · Barra de SLA. Verde <50%, ámbar 50-90%, rojo >90% o atrasado.
+// ---------------------------------------------------------------------------
+function SlaBar({ diasAbiertos, slaDias }: { diasAbiertos: number; slaDias: number }) {
+  const ratio = slaDias > 0 ? diasAbiertos / slaDias : 0;
+  const pct = Math.min(100, Math.round(ratio * 100));
+  const atrasado = diasAbiertos > slaDias;
+  const tone =
+    atrasado || ratio > 0.9
+      ? { bar: 'bg-red-500', text: 'text-red-700', track: 'bg-red-100' }
+      : ratio >= 0.5
+        ? { bar: 'bg-amber-500', text: 'text-amber-700', track: 'bg-amber-100' }
+        : { bar: 'bg-emerald-500', text: 'text-emerald-700', track: 'bg-emerald-100' };
+  return (
+    <div className="relative mt-4 rounded-2xl border border-slate-200/80 bg-white/80 p-4 shadow-sm">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <span className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-brand-muted">
+          <Timer className="h-3.5 w-3.5" /> SLA del servicio
+        </span>
+        <span className={cn('text-sm font-semibold', tone.text)}>
+          {atrasado
+            ? `Atrasado (+${diasAbiertos - slaDias} d)`
+            : `Día ${diasAbiertos} / SLA ${slaDias}`}
+        </span>
+      </div>
+      <div className={cn('h-2 w-full overflow-hidden rounded-full', tone.track)}>
+        <div
+          className={cn('h-full rounded-full transition-all duration-500', tone.bar)}
+          style={{ width: `${atrasado ? 100 : pct}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// 2.G · Panel "Próximas alarmas" — fechas calculadas del vencimiento ligado.
+// ---------------------------------------------------------------------------
+function ProximasAlarmasPanel({
+  venc,
+  onEditar,
+}: {
+  venc: TrackingVencimientoLigado;
+  onEditar: () => void;
+}) {
+  const base = new Date(venc.fecha_vencimiento + 'T09:00:00');
+  const alarmas = [...(venc.alarmas_offsets ?? [])]
+    .sort((a, b) => b - a)
+    .map((offset) => {
+      const d = new Date(base);
+      d.setDate(d.getDate() - offset);
+      return { offset, fecha: d, pasada: d.getTime() < Date.now() };
+    });
+  const fmt = (d: Date) =>
+    d.toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' });
+  const offsetLabel = (o: number) =>
+    o === 0 ? 'el día' : o === 1 ? '1 día antes' : `${o} días antes`;
+
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:col-span-2">
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <h2 className="inline-flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-brand-muted">
+          <CalendarClock className="h-4 w-4 text-brand-cyan" /> Próximas alarmas
+        </h2>
+        <Button variant="ghost" onClick={onEditar} title="Editar cronograma de alarmas">
+          <Pencil className="h-3.5 w-3.5" /> Editar cronograma
+        </Button>
+      </div>
+      <p className="mb-3 text-xs text-brand-muted">
+        Vence el{' '}
+        <span className="font-medium text-brand-ink">{fmt(base)}</span>
+        {venc.notificar_cliente
+          ? ' · cada alarma avisa al equipo y al cliente.'
+          : ' · cada alarma avisa al equipo.'}
+      </p>
+      {alarmas.length === 0 ? (
+        <p className="text-sm text-brand-muted">Sin alarmas configuradas.</p>
+      ) : (
+        <ul className="space-y-1.5 text-sm">
+          {alarmas.map((a) => (
+            <li
+              key={a.offset}
+              className={cn(
+                'flex items-center gap-2',
+                a.pasada ? 'text-brand-muted line-through' : 'text-brand-ink',
+              )}
+            >
+              <span
+                className={cn(
+                  'inline-block h-1.5 w-1.5 rounded-full',
+                  a.pasada ? 'bg-slate-300' : 'bg-brand-cyan',
+                )}
+              />
+              {fmt(a.fecha)} · {offsetLabel(a.offset)}
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }
 

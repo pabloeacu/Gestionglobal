@@ -1,10 +1,11 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   ArrowRight,
   Calendar,
   ClipboardList,
   Mail,
   Phone,
+  Send,
   User,
 } from 'lucide-react';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
@@ -74,10 +75,13 @@ function tiempoRelativo(iso: string | null | undefined): {
 }
 
 export function SolicitudCard({ s }: Props) {
+  const navigate = useNavigate();
   const { texto: tiempoTexto, color: tiempoColor, fechaExacta } = tiempoRelativo(
     s.created_at,
   );
   const estado = (s.estado ?? 'recibida') as SolicitudEstado;
+  // 1.D · "Derivar" rápido disponible mientras la solicitud no esté cerrada.
+  const puedeDerivar = estado !== 'activada' && estado !== 'descartada';
 
   return (
     <Link
@@ -91,6 +95,7 @@ export function SolicitudCard({ s }: Props) {
         density="soft"
         className="opacity-30 transition-opacity group-hover:opacity-60"
       />
+
 
       {/* Cabecera con estado + fecha */}
       <div className="relative flex items-start justify-between gap-2">
@@ -141,13 +146,33 @@ export function SolicitudCard({ s }: Props) {
         )}
       </div>
 
-      {/* CTA */}
-      <div className="relative -mb-1 mt-1 flex items-center justify-end text-xs font-medium text-brand-cyan opacity-70 transition group-hover:opacity-100">
-        <span>Procesar</span>
-        <ArrowRight
-          size={13}
-          className="ml-1 transition group-hover:translate-x-0.5"
-        />
+      {/* CTA + 1.D acción rápida "Derivar" (visible en hover/focus) */}
+      <div className="relative -mb-1 mt-1 flex items-center justify-between gap-2">
+        {/* 1.D · "Derivar" abre el wizard en paso 1 (ruta ?wizard=derivar).
+            Reduce 3 clicks a 1. stopPropagation para no disparar el Link. */}
+        {puedeDerivar ? (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              navigate(`/gerencia/solicitudes/${s.id}?wizard=derivar`);
+            }}
+            className="inline-flex items-center gap-1 rounded-full border border-violet-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-violet-700 opacity-0 shadow-sm transition focus-visible:opacity-100 group-hover:opacity-100 hover:bg-violet-50 motion-reduce:opacity-100"
+            title="Derivar a gestoría"
+          >
+            <Send size={11} /> Derivar
+          </button>
+        ) : (
+          <span />
+        )}
+        <span className="inline-flex items-center text-xs font-medium text-brand-cyan opacity-70 transition group-hover:opacity-100">
+          Procesar
+          <ArrowRight
+            size={13}
+            className="ml-1 transition group-hover:translate-x-0.5"
+          />
+        </span>
       </div>
     </Link>
   );

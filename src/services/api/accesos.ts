@@ -50,10 +50,16 @@ export async function generarAcceso(
   }
 }
 
+// 5.C · acceso + agregado de aperturas (badge "Visto N veces · última hace …").
+export interface AccesoConAperturas extends AccesoExternoRow {
+  total_aperturas: number;
+  ultima_apertura: string | null;
+}
+
 export async function listAccesosDeRecurso(
   tipo: RecursoTipo,
   id: string,
-): Promise<ApiResponse<AccesoExternoRow[]>> {
+): Promise<ApiResponse<AccesoConAperturas[]>> {
   try {
     const { data, error } = await supabase
       .from('accesos_externos')
@@ -62,10 +68,60 @@ export async function listAccesosDeRecurso(
       .eq('recurso_id', id)
       .order('created_at', { ascending: false });
     if (error) throw error;
-    return ok((data ?? []) as AccesoExternoRow[]);
+    const accesos = (data ?? []) as AccesoExternoRow[];
+
+    // 5.C · aperturas agregadas por token (vw_accesos_externos_aperturas).
+    const tokens = accesos.map((a) => a.token);
+    const aperturasByToken = new Map<
+      string,
+      { total: number; ultima: string | null }
+    >();
+    if (tokens.length > 0) {
+      const { data: aps } = await supabase
+        .from('vw_accesos_externos_aperturas')
+        .select('token, total_aperturas, ultima_apertura')
+        .in('token', tokens);
+      for (const r of (aps ?? []) as Array<{
+        token: string;
+        total_aperturas: number;
+        ultima_apertura: string | null;
+      }>) {
+        aperturasByToken.set(r.token, {
+          total: r.total_aperturas,
+          ultima: r.ultima_apertura,
+        });
+      }
+    }
+
+    return ok(
+      accesos.map((a) => ({
+        ...a,
+        total_aperturas: aperturasByToken.get(a.token)?.total ?? 0,
+        ultima_apertura: aperturasByToken.get(a.token)?.ultima ?? null,
+      })),
+    );
   } catch (e) {
     const err = toApiError(e);
     return fail(err.code, err.message, err.details);
+  }
+}
+
+// 5.C · registra una apertura del link público. Se llama desde el front (anon)
+// en el useEffect inicial de AccesoExternoPage. RPC SD valida token vivo y
+// trunca IP. No revela nada (no devuelve datos del recurso).
+export async function registrarApertura(token: string): Promise<void> {
+  try {
+    const ua =
+      typeof navigator !== 'undefined' ? navigator.userAgent : null;
+    // Los args opcionales aceptan NULL en PG pero pg-meta los tipa NOT NULL.
+    const args = {
+      p_token: token,
+      p_user_agent: ua,
+      p_ip: null, // la IP real no es visible desde el browser; queda NULL
+    } as unknown as { p_token: string; p_user_agent: string; p_ip: string };
+    await supabase.rpc('registrar_apertura_acceso', args);
+  } catch {
+    /* noop — el tracking de aperturas es best-effort, no debe romper la vista */
   }
 }
 
@@ -92,6 +148,12 @@ export interface AccesoExternoPayload {
   recurso?: Record<string, unknown> | null;
   historial?: unknown[];
   adjuntos?: { nombre: string; url: string }[];
+  // 5.B · contacto del gerente responsable (si el recurso lo tiene).
+  responsable?: {
+    nombre: string | null;
+    email: string | null;
+    telefono: string | null;
+  } | null;
   error?: { code: string; message: string };
 }
 

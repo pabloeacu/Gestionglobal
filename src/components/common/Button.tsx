@@ -2,7 +2,11 @@ import type { ButtonHTMLAttributes, ReactNode } from 'react';
 import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/cn';
 
-type Variant = 'primary' | 'secondary' | 'danger' | 'ghost';
+// 7.B · `tonal` reemplaza los hardcodes "!bg-cyan-100 !text-cyan-700" que
+// había sueltos en algunos CTAs secundarios (ej. "Programar próximo
+// vencimiento"). Es un botón cyan suave: presencia de marca sin competir con
+// el `primary` sólido. Estados hover/focus/disabled consistentes con el resto.
+type Variant = 'primary' | 'secondary' | 'danger' | 'ghost' | 'tonal';
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: Variant;
@@ -15,6 +19,7 @@ const styles: Record<Variant, string> = {
   secondary: 'border border-slate-300 bg-white text-brand-ink hover:bg-slate-50',
   danger: 'bg-red-600 text-white hover:bg-red-700',
   ghost: 'text-brand-muted hover:bg-slate-100',
+  tonal: 'bg-cyan-100 text-cyan-700 ring-1 ring-inset ring-cyan-200 hover:bg-cyan-200',
 };
 
 export function Button({

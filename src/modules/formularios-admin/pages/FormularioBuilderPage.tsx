@@ -6,7 +6,7 @@
 // Cumple regla 13 (sin window.confirm): se usa useConfirm para eliminar
 // secciones con campos dentro.
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -17,6 +17,10 @@ import {
   Share2,
   Settings2,
   Loader2,
+  Check,
+  CloudUpload,
+  AlertTriangle,
+  ShieldCheck,
 } from 'lucide-react';
 import { Button, Modal, Field, Input, Textarea, useConfirm } from '@/components/common';
 import { toast } from '@/lib/toast';
@@ -24,7 +28,11 @@ import { BrandLoader } from '@/components/brand/BrandLoader';
 import { cn } from '@/lib/cn';
 import {
   actualizarFormulario,
+  autosaveSchema,
+  guardarVersion,
   getFormularioPorId,
+  validarSchema,
+  type SchemaWarning,
 } from '@/services/api/formularios-admin';
 import type {
   FormularioRow,
@@ -57,6 +65,14 @@ export function FormularioBuilderPage() {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [embedOpen, setEmbedOpen] = useState(false);
   const [ajustesOpen, setAjustesOpen] = useState(false);
+  // 4.A · estado del autosave (estilo Google Docs).
+  const [autosaveState, setAutosaveState] = useState<
+    'idle' | 'pending' | 'saving' | 'saved'
+  >('idle');
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+  const [savedAgo, setSavedAgo] = useState<string>('');
+  const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const skipAutosave = useRef(true); // evita autosave en la carga inicial
 
   useEffect(() => {
     if (!id) return;
@@ -68,10 +84,85 @@ export function FormularioBuilderPage() {
         return;
       }
       setFormulario(res.data);
+      // 4.A · preferimos el borrador de autosave si es más reciente que el
+      // schema versionado (el usuario cerró sin "Guardar versión").
+      const draft = res.data.schema_draft as unknown as FormularioSchemaDef | null;
+      const draftAt = res.data.schema_draft_at;
       const sch = (res.data.schema as unknown as FormularioSchemaDef | null) ?? emptySchema();
-      setSchema(sch.sections ? sch : emptySchema());
+      if (draft && draft.sections && draftAt) {
+        setSchema(draft);
+        setLastSavedAt(new Date(draftAt));
+        setAutosaveState('saved');
+        setDirty(false);
+      } else {
+        setSchema(sch.sections ? sch : emptySchema());
+      }
+      skipAutosave.current = true;
     });
   }, [id]);
+
+  // 4.A · autosave con debounce 1500ms ante cualquier cambio del schema.
+  useEffect(() => {
+    if (!formulario) return;
+    if (skipAutosave.current) {
+      skipAutosave.current = false;
+      return;
+    }
+    setAutosaveState('pending');
+    if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
+    autosaveTimer.current = setTimeout(async () => {
+      setAutosaveState('saving');
+      const res = await autosaveSchema(formulario.id, schema);
+      if (!res.ok) {
+        setAutosaveState('idle');
+        toast.error('No pudimos guardar el borrador', { description: res.error.message });
+        return;
+      }
+      setLastSavedAt(new Date(res.data.at));
+      setAutosaveState('saved');
+    }, 1500);
+    return () => {
+      if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [schema]);
+
+  // 4.A · refresca el texto "Guardado hace Xs" cada 15s.
+  useEffect(() => {
+    if (!lastSavedAt) return;
+    const tick = () => {
+      const secs = Math.round((Date.now() - lastSavedAt.getTime()) / 1000);
+      if (secs < 5) setSavedAgo('recién');
+      else if (secs < 60) setSavedAgo(`hace ${secs} s`);
+      else if (secs < 3600) setSavedAgo(`hace ${Math.round(secs / 60)} min`);
+      else setSavedAgo(`hace ${Math.round(secs / 3600)} h`);
+    };
+    tick();
+    const t = setInterval(tick, 15000);
+    return () => clearInterval(t);
+  }, [lastSavedAt, autosaveState]);
+
+  // 4.F · validación del schema en tiempo real.
+  const warnings = useMemo(() => validarSchema(schema), [schema]);
+
+  function scrollToWarning(w: SchemaWarning) {
+    const id =
+      w.fieldIdx !== undefined
+        ? `fb-field-${w.sectionIdx}-${w.fieldIdx}`
+        : `fb-section-${w.sectionIdx}`;
+    const el = document.getElementById(id);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      if (w.fieldIdx !== undefined) {
+        setSelection({
+          kind: 'field',
+          value: { sectionIdx: w.sectionIdx, fieldIdx: w.fieldIdx },
+        });
+      } else {
+        setSelection({ kind: 'section', value: { sectionIdx: w.sectionIdx } });
+      }
+    }
+  }
 
   // ----- Mutaciones del schema (locales, persisten al "Guardar") -----
 
@@ -224,7 +315,8 @@ export function FormularioBuilderPage() {
       }
     }
     setSaving(true);
-    const res = await actualizarFormulario(formulario.id, { schema });
+    // 4.A · "Guardar versión" promueve el draft a schema (dispara versionado).
+    const res = await guardarVersion(formulario.id, schema);
     setSaving(false);
     if (!res.ok) {
       toast.error('No pudimos guardar', { description: res.error.message });
@@ -232,7 +324,11 @@ export function FormularioBuilderPage() {
     }
     setFormulario(res.data);
     setDirty(false);
-    toast.success('Formulario guardado · nueva versión creada');
+    setAutosaveState('saved');
+    setLastSavedAt(new Date());
+    toast.success('Versión guardada', {
+      description: `v${res.data.version_actual ?? '?'} creada en el historial.`,
+    });
   }
 
   async function onToggleActivo() {
@@ -299,9 +395,28 @@ export function FormularioBuilderPage() {
         </span>
         <span className="hidden text-xs text-brand-muted sm:inline">
           v{formulario.version_actual ?? 1}
-          {dirty && <span className="ml-1 text-amber-700">· sin guardar</span>}
+        </span>
+        {/* 4.A · indicador discreto de autosave (estilo Google Docs). */}
+        <span
+          className="hidden items-center gap-1 text-xs sm:inline-flex"
+          aria-live="polite"
+        >
+          {autosaveState === 'saving' || autosaveState === 'pending' ? (
+            <span className="inline-flex items-center gap-1 text-brand-muted">
+              <CloudUpload size={12} className="animate-pulse" /> Guardando…
+            </span>
+          ) : autosaveState === 'saved' ? (
+            <span className="inline-flex items-center gap-1 text-emerald-600">
+              <Check size={12} /> Guardado {savedAgo}
+              {dirty && (
+                <span className="ml-1 text-amber-600">· versión sin guardar</span>
+              )}
+            </span>
+          ) : null}
         </span>
         <div className="flex flex-wrap items-center gap-2">
+          {/* 4.F · badge validador del schema en tiempo real. */}
+          <ValidadorBadge warnings={warnings} onJump={scrollToWarning} />
           <Button variant="ghost" onClick={() => setAjustesOpen(true)}>
             <Settings2 size={14} /> Ajustes
           </Button>
@@ -328,9 +443,11 @@ export function FormularioBuilderPage() {
           <Button variant="secondary" onClick={onToggleActivo}>
             {formulario.activo ? 'Desactivar' : 'Activar'}
           </Button>
-          <Button onClick={onSave} disabled={saving || !dirty}>
+          {/* 4.A · el guardado es ahora opcional (autosave activo); este botón
+              crea explícitamente una VERSIÓN en el historial. */}
+          <Button onClick={onSave} disabled={saving}>
             {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-            Guardar
+            Guardar versión
           </Button>
         </div>
       </header>
@@ -378,6 +495,83 @@ export function FormularioBuilderPage() {
             toast.success('Ajustes guardados');
           }}
         />
+      )}
+    </div>
+  );
+}
+
+// 4.F · badge "N advertencias" con popover que lista cada problema del schema.
+// Click en una advertencia → scroll + selección del campo afectado.
+function ValidadorBadge({
+  warnings,
+  onJump,
+}: {
+  warnings: SchemaWarning[];
+  onJump: (w: SchemaWarning) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const limpio = warnings.length === 0;
+
+  // Cierra el popover al click afuera.
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = () => setOpen(false);
+    window.addEventListener('click', onDoc);
+    return () => window.removeEventListener('click', onDoc);
+  }, [open]);
+
+  return (
+    <div className="relative" onClick={(e) => e.stopPropagation()}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className={cn(
+          'inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-sm font-medium transition',
+          limpio
+            ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+            : 'border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100',
+        )}
+        title="Validez del schema"
+        aria-expanded={open}
+      >
+        {limpio ? (
+          <>
+            <ShieldCheck size={14} /> Schema válido
+          </>
+        ) : (
+          <>
+            <AlertTriangle size={14} />
+            {warnings.length}{' '}
+            {warnings.length === 1 ? 'advertencia' : 'advertencias'}
+          </>
+        )}
+      </button>
+      {open && !limpio && (
+        <div className="absolute right-0 top-full z-30 mt-2 w-80 rounded-xl border border-slate-200 bg-white p-2 shadow-xl motion-safe:animate-fade-in">
+          <p className="px-2 py-1 text-[11px] font-semibold uppercase tracking-wider text-brand-muted">
+            Revisá antes de publicar
+          </p>
+          <ul className="max-h-72 space-y-1 overflow-y-auto">
+            {warnings.map((w, i) => (
+              <li key={i}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onJump(w);
+                    setOpen(false);
+                  }}
+                  className="flex w-full items-start gap-2 rounded-lg px-2 py-1.5 text-left text-xs text-brand-ink transition hover:bg-amber-50"
+                >
+                  <AlertTriangle
+                    size={13}
+                    className="mt-0.5 shrink-0 text-amber-600"
+                  />
+                  <span>{w.mensaje}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
     </div>
   );

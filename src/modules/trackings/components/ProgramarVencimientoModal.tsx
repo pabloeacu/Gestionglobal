@@ -14,7 +14,10 @@ import { CalendarClock, Check, Plus, Trash2 } from 'lucide-react';
 import { Button, Field, Input, Modal } from '@/components/common';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/cn';
-import { cerrarCicloTracking } from '@/services/api/trackings';
+import {
+  actualizarVencimiento,
+  cerrarCicloTracking,
+} from '@/services/api/trackings';
 
 interface PresetOffset {
   value: number;
@@ -47,6 +50,14 @@ function offsetLabel(offset: number): string {
   return `${offset} días antes`;
 }
 
+// 2.G · vencimiento existente para precargar el modal en modo edición.
+export interface VencimientoExistenteEdit {
+  id: string;
+  fecha_vencimiento: string; // YYYY-MM-DD
+  alarmas_offsets: number[];
+  notificar_cliente: boolean;
+}
+
 interface ProgramarVencimientoModalProps {
   open: boolean;
   onClose: () => void;
@@ -54,6 +65,9 @@ interface ProgramarVencimientoModalProps {
   trackingTitulo?: string;
   periodoSugeridoDias?: number; // defaults a 365
   onProgramado?: () => void;
+  // 2.G · si se pasa, el modal entra en modo "editar cronograma": precarga los
+  // valores y al guardar actualiza el vencimiento en vez de crear uno nuevo.
+  vencimientoExistente?: VencimientoExistenteEdit | null;
 }
 
 export function ProgramarVencimientoModal({
@@ -63,7 +77,9 @@ export function ProgramarVencimientoModal({
   trackingTitulo,
   periodoSugeridoDias = 365,
   onProgramado,
+  vencimientoExistente = null,
 }: ProgramarVencimientoModalProps) {
+  const esEdicion = !!vencimientoExistente;
   const [fecha, setFecha] = useState<string>(() => {
     const d = new Date();
     d.setDate(d.getDate() + periodoSugeridoDias);
@@ -74,17 +90,25 @@ export function ProgramarVencimientoModal({
   const [notificar, setNotificar] = useState<boolean>(true);
   const [submitting, setSubmitting] = useState<boolean>(false);
 
-  // Reset al abrir
+  // Reset al abrir — precarga valores existentes si es modo edición.
   useEffect(() => {
     if (!open) return;
-    const d = new Date();
-    d.setDate(d.getDate() + periodoSugeridoDias);
-    setFecha(d.toISOString().slice(0, 10));
-    setOffsets(OFFSETS_DEFAULT);
+    if (vencimientoExistente) {
+      setFecha(vencimientoExistente.fecha_vencimiento.slice(0, 10));
+      setOffsets(
+        [...vencimientoExistente.alarmas_offsets].sort((a, b) => b - a),
+      );
+      setNotificar(vencimientoExistente.notificar_cliente);
+    } else {
+      const d = new Date();
+      d.setDate(d.getDate() + periodoSugeridoDias);
+      setFecha(d.toISOString().slice(0, 10));
+      setOffsets(OFFSETS_DEFAULT);
+      setNotificar(true);
+    }
     setCustomInput('');
-    setNotificar(true);
     setSubmitting(false);
-  }, [open, periodoSugeridoDias]);
+  }, [open, periodoSugeridoDias, vencimientoExistente]);
 
   function togglePreset(value: number) {
     setOffsets((prev) =>
@@ -135,6 +159,24 @@ export function ProgramarVencimientoModal({
       return;
     }
     setSubmitting(true);
+    if (esEdicion && vencimientoExistente) {
+      // 2.G · modo edición: actualiza el vencimiento existente.
+      const res = await actualizarVencimiento({
+        vencimientoId: vencimientoExistente.id,
+        proximaFecha: fecha,
+        alarmasOffsets: offsets,
+        notificarCliente: notificar,
+      });
+      setSubmitting(false);
+      if (!res.ok) {
+        toast.error(res.error.message);
+        return;
+      }
+      toast.success('Cronograma actualizado');
+      onProgramado?.();
+      onClose();
+      return;
+    }
     const res = await cerrarCicloTracking({
       trackingId,
       proximaFecha: fecha,
@@ -155,7 +197,7 @@ export function ProgramarVencimientoModal({
     <Modal
       open={open}
       onClose={onClose}
-      title="Programar próximo vencimiento"
+      title={esEdicion ? 'Editar cronograma de alarmas' : 'Programar próximo vencimiento'}
       kicker={trackingTitulo ? `Tracking · ${trackingTitulo}` : 'Tracking'}
       icon={<CalendarClock className="h-5 w-5 text-brand-cyan" />}
       width={560}
@@ -165,7 +207,14 @@ export function ProgramarVencimientoModal({
             Cancelar
           </Button>
           <Button onClick={() => void handleProgramar()} disabled={submitting}>
-            <Check className="h-4 w-4" /> {submitting ? 'Programando...' : 'Programar'}
+            <Check className="h-4 w-4" />{' '}
+            {submitting
+              ? esEdicion
+                ? 'Guardando...'
+                : 'Programando...'
+              : esEdicion
+                ? 'Guardar cambios'
+                : 'Programar'}
           </Button>
         </div>
       }

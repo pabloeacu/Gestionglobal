@@ -9,6 +9,9 @@ import {
   Sliders,
   RefreshCcw,
   Download,
+  List,
+  Building2,
+  ChevronDown,
   type LucideIcon,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -57,6 +60,9 @@ export function VencimientosListPage() {
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [renovar, setRenovar] = useState<ProximoVencimiento | null>(null);
+  // 6.A · vista Lista vs Por cliente (agrupada por administración).
+  const [vista, setVista] = useState<'lista' | 'cliente'>('lista');
+  const [colapsadas, setColapsadas] = useState<Set<string>>(new Set());
 
   async function load() {
     setLoading(true);
@@ -99,6 +105,34 @@ export function VencimientosListPage() {
       return true;
     });
   }, [rows, tipo, estado, search]);
+
+  // 6.A · agrupar por administración para la vista "Por cliente". Cada grupo
+  // trae su resumen de vencimientos críticos (<30d, vigentes).
+  const grupos = useMemo(() => {
+    const map = new Map<
+      string,
+      { nombre: string; items: ProximoVencimiento[]; criticos30: number }
+    >();
+    for (const v of filtered) {
+      const key = v.administracion_nombre ?? 'Sin administración';
+      const g = map.get(key) ?? { nombre: key, items: [], criticos30: 0 };
+      g.items.push(v);
+      if (v.estado === 'vigente' && v.dias_restantes >= 0 && v.dias_restantes <= 30) {
+        g.criticos30 += 1;
+      }
+      map.set(key, g);
+    }
+    return Array.from(map.values()).sort((a, b) => a.nombre.localeCompare(b.nombre));
+  }, [filtered]);
+
+  function toggleGrupo(nombre: string) {
+    setColapsadas((prev) => {
+      const next = new Set(prev);
+      if (next.has(nombre)) next.delete(nombre);
+      else next.add(nombre);
+      return next;
+    });
+  }
 
   const kpis = useMemo(() => {
     const vigentes = rows.filter((r) => r.estado === 'vigente').length;
@@ -209,6 +243,35 @@ export function VencimientosListPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {/* 6.A · toggle Lista / Por cliente. */}
+          <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-1">
+            <button
+              type="button"
+              onClick={() => setVista('lista')}
+              className={cn(
+                'inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition',
+                vista === 'lista'
+                  ? 'bg-white text-brand-ink shadow-sm'
+                  : 'text-brand-muted hover:text-brand-ink',
+              )}
+              aria-pressed={vista === 'lista'}
+            >
+              <List size={13} /> Lista
+            </button>
+            <button
+              type="button"
+              onClick={() => setVista('cliente')}
+              className={cn(
+                'inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition',
+                vista === 'cliente'
+                  ? 'bg-white text-brand-ink shadow-sm'
+                  : 'text-brand-muted hover:text-brand-ink',
+              )}
+              aria-pressed={vista === 'cliente'}
+            >
+              <Building2 size={13} /> Por cliente
+            </button>
+          </div>
           {/* 6.D · export CSV. */}
           <Button variant="ghost" onClick={exportarCSV} title="Exportar CSV con los filtros aplicados">
             <Download size={15} /> Export CSV
@@ -397,7 +460,7 @@ export function VencimientosListPage() {
                 </Button>
               }
             />
-          ) : (
+          ) : vista === 'lista' ? (
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {filtered.map((v) => (
                 <VencimientoCard
@@ -415,6 +478,68 @@ export function VencimientosListPage() {
                   }
                 />
               ))}
+            </div>
+          ) : (
+            // 6.A · vista "Por cliente": secciones colapsables por administración.
+            <div className="space-y-3">
+              {grupos.map((g) => {
+                const colapsado = colapsadas.has(g.nombre);
+                return (
+                  <section
+                    key={g.nombre}
+                    className="overflow-hidden rounded-2xl border border-slate-200 bg-white"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => toggleGrupo(g.nombre)}
+                      className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition hover:bg-slate-50"
+                      aria-expanded={!colapsado}
+                    >
+                      <span className="flex min-w-0 items-center gap-2">
+                        <Building2 size={16} className="shrink-0 text-brand-cyan" />
+                        <span className="truncate font-display text-base font-bold text-brand-ink">
+                          {g.nombre}
+                        </span>
+                        <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-brand-muted">
+                          {g.items.length}
+                        </span>
+                        {g.criticos30 > 0 && (
+                          <span className="shrink-0 rounded-full bg-red-50 px-2 py-0.5 text-[11px] font-semibold text-red-700">
+                            {g.criticos30} vence{g.criticos30 === 1 ? '' : 'n'} &lt;30d
+                          </span>
+                        )}
+                      </span>
+                      <ChevronDown
+                        size={18}
+                        className={cn(
+                          'shrink-0 text-brand-muted transition-transform',
+                          colapsado && '-rotate-90',
+                        )}
+                      />
+                    </button>
+                    {!colapsado && (
+                      <div className="grid gap-3 border-t border-slate-100 p-4 sm:grid-cols-2 lg:grid-cols-3">
+                        {g.items.map((v) => (
+                          <VencimientoCard
+                            key={v.id}
+                            venc={v}
+                            onRenovar={
+                              v.estado === 'vigente' || v.estado === 'vencido'
+                                ? setRenovar
+                                : undefined
+                            }
+                            onCancelar={
+                              v.estado === 'vigente' || v.estado === 'vencido'
+                                ? onCancelar
+                                : undefined
+                            }
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </section>
+                );
+              })}
             </div>
           )}
         </div>

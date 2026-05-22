@@ -143,14 +143,27 @@ export async function listTrackings(
 // ----------------------------------------------------------------------------
 // DETAIL
 // ----------------------------------------------------------------------------
+// 2.G · vencimiento ligado al tracking (el más próximo vigente) — sirve para
+// el panel "Próximas alarmas" del tab Resumen.
+export interface TrackingVencimientoLigado {
+  id: string;
+  fecha_vencimiento: string;
+  alarmas_offsets: number[];
+  notificar_cliente: boolean;
+  estado: string;
+}
+
 export interface TrackingDetail extends TrackingRow {
-  servicio: { id: string; nombre: string; codigo: string } | null;
+  // 2.D · sla_dias del servicio para el indicador de SLA del header.
+  servicio: { id: string; nombre: string; codigo: string; sla_dias: number | null } | null;
   administracion: { id: string; nombre: string; email: string | null } | null;
   consorcio: { id: string; nombre: string } | null;
   parent: { id: string; periodo: string | null; estado: string } | null;
   lineas: TrackingLineaRow[];
   estados_disponibles: TrackingEstadoConfigRow[];
   categorias_disponibles: TrackingCategoriaConfigRow[];
+  // 2.G · vencimiento ligado (DGG-07) si existe.
+  vencimiento_ligado: TrackingVencimientoLigado | null;
 }
 
 export async function getTracking(id: string): Promise<ApiResponse<TrackingDetail>> {
@@ -158,7 +171,7 @@ export async function getTracking(id: string): Promise<ApiResponse<TrackingDetai
     .from('tramites')
     .select(
       `*,
-       servicio:servicios(id,nombre,codigo),
+       servicio:servicios(id,nombre,codigo,sla_dias),
        administracion:administraciones(id,nombre,email),
        consorcio:consorcios(id,nombre),
        parent:tramites!tramites_parent_tracking_id_fkey(id,periodo,estado)`,
@@ -174,7 +187,7 @@ export async function getTracking(id: string): Promise<ApiResponse<TrackingDetai
     parent: TrackingDetail['parent'];
   };
 
-  const [lineasRes, estadosRes, categoriasRes] = await Promise.all([
+  const [lineasRes, estadosRes, categoriasRes, vencRes] = await Promise.all([
     supabase
       .from('tracking_lineas')
       .select('*')
@@ -182,17 +195,27 @@ export async function getTracking(id: string): Promise<ApiResponse<TrackingDetai
       .order('created_at', { ascending: false }),
     listEstadosConfig(tt.servicio_id ?? null),
     listCategoriasConfig(tt.servicio_id ?? null),
+    // 2.G · vencimiento ligado al tracking (más próximo, prioriza vigentes).
+    supabase
+      .from('vencimientos')
+      .select('id, fecha_vencimiento, alarmas_offsets, notificar_cliente, estado')
+      .eq('tracking_id', id)
+      .order('fecha_vencimiento', { ascending: true })
+      .limit(1),
   ]);
 
   if (lineasRes.error) return fail('TRACKING_LINEAS', lineasRes.error.message, lineasRes.error);
   if (!estadosRes.ok) return estadosRes;
   if (!categoriasRes.ok) return categoriasRes;
 
+  const vencRaw = (vencRes.data ?? [])[0] as TrackingVencimientoLigado | undefined;
+
   return ok({
     ...tt,
     lineas: lineasRes.data ?? [],
     estados_disponibles: estadosRes.data,
     categorias_disponibles: categoriasRes.data,
+    vencimiento_ligado: vencRaw ?? null,
   });
 }
 
@@ -277,6 +300,30 @@ export async function cerrarCicloTracking(
     vencimientoId: first.vencimiento_id,
     alarmasPlanificadas: first.alarmas_planificadas ?? [],
   });
+}
+
+// ----------------------------------------------------------------------------
+// 2.G · EDITAR cronograma de un vencimiento ya programado (modo edit del modal)
+// Actualiza fecha + offsets + notificar_cliente. Pasa por la API de
+// vencimientos (regla 4). Las alarmas se re-planifican en el próximo tick del
+// cron dispatch-vencimientos (idempotente por tríada, mig 0041).
+// ----------------------------------------------------------------------------
+export async function actualizarVencimiento(input: {
+  vencimientoId: string;
+  proximaFecha: string;
+  alarmasOffsets: number[];
+  notificarCliente: boolean;
+}): Promise<ApiResponse<true>> {
+  const { error } = await supabase
+    .from('vencimientos')
+    .update({
+      fecha_vencimiento: input.proximaFecha,
+      alarmas_offsets: input.alarmasOffsets,
+      notificar_cliente: input.notificarCliente,
+    })
+    .eq('id', input.vencimientoId);
+  if (error) return fail('VENC_UPDATE_CRONOGRAMA', error.message, error);
+  return ok(true);
 }
 
 // ----------------------------------------------------------------------------
