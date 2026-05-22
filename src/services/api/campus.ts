@@ -1265,13 +1265,25 @@ export async function verificarCertificado(
   return ok(data as unknown as VerificacionResultado);
 }
 
-// URL pública de verificación (origin actual o el dominio de producción).
+// URL pública de verificación. Prioridad: base configurada (VITE_PUBLIC_BASE_URL,
+// p. ej. el dominio de producción gestionglobal.ar) → origin del browser →
+// fallback al dominio de producción. Así el QR del PDF apunta SIEMPRE a una URL
+// pública resoluble, aun cuando el certificado se descargue desde un preview de
+// Vercel o un entorno local (DGG-13).
 export function verificacionUrl(codigo: string): string {
+  const configured =
+    typeof import.meta !== 'undefined'
+      ? (import.meta.env?.VITE_PUBLIC_BASE_URL as string | undefined)
+      : undefined;
   const origin =
     typeof window !== 'undefined' && window.location?.origin
       ? window.location.origin
-      : 'https://gestionglobal.ar';
-  return `${origin}/verificar/${codigo}`;
+      : undefined;
+  const base = (configured || origin || 'https://gestionglobal.ar').replace(
+    /\/+$/,
+    '',
+  );
+  return `${base}/verificar/${codigo}`;
 }
 
 // ============================================================================

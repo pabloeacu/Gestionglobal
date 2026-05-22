@@ -185,6 +185,38 @@
   final espera el modelo del usuario).
 - **Fecha:** 2026-05-22
 
+## DGG-13 · Certificado ultra-premium (rediseño 2026-05-22)
+- El PDF jsPDF-vector inicial quedó "berreta": logo GG diminuto/invisible,
+  sin logo FUNDPLATA, diseño pobre. **Rediseño**: HTML/CSS premium con la
+  misma estética de la web (gradiente cyan/navy, acentos triangulares, fuentes
+  de marca, logos GG + FUNDPLATA reales, sello dorado con isotipo GG) →
+  exportar con `html2canvas`→jsPDF (agregar html2canvas). 4 temas de color.
+- **QR**: debe llevar a la URL pública premium de verificación (`/verificar/:codigo`)
+  que muestra alumno, curso, nota, estilo. Robustecer la base URL (config en
+  vez de sólo origin vercel) y dejar la página `/verificar` premium.
+- Fecha: 2026-05-22.
+
+## DGG-14 · Campus Fase 3 · Integración Zoom (clases sincrónicas dentro del campus)
+- Las clases sincrónicas se organizan/dictan/asisten DENTRO del campus vía
+  **Zoom (API + Meeting Web SDK)**: meeting embebido autenticado, **asistencia
+  computada por login** (no manual), **grabación automática**, sin salir del
+  campus. Roles a contemplar: alumno, docente, moderadora.
+- Config de Zoom: el usuario está logueado y quiere que la haga yo
+  (Marketplace app S2S OAuth / Meeting SDK) — requiere sus credenciales/acceso;
+  a definir el flujo (browser automation sobre marketplace.zoom.us o guía).
+- Premium sin gastar más en Zoom: maximizar SDK gratuito, simplificar gerencia.
+- Evaluar accesos externos solo-por-link (no hay roles docente/moderador aún;
+  a futuro: docente con acceso de edición a material/ejercicios).
+- Fecha: 2026-05-22. (Diseño pendiente.)
+
+## DGG-15 · Webinars dictados dentro del campus (públicos para prospectos)
+- Los webinars (DGG-11) se dictan dentro del campus. Pueden ser **gratuitos y
+  públicos**: para NO-alumnos (prospectos) sin permiso al resto de cursos.
+- Mecanismo: el prospecto que se inscribe (form evento) recibe **acceso
+  temporal y exclusivo al webinar SIN contraseña** (token/magic-link), pero
+  dentro de la estructura premium del campus.
+- Fecha: 2026-05-22. (Diseño pendiente, post-Fase-3 Zoom.)
+
 ## DGG-11 · Webinars/Eventos = subsistema de captación (post-Campus)
 - **Decisión:** Los formularios tipo `evento` dejan de ser submission crudo
   y alimentan un subsistema de captación comercial:

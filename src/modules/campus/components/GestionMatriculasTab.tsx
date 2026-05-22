@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   Circle,
   Download,
+  Eye,
   Lock,
   Loader2,
   ShieldCheck,
@@ -33,7 +34,9 @@ import {
 } from '@/services/api/campus';
 import { generateCertificadoPdf } from '../lib/generateCertificadoPdf';
 import { AsignarAlumnoDrawer } from './AsignarAlumnoDrawer';
+import { CertificadoPreviewModal } from './CertificadoPreviewModal';
 import { RegistrarPagoModal } from './RegistrarPagoModal';
+import type { CertificadoParaPdf } from '@/services/api/campus';
 
 // Tab de gestión de matrículas: lista de alumnos asignados al curso con su
 // checklist de condiciones tildable por staff (DGG-10). El examen aparece
@@ -50,6 +53,7 @@ export function GestionMatriculasTab({ data }: { data: CursoDetalle }) {
   const [loading, setLoading] = useState(true);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [pagoTarget, setPagoTarget] = useState<MatriculaListItem | null>(null);
+  const [previewCert, setPreviewCert] = useState<CertificadoParaPdf | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -273,6 +277,12 @@ export function GestionMatriculasTab({ data }: { data: CursoDetalle }) {
                         {cert.codigo}
                       </span>
                       <button
+                        onClick={() => setPreviewCert(certificadoParaPdf(cert))}
+                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand-cyan hover:underline"
+                      >
+                        <Eye size={13} /> Vista previa
+                      </button>
+                      <button
                         onClick={() => void onDescargar(cert)}
                         className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand-cyan hover:underline"
                       >
@@ -329,6 +339,11 @@ export function GestionMatriculasTab({ data }: { data: CursoDetalle }) {
         }
         onClose={() => setPagoTarget(null)}
         onRegistrado={() => void load()}
+      />
+      <CertificadoPreviewModal
+        cert={previewCert}
+        open={previewCert !== null}
+        onClose={() => setPreviewCert(null)}
       />
     </div>
   );

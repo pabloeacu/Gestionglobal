@@ -9,6 +9,7 @@ import {
   GraduationCap,
   Calendar,
   User,
+  BadgeCheck,
 } from 'lucide-react';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import {
@@ -16,10 +17,11 @@ import {
   type VerificacionResultado,
 } from '@/services/api/campus';
 
-// Página PÚBLICA sin login (DGG-10 · /verificar/:codigo). Confirma la
-// autenticidad de un certificado emitido por el campus. Mobile-first, branding
-// Gestión Global. Llama a la RPC `verificar_certificado` (SECURITY DEFINER,
-// ejecutable por anon) que sólo devuelve datos NO sensibles.
+// Página PÚBLICA sin login (DGG-10/DGG-13 · /verificar/:codigo). Confirma la
+// autenticidad de un certificado emitido por el campus. Branding premium
+// consistente con la web (gradiente navy→cyan, acentos triangulares, marca).
+// Llama a la RPC `verificar_certificado` (SECURITY DEFINER, ejecutable por anon)
+// que sólo devuelve datos NO sensibles.
 export function VerificarCertificadoPage() {
   const { codigo = '' } = useParams<{ codigo: string }>();
   const [loading, setLoading] = useState(true);
@@ -44,77 +46,80 @@ export function VerificarCertificadoPage() {
   const revocado = res?.estado === 'revocado';
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-gradient-to-b from-brand-night via-[#0c2236] to-slate-50">
       {/* Hero */}
-      <header className="relative overflow-hidden bg-gradient-to-br from-brand-cyan via-brand-cyan to-brand-teal py-10 text-white shadow">
+      <header className="relative overflow-hidden bg-gradient-to-br from-brand-night via-brand-night-2 to-brand-cyan py-14 text-white">
         <TrianglesAccent
           position="top-right"
-          size={260}
+          size={300}
           tone="cyan"
           density="rich"
-          className="opacity-50"
+          className="opacity-40"
         />
         <TrianglesAccent
           position="bottom-left"
-          size={180}
+          size={200}
           tone="teal"
           density="soft"
-          className="opacity-40"
+          className="opacity-30"
         />
         <div className="relative mx-auto max-w-2xl px-6">
-          <div className="flex items-center gap-2 text-sm text-white/85">
-            <ShieldCheck size={16} /> Verificación de certificados · Gestión Global
+          <img
+            src="/logo-h-white.png"
+            alt="Gestión Global"
+            className="h-9 w-auto"
+          />
+          <div className="mt-6 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-medium text-white/90 backdrop-blur">
+            <ShieldCheck size={14} /> Verificación pública de certificados
           </div>
-          <h1 className="mt-3 font-display text-3xl font-bold sm:text-4xl">
-            Certificado del Campus
+          <h1 className="mt-4 font-display text-3xl font-bold leading-tight sm:text-4xl">
+            Certificados del Campus
           </h1>
-          <p className="mt-2 text-sm text-white/85">
+          <p className="mt-2 max-w-md text-sm text-white/80">
             Constatá la autenticidad de un certificado emitido por Gestión Global
-            / FUNDPLATA.
+            en el marco de la habilitación de FU.DE.CO.IN / FUNDPLATA.
           </p>
         </div>
       </header>
 
-      {/* Contenido */}
-      <main className="mx-auto max-w-2xl px-6 py-8">
+      {/* Contenido — la tarjeta "monta" sobre el hero */}
+      <main className="relative z-10 mx-auto -mt-8 max-w-2xl px-6 pb-16">
         {loading ? (
-          <div className="grid place-items-center rounded-2xl border border-slate-200 bg-white p-12 text-brand-muted shadow-sm">
-            <Loader2 className="mb-2 animate-spin" />
+          <div className="grid place-items-center rounded-3xl border border-slate-200 bg-white p-14 text-brand-muted shadow-xl">
+            <Loader2 className="mb-3 animate-spin text-brand-cyan" />
             <p className="text-sm">Verificando el certificado…</p>
           </div>
         ) : valido ? (
           <CertificadoValido res={res!} />
         ) : revocado ? (
-          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6 text-amber-900 shadow-sm">
-            <div className="flex items-center gap-2 font-semibold">
-              <ShieldAlert size={18} /> Certificado revocado
-            </div>
-            <p className="mt-2 text-sm">
+          <EstadoCard
+            tone="amber"
+            icon={<ShieldAlert size={20} />}
+            titulo="Certificado revocado"
+          >
+            <p className="text-sm">
               Este certificado existió pero fue <strong>revocado</strong> por
               Gestión Global y ya no es válido.
             </p>
             {res?.codigo && (
-              <p className="mt-2 font-mono text-xs text-amber-700">
-                Código: {res.codigo}
-              </p>
+              <p className="mt-3 font-mono text-xs opacity-80">Código: {res.codigo}</p>
             )}
             {res?.revocado_motivo && (
-              <p className="mt-1 text-xs text-amber-700/80">
-                Motivo: {res.revocado_motivo}
-              </p>
+              <p className="mt-1 text-xs opacity-70">Motivo: {res.revocado_motivo}</p>
             )}
-          </div>
+          </EstadoCard>
         ) : (
-          <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-rose-800 shadow-sm">
-            <div className="flex items-center gap-2 font-semibold">
-              <ShieldX size={18} /> Certificado no encontrado
-            </div>
-            <p className="mt-2 text-sm">
+          <EstadoCard
+            tone="rose"
+            icon={<ShieldX size={20} />}
+            titulo="Certificado no encontrado"
+          >
+            <p className="text-sm">
               No encontramos ningún certificado con el código{' '}
               <span className="font-mono">{codigo}</span>. Verificá que esté bien
               escrito o escaneá nuevamente el código QR.
             </p>
-          </div>
+          </EstadoCard>
         )}
       </main>
 
@@ -136,22 +141,36 @@ function CertificadoValido({ res }: { res: VerificacionResultado }) {
       })
     : '—';
   return (
-    <div className="space-y-5">
-      <div className="relative overflow-hidden rounded-2xl border border-emerald-200 bg-emerald-50 p-6 shadow-sm">
-        <div className="flex items-center gap-2 font-semibold text-emerald-800">
-          <ShieldCheck size={20} /> Certificado válido
+    <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl">
+      {/* Banner de validez */}
+      <div className="relative overflow-hidden bg-gradient-to-r from-emerald-600 to-emerald-500 px-7 py-6 text-white">
+        <TrianglesAccent
+          position="top-right"
+          size={160}
+          tone="teal"
+          density="soft"
+          className="opacity-25"
+        />
+        <div className="relative flex items-center gap-3">
+          <span className="grid h-12 w-12 place-items-center rounded-full bg-white/15 ring-1 ring-white/30">
+            <BadgeCheck size={26} />
+          </span>
+          <div>
+            <p className="font-display text-xl font-bold">Certificado válido</p>
+            <p className="text-sm text-white/85">
+              Auténtico · emitido por Gestión Global / FUNDPLATA
+            </p>
+          </div>
         </div>
-        <p className="mt-1 text-sm text-emerald-700">
-          Emitido por Gestión Global / FUNDPLATA. Este certificado es auténtico.
-        </p>
       </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div className="mb-4 flex items-center gap-2">
-          <Award size={18} className="text-brand-cyan" />
+      {/* Datos */}
+      <div className="px-7 py-6">
+        <div className="mb-5 flex items-center gap-2">
+          <Award size={16} className="text-brand-cyan" />
           <span className="kicker text-brand-cyan">Datos del certificado</span>
         </div>
-        <dl className="space-y-3">
+        <dl className="grid gap-4 sm:grid-cols-2">
           <Campo icon={<User size={14} />} label="Egresado">
             {res.alumno_nombre ?? '—'}
           </Campo>
@@ -167,17 +186,43 @@ function CertificadoValido({ res }: { res: VerificacionResultado }) {
             {fecha}
           </Campo>
           {res.nota_examen !== null && res.nota_examen !== undefined && (
-            <Campo icon={<Award size={14} />} label="Nota del examen">
-              {res.nota_examen}
+            <Campo icon={<Award size={14} />} label="Calificación">
+              {res.nota_examen} / 100
             </Campo>
           )}
         </dl>
         {res.codigo && (
-          <p className="mt-5 border-t border-slate-100 pt-3 font-mono text-xs text-brand-muted">
-            Código: {res.codigo}
+          <p className="mt-6 flex items-center gap-2 border-t border-slate-100 pt-4 font-mono text-xs text-brand-muted">
+            <ShieldCheck size={13} className="text-emerald-600" />
+            Código de verificación: <span className="font-semibold">{res.codigo}</span>
           </p>
         )}
       </div>
+    </div>
+  );
+}
+
+function EstadoCard({
+  tone,
+  icon,
+  titulo,
+  children,
+}: {
+  tone: 'amber' | 'rose';
+  icon: React.ReactNode;
+  titulo: string;
+  children: React.ReactNode;
+}) {
+  const styles =
+    tone === 'amber'
+      ? 'border-amber-200 bg-amber-50 text-amber-900'
+      : 'border-rose-200 bg-rose-50 text-rose-800';
+  return (
+    <div className={`rounded-3xl border p-7 shadow-xl ${styles}`}>
+      <div className="flex items-center gap-2 font-display text-lg font-semibold">
+        {icon} {titulo}
+      </div>
+      <div className="mt-3">{children}</div>
     </div>
   );
 }
