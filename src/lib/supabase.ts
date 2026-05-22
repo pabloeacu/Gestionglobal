@@ -49,7 +49,15 @@ export function readStoredSession(): StoredSessionLite | null {
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Partial<StoredSessionLite>;
     if (!parsed.access_token || !parsed.user?.id) return null;
-    if (parsed.expires_at && parsed.expires_at * 1000 < Date.now()) {
+    // NO descartamos por access_token vencido: el refresh_token vive mucho
+    // más (≈30 días) y el bootstrap de AuthContext lo refresca. Sólo si NO hay
+    // refresh_token (sesión irrecuperable) la limpiamos. Antes esto causaba
+    // logout cada ~1h al vencer el access token. (E-GG-07)
+    if (
+      parsed.expires_at &&
+      parsed.expires_at * 1000 < Date.now() &&
+      !parsed.refresh_token
+    ) {
       localStorage.removeItem(SESSION_KEY);
       return null;
     }

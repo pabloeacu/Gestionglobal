@@ -3,6 +3,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
@@ -56,6 +57,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
   const [user, setUser] = useState<CurrentUser | null>(null);
   const [profileMissing, setProfileMissing] = useState(false);
+  // E-GG-07 · timer de refresh manual. Como autoRefreshToken=false (los locks
+  // de supabase-js cuelgan bajo StrictMode/HMR), refrescamos el token a mano
+  // ~60s antes de que venza, así la sesión no muere cada ~1h.
+  const refreshTimer = useRef<number | null>(null);
+
+  const scheduleRefresh = useCallback((s: Session | null) => {
+    if (refreshTimer.current) {
+      clearTimeout(refreshTimer.current);
+      refreshTimer.current = null;
+    }
+    if (!s?.expires_at || !s.refresh_token) return;
+    // 60s de colchón; mínimo 5s para no spamear si ya está por vencer.
+    const delay = Math.max(s.expires_at * 1000 - Date.now() - 60_000, 5_000);
+    refreshTimer.current = window.setTimeout(async () => {
+      const { data, error } = await supabase.auth.refreshSession({
+        refresh_token: s.refresh_token,
+      });
+      if (error || !data.session) {
+        // refresh_token muerto → logout limpio.
+        persistSession(null);
+        setSession(null);
+        setUser(null);
+        return;
+      }
+      persistSession({
+        access_token: data.session.access_token,
+        refresh_token: data.session.refresh_token,
+        expires_at: data.session.expires_at ?? 0,
+        user: { id: data.session.user.id, email: data.session.user.email },
+      });
+      setSession(data.session);
+      scheduleRefresh(data.session);
+    }, delay);
+  }, []);
 
   const loadProfile = useCallback(async (s: Session | null) => {
     if (!s) {
@@ -99,18 +134,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     (async () => {
       const stored = readStoredSession();
+      let s: Session | null = null;
       if (stored) {
-        // Re-inyectamos la session en el cliente (in-memory) para que las
-        // siguientes queries lleven Authorization.
-        await supabase.auth.setSession({
-          access_token: stored.access_token,
-          refresh_token: stored.refresh_token,
-        });
+        // Si el access token ya venció, refrescamos con el refresh_token antes
+        // de seguir (evita 401 en todas las queries). Si no, lo re-inyectamos.
+        const expirado = stored.expires_at * 1000 < Date.now();
+        if (expirado) {
+          const { data: r } = await supabase.auth.refreshSession({
+            refresh_token: stored.refresh_token,
+          });
+          s = r.session ?? null;
+          if (s) {
+            persistSession({
+              access_token: s.access_token,
+              refresh_token: s.refresh_token,
+              expires_at: s.expires_at ?? 0,
+              user: { id: s.user.id, email: s.user.email },
+            });
+          } else {
+            persistSession(null);
+          }
+        } else {
+          await supabase.auth.setSession({
+            access_token: stored.access_token,
+            refresh_token: stored.refresh_token,
+          });
+          s = (await supabase.auth.getSession()).data.session;
+        }
       }
-      const { data } = await supabase.auth.getSession();
-      const s = data.session;
       if (!active) return;
       setSession(s);
+      scheduleRefresh(s);
       await loadProfile(s);
       if (active) setLoading(false);
     })();
@@ -132,12 +186,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // INITIAL_SESSION lo manejamos arriba con la lectura de storage.
       if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED') {
         setSession(s);
+        scheduleRefresh(s);
         void loadProfile(s);
       }
     });
 
     return () => {
       active = false;
+      if (refreshTimer.current) clearTimeout(refreshTimer.current);
       sub.subscription.unsubscribe();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps

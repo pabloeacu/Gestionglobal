@@ -150,3 +150,21 @@
   guarda el `periodo` ni `fecha_inicio` en el tracking creado (quedan NULL
   pese a cargarse 2026 / fecha en el paso 3). Revisar `solicitud_activar`.
 - **Fecha / módulo:** 2026-05-22 · acceso externo (edge function) · QA.
+
+## E-GG-07 · Sesión se cae cada ~1h (sin refresh de token)
+- **Síntoma:** durante el QA la sesión se caía repetidamente al navegar (parecía
+  asociado a volver de `/externo`, pero era coincidencia temporal). El usuario
+  quedaba deslogueado y había que reingresar.
+- **Causa raíz:** el cliente Supabase usa `autoRefreshToken: false` y
+  `persistSession: false` (a propósito: los locks de supabase-js cuelgan las
+  queries bajo StrictMode/HMR). Pero NO había refresh manual → el access token
+  vencía (~1h) y `readStoredSession` borraba la sesión por `expires_at` pasado,
+  descartando también el refresh_token (que dura ~30 días).
+- **Fix:** (a) `readStoredSession` ya NO descarta la sesión por access token
+  vencido si hay refresh_token (sólo si falta el refresh_token). (b)
+  `AuthContext` ahora tiene un **scheduler de refresh manual**: refresca con
+  `supabase.auth.refreshSession({refresh_token})` ~60s antes del vencimiento y
+  reprograma; en el bootstrap, si el token ya venció, refresca antes de seguir.
+- **Prevención:** cuando se desactiva `autoRefreshToken`, hay que implementar
+  refresh manual sí o sí. No descartar el refresh_token al vencer el access.
+- **Fecha / módulo:** 2026-05-22 · auth (AuthContext + lib/supabase) · QA.

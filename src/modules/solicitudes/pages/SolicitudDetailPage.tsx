@@ -144,9 +144,10 @@ export function SolicitudDetailPage() {
       toast.error(res.error.message);
       return;
     }
-    // 1.F · red de seguridad: 5 s de gracia para deshacer (Gmail "Undo send").
+    // 1.F · red de seguridad: 8 s de gracia para deshacer (Gmail "Undo send").
+    // 8s y no 5s: con latencia real 5s era ajustado para alcanzar a clickear.
     toast.success('Solicitud descartada', {
-      duration: 5000,
+      duration: 8000,
       action: {
         label: 'Deshacer',
         onClick: async () => {

@@ -12,7 +12,7 @@
 // Regla 13: useConfirm en lugar de window.confirm.
 // ============================================================================
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import {
   ArrowLeft,
   Briefcase,
@@ -80,7 +80,6 @@ type TabKey = 'resumen' | 'lineas' | 'documentacion' | 'recurrencia' | 'config';
 
 export function TrackingDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
   const { user } = useAuth();
   const confirm = useConfirm();
   const prompt = usePrompt();
@@ -100,15 +99,17 @@ export function TrackingDetailPage() {
   const [compartirOpen, setCompartirOpen] = useState(false);
   // 5.C · accesos externos del tracking + sus aperturas.
   const [accesos, setAccesos] = useState<AccesoConAperturas[]>([]);
+  // Error in-place (no redirigir al listado: enmascara fallos — E-GG-04 bonus).
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   async function load() {
     if (!id) return;
     setLoading(true);
+    setErrorMsg(null);
     const res = await getTracking(id);
     setLoading(false);
     if (!res.ok) {
-      toast.error(res.error.message);
-      navigate('/gerencia/tramites');
+      setErrorMsg(res.error.message);
       return;
     }
     setData(res.data);
@@ -181,6 +182,33 @@ export function TrackingDetailPage() {
     }
     toast.success('Tracking cerrado');
     void load();
+  }
+
+  if (!loading && errorMsg && !data) {
+    return (
+      <div className="grid min-h-[60vh] place-items-center px-6 text-center">
+        <div className="max-w-sm space-y-3">
+          <p className="font-display text-xl font-bold text-brand-ink">
+            No pudimos cargar este tracking.
+          </p>
+          <p className="text-sm text-brand-muted">{errorMsg}</p>
+          <div className="flex items-center justify-center gap-2 pt-1">
+            <button
+              onClick={() => void load()}
+              className="rounded-lg bg-brand-cyan px-3 py-1.5 text-sm font-medium text-white transition hover:opacity-90"
+            >
+              Reintentar
+            </button>
+            <Link
+              to="/gerencia/tramites"
+              className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-brand-ink transition hover:bg-slate-50"
+            >
+              Volver al listado
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (loading || !data) {
