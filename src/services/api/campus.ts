@@ -27,6 +27,41 @@ export type CursoProgresoRow =
 export type ExamenIntentoRow =
   Database['public']['Tables']['examen_intentos']['Row'];
 
+// Fase 1 (DGG-10): condiciones del certificado, checklist por matrícula,
+// encuentros sincrónicos y asistencia.
+export type CursoCondicionConfigRow =
+  Database['public']['Tables']['curso_condiciones_config']['Row'];
+export type MatriculaCondicionRow =
+  Database['public']['Tables']['matricula_condiciones']['Row'];
+export type CursoEncuentroRow =
+  Database['public']['Tables']['curso_encuentros']['Row'];
+export type CursoEncuentroAsistenciaRow =
+  Database['public']['Tables']['curso_encuentro_asistencias']['Row'];
+
+export const CONDICION_TIPOS = [
+  'examen',
+  'asistencia',
+  'pago',
+  'otra',
+] as const;
+export type CondicionTipo = (typeof CONDICION_TIPOS)[number];
+
+export const CONDICION_TIPO_LABEL: Record<CondicionTipo, string> = {
+  examen: 'Aprobar el examen',
+  asistencia: 'Asistencia a encuentros',
+  pago: 'Pago del curso',
+  otra: 'Otra condición',
+};
+
+// La condición de examen es la única automática (se acredita server-side al
+// aprobar). El resto las tilda gerencia/instructor manualmente.
+export const CONDICION_AUTOMATICA: Record<CondicionTipo, boolean> = {
+  examen: true,
+  asistencia: false,
+  pago: false,
+  otra: false,
+};
+
 export const MODALIDADES = ['asincronica', 'sincronica', 'mixta'] as const;
 export type Modalidad = (typeof MODALIDADES)[number];
 
@@ -231,20 +266,9 @@ export interface MatricularInput {
   administracionId?: string | null;
 }
 
-export async function matricularse(
-  cursoId: string,
-  administracionId?: string | null,
-): Promise<ApiResponse<string>> {
-  const { data: auth } = await supabase.auth.getUser();
-  const uid = auth.user?.id;
-  if (!uid) return fail('AUTH_REQUIRED', 'Tenés que iniciar sesión.');
-  return matricularUsuario({
-    cursoId,
-    profileId: uid,
-    administracionId: administracionId ?? null,
-  });
-}
-
+// DGG-10: el autoservicio se cerró. La inscripción del alumno la crea staff
+// vía `asignarAlumno` (RPC curso_asignar_alumno). `matricularUsuario` queda
+// como utilitario de compat para staff (la RPC valida is_staff server-side).
 export async function matricularUsuario(
   input: MatricularInput,
 ): Promise<ApiResponse<string>> {
@@ -801,6 +825,341 @@ export async function reemplazarOpciones(
   const { error: e2 } = await supabase.from('curso_opciones').insert(rows);
   if (e2) return fail('OPCIONES_CREATE', e2.message, e2);
   return ok(true);
+}
+
+// ============================================================================
+// Fase 1 · Asignación manual de alumnos (DGG-10: sin autoservicio)
+// ============================================================================
+export interface AsignarAlumnoInput {
+  cursoId: string;
+  administracionId: string;
+  profileId?: string | null;
+}
+
+export async function asignarAlumno(
+  input: AsignarAlumnoInput,
+): Promise<ApiResponse<string>> {
+  const { data, error } = await supabase.rpc('curso_asignar_alumno', {
+    p_curso_id: input.cursoId,
+    p_administracion_id: input.administracionId,
+    p_profile_id: (input.profileId ?? null) as unknown as string,
+  });
+  if (error) return fail('CURSO_ASIGNAR', error.message, error);
+  return ok(data as string);
+}
+
+// ============================================================================
+// Fase 1 · Condiciones del certificado (config por curso)
+// ============================================================================
+export interface CondicionConfigInput {
+  id?: string;
+  tipo: CondicionTipo;
+  etiqueta: string;
+  examen_id?: string | null;
+  obligatoria?: boolean;
+  activa?: boolean;
+  orden?: number;
+}
+
+export async function listCondicionesConfig(
+  cursoId: string,
+): Promise<ApiResponse<CursoCondicionConfigRow[]>> {
+  const { data, error } = await supabase
+    .from('curso_condiciones_config')
+    .select('*')
+    .eq('curso_id', cursoId)
+    .order('orden', { ascending: true })
+    .order('created_at', { ascending: true });
+  if (error) return fail('CONDICIONES_LIST', error.message, error);
+  return ok(data ?? []);
+}
+
+// Reemplaza el set de condiciones de un curso por el provisto (full sync).
+// Mantiene las filas existentes por id (para no perder el checklist ya
+// materializado), inserta nuevas y borra las que ya no están.
+export async function guardarCondicionesConfig(
+  cursoId: string,
+  condiciones: CondicionConfigInput[],
+): Promise<ApiResponse<true>> {
+  // 1. Estado actual.
+  const { data: actuales, error: e0 } = await supabase
+    .from('curso_condiciones_config')
+    .select('id')
+    .eq('curso_id', cursoId);
+  if (e0) return fail('CONDICIONES_SYNC', e0.message, e0);
+
+  const idsEntrantes = new Set(
+    condiciones.filter((c) => c.id).map((c) => c.id as string),
+  );
+  const aBorrar = (actuales ?? [])
+    .map((r) => r.id)
+    .filter((id) => !idsEntrantes.has(id));
+
+  // 2. Borrar las que ya no están.
+  if (aBorrar.length > 0) {
+    const { error: eDel } = await supabase
+      .from('curso_condiciones_config')
+      .delete()
+      .in('id', aBorrar);
+    if (eDel) return fail('CONDICIONES_DEL', eDel.message, eDel);
+  }
+
+  // 3. Upsert (insert nuevas, update existentes) preservando el orden.
+  for (let i = 0; i < condiciones.length; i++) {
+    const c = condiciones[i]!;
+    const payload = {
+      curso_id: cursoId,
+      tipo: c.tipo,
+      etiqueta: c.etiqueta,
+      automatica: CONDICION_AUTOMATICA[c.tipo],
+      examen_id: c.examen_id ?? null,
+      obligatoria: c.obligatoria ?? true,
+      activa: c.activa ?? true,
+      orden: i,
+    };
+    if (c.id) {
+      const { error } = await supabase
+        .from('curso_condiciones_config')
+        .update(payload)
+        .eq('id', c.id);
+      if (error) return fail('CONDICION_UPDATE', error.message, error);
+    } else {
+      const { error } = await supabase
+        .from('curso_condiciones_config')
+        .insert(payload);
+      if (error) return fail('CONDICION_INSERT', error.message, error);
+    }
+  }
+  return ok(true);
+}
+
+// ============================================================================
+// Fase 1 · Checklist de condiciones por matrícula (gestión + portal alumno)
+// ============================================================================
+export interface MatriculaCondicionItem extends MatriculaCondicionRow {
+  tipo: CondicionTipo;
+  etiqueta: string;
+  obligatoria: boolean;
+  activa: boolean;
+}
+
+export async function listCondicionesMatricula(
+  matriculaId: string,
+): Promise<ApiResponse<MatriculaCondicionItem[]>> {
+  const { data, error } = await supabase
+    .from('matricula_condiciones')
+    .select('*, curso_condiciones_config!inner(tipo, etiqueta, obligatoria, activa, orden)')
+    .eq('matricula_id', matriculaId);
+  if (error) return fail('MAT_CONDICIONES', error.message, error);
+
+  type Raw = MatriculaCondicionRow & {
+    curso_condiciones_config: {
+      tipo: CondicionTipo;
+      etiqueta: string;
+      obligatoria: boolean;
+      activa: boolean;
+      orden: number;
+    } | null;
+  };
+  const rows = (data as unknown as Raw[] | null ?? [])
+    .map((r) => ({
+      ...(r as MatriculaCondicionRow),
+      tipo: (r.curso_condiciones_config?.tipo ?? 'otra') as CondicionTipo,
+      etiqueta: r.curso_condiciones_config?.etiqueta ?? 'Condición',
+      obligatoria: r.curso_condiciones_config?.obligatoria ?? true,
+      activa: r.curso_condiciones_config?.activa ?? true,
+      _orden: r.curso_condiciones_config?.orden ?? 0,
+    }))
+    .sort((a, b) => a._orden - b._orden)
+    .map(({ _orden, ...rest }) => rest);
+  return ok(rows);
+}
+
+export interface TildarCondicionInput {
+  matriculaCondicionId: string;
+  cumplida: boolean;
+  observaciones?: string | null;
+}
+
+export async function tildarCondicion(
+  input: TildarCondicionInput,
+): Promise<ApiResponse<true>> {
+  const { error } = await supabase.rpc('matricula_tildar_condicion', {
+    p_matricula_condicion_id: input.matriculaCondicionId,
+    p_cumplida: input.cumplida,
+    p_observaciones: (input.observaciones ?? null) as unknown as string,
+  });
+  if (error) return fail('CONDICION_TILDAR', error.message, error);
+  return ok(true);
+}
+
+// ============================================================================
+// Fase 1 · Encuentros sincrónicos + asistencia
+// ============================================================================
+export async function listEncuentros(
+  cursoId: string,
+): Promise<ApiResponse<CursoEncuentroRow[]>> {
+  const { data, error } = await supabase
+    .from('curso_encuentros')
+    .select('*')
+    .eq('curso_id', cursoId)
+    .order('fecha_hora', { ascending: true, nullsFirst: false })
+    .order('created_at', { ascending: true });
+  if (error) return fail('ENCUENTROS_LIST', error.message, error);
+  return ok(data ?? []);
+}
+
+export interface EncuentroInput {
+  cursoId: string;
+  titulo: string;
+  descripcion?: string | null;
+  fechaHora?: string | null;
+  linkZoom?: string | null;
+}
+
+export async function crearEncuentro(
+  input: EncuentroInput,
+): Promise<ApiResponse<CursoEncuentroRow>> {
+  const { data, error } = await supabase
+    .from('curso_encuentros')
+    .insert({
+      curso_id: input.cursoId,
+      titulo: input.titulo,
+      descripcion: input.descripcion ?? null,
+      fecha_hora: input.fechaHora ?? null,
+      link_zoom: input.linkZoom ?? null,
+    })
+    .select()
+    .single();
+  if (error) return fail('ENCUENTRO_CREATE', error.message, error);
+  return ok(data);
+}
+
+export async function actualizarEncuentro(
+  id: string,
+  patch: Partial<{
+    titulo: string;
+    descripcion: string | null;
+    fecha_hora: string | null;
+    link_zoom: string | null;
+  }>,
+): Promise<ApiResponse<CursoEncuentroRow>> {
+  const { data, error } = await supabase
+    .from('curso_encuentros')
+    .update(patch)
+    .eq('id', id)
+    .select()
+    .single();
+  if (error) return fail('ENCUENTRO_UPDATE', error.message, error);
+  return ok(data);
+}
+
+export async function borrarEncuentro(id: string): Promise<ApiResponse<true>> {
+  const { error } = await supabase.from('curso_encuentros').delete().eq('id', id);
+  if (error) return fail('ENCUENTRO_DELETE', error.message, error);
+  return ok(true);
+}
+
+export async function listAsistencias(
+  encuentroId: string,
+): Promise<ApiResponse<CursoEncuentroAsistenciaRow[]>> {
+  const { data, error } = await supabase
+    .from('curso_encuentro_asistencias')
+    .select('*')
+    .eq('encuentro_id', encuentroId);
+  if (error) return fail('ASISTENCIAS_LIST', error.message, error);
+  return ok(data ?? []);
+}
+
+export interface MarcarAsistenciaInput {
+  encuentroId: string;
+  matriculaId: string;
+  presente: boolean;
+}
+
+// Tilde de asistencia por (encuentro, matrícula). Upsert idempotente.
+export async function marcarAsistencia(
+  input: MarcarAsistenciaInput,
+): Promise<ApiResponse<true>> {
+  const { error } = await supabase
+    .from('curso_encuentro_asistencias')
+    .upsert(
+      {
+        encuentro_id: input.encuentroId,
+        matricula_id: input.matriculaId,
+        presente: input.presente,
+        marcada_at: new Date().toISOString(),
+      },
+      { onConflict: 'encuentro_id,matricula_id' },
+    );
+  if (error) return fail('ASISTENCIA_MARK', error.message, error);
+  return ok(true);
+}
+
+// ============================================================================
+// Fase 1 · Registro de pago del curso → asiento de ingreso (DGG-10bis)
+// ============================================================================
+export interface RegistrarPagoInput {
+  matriculaId: string;
+  monto: number;
+  cajaId: string;
+  observaciones?: string | null;
+}
+
+export async function registrarPagoCurso(
+  input: RegistrarPagoInput,
+): Promise<ApiResponse<{ movimiento_id: string; condicion_pago_id: string | null }>> {
+  const { data, error } = await supabase.rpc('curso_registrar_pago', {
+    p_matricula_id: input.matriculaId,
+    p_monto: input.monto,
+    p_caja_id: input.cajaId,
+    p_observaciones: (input.observaciones ?? null) as unknown as string,
+  });
+  if (error) return fail('CURSO_PAGO', error.message, error);
+  return ok(
+    data as unknown as { movimiento_id: string; condicion_pago_id: string | null },
+  );
+}
+
+// Administraciones disponibles para asignar (reusa la cartera de clientes).
+export interface AdministracionParaAsignar {
+  id: string;
+  nombre: string;
+  codigo: string;
+}
+
+export async function listAdministracionesParaAsignar(
+  search?: string,
+): Promise<ApiResponse<AdministracionParaAsignar[]>> {
+  let q = supabase
+    .from('administraciones')
+    .select('id, nombre, codigo')
+    .eq('activo', true)
+    .order('nombre', { ascending: true })
+    .limit(50);
+  if (search && search.trim().length > 0) {
+    const s = search.trim();
+    q = q.or(`nombre.ilike.%${s}%,codigo.ilike.%${s}%`);
+  }
+  const { data, error } = await q;
+  if (error) return fail('ADMIN_ASIGNAR_LIST', error.message, error);
+  return ok((data ?? []) as AdministracionParaAsignar[]);
+}
+
+// Cajas activas para el modal de registro de pago (reusa finanzas).
+export interface CajaParaPago {
+  id: string;
+  nombre: string;
+}
+
+export async function listCajasParaPago(): Promise<ApiResponse<CajaParaPago[]>> {
+  const { data, error } = await supabase
+    .from('cajas')
+    .select('id, nombre')
+    .eq('activo', true)
+    .order('orden', { ascending: true });
+  if (error) return fail('CAJAS_PAGO_LIST', error.message, error);
+  return ok((data ?? []) as CajaParaPago[]);
 }
 
 // ============================================================================

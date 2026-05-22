@@ -4,8 +4,8 @@
 >
 > **Mantenimiento**: actualizar después de cada chunk de trabajo verificado y cerrado. No esperar al final. Si un paso se postergó, registrarlo abajo en "Pateado para el final".
 
-**Última actualización**: 2026-05-22 (Punto 5+Ronda 6 CERRADOS y verificados online · 7 bugs QA arreglados · entorno limpio · próximo: Campus)
-**Sesión actual**: rondas 4–6 + Punto 5 + QA online + 6 fixes menores + limpieza
+**Última actualización**: 2026-05-22 (Punto 6 · Campus Fase 1 implementada · mig 0045 aplicada + types + build limpio · pendiente browser test · NO commiteada)
+**Sesión actual**: Campus Fase 1 (DGG-10): cierre autoservicio + asignación manual + condiciones + encuentros + pago→asiento
 
 ---
 
@@ -92,9 +92,18 @@ Recorrido punta a punta logueado sobre la URL de Vercel. **Cobertura amplia** de
 
 ## 2. Trabajo en curso AHORA
 
-**Punto 6 · diseño Campus entregado, esperando aprobación.** Se auditó a fondo el Campus existente (mig `0029_campus.sql`, `src/services/api/campus.ts`, `src/modules/campus/`, rutas en `App.tsx`) y se entregó `CAMPUS_DESIGN.md` en la raíz (gap analysis vs DGG-10, deltas de schema, flujos, fases, decisiones abiertas). **Bloqueado en aprobación del usuario + ASSET pendiente (diseño del certificado).** Hallazgo clave: la base de contenido/quiz/progreso es sólida y reutilizable; faltan certificado PDF+QR, condiciones configurables por curso, checklist por matrícula, asistencia y pago; y hay que cerrar el autoservicio actual (DGG-10 exige asignación manual).
+**Punto 6 · Campus Fase 1 implementada, pendiente browser test.** (DGG-10 / DGG-10bis · `CAMPUS_DESIGN.md` §8 Fase 1.) Se construyó sobre la base existente (mig `0029_campus.sql`):
 
-**SIGUIENTE (tras aprobar el diseño): Punto 6 · Campus rebuild (DGG-10).** El QA del Punto 5 + Ronda 6 quedó cerrado y verificado online (ver §2ter y §2bis).
+- **Migración `0045_campus_fase1.sql`** (aplicada + types regenerados):
+  - Cierre del autoservicio: `cursos_select_public` (anon) → `cursos_select_auth` (solo authenticated); `curso_matricular` ahora exige `is_staff()` (ya no auto-matrícula).
+  - Tablas nuevas (RLS + índices FK): `curso_condiciones_config` (el "3+1": examen/asistencia/pago/otra), `matricula_condiciones` (checklist por matrícula), `curso_encuentros` + `curso_encuentro_asistencias` (sincrónicos por encuentro).
+  - RPCs SD: `curso_asignar_alumno` (resuelve el profile del administrador de la administración, materializa el checklist), `matricula_tildar_condicion` (staff; examen es read-only), `curso_registrar_pago` (marca condición pago + asiento de ingreso en `movimientos` tipo `ingreso`, categoría "Cursos / Campus").
+  - Auto-tilde del examen: `matricula_sync_examen` + trigger `AFTER INSERT OR UPDATE OF aprobado` en `examen_intentos`. **Probado en DB** (INSERT y UPDATE).
+- **API `campus.ts`**: `asignarAlumno`, `listCondicionesConfig`/`guardarCondicionesConfig`, `listCondicionesMatricula`, `tildarCondicion`, `listEncuentros`/`crearEncuentro`/`marcarAsistencia`, `registrarPagoCurso`, `listAdministracionesParaAsignar`, `listCajasParaPago`. Se quitó `matricularse` (autoservicio).
+- **UI**: tabs nuevos en `CursoEditorPage` (Condiciones, Encuentros, Alumnos con checklist tildable); `AsignarAlumnoDrawer`, `RegistrarPagoModal`, `CondicionesTab`, `GestionMatriculasTab`, `EncuentrosTab`. Portal alumno: `MisCursosPage` sin catálogo/auto-inscripción; `CursoDetalleAlumnoPage` sin CTA de inscripción + panel "Tu certificado" (checklist de condiciones).
+- **Build limpio** (`tsc --noEmit` + vite). **NO commiteado** — pendiente review + browser test del usuario.
+
+**Fase 2 (NO hecha)**: certificado PDF + QR, motor "certificado listo", email de emisión, página pública `/verificar/:codigo`. Los SVG del certificado NO se tocaron.
 
 <details><summary>Detalle histórico del QA (2026-05-21/22) — para referencia</summary>
 
@@ -247,3 +256,4 @@ Reglas y preferencias que el usuario fue puntualizando durante las sesiones. Deb
 | 2026-05-21 | Punto 5 · **segundo pase L/M** · 13 items (1.B 1.D 1.F 1.H + 2.D 2.G + 4.A 4.C 4.F + 5.B 5.C + 6.A + 7.B) · migración consolidada `0042_p5_resto.sql` + types regenerados + edge `acceso-externo` v2 + Button `variant="tonal"` · build limpio | Punto 5 completo (28 items) | Punto 6 (Campus rebuild) |
 | 2026-05-22 | **QA browser test en vivo** punta a punta (logueado) + DGG-10/11 definidas. 7 bugs reales hallados y arreglados: E-GG-02 (detalle solicitud), flash login, E-GG-03 (archivo iCloud), E-GG-04 (detalle tracking embed self-join), E-GG-05 (acceso externo pgcrypto), E-GG-06 (acceso externo "Sin datos"), E-GG-07 (sesión cae ~1h). Migraciones 0043+0044, edge `acceso-externo` v3. | Punto 5 + Ronda 6 **cerrados y verificados online** | Punto 6 · Campus rebuild |
 | 2026-05-22 | **6 bugs menores arreglados** (sesión refresh, periodo en activar, undo 8s, error in-place tracking, KPI=cosmético, iCloud .gitignore) + **datos de prueba QA eliminados** + docs consolidadas | Entorno limpio · todo verificado online | **Arrancar Campus (DGG-10)** |
+| 2026-05-22 | **Punto 6 · Campus Fase 1** (DGG-10/10bis): mig `0045_campus_fase1.sql` (cierre autoservicio + `curso_condiciones_config` + `matricula_condiciones` + `curso_encuentros`/`_asistencias` + RPCs `curso_asignar_alumno`/`matricula_tildar_condicion`/`curso_registrar_pago` + auto-tilde examen probado en DB) · API + UI (tabs editor + AsignarAlumnoDrawer + RegistrarPagoModal + portal alumno sin autoservicio) · build limpio · types regenerados | Campus Fase 1 implementada, **sin commit** | Browser test del usuario → Fase 2 (certificado PDF+QR+verificación) |

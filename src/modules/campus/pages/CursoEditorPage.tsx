@@ -9,10 +9,8 @@ import {
   Plus,
   Save,
   Trash2,
-  Users,
 } from 'lucide-react';
 import {
-  AnimatedNumber,
   Button,
   Field,
   Input,
@@ -39,7 +37,6 @@ import {
   crearModulo,
   fmtFechaHora,
   getCurso,
-  listMatriculas,
   MODALIDADES,
   MODALIDAD_LABEL,
   setCursoActivo,
@@ -49,32 +46,29 @@ import {
   type CursoClaseRow,
   type CursoDetalle,
   type CursoModuloRow,
-  type MatriculaListItem,
   type Modalidad,
 } from '@/services/api/campus';
 import { ExamenEditor } from '../components/ExamenEditor';
+import { CondicionesTab } from '../components/CondicionesTab';
+import { GestionMatriculasTab } from '../components/GestionMatriculasTab';
+import { EncuentrosTab } from '../components/EncuentrosTab';
 
 // Editor de un curso (gerencia/operadores). Tabs: datos, contenido, exámenes,
 // matrículas.
 export function CursoEditorPage() {
   const { id = '' } = useParams<{ id: string }>();
   const [data, setData] = useState<CursoDetalle | null>(null);
-  const [matriculas, setMatriculas] = useState<MatriculaListItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   const reload = useCallback(async () => {
     setLoading(true);
-    const [d, m] = await Promise.all([
-      getCurso(id),
-      listMatriculas({ cursoId: id }),
-    ]);
+    const d = await getCurso(id);
     setLoading(false);
     if (!d.ok) {
       toast.error(d.error.message);
       return;
     }
     setData(d.data);
-    if (m.ok) setMatriculas(m.data);
   }, [id]);
 
   useEffect(() => {
@@ -98,7 +92,9 @@ export function CursoEditorPage() {
     { key: 'datos', label: 'Datos generales' },
     { key: 'contenido', label: 'Contenido' },
     { key: 'examenes', label: 'Exámenes' },
-    { key: 'matriculas', label: 'Matrículas' },
+    { key: 'condiciones', label: 'Condiciones' },
+    { key: 'encuentros', label: 'Encuentros' },
+    { key: 'matriculas', label: 'Alumnos' },
   ];
   const [activeKey, setActiveKey] = useState('datos');
 
@@ -160,9 +156,9 @@ export function CursoEditorPage() {
             onChanged={reload}
           />
         )}
-        {activeKey === 'matriculas' && (
-          <MatriculasTab matriculas={matriculas} />
-        )}
+        {activeKey === 'condiciones' && <CondicionesTab data={data} />}
+        {activeKey === 'encuentros' && <EncuentrosTab data={data} />}
+        {activeKey === 'matriculas' && <GestionMatriculasTab data={data} />}
       </div>
     </div>
   );
@@ -754,53 +750,4 @@ function ClasePreview({
   );
 }
 
-// ============================================================================
-// Tab: matrículas
-// ============================================================================
-function MatriculasTab({ matriculas }: { matriculas: MatriculaListItem[] }) {
-  return (
-    <div className="card-premium p-5">
-      <header className="mb-3 flex items-center gap-2">
-        <Users size={16} className="text-brand-cyan" />
-        <h2 className="font-display text-lg font-semibold text-brand-ink">
-          Matrículas{' '}
-          <span className="ml-1 text-sm text-brand-muted">
-            (<AnimatedNumber value={matriculas.length} />)
-          </span>
-        </h2>
-      </header>
-      {matriculas.length === 0 ? (
-        <p className="text-sm text-brand-muted">
-          Aún no hay alumnos matriculados a este curso.
-        </p>
-      ) : (
-        <ul className="divide-y divide-slate-100">
-          {matriculas.map((m) => (
-            <li key={m.id} className="flex items-center justify-between py-2 text-sm">
-              <div>
-                <p className="font-semibold text-brand-ink">
-                  {m.alumno_nombre ?? 'Alumno'}
-                </p>
-                <p className="text-xs text-brand-muted">
-                  Vigencia: {m.vigencia_hasta ?? 'sin tope'} ·{' '}
-                  {m.administracion_nombre ?? 'Sin administración'}
-                </p>
-              </div>
-              <span
-                className={cn(
-                  'rounded-full border px-2 py-0.5 text-[11px] font-semibold',
-                  m.estado === 'activa'
-                    ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                    : 'border-slate-200 bg-slate-50 text-slate-700',
-                )}
-              >
-                {m.estado}
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
 

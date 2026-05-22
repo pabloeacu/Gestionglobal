@@ -2,14 +2,17 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
   ArrowLeft,
+  Award,
   BookOpen,
   CheckCircle2,
-  GraduationCap,
+  Circle,
+  Lock,
   ScrollText,
   Video,
 } from 'lucide-react';
-import { Button, Skeleton } from '@/components/common';
+import { Skeleton } from '@/components/common';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
+import { IllustratedEmpty } from '@/components/brand/IllustratedEmpty';
 import { toast } from '@/lib/toast';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
@@ -17,12 +20,13 @@ import { cn } from '@/lib/cn';
 import {
   getCurso,
   getProgresoResumen,
+  listCondicionesMatricula,
   listMatriculas,
   listProgreso,
-  matricularse,
   type CursoDetalle,
   type CursoMatriculaRow,
   type CursoProgresoRow,
+  type MatriculaCondicionItem,
   type ProgresoResumen,
 } from '@/services/api/campus';
 import { ClasePlayer } from '../components/ClasePlayer';
@@ -38,8 +42,8 @@ export function CursoDetalleAlumnoPage() {
   const [matricula, setMatricula] = useState<CursoMatriculaRow | null>(null);
   const [progreso, setProgreso] = useState<CursoProgresoRow[]>([]);
   const [resumen, setResumen] = useState<ProgresoResumen | null>(null);
+  const [condiciones, setCondiciones] = useState<MatriculaCondicionItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [matriculando, setMatriculando] = useState(false);
   const [claseActivaId, setClaseActivaId] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
@@ -61,16 +65,19 @@ export function CursoDetalleAlumnoPage() {
       const found = m.ok && m.data.length > 0 ? m.data[0] : null;
       if (found) {
         setMatricula(found);
-        const [p, r] = await Promise.all([
+        const [p, r, c] = await Promise.all([
           listProgreso(found.id),
           getProgresoResumen(found.id),
+          listCondicionesMatricula(found.id),
         ]);
         if (p.ok) setProgreso(p.data);
         if (r.ok) setResumen(r.data);
+        if (c.ok) setCondiciones(c.data);
       } else {
         setMatricula(null);
         setProgreso([]);
         setResumen(null);
+        setCondiciones([]);
       }
     }
     setLoading(false);
@@ -108,10 +115,11 @@ export function CursoDetalleAlumnoPage() {
     );
   }
 
-  // No matriculado: hero + CTA
+  // DGG-10: sin autoservicio. Si el alumno no tiene matrícula asignada, no
+  // puede auto-inscribirse — sólo ve un mensaje informativo.
   if (!matricula) {
     return (
-      <div className="mx-auto max-w-4xl space-y-6">
+      <div className="mx-auto max-w-2xl space-y-6">
         <Link
           to="/portal/campus"
           className="inline-flex items-center gap-1 text-xs font-medium text-brand-muted hover:text-brand-ink"
@@ -121,46 +129,22 @@ export function CursoDetalleAlumnoPage() {
         <div className="card-premium relative overflow-hidden p-8">
           <TrianglesAccent
             position="top-right"
-            size={220}
+            size={200}
             tone="cyan"
             density="rich"
-            className="opacity-30"
+            className="opacity-25"
           />
-          <div className="relative max-w-2xl">
-            <p className="kicker text-brand-cyan">Campus virtual</p>
-            <h1 className="mt-1 font-display text-3xl font-bold text-brand-ink">
-              {data.curso.titulo}
-            </h1>
-            {data.curso.descripcion && (
-              <p className="mt-3 text-base text-brand-muted">
-                {data.curso.descripcion}
-              </p>
-            )}
-            {data.curso.descripcion_html && (
-              <div
-                className="prose prose-sm mt-4 max-w-none text-brand-ink"
-                // descripcion_html sólo lo edita staff (regla 4); el alumno no
-                // tiene cómo inyectar.
-                dangerouslySetInnerHTML={{ __html: data.curso.descripcion_html }}
-              />
-            )}
-            <Button
-              className="mt-6"
-              loading={matriculando}
-              onClick={async () => {
-                setMatriculando(true);
-                const res = await matricularse(data.curso.id);
-                setMatriculando(false);
-                if (!res.ok) {
-                  toast.error(res.error.message);
-                  return;
-                }
-                toast.success('¡Te inscribiste!');
-                void reload();
-              }}
-            >
-              <GraduationCap size={16} /> Inscribirme al curso
-            </Button>
+          <div className="relative">
+            <IllustratedEmpty
+              illustration="lista"
+              title="No tenés acceso a este curso"
+              description={
+                <>
+                  El acceso al campus lo habilita la gerencia. Si necesitás
+                  cursar “{data.curso.titulo}”, escribile a tu administrador.
+                </>
+              }
+            />
           </div>
         </div>
       </div>
@@ -267,6 +251,9 @@ export function CursoDetalleAlumnoPage() {
 
         {/* Contenido principal */}
         <main className="space-y-6">
+          {condiciones.filter((c) => c.activa).length > 0 && (
+            <CondicionesAlumnoPanel condiciones={condiciones.filter((c) => c.activa)} />
+          )}
           {claseActiva ? (
             <ClasePlayer
               matriculaId={matricula.id}
@@ -334,6 +321,96 @@ export function CursoDetalleAlumnoPage() {
         </main>
       </div>
     </div>
+  );
+}
+
+// Panel motivacional: qué le falta al alumno para el certificado (DGG-10).
+function CondicionesAlumnoPanel({
+  condiciones,
+}: {
+  condiciones: MatriculaCondicionItem[];
+}) {
+  const cumplidas = condiciones.filter((c) => c.cumplida).length;
+  const total = condiciones.length;
+  const todasOk = cumplidas === total;
+  const pendientes = condiciones.filter((c) => !c.cumplida);
+
+  return (
+    <section
+      className={cn(
+        'card-premium relative overflow-hidden p-5',
+        todasOk && 'ring-1 ring-emerald-200',
+      )}
+    >
+      <header className="mb-3 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <Award
+            size={16}
+            className={todasOk ? 'text-emerald-600' : 'text-brand-cyan'}
+          />
+          <h2 className="font-display text-lg font-semibold text-brand-ink">
+            Tu certificado
+          </h2>
+        </div>
+        <span
+          className={cn(
+            'rounded-full border px-2.5 py-1 text-[11px] font-semibold',
+            todasOk
+              ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+              : 'border-brand-cyan/20 bg-brand-cyan/10 text-brand-cyan',
+          )}
+        >
+          {cumplidas}/{total} cumplidas
+        </span>
+      </header>
+
+      {todasOk ? (
+        <p className="text-sm text-emerald-700">
+          ¡Cumpliste todas las condiciones! Tu certificado va a estar disponible
+          en breve.
+        </p>
+      ) : (
+        <p className="text-sm text-brand-muted">
+          Te falta:{' '}
+          <strong className="text-brand-ink">
+            {pendientes.map((c) => c.etiqueta).join(' · ')}
+          </strong>
+        </p>
+      )}
+
+      <ul className="mt-3 space-y-1.5">
+        {condiciones.map((c) => (
+          <li
+            key={c.id}
+            className="flex items-center gap-2 rounded-lg bg-brand-zebra/40 px-3 py-2 text-sm"
+          >
+            {c.cumplida ? (
+              <CheckCircle2 size={16} className="shrink-0 text-emerald-600" />
+            ) : (
+              <Circle size={16} className="shrink-0 text-slate-300" />
+            )}
+            <span
+              className={cn(
+                'flex-1',
+                c.cumplida ? 'text-brand-ink' : 'text-brand-muted',
+              )}
+            >
+              {c.etiqueta}
+            </span>
+            {c.tipo === 'examen' && (
+              <span className="inline-flex shrink-0 items-center gap-1 text-[11px] text-brand-muted">
+                <Lock size={11} /> Automática
+              </span>
+            )}
+            {!c.cumplida && c.tipo !== 'examen' && (
+              <span className="shrink-0 text-[11px] text-amber-600">
+                Pendiente de verificación
+              </span>
+            )}
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 

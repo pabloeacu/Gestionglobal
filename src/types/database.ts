@@ -1463,6 +1463,156 @@ export type Database = {
           },
         ]
       }
+      curso_condiciones_config: {
+        Row: {
+          activa: boolean
+          automatica: boolean
+          created_at: string
+          curso_id: string
+          etiqueta: string
+          examen_id: string | null
+          id: string
+          obligatoria: boolean
+          orden: number
+          tipo: string
+          updated_at: string
+        }
+        Insert: {
+          activa?: boolean
+          automatica?: boolean
+          created_at?: string
+          curso_id: string
+          etiqueta: string
+          examen_id?: string | null
+          id?: string
+          obligatoria?: boolean
+          orden?: number
+          tipo: string
+          updated_at?: string
+        }
+        Update: {
+          activa?: boolean
+          automatica?: boolean
+          created_at?: string
+          curso_id?: string
+          etiqueta?: string
+          examen_id?: string | null
+          id?: string
+          obligatoria?: boolean
+          orden?: number
+          tipo?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "curso_condiciones_config_curso_id_fkey"
+            columns: ["curso_id"]
+            isOneToOne: false
+            referencedRelation: "cursos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "curso_condiciones_config_examen_id_fkey"
+            columns: ["examen_id"]
+            isOneToOne: false
+            referencedRelation: "curso_examenes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      curso_encuentro_asistencias: {
+        Row: {
+          encuentro_id: string
+          id: string
+          marcada_at: string
+          marcada_por: string | null
+          matricula_id: string
+          presente: boolean
+        }
+        Insert: {
+          encuentro_id: string
+          id?: string
+          marcada_at?: string
+          marcada_por?: string | null
+          matricula_id: string
+          presente?: boolean
+        }
+        Update: {
+          encuentro_id?: string
+          id?: string
+          marcada_at?: string
+          marcada_por?: string | null
+          matricula_id?: string
+          presente?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "curso_encuentro_asistencias_encuentro_id_fkey"
+            columns: ["encuentro_id"]
+            isOneToOne: false
+            referencedRelation: "curso_encuentros"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "curso_encuentro_asistencias_marcada_por_fkey"
+            columns: ["marcada_por"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "curso_encuentro_asistencias_matricula_id_fkey"
+            columns: ["matricula_id"]
+            isOneToOne: false
+            referencedRelation: "curso_matriculas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      curso_encuentros: {
+        Row: {
+          created_at: string
+          curso_id: string
+          descripcion: string | null
+          fecha_hora: string | null
+          id: string
+          link_zoom: string | null
+          orden: number
+          titulo: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          curso_id: string
+          descripcion?: string | null
+          fecha_hora?: string | null
+          id?: string
+          link_zoom?: string | null
+          orden?: number
+          titulo: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          curso_id?: string
+          descripcion?: string | null
+          fecha_hora?: string | null
+          id?: string
+          link_zoom?: string | null
+          orden?: number
+          titulo?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "curso_encuentros_curso_id_fkey"
+            columns: ["curso_id"]
+            isOneToOne: false
+            referencedRelation: "cursos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       curso_examenes: {
         Row: {
           created_at: string
@@ -2716,6 +2866,64 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      matricula_condiciones: {
+        Row: {
+          condicion_id: string
+          created_at: string
+          cumplida: boolean
+          cumplida_at: string | null
+          cumplida_por: string | null
+          id: string
+          matricula_id: string
+          observaciones: string | null
+          updated_at: string
+        }
+        Insert: {
+          condicion_id: string
+          created_at?: string
+          cumplida?: boolean
+          cumplida_at?: string | null
+          cumplida_por?: string | null
+          id?: string
+          matricula_id: string
+          observaciones?: string | null
+          updated_at?: string
+        }
+        Update: {
+          condicion_id?: string
+          created_at?: string
+          cumplida?: boolean
+          cumplida_at?: string | null
+          cumplida_por?: string | null
+          id?: string
+          matricula_id?: string
+          observaciones?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "matricula_condiciones_condicion_id_fkey"
+            columns: ["condicion_id"]
+            isOneToOne: false
+            referencedRelation: "curso_condiciones_config"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "matricula_condiciones_cumplida_por_fkey"
+            columns: ["cumplida_por"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "matricula_condiciones_matricula_id_fkey"
+            columns: ["matricula_id"]
+            isOneToOne: false
+            referencedRelation: "curso_matriculas"
             referencedColumns: ["id"]
           },
         ]
@@ -5000,6 +5208,14 @@ export type Database = {
           total_facturado: number
         }[]
       }
+      curso_asignar_alumno: {
+        Args: {
+          p_administracion_id: string
+          p_curso_id: string
+          p_profile_id?: string
+        }
+        Returns: string
+      }
       curso_marcar_clase_completada: {
         Args: { p_clase_id: string; p_matricula_id: string }
         Returns: undefined
@@ -5014,6 +5230,15 @@ export type Database = {
       }
       curso_progreso_resumen: {
         Args: { p_matricula_id: string }
+        Returns: Json
+      }
+      curso_registrar_pago: {
+        Args: {
+          p_caja_id: string
+          p_matricula_id: string
+          p_monto: number
+          p_observaciones?: string
+        }
         Returns: Json
       }
       curso_responder_examen: {
@@ -5187,6 +5412,18 @@ export type Database = {
       marcar_renovado: {
         Args: { p_nueva_fecha_vencimiento: string; p_vencimiento_id: string }
         Returns: string
+      }
+      matricula_sync_examen: {
+        Args: { p_matricula_id: string }
+        Returns: undefined
+      }
+      matricula_tildar_condicion: {
+        Args: {
+          p_cumplida: boolean
+          p_matricula_condicion_id: string
+          p_observaciones?: string
+        }
+        Returns: undefined
       }
       normalizar_nombre: { Args: { p: string }; Returns: string }
       partner_anular_rendicion: {

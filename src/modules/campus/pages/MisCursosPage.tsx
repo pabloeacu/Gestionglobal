@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { GraduationCap, Sparkles } from 'lucide-react';
+import { GraduationCap } from 'lucide-react';
 import { Skeleton } from '@/components/common';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import { IllustratedEmpty } from '@/components/brand/IllustratedEmpty';
@@ -10,45 +10,33 @@ import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
 import { cn } from '@/lib/cn';
 import {
   getProgresoResumen,
-  listCursos,
   listMatriculas,
   MATRICULA_ESTADO_BADGE,
   MATRICULA_ESTADO_LABEL,
-  type CursoListItem,
   type MatriculaListItem,
   type MatriculaEstado,
   type ProgresoResumen,
 } from '@/services/api/campus';
 import { ProgresoBar } from '../components/ProgresoBar';
-import { CursoCard } from '../components/CursoCard';
 
-// "Mis cursos" para el alumno (portal). Muestra matrículas con su progreso
-// y abajo un catálogo de cursos disponibles para inscribirse.
+// "Mis cursos" para el alumno (portal). DGG-10: sin autoservicio — el alumno
+// solo ve los cursos que la gerencia le asignó (no hay catálogo abierto).
 export function MisCursosPage() {
   const user = useCurrentUser();
   const [matriculas, setMatriculas] = useState<MatriculaListItem[]>([]);
   const [progresos, setProgresos] = useState<Record<string, ProgresoResumen>>({});
-  const [catalogo, setCatalogo] = useState<CursoListItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   async function load() {
     if (!user) return;
     setLoading(true);
-    const [m, c] = await Promise.all([
-      listMatriculas({ profileId: user.id }),
-      listCursos({ soloActivos: true }),
-    ]);
+    const m = await listMatriculas({ profileId: user.id });
     setLoading(false);
     if (!m.ok) {
       toast.error(`No pudimos cargar tus cursos: ${m.error.message}`);
       return;
     }
     setMatriculas(m.data);
-    if (c.ok) {
-      // Cursos donde NO está matriculado todavía.
-      const ids = new Set(m.data.map((x) => x.curso?.id));
-      setCatalogo(c.data.filter((x) => !ids.has(x.id)));
-    }
 
     // Resúmenes en paralelo.
     const entries = await Promise.all(
@@ -80,8 +68,8 @@ export function MisCursosPage() {
           Mis cursos
         </h1>
         <p className="mt-1 text-sm text-brand-muted">
-          Acá vas a ver los cursos a los que estás inscripto y los disponibles
-          para sumar.
+          Acá vas a ver los cursos que tu gestión te habilitó. El acceso lo
+          asigna la gerencia.
         </p>
       </header>
 
@@ -103,10 +91,10 @@ export function MisCursosPage() {
           ) : matriculas.length === 0 ? (
             <IllustratedEmpty
               illustration="lista"
-              title="Todavía no tenés cursos"
+              title="Todavía no tenés cursos asignados"
               description={
                 <>
-                  Explorá el catálogo de abajo y sumate a la formación continua.
+                  Cuando tu administrador te habilite un curso, lo vas a ver acá.
                 </>
               }
             />
@@ -155,27 +143,6 @@ export function MisCursosPage() {
           )}
         </div>
       </section>
-
-      {/* Catálogo */}
-      {catalogo.length > 0 && (
-        <section className="space-y-3">
-          <header className="flex items-center gap-2">
-            <Sparkles size={16} className="text-brand-cyan" />
-            <h2 className="font-display text-lg font-semibold text-brand-ink">
-              Cursos disponibles
-            </h2>
-          </header>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {catalogo.map((c) => (
-              <CursoCard
-                key={c.id}
-                curso={c}
-                to={`/portal/campus/${c.slug}`}
-              />
-            ))}
-          </div>
-        </section>
-      )}
     </div>
   );
 }
