@@ -16,6 +16,7 @@ export { CampusListPage } from './pages/CampusListPage';
 export { CursoEditorPage } from './pages/CursoEditorPage';
 export { CursoDetalleAlumnoPage } from './pages/CursoDetalleAlumnoPage';
 export { MisCursosPage } from './pages/MisCursosPage';
+export { VerificarCertificadoPage } from './pages/VerificarCertificadoPage';
 
 export { CursoCard } from './components/CursoCard';
 export { ClasePlayer } from './components/ClasePlayer';

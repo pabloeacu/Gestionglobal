@@ -1163,6 +1163,118 @@ export async function listCajasParaPago(): Promise<ApiResponse<CajaParaPago[]>> 
 }
 
 // ============================================================================
+// Fase 2 · Certificados verificables (DGG-10)
+// ============================================================================
+export type CertificadoRow = Database['public']['Tables']['certificados']['Row'];
+
+export interface CertificadoSnapshot {
+  alumno_nombre?: string;
+  curso_titulo?: string;
+  instructor_nombre?: string | null;
+  duracion_horas?: number | null;
+  nota_examen?: number | null;
+  emitido_at?: string;
+}
+
+// Datos que el render del PDF necesita (snapshot + campos de la fila).
+export interface CertificadoParaPdf {
+  id: string;
+  codigo: string;
+  tema: number;
+  alumno_nombre: string;
+  curso_titulo: string;
+  instructor_nombre: string | null;
+  nota_examen: number | null;
+  emitido_at: string;
+  duracion_horas: number | null;
+}
+
+export function certificadoParaPdf(c: CertificadoRow): CertificadoParaPdf {
+  const snap = (c.payload_snapshot ?? {}) as CertificadoSnapshot;
+  return {
+    id: c.id,
+    codigo: c.codigo,
+    tema: c.tema,
+    alumno_nombre: snap.alumno_nombre ?? 'Alumno',
+    curso_titulo: snap.curso_titulo ?? '',
+    instructor_nombre: c.instructor_nombre ?? snap.instructor_nombre ?? null,
+    nota_examen: c.nota_examen !== null ? Number(c.nota_examen) : null,
+    emitido_at: c.emitido_at,
+    duracion_horas: snap.duracion_horas ?? null,
+  };
+}
+
+// Certificado de una matrícula (o null si todavía no se emitió).
+export async function getCertificadoMatricula(
+  matriculaId: string,
+): Promise<ApiResponse<CertificadoRow | null>> {
+  const { data, error } = await supabase
+    .from('certificados')
+    .select('*')
+    .eq('matricula_id', matriculaId)
+    .maybeSingle();
+  if (error) return fail('CERT_GET', error.message, error);
+  return ok(data ?? null);
+}
+
+// Mapa matrícula → certificado, para la lista de gerencia (una sola query).
+export async function listCertificadosPorCurso(
+  cursoId: string,
+): Promise<ApiResponse<Record<string, CertificadoRow>>> {
+  const { data, error } = await supabase
+    .from('certificados')
+    .select('*')
+    .eq('curso_id', cursoId);
+  if (error) return fail('CERT_LIST', error.message, error);
+  const acc: Record<string, CertificadoRow> = {};
+  for (const c of data ?? []) acc[c.matricula_id] = c;
+  return ok(acc);
+}
+
+// Emisión manual desde gerencia (idempotente; el motor también la dispara).
+export async function emitirCertificado(
+  matriculaId: string,
+): Promise<ApiResponse<string>> {
+  const { data, error } = await supabase.rpc('emitir_certificado', {
+    p_matricula_id: matriculaId,
+  });
+  if (error) return fail('CERT_EMITIR', error.message, error);
+  return ok(data as string);
+}
+
+export interface VerificacionResultado {
+  valido: boolean;
+  estado: 'valido' | 'revocado' | 'no_encontrado';
+  codigo?: string;
+  alumno_nombre?: string;
+  curso_titulo?: string;
+  instructor_nombre?: string | null;
+  nota_examen?: number | null;
+  emitido_at?: string;
+  revocado_motivo?: string | null;
+}
+
+// Verificación pública (sin login). RPC SECURITY DEFINER ejecutable por anon.
+export async function verificarCertificado(
+  codigo: string,
+): Promise<ApiResponse<VerificacionResultado>> {
+  const { data, error } = await supabase.rpc('verificar_certificado', {
+    p_codigo: codigo,
+  });
+  if (error) return fail('CERT_VERIFICAR', error.message, error);
+  return ok(data as unknown as VerificacionResultado);
+}
+
+// URL pública de verificación (origin actual o el dominio de producción).
+export function verificacionUrl(codigo: string): string {
+  const origin =
+    typeof window !== 'undefined' && window.location?.origin
+      ? window.location.origin
+      : 'https://gestionglobal.ar';
+  return `${origin}/verificar/${codigo}`;
+}
+
+// ============================================================================
 // Helpers UI
 // ============================================================================
 export function youtubeIdFromUrl(url: string | null | undefined): string | null {

@@ -38,6 +38,7 @@ const CampusListPage = lazy(() => import('@/modules/campus').then(m => ({ defaul
 const CursoEditorPage = lazy(() => import('@/modules/campus').then(m => ({ default: m.CursoEditorPage })));
 const CursoDetalleAlumnoPage = lazy(() => import('@/modules/campus').then(m => ({ default: m.CursoDetalleAlumnoPage })));
 const MisCursosPage = lazy(() => import('@/modules/campus').then(m => ({ default: m.MisCursosPage })));
+const VerificarCertificadoPage = lazy(() => import('@/modules/campus').then(m => ({ default: m.VerificarCertificadoPage })));
 const ReportesHubPage = lazy(() => import('@/modules/reportes').then(m => ({ default: m.ReportesHubPage })));
 const ImportadorPage = lazy(() => import('@/modules/reportes').then(m => ({ default: m.ImportadorPage })));
 const CtaCteListPage = lazy(() => import('@/modules/cta_cte').then(m => ({ default: m.CtaCteListPage })));
@@ -131,6 +132,7 @@ export function App() {
         <Route path="/ingresar" element={<LoginPage />} />
         <Route path="/formulario/:slug" element={<FormularioPublicoPage />} />
         <Route path="/externo/:token" element={<AccesoExternoPage />} />
+        <Route path="/verificar/:codigo" element={<VerificarCertificadoPage />} />
 
         <Route
           path="/gerencia"

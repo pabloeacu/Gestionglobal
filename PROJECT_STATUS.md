@@ -4,8 +4,8 @@
 >
 > **Mantenimiento**: actualizar después de cada chunk de trabajo verificado y cerrado. No esperar al final. Si un paso se postergó, registrarlo abajo en "Pateado para el final".
 
-**Última actualización**: 2026-05-22 (Punto 6 · Campus Fase 1 implementada · mig 0045 aplicada + types + build limpio · pendiente browser test · NO commiteada)
-**Sesión actual**: Campus Fase 1 (DGG-10): cierre autoservicio + asignación manual + condiciones + encuentros + pago→asiento
+**Última actualización**: 2026-05-22 (Punto 6 · **Campus Fase 2 implementada** · mig 0046 aplicada + types + build limpio · **pendiente browser test** · NO commiteada)
+**Sesión actual**: Campus Fase 2 (DGG-10): certificado verificable (PDF+QR, jsPDF client-side) + motor "certificado listo" (trigger + cron) + email + página pública `/verificar/:codigo`
 
 ---
 
@@ -115,7 +115,19 @@ Se construyó sobre la base existente (mig `0029_campus.sql`):
 - **UI**: tabs nuevos en `CursoEditorPage` (Condiciones, Encuentros, Alumnos con checklist tildable); `AsignarAlumnoDrawer`, `RegistrarPagoModal`, `CondicionesTab`, `GestionMatriculasTab`, `EncuentrosTab`. Portal alumno: `MisCursosPage` sin catálogo/auto-inscripción; `CursoDetalleAlumnoPage` sin CTA de inscripción + panel "Tu certificado" (checklist de condiciones).
 - **Build limpio** (`tsc --noEmit` + vite). **NO commiteado** — pendiente review + browser test del usuario.
 
-**Fase 2 (NO hecha)**: certificado PDF + QR, motor "certificado listo", email de emisión, página pública `/verificar/:codigo`. Los SVG del certificado NO se tocaron.
+**Fase 2 · Certificado verificable (IMPLEMENTADA 2026-05-22, pendiente browser test):**
+- **Migración `0046_campus_certificados.sql`** (aplicada + types regenerados):
+  - Tabla `certificados` (un cert por matrícula `UNIQUE(matricula_id)`, `codigo` legible `GG-CURS-2026-XXXXXX`, `verificacion_hash` HMAC-sha256 con secret en `private.campus_secrets`, `payload_snapshot` congelado, `tema` 1..4, `nota_examen`, `pdf_storage_path` null, `enviado_email_at`, `revocado_at`). RLS: staff ve/maneja, alumno ve los suyos. Índices FK + UNIQUE.
+  - Bucket privado `certificados` (políticas staff + alumno-read por path `<cert_id>/%`). En el MVP el PDF se genera al vuelo (no se sube); el bucket queda listo para persistir luego.
+  - RPCs SD: `emitir_certificado(p_matricula_id)` (valida TODAS las condiciones activas cumplidas, idempotente), `emitir_certificado_si_corresponde` (silenciosa, para triggers/cron), `verificar_certificado(p_codigo)` (**pública/anon**, solo datos no sensibles), `revocar_certificado` (staff).
+  - **Motor "certificado listo"**: disparo por evento (trigger `AFTER UPDATE OF cumplida` en `matricula_condiciones` + `matricula_sync_examen` al aprobar examen) → emite en el acto al cumplir la última condición. **Cron `gg-campus-certificados` cada 5 min** como backstop (`gg_campus_emitir_certificados_pendientes`). Al emitir encola email `certificado-emitido`.
+  - **Fix tenancy**: `encolar_email` se llama con `administracion_id = NULL` (el cron/trigger no tiene `auth.uid()`; el guard per-admin lo denegaría). El vínculo queda por `related_table/related_id`.
+- **Render PDF: client-side con jsPDF + `qrcode`** (lib agregada). Recreado a vector (apaisado A4, banda por tema, sello dorado, leyenda legal FU.DE.CO.IN/Ley 14.701/Dec 1734-22/Disp 27-23, doble firma Parente/Acuña, QR a `/verificar/:codigo`, código + nota). **NO se reusa el SVG/PNG FUNDPLATA** (texto vectorizado/horneado — DGG-10bis); los campos dinámicos son texto real. `src/modules/campus/lib/generateCertificadoPdf.ts`.
+- **Página pública `/verificar/:codigo`** (`VerificarCertificadoPage`, ruta fuera de gerencia/portal en `App.tsx`): estados válido/revocado/no-encontrado, datos del egresado, branding GG, mobile-first.
+- **UI**: portal alumno (`CursoDetalleAlumnoPage`) panel "¡Listo! Descargá tu certificado" + botón PDF + link verificación cuando está emitido; gerencia (`GestionMatriculasTab`) badge "Certificado emitido" + ver/descargar, o botón "Emitir certificado" si las condiciones están todas cumplidas y el motor aún no lo emitió.
+- **Email `certificado-emitido`** (casilla cursos) seedeado.
+- **Verificado en BD (transacción con rollback)**: tildar las 2 condiciones de la matrícula Sol y Luna → trigger emite cert + encola email + `verificar_certificado(codigo)` devuelve válido. La BD quedó intacta (0/2, sin cert) para el browser test del usuario.
+- **Build limpio** (`tsc --noEmit` + vite). **NO commiteado**.
 
 <details><summary>Detalle histórico del QA (2026-05-21/22) — para referencia</summary>
 

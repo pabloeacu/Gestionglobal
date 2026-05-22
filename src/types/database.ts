@@ -949,6 +949,98 @@ export type Database = {
         }
         Relationships: []
       }
+      certificados: {
+        Row: {
+          administracion_id: string | null
+          alumno_profile_id: string
+          codigo: string
+          created_at: string
+          curso_id: string
+          emitido_at: string
+          enviado_email_at: string | null
+          id: string
+          instructor_nombre: string | null
+          matricula_id: string
+          nota_examen: number | null
+          payload_snapshot: Json
+          pdf_storage_path: string | null
+          revocado_at: string | null
+          revocado_motivo: string | null
+          tema: number
+          updated_at: string
+          verificacion_hash: string
+        }
+        Insert: {
+          administracion_id?: string | null
+          alumno_profile_id: string
+          codigo: string
+          created_at?: string
+          curso_id: string
+          emitido_at?: string
+          enviado_email_at?: string | null
+          id?: string
+          instructor_nombre?: string | null
+          matricula_id: string
+          nota_examen?: number | null
+          payload_snapshot?: Json
+          pdf_storage_path?: string | null
+          revocado_at?: string | null
+          revocado_motivo?: string | null
+          tema?: number
+          updated_at?: string
+          verificacion_hash: string
+        }
+        Update: {
+          administracion_id?: string | null
+          alumno_profile_id?: string
+          codigo?: string
+          created_at?: string
+          curso_id?: string
+          emitido_at?: string
+          enviado_email_at?: string | null
+          id?: string
+          instructor_nombre?: string | null
+          matricula_id?: string
+          nota_examen?: number | null
+          payload_snapshot?: Json
+          pdf_storage_path?: string | null
+          revocado_at?: string | null
+          revocado_motivo?: string | null
+          tema?: number
+          updated_at?: string
+          verificacion_hash?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "certificados_administracion_id_fkey"
+            columns: ["administracion_id"]
+            isOneToOne: false
+            referencedRelation: "administraciones"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "certificados_alumno_profile_id_fkey"
+            columns: ["alumno_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "certificados_curso_id_fkey"
+            columns: ["curso_id"]
+            isOneToOne: false
+            referencedRelation: "cursos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "certificados_matricula_id_fkey"
+            columns: ["matricula_id"]
+            isOneToOne: true
+            referencedRelation: "curso_matriculas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       comprobante_avisos_vencimiento: {
         Row: {
           comprobante_id: string
@@ -5257,6 +5349,11 @@ export type Database = {
         }
         Returns: string
       }
+      emitir_certificado: { Args: { p_matricula_id: string }; Returns: string }
+      emitir_certificado_si_corresponde: {
+        Args: { p_matricula_id: string }
+        Returns: string
+      }
       emitir_comprobante_manual: {
         Args: {
           p_administracion_id: string
@@ -5348,6 +5445,11 @@ export type Database = {
       gg_agenda_seed_default_categories: {
         Args: { p_owner: string }
         Returns: undefined
+      }
+      gg_campus_emitir_certificados_pendientes: { Args: never; Returns: number }
+      gg_campus_tema_certificado: {
+        Args: { p_curso_id: string }
+        Returns: number
       }
       gg_vencimientos_planificar_alertas: {
         Args: { p_fecha?: string }
@@ -5508,6 +5610,10 @@ export type Database = {
       }
       restaurar_solicitud: { Args: { p_solicitud_id: string }; Returns: string }
       revocar_acceso_externo: { Args: { p_token: string }; Returns: undefined }
+      revocar_certificado: {
+        Args: { p_id: string; p_motivo: string }
+        Returns: undefined
+      }
       solicitud_activar: {
         Args: {
           p_cliente_id?: string
@@ -5620,6 +5726,7 @@ export type Database = {
         Args: { p_tramite_id: string }
         Returns: undefined
       }
+      verificar_certificado: { Args: { p_codigo: string }; Returns: Json }
     }
     Enums: {
       [_ in never]: never

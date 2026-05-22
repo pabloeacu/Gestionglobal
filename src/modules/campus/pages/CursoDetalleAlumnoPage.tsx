@@ -6,8 +6,11 @@ import {
   BookOpen,
   CheckCircle2,
   Circle,
+  Download,
+  Loader2,
   Lock,
   ScrollText,
+  ShieldCheck,
   Video,
 } from 'lucide-react';
 import { Skeleton } from '@/components/common';
@@ -18,17 +21,22 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
 import { cn } from '@/lib/cn';
 import {
+  certificadoParaPdf,
+  getCertificadoMatricula,
   getCurso,
   getProgresoResumen,
   listCondicionesMatricula,
   listMatriculas,
   listProgreso,
+  verificacionUrl,
+  type CertificadoRow,
   type CursoDetalle,
   type CursoMatriculaRow,
   type CursoProgresoRow,
   type MatriculaCondicionItem,
   type ProgresoResumen,
 } from '@/services/api/campus';
+import { generateCertificadoPdf } from '../lib/generateCertificadoPdf';
 import { ClasePlayer } from '../components/ClasePlayer';
 import { ExamenRunner } from '../components/ExamenRunner';
 import { ProgresoBar } from '../components/ProgresoBar';
@@ -43,6 +51,7 @@ export function CursoDetalleAlumnoPage() {
   const [progreso, setProgreso] = useState<CursoProgresoRow[]>([]);
   const [resumen, setResumen] = useState<ProgresoResumen | null>(null);
   const [condiciones, setCondiciones] = useState<MatriculaCondicionItem[]>([]);
+  const [certificado, setCertificado] = useState<CertificadoRow | null>(null);
   const [loading, setLoading] = useState(true);
   const [claseActivaId, setClaseActivaId] = useState<string | null>(null);
 
@@ -65,19 +74,22 @@ export function CursoDetalleAlumnoPage() {
       const found = m.ok && m.data.length > 0 ? m.data[0] : null;
       if (found) {
         setMatricula(found);
-        const [p, r, c] = await Promise.all([
+        const [p, r, c, cert] = await Promise.all([
           listProgreso(found.id),
           getProgresoResumen(found.id),
           listCondicionesMatricula(found.id),
+          getCertificadoMatricula(found.id),
         ]);
         if (p.ok) setProgreso(p.data);
         if (r.ok) setResumen(r.data);
         if (c.ok) setCondiciones(c.data);
+        if (cert.ok) setCertificado(cert.data);
       } else {
         setMatricula(null);
         setProgreso([]);
         setResumen(null);
         setCondiciones([]);
+        setCertificado(null);
       }
     }
     setLoading(false);
@@ -87,7 +99,10 @@ export function CursoDetalleAlumnoPage() {
     void reload();
   }, [reload]);
 
-  useRealtimeRefresh(['curso_progreso', 'examen_intentos'], () => void reload());
+  useRealtimeRefresh(
+    ['curso_progreso', 'examen_intentos', 'matricula_condiciones', 'certificados'],
+    () => void reload(),
+  );
 
   const completadasSet = useMemo(
     () => new Set(progreso.filter((p) => p.completada).map((p) => p.clase_id)),
@@ -251,8 +266,11 @@ export function CursoDetalleAlumnoPage() {
 
         {/* Contenido principal */}
         <main className="space-y-6">
-          {condiciones.filter((c) => c.activa).length > 0 && (
-            <CondicionesAlumnoPanel condiciones={condiciones.filter((c) => c.activa)} />
+          {(condiciones.filter((c) => c.activa).length > 0 || certificado) && (
+            <CondicionesAlumnoPanel
+              condiciones={condiciones.filter((c) => c.activa)}
+              certificado={certificado}
+            />
           )}
           {claseActiva ? (
             <ClasePlayer
@@ -325,15 +343,83 @@ export function CursoDetalleAlumnoPage() {
 }
 
 // Panel motivacional: qué le falta al alumno para el certificado (DGG-10).
+// Si ya está emitido, muestra el botón de descarga + link de verificación.
 function CondicionesAlumnoPanel({
   condiciones,
+  certificado,
 }: {
   condiciones: MatriculaCondicionItem[];
+  certificado: CertificadoRow | null;
 }) {
+  const [descargando, setDescargando] = useState(false);
   const cumplidas = condiciones.filter((c) => c.cumplida).length;
   const total = condiciones.length;
-  const todasOk = cumplidas === total;
+  const todasOk = total > 0 && cumplidas === total;
   const pendientes = condiciones.filter((c) => !c.cumplida);
+
+  async function onDescargar() {
+    if (!certificado) return;
+    setDescargando(true);
+    try {
+      await generateCertificadoPdf(certificadoParaPdf(certificado));
+    } catch {
+      toast.error('No pudimos generar el PDF. Probá de nuevo.');
+    } finally {
+      setDescargando(false);
+    }
+  }
+
+  // Estado emitido: "¡Listo! Descargá tu certificado".
+  if (certificado) {
+    return (
+      <section className="card-premium relative overflow-hidden p-5 ring-1 ring-emerald-200">
+        <TrianglesAccent
+          position="top-right"
+          size={140}
+          tone="cyan"
+          density="soft"
+          className="opacity-20"
+        />
+        <div className="relative">
+          <header className="mb-2 flex items-center gap-2">
+            <Award size={18} className="text-emerald-600" />
+            <h2 className="font-display text-lg font-semibold text-brand-ink">
+              ¡Listo! Descargá tu certificado
+            </h2>
+          </header>
+          <p className="text-sm text-brand-muted">
+            Completaste todas las condiciones del curso. Tu certificado ya está
+            emitido y es verificable.
+          </p>
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <button
+              onClick={() => void onDescargar()}
+              disabled={descargando}
+              className="inline-flex items-center gap-2 rounded-lg bg-brand-cyan px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-cyan/90 disabled:opacity-60"
+            >
+              {descargando ? (
+                <Loader2 size={15} className="animate-spin" />
+              ) : (
+                <Download size={15} />
+              )}
+              Descargar certificado (PDF)
+            </button>
+            <a
+              href={verificacionUrl(certificado.codigo)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-brand-cyan hover:underline"
+            >
+              <ShieldCheck size={14} /> Verificar autenticidad
+            </a>
+          </div>
+          <p className="mt-3 font-mono text-[11px] text-brand-muted">
+            Código: {certificado.codigo}
+          </p>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section

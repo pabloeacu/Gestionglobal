@@ -5,8 +5,10 @@ import {
   Check,
   CheckCircle2,
   Circle,
+  Download,
   Lock,
   Loader2,
+  ShieldCheck,
   UserPlus,
   Users,
 } from 'lucide-react';
@@ -15,15 +17,21 @@ import { toast } from '@/lib/toast';
 import { cn } from '@/lib/cn';
 import {
   CONDICION_TIPO_LABEL,
+  certificadoParaPdf,
+  emitirCertificado,
   fmtFecha,
+  listCertificadosPorCurso,
   listCondicionesMatricula,
   listMatriculas,
   tildarCondicion,
+  verificacionUrl,
+  type CertificadoRow,
   type CondicionTipo,
   type CursoDetalle,
   type MatriculaCondicionItem,
   type MatriculaListItem,
 } from '@/services/api/campus';
+import { generateCertificadoPdf } from '../lib/generateCertificadoPdf';
 import { AsignarAlumnoDrawer } from './AsignarAlumnoDrawer';
 import { RegistrarPagoModal } from './RegistrarPagoModal';
 
@@ -35,6 +43,10 @@ export function GestionMatriculasTab({ data }: { data: CursoDetalle }) {
   const [condiciones, setCondiciones] = useState<
     Record<string, MatriculaCondicionItem[]>
   >({});
+  const [certificados, setCertificados] = useState<Record<string, CertificadoRow>>(
+    {},
+  );
+  const [emitiendo, setEmitiendo] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [pagoTarget, setPagoTarget] = useState<MatriculaListItem | null>(null);
@@ -48,17 +60,41 @@ export function GestionMatriculasTab({ data }: { data: CursoDetalle }) {
       return;
     }
     setMatriculas(m.data);
-    const pares = await Promise.all(
-      m.data.map(async (mm) => {
-        const c = await listCondicionesMatricula(mm.id);
-        return [mm.id, c.ok ? c.data : []] as const;
-      }),
-    );
+    const [pares, certs] = await Promise.all([
+      Promise.all(
+        m.data.map(async (mm) => {
+          const c = await listCondicionesMatricula(mm.id);
+          return [mm.id, c.ok ? c.data : []] as const;
+        }),
+      ),
+      listCertificadosPorCurso(data.curso.id),
+    ]);
     const acc: Record<string, MatriculaCondicionItem[]> = {};
     for (const [k, v] of pares) acc[k] = v;
     setCondiciones(acc);
+    setCertificados(certs.ok ? certs.data : {});
     setLoading(false);
   }, [data.curso.id]);
+
+  async function onEmitir(matriculaId: string) {
+    setEmitiendo(matriculaId);
+    const res = await emitirCertificado(matriculaId);
+    setEmitiendo(null);
+    if (!res.ok) {
+      toast.error(res.error.message);
+      return;
+    }
+    toast.success('Certificado emitido');
+    void load();
+  }
+
+  async function onDescargar(cert: CertificadoRow) {
+    try {
+      await generateCertificadoPdf(certificadoParaPdf(cert));
+    } catch {
+      toast.error('No pudimos generar el PDF.');
+    }
+  }
 
   useEffect(() => {
     void load();
@@ -127,6 +163,7 @@ export function GestionMatriculasTab({ data }: { data: CursoDetalle }) {
               const total = conds.length;
               const cumplidas = conds.filter((c) => c.cumplida).length;
               const todasOk = total > 0 && cumplidas === total;
+              const cert = certificados[m.id] ?? null;
               return (
                 <li
                   key={m.id}
@@ -142,7 +179,11 @@ export function GestionMatriculasTab({ data }: { data: CursoDetalle }) {
                         {fmtFecha(m.vigencia_hasta)}
                       </p>
                     </div>
-                    {todasOk ? (
+                    {cert ? (
+                      <span className="inline-flex items-center gap-1 rounded-full border border-brand-cyan/30 bg-brand-cyan/10 px-2.5 py-1 text-[11px] font-semibold text-brand-cyan">
+                        <Award size={12} /> Certificado emitido
+                      </span>
+                    ) : todasOk ? (
                       <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">
                         <Award size={12} /> Condiciones cumplidas
                       </span>
@@ -222,6 +263,48 @@ export function GestionMatriculasTab({ data }: { data: CursoDetalle }) {
                         );
                       })}
                     </ul>
+                  )}
+
+                  {/* Certificado: emitido (ver/descargar) o botón de emisión
+                      manual si el motor todavía no lo hizo. */}
+                  {cert ? (
+                    <div className="mt-3 flex flex-wrap items-center gap-3 rounded-lg border border-brand-cyan/20 bg-brand-cyan/5 px-3 py-2">
+                      <span className="font-mono text-[11px] text-brand-muted">
+                        {cert.codigo}
+                      </span>
+                      <button
+                        onClick={() => void onDescargar(cert)}
+                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand-cyan hover:underline"
+                      >
+                        <Download size={13} /> Descargar
+                      </button>
+                      <a
+                        href={verificacionUrl(cert.codigo)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 text-xs font-medium text-brand-muted hover:text-brand-ink"
+                      >
+                        <ShieldCheck size={13} /> Verificar
+                      </a>
+                    </div>
+                  ) : (
+                    todasOk && (
+                      <div className="mt-3">
+                        <Button
+                          variant="tonal"
+                          className="text-xs"
+                          disabled={emitiendo === m.id}
+                          onClick={() => void onEmitir(m.id)}
+                        >
+                          {emitiendo === m.id ? (
+                            <Loader2 size={13} className="animate-spin" />
+                          ) : (
+                            <Award size={13} />
+                          )}
+                          Emitir certificado
+                        </Button>
+                      </div>
+                    )
                   )}
                 </li>
               );
