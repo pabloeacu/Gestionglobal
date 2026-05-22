@@ -69,9 +69,13 @@ function TramiteLegacyRedirect() {
 
 // Redirección por rol (P-AUTH-01). Sin sesión → landing pública.
 function RoleHomeOrLanding() {
-  const { loading, user, profileMissing } = useAuth();
+  const { loading, user, session, profileMissing } = useAuth();
   if (loading) return <BrandLoaderScreen />;
   if (!user) {
+    // Hay sesión activa pero el profile todavía no resolvió: estamos
+    // completando el login. Mostrar el loader, NO la landing (evita el
+    // flash de landing post-login). Sólo cae a landing si no hay sesión.
+    if (session && !profileMissing) return <BrandLoaderScreen />;
     if (profileMissing) {
       return (
         <div className="grid min-h-screen place-items-center bg-white px-6 text-center">

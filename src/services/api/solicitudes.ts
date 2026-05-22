@@ -145,7 +145,7 @@ export async function getSolicitud(
           `*,
            formulario_submissions:formulario_submission_id(
              id,
-             payload,
+             datos,
              formularios:formulario_id(titulo,categoria,schema)
            ),
            administraciones:cliente_id(nombre),
@@ -166,7 +166,7 @@ export async function getSolicitud(
   type Joined = SolicitudRow & {
     formulario_submissions: {
       id: string;
-      payload: Json | null;
+      datos: Json | null;
       formularios: {
         titulo: string;
         categoria: string;
@@ -189,23 +189,25 @@ export async function getSolicitud(
   if (formulario_submissions?.id) {
     const { data: adjs } = await supabase
       .from('formulario_adjuntos')
-      .select('campo, nombre_original, storage_path')
+      .select('field_name, filename_original, storage_path')
       .eq('submission_id', formulario_submissions.id);
-    adjuntos =
-      (adjs as Array<{
-        campo: string;
-        nombre_original: string;
+    // El bucket form-adjuntos es privado → URL firmada (getPublicUrl daría 403).
+    adjuntos = await Promise.all(
+      ((adjs as Array<{
+        field_name: string;
+        filename_original: string;
         storage_path: string;
-      }> | null)?.map((a) => {
-        const { data: pub } = supabase.storage
+      }> | null) ?? []).map(async (a) => {
+        const { data: signed } = await supabase.storage
           .from('form-adjuntos')
-          .getPublicUrl(a.storage_path);
+          .createSignedUrl(a.storage_path, 60 * 60);
         return {
-          campo: a.campo,
-          nombre: a.nombre_original,
-          url: pub.publicUrl,
+          campo: a.field_name,
+          nombre: a.filename_original,
+          url: signed?.signedUrl ?? '',
         };
-      }) ?? [];
+      }),
+    );
   }
 
   return ok({
@@ -216,7 +218,7 @@ export async function getSolicitud(
     cliente_nombre: administraciones?.nombre ?? null,
     servicio_nombre: servicios?.nombre ?? null,
     submission_payload:
-      (formulario_submissions?.payload as Record<string, unknown>) ?? null,
+      (formulario_submissions?.datos as Record<string, unknown>) ?? null,
     submission_adjuntos: adjuntos,
     derivaciones: (derivs ?? []) as SolicitudDerivacionRow[],
     formulario_schema: formulario_submissions?.formularios?.schema ?? null,

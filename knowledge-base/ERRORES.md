@@ -40,3 +40,46 @@
   `PROJECT_STATUS.md`.
 - **Fecha / módulo:** 2026-05-21 · solicitudes / trackings (pase rápido
   Punto 5 — propuesta 7.A).
+
+## E-GG-02 · Detalle de solicitud roto: `getSolicitud` con nombres de columna inventados
+- **Síntoma:** abrir cualquier solicitud (`/gerencia/solicitudes/:id`)
+  mostraba toast rojo `column formulario_submissions_1.payload does not exist`
+  y pantalla "Solicitud no encontrada". El detalle de solicitudes quedó
+  **100% inutilizable** en producción. `npm run build` y `tsc --noEmit`
+  pasaban limpios — el error es de runtime SQL (PostgREST), invisible para
+  el compilador. **Sólo se detectó con browser test en vivo** (validación
+  del método obligatorio del usuario).
+- **Causa raíz:** la propuesta 1.C (payload con labels legibles) reescribió
+  `getSolicitud` en `src/services/api/solicitudes.ts` asumiendo nombres de
+  columna que NO existen: (a) `formulario_submissions.payload` — la columna
+  real es `datos`; (b) `formulario_adjuntos.campo` / `.nombre_original` —
+  reales son `field_name` / `filename_original`; (c) usaba
+  `storage.getPublicUrl()` sobre el bucket `form-adjuntos` que es **privado**
+  (`public=false`), lo que devuelve URLs que dan 403. El agente no verificó
+  el schema real antes de escribir el query (violación de regla 8 / E43).
+- **Fix:** corregí los tres: `payload`→`datos` (select, tipo TS y mapeo),
+  `campo`/`nombre_original`→`field_name`/`filename_original`, y
+  `getPublicUrl`→`createSignedUrl(path, 3600)` con `Promise.all` (es async).
+- **Prevención:** **regla 8 / E43 es obligatoria también para los agentes**:
+  antes de escribir un query/RPC sobre una tabla existente, correr
+  `SELECT column_name FROM information_schema.columns WHERE table_name='...'`.
+  Y — central — **todo cambio de UI/datos debe browser-testearse en vivo**:
+  el build verde NO garantiza que la pantalla funcione (método obligatorio
+  2026-05-21).
+- **Fecha / módulo:** 2026-05-21 · solicitudes (detalle) · descubierto en
+  recorrido de verificación post-Punto 5.
+
+## E-GG-03 · `ProgramarVencimientoModal.tsx` desaparecido del filesystem
+- **Síntoma:** `tsc --noEmit` fallaba con `Cannot find module
+  './components/ProgramarVencimientoModal'` aunque el archivo estaba
+  commiteado (b5a824b). Causó builds transitorios rotos intermitentes.
+- **Causa raíz:** el archivo fue borrado del working tree (probable sync de
+  Finder / iCloud o limpieza de duplicados macOS "* 2.tsx"). git lo marcaba
+  como `D`. El repo remoto sí lo tenía.
+- **Fix:** `git checkout HEAD -- src/modules/trackings/components/ProgramarVencimientoModal.tsx`.
+- **Prevención:** vigilar archivos `D` en `git status` antes de cada build;
+  los duplicados "* 2.tsx" de Finder/iCloud son una fuente recurrente de
+  ruido (ya removidos `App 2.tsx`, `database 2.ts`, `ToastViewport 2.tsx`).
+  Evaluar `.gitignore` para `* 2.*` y desactivar sync de iCloud en la carpeta
+  del proyecto.
+- **Fecha / módulo:** 2026-05-21 · trackings · infraestructura local.
