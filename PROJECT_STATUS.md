@@ -55,7 +55,14 @@ Plataforma SaaS premium single-tenant para Gestión Global (administración de c
 - 🟡 **Decisión pendiente del usuario**: formularios tipo `evento` NO generan solicitud (trigger `crear_tramite_desde_submission_auto` sólo procesa tramite/servicio/consulta). ¿Intencional?
 - 🟢 **Backlog menor**: contador `envios` del formulario desincronizado (incrementa pero no decrementa al borrar submission).
 
-**Pendiente del recorrido (tras deploy de f900b78)**: re-verificar detalle de solicitud, 1.H responder, 1.F undo descartar, 1.B lightbox (necesita adjunto), activar wizard → 7.A redirect → tracking; Trackings (2.B compartir, 2.D SLA, 2.G alarmas, programar vencimiento); Agenda (modo enfoque, undo, leyenda, gestos, proyecciones); Vencimientos (banner HOY, CSV, agrupador); Acceso externo (5.B contacto, 5.C aperturas).
+**Validado en vivo además (2026-05-22)**: detalle de solicitud (fix E-GG-02 OK), 1.H responder (modal completo), 1.F undo (toast+RPC, código correcto; window 5s recomendado subir a 8s), wizard de activación 3 pasos (derivar→cliente→tracking, crea cliente+tracking+emails OK).
+
+🔴 **E-GG-04 (arreglado, commit 74f719f)**: detalle de tracking 100% roto — `getTracking` embebía el parent con self-join PostgREST `parent:tramites!tramites_parent_tracking_id_fkey`; el FK existe pero el schema cache quedó stale → "Could not find a relationship between 'tramites' and 'tramites'". El wizard activaba OK pero el detalle reventaba y rebotaba al listado. Fix: parent con query separada (independiente del cache). Evitar embeds self-referenciales.
+🟡 **Mejora UX baja prioridad**: `TrackingDetailPage.load()` ante error hace `navigate('/gerencia/tramites')` (enmascara fallos) — debería mostrar error in-place.
+
+**Pendiente del recorrido (tras deploy 74f719f)**: re-verificar detalle de tracking carga OK → 2.B compartir externo, 2.D indicador SLA, 2.G panel próximas alarmas + programar próximo vencimiento (DGG-07); Agenda (modo enfoque, undo, leyenda, gestos, proyecciones in-line con borde-color); Vencimientos (banner HOY, CSV, agrupador); Acceso externo (5.B contacto, 5.C aperturas — hay un acceso generado por el wizard). 1.B lightbox necesita un submission con adjunto (pendiente).
+
+**Bugs QA totales: 4** (E-GG-02 y E-GG-04 críticos rompían pantallas enteras; flash login; E-GG-03 archivo perdido). Todos invisibles para tsc/build → validan el método de browser test obligatorio.
 
 **Punto 5 implementación**: completa (28 items + migración `0042_p5_resto.sql`, edge `acceso-externo` v2). Próximo macro: Punto 6 (Campus rebuild) una vez cerrado el QA.
 

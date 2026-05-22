@@ -109,3 +109,31 @@
   in-place — enmascara fallos. Queda como mejora UX de baja prioridad.
 - **Fecha / módulo:** 2026-05-22 · trackings (detalle) · descubierto en QA
   del Flujo Maestro (wizard de activación).
+
+## E-GG-05 · generar_acceso_externo: "function gen_random_bytes(integer) does not exist"
+- **Síntoma:** "Compartir externo" (tracking) y toda generación de acceso
+  externo fallaban con toast rojo `function gen_random_bytes(integer) does
+  not exist`. El token nunca se generaba.
+- **Causa raíz:** pgcrypto está instalada en el schema `extensions` (default
+  de Supabase), pero el RPC `generar_acceso_externo` tenía `SET search_path
+  TO 'public','pg_temp'` y llamaba `gen_random_bytes(32)` sin calificar →
+  no la encontraba.
+- **Fix (mig 0043):** `encode(extensions.gen_random_bytes(32),'hex')` +
+  `search_path TO 'public','extensions','pg_temp'`. Validado en vivo: el
+  acceso se genera y copia OK.
+- **Prevención:** cualquier RPC `SECURITY DEFINER` que use funciones de
+  extensiones (pgcrypto, etc.) debe schema-calificarlas o incluir
+  `extensions` en el search_path. Revisar otros RPCs que usen pgcrypto.
+- **Fecha / módulo:** 2026-05-22 · acceso externo · descubierto en QA.
+
+## E-GG-06 (ABIERTO) · Acceso externo público no muestra el detalle del recurso
+- **Síntoma:** `/externo/:token` carga el shell (hero, saludo, expiración,
+  footer) pero el bloque DETALLE dice "Sin datos disponibles". No se ven las
+  tarjetas 5.A (agregar al calendario), 5.B (contacto responsable — además
+  el tracking de prueba tiene responsable_id NULL) ni 5.E (última
+  actualización). 5.C (registro de apertura) SÍ funciona (apertura logueada).
+- **Sospecha:** el edge function `acceso-externo` (v2) no resuelve/devuelve
+  los datos del recurso `tramite` (el tracking), o los devuelve en una forma
+  que el front renderiza como vacío. Falta investigar el edge function Deno.
+- **Estado:** PENDIENTE de fix (requiere editar + redeploy del edge function).
+- **Fecha / módulo:** 2026-05-22 · acceso externo (edge function).
