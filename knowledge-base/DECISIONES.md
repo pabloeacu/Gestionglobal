@@ -172,6 +172,12 @@
   violeta. **Implementación Fase 2:** SVG como plantilla → reemplazar nodos de
   texto (nombre/curso/fecha) + inyectar QR (abajo-der o junto al sello) +
   código + nota → render a PDF. Copiar los SVG al repo al arrancar Fase 2.
+- **PENDIENTE futuro (verificación Fase 1):** la constatación COMPLETA del
+  circuito de pago requiere verificar que el asiento de ingreso se **acredite
+  correctamente en la caja** (saldo, conciliación). Hoy sólo se inserta el
+  `movimientos` (ingreso); el chequeo de impacto en caja/saldo no se puede
+  validar hasta tener el **módulo de Finanzas** (PRONTO). Tenerlo presente al
+  construir Finanzas. (2026-05-22)
 - **Fases:** Fase 1 (M) = cerrar autoservicio + asignación manual + condiciones
   configurables por curso + checklist por matrícula + encuentros/asistencia +
   pago manual con asiento de ingreso. Fase 2 (M-L) = certificado PDF con QR +

@@ -95,7 +95,14 @@ Recorrido punta a punta logueado sobre la URL de Vercel. **Cobertura amplia** de
 **Punto 6 · Campus Fase 1 implementada + VERIFICADA ONLINE (2026-05-22).** (DGG-10 / DGG-10bis · `CAMPUS_DESIGN.md` §8 Fase 1.)
 
 **Browser test:** ✅ editor de curso carga (tras fix del bug abajo) · ✅ tab Condiciones (agregar examen-auto + pago-manual + guardar persiste) · ✅ tab Alumnos (empty state + drawer "Asignar alumno" abre) · ✅ RPC `curso_asignar_alumno` verificado en vivo (crea matrícula + checklist con las 2 condiciones, examen:false/pago:false — en transacción con rollback). 🐛 **E-GG-08 (arreglado, commit 51c6e0b): React #310** — `CursoEditorPage` tenía `useState(activeKey)` tras el early return de loading → pantalla blanca total. Movido arriba. Verificado online.
-**Pendiente de pixel-test (bloqueado por overlay de extensión Chrome recurrente):** tildar condición pago en UI, modal Registrar pago, encuentros+asistencia, portal del alumno (checklist motivacional). La capa de datos + superficies clave están validadas.
+**✅ Pixel-test COMPLETO (2026-05-22, extensión de contraseñas pausada):** asignar alumno (drawer→matrícula+checklist), registrar pago (→condición tildada + asiento de ingreso `$180k` en `movimientos` cat "Cursos/Campus", verificado en BD), encuentros (crear + asistencia AUSENTE→PRESENTE), y **portal del alumno** (`/portal/campus`: "Mis cursos" sin autoservicio + detalle con panel "Tu certificado" 0/2 + checklist motivacional "Te falta: Aprobar examen · Pago"). **Campus Fase 1 = 100% validado online, gerencia + alumno.**
+
+**🔑 Credenciales de testeo (alumno):** `admin@solyluna.test` / `SolYLuna2026` (rol administrador, Administración Sol y Luna SRL). Generadas por mí (bcrypt) para testear el portal. Sirven para QA futuro. Gerente: `pabloeacu@gmail.com` / `EagleView2026`.
+
+**🟡 Pendientes/observaciones Campus:**
+- **Verificación de caja**: el circuito de pago COMPLETO (que el ingreso impacte el saldo de la caja) NO se puede validar hasta tener el **módulo Finanzas** (PRONTO). Hoy sólo se inserta el `movimientos`. Tener presente al construir Finanzas (DGG-10bis).
+- Video de cursos seed = placeholder Rick Astley → reemplazar por contenido real.
+- Setup actual dejado como base de Fase 2: curso "Formación RPAC" con condiciones (examen+pago) + 1 matrícula (Sol y Luna, 0/2 cumplidas).
 
 Se construyó sobre la base existente (mig `0029_campus.sql`):
 
