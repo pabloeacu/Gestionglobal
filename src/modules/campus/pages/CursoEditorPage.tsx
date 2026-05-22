@@ -59,6 +59,8 @@ export function CursoEditorPage() {
   const { id = '' } = useParams<{ id: string }>();
   const [data, setData] = useState<CursoDetalle | null>(null);
   const [loading, setLoading] = useState(true);
+  // OJO: este hook DEBE estar antes de cualquier early return (React #310).
+  const [activeKey, setActiveKey] = useState('datos');
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -96,7 +98,6 @@ export function CursoEditorPage() {
     { key: 'encuentros', label: 'Encuentros' },
     { key: 'matriculas', label: 'Alumnos' },
   ];
-  const [activeKey, setActiveKey] = useState('datos');
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
