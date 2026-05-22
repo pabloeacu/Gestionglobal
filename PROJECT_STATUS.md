@@ -44,6 +44,34 @@ Plataforma SaaS premium single-tenant para Gestión Global (administración de c
 
 ---
 
+## 2bis. Resultado del QA walkthrough en vivo (2026-05-22) — CERRADO
+
+Recorrido punta a punta logueado sobre la URL de Vercel. **Cobertura amplia** del Punto 5 + Ronda 6.
+
+**✅ Validado en vivo (funciona):** landing · login · form público (envío+confirmación) · trigger submission→solicitud (consulta/tramite/servicio; `evento` excluido por diseño) · Solicitudes 1.C/1.D/1.E/1.F/1.G/1.H · wizard activación 3 pasos · detalle solicitud · detalle tracking · 2.B compartir externo · Formularios 4.A/4.C/4.F/4.G · acceso externo 5.C/5.E + detalle (post-fix) · Agenda: default Semana, parser NL (preview+crear+render con CírculoHecha+color categoría), tabs Mi agenda/Vencimientos, filtros de fuente, modo enfoque, leyenda · Vencimientos tab 6.A/6.D/6.E.
+
+**🐛 Bugs encontrados y RESUELTOS (6):**
+- E-GG-02 🔴 detalle solicitud roto (columnas inexistentes payload/campo + bucket privado) → fix verificado.
+- Flash landing post-login 🟠 → fix (RoleHomeOrLanding usa session).
+- E-GG-03 🟠 ProgramarVencimientoModal desaparecido (iCloud) → recuperado.
+- E-GG-04 🔴 detalle tracking roto (embed self-join PostgREST + cache stale) → fix verificado.
+- E-GG-05 🔴 acceso externo no generaba token (pgcrypto search_path) → fix verificado (mig 0043).
+- E-GG-06 🟠 acceso externo "Sin datos" (columnas inexistentes en edge) → fix verificado (edge v3).
+
+**🟡 Bugs menores ABIERTOS (anotar, no críticos):**
+- `solicitud_activar` NO guarda `periodo`/`fecha_inicio` en el tracking (quedan NULL pese a cargarse en el wizard). → revisar RPC.
+- KPI "VIGENTES" de Vencimientos no cuenta el que vence hoy (latencia o filtro horizonte). Idem KPIs Solicitudes (refresco realtime con delay).
+- Ventana undo de descartar solicitud: 5s → subir a 8s (latencia real).
+- `TrackingDetailPage.load()` ante error hace `navigate('/gerencia/tramites')` (enmascara fallos) → mostrar error in-place.
+- **Sesión se cae al volver de `/externo` (público)** → sospecha: el cliente anónimo de Supabase en la página pública pisa la sesión autenticada en localStorage. **Revisar — potencialmente importante.**
+- iCloud/Finder resucita archivos borrados y crea duplicados "* N.tsx" → mitigado con `.gitignore` (`*[ ][0-9].*`). **Recomendar al usuario desactivar sync de iCloud en la carpeta del proyecto.**
+
+**No verificado visualmente (código presente):** proyecciones in-line con borde-color (falta data con fecha), gestos drag/resize/paint en Semana (latencia de screenshots impide test fluido), undo de marcar-hecha en Agenda, 2.D SLA / 2.G alarmas (necesitan tracking con servicio+sla y vencimiento programado).
+
+**Datos de prueba creados en el entorno** (preview): solicitud + cliente "Méndez Roberto" + tracking TRM-2026-00010 + acceso externo + evento agenda "Reunión con el contador" (sáb 23) + vencimiento QA "vence hoy". Limpiar si se desea entorno prolijo.
+
+---
+
 ## 2. Trabajo en curso AHORA
 
 **QA browser test en vivo del Punto 5 (en curso, 2026-05-21).** Recorrido punta a punta sobre la URL de Vercel logueado como gerente. Hallazgos:
