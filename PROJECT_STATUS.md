@@ -58,7 +58,15 @@ Recorrido punta a punta logueado sobre la URL de Vercel. **Cobertura amplia** de
 - E-GG-05 🔴 acceso externo no generaba token (pgcrypto search_path) → fix verificado (mig 0043).
 - E-GG-06 🟠 acceso externo "Sin datos" (columnas inexistentes en edge) → fix verificado (edge v3).
 
-**🟡 Bugs menores ABIERTOS (anotar, no críticos):**
+**✅ Bugs menores RESUELTOS (commit 613fad2, 2026-05-22):**
+- E-GG-07 sesión caía cada ~1h → refresh manual en AuthContext + readStoredSession no descarta si hay refresh_token.
+- `solicitud_activar` no guardaba periodo/fecha_inicio/servicio_id/parent_tracking_id → mig 0044.
+- Undo descartar 5s → 8s.
+- TrackingDetailPage: error in-place (Reintentar/Volver) en vez de redirigir al listado.
+- KPI "VIGENTES 0": era cosmético (AnimatedNumber a mitad de animación) — no requería fix.
+- Duplicados iCloud → `.gitignore` (`*[ ][0-9].*`); falta acción del usuario: desactivar sync iCloud en la carpeta.
+
+**🟡 Bugs menores HISTÓRICOS (ya resueltos arriba):**
 - `solicitud_activar` NO guarda `periodo`/`fecha_inicio` en el tracking (quedan NULL pese a cargarse en el wizard). → revisar RPC.
 - KPI "VIGENTES" de Vencimientos no cuenta el que vence hoy (latencia o filtro horizonte). Idem KPIs Solicitudes (refresco realtime con delay).
 - Ventana undo de descartar solicitud: 5s → subir a 8s (latencia real).
