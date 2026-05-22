@@ -4,8 +4,8 @@
 >
 > **Mantenimiento**: actualizar después de cada chunk de trabajo verificado y cerrado. No esperar al final. Si un paso se postergó, registrarlo abajo en "Pateado para el final".
 
-**Última actualización**: 2026-05-21 (Punto 5 · pase rápido + L/M · 28 items totales)
-**Sesión actual**: continuación de la sesión de las rondas 4–6 + Punto 5
+**Última actualización**: 2026-05-22 (Punto 5+Ronda 6 CERRADOS y verificados online · 7 bugs QA arreglados · entorno limpio · próximo: Campus)
+**Sesión actual**: rondas 4–6 + Punto 5 + QA online + 6 fixes menores + limpieza
 
 ---
 
@@ -32,8 +32,8 @@ Plataforma SaaS premium single-tenant para Gestión Global (administración de c
 2. ⏳ **38 mejoras premium/robustez** — 13 de 38 hechas; 25 pendientes (ver `BACKLOG.md`).
 3. ✅ **Ronda 5 (Flujo Maestro)** — agentes E/F/G2/G1 en paralelo → módulos Solicitudes + Trackings + Agenda inicial + Formularios admin.
 4. ✅ **Browser review aspectos nuevos** — hecho parcialmente.
-5. ✅ **pase rápido + L/M (28 items totales)** — pase rápido (15 S/M) + segundo pase L/M (13 items): Solicitudes 1.B/1.D/1.F/1.H, Trackings 2.D/2.G, Formularios 4.A/4.C/4.F, Acceso externo 5.B/5.C, Vencimientos 6.A, Cross 7.B. Detalle en sección 8 y en `PROPUESTAS_PUNTO_5.md`.
-6. ⏳ **Link-by-link review + rebuild Campus** — pendiente. Campus = aula virtual con cursos/módulos/videos/evaluaciones/certificados/progreso (NO catálogo).
+5. ✅ **CERRADO + VERIFICADO ONLINE** — 28 items (pase rápido 15 + L/M 13) + QA browser test punta a punta que destapó y arregló 7 bugs reales (E-GG-02..07 + flash login). Ver §2bis/§2ter y `ERRORES.md`.
+6. 🔜 **SIGUIENTE · Link-by-link review + rebuild Campus** — Campus = aula virtual real (DGG-10): cursos/módulos, videos embed, quiz autocorregido, certificado PDF con QR verificable, condiciones configurables por curso.
 7. ⏳ **Mockup web mejorada con documentación** — pendiente.
 8. ⏳ **Revisión end-to-end del proyecto** — pendiente.
 9. ⏳ **Planning del trabajo remanente** — pendiente.
@@ -80,9 +80,23 @@ Recorrido punta a punta logueado sobre la URL de Vercel. **Cobertura amplia** de
 
 ---
 
+## 2ter. QA cerrado + entorno limpio (2026-05-22)
+
+- **Punto 5 + Ronda 6: 100% cerrados y VERIFICADOS ONLINE** (no solo build). 7 bugs reales encontrados y resueltos en el recorrido (E-GG-02..07 + flash login), 3 de ellos críticos. Detalle en §2bis + `knowledge-base/ERRORES.md`.
+- **Datos de prueba del QA eliminados** — entorno prolijo (0 solicitudes/trámites/submissions/eventos/vencimientos QA).
+- **Migraciones aplicadas hasta 0044.** Edge functions: `dispatch-vencimientos`, `acceso-externo` v3.
+- **Pendiente del usuario**: desactivar sync de iCloud en la carpeta del proyecto (resucita archivos / crea duplicados `* N.tsx`; mitigado con `.gitignore`).
+- **Próximo macro-hito: Punto 6 · Campus rebuild** (DGG-10).
+
+---
+
 ## 2. Trabajo en curso AHORA
 
-**QA browser test en vivo del Punto 5 (en curso, 2026-05-21).** Recorrido punta a punta sobre la URL de Vercel logueado como gerente. Hallazgos:
+**SIGUIENTE: Punto 6 · Campus rebuild (DGG-10).** El QA del Punto 5 + Ronda 6 quedó cerrado y verificado online (ver §2ter y §2bis). Lo que sigue es el rebuild de Campus como aula virtual real.
+
+<details><summary>Detalle histórico del QA (2026-05-21/22) — para referencia</summary>
+
+Recorrido punta a punta sobre la URL de Vercel logueado como gerente. Hallazgos:
 
 - ✅ Validados en vivo: form público (envío+confirmación), trigger submission→solicitud (categorías tramite/servicio/consulta), 4.A autosave (3 estados), 4.C preview dual Desktop/Móvil/Ambos, 4.F validador schema, 4.G copiar URL, 1.E filtro categoría dinámico + URL params, 1.G tiempo relativo, 1.D derivar en hover.
 - 🔴 **E-GG-02 (arreglado, commit f900b78)**: detalle de solicitud 100% roto — `getSolicitud` usaba `payload` (col real `datos`), adjuntos `campo/nombre_original` (reales `field_name/filename_original`), `getPublicUrl` en bucket privado (→ `createSignedUrl`). Error runtime SQL invisible para tsc/build.
@@ -101,6 +115,8 @@ Recorrido punta a punta logueado sobre la URL de Vercel. **Cobertura amplia** de
 **Bugs QA totales: 4** (E-GG-02 y E-GG-04 críticos rompían pantallas enteras; flash login; E-GG-03 archivo perdido). Todos invisibles para tsc/build → validan el método de browser test obligatorio.
 
 **Punto 5 implementación**: completa (28 items + migración `0042_p5_resto.sql`, edge `acceso-externo` v2). Próximo macro: Punto 6 (Campus rebuild) una vez cerrado el QA.
+
+</details>
 
 ---
 
@@ -227,3 +243,5 @@ Reglas y preferencias que el usuario fue puntualizando durante las sesiones. Deb
 | 2026-05-21 | Punto 5 · auditoría módulos nuevos + entrega `PROPUESTAS_PUNTO_5.md` (49 propuestas + bug crítico ruta tramites/trackings) | Punto 5 entregado | Selección del usuario · ejecutar pase rápido S/M |
 | 2026-05-21 | Punto 5 · **pase rápido ejecutado** · 15 items (7.A bug + 1.A 1.C 1.E 1.G + 2.B + 3.A 3.C 3.D 3.E + 4.G + 5.A 5.E + 6.D 6.E) · build limpio · E-GG-01 registrado | Punto 5 cerrado en pase rápido | Punto 6 (link-by-link + Campus rebuild) |
 | 2026-05-21 | Punto 5 · **segundo pase L/M** · 13 items (1.B 1.D 1.F 1.H + 2.D 2.G + 4.A 4.C 4.F + 5.B 5.C + 6.A + 7.B) · migración consolidada `0042_p5_resto.sql` + types regenerados + edge `acceso-externo` v2 + Button `variant="tonal"` · build limpio | Punto 5 completo (28 items) | Punto 6 (Campus rebuild) |
+| 2026-05-22 | **QA browser test en vivo** punta a punta (logueado) + DGG-10/11 definidas. 7 bugs reales hallados y arreglados: E-GG-02 (detalle solicitud), flash login, E-GG-03 (archivo iCloud), E-GG-04 (detalle tracking embed self-join), E-GG-05 (acceso externo pgcrypto), E-GG-06 (acceso externo "Sin datos"), E-GG-07 (sesión cae ~1h). Migraciones 0043+0044, edge `acceso-externo` v3. | Punto 5 + Ronda 6 **cerrados y verificados online** | Punto 6 · Campus rebuild |
+| 2026-05-22 | **6 bugs menores arreglados** (sesión refresh, periodo en activar, undo 8s, error in-place tracking, KPI=cosmético, iCloud .gitignore) + **datos de prueba QA eliminados** + docs consolidadas | Entorno limpio · todo verificado online | **Arrancar Campus (DGG-10)** |
