@@ -160,6 +160,18 @@
   leyendas de entidades habilitadas** (aprobación oficial). Diseño visual:
   el usuario provee un **modelo de referencia** (ASSET — para construir algo
   similar). Fase 2.
+- **ASSET del certificado RECIBIDO (2026-05-22):** 4 modelos FUNDPLATA en
+  `~/Desktop/Diplomas FUNDPLATA2.pdf` (visual), `Diplomas FUNDPLATA.zip` (4
+  PNG) y `Diplomas FUNDPLATA (3).zip` (4 **SVG editables** — usar estos como
+  plantilla). Estructura: apaisado, título "CERTIFICADO", curso en dorado +
+  año, nombre en cursiva script, cuerpo legal (habilitación FU.DE.CO.IN, Ley
+  14.701 / Decreto 1734/22 / Disposición 27/23), fecha, 2 firmas (Pablo M.
+  Parente – Presidente FU.DE.CO.IN · Dr. Pablo E. Acuña – Coordinador
+  Académico), sello dorado con isotipo GG, banda "FUNDPLATA", "ORGANIZADO POR
+  GESTIÓN GLOBAL". 4 temas de color: marino+dorado / dorado / cyan-teal /
+  violeta. **Implementación Fase 2:** SVG como plantilla → reemplazar nodos de
+  texto (nombre/curso/fecha) + inyectar QR (abajo-der o junto al sello) +
+  código + nota → render a PDF. Copiar los SVG al repo al arrancar Fase 2.
 - **Fases:** Fase 1 (M) = cerrar autoservicio + asignación manual + condiciones
   configurables por curso + checklist por matrícula + encuentros/asistencia +
   pago manual con asiento de ingreso. Fase 2 (M-L) = certificado PDF con QR +
