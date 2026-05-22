@@ -22,3 +22,6 @@ GESTIÓN GLOBAL - Presentación.pdf
 
 # Duplicados de Finder/iCloud (E-GG-03): "archivo 2.tsx", "archivo 3.ts", etc.
 *[ ][0-9].*
+
+# Assets crudos del certificado FUNDPLATA (fuente; el motor usa plantillas optimizadas)
+assets/certificados-fundplata/
