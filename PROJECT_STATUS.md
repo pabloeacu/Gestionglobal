@@ -92,7 +92,9 @@ Recorrido punta a punta logueado sobre la URL de Vercel. **Cobertura amplia** de
 
 ## 2. Trabajo en curso AHORA
 
-**SIGUIENTE: Punto 6 · Campus rebuild (DGG-10).** El QA del Punto 5 + Ronda 6 quedó cerrado y verificado online (ver §2ter y §2bis). Lo que sigue es el rebuild de Campus como aula virtual real.
+**Punto 6 · diseño Campus entregado, esperando aprobación.** Se auditó a fondo el Campus existente (mig `0029_campus.sql`, `src/services/api/campus.ts`, `src/modules/campus/`, rutas en `App.tsx`) y se entregó `CAMPUS_DESIGN.md` en la raíz (gap analysis vs DGG-10, deltas de schema, flujos, fases, decisiones abiertas). **Bloqueado en aprobación del usuario + ASSET pendiente (diseño del certificado).** Hallazgo clave: la base de contenido/quiz/progreso es sólida y reutilizable; faltan certificado PDF+QR, condiciones configurables por curso, checklist por matrícula, asistencia y pago; y hay que cerrar el autoservicio actual (DGG-10 exige asignación manual).
+
+**SIGUIENTE (tras aprobar el diseño): Punto 6 · Campus rebuild (DGG-10).** El QA del Punto 5 + Ronda 6 quedó cerrado y verificado online (ver §2ter y §2bis).
 
 <details><summary>Detalle histórico del QA (2026-05-21/22) — para referencia</summary>
 
