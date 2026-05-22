@@ -4,7 +4,7 @@
 >
 > **Mantenimiento**: actualizar después de cada chunk de trabajo verificado y cerrado. No esperar al final. Si un paso se postergó, registrarlo abajo en "Pateado para el final".
 
-**Última actualización**: 2026-05-22 (Punto 6 · **Certificado ULTRA PREMIUM rediseñado (DGG-13)** · enfoque HTML/CSS→html2canvas→jsPDF · build limpio · **pendiente browser test** · NO commiteada)
+**Última actualización**: 2026-05-22 (Punto 6 · **Certificado ULTRA PREMIUM (DGG-13) VERIFICADO ONLINE** vía Vista previa: logos GG+FUNDPLATA, sello dorado, firmas, QR, 4 temas, estética web. Commit 150cf91. "9/100" NO es bug (escala examen 0-100, aprobación 70; el dato de prueba fue irreal). URL del QR se limpia con DNS gestionglobal.ar + VITE_PUBLIC_BASE_URL. PRÓXIMO: link-by-link review del resto de módulos.)
 **Sesión actual**: Rediseño del certificado del campus (DGG-13): de jsPDF-vector "berreta" a HTML/CSS premium (gradiente navy→cyan, sello dorado con isotipo GG, logos GG reales, wordmark FUNDPLATA, doble firma, 4 temas) capturado con html2canvas → jsPDF. + Vista previa en gerencia + `/verificar` elevada a premium.
 
 ---
