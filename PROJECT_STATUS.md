@@ -218,6 +218,11 @@ PDF, undo/redo, diff, search global, etc.). Referencia: `PROPUESTAS_PUNTO_5.md`.
 
 ## 5. Pateado para el final (no perder)
 
+- **🎓 Revisitar diseño del certificado** (pedido del usuario 2026-05-22): el rediseño DGG-13 quedó premium y aprobado para avanzar, pero el usuario quiere volver sobre él como **último punto** para pulir/ajustar detalles finales. Componente: `src/modules/campus/components/CertificadoPremium.tsx`.
+- **KPIs `AnimatedNumber` saltan desde 0 al cargar** → en un vistazo pueden mostrar un valor intermedio "equivocado" (visto en Vencimientos y Plantillas email; los datos reales están bien). Pulido opcional: que en la carga inicial salten directo al valor (sin animar desde 0). No es bug funcional.
+- **Link-by-link review (2026-05-22): COMPLETO, 0 bugs reales nuevos.** Recorridos premium y estables: Clientes(+detalle), Servicios, Facturación(+detalle), Cuenta corriente, Recupero, Partners, Reportes(+importador), Configuración/ARCA/Plantillas-email(17 templates), Trámites legacy, Perfil. Los bugs estaban en los módulos nuevos (ya arreglados E-GG-02..08+flash). Sub-rutas no visitadas (cola emisión/envíos, recupero morosos/config/plantillas, vencimientos/config, servicios/:id, partners/:id, tramites/kanban) son hijas de módulos validados.
+
+
 Ideas y mejoras que surgieron pero NO se ejecutaron, ordenadas por valor percibido. Revisar antes del cierre del proyecto.
 
 - **Embebido del módulo origen como modal en Agenda** (en vez de navegación). Hoy click en proyectado navega; idealmente abre modal in-place para no perder contexto de calendario.
