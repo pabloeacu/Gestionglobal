@@ -101,15 +101,19 @@ function ZoomEmbedScaled({
 
   return (
     <div
-      className="flex shrink-0 items-center justify-center"
+      className="relative shrink-0"
       style={{
-        // Reservamos el espacio del embed escalado en el flow flex.
+        // El outer reserva el espacio post-scale del embed. Position relative
+        // para que el inner absoluto se ancle al top-left exacto del outer.
         width: SDK_NATIVE_W * scale,
         height: SDK_NATIVE_H * scale,
       }}
     >
       <div
         style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
           transform: `scale(${scale})`,
           transformOrigin: 'top left',
           width: SDK_NATIVE_W,
