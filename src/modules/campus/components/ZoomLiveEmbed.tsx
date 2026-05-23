@@ -1,34 +1,28 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Loader2, AlertCircle, Maximize2, Minimize2 } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Loader2, AlertCircle } from 'lucide-react';
 import { firmarSdk } from '@/services/api/campus';
 
 // DGG-14: embed del Web Meeting SDK de Zoom (Component View).
 //
-// El SDK trae su propia toolbar nativa (Audio, Cámara, Participantes,
-// Compartir pantalla, Más, Salir) + header (Vista de galería, Información,
-// minimizar). Por default el SDK renderiza a un alto MÍNIMO de ~874px que
-// rompe nuestro flow de campus. Forzamos via JS el alto exacto de su Paper
-// externo para que el SDK acomode internamente todo dentro del bloque que
-// le damos. Probado: el Paper acepta override CSS de height.
+// El SDK trae su UI nativa completa (header con info + video gallery +
+// toolbar con audio, cámara, chat, participantes, compartir, levantar mano,
+// salir). Nuestro container respeta el tamaño natural del SDK (~720×850)
+// para que TODA esa UI sea visible y funcional, igual que en zoom.us.
+// El padre (CursoDetalleAlumnoPage) acomoda la página alrededor.
 
 export interface ZoomLiveEmbedProps {
   encuentroId: string;
   userName: string;
   asHost?: boolean;
   password?: string | null;
+  /** Disparado cuando el SDK confirma que el participante abandonó. */
   onLeft?: () => void;
 }
 
-// Tamaños del bloque (el SDK se acomoda adentro).
-// IMPORTANTE: el SDK Component View tiene un alto MÍNIMO de ~830px para
-// renderizar header + video + toolbar nativa sin recortes. Por debajo de
-// eso la toolbar queda fuera. Aceptamos ese mínimo en ambos modos y la
-// distinción compact/ampliado es por el ancho del video (más píxeles de
-// imagen del host en ampliado).
-const COMPACT_W = 720;
-const COMPACT_H = 850;
-const LARGE_W = 1080;
-const LARGE_H = 850;
+// Tamaño nativo "cómodo" del Component View. NO comprimir más — el SDK
+// necesita esto para mostrar toolbar + header + video sin recortes.
+const SDK_W = 720;
+const SDK_H = 860;
 
 export function ZoomLiveEmbed(props: ZoomLiveEmbedProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -38,15 +32,6 @@ export function ZoomLiveEmbed(props: ZoomLiveEmbedProps) {
     'idle',
   );
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [expanded, setExpanded] = useState(false);
-
-  const dims = useMemo(
-    () => ({
-      w: expanded ? LARGE_W : COMPACT_W,
-      h: expanded ? LARGE_H : COMPACT_H,
-    }),
-    [expanded],
-  );
 
   useEffect(() => {
     let cancelled = false;
@@ -82,8 +67,8 @@ export function ZoomLiveEmbed(props: ZoomLiveEmbedProps) {
             video: {
               isResizable: false,
               viewSizes: {
-                default: { width: COMPACT_W, height: COMPACT_H - 100 },
-                ribbon: { width: COMPACT_W, height: 80 },
+                default: { width: SDK_W, height: SDK_H - 100 },
+                ribbon: { width: SDK_W, height: 80 },
               },
             },
           },
@@ -104,10 +89,22 @@ export function ZoomLiveEmbed(props: ZoomLiveEmbedProps) {
           return;
         }
 
+        // Vista "active speaker" para que el video del host llene el viewport.
         try {
           const c: any = client;
           await c.changeView?.({ view: 'active' });
         } catch { /* opt */ }
+
+        // Listener para detectar cuando el alumno realmente sale (vía botón
+        // nativo del SDK) → notificamos al padre para que cierre el modo.
+        try {
+          const c: any = client;
+          c.on?.('connection-change', (p: any) => {
+            if (p?.state === 'Closed' || p?.state === 'Fail') {
+              props.onLeft?.();
+            }
+          });
+        } catch { /* noop */ }
 
         setState('ready');
       } catch (e: any) {
@@ -148,56 +145,16 @@ export function ZoomLiveEmbed(props: ZoomLiveEmbedProps) {
         try { c.leaveMeeting?.(); } catch { /* noop */ }
         try { c.leave?.(); } catch { /* noop */ }
       }
-      try { props.onLeft?.(); } catch { /* noop */ }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.encuentroId]);
 
-  // Forzar el alto del SDK Paper externo cuando el embed está montado.
-  // El SDK Component View default a ~874px de alto. Lo "encajamos" en el
-  // tamaño que querramos via setStyle directo a sus elementos internos
-  // (probado: aceptan el override sin romper la layout).
-  useEffect(() => {
-    if (state !== 'ready') return;
-    const container = containerRef.current;
-    if (!container) return;
-
-    const apply = () => {
-      // Ajustamos sólo el ANCHO del Paper outer (el alto lo dejamos al SDK,
-      // que necesita ~828 para mostrar header + video + toolbar sin cortar).
-      const outer = container.querySelector('.zoom-MuiPaper-root') as HTMLElement | null;
-      if (outer) {
-        outer.style.width = `${dims.w}px`;
-        outer.style.maxWidth = `${dims.w}px`;
-      }
-      const resizable = container.querySelector('.react-resizable') as HTMLElement | null;
-      if (resizable) {
-        resizable.style.width = `${dims.w}px`;
-        resizable.style.maxWidth = `${dims.w}px`;
-      }
-    };
-
-    // Aplicar ahora y reaplicar tras pequeño delay (el SDK puede re-renderizar).
-    apply();
-    const t1 = setTimeout(apply, 250);
-    const t2 = setTimeout(apply, 800);
-    // Observer para re-aplicar si el SDK muta el DOM (eg al togglear)
-    const obs = new MutationObserver(() => apply());
-    obs.observe(container, { childList: true, subtree: true, attributes: true, attributeFilter: ['style'] });
-
-    return () => {
-      clearTimeout(t1);
-      clearTimeout(t2);
-      obs.disconnect();
-    };
-  }, [state, dims.w, dims.h]);
-
   return (
-    <div className="relative mx-auto" style={{ width: dims.w }}>
+    <div className="relative mx-auto" style={{ width: SDK_W, maxWidth: '100%' }}>
       {state !== 'ready' && state !== 'error' && (
         <div
-          className="absolute inset-0 z-10 grid place-items-center rounded-2xl bg-slate-900/80 text-white backdrop-blur-sm"
-          style={{ height: dims.h }}
+          className="grid place-items-center rounded-2xl bg-slate-900 text-white"
+          style={{ width: SDK_W, height: SDK_H, maxWidth: '100%' }}
         >
           <div className="flex flex-col items-center gap-2 text-sm">
             <Loader2 size={22} className="animate-spin" />
@@ -229,31 +186,14 @@ export function ZoomLiveEmbed(props: ZoomLiveEmbedProps) {
         </div>
       )}
 
-      {state === 'ready' && (
-        <button
-          onClick={() => setExpanded((v) => !v)}
-          title={expanded ? 'Vista compacta' : 'Vista ampliada'}
-          className="absolute left-3 top-3 z-20 inline-flex items-center gap-1 rounded-md bg-black/55 px-2 py-1 text-[11px] font-medium text-white shadow-sm backdrop-blur-sm transition hover:bg-black/70"
-        >
-          {expanded ? (
-            <>
-              <Minimize2 size={12} /> Compacto
-            </>
-          ) : (
-            <>
-              <Maximize2 size={12} /> Ampliar
-            </>
-          )}
-        </button>
-      )}
-
       <div
         ref={containerRef}
         className="overflow-hidden rounded-2xl bg-black"
         style={{
-          width: dims.w,
-          height: dims.h,
-          transition: 'width 200ms ease-out, height 200ms ease-out',
+          width: SDK_W,
+          height: SDK_H,
+          maxWidth: '100%',
+          display: state === 'ready' ? 'block' : 'none',
         }}
       />
     </div>

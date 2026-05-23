@@ -1,21 +1,57 @@
-import { useMemo, useState } from 'react';
-import { CalendarClock, Radio, Video, X, ExternalLink, PlayCircle } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import {
+  CalendarClock,
+  Radio,
+  Video,
+  X,
+  ExternalLink,
+  PlayCircle,
+  Smartphone,
+} from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { fmtFechaHora, type CursoEncuentroRow } from '@/services/api/campus';
 import { ZoomLiveEmbed } from './ZoomLiveEmbed';
 
-// DGG-14: panel del alumno con los encuentros sincrónicos del curso.
-// - "Entrar al vivo" abre el embed inline (Meeting SDK Component View).
-// - Si ya hay grabación publicada, muestra el botón "Ver grabación".
-// - Pinta badge "● En vivo" cuando el webhook recibió meeting.started.
+// DGG-14: panel del alumno con encuentros sincrónicos.
+//
+// Desktop: botón "Entrar a la clase en vivo" → callback al padre que cambia
+// el layout del curso al "modo clase en vivo" (embed full-width, sidebar
+// colapsado). El embed muestra el SDK nativo de Zoom con todos sus
+// controles (audio, cámara, chat, participantes, compartir, levantar mano,
+// salir).
+//
+// Mobile (< 768px): el SDK Web no rinde bien en pantallas chicas. Usamos
+// deep link a la app Zoom nativa (zoomus://) con fallback a la web. El
+// usuario sale de la app y vuelve cuando la clase termina.
 
 interface Props {
   encuentros: CursoEncuentroRow[];
+  /** Recibido sólo para mantener API estable; el ClaseEnVivoFullLayout lo usa. */
   userName: string;
+  /** Cuando el alumno entra a la clase activa, el padre re-acomoda layout. */
+  activoEncuentroId: string | null;
+  onEntrar: (encuentroId: string) => void;
+  onSalir: () => void;
 }
 
-export function EncuentrosEnVivoAlumno({ encuentros, userName }: Props) {
-  const [activoId, setActivoId] = useState<string | null>(null);
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== 'undefined' ? window.innerWidth < 768 : false,
+  );
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+  return isMobile;
+}
+
+export function EncuentrosEnVivoAlumno({
+  encuentros,
+  activoEncuentroId,
+  onEntrar,
+}: Props) {
+  const isMobile = useIsMobile();
 
   const visibles = useMemo(
     () => encuentros.filter((e: any) => !!e.zoom_meeting_id),
@@ -23,6 +59,11 @@ export function EncuentrosEnVivoAlumno({ encuentros, userName }: Props) {
   );
 
   if (visibles.length === 0) return null;
+
+  // Si hay un encuentro activo Y es desktop, el padre tiene el modo "clase
+  // en vivo" rendereando el embed full-width — aquí NO renderizamos el
+  // listado para no duplicar.
+  if (activoEncuentroId && !isMobile) return null;
 
   return (
     <section className="card-premium p-5">
@@ -50,7 +91,7 @@ export function EncuentrosEnVivoAlumno({ encuentros, userName }: Props) {
             >
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0">
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <h3 className="truncate font-semibold text-brand-ink">{enc.titulo}</h3>
                     {isLive && (
                       <span className="rounded-full border border-red-200 bg-red-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-red-700">
@@ -83,9 +124,9 @@ export function EncuentrosEnVivoAlumno({ encuentros, userName }: Props) {
                       <PlayCircle size={14} /> Ver grabación
                     </a>
                   )}
-                  {!finalizado && (
+                  {!finalizado && !isMobile && (
                     <button
-                      onClick={() => setActivoId(enc.id)}
+                      onClick={() => onEntrar(enc.id)}
                       className={cn(
                         'inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition',
                         isLive
@@ -93,10 +134,19 @@ export function EncuentrosEnVivoAlumno({ encuentros, userName }: Props) {
                           : 'bg-brand-cyan hover:bg-brand-cyan/90',
                       )}
                     >
-                      <Radio size={13} /> {isLive ? 'Entrar al vivo' : 'Conectar a la sala'}
+                      <Radio size={13} />{' '}
+                      {isLive ? 'Entrar a la clase en vivo' : 'Conectarme a la sala'}
                     </button>
                   )}
-                  {enc.zoom_join_url && !finalizado && (
+                  {!finalizado && isMobile && (
+                    <a
+                      href={`zoomus://zoom.us/join?confno=${enc.zoom_meeting_id}${enc.zoom_password ? `&pwd=${enc.zoom_password}` : ''}`}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-brand-cyan px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-brand-cyan/90"
+                    >
+                      <Smartphone size={13} /> Abrir en Zoom
+                    </a>
+                  )}
+                  {enc.zoom_join_url && !finalizado && !isMobile && (
                     <a
                       href={enc.zoom_join_url}
                       target="_blank"
@@ -104,37 +154,68 @@ export function EncuentrosEnVivoAlumno({ encuentros, userName }: Props) {
                       className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-brand-muted hover:bg-slate-50"
                       title="Abrir en la app/web nativa de Zoom"
                     >
-                      <ExternalLink size={13} /> Abrir en Zoom
+                      <ExternalLink size={13} /> Abrir Zoom nativo
                     </a>
                   )}
                 </div>
               </div>
 
-              {/* Embed inline (Meeting SDK) — solo cuando el alumno clickea */}
-              {activoId === enc.id && (
-                <div className="mt-4">
-                  <div className="mb-2 flex items-center justify-between">
-                    <p className="text-xs text-brand-muted">
-                      Tu asistencia se registra automáticamente cuando entrás a la sala.
-                    </p>
-                    <button
-                      onClick={() => setActivoId(null)}
-                      className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-brand-muted hover:bg-slate-50"
-                    >
-                      <X size={12} /> Cerrar
-                    </button>
-                  </div>
-                  <ZoomLiveEmbed
-                    encuentroId={enc.id}
-                    userName={userName}
-                    password={enc.zoom_password ?? null}
-                  />
-                </div>
+              {/* Nota mobile */}
+              {!finalizado && isMobile && (
+                <p className="mt-3 text-xs text-brand-muted">
+                  Desde el celular usamos la app Zoom (mejor experiencia). Si no
+                  la tenés instalada, tocá "Abrir Zoom nativo" arriba —
+                  se abre en tu navegador.
+                </p>
               )}
             </li>
           );
         })}
       </ul>
+    </section>
+  );
+}
+
+// Componente full-width que se renderea cuando el alumno está en una clase.
+// Lo usa el padre (CursoDetalleAlumnoPage) en lugar de la grilla normal.
+export function ClaseEnVivoFullLayout({
+  encuentro,
+  userName,
+  onSalir,
+}: {
+  encuentro: CursoEncuentroRow;
+  userName: string;
+  onSalir: () => void;
+}) {
+  return (
+    <section className="card-premium p-4 sm:p-6">
+      <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="kicker text-red-600">● Clase en vivo</p>
+          <h2 className="font-display text-lg font-semibold text-brand-ink sm:text-xl">
+            {encuentro.titulo}
+          </h2>
+          <p className="text-xs text-brand-muted">
+            Tu asistencia se registra automáticamente. Cuando termines de cursar,
+            tocá "Volver al curso" para regresar al contenido.
+          </p>
+        </div>
+        <button
+          onClick={onSalir}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-brand-ink shadow-sm transition hover:bg-slate-50"
+          title="Salir de la clase y volver al curso"
+        >
+          <X size={13} /> Volver al curso
+        </button>
+      </header>
+      <div className="rounded-xl bg-slate-50 p-3">
+        <ZoomLiveEmbed
+          encuentroId={encuentro.id}
+          userName={userName}
+          password={(encuentro as any).zoom_password ?? null}
+          onLeft={onSalir}
+        />
+      </div>
     </section>
   );
 }

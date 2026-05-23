@@ -42,7 +42,7 @@ import { generateCertificadoPdf } from '../lib/generateCertificadoPdf';
 import { ClasePlayer } from '../components/ClasePlayer';
 import { ExamenRunner } from '../components/ExamenRunner';
 import { ProgresoBar } from '../components/ProgresoBar';
-import { EncuentrosEnVivoAlumno } from '../components/EncuentrosEnVivoAlumno';
+import { EncuentrosEnVivoAlumno, ClaseEnVivoFullLayout } from '../components/EncuentrosEnVivoAlumno';
 
 // Página del alumno matriculado (portal). Si no está matriculado y el curso es
 // público, muestra CTA de inscripción.
@@ -63,6 +63,9 @@ export function CursoDetalleAlumnoPage() {
   // y Zoom interpreta dos solicitudes de admisión.
   const [initialLoading, setInitialLoading] = useState(true);
   const [claseActivaId, setClaseActivaId] = useState<string | null>(null);
+  // DGG-14: cuando el alumno entra a un encuentro en vivo, el layout
+  // cambia a "modo clase" — embed full-width, sidebar oculto.
+  const [encuentroEnVivoId, setEncuentroEnVivoId] = useState<string | null>(null);
 
   const reload = useCallback(async (opts?: { silent?: boolean }) => {
     const silent = opts?.silent === true;
@@ -192,6 +195,37 @@ export function CursoDetalleAlumnoPage() {
     );
   }
 
+  // DGG-14: modo "clase en vivo" — layout dedicado full-width.
+  // Cuando el alumno entra a un encuentro, se renderea SOLO el embed Zoom
+  // en formato grande (toolbar nativa, controles, todo lo de Zoom estándar).
+  // El sidebar del curso queda oculto para no competir por espacio.
+  const encuentroEnVivo = encuentroEnVivoId
+    ? encuentros.find((e) => e.id === encuentroEnVivoId)
+    : null;
+  if (encuentroEnVivo) {
+    return (
+      <div className="mx-auto max-w-4xl">
+        <Link
+          to="/portal/campus"
+          className="mb-3 inline-flex items-center gap-1 text-xs font-medium text-brand-muted hover:text-brand-ink"
+        >
+          <ArrowLeft size={13} /> Mis cursos
+        </Link>
+        <header className="mb-4">
+          <p className="kicker text-brand-cyan">{data.curso.titulo}</p>
+          <h1 className="font-display text-xl font-bold text-brand-ink sm:text-2xl">
+            Clase en vivo
+          </h1>
+        </header>
+        <ClaseEnVivoFullLayout
+          encuentro={encuentroEnVivo}
+          userName={userNameStable}
+          onSalir={() => setEncuentroEnVivoId(null)}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto max-w-7xl">
       <Link
@@ -297,6 +331,9 @@ export function CursoDetalleAlumnoPage() {
             <EncuentrosEnVivoAlumno
               encuentros={encuentros}
               userName={userNameStable}
+              activoEncuentroId={encuentroEnVivoId}
+              onEntrar={(id) => setEncuentroEnVivoId(id)}
+              onSalir={() => setEncuentroEnVivoId(null)}
             />
           )}
           {(condiciones.filter((c) => c.activa).length > 0 || certificado) && (
