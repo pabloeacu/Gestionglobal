@@ -89,14 +89,25 @@ function ZoomEmbedScaled({
     const compute = () => {
       const parent = el.parentElement;
       if (!parent) return;
-      const ph = parent.clientHeight;
-      const s = Math.min(1.05, Math.max(0.65, ph / SDK_NATIVE_H));
+      // Alto disponible REAL = mín(parent height, viewport - chrome safety).
+      // El parent del grid puede colapsar a contenido, dándonos un height
+      // mayor al viewport. Usamos el viewport como techo definitivo para
+      // que la toolbar nativa del SDK quede SIEMPRE visible.
+      const availH = Math.min(
+        parent.clientHeight,
+        window.innerHeight - 100,
+      );
+      const s = Math.min(1.0, Math.max(0.6, availH / SDK_NATIVE_H));
       setScale(s);
     };
     compute();
     const observer = new ResizeObserver(compute);
     observer.observe(el.parentElement);
-    return () => observer.disconnect();
+    window.addEventListener('resize', compute);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', compute);
+    };
   }, []);
 
   const w = SDK_NATIVE_W * scale;
