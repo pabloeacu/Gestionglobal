@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   CalendarClock,
@@ -53,20 +53,16 @@ function useIsMobile() {
   return isMobile;
 }
 
-// Tamaño natural del SDK Component View con width 720 (configurable). El
-// SDK respeta esto, y el resultado es ~720×874 con buttons readables.
-const SDK_NATIVE_W = 720;
-const SDK_NATIVE_H = 874;
-// Espacio reservado para header overlay + paddings + safety.
-const OVERLAY_CHROME_H = 80;
+// SDK Component View pedido 16:9 HD (1280×720 video + chrome). El SDK
+// respeta proporciones razonables → Paper total ~1280×860.
+const SDK_NATIVE_W = 1280;
+const SDK_NATIVE_H = 860;
 
 /**
- * Wrapper visual ancho (matchea el mockup del usuario): un contenedor con
- * fondo oscuro + borde brand que ocupa el espacio izquierdo, con el SDK
- * Paper centrado adentro. El SDK rinde a tamaño nativo legible (720×874
- * escalado al alto disponible), pero el "marco visual" hace que el embed
- * se vea ancho como el mockup. La toolbar SDK queda visible al fondo del
- * Paper centrado.
+ * Wrapper que mide el espacio del grid column disponible (que crece con
+ * `1fr`) y escala el SDK Paper (16:9 HD 1280×860 natural) para LLENAR
+ * dicho espacio. El "marco visual" (borde brand + shadow) se ajusta
+ * exactamente al SDK escalado — sin espacios negros vacíos.
  */
 function ZoomEmbedScaled({
   encuentroId,
@@ -79,55 +75,62 @@ function ZoomEmbedScaled({
   password: string | null;
   onSalir: () => void;
 }) {
-  const [scale, setScale] = useState(() => {
-    if (typeof window === 'undefined') return 0.85;
-    const availH = window.innerHeight - OVERLAY_CHROME_H;
-    return Math.min(1.0, Math.max(0.65, availH / SDK_NATIVE_H));
-  });
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [scale, setScale] = useState(0.7);
   useEffect(() => {
-    const onResize = () => {
-      const availH = window.innerHeight - OVERLAY_CHROME_H;
-      setScale(Math.min(1.0, Math.max(0.65, availH / SDK_NATIVE_H)));
+    const compute = () => {
+      const el = containerRef.current;
+      if (!el) return;
+      // Medimos el espacio REAL del column del grid en el viewport actual.
+      const parent = el.parentElement;
+      if (!parent) return;
+      const pw = parent.clientWidth;
+      const ph = parent.clientHeight;
+      // Scale uniforme para LLENAR el column manteniendo aspect SDK.
+      const sw = pw / SDK_NATIVE_W;
+      const sh = ph / SDK_NATIVE_H;
+      const s = Math.min(1.4, Math.max(0.5, Math.min(sw, sh)));
+      setScale(s);
     };
-    onResize();
-    window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
+    compute();
+    window.addEventListener('resize', compute);
+    // Recompute después del mount del SDK que puede afectar el column height
+    const t = setTimeout(compute, 250);
+    return () => {
+      window.removeEventListener('resize', compute);
+      clearTimeout(t);
+    };
   }, []);
 
   const sdkVisualH = SDK_NATIVE_H * scale;
   const sdkVisualW = SDK_NATIVE_W * scale;
 
   return (
-    // Container exterior: ocupa todo el espacio disponible del grid column.
-    // Fondo oscuro + borde brand para que se vea como un "marco premium"
-    // alrededor del SDK (matching mockup wide).
+    // Marco "hugging": el contenedor se ajusta EXACTAMENTE al SDK escalado.
+    // Sin background negro vacío alrededor. Borde brand + shadow para el
+    // toque premium.
     <div
-      className="relative flex h-full w-full items-center justify-center overflow-hidden rounded-2xl border border-slate-200/70 bg-slate-950 shadow-xl ring-1 ring-brand-cyan/20"
-      style={{ minHeight: sdkVisualH + 20 }}
+      ref={containerRef}
+      className="relative shrink-0 overflow-hidden rounded-2xl border border-slate-200/70 bg-slate-950 shadow-xl ring-1 ring-brand-cyan/20"
+      style={{ width: sdkVisualW, height: sdkVisualH }}
     >
-      {/* Wrapper del SDK centrado dentro del marco wide */}
       <div
-        className="relative shrink-0"
-        style={{ width: sdkVisualW, height: sdkVisualH }}
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          transform: `scale(${scale})`,
+          transformOrigin: 'top left',
+          width: SDK_NATIVE_W,
+          height: SDK_NATIVE_H,
+        }}
       >
-        <div
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            transform: `scale(${scale})`,
-            transformOrigin: 'top left',
-            width: SDK_NATIVE_W,
-            height: SDK_NATIVE_H,
-          }}
-        >
-          <ZoomLiveEmbed
-            encuentroId={encuentroId}
-            userName={userName}
-            password={password}
-            onLeft={onSalir}
-          />
-        </div>
+        <ZoomLiveEmbed
+          encuentroId={encuentroId}
+          userName={userName}
+          password={password}
+          onLeft={onSalir}
+        />
       </div>
     </div>
   );

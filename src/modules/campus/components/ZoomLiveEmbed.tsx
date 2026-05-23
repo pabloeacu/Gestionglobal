@@ -19,10 +19,11 @@ export interface ZoomLiveEmbedProps {
   onLeft?: () => void;
 }
 
-// Tamaño nativo del Component View con buttons readables. El SDK respeta
-// width pero impone alto ~aspect 1.2 — usamos 720×874 (proven natural).
-const SDK_W = 720;
-const SDK_H = 874;
+// Pedimos al SDK Component View 16:9 HD wide (1280×720 video → Paper
+// total ~1280×860 con header + toolbar). El SDK respeta proporciones
+// cuando le pasamos un height razonable (no microscópico).
+const SDK_W = 1280;
+const SDK_H = 860;
 
 export function ZoomLiveEmbed(props: ZoomLiveEmbedProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -68,7 +69,9 @@ export function ZoomLiveEmbed(props: ZoomLiveEmbedProps) {
               isResizable: false,
               defaultViewType: 'speaker' as any,
               viewSizes: {
-                default: { width: SDK_W, height: SDK_H - 120 },
+                // 1280×720 video (16:9 HD). El SDK añade header + toolbar
+                // → Paper total ~1280×860.
+                default: { width: SDK_W, height: 720 },
                 ribbon: { width: SDK_W, height: 80 },
               },
             },
@@ -90,27 +93,14 @@ export function ZoomLiveEmbed(props: ZoomLiveEmbedProps) {
           return;
         }
 
-        // Vista "speaker" para que el hablante llene el embed (sin gallery).
-        // Esto da una experiencia tipo "estás viendo la clase" con el host
-        // a pantalla completa del embed. La toolbar Zoom queda visible al
-        // fondo con todos los controles (mic/cam/chat/salir).
+        // Vista por defecto: "speaker" — el hablante (host) llena el
+        // embed. Si el alumno enciende su cámara, queda en el ribbon
+        // strip del SDK (visible en el header SDK). Toggle disponible
+        // desde los controles nativos del SDK.
         try {
           const c: any = client;
           await c.changeView?.({ view: 'speaker' });
         } catch { /* opt */ }
-        // Force-select active speaker después de un breve delay para que
-        // el SDK termine de inicializar streams. Si hay solo el host, el
-        // SDK selecciona al host automáticamente.
-        setTimeout(() => {
-          try {
-            const c: any = client;
-            const users = c.getAllUser?.() ?? [];
-            const host = users.find((u: any) => u.isHost) || users[0];
-            if (host?.userId) {
-              c.setActiveSpeaker?.(host.userId);
-            }
-          } catch { /* opt */ }
-        }, 800);
 
         // Listener para detectar cuando el alumno realmente sale (vía botón
         // nativo del SDK) → notificamos al padre para que cierre el modo.
