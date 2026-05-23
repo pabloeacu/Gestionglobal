@@ -53,21 +53,23 @@ function useIsMobile() {
   return isMobile;
 }
 
-// SDK Component View natural ~720×874 (aspect vertical 0.82 · limitación
-// arquitectónica del Embedded SDK).
+// SDK Component View natural 720×874. El SDK rinde una columna vertical
+// con header arriba (REC, vista, minimize), área del speaker en el medio,
+// gallery thumbnails abajo de la mitad y toolbar al fondo (mic, cam, chat,
+// salir). Estrategia: scale UP + ANCHOR BOTTOM + overflow hidden para
+// quedarnos solo con la mitad inferior (host + toolbar) en un marco 16:9.
 const SDK_NATIVE_W = 720;
 const SDK_NATIVE_H = 874;
 
 /**
- * Marco brand alrededor del Zoom Component View nativo. El SDK rinde su
- * UI completa: header con view toggle, video del speaker, gallery thumbs,
- * toolbar nativa con todos los controles (mic, cam, chat, salir).
+ * Marco 16:9 HORIZONTAL con el SDK Component View escalado y ANCLADO al
+ * fondo del marco. Solo se ve la mitad inferior del SDK (donde está el
+ * speaker en gallery + la toolbar). La mitad superior del SDK (header +
+ * área vacía del speaker spotlight) queda CROPEADA por overflow:hidden.
  *
- * Limitación reconocida: el Meeting SDK Embedded NO expone getMediaStream
- * ni renderVideo, así que no se puede dibujar el video a un canvas custom
- * (16:9). El aspect natural del SDK es vertical (~0.82). Para 16:9 verdadero
- * se requiere migrar al Zoom Video SDK (producto distinto, credenciales
- * separadas que solo el dueño de la cuenta Zoom puede crear).
+ * Resultado visual: el host se ve grande llenando el marco horizontal,
+ * con la toolbar Zoom (mic/cam/chat/salir) visible al fondo. Aspect
+ * natural del speaker preservado (uniform scale, no distortion).
  */
 function ZoomEmbedScaled({
   encuentroId,
@@ -81,7 +83,11 @@ function ZoomEmbedScaled({
   onSalir: () => void;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const [scale, setScale] = useState(0.85);
+  const [dims, setDims] = useState<{ w: number; h: number; scale: number }>({
+    w: 1024,
+    h: 576,
+    scale: 1.42,
+  });
 
   useEffect(() => {
     const el = containerRef.current;
@@ -89,16 +95,21 @@ function ZoomEmbedScaled({
     const compute = () => {
       const parent = el.parentElement;
       if (!parent) return;
-      // Alto disponible REAL = mín(parent height, viewport - chrome safety).
-      // El parent del grid puede colapsar a contenido, dándonos un height
-      // mayor al viewport. Usamos el viewport como techo definitivo para
-      // que la toolbar nativa del SDK quede SIEMPRE visible.
-      const availH = Math.min(
-        parent.clientHeight,
-        window.innerHeight - 100,
-      );
-      const s = Math.min(1.0, Math.max(0.6, availH / SDK_NATIVE_H));
-      setScale(s);
+      const pw = parent.clientWidth;
+      const ph = Math.min(parent.clientHeight, window.innerHeight - 100);
+      // Marco 16:9 — fit en el espacio disponible.
+      const byW = { w: pw, h: pw * 9 / 16 };
+      const byH = { w: ph * 16 / 9, h: ph };
+      const fit = byW.h <= ph ? byW : byH;
+      // Scale para que SDK_NATIVE_W coincida con marco width — el SDK queda
+      // del ancho exacto del marco, su alto natural (874*scale) overflowea
+      // verticalmente y se anclará al fondo.
+      const scale = fit.w / SDK_NATIVE_W;
+      setDims({
+        w: Math.floor(fit.w),
+        h: Math.floor(fit.h),
+        scale,
+      });
     };
     compute();
     const observer = new ResizeObserver(compute);
@@ -110,22 +121,22 @@ function ZoomEmbedScaled({
     };
   }, []);
 
-  const w = SDK_NATIVE_W * scale;
-  const h = SDK_NATIVE_H * scale;
-
   return (
     <div
       ref={containerRef}
       className="relative shrink-0 overflow-hidden rounded-2xl border border-slate-200/70 bg-slate-950 shadow-xl ring-1 ring-brand-cyan/20"
-      style={{ width: w, height: h }}
+      style={{ width: dims.w, height: dims.h }}
     >
+      {/* SDK escalado y anclado al FONDO del marco. La mitad superior
+          (que tiene mucho espacio negro) queda cortada por overflow,
+          dejando visible: host en gallery + toolbar al fondo. */}
       <div
         style={{
           position: 'absolute',
-          top: 0,
+          bottom: 0,
           left: 0,
-          transform: `scale(${scale})`,
-          transformOrigin: 'top left',
+          transform: `scale(${dims.scale})`,
+          transformOrigin: 'bottom left',
           width: SDK_NATIVE_W,
           height: SDK_NATIVE_H,
         }}
