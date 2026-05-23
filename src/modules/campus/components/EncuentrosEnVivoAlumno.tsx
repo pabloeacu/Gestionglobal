@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   CalendarClock,
   Radio,
@@ -176,11 +177,9 @@ export function EncuentrosEnVivoAlumno({
   );
 }
 
-// Componente fullscreen (fixed overlay) que se renderea cuando el alumno
-// está en una clase. Toma todo el viewport — el embed queda centrado a su
-// tamaño natural sin scroll. A la derecha (en desktop), panel con info del
-// curso/encuentro y botón "Volver al curso". En mobile el panel queda
-// debajo del embed.
+// Componente fullscreen REAL — renderea en document.body via React Portal
+// para evitar contextos de stacking del portal del cliente (transforms
+// en parents rompen el position:fixed). Toma 100vw × 100vh sin estorbo.
 export function ClaseEnVivoFullLayout({
   encuentro,
   cursoTitulo,
@@ -192,8 +191,31 @@ export function ClaseEnVivoFullLayout({
   userName: string;
   onSalir: () => void;
 }) {
-  return (
-    <div className="fixed inset-0 z-40 flex flex-col bg-slate-50">
+  // Body scroll lock — evita que el scroll del documento de abajo afecte.
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, []);
+
+  if (typeof document === 'undefined') return null;
+
+  return createPortal(
+    <div
+      className="flex flex-col bg-slate-50"
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        width: '100vw',
+        height: '100vh',
+        zIndex: 9999,
+      }}
+    >
       {/* Header compacto fullscreen */}
       <header className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-2.5 shadow-sm">
         <div className="min-w-0 flex-1">
@@ -222,7 +244,7 @@ export function ClaseEnVivoFullLayout({
         </button>
       </header>
 
-      {/* Cuerpo: embed centrado, toma el resto del viewport */}
+      {/* Cuerpo: embed centrado en el viewport restante. */}
       <main className="flex flex-1 items-center justify-center overflow-auto p-3 sm:p-4">
         <ZoomLiveEmbed
           encuentroId={encuentro.id}
@@ -231,6 +253,7 @@ export function ClaseEnVivoFullLayout({
           onLeft={onSalir}
         />
       </main>
-    </div>
+    </div>,
+    document.body,
   );
 }
