@@ -255,3 +255,34 @@
   estado normal, no error. Siempre interpretar errorCodes antes de mostrar
   UI de fallo.
 - **Fecha / módulo:** 2026-05-23 · campus Fase 3 · ZoomLiveEmbed.
+
+## E-GG-14 · Embed Zoom se desmontaba al admitir alumno (refresh fantasma del campus)
+- **Síntoma reportado por el usuario:** "cuando se admite al alumno, la página
+  del campus se refresca y sale de la sección. Al volver a entrar se produce
+  una solicitud de admisión doble. El ingreso nunca configura cámara ni audio."
+- **Causa raíz:** `CursoDetalleAlumnoPage.reload()` llamaba `setLoading(true)`
+  en CADA refetch (carga inicial, realtime, cambios del objeto `user`). El
+  `useEffect` dependía de `[reload]` que dependía de `[slug, user]`. Cualquier
+  cambio en el objeto `user` (token refresh, onAuthStateChange) cambiaba la
+  referencia → useEffect re-firaba → `setLoading(true)` → el componente caía
+  a `<Skeleton>` → el `<ZoomLiveEmbed>` se DESMONTABA → su cleanup invocaba
+  `leaveMeeting()` mientras el alumno estaba siendo admitido → al volver
+  `loading` a `false`, el embed re-montaba y disparaba `client.join()` OTRA
+  VEZ → Zoom interpretaba como **segunda solicitud de admisión**.
+- **Fix:** separar `initialLoading` (única que muestra Skeleton) de los
+  refreshes silenciosos. `reload({silent:true})` no toca loading. Deps de
+  reload pasaron a `userId` (string) en lugar del objeto `user`. `userName`
+  memoizado por `[fullName, email]` para referencia estable hacia el embed.
+- **Verificación e2e (browser test real con dos sesiones simultáneas):**
+  - Host (Pablo) en su propio Chrome con cámara y mic activos.
+  - Alumno (Sol y Luna) en Chrome MCP con embed inline.
+  - Admit por host → alumno NO se desmontó, NO hubo doble admisión, recibió
+    video del host (chroma confirmado).
+  - BD: 1 evento `join` con customer_key=matricula_id correcto, asistencia
+    fuente=zoom_auto acumulando tiempo_conectado_seg.
+- **Prevención:** **NUNCA mostrar Skeleton en refreshes silenciosos**. Toda
+  página con componentes "live" (Zoom, iframes externos, WebRTC) debe
+  separar el estado de carga inicial del de refreshes para que el árbol no
+  se desmonte. Las dependencias de useCallback deben ser strings estables
+  (`userId`, no `user`).
+- **Fecha / módulo:** 2026-05-23 · campus Fase 3 · CursoDetalleAlumnoPage.
