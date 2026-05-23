@@ -26,11 +26,13 @@ import {
   getCurso,
   getProgresoResumen,
   listCondicionesMatricula,
+  listEncuentros,
   listMatriculas,
   listProgreso,
   verificacionUrl,
   type CertificadoRow,
   type CursoDetalle,
+  type CursoEncuentroRow,
   type CursoMatriculaRow,
   type CursoProgresoRow,
   type MatriculaCondicionItem,
@@ -40,6 +42,7 @@ import { generateCertificadoPdf } from '../lib/generateCertificadoPdf';
 import { ClasePlayer } from '../components/ClasePlayer';
 import { ExamenRunner } from '../components/ExamenRunner';
 import { ProgresoBar } from '../components/ProgresoBar';
+import { EncuentrosEnVivoAlumno } from '../components/EncuentrosEnVivoAlumno';
 
 // Página del alumno matriculado (portal). Si no está matriculado y el curso es
 // público, muestra CTA de inscripción.
@@ -52,6 +55,7 @@ export function CursoDetalleAlumnoPage() {
   const [resumen, setResumen] = useState<ProgresoResumen | null>(null);
   const [condiciones, setCondiciones] = useState<MatriculaCondicionItem[]>([]);
   const [certificado, setCertificado] = useState<CertificadoRow | null>(null);
+  const [encuentros, setEncuentros] = useState<CursoEncuentroRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [claseActivaId, setClaseActivaId] = useState<string | null>(null);
 
@@ -74,22 +78,25 @@ export function CursoDetalleAlumnoPage() {
       const found = m.ok && m.data.length > 0 ? m.data[0] : null;
       if (found) {
         setMatricula(found);
-        const [p, r, c, cert] = await Promise.all([
+        const [p, r, c, cert, enc] = await Promise.all([
           listProgreso(found.id),
           getProgresoResumen(found.id),
           listCondicionesMatricula(found.id),
           getCertificadoMatricula(found.id),
+          listEncuentros(d.data.curso.id),
         ]);
         if (p.ok) setProgreso(p.data);
         if (r.ok) setResumen(r.data);
         if (c.ok) setCondiciones(c.data);
         if (cert.ok) setCertificado(cert.data);
+        if (enc.ok) setEncuentros(enc.data);
       } else {
         setMatricula(null);
         setProgreso([]);
         setResumen(null);
         setCondiciones([]);
         setCertificado(null);
+        setEncuentros([]);
       }
     }
     setLoading(false);
@@ -266,6 +273,13 @@ export function CursoDetalleAlumnoPage() {
 
         {/* Contenido principal */}
         <main className="space-y-6">
+          {/* Encuentros sincrónicos en vivo (DGG-14) */}
+          {encuentros.some((e: any) => e.zoom_meeting_id) && (
+            <EncuentrosEnVivoAlumno
+              encuentros={encuentros}
+              userName={user?.fullName ?? user?.email ?? 'Alumno'}
+            />
+          )}
           {(condiciones.filter((c) => c.activa).length > 0 || certificado) && (
             <CondicionesAlumnoPanel
               condiciones={condiciones.filter((c) => c.activa)}

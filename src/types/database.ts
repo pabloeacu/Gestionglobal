@@ -1614,28 +1614,46 @@ export type Database = {
       }
       curso_encuentro_asistencias: {
         Row: {
+          auto_presente: boolean
           encuentro_id: string
+          fuente: string
           id: string
           marcada_at: string
           marcada_por: string | null
           matricula_id: string
           presente: boolean
+          salido_at: string | null
+          tiempo_conectado_seg: number
+          umbral_cumplido: boolean
+          unido_at: string | null
         }
         Insert: {
+          auto_presente?: boolean
           encuentro_id: string
+          fuente?: string
           id?: string
           marcada_at?: string
           marcada_por?: string | null
           matricula_id: string
           presente?: boolean
+          salido_at?: string | null
+          tiempo_conectado_seg?: number
+          umbral_cumplido?: boolean
+          unido_at?: string | null
         }
         Update: {
+          auto_presente?: boolean
           encuentro_id?: string
+          fuente?: string
           id?: string
           marcada_at?: string
           marcada_por?: string | null
           matricula_id?: string
           presente?: boolean
+          salido_at?: string | null
+          tiempo_conectado_seg?: number
+          umbral_cumplido?: boolean
+          unido_at?: string | null
         }
         Relationships: [
           {
@@ -1661,39 +1679,114 @@ export type Database = {
           },
         ]
       }
+      curso_encuentro_zoom_eventos: {
+        Row: {
+          created_at: string
+          encuentro_id: string
+          evento: string
+          id: string
+          matricula_id: string
+          ocurrido_at: string
+          raw_payload: Json | null
+        }
+        Insert: {
+          created_at?: string
+          encuentro_id: string
+          evento: string
+          id?: string
+          matricula_id: string
+          ocurrido_at: string
+          raw_payload?: Json | null
+        }
+        Update: {
+          created_at?: string
+          encuentro_id?: string
+          evento?: string
+          id?: string
+          matricula_id?: string
+          ocurrido_at?: string
+          raw_payload?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "curso_encuentro_zoom_eventos_encuentro_id_fkey"
+            columns: ["encuentro_id"]
+            isOneToOne: false
+            referencedRelation: "curso_encuentros"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "curso_encuentro_zoom_eventos_matricula_id_fkey"
+            columns: ["matricula_id"]
+            isOneToOne: false
+            referencedRelation: "curso_matriculas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       curso_encuentros: {
         Row: {
           created_at: string
           curso_id: string
           descripcion: string | null
+          duracion_min: number
           fecha_hora: string | null
+          finalizado_at: string | null
+          grabacion_play_url: string | null
+          grabacion_url: string | null
           id: string
+          iniciado_at: string | null
           link_zoom: string | null
           orden: number
           titulo: string
           updated_at: string
+          zoom_join_url: string | null
+          zoom_meeting_id: number | null
+          zoom_password: string | null
+          zoom_start_url: string | null
+          zoom_status: string
         }
         Insert: {
           created_at?: string
           curso_id: string
           descripcion?: string | null
+          duracion_min?: number
           fecha_hora?: string | null
+          finalizado_at?: string | null
+          grabacion_play_url?: string | null
+          grabacion_url?: string | null
           id?: string
+          iniciado_at?: string | null
           link_zoom?: string | null
           orden?: number
           titulo: string
           updated_at?: string
+          zoom_join_url?: string | null
+          zoom_meeting_id?: number | null
+          zoom_password?: string | null
+          zoom_start_url?: string | null
+          zoom_status?: string
         }
         Update: {
           created_at?: string
           curso_id?: string
           descripcion?: string | null
+          duracion_min?: number
           fecha_hora?: string | null
+          finalizado_at?: string | null
+          grabacion_play_url?: string | null
+          grabacion_url?: string | null
           id?: string
+          iniciado_at?: string | null
           link_zoom?: string | null
           orden?: number
           titulo?: string
           updated_at?: string
+          zoom_join_url?: string | null
+          zoom_meeting_id?: number | null
+          zoom_password?: string | null
+          zoom_start_url?: string | null
+          zoom_status?: string
         }
         Relationships: [
           {
@@ -2014,6 +2107,7 @@ export type Database = {
           modalidad: string
           observaciones: string | null
           precio_lista: number | null
+          presencia_minima_pct: number
           requisitos_html: string | null
           slug: string
           titulo: string
@@ -2038,6 +2132,7 @@ export type Database = {
           modalidad?: string
           observaciones?: string | null
           precio_lista?: number | null
+          presencia_minima_pct?: number
           requisitos_html?: string | null
           slug: string
           titulo: string
@@ -2062,6 +2157,7 @@ export type Database = {
           modalidad?: string
           observaciones?: string | null
           precio_lista?: number | null
+          presencia_minima_pct?: number
           requisitos_html?: string | null
           slug?: string
           titulo?: string
@@ -5305,6 +5401,39 @@ export type Database = {
           p_administracion_id: string
           p_curso_id: string
           p_profile_id?: string
+        }
+        Returns: string
+      }
+      curso_encuentro_set_zoom: {
+        Args: {
+          p_duracion_min?: number
+          p_encuentro_id: string
+          p_join_url: string
+          p_meeting_id: number
+          p_password: string
+          p_start_url: string
+        }
+        Returns: undefined
+      }
+      curso_encuentro_zoom_estado: {
+        Args: { p_estado: string; p_meeting_id: number; p_ocurrido_at?: string }
+        Returns: string
+      }
+      curso_encuentro_zoom_evento: {
+        Args: {
+          p_evento: string
+          p_matricula_id: string
+          p_meeting_id: number
+          p_ocurrido_at: string
+          p_payload?: Json
+        }
+        Returns: string
+      }
+      curso_encuentro_zoom_grabacion: {
+        Args: {
+          p_grabacion_play_url?: string
+          p_grabacion_url: string
+          p_meeting_id: number
         }
         Returns: string
       }

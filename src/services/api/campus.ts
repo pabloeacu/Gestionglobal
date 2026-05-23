@@ -1097,6 +1097,63 @@ export async function marcarAsistencia(
 }
 
 // ============================================================================
+// Fase 3 · Integración Zoom (DGG-14)
+// Edge functions:
+//   - zoom-meeting-create  : staff crea reunión Zoom y guarda metadata.
+//   - zoom-sdk-signature   : firma JWT del Web Meeting SDK para join.
+// ============================================================================
+
+export interface ZoomMeetingCreated {
+  ok: true;
+  meeting_id: number;
+  join_url: string;
+  start_url: string;
+  password: string | null;
+  topic: string;
+}
+
+/** Staff: crea la reunión Zoom asociada al encuentro y persiste IDs en BD. */
+export async function crearSalaZoom(input: {
+  encuentroId: string;
+  duracionMin?: number;
+  topic?: string;
+  hostEmail?: string;
+}): Promise<ApiResponse<ZoomMeetingCreated>> {
+  const { data, error } = await supabase.functions.invoke('zoom-meeting-create', {
+    body: {
+      encuentro_id: input.encuentroId,
+      duracion_min: input.duracionMin,
+      topic: input.topic,
+      host_email: input.hostEmail,
+    },
+  });
+  if (error) return fail('ZOOM_CREATE', error.message, error);
+  if (!data?.ok) return fail('ZOOM_CREATE', data?.error ?? 'Falló crear sala', data);
+  return ok(data as ZoomMeetingCreated);
+}
+
+export interface ZoomSdkSignature {
+  signature: string;
+  sdkKey: string;
+  meetingNumber: string;
+  role: 0 | 1;
+  customerKey: string | null;
+}
+
+/** Pide al edge fn la firma JWT del Web Meeting SDK para joinear al encuentro. */
+export async function firmarSdk(input: {
+  encuentroId: string;
+  role?: 0 | 1;
+}): Promise<ApiResponse<ZoomSdkSignature>> {
+  const { data, error } = await supabase.functions.invoke('zoom-sdk-signature', {
+    body: { encuentro_id: input.encuentroId, role: input.role ?? 0 },
+  });
+  if (error) return fail('ZOOM_SIGN', error.message, error);
+  if (!data?.signature) return fail('ZOOM_SIGN', data?.error ?? 'Sin firma', data);
+  return ok(data as ZoomSdkSignature);
+}
+
+// ============================================================================
 // Fase 1 · Registro de pago del curso → asiento de ingreso (DGG-10bis)
 // ============================================================================
 export interface RegistrarPagoInput {
