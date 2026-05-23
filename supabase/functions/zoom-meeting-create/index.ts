@@ -76,8 +76,8 @@ Deno.serve(async (req) => {
     auth: { autoRefreshToken: false, persistSession: false },
   });
   const { data: prof } = await admin
-    .from("profiles").select("rol, email").eq("id", userId).maybeSingle();
-  if (prof?.rol !== "gerente") return json(403, { error: "only_staff" });
+    .from("profiles").select("role").eq("id", userId).maybeSingle();
+  if (prof?.role !== "gerente") return json(403, { error: "only_staff" });
 
   let body: any;
   try { body = await req.json(); } catch { return json(400, { error: "json" }); }
@@ -85,7 +85,7 @@ Deno.serve(async (req) => {
   if (!encuentroId || !/^[0-9a-f-]{36}$/i.test(encuentroId)) {
     return json(400, { error: "encuentro_id" });
   }
-  const hostEmail: string = body?.host_email ?? prof?.email ?? "me";
+  const hostEmail: string = body?.host_email ?? "me";
   const duracionMin: number = Number(body?.duracion_min ?? 60);
 
   const { data: enc } = await admin

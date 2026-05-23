@@ -101,10 +101,10 @@ Deno.serve(async (req) => {
   // ¿Es staff?
   const { data: prof } = await admin
     .from("profiles")
-    .select("rol")
+    .select("role")
     .eq("id", userId)
     .maybeSingle();
-  const isStaff = prof?.rol === "gerente";
+  const isStaff = prof?.role === "gerente";
 
   let matriculaId: string | null = null;
   if (isStaff) {
