@@ -20,10 +20,15 @@ export interface ZoomLiveEmbedProps {
 }
 
 // Tamaños del bloque (el SDK se acomoda adentro).
+// IMPORTANTE: el SDK Component View tiene un alto MÍNIMO de ~830px para
+// renderizar header + video + toolbar nativa sin recortes. Por debajo de
+// eso la toolbar queda fuera. Aceptamos ese mínimo en ambos modos y la
+// distinción compact/ampliado es por el ancho del video (más píxeles de
+// imagen del host en ampliado).
 const COMPACT_W = 720;
-const COMPACT_H = 500;
+const COMPACT_H = 850;
 const LARGE_W = 1080;
-const LARGE_H = 700;
+const LARGE_H = 850;
 
 export function ZoomLiveEmbed(props: ZoomLiveEmbedProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -158,25 +163,17 @@ export function ZoomLiveEmbed(props: ZoomLiveEmbedProps) {
     if (!container) return;
 
     const apply = () => {
-      // SOLO el outermost: ese es el primer descendiente Paper directo.
-      // Los Papers internos del SDK son hijos suyos y deben ajustarse
-      // proporcionalmente — si los forzamos a todos al mismo alto, el SDK
-      // los apila verticalmente (video 500 + toolbar 500 = 1000) y queda
-      // peor. El SDK acomoda video + toolbar dentro del outer.
-      const outermost = container.querySelector('.zoom-MuiPaper-root') as HTMLElement | null;
-      if (outermost) {
-        outermost.style.maxHeight = `${dims.h}px`;
-        outermost.style.height = `${dims.h}px`;
-        outermost.style.width = `${dims.w}px`;
-        outermost.style.maxWidth = `${dims.w}px`;
-        outermost.style.overflow = 'hidden';
+      // Ajustamos sólo el ANCHO del Paper outer (el alto lo dejamos al SDK,
+      // que necesita ~828 para mostrar header + video + toolbar sin cortar).
+      const outer = container.querySelector('.zoom-MuiPaper-root') as HTMLElement | null;
+      if (outer) {
+        outer.style.width = `${dims.w}px`;
+        outer.style.maxWidth = `${dims.w}px`;
       }
-      // Forzar también el react-resizable wrapper para que coincida.
       const resizable = container.querySelector('.react-resizable') as HTMLElement | null;
       if (resizable) {
-        resizable.style.maxHeight = `${dims.h}px`;
-        resizable.style.height = `${dims.h}px`;
         resizable.style.width = `${dims.w}px`;
+        resizable.style.maxWidth = `${dims.w}px`;
       }
     };
 
