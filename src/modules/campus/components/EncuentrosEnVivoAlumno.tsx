@@ -53,20 +53,16 @@ function useIsMobile() {
   return isMobile;
 }
 
-// SDK Component View natural ~720×874 (aspect 0.82 vertical).
+// SDK Component View natural ~720×874 (aspect 0.82 vertical · limitación
+// arquitectónica del Embedded SDK — NO se puede cambiar a 16:9 horizontal
+// con Component View).
 const SDK_NATIVE_W = 720;
 const SDK_NATIVE_H = 874;
 
 /**
- * Marco 16:9 HORIZONTAL con el SDK Paper centrado adentro a su aspect
- * natural (vertical 0.82). Las áreas laterales del marco quedan con
- * gradiente brand → "letterbox" estético en lugar de espacio negro.
- *
- * El SDK Component View tiene un aspect fijo (limitación arquitectónica)
- * pero el "embed" general respeta el 16:9 que pide el mockup del usuario.
- * Todo el chrome del SDK (header con view toggle, video del speaker,
- * toolbar con mic/cam/chat/salir) queda visible y funcional dentro de
- * su área natural.
+ * Marco brand que se ajusta al tamaño REAL del SDK Paper. SDK ocupa toda
+ * la altura disponible. Sin letterbox, sin black bars. Toolbar Zoom +
+ * header con view toggle (galería/speaker) quedan funcionales.
  */
 function ZoomEmbedScaled({
   encuentroId,
@@ -80,31 +76,16 @@ function ZoomEmbedScaled({
   onSalir: () => void;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const [dims, setDims] = useState<{ marcoW: number; marcoH: number; sdkScale: number }>({
-    marcoW: 1280,
-    marcoH: 720,
-    sdkScale: 0.82,
-  });
-
+  const [scale, setScale] = useState(0.8);
   useEffect(() => {
     const compute = () => {
       const el = containerRef.current;
       if (!el) return;
       const parent = el.parentElement;
       if (!parent) return;
-      const pw = parent.clientWidth;
       const ph = parent.clientHeight;
-      // Marco 16:9 — fit en el espacio disponible.
-      const byW = { w: pw, h: pw * 9 / 16 };
-      const byH = { w: ph * 16 / 9, h: ph };
-      const marco = byW.h <= ph ? byW : byH;
-      // SDK scale para que su alto = marco alto (full visible vertical).
-      const sdkScale = marco.h / SDK_NATIVE_H;
-      setDims({
-        marcoW: Math.floor(marco.w),
-        marcoH: Math.floor(marco.h),
-        sdkScale: Math.min(1.0, Math.max(0.55, sdkScale)),
-      });
+      const s = Math.min(1.05, Math.max(0.65, ph / SDK_NATIVE_H));
+      setScale(s);
     };
     compute();
     window.addEventListener('resize', compute);
@@ -117,49 +98,32 @@ function ZoomEmbedScaled({
     };
   }, []);
 
-  const sdkW = SDK_NATIVE_W * dims.sdkScale;
-  const sdkH = SDK_NATIVE_H * dims.sdkScale;
+  const w = SDK_NATIVE_W * scale;
+  const h = SDK_NATIVE_H * scale;
 
   return (
     <div
       ref={containerRef}
-      className="relative shrink-0 overflow-hidden rounded-2xl border border-slate-200/70 shadow-xl ring-1 ring-brand-cyan/20"
-      style={{
-        width: dims.marcoW,
-        height: dims.marcoH,
-        // Letterbox brand: gradiente cyan/slate sutil en los costados.
-        background:
-          'radial-gradient(ellipse at center, rgb(15, 23, 42) 0%, rgb(8, 47, 73) 60%, rgb(15, 23, 42) 100%)',
-      }}
+      className="relative shrink-0 overflow-hidden rounded-2xl border border-slate-200/70 bg-slate-950 shadow-xl ring-1 ring-brand-cyan/20"
+      style={{ width: w, height: h }}
     >
-      {/* SDK Paper centrado horizontalmente. Vertical full marco height. */}
       <div
         style={{
           position: 'absolute',
           top: 0,
-          left: (dims.marcoW - sdkW) / 2,
-          width: sdkW,
-          height: sdkH,
+          left: 0,
+          transform: `scale(${scale})`,
+          transformOrigin: 'top left',
+          width: SDK_NATIVE_W,
+          height: SDK_NATIVE_H,
         }}
       >
-        <div
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            transform: `scale(${dims.sdkScale})`,
-            transformOrigin: 'top left',
-            width: SDK_NATIVE_W,
-            height: SDK_NATIVE_H,
-          }}
-        >
-          <ZoomLiveEmbed
-            encuentroId={encuentroId}
-            userName={userName}
-            password={password}
-            onLeft={onSalir}
-          />
-        </div>
+        <ZoomLiveEmbed
+          encuentroId={encuentroId}
+          userName={userName}
+          password={password}
+          onLeft={onSalir}
+        />
       </div>
     </div>
   );
