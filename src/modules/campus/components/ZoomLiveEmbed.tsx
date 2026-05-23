@@ -19,11 +19,12 @@ export interface ZoomLiveEmbedProps {
   onLeft?: () => void;
 }
 
-// Tamaño nativo del Component View. El SDK rinde su UI (header REC +
-// video + toolbar) dentro de este área. ~720×820 es el mínimo cómodo
-// para que TODO se vea sin recortes.
+// Tamaño compacto del Component View. Zoom docs marcan ~600px de altura
+// mínima para que la toolbar (audio/cam/chat/salir) quede visible sin
+// scroll dentro del viewport del alumno. Vamos al mínimo cómodo para que
+// la "clase en vivo" entre HORIZONTAL en una pantalla 1366×768 sin scroll.
 const SDK_W = 720;
-const SDK_H = 820;
+const SDK_H = 600;
 
 export function ZoomLiveEmbed(props: ZoomLiveEmbedProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -68,8 +69,10 @@ export function ZoomLiveEmbed(props: ZoomLiveEmbedProps) {
             video: {
               isResizable: false,
               viewSizes: {
-                default: { width: SDK_W, height: SDK_H - 100 },
-                ribbon: { width: SDK_W, height: 80 },
+                // Video area compacto — el SDK añade ~80px de toolbar abajo
+                // + ~40px de header arriba = ~600px totales (= SDK_H).
+                default: { width: SDK_W, height: SDK_H - 120 },
+                ribbon: { width: SDK_W, height: 70 },
               },
             },
           },
