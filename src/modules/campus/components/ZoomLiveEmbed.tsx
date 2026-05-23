@@ -1,31 +1,21 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import {
-  Loader2,
-  AlertCircle,
-  Maximize2,
-  Minimize2,
-  Mic,
-  MicOff,
-  Video,
-  VideoOff,
-  Hand,
-  MessageSquare,
-  LogOut,
-} from 'lucide-react';
+import { Loader2, AlertCircle, Maximize2, Minimize2 } from 'lucide-react';
 import { firmarSdk } from '@/services/api/campus';
 
 // DGG-14: embed del Web Meeting SDK de Zoom (Component View).
 //
-// Estrategia de tamaño:
-//   Component View NO trae toolbar por default (sólo header + video gallery).
-//   Para que el usuario tenga la "experiencia Zoom" (mute, cam, mano, chat,
-//   salir) construimos NOSOTROS una toolbar propia debajo del viewport del
-//   SDK, que llama a los métodos del client.
+// El SDK ya trae su propia toolbar nativa (Audio, Cámara, Participantes,
+// Compartir pantalla, Más, Salir) + header con Vista de galería, Información
+// sobre la reunión, Vista minimizada/ampliada. No duplicamos esos controles.
+// Sólo agregamos un botón "Ampliar/Compacto" propio para el toggle de tamaño
+// del bloque dentro del campus.
 //
-//   El SDK renderiza a su tamaño natural — sin CSS scale — y le pasamos
-//   viewSizes específicos para cada modo. Compact y Ampliado son tamaños
-//   distintos del SDK, no escalados visualmente. El SDK al re-rendizar
-//   ajusta TODO (header, video, gallery) al nuevo tamaño correctamente.
+// Dimensiones del bloque visible:
+//   - Compact: 720 ancho × ~480 alto (cabe sin scroll, video grande)
+//   - Ampliado: 1080 ancho × ~720 alto (vista grande)
+// El alto total incluye: header del SDK (~50px) + video gallery + toolbar
+// inferior del SDK (~64px). Le damos al viewport del SDK el espacio
+// completo para que TODO se vea sin recortes.
 
 export interface ZoomLiveEmbedProps {
   encuentroId: string;
@@ -35,12 +25,10 @@ export interface ZoomLiveEmbedProps {
   onLeft?: () => void;
 }
 
-// Compact: cabe sin scroll, el video del host se ve grande en el centro.
 const COMPACT_W = 720;
-const COMPACT_VIDEO_H = 320; // gallery; header ~40px, total ≈ 360.
-// Ampliado: más espacio para gallery + thumbnails.
+const COMPACT_H = 480;
 const LARGE_W = 1080;
-const LARGE_VIDEO_H = 540;
+const LARGE_H = 720;
 
 export function ZoomLiveEmbed(props: ZoomLiveEmbedProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -51,18 +39,14 @@ export function ZoomLiveEmbed(props: ZoomLiveEmbedProps) {
   );
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
-  const [micOn, setMicOn] = useState(false);
-  const [camOn, setCamOn] = useState(false);
-  const [handUp, setHandUp] = useState(false);
-  const [showChat, setShowChat] = useState(false);
-  const [chatText, setChatText] = useState('');
-  const [chatLog, setChatLog] = useState<Array<{ from: string; text: string }>>([]);
 
-  const dims = useMemo(() => {
-    const w = expanded ? LARGE_W : COMPACT_W;
-    const h = expanded ? LARGE_VIDEO_H : COMPACT_VIDEO_H;
-    return { w, h };
-  }, [expanded]);
+  const dims = useMemo(
+    () => ({
+      w: expanded ? LARGE_W : COMPACT_W,
+      h: expanded ? LARGE_H : COMPACT_H,
+    }),
+    [expanded],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -97,27 +81,15 @@ export function ZoomLiveEmbed(props: ZoomLiveEmbedProps) {
           customize: {
             video: {
               isResizable: false,
+              // El SDK acomoda header + video + toolbar dentro de este area.
+              // En compact: 720 ancho → toolbar visible al fondo.
               viewSizes: {
-                default: { width: COMPACT_W, height: COMPACT_VIDEO_H },
+                default: { width: COMPACT_W, height: COMPACT_H - 50 },
                 ribbon: { width: COMPACT_W, height: 80 },
               },
             },
           },
         });
-
-        // Listeners para mantener el estado UI alineado con el SDK.
-        // Cast a any porque el typing del SDK es estricto con event names.
-        try {
-          const c: any = client;
-          c.on?.('current-audio-change', (p: any) => {
-            if (typeof p?.muted === 'boolean') setMicOn(!p.muted);
-          });
-          c.on?.('chat-on-message', (m: any) => {
-            const from = m?.sender?.name ?? 'Anfitrión';
-            const text = m?.message ?? '';
-            if (text) setChatLog((prev) => [...prev.slice(-30), { from, text }]);
-          });
-        } catch { /* SDK puede no exponer on() en todas las versiones */ }
 
         setState('joining');
 
@@ -133,6 +105,14 @@ export function ZoomLiveEmbed(props: ZoomLiveEmbedProps) {
           try { await client.leaveMeeting(); } catch { /* noop */ }
           return;
         }
+
+        // Forzar vista "active" para que el video del host LLENE el viewport
+        // (en lugar de gallery con espacios vacíos cuando hay sólo 1 cámara).
+        try {
+          const c: any = client;
+          await c.changeView?.({ view: 'active' });
+        } catch { /* la opción puede no estar disponible */ }
+
         setState('ready');
       } catch (e: any) {
         const code = e?.errorCode ?? e?.reason?.errorCode ?? e?.code ?? e?.type;
@@ -177,55 +157,20 @@ export function ZoomLiveEmbed(props: ZoomLiveEmbedProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.encuentroId]);
 
-  // Cambio de tamaño: invoca updateVideoOptions del SDK (no recrea cliente).
+  // Toggle Ampliar/Compacto: re-instruye al SDK sobre el viewSize
+  // sin recrear el cliente. La conexión + audio + video persisten.
   useEffect(() => {
-    const client = clientRef.current;
+    const client: any = clientRef.current;
     if (!client || state !== 'ready') return;
     try {
       client.updateVideoOptions?.({
         viewSizes: {
-          default: { width: dims.w, height: dims.h },
+          default: { width: dims.w, height: dims.h - 50 },
           ribbon: { width: dims.w, height: 80 },
         },
       });
     } catch { /* noop */ }
   }, [dims.w, dims.h, state]);
-
-  // Helpers de toolbar — llaman al SDK client directamente
-  async function toggleMic() {
-    const c = clientRef.current; if (!c) return;
-    try {
-      if (micOn) { await c.mute?.(true); setMicOn(false); }
-      else { await c.mute?.(false); setMicOn(true); }
-    } catch (e) { console.warn('mic', e); }
-  }
-  async function toggleCam() {
-    const c = clientRef.current; if (!c) return;
-    try {
-      if (camOn) { await c.muteVideo?.(true); setCamOn(false); }
-      else { await c.muteVideo?.(false); setCamOn(true); }
-    } catch (e) { console.warn('cam', e); }
-  }
-  async function toggleHand() {
-    const c = clientRef.current; if (!c) return;
-    try {
-      if (handUp) { await c.lowerHand?.(); setHandUp(false); }
-      else { await c.raiseHand?.(); setHandUp(true); }
-    } catch (e) { console.warn('hand', e); }
-  }
-  async function leaveMeeting() {
-    const c = clientRef.current; if (!c) return;
-    try { await c.leaveMeeting?.(); } catch { /* noop */ }
-    props.onLeft?.();
-  }
-  async function sendChat() {
-    const c = clientRef.current; if (!c || !chatText.trim()) return;
-    try {
-      await c.sendChat?.({ message: chatText.trim() });
-      setChatLog((prev) => [...prev.slice(-30), { from: 'Vos', text: chatText.trim() }]);
-      setChatText('');
-    } catch (e) { console.warn('chat', e); }
-  }
 
   return (
     <div className="relative mx-auto" style={{ width: dims.w }}>
@@ -233,7 +178,7 @@ export function ZoomLiveEmbed(props: ZoomLiveEmbedProps) {
       {state !== 'ready' && state !== 'error' && (
         <div
           className="absolute inset-0 z-10 grid place-items-center rounded-2xl bg-slate-900/80 text-white backdrop-blur-sm"
-          style={{ height: dims.h + 56 }}
+          style={{ height: dims.h }}
         >
           <div className="flex flex-col items-center gap-2 text-sm">
             <Loader2 size={22} className="animate-spin" />
@@ -265,12 +210,14 @@ export function ZoomLiveEmbed(props: ZoomLiveEmbedProps) {
         </div>
       )}
 
-      {/* Toggle Ampliar/Compacto */}
+      {/* Toggle Ampliar/Compacto — único control propio, encima del SDK.
+          Posicionado a la izquierda del header del SDK (que tiene icons a
+          la derecha) para no taparlos. */}
       {state === 'ready' && (
         <button
           onClick={() => setExpanded((v) => !v)}
           title={expanded ? 'Vista compacta' : 'Vista ampliada'}
-          className="absolute right-2 top-2 z-20 inline-flex items-center gap-1 rounded-md bg-black/55 px-2 py-1 text-[11px] font-medium text-white shadow-sm backdrop-blur-sm transition hover:bg-black/70"
+          className="absolute left-3 top-3 z-20 inline-flex items-center gap-1 rounded-md bg-black/55 px-2 py-1 text-[11px] font-medium text-white shadow-sm backdrop-blur-sm transition hover:bg-black/70"
         >
           {expanded ? (
             <>
@@ -284,114 +231,17 @@ export function ZoomLiveEmbed(props: ZoomLiveEmbedProps) {
         </button>
       )}
 
-      {/* Container que aloja el SDK — sin scale CSS */}
+      {/* Viewport del SDK — alto completo con espacio para header + video
+          + toolbar nativa del SDK */}
       <div
         ref={containerRef}
-        className="overflow-hidden rounded-t-2xl bg-black"
+        className="overflow-hidden rounded-2xl bg-black"
         style={{
           width: dims.w,
-          height: dims.h + 56, // espacio para header del SDK
+          height: dims.h,
           transition: 'width 200ms ease-out, height 200ms ease-out',
         }}
       />
-
-      {/* Toolbar propia con controles Zoom-like (Component View no trae default) */}
-      {state === 'ready' && (
-        <div
-          className="flex items-center justify-between gap-2 rounded-b-2xl bg-slate-900 px-3 py-2 text-white"
-          style={{ width: dims.w }}
-        >
-          <div className="flex items-center gap-1.5">
-            <ToolbarBtn onClick={() => void toggleMic()} active={micOn} label={micOn ? 'Silenciar' : 'Activar audio'}>
-              {micOn ? <Mic size={14} /> : <MicOff size={14} />}
-            </ToolbarBtn>
-            <ToolbarBtn onClick={() => void toggleCam()} active={camOn} label={camOn ? 'Apagar cámara' : 'Encender cámara'}>
-              {camOn ? <Video size={14} /> : <VideoOff size={14} />}
-            </ToolbarBtn>
-            <ToolbarBtn onClick={() => void toggleHand()} active={handUp} label={handUp ? 'Bajar mano' : 'Levantar mano'}>
-              <Hand size={14} />
-            </ToolbarBtn>
-            <ToolbarBtn
-              onClick={() => setShowChat((v) => !v)}
-              active={showChat}
-              label="Chat"
-            >
-              <MessageSquare size={14} />
-            </ToolbarBtn>
-          </div>
-          <button
-            onClick={() => void leaveMeeting()}
-            className="inline-flex items-center gap-1 rounded-md bg-red-600 px-2.5 py-1 text-[11px] font-semibold transition hover:bg-red-700"
-            title="Salir de la sala"
-          >
-            <LogOut size={12} /> Salir
-          </button>
-        </div>
-      )}
-
-      {/* Mini chat lateral debajo de la toolbar */}
-      {state === 'ready' && showChat && (
-        <div
-          className="mt-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm"
-          style={{ width: dims.w }}
-        >
-          <div className="mb-2 max-h-32 overflow-y-auto text-sm">
-            {chatLog.length === 0 ? (
-              <p className="text-xs text-brand-muted">Sin mensajes todavía.</p>
-            ) : (
-              chatLog.map((m, i) => (
-                <p key={i} className="mb-0.5">
-                  <span className="font-semibold text-brand-ink">{m.from}:</span>{' '}
-                  <span className="text-brand-ink">{m.text}</span>
-                </p>
-              ))
-            )}
-          </div>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={chatText}
-              onChange={(e) => setChatText(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') void sendChat(); }}
-              placeholder="Escribí un mensaje…"
-              className="flex-1 rounded-md border border-slate-200 px-2 py-1 text-sm focus:border-brand-cyan focus:outline-none"
-            />
-            <button
-              onClick={() => void sendChat()}
-              className="rounded-md bg-brand-cyan px-3 py-1 text-xs font-semibold text-white hover:bg-brand-cyan/90"
-            >
-              Enviar
-            </button>
-          </div>
-        </div>
-      )}
     </div>
-  );
-}
-
-function ToolbarBtn({
-  onClick,
-  active,
-  label,
-  children,
-}: {
-  onClick: () => void;
-  active: boolean;
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      title={label}
-      className={
-        'inline-flex h-8 w-8 items-center justify-center rounded-md transition ' +
-        (active
-          ? 'bg-brand-cyan text-white shadow-sm'
-          : 'bg-slate-700 text-white hover:bg-slate-600')
-      }
-    >
-      {children}
-    </button>
   );
 }
