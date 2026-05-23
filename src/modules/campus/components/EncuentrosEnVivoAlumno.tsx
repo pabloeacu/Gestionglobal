@@ -53,6 +53,72 @@ function useIsMobile() {
   return isMobile;
 }
 
+// Tamaño natural del SDK Component View (no se puede comprimir más).
+const SDK_NATIVE_W = 720;
+const SDK_NATIVE_H = 874;
+// Espacio reservado para header overlay + paddings + safety.
+const OVERLAY_CHROME_H = 70;
+
+/**
+ * Wrapper que calcula dinámicamente el `transform: scale()` para que el SDK
+ * (que renderiza a tamaño natural fijo) entre completo en el viewport del
+ * alumno sin scroll. La toolbar Zoom (audio/cam/chat/salir) queda siempre
+ * visible al borde inferior del embed escalado.
+ */
+function ZoomEmbedScaled({
+  encuentroId,
+  userName,
+  password,
+  onSalir,
+}: {
+  encuentroId: string;
+  userName: string;
+  password: string | null;
+  onSalir: () => void;
+}) {
+  const [scale, setScale] = useState(() => {
+    if (typeof window === 'undefined') return 0.78;
+    const avail = window.innerHeight - OVERLAY_CHROME_H;
+    return Math.min(1, Math.max(0.55, avail / SDK_NATIVE_H));
+  });
+  useEffect(() => {
+    const onResize = () => {
+      const avail = window.innerHeight - OVERLAY_CHROME_H;
+      setScale(Math.min(1, Math.max(0.55, avail / SDK_NATIVE_H)));
+    };
+    onResize();
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
+  return (
+    <div
+      className="flex shrink-0 items-center justify-center"
+      style={{
+        // Reservamos el espacio del embed escalado en el flow flex.
+        width: SDK_NATIVE_W * scale,
+        height: SDK_NATIVE_H * scale,
+      }}
+    >
+      <div
+        style={{
+          transform: `scale(${scale})`,
+          transformOrigin: 'top left',
+          width: SDK_NATIVE_W,
+          height: SDK_NATIVE_H,
+        }}
+      >
+        <ZoomLiveEmbed
+          encuentroId={encuentroId}
+          userName={userName}
+          password={password}
+          onLeft={onSalir}
+        />
+      </div>
+    </div>
+  );
+}
+
 export function EncuentrosEnVivoAlumno({
   encuentros,
   activoEncuentroId,
@@ -312,34 +378,16 @@ export function ClaseEnVivoFullLayout({
 
           {/* Embed Zoom centrado — el SDK Component View tiene un alto MÍNIMO
               de ~874px que ignora viewSizes. Para que la toolbar (audio/cam/
-              chat/salir) sea visible en viewports 720-760 sin scroll,
-              aplicamos transform scale al WRAPPER. El SDK rinde a tamaño
-              natural por dentro, transparente a click coords (CSS transform
-              preserva el mapeo de eventos en browsers modernos). */}
-          <div
-            className="flex shrink-0 items-center justify-center"
-            style={{
-              // Reserva el espacio del embed escalado en el flow flex
-              width: 720 * 0.78,
-              height: 874 * 0.78,
-            }}
-          >
-            <div
-              style={{
-                transform: 'scale(0.78)',
-                transformOrigin: 'top left',
-                width: 720,
-                height: 874,
-              }}
-            >
-              <ZoomLiveEmbed
-                encuentroId={encuentro.id}
-                userName={userName}
-                password={(encuentro as any).zoom_password ?? null}
-                onLeft={onSalir}
-              />
-            </div>
-          </div>
+              chat/salir) sea visible sin scroll, aplicamos transform scale
+              DINÁMICO basado en el alto disponible del viewport (viewport -
+              header overlay ~50). El SDK rinde a tamaño natural por dentro;
+              CSS transform preserva el mapeo de click events. */}
+          <ZoomEmbedScaled
+            encuentroId={encuentro.id}
+            userName={userName}
+            password={(encuentro as any).zoom_password ?? null}
+            onSalir={onSalir}
+          />
 
           {/* Panel derecho — participante + guía de controles */}
           <aside className="hidden h-full max-h-[640px] w-[240px] shrink-0 flex-col justify-center lg:flex">
