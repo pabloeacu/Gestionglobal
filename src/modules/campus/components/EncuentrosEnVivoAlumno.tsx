@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   CalendarClock,
@@ -17,7 +17,7 @@ import {
 import { cn } from '@/lib/cn';
 import { fmtFechaHora, type CursoEncuentroRow } from '@/services/api/campus';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
-import { ZoomCustomVideoStage } from './ZoomCustomVideoStage';
+import { ZoomLiveEmbed } from './ZoomLiveEmbed';
 
 // DGG-14: panel del alumno con encuentros sincrónicos.
 //
@@ -53,10 +53,21 @@ function useIsMobile() {
   return isMobile;
 }
 
+// SDK Component View natural ~720×874 (aspect vertical 0.82 · limitación
+// arquitectónica del Embedded SDK).
+const SDK_NATIVE_W = 720;
+const SDK_NATIVE_H = 874;
+
 /**
- * Marco 16:9 HORIZONTAL con CSS aspect-ratio. Llena el column del grid
- * sin overflow gracias a max-w-full + max-h-full. El stage interno
- * (canvas + toolbar) absorbe todo el espacio.
+ * Marco brand alrededor del Zoom Component View nativo. El SDK rinde su
+ * UI completa: header con view toggle, video del speaker, gallery thumbs,
+ * toolbar nativa con todos los controles (mic, cam, chat, salir).
+ *
+ * Limitación reconocida: el Meeting SDK Embedded NO expone getMediaStream
+ * ni renderVideo, así que no se puede dibujar el video a un canvas custom
+ * (16:9). El aspect natural del SDK es vertical (~0.82). Para 16:9 verdadero
+ * se requiere migrar al Zoom Video SDK (producto distinto, credenciales
+ * separadas que solo el dueño de la cuenta Zoom puede crear).
  */
 function ZoomEmbedScaled({
   encuentroId,
@@ -69,25 +80,52 @@ function ZoomEmbedScaled({
   password: string | null;
   onSalir: () => void;
 }) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [scale, setScale] = useState(0.85);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el?.parentElement) return;
+    const compute = () => {
+      const parent = el.parentElement;
+      if (!parent) return;
+      const ph = parent.clientHeight;
+      const s = Math.min(1.05, Math.max(0.65, ph / SDK_NATIVE_H));
+      setScale(s);
+    };
+    compute();
+    const observer = new ResizeObserver(compute);
+    observer.observe(el.parentElement);
+    return () => observer.disconnect();
+  }, []);
+
+  const w = SDK_NATIVE_W * scale;
+  const h = SDK_NATIVE_H * scale;
+
   return (
     <div
-      className="relative max-h-full max-w-full"
-      style={{
-        aspectRatio: '16 / 9',
-        // Fallback: si aspect-ratio no calcula bien, mantener un ancho
-        // razonable basado en el column. El ZoomCustomVideoStage adentro
-        // usa absolute inset-0 para llenar siempre.
-        width: '100%',
-        // Si el column es muy alto y el width genera overflow vertical,
-        // el max-h-full lo previene preservando aspect.
-      }}
+      ref={containerRef}
+      className="relative shrink-0 overflow-hidden rounded-2xl border border-slate-200/70 bg-slate-950 shadow-xl ring-1 ring-brand-cyan/20"
+      style={{ width: w, height: h }}
     >
-      <ZoomCustomVideoStage
-        encuentroId={encuentroId}
-        userName={userName}
-        password={password}
-        onLeft={onSalir}
-      />
+      <div
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          transform: `scale(${scale})`,
+          transformOrigin: 'top left',
+          width: SDK_NATIVE_W,
+          height: SDK_NATIVE_H,
+        }}
+      >
+        <ZoomLiveEmbed
+          encuentroId={encuentroId}
+          userName={userName}
+          password={password}
+          onLeft={onSalir}
+        />
+      </div>
     </div>
   );
 }
