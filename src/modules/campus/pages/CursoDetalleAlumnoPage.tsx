@@ -203,26 +203,14 @@ export function CursoDetalleAlumnoPage() {
     ? encuentros.find((e) => e.id === encuentroEnVivoId)
     : null;
   if (encuentroEnVivo) {
+    // Fullscreen — el componente toma 100vh del viewport sin scroll global.
     return (
-      <div className="mx-auto max-w-4xl">
-        <Link
-          to="/portal/campus"
-          className="mb-3 inline-flex items-center gap-1 text-xs font-medium text-brand-muted hover:text-brand-ink"
-        >
-          <ArrowLeft size={13} /> Mis cursos
-        </Link>
-        <header className="mb-4">
-          <p className="kicker text-brand-cyan">{data.curso.titulo}</p>
-          <h1 className="font-display text-xl font-bold text-brand-ink sm:text-2xl">
-            Clase en vivo
-          </h1>
-        </header>
-        <ClaseEnVivoFullLayout
-          encuentro={encuentroEnVivo}
-          userName={userNameStable}
-          onSalir={() => setEncuentroEnVivoId(null)}
-        />
-      </div>
+      <ClaseEnVivoFullLayout
+        encuentro={encuentroEnVivo}
+        cursoTitulo={data.curso.titulo}
+        userName={userNameStable}
+        onSalir={() => setEncuentroEnVivoId(null)}
+      />
     );
   }
 

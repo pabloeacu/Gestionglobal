@@ -176,46 +176,61 @@ export function EncuentrosEnVivoAlumno({
   );
 }
 
-// Componente full-width que se renderea cuando el alumno está en una clase.
-// Lo usa el padre (CursoDetalleAlumnoPage) en lugar de la grilla normal.
+// Componente fullscreen (fixed overlay) que se renderea cuando el alumno
+// está en una clase. Toma todo el viewport — el embed queda centrado a su
+// tamaño natural sin scroll. A la derecha (en desktop), panel con info del
+// curso/encuentro y botón "Volver al curso". En mobile el panel queda
+// debajo del embed.
 export function ClaseEnVivoFullLayout({
   encuentro,
+  cursoTitulo,
   userName,
   onSalir,
 }: {
   encuentro: CursoEncuentroRow;
+  cursoTitulo: string;
   userName: string;
   onSalir: () => void;
 }) {
   return (
-    <section className="card-premium p-4 sm:p-6">
-      <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
+    <div className="fixed inset-0 z-40 flex flex-col bg-slate-50">
+      {/* Header compacto fullscreen */}
+      <header className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-2.5 shadow-sm">
         <div className="min-w-0 flex-1">
-          <p className="kicker text-red-600">● Clase en vivo</p>
-          <h2 className="font-display text-lg font-semibold text-brand-ink sm:text-xl">
-            {encuentro.titulo}
-          </h2>
-          <p className="text-xs text-brand-muted">
-            Tu asistencia se registra automáticamente. Cuando termines de cursar,
-            tocá "Volver al curso" para regresar al contenido.
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-red-700">
+              <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-red-600" />
+              Clase en vivo
+            </span>
+            <h1 className="truncate font-display text-sm font-semibold text-brand-ink sm:text-base">
+              {encuentro.titulo}
+            </h1>
+            <span className="hidden text-xs text-brand-muted sm:inline">
+              · {cursoTitulo}
+            </span>
+          </div>
+          <p className="mt-0.5 text-[11px] text-brand-muted">
+            Tu asistencia se registra automáticamente.
           </p>
         </div>
         <button
           onClick={onSalir}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-brand-ink shadow-sm transition hover:bg-slate-50"
+          className="ml-3 inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-brand-ink shadow-sm transition hover:bg-slate-50"
           title="Salir de la clase y volver al curso"
         >
           <X size={13} /> Volver al curso
         </button>
       </header>
-      <div className="rounded-xl bg-slate-50 p-3">
+
+      {/* Cuerpo: embed centrado, toma el resto del viewport */}
+      <main className="flex flex-1 items-center justify-center overflow-auto p-3 sm:p-4">
         <ZoomLiveEmbed
           encuentroId={encuentro.id}
           userName={userName}
           password={(encuentro as any).zoom_password ?? null}
           onLeft={onSalir}
         />
-      </div>
-    </section>
+      </main>
+    </div>
   );
 }

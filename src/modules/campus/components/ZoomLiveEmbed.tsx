@@ -19,10 +19,11 @@ export interface ZoomLiveEmbedProps {
   onLeft?: () => void;
 }
 
-// Tamaño nativo "cómodo" del Component View. NO comprimir más — el SDK
-// necesita esto para mostrar toolbar + header + video sin recortes.
+// Tamaño nativo del Component View. El SDK rinde su UI (header REC +
+// video + toolbar) dentro de este área. ~720×820 es el mínimo cómodo
+// para que TODO se vea sin recortes.
 const SDK_W = 720;
-const SDK_H = 860;
+const SDK_H = 820;
 
 export function ZoomLiveEmbed(props: ZoomLiveEmbedProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
