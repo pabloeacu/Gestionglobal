@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Loader2, AlertCircle } from 'lucide-react';
+import { Loader2, AlertCircle, Maximize2, Minimize2 } from 'lucide-react';
 import { firmarSdk } from '@/services/api/campus';
 
 // DGG-14: embed del Web Meeting SDK de Zoom (Component View).
@@ -10,8 +10,9 @@ import { firmarSdk } from '@/services/api/campus';
 // join es el matricula_id (o null para staff/host); eso es lo que el
 // webhook lee en participant_joined para registrar asistencia.
 //
-// Importante: `client.leaveMeeting()` se invoca en cleanup. Si se vuelve a
-// renderizar (StrictMode) o se desmonta, evitamos un init duplicado.
+// Tamaño: por defecto compacto (16:9, max-width 720px ≈ 405px de alto) para
+// no romper el flow del campus. Botón "Expandir" permite al alumno ver
+// grande puntualmente (modo "ampliado" hasta el ancho útil del main).
 
 export interface ZoomLiveEmbedProps {
   encuentroId: string;
@@ -24,6 +25,14 @@ export interface ZoomLiveEmbedProps {
   onLeft?: () => void;
 }
 
+// Dimensiones internas del SDK por modo. El SDK respeta estos como
+// "ideal" para gallery/speaker; el contenedor DOM las constrasta para que
+// no exploten visualmente.
+const COMPACT_W = 720;
+const COMPACT_H = 405; // 16:9
+const LARGE_W = 1080;
+const LARGE_H = 608;  // 16:9
+
 export function ZoomLiveEmbed(props: ZoomLiveEmbedProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const clientRef = useRef<unknown>(null);
@@ -32,6 +41,7 @@ export function ZoomLiveEmbed(props: ZoomLiveEmbedProps) {
     'idle',
   );
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -43,14 +53,12 @@ export function ZoomLiveEmbed(props: ZoomLiveEmbedProps) {
       setState('loading');
       setErrorMsg(null);
       try {
-        // 1) Pedir firma al backend
         const sig = await firmarSdk({
           encuentroId: props.encuentroId,
           role: props.asHost ? 1 : 0,
         });
         if (!sig.ok) throw new Error(sig.error.message);
 
-        // 2) Cargar SDK dinámicamente
         const mod = await import('@zoom/meetingsdk/embedded');
         const ZoomMtgEmbedded = mod.default;
 
@@ -66,15 +74,22 @@ export function ZoomLiveEmbed(props: ZoomLiveEmbedProps) {
           patchJsMedia: true,
           leaveOnPageUnload: true,
           customize: {
-            video: { isResizable: true, viewSizes: { default: { width: 1000, height: 600 } } },
-            toolbar: { buttons: [] },
+            video: {
+              // Compacto por defecto; el botón "Expandir" alterna sin
+              // re-inicializar el cliente (el SDK adapta al container).
+              isResizable: true,
+              viewSizes: {
+                default: { width: COMPACT_W, height: COMPACT_H },
+                ribbon: { width: COMPACT_W, height: 80 },
+              },
+            },
+            // Dejamos los controles default del SDK (mute/cam/leave) para
+            // que el alumno pueda interactuar.
           },
         });
 
         setState('joining');
 
-        // v4+: sdkKey ya NO va en joinOptions (vive en la signature). Si lo
-        // mandás, Zoom warna y join() tira error como falso positivo.
         await client.join({
           signature: sig.data.signature,
           meetingNumber: sig.data.meetingNumber,
@@ -89,10 +104,7 @@ export function ZoomLiveEmbed(props: ZoomLiveEmbedProps) {
         }
         setState('ready');
       } catch (e: any) {
-        // Zoom usa errorCode 3008 (MEETING_NOT_STARTED) cuando join_before_host
-        // está OFF y el host aún no inició. El SDK igual monta el viewport con
-        // "La reunión no ha comenzado" — esto NO es un error real, es la sala
-        // de espera. No mostramos toast de error en ese caso.
+        // errorCode 3008 (MEETING_NOT_STARTED) = sala de espera, no error.
         const code = e?.errorCode ?? e?.reason?.errorCode;
         const isWaitingHost =
           code === 3008 ||
@@ -130,10 +142,27 @@ export function ZoomLiveEmbed(props: ZoomLiveEmbedProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.encuentroId]);
 
+  // Cuando cambia "expanded", reconfiguramos el viewSize del SDK
+  // dinámicamente (sin recrear el cliente).
+  useEffect(() => {
+    const client: any = clientRef.current;
+    if (!client || state !== 'ready') return;
+    const w = expanded ? LARGE_W : COMPACT_W;
+    const h = expanded ? LARGE_H : COMPACT_H;
+    try {
+      // updateVideoOptions existe en Component View v3+
+      client.updateVideoOptions?.({ viewSizes: { default: { width: w, height: h } } });
+    } catch { /* noop */ }
+  }, [expanded, state]);
+
   return (
-    <div className="relative">
+    <div className="relative mx-auto" style={{ maxWidth: expanded ? LARGE_W : COMPACT_W }}>
+      {/* Loader/joining overlay — sobre el contenedor del embed */}
       {state !== 'ready' && state !== 'error' && (
-        <div className="absolute inset-0 z-10 grid place-items-center rounded-2xl bg-slate-900/70 text-white backdrop-blur-sm">
+        <div
+          className="absolute inset-0 z-10 grid place-items-center rounded-2xl bg-slate-900/70 text-white backdrop-blur-sm"
+          style={{ minHeight: expanded ? LARGE_H : COMPACT_H }}
+        >
           <div className="flex flex-col items-center gap-2 text-sm">
             <Loader2 size={22} className="animate-spin" />
             <span>
@@ -144,6 +173,7 @@ export function ZoomLiveEmbed(props: ZoomLiveEmbedProps) {
           </div>
         </div>
       )}
+
       {state === 'error' && (
         <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
           <p className="flex items-center gap-2 font-semibold">
@@ -151,17 +181,46 @@ export function ZoomLiveEmbed(props: ZoomLiveEmbedProps) {
           </p>
           <p className="mt-1">{errorMsg}</p>
           <button
-            onClick={() => { initedRef.current = false; setState('idle'); setTimeout(() => setState('loading'), 50); }}
+            onClick={() => {
+              initedRef.current = false;
+              setState('idle');
+              setTimeout(() => setState('loading'), 50);
+            }}
             className="mt-3 rounded-md bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700"
           >
             Reintentar
           </button>
         </div>
       )}
+
+      {/* Toggle expandir/contraer — solo cuando ya entró a la sala */}
+      {state === 'ready' && (
+        <button
+          onClick={() => setExpanded((v) => !v)}
+          title={expanded ? 'Vista compacta' : 'Vista ampliada'}
+          className="absolute right-2 top-2 z-20 inline-flex items-center gap-1 rounded-md bg-black/55 px-2 py-1 text-[11px] font-medium text-white shadow-sm backdrop-blur-sm transition hover:bg-black/70"
+        >
+          {expanded ? (
+            <>
+              <Minimize2 size={12} /> Compacto
+            </>
+          ) : (
+            <>
+              <Maximize2 size={12} /> Ampliar
+            </>
+          )}
+        </button>
+      )}
+
       <div
         ref={containerRef}
         className="overflow-hidden rounded-2xl bg-black"
-        style={{ minHeight: 600 }}
+        style={{
+          width: '100%',
+          height: expanded ? LARGE_H : COMPACT_H,
+          // Transición suave entre tamaños
+          transition: 'height 200ms ease-out',
+        }}
       />
     </div>
   );
