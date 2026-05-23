@@ -73,9 +73,10 @@ export function ZoomLiveEmbed(props: ZoomLiveEmbedProps) {
 
         setState('joining');
 
+        // v4+: sdkKey ya NO va en joinOptions (vive en la signature). Si lo
+        // mandás, Zoom warna y join() tira error como falso positivo.
         await client.join({
           signature: sig.data.signature,
-          sdkKey: sig.data.sdkKey,
           meetingNumber: sig.data.meetingNumber,
           password: props.password ?? '',
           userName: props.userName,
@@ -88,9 +89,23 @@ export function ZoomLiveEmbed(props: ZoomLiveEmbedProps) {
         }
         setState('ready');
       } catch (e: any) {
+        // Zoom usa errorCode 3008 (MEETING_NOT_STARTED) cuando join_before_host
+        // está OFF y el host aún no inició. El SDK igual monta el viewport con
+        // "La reunión no ha comenzado" — esto NO es un error real, es la sala
+        // de espera. No mostramos toast de error en ese caso.
+        const code = e?.errorCode ?? e?.reason?.errorCode;
+        const isWaitingHost =
+          code === 3008 ||
+          /not.?started|waiting.?for.?host|host.?has.?not.?started/i.test(
+            String(e?.message ?? e?.reason ?? ''),
+          );
+        if (isWaitingHost) {
+          if (!cancelled) setState('ready');
+          return;
+        }
         console.error('ZoomLiveEmbed error', e);
         if (!cancelled) {
-          setErrorMsg(e?.message ?? 'No pudimos conectar con Zoom.');
+          setErrorMsg(e?.message ?? e?.reason ?? 'No pudimos conectar con Zoom.');
           setState('error');
           initedRef.current = false;
         }
