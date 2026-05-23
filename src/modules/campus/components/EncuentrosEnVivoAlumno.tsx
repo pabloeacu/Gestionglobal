@@ -59,8 +59,6 @@ const SDK_NATIVE_W = 720;
 const SDK_NATIVE_H = 874;
 // Espacio reservado para header overlay + paddings + safety.
 const OVERLAY_CHROME_H = 80;
-// Ancho del aside derecho con los dos cards apilados.
-const ASIDE_W = 280;
 
 /**
  * Wrapper visual ancho (matchea el mockup del usuario): un contenedor con
