@@ -158,24 +158,26 @@ export function ZoomLiveEmbed(props: ZoomLiveEmbedProps) {
     if (!container) return;
 
     const apply = () => {
-      // El primer .zoom-MuiPaper-root descendiente es el wrapper externo.
-      // Encadenamos: el Paper más exterior tiene un Paper interno de 720×828,
-      // y dentro hay un .css-1jr7lfr de 720×789 que es el "main".
-      const papers = container.querySelectorAll('.zoom-MuiPaper-root');
-      papers.forEach((p) => {
-        (p as HTMLElement).style.maxHeight = `${dims.h}px`;
-        (p as HTMLElement).style.height = `${dims.h}px`;
-        (p as HTMLElement).style.width = `${dims.w}px`;
-        (p as HTMLElement).style.maxWidth = `${dims.w}px`;
-      });
-      // Targetear también los wrappers MUI Box internos que tienen height fija
-      const boxes = container.querySelectorAll('[class*=zoom-MuiBox-root]');
-      boxes.forEach((b) => {
-        const el = b as HTMLElement;
-        if (el.clientHeight > dims.h * 0.8) {
-          el.style.maxHeight = `${dims.h}px`;
-        }
-      });
+      // SOLO el outermost: ese es el primer descendiente Paper directo.
+      // Los Papers internos del SDK son hijos suyos y deben ajustarse
+      // proporcionalmente — si los forzamos a todos al mismo alto, el SDK
+      // los apila verticalmente (video 500 + toolbar 500 = 1000) y queda
+      // peor. El SDK acomoda video + toolbar dentro del outer.
+      const outermost = container.querySelector('.zoom-MuiPaper-root') as HTMLElement | null;
+      if (outermost) {
+        outermost.style.maxHeight = `${dims.h}px`;
+        outermost.style.height = `${dims.h}px`;
+        outermost.style.width = `${dims.w}px`;
+        outermost.style.maxWidth = `${dims.w}px`;
+        outermost.style.overflow = 'hidden';
+      }
+      // Forzar también el react-resizable wrapper para que coincida.
+      const resizable = container.querySelector('.react-resizable') as HTMLElement | null;
+      if (resizable) {
+        resizable.style.maxHeight = `${dims.h}px`;
+        resizable.style.height = `${dims.h}px`;
+        resizable.style.width = `${dims.w}px`;
+      }
     };
 
     // Aplicar ahora y reaplicar tras pequeño delay (el SDK puede re-renderizar).
