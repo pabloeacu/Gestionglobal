@@ -19,11 +19,10 @@ export interface ZoomLiveEmbedProps {
   onLeft?: () => void;
 }
 
-// Pedimos al SDK Component View 16:9 HD wide (1280×720 video → Paper
-// total ~1280×860 con header + toolbar). El SDK respeta proporciones
-// cuando le pasamos un height razonable (no microscópico).
-const SDK_W = 1280;
-const SDK_H = 860;
+// SDK Component View natural ~720×874. Proporciones que el SDK respeta
+// bien y rinden video + toolbar legibles.
+const SDK_W = 720;
+const SDK_H = 874;
 
 export function ZoomLiveEmbed(props: ZoomLiveEmbedProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -69,9 +68,7 @@ export function ZoomLiveEmbed(props: ZoomLiveEmbedProps) {
               isResizable: false,
               defaultViewType: 'speaker' as any,
               viewSizes: {
-                // 1280×720 video (16:9 HD). El SDK añade header + toolbar
-                // → Paper total ~1280×860.
-                default: { width: SDK_W, height: 720 },
+                default: { width: SDK_W, height: SDK_H - 120 },
                 ribbon: { width: SDK_W, height: 80 },
               },
             },

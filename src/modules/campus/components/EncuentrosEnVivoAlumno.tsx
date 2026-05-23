@@ -17,7 +17,7 @@ import {
 import { cn } from '@/lib/cn';
 import { fmtFechaHora, type CursoEncuentroRow } from '@/services/api/campus';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
-import { ZoomCustomVideoStage } from './ZoomCustomVideoStage';
+import { ZoomLiveEmbed } from './ZoomLiveEmbed';
 
 // DGG-14: panel del alumno con encuentros sincrónicos.
 //
@@ -53,11 +53,16 @@ function useIsMobile() {
   return isMobile;
 }
 
+// SDK Component View natural ~720×874 (proven). El marco hugs estas dims.
+const SDK_NATIVE_W = 720;
+const SDK_NATIVE_H = 874;
+
 /**
- * Wrapper 16:9 que ocupa el espacio del column del grid. Mantiene un
- * aspect ratio horizontal estable independiente del tamaño de viewport.
- * El stage interno (canvas + toolbar custom) llena el contenedor por
- * completo (h-full w-full).
+ * Wrapper que muestra el SDK Component View del Zoom EN SU TAMAÑO NATURAL
+ * (720×874) dentro de un marco brand. Aspect vertical (~0.82) — limitación
+ * arquitectónica del SDK Component View. Lo que sí funciona perfectamente:
+ * audio, video del speaker, toolbar nativa Zoom con todos los controles
+ * (mic, cam, chat, participantes, salir, gallery toggle, etc.).
  */
 function ZoomEmbedScaled({
   encuentroId,
@@ -71,42 +76,56 @@ function ZoomEmbedScaled({
   onSalir: () => void;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const [dims, setDims] = useState<{ w: number; h: number }>({ w: 1120, h: 630 });
+  const [scale, setScale] = useState(1);
   useEffect(() => {
     const compute = () => {
       const el = containerRef.current;
       if (!el) return;
       const parent = el.parentElement;
       if (!parent) return;
-      const pw = parent.clientWidth;
       const ph = parent.clientHeight;
-      // Aspect 16:9 fijo. Encajamos el rectángulo más grande posible.
-      const fromW = { w: pw, h: pw * 9 / 16 };
-      const fromH = { w: ph * 16 / 9, h: ph };
-      const fit = fromW.h <= ph ? fromW : fromH;
-      setDims({ w: Math.floor(fit.w), h: Math.floor(fit.h) });
+      // Scale para fit en alto (el ancho del SDK ya es 720, manejable).
+      const s = Math.min(1.05, Math.max(0.7, ph / SDK_NATIVE_H));
+      setScale(s);
     };
     compute();
     window.addEventListener('resize', compute);
-    const t = setTimeout(compute, 200);
+    const t1 = setTimeout(compute, 250);
+    const t2 = setTimeout(compute, 1500);
     return () => {
       window.removeEventListener('resize', compute);
-      clearTimeout(t);
+      clearTimeout(t1);
+      clearTimeout(t2);
     };
   }, []);
+
+  const visualW = SDK_NATIVE_W * scale;
+  const visualH = SDK_NATIVE_H * scale;
 
   return (
     <div
       ref={containerRef}
-      className="relative shrink-0"
-      style={{ width: dims.w, height: dims.h }}
+      className="relative shrink-0 overflow-hidden rounded-2xl border border-slate-200/70 bg-slate-950 shadow-xl ring-1 ring-brand-cyan/20"
+      style={{ width: visualW, height: visualH }}
     >
-      <ZoomCustomVideoStage
-        encuentroId={encuentroId}
-        userName={userName}
-        password={password}
-        onLeft={onSalir}
-      />
+      <div
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          transform: `scale(${scale})`,
+          transformOrigin: 'top left',
+          width: SDK_NATIVE_W,
+          height: SDK_NATIVE_H,
+        }}
+      >
+        <ZoomLiveEmbed
+          encuentroId={encuentroId}
+          userName={userName}
+          password={password}
+          onLeft={onSalir}
+        />
+      </div>
     </div>
   );
 }

@@ -171,6 +171,10 @@ export function ZoomCustomVideoStage({
         const client = ZoomMtgEmbedded.createClient();
         clientRef.current = client;
         mountedClient = client;
+        // Debug: expose to window for live inspection.
+        if (typeof window !== 'undefined') {
+          (window as any).__zoomClient = client;
+        }
 
         // SDK init con viewSize chico — el SDK Paper queda offscreen, no
         // se ve. Solo usamos su connectivity layer.
