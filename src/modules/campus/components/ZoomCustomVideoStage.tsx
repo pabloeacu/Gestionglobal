@@ -17,17 +17,22 @@ import { toast } from '@/lib/toast';
 import { cn } from '@/lib/cn';
 import { firmarSdk } from '@/services/api/campus';
 
-// DGG-14 · Custom video stage
+// DGG-16 · Custom video stage 16:9 horizontal
 //
-// El Zoom Embedded SDK (Component View) tiene una limitación arquitectónica:
-// con un solo speaker con cámara, su "speaker view" muestra un thumbnail
-// diminuto en lugar de fullscreen. Su Paper también tiene aspect ratio
-// vertical fijo (~0.85), no respeta 16:9 horizontal.
+// El Meeting SDK Embedded (Component View) expone `client.getMediaStream()`
+// con métodos `renderVideo()`, `startAudio()`, `startVideo()`, etc. desde
+// v2.18+. Eso permite renderear el video del speaker a NUESTRO canvas con
+// las dimensiones que querramos (16:9 horizontal), independientemente del
+// aspect vertical del Paper interno del SDK.
 //
-// Solución: usamos el SDK SOLO para connectivity (audio + signaling +
-// participantes). Renderizamos el video del speaker activo a NUESTRO
-// propio canvas 16:9 fullwidth via `client.renderVideo()`. Toolbar
-// custom con React garantiza botones grandes y siempre visibles.
+// Arquitectura:
+// - SDK Component View renderizado en DOM detrás del canvas (z-index 0,
+//   opacity 0). Necesita estar en el DOM con dimensiones reales para que
+//   los streams se inicialicen correctamente.
+// - Canvas 16:9 (1280×720 internal) cubre el SDK con z-index 10. El SDK
+//   draw el speaker activo via stream.renderVideo(canvas, userId, w, h, ...).
+// - Toolbar custom React con z-index 20: mic (3 estados), cam, vista,
+//   participantes, chat, salir. Todos llaman a stream APIs del SDK.
 
 interface Props {
   encuentroId: string;
@@ -57,88 +62,79 @@ export function ZoomCustomVideoStage({
     'idle' | 'loading' | 'joining' | 'ready' | 'error'
   >('idle');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  // audioJoined: ya se hizo stream.startAudio() (conecta cliente al audio
-  // de la sala). Hasta que no esté joineado, no se escucha NADA.
   const [audioJoined, setAudioJoined] = useState(false);
-  const [micOn, setMicOn] = useState(false); // mic encendido (unmute)
+  const [micOn, setMicOn] = useState(false);
   const [videoOn, setVideoOn] = useState(false);
   const [participants, setParticipants] = useState(0);
-  const [hasActiveSpeaker, setHasActiveSpeaker] = useState(false);
+  const [hasSpeaker, setHasSpeaker] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     let mountedClient: any = null;
-    let countInterval: ReturnType<typeof setInterval> | undefined;
+    let pollInterval: ReturnType<typeof setInterval> | undefined;
 
+    /**
+     * Encuentra al "speaker" activo y lo dibuja en NUESTRO canvas.
+     * Estrategia: host con cámara → cualquier otro con cámara → host →
+     * cualquiera (excluyendo a mí mismo). Si nadie tiene cámara, limpia.
+     */
     async function renderSpeaker(client: any) {
       const canvas = canvasRef.current;
       if (!canvas) return;
-      try {
-        // El API correcto del Embedded SDK: stream.renderVideo(canvas, userId,...)
-        const stream: any = client.getMediaStream?.();
-        if (!stream) return;
+      const stream: any = client.getMediaStream?.();
+      if (!stream) return;
 
-        const users: any[] = client.getAllUser?.() ?? [];
-        const me = client.getCurrentUser?.();
-        // Priorizamos: host con cámara → cualquier otro con cámara → host →
-        // cualquier user que NO sea yo (para no verme a mí en el stage).
-        const pick =
-          users.find(
-            (u) => u.isHost && u.bVideoOn && u.userId !== me?.userId,
-          ) ||
-          users.find((u) => u.bVideoOn && u.userId !== me?.userId) ||
-          users.find((u) => u.isHost && u.userId !== me?.userId) ||
-          users.find((u) => u.userId !== me?.userId);
+      const users: any[] = client.getAllUser?.() ?? [];
+      const me = client.getCurrentUser?.();
 
-        if (!pick?.userId || !pick.bVideoOn) {
-          // Nadie con cámara prendida — limpiar canvas.
-          if (renderedUserRef.current !== null) {
-            try {
-              await stream.stopRenderVideo?.(canvas, renderedUserRef.current);
-            } catch {
-              /* opt */
-            }
-            renderedUserRef.current = null;
-          }
-          setHasActiveSpeaker(false);
-          return;
-        }
+      const pick =
+        users.find(
+          (u) => u.isHost && u.bVideoOn && u.userId !== me?.userId,
+        ) ||
+        users.find((u) => u.bVideoOn && u.userId !== me?.userId) ||
+        users.find((u) => u.isHost && u.userId !== me?.userId) ||
+        users.find((u) => u.userId !== me?.userId);
 
-        if (renderedUserRef.current === pick.userId) {
-          setHasActiveSpeaker(true);
-          return; // Ya renderizando este user.
-        }
-
-        if (renderedUserRef.current !== null && renderedUserRef.current !== pick.userId) {
+      if (!pick?.userId || !pick.bVideoOn) {
+        if (renderedUserRef.current !== null) {
           try {
             await stream.stopRenderVideo?.(canvas, renderedUserRef.current);
           } catch {
             /* opt */
           }
+          renderedUserRef.current = null;
         }
+        setHasSpeaker(false);
+        return;
+      }
 
-        await stream.renderVideo(
-          canvas,
-          pick.userId,
-          STAGE_W,
-          STAGE_H,
-          0,
-          0,
-          3,
-        );
+      if (renderedUserRef.current === pick.userId) {
+        setHasSpeaker(true);
+        return;
+      }
+
+      if (renderedUserRef.current !== null) {
+        try {
+          await stream.stopRenderVideo?.(canvas, renderedUserRef.current);
+        } catch {
+          /* opt */
+        }
+      }
+
+      try {
+        // VideoQuality: 0=90p, 1=180p, 2=360p, 3=720p
+        await stream.renderVideo(canvas, pick.userId, STAGE_W, STAGE_H, 0, 0, 3);
         renderedUserRef.current = pick.userId;
-        setHasActiveSpeaker(true);
+        setHasSpeaker(true);
       } catch (e) {
-        console.warn('renderSpeaker error', e);
+        console.warn('[ZoomStage] renderVideo failed', e);
       }
     }
 
-    function syncStateFromSdk(client: any) {
+    function syncState(client: any) {
       try {
         const me = client.getCurrentUser?.();
         if (me) {
-          // me.audio === 'computer' significa audio joineado (cliente)
-          // me.audio === '' significa NO joineado (no escucha)
           const joined = me.audio === 'computer' || me.audio === 'phone';
           setAudioJoined(joined);
           setMicOn(joined && !me.muted);
@@ -171,13 +167,14 @@ export function ZoomCustomVideoStage({
         const client = ZoomMtgEmbedded.createClient();
         clientRef.current = client;
         mountedClient = client;
-        // Debug: expose to window for live inspection.
+
+        // Debug: expose for live inspection.
         if (typeof window !== 'undefined') {
           (window as any).__zoomClient = client;
         }
 
-        // SDK init con viewSize chico — el SDK Paper queda offscreen, no
-        // se ve. Solo usamos su connectivity layer.
+        // Init con viewSizes NORMALES (no microscópicos) — necesario para
+        // que el SDK suscriba bien los streams de video del peer.
         await client.init({
           zoomAppRoot: sdkRootRef.current,
           language: 'es-ES',
@@ -187,8 +184,8 @@ export function ZoomCustomVideoStage({
             video: {
               isResizable: false,
               viewSizes: {
-                default: { width: 320, height: 180 },
-                ribbon: { width: 320, height: 80 },
+                default: { width: 720, height: 600 },
+                ribbon: { width: 720, height: 80 },
               },
             },
           },
@@ -213,49 +210,56 @@ export function ZoomCustomVideoStage({
           return;
         }
 
-        // Listeners para detectar cambios y re-renderizar.
-        try {
-          const c: any = client;
-          c.on?.('user-added', () => {
-            syncStateFromSdk(client);
-            setTimeout(() => renderSpeaker(client), 400);
-          });
-          c.on?.('user-removed', () => {
-            syncStateFromSdk(client);
-            setTimeout(() => renderSpeaker(client), 200);
-          });
-          c.on?.('peer-video-state-change', () => {
-            syncStateFromSdk(client);
-            setTimeout(() => renderSpeaker(client), 250);
-          });
-          c.on?.('active-speaker', () => {
-            setTimeout(() => renderSpeaker(client), 100);
-          });
-          c.on?.('current-audio-change', () => syncStateFromSdk(client));
-          c.on?.('connection-change', (p: any) => {
-            if (p?.state === 'Closed' || p?.state === 'Fail') {
-              onLeft?.();
-            }
-          });
-        } catch {
-          /* opt */
-        }
+        const c: any = client;
 
-        // Initial sync + renders (con retries por timing del media stream).
-        syncStateFromSdk(client);
-        setTimeout(() => {
-          syncStateFromSdk(client);
-          renderSpeaker(client);
-        }, 800);
-        setTimeout(() => {
-          syncStateFromSdk(client);
-          renderSpeaker(client);
-        }, 2500);
+        // Event subscriptions con sync + render
+        c.on?.('user-added', () => {
+          syncState(client);
+          setTimeout(() => renderSpeaker(client), 400);
+        });
+        c.on?.('user-removed', () => {
+          syncState(client);
+          setTimeout(() => renderSpeaker(client), 200);
+        });
+        c.on?.('peer-video-state-change', () => {
+          syncState(client);
+          setTimeout(() => renderSpeaker(client), 300);
+        });
+        c.on?.('video-active-change', () => {
+          setTimeout(() => renderSpeaker(client), 200);
+        });
+        c.on?.('active-speaker', () => {
+          setTimeout(() => renderSpeaker(client), 100);
+        });
+        c.on?.('current-audio-change', () => syncState(client));
+        c.on?.('connection-change', (p: any) => {
+          if (p?.state === 'Closed' || p?.state === 'Fail') {
+            onLeft?.();
+          }
+        });
 
-        // Poll participantes / state — barato y robusto.
-        countInterval = setInterval(() => {
-          syncStateFromSdk(client);
-        }, 4000);
+        // Initial sync + render attempts con retries (timing del media stream)
+        syncState(client);
+        setTimeout(() => {
+          syncState(client);
+          renderSpeaker(client);
+        }, 1000);
+        setTimeout(() => {
+          syncState(client);
+          renderSpeaker(client);
+        }, 3000);
+        setTimeout(() => {
+          syncState(client);
+          renderSpeaker(client);
+        }, 6000);
+
+        pollInterval = setInterval(() => {
+          syncState(client);
+          // Auto-retry rendering si el speaker se cae
+          if (renderedUserRef.current === null) {
+            renderSpeaker(client);
+          }
+        }, 3500);
 
         setState('ready');
       } catch (e: any) {
@@ -278,7 +282,7 @@ export function ZoomCustomVideoStage({
           if (!cancelled) setState('ready');
           return;
         }
-        console.error('ZoomCustomVideoStage error', e);
+        console.error('[ZoomStage] error', e);
         if (!cancelled) {
           setErrorMsg(
             e?.message ?? e?.reason ?? 'No pudimos conectar con Zoom.',
@@ -293,7 +297,7 @@ export function ZoomCustomVideoStage({
 
     return () => {
       cancelled = true;
-      if (countInterval) clearInterval(countInterval);
+      if (pollInterval) clearInterval(pollInterval);
       const c = mountedClient ?? clientRef.current;
       if (c) {
         try {
@@ -318,9 +322,9 @@ export function ZoomCustomVideoStage({
     if (!stream) return;
     try {
       if (!audioJoined) {
-        // 1er click: conectar audio (= "Join Audio" en Zoom nativo).
-        // Esto pide permiso de micrófono y CONECTA al audio de la sala
-        // (sin esto, ni se escucha ni se habla).
+        // PASO CRÍTICO: en Zoom Web SDK, después de join() hay que llamar
+        // startAudio() explícitamente para conectar al audio de la sala
+        // (sin esto no se escucha NI se habla).
         await stream.startAudio({ silent: false });
         setAudioJoined(true);
         setMicOn(true);
@@ -333,7 +337,7 @@ export function ZoomCustomVideoStage({
         setMicOn(true);
       }
     } catch (e: any) {
-      console.warn('handleAudio', e);
+      console.warn('[ZoomStage] handleAudio error', e);
       const msg = String(e?.message ?? e?.reason ?? e ?? '');
       if (/permission|denied|notallowed/i.test(msg)) {
         toast.error('Permiso de micrófono denegado. Habilitalo en el navegador.');
@@ -357,7 +361,7 @@ export function ZoomCustomVideoStage({
         setVideoOn(true);
       }
     } catch (e: any) {
-      console.warn('handleVideo', e);
+      console.warn('[ZoomStage] handleVideo error', e);
       const msg = String(e?.message ?? e?.reason ?? e ?? '');
       if (/permission|denied|notallowed/i.test(msg)) {
         toast.error('Permiso de cámara denegado. Habilitalo en el navegador.');
@@ -368,22 +372,24 @@ export function ZoomCustomVideoStage({
   };
 
   const showParticipants = () => {
-    toast.info(`${participants} ${participants === 1 ? 'participante conectado' : 'participantes conectados'}.`);
+    toast.info(
+      `${participants} ${participants === 1 ? 'participante conectado' : 'participantes conectados'}.`,
+    );
   };
 
   const openChat = () => {
-    toast.info('Chat próximamente. Por ahora, podés usar el chat de Zoom desde la app nativa.');
+    toast.info('Chat próximamente.');
   };
 
   const toggleView = () => {
-    toast.info('Por ahora la vista es speaker fullscreen. Galería próximamente.');
+    toast.info('Vista speaker fullscreen activa.');
   };
 
   const showMore = () => {
-    toast.info('Más opciones próximamente (compartir pantalla, levantar mano).');
+    toast.info('Más opciones próximamente.');
   };
 
-  const leave = async () => {
+  const handleLeave = async () => {
     const client = clientRef.current;
     if (client) {
       try {
@@ -397,20 +403,38 @@ export function ZoomCustomVideoStage({
 
   return (
     <div className="relative h-full w-full overflow-hidden rounded-2xl border border-slate-200/70 bg-slate-950 shadow-xl ring-1 ring-brand-cyan/20">
-      {/* Stage 16:9 — el canvas se ESTIRA al tamaño del marco preservando
-          aspect ratio (object-contain → letterbox si la cam del speaker
-          es portrait). Z-index alto para cubrir el SDK root. */}
+      {/* SDK Paper renderizado en el DOM con dimensiones reales pero
+          invisible (opacity 0, z-index 0, pointer-events: none). Permite
+          al SDK inicializar correctamente los streams. */}
+      <div
+        ref={sdkRootRef}
+        aria-hidden
+        className="absolute inset-0"
+        style={{
+          zIndex: 0,
+          opacity: 0,
+          pointerEvents: 'none',
+          overflow: 'hidden',
+        }}
+      />
+
+      {/* Canvas 16:9 — cubre el SDK Paper. El SDK draw al speaker activo
+          aquí via stream.renderVideo(). object-contain preserva aspect
+          ratio del video (letterbox si el host está en portrait). */}
       <canvas
         ref={canvasRef}
         width={STAGE_W}
         height={STAGE_H}
-        className="absolute inset-0 h-full w-full object-contain"
-        style={{ zIndex: 10 }}
+        className="absolute inset-0 h-full w-full"
+        style={{ zIndex: 10, objectFit: 'contain', backgroundColor: '#0f172a' }}
       />
 
       {/* Placeholder cuando nadie tiene cámara prendida */}
-      {state === 'ready' && !hasActiveSpeaker && (
-        <div className="absolute inset-0 grid place-items-center text-white/70" style={{ zIndex: 11 }}>
+      {state === 'ready' && !hasSpeaker && (
+        <div
+          className="absolute inset-0 grid place-items-center text-white/70"
+          style={{ zIndex: 11 }}
+        >
           <div className="text-center">
             <VideoOff size={32} className="mx-auto mb-2 opacity-50" />
             <p className="text-sm">Esperando que alguien encienda la cámara…</p>
@@ -425,7 +449,10 @@ export function ZoomCustomVideoStage({
 
       {/* Loading overlay */}
       {state !== 'ready' && state !== 'error' && (
-        <div className="absolute inset-0 grid place-items-center bg-slate-950/95 text-white" style={{ zIndex: 20 }}>
+        <div
+          className="absolute inset-0 grid place-items-center bg-slate-950/95 text-white"
+          style={{ zIndex: 20 }}
+        >
           <div className="flex flex-col items-center gap-3 text-sm">
             <Loader2 size={28} className="animate-spin" />
             <span>
@@ -439,7 +466,10 @@ export function ZoomCustomVideoStage({
 
       {/* Error overlay */}
       {state === 'error' && (
-        <div className="absolute inset-0 grid place-items-center bg-red-50 p-6 text-red-700" style={{ zIndex: 20 }}>
+        <div
+          className="absolute inset-0 grid place-items-center bg-red-50 p-6 text-red-700"
+          style={{ zIndex: 20 }}
+        >
           <div className="max-w-md text-center">
             <AlertCircle size={32} className="mx-auto mb-2" />
             <p className="font-semibold">Error de conexión</p>
@@ -460,15 +490,21 @@ export function ZoomCustomVideoStage({
 
       {/* Badge "EN VIVO" arriba a la izquierda */}
       {state === 'ready' && (
-        <div className="absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-red-600/90 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-white shadow-md backdrop-blur" style={{ zIndex: 15 }}>
+        <div
+          className="absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-red-600/90 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-white shadow-md backdrop-blur"
+          style={{ zIndex: 15 }}
+        >
           <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-white" />
           En vivo
         </div>
       )}
 
-      {/* Indicador participantes arriba a la derecha */}
+      {/* Contador participantes arriba a la derecha */}
       {state === 'ready' && participants > 0 && (
-        <div className="absolute right-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-black/60 px-2.5 py-1 text-xs font-semibold text-white shadow-md backdrop-blur" style={{ zIndex: 15 }}>
+        <div
+          className="absolute right-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-black/60 px-2.5 py-1 text-xs font-semibold text-white shadow-md backdrop-blur"
+          style={{ zIndex: 15 }}
+        >
           <Users size={12} />
           {participants}
         </div>
@@ -476,11 +512,10 @@ export function ZoomCustomVideoStage({
 
       {/* Toolbar custom siempre visible al fondo del stage */}
       {state === 'ready' && (
-        <div className="absolute bottom-0 left-0 right-0 flex items-center justify-center gap-1.5 bg-gradient-to-t from-slate-950/95 via-slate-950/80 to-transparent px-4 pb-3 pt-8 sm:gap-2" style={{ zIndex: 15 }}>
-          {/* Botón de audio: 3 estados.
-              1) audio no joineado → "Activar audio" (headphones, brand-cyan)
-              2) joineado + mic on → "Silenciar" (mic, brand-cyan)
-              3) joineado + mic muted → "Activar mic" (micoff, danger) */}
+        <div
+          className="absolute bottom-0 left-0 right-0 flex items-center justify-center gap-1.5 bg-gradient-to-t from-slate-950/95 via-slate-950/80 to-transparent px-4 pb-3 pt-8 sm:gap-2"
+          style={{ zIndex: 15 }}
+        >
           <ToolbarBtn
             onClick={handleAudio}
             active={audioJoined && micOn}
@@ -510,7 +545,7 @@ export function ZoomCustomVideoStage({
           <ToolbarBtn onClick={toggleView} icon={LayoutGrid} label="Vista" />
           <ToolbarBtn onClick={showMore} icon={MoreHorizontal} label="Más" />
           <button
-            onClick={leave}
+            onClick={handleLeave}
             className="ml-1 inline-flex items-center gap-1.5 rounded-xl bg-red-600 px-3.5 py-2 text-xs font-bold text-white shadow-md transition hover:bg-red-700 sm:px-4 sm:py-2.5"
             title="Salir de la clase"
           >
@@ -519,22 +554,6 @@ export function ZoomCustomVideoStage({
           </button>
         </div>
       )}
-
-      {/* SDK root behind the canvas (z=0). El SDK necesita un container
-          VISIBLE en el DOM para inicializar correctamente getMediaStream,
-          renderVideo, etc. Lo ponemos detrás del canvas con z-index
-          inferior — invisible al usuario pero funcional para el SDK. */}
-      <div
-        ref={sdkRootRef}
-        aria-hidden
-        className="absolute inset-0"
-        style={{
-          zIndex: 0,
-          opacity: 0,
-          pointerEvents: 'none',
-          overflow: 'hidden',
-        }}
-      />
     </div>
   );
 }
