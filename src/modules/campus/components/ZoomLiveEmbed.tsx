@@ -68,9 +68,8 @@ export function ZoomLiveEmbed(props: ZoomLiveEmbedProps) {
           customize: {
             video: {
               isResizable: false,
+              defaultViewType: 'speaker' as any,
               viewSizes: {
-                // Wide 16:9-ish (1100×500). El SDK respeta el ancho y
-                // rendea el video aproximadamente con esa proporción.
                 default: { width: SDK_W, height: 500 },
                 ribbon: { width: SDK_W, height: 90 },
               },
@@ -93,11 +92,27 @@ export function ZoomLiveEmbed(props: ZoomLiveEmbedProps) {
           return;
         }
 
-        // Vista "active speaker" para que el video del host llene el viewport.
+        // Vista "speaker" para que el hablante llene el embed (sin gallery).
+        // Esto da una experiencia tipo "estás viendo la clase" con el host
+        // a pantalla completa del embed. La toolbar Zoom queda visible al
+        // fondo con todos los controles (mic/cam/chat/salir).
         try {
           const c: any = client;
-          await c.changeView?.({ view: 'active' });
+          await c.changeView?.({ view: 'speaker' });
         } catch { /* opt */ }
+        // Force-select active speaker después de un breve delay para que
+        // el SDK termine de inicializar streams. Si hay solo el host, el
+        // SDK selecciona al host automáticamente.
+        setTimeout(() => {
+          try {
+            const c: any = client;
+            const users = c.getAllUser?.() ?? [];
+            const host = users.find((u: any) => u.isHost) || users[0];
+            if (host?.userId) {
+              c.setActiveSpeaker?.(host.userId);
+            }
+          } catch { /* opt */ }
+        }, 800);
 
         // Listener para detectar cuando el alumno realmente sale (vía botón
         // nativo del SDK) → notificamos al padre para que cierre el modo.

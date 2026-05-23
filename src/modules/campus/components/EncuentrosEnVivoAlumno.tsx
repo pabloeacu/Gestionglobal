@@ -53,16 +53,17 @@ function useIsMobile() {
   return isMobile;
 }
 
-// Tamaño natural del SDK Component View pedido (wide 16:9-ish). El SDK
-// respeta el ancho pero impone alto mínimo ~874.
+// El SDK Component View con width=1100 renderiza el Paper a aprox 1100×1290
+// (alto natural medido en vivo, mayor que el config height=500 porque el SDK
+// usa height como mínimo). El scale calc usa estos valores reales.
 const SDK_NATIVE_W = 1100;
-const SDK_NATIVE_H = 874;
+const SDK_NATIVE_H = 1290;
 // Espacio reservado para header overlay + paddings + safety.
-const OVERLAY_CHROME_H = 70;
+const OVERLAY_CHROME_H = 80;
 // Ancho del aside derecho con los dos cards apilados (curso + alumno).
-const ASIDE_W = 268;
-// Padding horizontal total en main (px-4 = 32) + gap entre embed y aside.
-const MAIN_HPAD = 56;
+const ASIDE_W = 280;
+// Padding horizontal total en main + gap entre embed y aside.
+const MAIN_HPAD = 96;
 
 /**
  * Wrapper que calcula `transform: scale()` UNIFORME basado en el espacio
@@ -341,21 +342,22 @@ export function ClaseEnVivoFullLayout({
           </button>
         </header>
 
-        {/* Cuerpo: embed grande a la izquierda, cards stack a la derecha */}
-        <main className="relative flex flex-1 items-center justify-center gap-4 overflow-hidden px-4 py-2 lg:gap-6">
-          {/* Embed Zoom — ocupa todo el espacio izquierdo. Scale dinámico
-              calcula sobre ancho+alto disponibles para que el SDK (que
-              renderiza wide 1100×874 natural) entre completo con toolbar
-              visible al fondo. */}
-          <ZoomEmbedScaled
-            encuentroId={encuentro.id}
-            userName={userName}
-            password={(encuentro as any).zoom_password ?? null}
-            onSalir={onSalir}
-          />
+        {/* Cuerpo: grid 2-columnas. Izquierda: embed centrado en espacio
+            disponible. Derecha: cards apilados, alineados verticalmente al
+            centro. Padding genera respiro visual respecto a triángulos. */}
+        <main className="relative grid flex-1 grid-cols-1 items-center gap-6 overflow-hidden px-8 py-3 lg:grid-cols-[1fr_280px] lg:px-12">
+          {/* Embed Zoom — ocupa la columna izquierda, centrado. */}
+          <div className="flex items-center justify-center">
+            <ZoomEmbedScaled
+              encuentroId={encuentro.id}
+              userName={userName}
+              password={(encuentro as any).zoom_password ?? null}
+              onSalir={onSalir}
+            />
+          </div>
 
           {/* Aside derecho — dos cards apilados verticalmente */}
-          <aside className="hidden h-full w-[268px] shrink-0 flex-col justify-center gap-3 lg:flex">
+          <aside className="hidden h-full flex-col justify-center gap-3 lg:flex">
             {/* Card 1 — curso + encuentro + asistencia activa */}
             <div className="space-y-3 rounded-2xl border border-slate-200/60 bg-white/80 p-4 shadow-sm backdrop-blur-sm">
               <div>
