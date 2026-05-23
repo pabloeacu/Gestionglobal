@@ -310,14 +310,35 @@ export function ClaseEnVivoFullLayout({
             </div>
           </aside>
 
-          {/* Embed Zoom centrado */}
-          <div className="flex shrink-0 items-center justify-center">
-            <ZoomLiveEmbed
-              encuentroId={encuentro.id}
-              userName={userName}
-              password={(encuentro as any).zoom_password ?? null}
-              onLeft={onSalir}
-            />
+          {/* Embed Zoom centrado — el SDK Component View tiene un alto MÍNIMO
+              de ~874px que ignora viewSizes. Para que la toolbar (audio/cam/
+              chat/salir) sea visible en viewports 720-760 sin scroll,
+              aplicamos transform scale al WRAPPER. El SDK rinde a tamaño
+              natural por dentro, transparente a click coords (CSS transform
+              preserva el mapeo de eventos en browsers modernos). */}
+          <div
+            className="flex shrink-0 items-center justify-center"
+            style={{
+              // Reserva el espacio del embed escalado en el flow flex
+              width: 720 * 0.78,
+              height: 874 * 0.78,
+            }}
+          >
+            <div
+              style={{
+                transform: 'scale(0.78)',
+                transformOrigin: 'top left',
+                width: 720,
+                height: 874,
+              }}
+            >
+              <ZoomLiveEmbed
+                encuentroId={encuentro.id}
+                userName={userName}
+                password={(encuentro as any).zoom_password ?? null}
+                onLeft={onSalir}
+              />
+            </div>
           </div>
 
           {/* Panel derecho — participante + guía de controles */}
