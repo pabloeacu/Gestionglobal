@@ -53,23 +53,22 @@ function useIsMobile() {
   return isMobile;
 }
 
-// El SDK Component View con width=1100 renderiza el Paper a aprox 1100×1290
-// (alto natural medido en vivo, mayor que el config height=500 porque el SDK
-// usa height como mínimo). El scale calc usa estos valores reales.
-const SDK_NATIVE_W = 1100;
-const SDK_NATIVE_H = 1290;
+// Tamaño natural del SDK Component View con width 720 (configurable). El
+// SDK respeta esto, y el resultado es ~720×874 con buttons readables.
+const SDK_NATIVE_W = 720;
+const SDK_NATIVE_H = 874;
 // Espacio reservado para header overlay + paddings + safety.
 const OVERLAY_CHROME_H = 80;
-// Ancho del aside derecho con los dos cards apilados (curso + alumno).
+// Ancho del aside derecho con los dos cards apilados.
 const ASIDE_W = 280;
-// Padding horizontal total en main + gap entre embed y aside.
-const MAIN_HPAD = 96;
 
 /**
- * Wrapper que calcula `transform: scale()` UNIFORME basado en el espacio
- * disponible (ancho viewport - aside derecho, alto viewport - header).
- * El embed se estira para usar todo el área izquierda preservando aspect
- * ratio del SDK. La toolbar Zoom queda visible al borde inferior.
+ * Wrapper visual ancho (matchea el mockup del usuario): un contenedor con
+ * fondo oscuro + borde brand que ocupa el espacio izquierdo, con el SDK
+ * Paper centrado adentro. El SDK rinde a tamaño nativo legible (720×874
+ * escalado al alto disponible), pero el "marco visual" hace que el embed
+ * se vea ancho como el mockup. La toolbar SDK queda visible al fondo del
+ * Paper centrado.
  */
 function ZoomEmbedScaled({
   encuentroId,
@@ -83,49 +82,54 @@ function ZoomEmbedScaled({
   onSalir: () => void;
 }) {
   const [scale, setScale] = useState(() => {
-    if (typeof window === 'undefined') return 0.8;
-    const availW = window.innerWidth - ASIDE_W - MAIN_HPAD;
+    if (typeof window === 'undefined') return 0.85;
     const availH = window.innerHeight - OVERLAY_CHROME_H;
-    return Math.min(1.2, Math.max(0.5, Math.min(availW / SDK_NATIVE_W, availH / SDK_NATIVE_H)));
+    return Math.min(1.0, Math.max(0.65, availH / SDK_NATIVE_H));
   });
   useEffect(() => {
     const onResize = () => {
-      const availW = window.innerWidth - ASIDE_W - MAIN_HPAD;
       const availH = window.innerHeight - OVERLAY_CHROME_H;
-      setScale(Math.min(1.2, Math.max(0.5, Math.min(availW / SDK_NATIVE_W, availH / SDK_NATIVE_H))));
+      setScale(Math.min(1.0, Math.max(0.65, availH / SDK_NATIVE_H)));
     };
     onResize();
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, []);
 
+  const sdkVisualH = SDK_NATIVE_H * scale;
+  const sdkVisualW = SDK_NATIVE_W * scale;
+
   return (
+    // Container exterior: ocupa todo el espacio disponible del grid column.
+    // Fondo oscuro + borde brand para que se vea como un "marco premium"
+    // alrededor del SDK (matching mockup wide).
     <div
-      className="relative shrink-0"
-      style={{
-        // El outer reserva el espacio post-scale del embed. Position relative
-        // para que el inner absoluto se ancle al top-left exacto del outer.
-        width: SDK_NATIVE_W * scale,
-        height: SDK_NATIVE_H * scale,
-      }}
+      className="relative flex h-full w-full items-center justify-center overflow-hidden rounded-2xl border border-slate-200/70 bg-slate-950 shadow-xl ring-1 ring-brand-cyan/20"
+      style={{ minHeight: sdkVisualH + 20 }}
     >
+      {/* Wrapper del SDK centrado dentro del marco wide */}
       <div
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          transform: `scale(${scale})`,
-          transformOrigin: 'top left',
-          width: SDK_NATIVE_W,
-          height: SDK_NATIVE_H,
-        }}
+        className="relative shrink-0"
+        style={{ width: sdkVisualW, height: sdkVisualH }}
       >
-        <ZoomLiveEmbed
-          encuentroId={encuentroId}
-          userName={userName}
-          password={password}
-          onLeft={onSalir}
-        />
+        <div
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            transform: `scale(${scale})`,
+            transformOrigin: 'top left',
+            width: SDK_NATIVE_W,
+            height: SDK_NATIVE_H,
+          }}
+        >
+          <ZoomLiveEmbed
+            encuentroId={encuentroId}
+            userName={userName}
+            password={password}
+            onLeft={onSalir}
+          />
+        </div>
       </div>
     </div>
   );

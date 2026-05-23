@@ -19,11 +19,9 @@ export interface ZoomLiveEmbedProps {
   onLeft?: () => void;
 }
 
-// Pedimos al SDK Component View un Paper WIDE (1100×500) para aprovechar
-// el espacio horizontal del modo "Clase en vivo". El SDK respeta el ancho
-// pero impone un alto mínimo ~874 — el componente padre escala uniformemente
-// para encajar tanto en ancho como alto disponibles.
-const SDK_W = 1100;
+// Tamaño nativo del Component View con buttons readables. El SDK respeta
+// width pero impone alto ~aspect 1.2 — usamos 720×874 (proven natural).
+const SDK_W = 720;
 const SDK_H = 874;
 
 export function ZoomLiveEmbed(props: ZoomLiveEmbedProps) {
@@ -70,8 +68,8 @@ export function ZoomLiveEmbed(props: ZoomLiveEmbedProps) {
               isResizable: false,
               defaultViewType: 'speaker' as any,
               viewSizes: {
-                default: { width: SDK_W, height: 500 },
-                ribbon: { width: SDK_W, height: 90 },
+                default: { width: SDK_W, height: SDK_H - 120 },
+                ribbon: { width: SDK_W, height: 80 },
               },
             },
           },
