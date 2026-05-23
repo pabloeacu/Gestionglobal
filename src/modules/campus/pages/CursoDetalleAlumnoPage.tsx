@@ -49,6 +49,7 @@ import { EncuentrosEnVivoAlumno } from '../components/EncuentrosEnVivoAlumno';
 export function CursoDetalleAlumnoPage() {
   const { slug = '' } = useParams<{ slug: string }>();
   const user = useCurrentUser();
+  const userId = user?.id;
   const [data, setData] = useState<CursoDetalle | null>(null);
   const [matricula, setMatricula] = useState<CursoMatriculaRow | null>(null);
   const [progreso, setProgreso] = useState<CursoProgresoRow[]>([]);
@@ -56,24 +57,29 @@ export function CursoDetalleAlumnoPage() {
   const [condiciones, setCondiciones] = useState<MatriculaCondicionItem[]>([]);
   const [certificado, setCertificado] = useState<CertificadoRow | null>(null);
   const [encuentros, setEncuentros] = useState<CursoEncuentroRow[]>([]);
-  const [loading, setLoading] = useState(true);
+  // E-GG-14: separar carga INICIAL de refreshes silenciosos. Si en cada
+  // realtime/refetch ponemos loading=true, el árbol entero se desmonta
+  // (incluido el <ZoomLiveEmbed>) → al re-montar dispara un join() duplicado
+  // y Zoom interpreta dos solicitudes de admisión.
+  const [initialLoading, setInitialLoading] = useState(true);
   const [claseActivaId, setClaseActivaId] = useState<string | null>(null);
 
-  const reload = useCallback(async () => {
-    setLoading(true);
+  const reload = useCallback(async (opts?: { silent?: boolean }) => {
+    const silent = opts?.silent === true;
+    if (!silent) setInitialLoading(true);
     const d = await getCurso(slug);
     if (!d.ok) {
-      setLoading(false);
-      toast.error(d.error.message);
+      if (!silent) setInitialLoading(false);
+      if (!silent) toast.error(d.error.message);
       return;
     }
     setData(d.data);
 
     // Buscar matrícula del usuario actual.
-    if (user) {
+    if (userId) {
       const m = await listMatriculas({
         cursoId: d.data.curso.id,
-        profileId: user.id,
+        profileId: userId,
       });
       const found = m.ok && m.data.length > 0 ? m.data[0] : null;
       if (found) {
@@ -99,16 +105,29 @@ export function CursoDetalleAlumnoPage() {
         setEncuentros([]);
       }
     }
-    setLoading(false);
-  }, [slug, user]);
+    if (!silent) setInitialLoading(false);
+    // E-GG-14: dependemos de userId (string estable) NO del objeto user
+    // (cambia de referencia en cada token refresh).
+  }, [slug, userId]);
 
+  // Carga inicial — única que puede mostrar Skeleton.
   useEffect(() => {
-    void reload();
+    void reload({ silent: false });
   }, [reload]);
 
+  // Refreshes silenciosos por realtime. NUNCA suben loading → el árbol no
+  // se desmonta → el embed de Zoom sobrevive.
   useRealtimeRefresh(
     ['curso_progreso', 'examen_intentos', 'matricula_condiciones', 'certificados'],
-    () => void reload(),
+    () => void reload({ silent: true }),
+  );
+
+  // Memoizado: el userName tiene que tener referencia estable para que el
+  // <ZoomLiveEmbed> NO re-monte cuando React re-renderea el padre por otra
+  // razón (eg token refresh).
+  const userNameStable = useMemo(
+    () => user?.fullName ?? user?.email ?? 'Alumno',
+    [user?.fullName, user?.email],
   );
 
   const completadasSet = useMemo(
@@ -128,7 +147,7 @@ export function CursoDetalleAlumnoPage() {
     [clases, claseActivaId],
   );
 
-  if (loading || !data) {
+  if (initialLoading || !data) {
     return (
       <div className="mx-auto max-w-6xl space-y-4 p-6">
         <Skeleton className="h-10 w-2/3 rounded-lg" />
@@ -277,7 +296,7 @@ export function CursoDetalleAlumnoPage() {
           {encuentros.some((e: any) => e.zoom_meeting_id) && (
             <EncuentrosEnVivoAlumno
               encuentros={encuentros}
-              userName={user?.fullName ?? user?.email ?? 'Alumno'}
+              userName={userNameStable}
             />
           )}
           {(condiciones.filter((c) => c.activa).length > 0 || certificado) && (
