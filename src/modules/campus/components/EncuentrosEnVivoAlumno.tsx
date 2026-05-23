@@ -59,10 +59,10 @@ const SDK_NATIVE_W = 1280;
 const SDK_NATIVE_H = 860;
 
 /**
- * Wrapper que mide el espacio del grid column disponible (que crece con
- * `1fr`) y escala el SDK Paper (16:9 HD 1280×860 natural) para LLENAR
- * dicho espacio. El "marco visual" (borde brand + shadow) se ajusta
- * exactamente al SDK escalado — sin espacios negros vacíos.
+ * Wrapper que mide el espacio del column del grid y escala el SDK Paper
+ * (16:9 HD 1280×860 natural) para LLENAR dicho espacio. Anclado al
+ * BOTTOM del marco — garantiza que la toolbar (al fondo del SDK Paper)
+ * SIEMPRE queda visible al borde inferior del viewport.
  */
 function ZoomEmbedScaled({
   encuentroId,
@@ -81,24 +81,26 @@ function ZoomEmbedScaled({
     const compute = () => {
       const el = containerRef.current;
       if (!el) return;
-      // Medimos el espacio REAL del column del grid en el viewport actual.
       const parent = el.parentElement;
       if (!parent) return;
       const pw = parent.clientWidth;
       const ph = parent.clientHeight;
-      // Scale uniforme para LLENAR el column manteniendo aspect SDK.
       const sw = pw / SDK_NATIVE_W;
       const sh = ph / SDK_NATIVE_H;
-      const s = Math.min(1.4, Math.max(0.5, Math.min(sw, sh)));
+      // Scale uniforme — el más restrictivo de ambos ejes garantiza que
+      // el SDK Paper ENTERO entra en el espacio del column.
+      const s = Math.min(1.5, Math.max(0.5, Math.min(sw, sh)));
       setScale(s);
     };
     compute();
     window.addEventListener('resize', compute);
-    // Recompute después del mount del SDK que puede afectar el column height
-    const t = setTimeout(compute, 250);
+    // Recompute después del mount del SDK que puede afectar el column.
+    const t1 = setTimeout(compute, 250);
+    const t2 = setTimeout(compute, 1500);
     return () => {
       window.removeEventListener('resize', compute);
-      clearTimeout(t);
+      clearTimeout(t1);
+      clearTimeout(t2);
     };
   }, []);
 
@@ -106,9 +108,8 @@ function ZoomEmbedScaled({
   const sdkVisualW = SDK_NATIVE_W * scale;
 
   return (
-    // Marco "hugging": el contenedor se ajusta EXACTAMENTE al SDK escalado.
-    // Sin background negro vacío alrededor. Borde brand + shadow para el
-    // toque premium.
+    // Marco "hugging": contenedor del tamaño exacto del SDK escalado.
+    // Borde brand + shadow para el toque premium.
     <div
       ref={containerRef}
       className="relative shrink-0 overflow-hidden rounded-2xl border border-slate-200/70 bg-slate-950 shadow-xl ring-1 ring-brand-cyan/20"
@@ -351,12 +352,15 @@ export function ClaseEnVivoFullLayout({
           </button>
         </header>
 
-        {/* Cuerpo: grid 2-columnas. Izquierda: embed centrado en espacio
-            disponible. Derecha: cards apilados, alineados verticalmente al
-            centro. Padding genera respiro visual respecto a triángulos. */}
-        <main className="relative grid flex-1 grid-cols-1 items-center gap-6 overflow-hidden px-8 py-3 lg:grid-cols-[1fr_280px] lg:px-12">
-          {/* Embed Zoom — ocupa la columna izquierda, centrado. */}
-          <div className="flex items-center justify-center">
+        {/* Cuerpo: grid 2-columnas. Izquierda: embed que ocupa todo el
+            espacio del column. Derecha: cards apilados centrados. El
+            min-h-0 en main + h-full en column garantizan que el column
+            tenga altura concreta (no auto) para que ZoomEmbedScaled mida
+            correctamente. */}
+        <main className="relative grid min-h-0 flex-1 grid-cols-1 items-stretch gap-6 overflow-hidden px-8 py-3 lg:grid-cols-[1fr_280px] lg:px-12">
+          {/* Embed Zoom — el div interno toma h-full para que clientHeight
+              sea correcto al medir desde ZoomEmbedScaled. */}
+          <div className="flex h-full items-center justify-center">
             <ZoomEmbedScaled
               encuentroId={encuentro.id}
               userName={userName}

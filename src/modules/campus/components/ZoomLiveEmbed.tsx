@@ -95,11 +95,33 @@ export function ZoomLiveEmbed(props: ZoomLiveEmbedProps) {
 
         // Vista por defecto: "speaker" — el hablante (host) llena el
         // embed. Si el alumno enciende su cámara, queda en el ribbon
-        // strip del SDK (visible en el header SDK). Toggle disponible
-        // desde los controles nativos del SDK.
+        // strip. Toggle disponible desde los controles nativos del SDK.
         try {
           const c: any = client;
           await c.changeView?.({ view: 'speaker' });
+        } catch { /* opt */ }
+
+        // Force-pin al host como active speaker para que llene el video
+        // stage (sin esto, con un solo participante con cámara, el SDK
+        // muestra un thumbnail diminuto). Re-aplicamos en cada
+        // user-added por si el host se reconecta.
+        const pinHost = () => {
+          try {
+            const c: any = client;
+            const users: any[] = c.getAllUser?.() ?? [];
+            const host = users.find((u) => u.isHost) || users.find((u) => u.bVideoOn) || users[0];
+            if (host?.userId) {
+              c.setActiveSpeaker?.(host.userId);
+              try { c.pinVideo?.(host.userId, true); } catch { /* opt */ }
+            }
+          } catch { /* opt */ }
+        };
+        setTimeout(pinHost, 1000);
+        setTimeout(pinHost, 2500);
+        try {
+          const c: any = client;
+          c.on?.('user-added', () => setTimeout(pinHost, 500));
+          c.on?.('peer-video-state-change', () => setTimeout(pinHost, 300));
         } catch { /* opt */ }
 
         // Listener para detectar cuando el alumno realmente sale (vía botón
