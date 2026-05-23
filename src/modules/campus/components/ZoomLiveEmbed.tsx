@@ -104,14 +104,22 @@ export function ZoomLiveEmbed(props: ZoomLiveEmbedProps) {
         }
         setState('ready');
       } catch (e: any) {
-        // errorCode 3008 (MEETING_NOT_STARTED) = sala de espera, no error.
+        // Eventos NO fatales del SDK que igual entran al catch (el SDK
+        // los emite como rejects pero se autorrecupera o representan estados
+        // benignos):
+        //   - 3008 MEETING_NOT_STARTED → sala de espera, viewport montado.
+        //   - RECONNECTING_MEETING → reconexión transitoria; el SDK recupera
+        //     solo en pocos segundos.
+        //   - NETWORK_DISCONNECTED → idem.
+        //   - Mensajes "waiting", "reconnect", "network".
         const code = e?.errorCode ?? e?.reason?.errorCode;
-        const isWaitingHost =
+        const msg = String(e?.message ?? e?.reason ?? e?.type ?? '');
+        const isTransient =
           code === 3008 ||
-          /not.?started|waiting.?for.?host|host.?has.?not.?started/i.test(
-            String(e?.message ?? e?.reason ?? ''),
+          /not.?started|waiting.?for.?host|host.?has.?not.?started|reconnect|network[_ ]?disconnect/i.test(
+            msg,
           );
-        if (isWaitingHost) {
+        if (isTransient) {
           if (!cancelled) setState('ready');
           return;
         }
