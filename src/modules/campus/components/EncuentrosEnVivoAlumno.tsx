@@ -326,11 +326,10 @@ export function ClaseEnVivoFullLayout({
           </button>
         </header>
 
-        {/* Cuerpo: grid 2-columnas con padding generoso para que NADA
-            quede pegado a los bordes (incluyendo los cards al borde
-            derecho). El min-h-0 + items-stretch garantizan altura
-            concreta del column para el medidor del embed. */}
-        <main className="relative grid min-h-0 flex-1 grid-cols-1 items-stretch gap-6 overflow-hidden px-6 py-4 lg:grid-cols-[1fr_280px] lg:gap-8 lg:px-10 xl:px-14">
+        {/* Cuerpo: grid 2-columnas con padding GENEROSO en todos los lados
+            (sobre todo derecho para que los cards NO se peguen al borde).
+            min-h-0 + items-stretch garantizan altura concreta del column. */}
+        <main className="relative grid min-h-0 flex-1 grid-cols-1 items-stretch gap-6 overflow-hidden px-6 py-4 lg:grid-cols-[1fr_260px] lg:gap-10 lg:pl-12 lg:pr-16 xl:pl-16 xl:pr-20">
           {/* Embed Zoom — el div interno toma h-full para que clientHeight
               sea correcto al medir desde ZoomEmbedScaled. */}
           <div className="flex h-full items-center justify-center">

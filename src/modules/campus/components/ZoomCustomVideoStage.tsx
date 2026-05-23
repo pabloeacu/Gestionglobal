@@ -395,17 +395,18 @@ export function ZoomCustomVideoStage({
     <div className="relative h-full w-full overflow-hidden rounded-2xl border border-slate-200/70 bg-slate-950 shadow-xl ring-1 ring-brand-cyan/20">
       {/* Stage 16:9 — el canvas se ESTIRA al tamaño del marco preservando
           aspect ratio (object-contain → letterbox si la cam del speaker
-          es portrait). */}
+          es portrait). Z-index alto para cubrir el SDK root. */}
       <canvas
         ref={canvasRef}
         width={STAGE_W}
         height={STAGE_H}
         className="absolute inset-0 h-full w-full object-contain"
+        style={{ zIndex: 10 }}
       />
 
       {/* Placeholder cuando nadie tiene cámara prendida */}
       {state === 'ready' && !hasActiveSpeaker && (
-        <div className="absolute inset-0 grid place-items-center text-white/70">
+        <div className="absolute inset-0 grid place-items-center text-white/70" style={{ zIndex: 11 }}>
           <div className="text-center">
             <VideoOff size={32} className="mx-auto mb-2 opacity-50" />
             <p className="text-sm">Esperando que alguien encienda la cámara…</p>
@@ -420,7 +421,7 @@ export function ZoomCustomVideoStage({
 
       {/* Loading overlay */}
       {state !== 'ready' && state !== 'error' && (
-        <div className="absolute inset-0 grid place-items-center bg-slate-950/95 text-white">
+        <div className="absolute inset-0 grid place-items-center bg-slate-950/95 text-white" style={{ zIndex: 20 }}>
           <div className="flex flex-col items-center gap-3 text-sm">
             <Loader2 size={28} className="animate-spin" />
             <span>
@@ -434,7 +435,7 @@ export function ZoomCustomVideoStage({
 
       {/* Error overlay */}
       {state === 'error' && (
-        <div className="absolute inset-0 grid place-items-center bg-red-50 p-6 text-red-700">
+        <div className="absolute inset-0 grid place-items-center bg-red-50 p-6 text-red-700" style={{ zIndex: 20 }}>
           <div className="max-w-md text-center">
             <AlertCircle size={32} className="mx-auto mb-2" />
             <p className="font-semibold">Error de conexión</p>
@@ -455,7 +456,7 @@ export function ZoomCustomVideoStage({
 
       {/* Badge "EN VIVO" arriba a la izquierda */}
       {state === 'ready' && (
-        <div className="absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-red-600/90 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-white shadow-md backdrop-blur">
+        <div className="absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-red-600/90 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-white shadow-md backdrop-blur" style={{ zIndex: 15 }}>
           <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-white" />
           En vivo
         </div>
@@ -463,7 +464,7 @@ export function ZoomCustomVideoStage({
 
       {/* Indicador participantes arriba a la derecha */}
       {state === 'ready' && participants > 0 && (
-        <div className="absolute right-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-black/60 px-2.5 py-1 text-xs font-semibold text-white shadow-md backdrop-blur">
+        <div className="absolute right-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-black/60 px-2.5 py-1 text-xs font-semibold text-white shadow-md backdrop-blur" style={{ zIndex: 15 }}>
           <Users size={12} />
           {participants}
         </div>
@@ -471,7 +472,7 @@ export function ZoomCustomVideoStage({
 
       {/* Toolbar custom siempre visible al fondo del stage */}
       {state === 'ready' && (
-        <div className="absolute bottom-0 left-0 right-0 flex items-center justify-center gap-1.5 bg-gradient-to-t from-slate-950/95 via-slate-950/80 to-transparent px-4 pb-3 pt-8 sm:gap-2">
+        <div className="absolute bottom-0 left-0 right-0 flex items-center justify-center gap-1.5 bg-gradient-to-t from-slate-950/95 via-slate-950/80 to-transparent px-4 pb-3 pt-8 sm:gap-2" style={{ zIndex: 15 }}>
           {/* Botón de audio: 3 estados.
               1) audio no joineado → "Activar audio" (headphones, brand-cyan)
               2) joineado + mic on → "Silenciar" (mic, brand-cyan)
@@ -515,17 +516,19 @@ export function ZoomCustomVideoStage({
         </div>
       )}
 
-      {/* SDK container offscreen — necesario para que el SDK funcione */}
+      {/* SDK root behind the canvas (z=0). El SDK necesita un container
+          VISIBLE en el DOM para inicializar correctamente getMediaStream,
+          renderVideo, etc. Lo ponemos detrás del canvas con z-index
+          inferior — invisible al usuario pero funcional para el SDK. */}
       <div
         ref={sdkRootRef}
         aria-hidden
+        className="absolute inset-0"
         style={{
-          position: 'absolute',
-          left: -99999,
-          top: -99999,
-          width: 320,
-          height: 180,
+          zIndex: 0,
+          opacity: 0,
           pointerEvents: 'none',
+          overflow: 'hidden',
         }}
       />
     </div>
