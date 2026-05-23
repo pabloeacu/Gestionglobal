@@ -19,12 +19,11 @@ export interface ZoomLiveEmbedProps {
   onLeft?: () => void;
 }
 
-// El SDK Component View renderiza el Paper Zoom con un alto MÍNIMO de
-// ~874px (header + video + toolbar) que IGNORA viewSizes.default.height.
-// Por eso aceptamos el tamaño natural del SDK (720×874) y el componente
-// padre aplica `transform: scale()` al wrapper para que entre cómodo en
-// viewports 720-768 sin scroll. La toolbar y el video quedan visibles.
-const SDK_W = 720;
+// Pedimos al SDK Component View un Paper WIDE (1100×500) para aprovechar
+// el espacio horizontal del modo "Clase en vivo". El SDK respeta el ancho
+// pero impone un alto mínimo ~874 — el componente padre escala uniformemente
+// para encajar tanto en ancho como alto disponibles.
+const SDK_W = 1100;
 const SDK_H = 874;
 
 export function ZoomLiveEmbed(props: ZoomLiveEmbedProps) {
@@ -70,11 +69,10 @@ export function ZoomLiveEmbed(props: ZoomLiveEmbedProps) {
             video: {
               isResizable: false,
               viewSizes: {
-                // Tamaño natural del Component View (header + video + toolbar
-                // ≈ 874). El SDK ignora alturas más bajas, así que damos los
-                // valores que efectivamente usa.
-                default: { width: SDK_W, height: SDK_H - 120 },
-                ribbon: { width: SDK_W, height: 80 },
+                // Wide 16:9-ish (1100×500). El SDK respeta el ancho y
+                // rendea el video aproximadamente con esa proporción.
+                default: { width: SDK_W, height: 500 },
+                ribbon: { width: SDK_W, height: 90 },
               },
             },
           },

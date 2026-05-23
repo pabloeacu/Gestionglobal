@@ -53,17 +53,22 @@ function useIsMobile() {
   return isMobile;
 }
 
-// Tamaño natural del SDK Component View (no se puede comprimir más).
-const SDK_NATIVE_W = 720;
+// Tamaño natural del SDK Component View pedido (wide 16:9-ish). El SDK
+// respeta el ancho pero impone alto mínimo ~874.
+const SDK_NATIVE_W = 1100;
 const SDK_NATIVE_H = 874;
 // Espacio reservado para header overlay + paddings + safety.
 const OVERLAY_CHROME_H = 70;
+// Ancho del aside derecho con los dos cards apilados (curso + alumno).
+const ASIDE_W = 268;
+// Padding horizontal total en main (px-4 = 32) + gap entre embed y aside.
+const MAIN_HPAD = 56;
 
 /**
- * Wrapper que calcula dinámicamente el `transform: scale()` para que el SDK
- * (que renderiza a tamaño natural fijo) entre completo en el viewport del
- * alumno sin scroll. La toolbar Zoom (audio/cam/chat/salir) queda siempre
- * visible al borde inferior del embed escalado.
+ * Wrapper que calcula `transform: scale()` UNIFORME basado en el espacio
+ * disponible (ancho viewport - aside derecho, alto viewport - header).
+ * El embed se estira para usar todo el área izquierda preservando aspect
+ * ratio del SDK. La toolbar Zoom queda visible al borde inferior.
  */
 function ZoomEmbedScaled({
   encuentroId,
@@ -77,14 +82,16 @@ function ZoomEmbedScaled({
   onSalir: () => void;
 }) {
   const [scale, setScale] = useState(() => {
-    if (typeof window === 'undefined') return 0.78;
-    const avail = window.innerHeight - OVERLAY_CHROME_H;
-    return Math.min(1, Math.max(0.55, avail / SDK_NATIVE_H));
+    if (typeof window === 'undefined') return 0.8;
+    const availW = window.innerWidth - ASIDE_W - MAIN_HPAD;
+    const availH = window.innerHeight - OVERLAY_CHROME_H;
+    return Math.min(1.2, Math.max(0.5, Math.min(availW / SDK_NATIVE_W, availH / SDK_NATIVE_H)));
   });
   useEffect(() => {
     const onResize = () => {
-      const avail = window.innerHeight - OVERLAY_CHROME_H;
-      setScale(Math.min(1, Math.max(0.55, avail / SDK_NATIVE_H)));
+      const availW = window.innerWidth - ASIDE_W - MAIN_HPAD;
+      const availH = window.innerHeight - OVERLAY_CHROME_H;
+      setScale(Math.min(1.2, Math.max(0.5, Math.min(availW / SDK_NATIVE_W, availH / SDK_NATIVE_H))));
     };
     onResize();
     window.addEventListener('resize', onResize);
@@ -334,10 +341,22 @@ export function ClaseEnVivoFullLayout({
           </button>
         </header>
 
-        {/* Cuerpo horizontal: panel izq + embed central + panel der */}
-        <main className="relative flex flex-1 items-center justify-center gap-3 overflow-hidden px-3 py-2 lg:gap-6 lg:px-6">
-          {/* Panel izquierdo — info del curso y estado de asistencia */}
-          <aside className="hidden h-full max-h-[640px] w-[240px] shrink-0 flex-col justify-center lg:flex">
+        {/* Cuerpo: embed grande a la izquierda, cards stack a la derecha */}
+        <main className="relative flex flex-1 items-center justify-center gap-4 overflow-hidden px-4 py-2 lg:gap-6">
+          {/* Embed Zoom — ocupa todo el espacio izquierdo. Scale dinámico
+              calcula sobre ancho+alto disponibles para que el SDK (que
+              renderiza wide 1100×874 natural) entre completo con toolbar
+              visible al fondo. */}
+          <ZoomEmbedScaled
+            encuentroId={encuentro.id}
+            userName={userName}
+            password={(encuentro as any).zoom_password ?? null}
+            onSalir={onSalir}
+          />
+
+          {/* Aside derecho — dos cards apilados verticalmente */}
+          <aside className="hidden h-full w-[268px] shrink-0 flex-col justify-center gap-3 lg:flex">
+            {/* Card 1 — curso + encuentro + asistencia activa */}
             <div className="space-y-3 rounded-2xl border border-slate-200/60 bg-white/80 p-4 shadow-sm backdrop-blur-sm">
               <div>
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-brand-cyan">
@@ -362,7 +381,6 @@ export function ClaseEnVivoFullLayout({
                   </p>
                 )}
               </div>
-              <hr className="border-slate-200/60" />
               <div className="flex items-start gap-2 rounded-lg bg-emerald-50 p-2.5">
                 <CheckCircle2
                   size={14}
@@ -370,27 +388,12 @@ export function ClaseEnVivoFullLayout({
                 />
                 <p className="text-[11px] leading-tight text-emerald-800">
                   <span className="font-semibold">Asistencia activa.</span>{' '}
-                  Se registra automáticamente mientras estés conectado.
+                  Se registra automáticamente.
                 </p>
               </div>
             </div>
-          </aside>
 
-          {/* Embed Zoom centrado — el SDK Component View tiene un alto MÍNIMO
-              de ~874px que ignora viewSizes. Para que la toolbar (audio/cam/
-              chat/salir) sea visible sin scroll, aplicamos transform scale
-              DINÁMICO basado en el alto disponible del viewport (viewport -
-              header overlay ~50). El SDK rinde a tamaño natural por dentro;
-              CSS transform preserva el mapeo de click events. */}
-          <ZoomEmbedScaled
-            encuentroId={encuentro.id}
-            userName={userName}
-            password={(encuentro as any).zoom_password ?? null}
-            onSalir={onSalir}
-          />
-
-          {/* Panel derecho — participante + guía de controles */}
-          <aside className="hidden h-full max-h-[640px] w-[240px] shrink-0 flex-col justify-center lg:flex">
+            {/* Card 2 — participante + guía de controles */}
             <div className="space-y-3 rounded-2xl border border-slate-200/60 bg-white/80 p-4 shadow-sm backdrop-blur-sm">
               <div>
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-brand-cyan">
@@ -424,12 +427,6 @@ export function ClaseEnVivoFullLayout({
                   </li>
                 </ul>
               </div>
-              <hr className="border-slate-200/60" />
-              <p className="text-[10px] leading-tight text-brand-muted">
-                Si no ves los botones del Zoom, ajustá el zoom del navegador
-                con <kbd className="rounded border border-slate-300 bg-slate-50 px-1">Ctrl</kbd>{' '}
-                <kbd className="rounded border border-slate-300 bg-slate-50 px-1">−</kbd>.
-              </p>
             </div>
           </aside>
         </main>
