@@ -184,3 +184,46 @@
   guard de loading, ponerlo arriba. El build/tsc NO detecta esto → sólo se ve
   en runtime (browser test obligatorio).
 - **Fecha / módulo:** 2026-05-22 · campus (CursoEditorPage) · Fase 1 · QA.
+
+## E-GG-09 · CORS preflight OPTIONS daba 500 con verify_jwt=true (edge fns)
+- **Síntoma:** primer click en "Crear sala Zoom" devolvía toast rojo
+  "Failed to send a request to the Edge Function". Logs Supabase mostraban
+  `OPTIONS | 500 | zoom-meeting-create`. El POST nunca llegaba.
+- **Causa raíz:** con `verify_jwt=true` el runtime de Supabase intercepta la
+  request antes de la función y rechaza si no hay Authorization. El navegador
+  hace **preflight CORS** con OPTIONS SIN Authorization (es estándar) →
+  rechazado con 500 → el POST real nunca se manda.
+- **Fix:** `verify_jwt=false` a nivel runtime; la función valida adentro
+  leyendo `Authorization: Bearer ...` + `getUser()`. Aplicar a TODA edge
+  function llamada desde el navegador (que necesite CORS preflight).
+- **Prevención:** edge functions llamadas desde el browser → `verify_jwt=false`
+  + handler propio (lee Bearer + getUser). Solo dejar `verify_jwt=true` en
+  funciones llamadas server-to-server (cron / webhooks).
+- **Fecha / módulo:** 2026-05-22 · campus Fase 3 · Zoom edge fns.
+
+## E-GG-10 · profiles.rol no existe (columna real `role`); profiles no tiene `email`
+- **Síntoma:** la edge fn retornaba 403 `only_staff` aún con gerente logueado.
+- **Causa raíz:** asumí `prof.rol` (en español, como otras tablas E43) pero la
+  columna real es `role`. Además `email` no vive en profiles sino en
+  `auth.users`. SELECT devolvía undefined → check fallaba.
+- **Fix:** SELECT `role` y leer `email` desde `ures.user.email` (el getUser
+  resultado).
+- **Prevención:** **regla 8 / E43**: antes de SELECT en tabla pre-existente,
+  consultar `information_schema.columns` para confirmar nombres reales. La
+  convención inglés/español es híbrida.
+- **Fecha / módulo:** 2026-05-22 · campus Fase 3 · zoom edge fns.
+
+## E-GG-11 · POST /v2/users/{gerente_email}/meetings → 404 (no es usuario Zoom)
+- **Síntoma:** la edge fn devolvía 502 `zoom_create_failed` aún con creds S2S
+  válidas. Test directo con curl creaba la reunión sin problema.
+- **Causa raíz:** la edge fn usaba el email del **gerente del CRM**
+  (`pabloeacu@gmail.com`) como host de Zoom. Pero ese email NO es un usuario
+  Zoom en la cuenta — el owner real es `contacto@gestionglobal.ar`. Zoom
+  rechaza con 404 user_does_not_exist.
+- **Fix:** default `hostEmail = "me"` = owner del S2S app. Solo aceptar email
+  custom si viene en `body.host_email` y la cuenta tiene un usuario Zoom con
+  ese email.
+- **Prevención:** **gerentes del CRM ≠ usuarios Zoom**. Para crear meetings
+  hostear siempre en `me` (la cuenta primaria) salvo plan multi-user con
+  hosts adicionales y mapeo explícito de emails.
+- **Fecha / módulo:** 2026-05-22 · campus Fase 3 · zoom-meeting-create.
