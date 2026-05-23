@@ -227,3 +227,31 @@
   hostear siempre en `me` (la cuenta primaria) salvo plan multi-user con
   hosts adicionales y mapeo explícito de emails.
 - **Fecha / módulo:** 2026-05-22 · campus Fase 3 · zoom-meeting-create.
+
+## E-GG-12 · @zoom/meetingsdk v6 ya no acepta `sdkKey` en joinOptions
+- **Síntoma:** al clickear "Conectar a la sala", el viewport del SDK se montaba
+  pero aparecía un toast rojo "Error de conexión".
+- **Causa raíz:** `client.join({sdkKey, ...})`. Desde v4.0.0 del SDK web, el
+  sdkKey vive sólo dentro del JWT firmado (signature), NO en los joinOptions.
+  Si lo pasás, el SDK warna ("removed since v4.0.0") y `join()` puede tirar
+  error como falso positivo.
+- **Fix:** quitar `sdkKey` del objeto pasado a `client.join()`. Mantenerlo
+  dentro del payload del JWT que firma el edge fn.
+- **Prevención:** verificar la API del SDK al actualizar mayor versión. Los
+  warnings de la consola hablan en serio.
+- **Fecha / módulo:** 2026-05-23 · campus Fase 3 · ZoomLiveEmbed.
+
+## E-GG-13 · "Meeting not started" no es error, es sala de espera
+- **Síntoma:** mismo toast rojo cuando el host (gerencia) todavía no inició la
+  reunión. El viewport igual mostraba "La reunión no ha comenzado".
+- **Causa raíz:** con `join_before_host: false` en la creación de la sala
+  Zoom (correcto para evitar gente entrando antes), Zoom rechaza el `join()`
+  con `errorCode 3008` (MEETING_NOT_STARTED). Mi catch genérico trató eso
+  como "error fatal" → toast rojo, aunque la conexión funcionó OK y el
+  alumno está en la sala de espera.
+- **Fix:** detectar errorCode 3008 o regex `not.?started|waiting.?for.?host`
+  en el catch y setear `state='ready'` sin mostrar error.
+- **Prevención:** los SDKs de videoconf modelan "esperando al host" como
+  estado normal, no error. Siempre interpretar errorCodes antes de mostrar
+  UI de fallo.
+- **Fecha / módulo:** 2026-05-23 · campus Fase 3 · ZoomLiveEmbed.
