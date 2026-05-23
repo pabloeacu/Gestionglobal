@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   CalendarClock,
@@ -54,10 +54,9 @@ function useIsMobile() {
 }
 
 /**
- * Marco 16:9 HORIZONTAL real con el ZoomCustomVideoStage adentro.
- * El stage renderiza el video del speaker al canvas custom (vía
- * stream.renderVideo del SDK) sin limitarse al aspect vertical del
- * Component View. Toolbar custom React con todos los controles.
+ * Marco 16:9 HORIZONTAL con CSS aspect-ratio. Llena el column del grid
+ * sin overflow gracias a max-w-full + max-h-full. El stage interno
+ * (canvas + toolbar) absorbe todo el espacio.
  */
 function ZoomEmbedScaled({
   encuentroId,
@@ -70,37 +69,18 @@ function ZoomEmbedScaled({
   password: string | null;
   onSalir: () => void;
 }) {
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const [dims, setDims] = useState<{ w: number; h: number }>({ w: 1280, h: 720 });
-
-  useEffect(() => {
-    const compute = () => {
-      const el = containerRef.current;
-      if (!el) return;
-      const parent = el.parentElement;
-      if (!parent) return;
-      const pw = parent.clientWidth;
-      const ph = parent.clientHeight;
-      // 16:9 fit en el espacio disponible
-      const byW = { w: pw, h: pw * 9 / 16 };
-      const byH = { w: ph * 16 / 9, h: ph };
-      const fit = byW.h <= ph ? byW : byH;
-      setDims({ w: Math.floor(fit.w), h: Math.floor(fit.h) });
-    };
-    compute();
-    window.addEventListener('resize', compute);
-    const t = setTimeout(compute, 250);
-    return () => {
-      window.removeEventListener('resize', compute);
-      clearTimeout(t);
-    };
-  }, []);
-
   return (
     <div
-      ref={containerRef}
-      className="relative shrink-0"
-      style={{ width: dims.w, height: dims.h }}
+      className="relative max-h-full max-w-full"
+      style={{
+        aspectRatio: '16 / 9',
+        // Fallback: si aspect-ratio no calcula bien, mantener un ancho
+        // razonable basado en el column. El ZoomCustomVideoStage adentro
+        // usa absolute inset-0 para llenar siempre.
+        width: '100%',
+        // Si el column es muy alto y el width genera overflow vertical,
+        // el max-h-full lo previene preservando aspect.
+      }}
     >
       <ZoomCustomVideoStage
         encuentroId={encuentroId}
@@ -330,7 +310,7 @@ export function ClaseEnVivoFullLayout({
         {/* Cuerpo: grid 2-columnas con padding GENEROSO en todos los lados
             (sobre todo derecho para que los cards NO se peguen al borde).
             min-h-0 + items-stretch garantizan altura concreta del column. */}
-        <main className="relative grid min-h-0 flex-1 grid-cols-1 items-stretch gap-6 overflow-hidden px-6 py-4 lg:grid-cols-[1fr_260px] lg:gap-10 lg:pl-12 lg:pr-16 xl:pl-16 xl:pr-20">
+        <main className="relative grid min-h-0 flex-1 grid-cols-1 items-stretch gap-6 overflow-hidden px-6 py-4 lg:grid-cols-[minmax(0,1fr)_260px] lg:gap-10 lg:pl-12 lg:pr-16 xl:pl-16 xl:pr-20">
           {/* Embed Zoom — el div interno toma h-full para que clientHeight
               sea correcto al medir desde ZoomEmbedScaled. */}
           <div className="flex h-full items-center justify-center">
