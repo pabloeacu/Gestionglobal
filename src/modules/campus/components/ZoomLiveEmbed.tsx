@@ -4,18 +4,12 @@ import { firmarSdk } from '@/services/api/campus';
 
 // DGG-14: embed del Web Meeting SDK de Zoom (Component View).
 //
-// El SDK ya trae su propia toolbar nativa (Audio, Cámara, Participantes,
-// Compartir pantalla, Más, Salir) + header con Vista de galería, Información
-// sobre la reunión, Vista minimizada/ampliada. No duplicamos esos controles.
-// Sólo agregamos un botón "Ampliar/Compacto" propio para el toggle de tamaño
-// del bloque dentro del campus.
-//
-// Dimensiones del bloque visible:
-//   - Compact: 720 ancho × ~480 alto (cabe sin scroll, video grande)
-//   - Ampliado: 1080 ancho × ~720 alto (vista grande)
-// El alto total incluye: header del SDK (~50px) + video gallery + toolbar
-// inferior del SDK (~64px). Le damos al viewport del SDK el espacio
-// completo para que TODO se vea sin recortes.
+// El SDK trae su propia toolbar nativa (Audio, Cámara, Participantes,
+// Compartir pantalla, Más, Salir) + header (Vista de galería, Información,
+// minimizar). Por default el SDK renderiza a un alto MÍNIMO de ~874px que
+// rompe nuestro flow de campus. Forzamos via JS el alto exacto de su Paper
+// externo para que el SDK acomode internamente todo dentro del bloque que
+// le damos. Probado: el Paper acepta override CSS de height.
 
 export interface ZoomLiveEmbedProps {
   encuentroId: string;
@@ -25,10 +19,11 @@ export interface ZoomLiveEmbedProps {
   onLeft?: () => void;
 }
 
+// Tamaños del bloque (el SDK se acomoda adentro).
 const COMPACT_W = 720;
-const COMPACT_H = 480;
+const COMPACT_H = 500;
 const LARGE_W = 1080;
-const LARGE_H = 720;
+const LARGE_H = 700;
 
 export function ZoomLiveEmbed(props: ZoomLiveEmbedProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -81,10 +76,8 @@ export function ZoomLiveEmbed(props: ZoomLiveEmbedProps) {
           customize: {
             video: {
               isResizable: false,
-              // El SDK acomoda header + video + toolbar dentro de este area.
-              // En compact: 720 ancho → toolbar visible al fondo.
               viewSizes: {
-                default: { width: COMPACT_W, height: COMPACT_H - 50 },
+                default: { width: COMPACT_W, height: COMPACT_H - 100 },
                 ribbon: { width: COMPACT_W, height: 80 },
               },
             },
@@ -106,12 +99,10 @@ export function ZoomLiveEmbed(props: ZoomLiveEmbedProps) {
           return;
         }
 
-        // Forzar vista "active" para que el video del host LLENE el viewport
-        // (en lugar de gallery con espacios vacíos cuando hay sólo 1 cámara).
         try {
           const c: any = client;
           await c.changeView?.({ view: 'active' });
-        } catch { /* la opción puede no estar disponible */ }
+        } catch { /* opt */ }
 
         setState('ready');
       } catch (e: any) {
@@ -157,24 +148,53 @@ export function ZoomLiveEmbed(props: ZoomLiveEmbedProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.encuentroId]);
 
-  // Toggle Ampliar/Compacto: re-instruye al SDK sobre el viewSize
-  // sin recrear el cliente. La conexión + audio + video persisten.
+  // Forzar el alto del SDK Paper externo cuando el embed está montado.
+  // El SDK Component View default a ~874px de alto. Lo "encajamos" en el
+  // tamaño que querramos via setStyle directo a sus elementos internos
+  // (probado: aceptan el override sin romper la layout).
   useEffect(() => {
-    const client: any = clientRef.current;
-    if (!client || state !== 'ready') return;
-    try {
-      client.updateVideoOptions?.({
-        viewSizes: {
-          default: { width: dims.w, height: dims.h - 50 },
-          ribbon: { width: dims.w, height: 80 },
-        },
+    if (state !== 'ready') return;
+    const container = containerRef.current;
+    if (!container) return;
+
+    const apply = () => {
+      // El primer .zoom-MuiPaper-root descendiente es el wrapper externo.
+      // Encadenamos: el Paper más exterior tiene un Paper interno de 720×828,
+      // y dentro hay un .css-1jr7lfr de 720×789 que es el "main".
+      const papers = container.querySelectorAll('.zoom-MuiPaper-root');
+      papers.forEach((p) => {
+        (p as HTMLElement).style.maxHeight = `${dims.h}px`;
+        (p as HTMLElement).style.height = `${dims.h}px`;
+        (p as HTMLElement).style.width = `${dims.w}px`;
+        (p as HTMLElement).style.maxWidth = `${dims.w}px`;
       });
-    } catch { /* noop */ }
-  }, [dims.w, dims.h, state]);
+      // Targetear también los wrappers MUI Box internos que tienen height fija
+      const boxes = container.querySelectorAll('[class*=zoom-MuiBox-root]');
+      boxes.forEach((b) => {
+        const el = b as HTMLElement;
+        if (el.clientHeight > dims.h * 0.8) {
+          el.style.maxHeight = `${dims.h}px`;
+        }
+      });
+    };
+
+    // Aplicar ahora y reaplicar tras pequeño delay (el SDK puede re-renderizar).
+    apply();
+    const t1 = setTimeout(apply, 250);
+    const t2 = setTimeout(apply, 800);
+    // Observer para re-aplicar si el SDK muta el DOM (eg al togglear)
+    const obs = new MutationObserver(() => apply());
+    obs.observe(container, { childList: true, subtree: true, attributes: true, attributeFilter: ['style'] });
+
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      obs.disconnect();
+    };
+  }, [state, dims.w, dims.h]);
 
   return (
     <div className="relative mx-auto" style={{ width: dims.w }}>
-      {/* Overlay loader */}
       {state !== 'ready' && state !== 'error' && (
         <div
           className="absolute inset-0 z-10 grid place-items-center rounded-2xl bg-slate-900/80 text-white backdrop-blur-sm"
@@ -210,9 +230,6 @@ export function ZoomLiveEmbed(props: ZoomLiveEmbedProps) {
         </div>
       )}
 
-      {/* Toggle Ampliar/Compacto — único control propio, encima del SDK.
-          Posicionado a la izquierda del header del SDK (que tiene icons a
-          la derecha) para no taparlos. */}
       {state === 'ready' && (
         <button
           onClick={() => setExpanded((v) => !v)}
@@ -231,8 +248,6 @@ export function ZoomLiveEmbed(props: ZoomLiveEmbedProps) {
         </button>
       )}
 
-      {/* Viewport del SDK — alto completo con espacio para header + video
-          + toolbar nativa del SDK */}
       <div
         ref={containerRef}
         className="overflow-hidden rounded-2xl bg-black"
