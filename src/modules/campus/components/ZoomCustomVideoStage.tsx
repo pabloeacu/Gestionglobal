@@ -11,7 +11,9 @@ import {
   MoreHorizontal,
   LogOut,
   LayoutGrid,
+  Headphones,
 } from 'lucide-react';
+import { toast } from '@/lib/toast';
 import { cn } from '@/lib/cn';
 import { firmarSdk } from '@/services/api/campus';
 
@@ -55,7 +57,10 @@ export function ZoomCustomVideoStage({
     'idle' | 'loading' | 'joining' | 'ready' | 'error'
   >('idle');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [audioOn, setAudioOn] = useState(false);
+  // audioJoined: ya se hizo stream.startAudio() (conecta cliente al audio
+  // de la sala). Hasta que no esté joineado, no se escucha NADA.
+  const [audioJoined, setAudioJoined] = useState(false);
+  const [micOn, setMicOn] = useState(false); // mic encendido (unmute)
   const [videoOn, setVideoOn] = useState(false);
   const [participants, setParticipants] = useState(0);
   const [hasActiveSpeaker, setHasActiveSpeaker] = useState(false);
@@ -69,6 +74,10 @@ export function ZoomCustomVideoStage({
       const canvas = canvasRef.current;
       if (!canvas) return;
       try {
+        // El API correcto del Embedded SDK: stream.renderVideo(canvas, userId,...)
+        const stream: any = client.getMediaStream?.();
+        if (!stream) return;
+
         const users: any[] = client.getAllUser?.() ?? [];
         const me = client.getCurrentUser?.();
         // Priorizamos: host con cámara → cualquier otro con cámara → host →
@@ -82,10 +91,10 @@ export function ZoomCustomVideoStage({
           users.find((u) => u.userId !== me?.userId);
 
         if (!pick?.userId || !pick.bVideoOn) {
-          // Nadie con cámara prendida — limpiar canvas y mostrar placeholder.
+          // Nadie con cámara prendida — limpiar canvas.
           if (renderedUserRef.current !== null) {
             try {
-              await client.stopRenderVideo?.(canvas, renderedUserRef.current);
+              await stream.stopRenderVideo?.(canvas, renderedUserRef.current);
             } catch {
               /* opt */
             }
@@ -95,19 +104,20 @@ export function ZoomCustomVideoStage({
           return;
         }
 
-        if (renderedUserRef.current === pick.userId && hasActiveSpeaker) {
-          return; // Ya estamos renderizando a este user.
+        if (renderedUserRef.current === pick.userId) {
+          setHasActiveSpeaker(true);
+          return; // Ya renderizando este user.
         }
 
         if (renderedUserRef.current !== null && renderedUserRef.current !== pick.userId) {
           try {
-            await client.stopRenderVideo?.(canvas, renderedUserRef.current);
+            await stream.stopRenderVideo?.(canvas, renderedUserRef.current);
           } catch {
             /* opt */
           }
         }
 
-        await client.renderVideo?.(
+        await stream.renderVideo(
           canvas,
           pick.userId,
           STAGE_W,
@@ -127,7 +137,11 @@ export function ZoomCustomVideoStage({
       try {
         const me = client.getCurrentUser?.();
         if (me) {
-          setAudioOn(!me.muted);
+          // me.audio === 'computer' significa audio joineado (cliente)
+          // me.audio === '' significa NO joineado (no escucha)
+          const joined = me.audio === 'computer' || me.audio === 'phone';
+          setAudioJoined(joined);
+          setMicOn(joined && !me.muted);
           setVideoOn(!!me.bVideoOn);
         }
         const users = client.getAllUser?.() ?? [];
@@ -293,36 +307,76 @@ export function ZoomCustomVideoStage({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [encuentroId]);
 
-  const toggleAudio = async () => {
+  const handleAudio = async () => {
     const client = clientRef.current;
     if (!client) return;
+    const stream = client.getMediaStream?.();
+    if (!stream) return;
     try {
-      if (audioOn) {
-        await client.mute?.();
-        setAudioOn(false);
+      if (!audioJoined) {
+        // 1er click: conectar audio (= "Join Audio" en Zoom nativo).
+        // Esto pide permiso de micrófono y CONECTA al audio de la sala
+        // (sin esto, ni se escucha ni se habla).
+        await stream.startAudio({ silent: false });
+        setAudioJoined(true);
+        setMicOn(true);
+        toast.success('Audio conectado');
+      } else if (micOn) {
+        await stream.muteAudio();
+        setMicOn(false);
       } else {
-        await client.unmute?.();
-        setAudioOn(true);
+        await stream.unmuteAudio();
+        setMicOn(true);
       }
-    } catch (e) {
-      console.warn('toggleAudio', e);
+    } catch (e: any) {
+      console.warn('handleAudio', e);
+      const msg = String(e?.message ?? e?.reason ?? e ?? '');
+      if (/permission|denied|notallowed/i.test(msg)) {
+        toast.error('Permiso de micrófono denegado. Habilitalo en el navegador.');
+      } else {
+        toast.error('No pudimos conectar el audio.');
+      }
     }
   };
 
-  const toggleVideo = async () => {
+  const handleVideo = async () => {
     const client = clientRef.current;
     if (!client) return;
+    const stream = client.getMediaStream?.();
+    if (!stream) return;
     try {
       if (videoOn) {
-        await client.muteVideo?.();
+        await stream.stopVideo();
         setVideoOn(false);
       } else {
-        await client.unmuteVideo?.();
+        await stream.startVideo();
         setVideoOn(true);
       }
-    } catch (e) {
-      console.warn('toggleVideo', e);
+    } catch (e: any) {
+      console.warn('handleVideo', e);
+      const msg = String(e?.message ?? e?.reason ?? e ?? '');
+      if (/permission|denied|notallowed/i.test(msg)) {
+        toast.error('Permiso de cámara denegado. Habilitalo en el navegador.');
+      } else {
+        toast.error('No pudimos activar la cámara.');
+      }
     }
+  };
+
+  const showParticipants = () => {
+    toast.info(`${participants} ${participants === 1 ? 'participante conectado' : 'participantes conectados'}.`);
+  };
+
+  const openChat = () => {
+    toast.info('Chat próximamente. Por ahora, podés usar el chat de Zoom desde la app nativa.');
+  };
+
+  const toggleView = () => {
+    toast.info('Por ahora la vista es speaker fullscreen. Galería próximamente.');
+  };
+
+  const showMore = () => {
+    toast.info('Más opciones próximamente (compartir pantalla, levantar mano).');
   };
 
   const leave = async () => {
@@ -418,24 +472,38 @@ export function ZoomCustomVideoStage({
       {/* Toolbar custom siempre visible al fondo del stage */}
       {state === 'ready' && (
         <div className="absolute bottom-0 left-0 right-0 flex items-center justify-center gap-1.5 bg-gradient-to-t from-slate-950/95 via-slate-950/80 to-transparent px-4 pb-3 pt-8 sm:gap-2">
+          {/* Botón de audio: 3 estados.
+              1) audio no joineado → "Activar audio" (headphones, brand-cyan)
+              2) joineado + mic on → "Silenciar" (mic, brand-cyan)
+              3) joineado + mic muted → "Activar mic" (micoff, danger) */}
           <ToolbarBtn
-            onClick={toggleAudio}
-            active={audioOn}
-            danger={!audioOn}
-            icon={audioOn ? Mic : MicOff}
-            label={audioOn ? 'Silenciar' : 'Activar audio'}
+            onClick={handleAudio}
+            active={audioJoined && micOn}
+            danger={audioJoined && !micOn}
+            icon={!audioJoined ? Headphones : micOn ? Mic : MicOff}
+            label={
+              !audioJoined
+                ? 'Activar audio'
+                : micOn
+                  ? 'Silenciar'
+                  : 'Activar mic'
+            }
           />
           <ToolbarBtn
-            onClick={toggleVideo}
+            onClick={handleVideo}
             active={videoOn}
             danger={!videoOn}
             icon={videoOn ? VideoIcon : VideoOff}
             label={videoOn ? 'Apagar cámara' : 'Encender cámara'}
           />
-          <ToolbarBtn icon={Users} label={`Participantes`} />
-          <ToolbarBtn icon={MessageSquare} label="Chat" />
-          <ToolbarBtn icon={LayoutGrid} label="Vista" />
-          <ToolbarBtn icon={MoreHorizontal} label="Más" />
+          <ToolbarBtn
+            onClick={showParticipants}
+            icon={Users}
+            label="Participantes"
+          />
+          <ToolbarBtn onClick={openChat} icon={MessageSquare} label="Chat" />
+          <ToolbarBtn onClick={toggleView} icon={LayoutGrid} label="Vista" />
+          <ToolbarBtn onClick={showMore} icon={MoreHorizontal} label="Más" />
           <button
             onClick={leave}
             className="ml-1 inline-flex items-center gap-1.5 rounded-xl bg-red-600 px-3.5 py-2 text-xs font-bold text-white shadow-md transition hover:bg-red-700 sm:px-4 sm:py-2.5"
