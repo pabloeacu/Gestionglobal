@@ -1,37 +1,42 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Loader2, AlertCircle, Maximize2, Minimize2 } from 'lucide-react';
 import { firmarSdk } from '@/services/api/campus';
 
 // DGG-14: embed del Web Meeting SDK de Zoom (Component View).
 //
-// Pide la firma al edge fn zoom-sdk-signature, carga dinámicamente
-// `@zoom/meetingsdk/embedded` (≈1.5MB → lazy import por ruta) y monta el
-// cliente dentro del contenedor `zoomAppRoot`. El customerKey que va al
-// join es el matricula_id (o null para staff/host); eso es lo que el
-// webhook lee en participant_joined para registrar asistencia.
+// Estrategia de tamaño:
+//   El SDK renderiza el UI completo (header REC + video gallery + toolbar
+//   inferior) a un tamaño "natural" de 1280×720. Si achicamos directamente
+//   el contenedor, el SDK CLIPEA el contenido (queda toolbar fuera + video
+//   recortado). En vez de eso, mantenemos el SDK a 1280×720 y aplicamos
+//   `transform: scale()` con CSS para que TODO el UI se vea proporcional
+//   en el display más chico. CSS transforms preservan los click coords →
+//   los botones del SDK siguen siendo clickeables.
 //
-// Tamaño: por defecto compacto (16:9, max-width 720px ≈ 405px de alto) para
-// no romper el flow del campus. Botón "Expandir" permite al alumno ver
-// grande puntualmente (modo "ampliado" hasta el ancho útil del main).
+// Modos:
+//   - Compacto (default): 720×405 (scale 0.5625) → cabe sin scrollear.
+//   - Ampliado: 1080×608 (scale 0.84) → más grande, mismo flujo.
+//
+// El toggle CSS NO toca el SDK ni reconecta. Conexión + stream + asistencia
+// auto siguen sin interrupción.
 
 export interface ZoomLiveEmbedProps {
   encuentroId: string;
   userName: string;
-  /** Role 1 = host (sólo staff lo recibirá del edge fn); 0 = attendee. */
   asHost?: boolean;
-  /** Pasword del meeting (si lo creamos sin password queda null). */
   password?: string | null;
-  /** Callback cuando el usuario sale del encuentro o lo cierra. */
   onLeft?: () => void;
 }
 
-// Dimensiones internas del SDK por modo. El SDK respeta estos como
-// "ideal" para gallery/speaker; el contenedor DOM las constrasta para que
-// no exploten visualmente.
+// Tamaño NATURAL al que renderiza el SDK (donde TODO se ve completo).
+const SDK_NATURAL_W = 1280;
+const SDK_NATURAL_H = 720;
+
+// Tamaño VISIBLE (post-scale CSS) según el modo.
 const COMPACT_W = 720;
 const COMPACT_H = 405; // 16:9
 const LARGE_W = 1080;
-const LARGE_H = 608;  // 16:9
+const LARGE_H = 608;
 
 export function ZoomLiveEmbed(props: ZoomLiveEmbedProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -42,6 +47,13 @@ export function ZoomLiveEmbed(props: ZoomLiveEmbedProps) {
   );
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
+
+  const dims = useMemo(() => {
+    const w = expanded ? LARGE_W : COMPACT_W;
+    const h = expanded ? LARGE_H : COMPACT_H;
+    const scale = w / SDK_NATURAL_W;
+    return { w, h, scale };
+  }, [expanded]);
 
   useEffect(() => {
     let cancelled = false;
@@ -75,16 +87,14 @@ export function ZoomLiveEmbed(props: ZoomLiveEmbedProps) {
           leaveOnPageUnload: true,
           customize: {
             video: {
-              // Compacto por defecto; el botón "Expandir" alterna sin
-              // re-inicializar el cliente (el SDK adapta al container).
-              isResizable: true,
+              isResizable: false,
               viewSizes: {
-                default: { width: COMPACT_W, height: COMPACT_H },
-                ribbon: { width: COMPACT_W, height: 80 },
+                // El SDK renderiza el bloque de video a este tamaño; el
+                // header + toolbar suman ~150px más → total ≈ 720px.
+                default: { width: SDK_NATURAL_W, height: 560 },
+                ribbon: { width: SDK_NATURAL_W, height: 100 },
               },
             },
-            // Dejamos los controles default del SDK (mute/cam/leave) para
-            // que el alumno pueda interactuar.
           },
         });
 
@@ -104,20 +114,25 @@ export function ZoomLiveEmbed(props: ZoomLiveEmbedProps) {
         }
         setState('ready');
       } catch (e: any) {
-        // Eventos NO fatales del SDK que igual entran al catch (el SDK
-        // los emite como rejects pero se autorrecupera o representan estados
-        // benignos):
-        //   - 3008 MEETING_NOT_STARTED → sala de espera, viewport montado.
-        //   - RECONNECTING_MEETING → reconexión transitoria; el SDK recupera
-        //     solo en pocos segundos.
+        // Eventos NO fatales del SDK que entran al catch pero el SDK
+        // recupera solo o representan estados benignos:
+        //   - 3008 MEETING_NOT_STARTED → sala de espera.
+        //   - RECONNECTING_MEETING → reconexión transitoria.
         //   - NETWORK_DISCONNECTED → idem.
-        //   - Mensajes "waiting", "reconnect", "network".
-        const code = e?.errorCode ?? e?.reason?.errorCode;
-        const msg = String(e?.message ?? e?.reason ?? e?.type ?? '');
+        const code = e?.errorCode ?? e?.reason?.errorCode ?? e?.code ?? e?.type;
+        const codeStr = String(code ?? '').toUpperCase();
+        const msg = String(e?.message ?? e?.reason ?? e?.type ?? e ?? '');
+        const TRANSIENT_CODES = new Set([
+          'RECONNECTING_MEETING',
+          'NETWORK_DISCONNECTED',
+          'MEETING_NOT_STARTED',
+          'WAITING_ROOM',
+        ]);
         const isTransient =
           code === 3008 ||
-          /not.?started|waiting.?for.?host|host.?has.?not.?started|reconnect|network[_ ]?disconnect/i.test(
-            msg,
+          TRANSIENT_CODES.has(codeStr) ||
+          /not.?started|waiting.?for.?host|reconnect|network[_ ]?disconnect|waiting.?room/i.test(
+            msg + ' ' + codeStr,
           );
         if (isTransient) {
           if (!cancelled) setState('ready');
@@ -138,38 +153,21 @@ export function ZoomLiveEmbed(props: ZoomLiveEmbedProps) {
       cancelled = true;
       const c = mountedClient ?? clientRef.current;
       if (c) {
-        try {
-          (c as any).leaveMeeting?.();
-        } catch { /* noop */ }
-        try {
-          (c as any).leave?.();
-        } catch { /* noop */ }
+        try { (c as any).leaveMeeting?.(); } catch { /* noop */ }
+        try { (c as any).leave?.(); } catch { /* noop */ }
       }
       try { props.onLeft?.(); } catch { /* noop */ }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.encuentroId]);
 
-  // Cuando cambia "expanded", reconfiguramos el viewSize del SDK
-  // dinámicamente (sin recrear el cliente).
-  useEffect(() => {
-    const client: any = clientRef.current;
-    if (!client || state !== 'ready') return;
-    const w = expanded ? LARGE_W : COMPACT_W;
-    const h = expanded ? LARGE_H : COMPACT_H;
-    try {
-      // updateVideoOptions existe en Component View v3+
-      client.updateVideoOptions?.({ viewSizes: { default: { width: w, height: h } } });
-    } catch { /* noop */ }
-  }, [expanded, state]);
-
   return (
-    <div className="relative mx-auto" style={{ maxWidth: expanded ? LARGE_W : COMPACT_W }}>
-      {/* Loader/joining overlay — sobre el contenedor del embed */}
+    <div className="relative mx-auto" style={{ width: dims.w }}>
+      {/* Overlay loader mientras conecta */}
       {state !== 'ready' && state !== 'error' && (
         <div
-          className="absolute inset-0 z-10 grid place-items-center rounded-2xl bg-slate-900/70 text-white backdrop-blur-sm"
-          style={{ minHeight: expanded ? LARGE_H : COMPACT_H }}
+          className="absolute inset-0 z-10 grid place-items-center rounded-2xl bg-slate-900/80 text-white backdrop-blur-sm"
+          style={{ height: dims.h }}
         >
           <div className="flex flex-col items-center gap-2 text-sm">
             <Loader2 size={22} className="animate-spin" />
@@ -201,7 +199,7 @@ export function ZoomLiveEmbed(props: ZoomLiveEmbedProps) {
         </div>
       )}
 
-      {/* Toggle expandir/contraer — solo cuando ya entró a la sala */}
+      {/* Toggle Ampliar/Compacto */}
       {state === 'ready' && (
         <button
           onClick={() => setExpanded((v) => !v)}
@@ -220,16 +218,27 @@ export function ZoomLiveEmbed(props: ZoomLiveEmbedProps) {
         </button>
       )}
 
+      {/* Wrapper que recorta y muestra el SDK escalado */}
       <div
-        ref={containerRef}
         className="overflow-hidden rounded-2xl bg-black"
         style={{
-          width: '100%',
-          height: expanded ? LARGE_H : COMPACT_H,
+          width: dims.w,
+          height: dims.h,
           // Transición suave entre tamaños
-          transition: 'height 200ms ease-out',
+          transition: 'width 200ms ease-out, height 200ms ease-out',
         }}
-      />
+      >
+        <div
+          ref={containerRef}
+          style={{
+            width: SDK_NATURAL_W,
+            height: SDK_NATURAL_H,
+            transform: `scale(${dims.scale})`,
+            transformOrigin: 'top left',
+            transition: 'transform 200ms ease-out',
+          }}
+        />
+      </div>
     </div>
   );
 }
