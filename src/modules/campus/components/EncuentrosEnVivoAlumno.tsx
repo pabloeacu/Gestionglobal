@@ -106,16 +106,15 @@ function ZoomEmbedScaled({
     const compute = () => {
       const parent = el.parentElement;
       if (!parent) return;
-      const pw = parent.clientWidth;
+      // Cap marco width a 900px → scale máximo 1.25 → zoom razonable
+      // en la cara del host. Si el column es más ancho, el marco queda
+      // centrado con padding lateral.
+      const pw = Math.min(900, parent.clientWidth);
       const ph = Math.min(parent.clientHeight, window.innerHeight - 100);
-      // Marco 16:9 — fit en el espacio disponible.
       const byW = { w: pw, h: pw * 9 / 16 };
       const byH = { w: ph * 16 / 9, h: ph };
       const fit = byW.h <= ph ? byW : byH;
-      // Scale 1.25x sobre fit-width: reduce el gap negro de la SDK gallery
-      // strip vacía entre host y toolbar, sin cortar la cabeza del host
-      // (probado en vivo: 1.0x deja gap grande, 1.5x corta cabeza).
-      const scale = (fit.w / SDK_NATIVE_W) * 1.25;
+      const scale = fit.w / SDK_NATIVE_W;
       setDims({
         w: Math.floor(fit.w),
         h: Math.floor(fit.h),
