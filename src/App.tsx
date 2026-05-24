@@ -52,6 +52,9 @@ const FormularioPublicoPage = lazy(() => import('@/modules/public/pages/Formular
 const FormulariosAdminListPage = lazy(() => import('@/modules/formularios-admin').then(m => ({ default: m.FormulariosAdminListPage })));
 const FormularioBuilderPage = lazy(() => import('@/modules/formularios-admin').then(m => ({ default: m.FormularioBuilderPage })));
 const FormularioVersionesPage = lazy(() => import('@/modules/formularios-admin').then(m => ({ default: m.FormularioVersionesPage })));
+const WebinarsListPage = lazy(() => import('@/modules/webinars-admin').then(m => ({ default: m.WebinarsListPage })));
+const WebinarDetailPage = lazy(() => import('@/modules/webinars-admin').then(m => ({ default: m.WebinarDetailPage })));
+const WebinarPublicoPage = lazy(() => import('@/modules/webinars-publico/WebinarPublicoPage').then(m => ({ default: m.WebinarPublicoPage })));
 // Ronda 5 · Flujo Maestro
 const SolicitudesListPage = lazy(() => import('@/modules/solicitudes').then(m => ({ default: m.SolicitudesListPage })));
 const SolicitudDetailPage = lazy(() => import('@/modules/solicitudes').then(m => ({ default: m.SolicitudDetailPage })));
@@ -133,6 +136,7 @@ export function App() {
         <Route path="/formulario/:slug" element={<FormularioPublicoPage />} />
         <Route path="/externo/:token" element={<AccesoExternoPage />} />
         <Route path="/verificar/:codigo" element={<VerificarCertificadoPage />} />
+        <Route path="/webinar/:token" element={<WebinarPublicoPage />} />
 
         <Route
           path="/gerencia"
@@ -177,6 +181,8 @@ export function App() {
           <Route path="partners/:id" element={<PartnerDetailPage />} />
           <Route path="partners/:partnerId/rendiciones/:id" element={<RendicionDetailPage />} />
           <Route path="formularios" element={<FormulariosAdminListPage />} />
+          <Route path="formularios/webinars" element={<WebinarsListPage />} />
+          <Route path="formularios/webinars/:id" element={<WebinarDetailPage />} />
           <Route path="formularios/:id" element={<FormularioBuilderPage />} />
           <Route path="formularios/:id/versiones" element={<FormularioVersionesPage />} />
           <Route path="campus" element={<CampusListPage />} />

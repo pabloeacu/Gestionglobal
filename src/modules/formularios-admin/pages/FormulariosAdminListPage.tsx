@@ -31,6 +31,7 @@ import {
 } from '@/services/api/formularios-admin';
 import type { FormularioRow } from '@/services/api/formularios';
 import { cn } from '@/lib/cn';
+import { FormulariosWebinarsTabs } from '@/modules/webinars-admin/components/FormulariosWebinarsTabs';
 
 const CATEGORIAS = [
   { value: 'captacion', label: 'Captación' },
@@ -106,6 +107,7 @@ export function FormulariosAdminListPage() {
 
   return (
     <div className="space-y-6">
+      <FormulariosWebinarsTabs />
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="kicker">Constructor visual</p>

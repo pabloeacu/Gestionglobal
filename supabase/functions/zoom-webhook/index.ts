@@ -74,50 +74,116 @@ Deno.serve(async (req) => {
   }
 
   // ── Dispatch real events ──────────────────────────────────────
+  // DGG-11/15: doble lookup — el meeting puede ser de un curso (Campus Fase 3)
+  // o de un webinar. Determinamos contexto consultando ambas tablas. Si está
+  // en webinars, usamos la RPC webinar_zoom_evento + match por email del
+  // participante (no por customer_key porque el join es link externo).
   try {
     const ev = body?.event as string | undefined;
     const p = body?.payload?.object ?? {};
     const meetingIdRaw = p?.id;
     const meetingId = meetingIdRaw ? Number(meetingIdRaw) : null;
 
-    if (ev === "meeting.started" && meetingId) {
-      await supabase.rpc("curso_encuentro_zoom_estado", {
-        p_meeting_id: meetingId,
-        p_estado: "en_curso",
-        p_ocurrido_at: p?.start_time ?? new Date().toISOString(),
-      });
-    } else if (ev === "meeting.ended" && meetingId) {
-      await supabase.rpc("curso_encuentro_zoom_estado", {
-        p_meeting_id: meetingId,
-        p_estado: "finalizado",
-        p_ocurrido_at: p?.end_time ?? new Date().toISOString(),
-      });
-    } else if ((ev === "meeting.participant_joined" || ev === "meeting.participant_left") && meetingId) {
+    if (!meetingId) return jsonResp(200, { ok: true });
+
+    // Determinar contexto: ¿curso o webinar?
+    const { data: webinarMatch } = await supabase
+      .from("webinars")
+      .select("id")
+      .eq("zoom_meeting_id", meetingId)
+      .maybeSingle();
+    const esWebinar = !!webinarMatch;
+
+    if (ev === "meeting.started") {
+      if (esWebinar) {
+        await supabase.rpc("webinar_zoom_evento", {
+          p_zoom_meeting_id: meetingId,
+          p_inscripto_id: null,
+          p_evento: "start",
+          p_ocurrido_at: p?.start_time ?? new Date().toISOString(),
+          p_payload: p,
+        });
+      } else {
+        await supabase.rpc("curso_encuentro_zoom_estado", {
+          p_meeting_id: meetingId,
+          p_estado: "en_curso",
+          p_ocurrido_at: p?.start_time ?? new Date().toISOString(),
+        });
+      }
+    } else if (ev === "meeting.ended") {
+      if (esWebinar) {
+        await supabase.rpc("webinar_zoom_evento", {
+          p_zoom_meeting_id: meetingId,
+          p_inscripto_id: null,
+          p_evento: "end",
+          p_ocurrido_at: p?.end_time ?? new Date().toISOString(),
+          p_payload: p,
+        });
+      } else {
+        await supabase.rpc("curso_encuentro_zoom_estado", {
+          p_meeting_id: meetingId,
+          p_estado: "finalizado",
+          p_ocurrido_at: p?.end_time ?? new Date().toISOString(),
+        });
+      }
+    } else if (ev === "meeting.participant_joined" || ev === "meeting.participant_left") {
       const part = p?.participant ?? {};
-      // customer_key viene del Meeting SDK ZoomMtg.join({customerKey: matriculaId})
-      const matriculaId = part?.customer_key as string | undefined;
       const at = (ev === "meeting.participant_joined" ? part?.join_time : part?.leave_time)
         ?? new Date().toISOString();
-      if (matriculaId && /^[0-9a-f-]{36}$/i.test(matriculaId)) {
-        await supabase.rpc("curso_encuentro_zoom_evento", {
-          p_meeting_id: meetingId,
-          p_matricula_id: matriculaId,
-          p_evento: ev === "meeting.participant_joined" ? "join" : "leave",
+      const evento = ev === "meeting.participant_joined" ? "join" : "leave";
+
+      if (esWebinar) {
+        // Webinars: link externo. Match por user_email (si Zoom lo manda) contra
+        // webinar_inscriptos.email_snapshot. Si no, log payload sin inscripto.
+        const userEmail = (part?.email ?? part?.user_email ?? "").toString().toLowerCase().trim();
+        let inscriptoId: string | null = null;
+        if (userEmail) {
+          const { data: insc } = await supabase
+            .from("webinar_inscriptos")
+            .select("id")
+            .eq("webinar_id", (webinarMatch as { id: string }).id)
+            .eq("email_snapshot", userEmail)
+            .maybeSingle();
+          inscriptoId = (insc as { id: string } | null)?.id ?? null;
+        }
+        await supabase.rpc("webinar_zoom_evento", {
+          p_zoom_meeting_id: meetingId,
+          p_inscripto_id: inscriptoId,
+          p_evento: evento,
           p_ocurrido_at: at,
           p_payload: part,
         });
+      } else {
+        // Cursos: customer_key viene del Meeting SDK (ZoomMtg.join customerKey=matriculaId)
+        const matriculaId = part?.customer_key as string | undefined;
+        if (matriculaId && /^[0-9a-f-]{36}$/i.test(matriculaId)) {
+          await supabase.rpc("curso_encuentro_zoom_evento", {
+            p_meeting_id: meetingId,
+            p_matricula_id: matriculaId,
+            p_evento: evento,
+            p_ocurrido_at: at,
+            p_payload: part,
+          });
+        }
       }
-    } else if (ev === "recording.completed" && meetingId) {
+    } else if (ev === "recording.completed") {
       const files = (p?.recording_files ?? []) as Array<any>;
       const mp4 = files.find((f) => f?.file_type === "MP4");
       const grabacionUrl = mp4?.download_url ?? p?.share_url ?? null;
       const playUrl = p?.share_url ?? grabacionUrl;
       if (grabacionUrl) {
-        await supabase.rpc("curso_encuentro_zoom_grabacion", {
-          p_meeting_id: meetingId,
-          p_grabacion_url: grabacionUrl,
-          p_grabacion_play_url: playUrl,
-        });
+        if (esWebinar) {
+          await supabase
+            .from("webinars")
+            .update({ grabacion_url: playUrl ?? grabacionUrl })
+            .eq("zoom_meeting_id", meetingId);
+        } else {
+          await supabase.rpc("curso_encuentro_zoom_grabacion", {
+            p_meeting_id: meetingId,
+            p_grabacion_url: grabacionUrl,
+            p_grabacion_play_url: playUrl,
+          });
+        }
       }
     }
     return jsonResp(200, { ok: true });

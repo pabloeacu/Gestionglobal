@@ -2822,6 +2822,7 @@ export type Database = {
           total_envios: number
           updated_at: string
           version_actual: number
+          webinar_id: string | null
         }
         Insert: {
           activo?: boolean
@@ -2850,6 +2851,7 @@ export type Database = {
           total_envios?: number
           updated_at?: string
           version_actual?: number
+          webinar_id?: string | null
         }
         Update: {
           activo?: boolean
@@ -2878,6 +2880,7 @@ export type Database = {
           total_envios?: number
           updated_at?: string
           version_actual?: number
+          webinar_id?: string | null
         }
         Relationships: [
           {
@@ -2892,6 +2895,13 @@ export type Database = {
             columns: ["servicio_id"]
             isOneToOne: false
             referencedRelation: "servicios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "formularios_webinar_id_fkey"
+            columns: ["webinar_id"]
+            isOneToOne: false
+            referencedRelation: "webinars"
             referencedColumns: ["id"]
           },
         ]
@@ -3811,6 +3821,56 @@ export type Database = {
           {
             foreignKeyName: "profiles_administracion_id_fkey"
             columns: ["administracion_id"]
+            isOneToOne: false
+            referencedRelation: "administraciones"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      prospectos: {
+        Row: {
+          convertido_a_administracion_id: string | null
+          convertido_at: string | null
+          creado_por: string | null
+          created_at: string
+          email: string
+          id: string
+          nombre: string
+          observaciones: string | null
+          origen: string
+          telefono: string | null
+          updated_at: string
+        }
+        Insert: {
+          convertido_a_administracion_id?: string | null
+          convertido_at?: string | null
+          creado_por?: string | null
+          created_at?: string
+          email: string
+          id?: string
+          nombre: string
+          observaciones?: string | null
+          origen?: string
+          telefono?: string | null
+          updated_at?: string
+        }
+        Update: {
+          convertido_a_administracion_id?: string | null
+          convertido_at?: string | null
+          creado_por?: string | null
+          created_at?: string
+          email?: string
+          id?: string
+          nombre?: string
+          observaciones?: string | null
+          origen?: string
+          telefono?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prospectos_convertido_a_administracion_id_fkey"
+            columns: ["convertido_a_administracion_id"]
             isOneToOne: false
             referencedRelation: "administraciones"
             referencedColumns: ["id"]
@@ -5165,6 +5225,289 @@ export type Database = {
           },
         ]
       }
+      webinar_acceso_tokens: {
+        Row: {
+          created_at: string
+          ip_ultima: string | null
+          primera_visita_at: string | null
+          revocado_at: string | null
+          token: string
+          total_visitas: number
+          ultima_visita_at: string | null
+          user_agent_ultima: string | null
+          vence_at: string
+          webinar_inscripto_id: string
+        }
+        Insert: {
+          created_at?: string
+          ip_ultima?: string | null
+          primera_visita_at?: string | null
+          revocado_at?: string | null
+          token: string
+          total_visitas?: number
+          ultima_visita_at?: string | null
+          user_agent_ultima?: string | null
+          vence_at: string
+          webinar_inscripto_id: string
+        }
+        Update: {
+          created_at?: string
+          ip_ultima?: string | null
+          primera_visita_at?: string | null
+          revocado_at?: string | null
+          token?: string
+          total_visitas?: number
+          ultima_visita_at?: string | null
+          user_agent_ultima?: string | null
+          vence_at?: string
+          webinar_inscripto_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "webinar_acceso_tokens_webinar_inscripto_id_fkey"
+            columns: ["webinar_inscripto_id"]
+            isOneToOne: false
+            referencedRelation: "webinar_inscriptos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      webinar_inscriptos: {
+        Row: {
+          administracion_id: string | null
+          asistio: boolean
+          bienvenida_email_enviada_at: string | null
+          canal: string
+          email_snapshot: string
+          formulario_submission_id: string | null
+          gracias_email_enviado_at: string | null
+          id: string
+          inscripto_at: string
+          joined_at: string | null
+          left_at: string | null
+          nombre_snapshot: string
+          profile_id: string | null
+          prospecto_id: string | null
+          recordatorio_1h_enviado_at: string | null
+          recordatorio_24h_enviado_at: string | null
+          telefono_snapshot: string | null
+          tiempo_conectado_seg: number
+          webinar_id: string
+        }
+        Insert: {
+          administracion_id?: string | null
+          asistio?: boolean
+          bienvenida_email_enviada_at?: string | null
+          canal: string
+          email_snapshot: string
+          formulario_submission_id?: string | null
+          gracias_email_enviado_at?: string | null
+          id?: string
+          inscripto_at?: string
+          joined_at?: string | null
+          left_at?: string | null
+          nombre_snapshot: string
+          profile_id?: string | null
+          prospecto_id?: string | null
+          recordatorio_1h_enviado_at?: string | null
+          recordatorio_24h_enviado_at?: string | null
+          telefono_snapshot?: string | null
+          tiempo_conectado_seg?: number
+          webinar_id: string
+        }
+        Update: {
+          administracion_id?: string | null
+          asistio?: boolean
+          bienvenida_email_enviada_at?: string | null
+          canal?: string
+          email_snapshot?: string
+          formulario_submission_id?: string | null
+          gracias_email_enviado_at?: string | null
+          id?: string
+          inscripto_at?: string
+          joined_at?: string | null
+          left_at?: string | null
+          nombre_snapshot?: string
+          profile_id?: string | null
+          prospecto_id?: string | null
+          recordatorio_1h_enviado_at?: string | null
+          recordatorio_24h_enviado_at?: string | null
+          telefono_snapshot?: string | null
+          tiempo_conectado_seg?: number
+          webinar_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "webinar_inscriptos_administracion_id_fkey"
+            columns: ["administracion_id"]
+            isOneToOne: false
+            referencedRelation: "administraciones"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "webinar_inscriptos_formulario_submission_id_fkey"
+            columns: ["formulario_submission_id"]
+            isOneToOne: false
+            referencedRelation: "formulario_submissions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "webinar_inscriptos_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "webinar_inscriptos_prospecto_id_fkey"
+            columns: ["prospecto_id"]
+            isOneToOne: false
+            referencedRelation: "prospectos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "webinar_inscriptos_webinar_id_fkey"
+            columns: ["webinar_id"]
+            isOneToOne: false
+            referencedRelation: "webinars"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      webinar_zoom_eventos: {
+        Row: {
+          created_at: string
+          evento: string
+          id: string
+          ocurrido_at: string
+          payload: Json | null
+          webinar_id: string
+          webinar_inscripto_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          evento: string
+          id?: string
+          ocurrido_at: string
+          payload?: Json | null
+          webinar_id: string
+          webinar_inscripto_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          evento?: string
+          id?: string
+          ocurrido_at?: string
+          payload?: Json | null
+          webinar_id?: string
+          webinar_inscripto_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "webinar_zoom_eventos_webinar_id_fkey"
+            columns: ["webinar_id"]
+            isOneToOne: false
+            referencedRelation: "webinars"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "webinar_zoom_eventos_webinar_inscripto_id_fkey"
+            columns: ["webinar_inscripto_id"]
+            isOneToOne: false
+            referencedRelation: "webinar_inscriptos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      webinars: {
+        Row: {
+          creado_por: string | null
+          created_at: string
+          cupo_zoom: number | null
+          descripcion: string | null
+          duracion_min: number
+          fecha_hora: string
+          finalizado_at: string | null
+          formulario_id: string | null
+          grabacion_url: string | null
+          id: string
+          iniciado_at: string | null
+          plataforma: string
+          status: string
+          titulo: string
+          updated_at: string
+          webex_join_url: string | null
+          webex_meeting_id: string | null
+          webex_password: string | null
+          youtube_live_url: string | null
+          zoom_join_url: string | null
+          zoom_meeting_id: number | null
+          zoom_meeting_number: string | null
+          zoom_password: string | null
+          zoom_start_url: string | null
+        }
+        Insert: {
+          creado_por?: string | null
+          created_at?: string
+          cupo_zoom?: number | null
+          descripcion?: string | null
+          duracion_min?: number
+          fecha_hora: string
+          finalizado_at?: string | null
+          formulario_id?: string | null
+          grabacion_url?: string | null
+          id?: string
+          iniciado_at?: string | null
+          plataforma?: string
+          status?: string
+          titulo: string
+          updated_at?: string
+          webex_join_url?: string | null
+          webex_meeting_id?: string | null
+          webex_password?: string | null
+          youtube_live_url?: string | null
+          zoom_join_url?: string | null
+          zoom_meeting_id?: number | null
+          zoom_meeting_number?: string | null
+          zoom_password?: string | null
+          zoom_start_url?: string | null
+        }
+        Update: {
+          creado_por?: string | null
+          created_at?: string
+          cupo_zoom?: number | null
+          descripcion?: string | null
+          duracion_min?: number
+          fecha_hora?: string
+          finalizado_at?: string | null
+          formulario_id?: string | null
+          grabacion_url?: string | null
+          id?: string
+          iniciado_at?: string | null
+          plataforma?: string
+          status?: string
+          titulo?: string
+          updated_at?: string
+          webex_join_url?: string | null
+          webex_meeting_id?: string | null
+          webex_password?: string | null
+          youtube_live_url?: string | null
+          zoom_join_url?: string | null
+          zoom_meeting_id?: number | null
+          zoom_meeting_number?: string | null
+          zoom_password?: string | null
+          zoom_start_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "webinars_formulario_id_fkey"
+            columns: ["formulario_id"]
+            isOneToOne: false
+            referencedRelation: "formularios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       cajas_con_saldo: {
@@ -5337,6 +5680,10 @@ export type Database = {
           vencimiento: string
         }[]
       }
+      convertir_prospecto_a_cliente: {
+        Args: { p_administracion_id: string; p_prospecto_id: string }
+        Returns: undefined
+      }
       crear_comprobante_borrador_fiscal: {
         Args: {
           p_administracion_id: string
@@ -5359,6 +5706,19 @@ export type Database = {
           p_prioridad?: string
           p_submission_id: string
           p_titulo?: string
+        }
+        Returns: string
+      }
+      crear_webinar: {
+        Args: {
+          p_cupo_zoom?: number
+          p_descripcion: string
+          p_duracion_min?: number
+          p_fecha_hora: string
+          p_formulario_id?: string
+          p_plataforma?: string
+          p_titulo: string
+          p_youtube_live_url?: string
         }
         Returns: string
       }
@@ -5618,7 +5978,26 @@ export type Database = {
         Args: { p_archivo: string; p_filas: Json }
         Returns: Json
       }
+      inscribir_a_webinar: {
+        Args: {
+          p_email: string
+          p_nombre: string
+          p_submission_id?: string
+          p_telefono?: string
+          p_webinar_id: string
+        }
+        Returns: Json
+      }
       kpis_dashboard_global: { Args: { p_desde?: string }; Returns: Json }
+      list_webinar_kpis: {
+        Args: never
+        Returns: {
+          en_vivo: number
+          finalizados: number
+          proximos: number
+          total_inscriptos: number
+        }[]
+      }
       listar_eventos_agenda: {
         Args: {
           p_categoria?: string
@@ -5877,6 +6256,53 @@ export type Database = {
         Returns: undefined
       }
       verificar_certificado: { Args: { p_codigo: string }; Returns: Json }
+      webex_encuentro_ended: {
+        Args: { p_ended_at?: string; p_webex_meeting_id: string }
+        Returns: string
+      }
+      webex_encuentro_started: {
+        Args: { p_started_at?: string; p_webex_meeting_id: string }
+        Returns: string
+      }
+      webex_participant_joined: {
+        Args: {
+          p_customer_key: string
+          p_display_name?: string
+          p_joined_at: string
+          p_webex_meeting_id: string
+        }
+        Returns: string
+      }
+      webex_participant_left: {
+        Args: {
+          p_customer_key: string
+          p_left_at: string
+          p_webex_meeting_id: string
+        }
+        Returns: string
+      }
+      webinar_set_zoom: {
+        Args: {
+          p_duracion_min?: number
+          p_join_url: string
+          p_meeting_id: number
+          p_meeting_number?: string
+          p_password: string
+          p_start_url: string
+          p_webinar_id: string
+        }
+        Returns: undefined
+      }
+      webinar_zoom_evento: {
+        Args: {
+          p_evento: string
+          p_inscripto_id: string
+          p_ocurrido_at: string
+          p_payload?: Json
+          p_zoom_meeting_id: number
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never
