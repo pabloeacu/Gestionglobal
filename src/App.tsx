@@ -52,6 +52,7 @@ const FormularioPublicoPage = lazy(() => import('@/modules/public/pages/Formular
 const FormulariosAdminListPage = lazy(() => import('@/modules/formularios-admin').then(m => ({ default: m.FormulariosAdminListPage })));
 const FormularioBuilderPage = lazy(() => import('@/modules/formularios-admin').then(m => ({ default: m.FormularioBuilderPage })));
 const FormularioVersionesPage = lazy(() => import('@/modules/formularios-admin').then(m => ({ default: m.FormularioVersionesPage })));
+const FinanzasDashboardPage = lazy(() => import('@/modules/finanzas').then(m => ({ default: m.FinanzasDashboardPage })));
 const WebinarsListPage = lazy(() => import('@/modules/webinars-admin').then(m => ({ default: m.WebinarsListPage })));
 const WebinarDetailPage = lazy(() => import('@/modules/webinars-admin').then(m => ({ default: m.WebinarDetailPage })));
 const ProspectosListPage = lazy(() => import('@/modules/webinars-admin').then(m => ({ default: m.ProspectosListPage })));
@@ -187,6 +188,7 @@ export function App() {
           <Route path="formularios/prospectos" element={<ProspectosListPage />} />
           <Route path="formularios/:id" element={<FormularioBuilderPage />} />
           <Route path="formularios/:id/versiones" element={<FormularioVersionesPage />} />
+          <Route path="finanzas" element={<FinanzasDashboardPage />} />
           <Route path="campus" element={<CampusListPage />} />
           <Route path="campus/:id" element={<CursoEditorPage />} />
           <Route path="reportes" element={<ReportesHubPage />} />

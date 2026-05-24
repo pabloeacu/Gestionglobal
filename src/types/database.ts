@@ -5907,6 +5907,84 @@ export type Database = {
         Args: { p_comprobante_id: string }
         Returns: string
       }
+      fz_anular_movimiento: {
+        Args: { p_motivo?: string; p_movimiento_id: string }
+        Returns: undefined
+      }
+      fz_crear_movimiento_manual: {
+        Args: {
+          p_administracion_id?: string
+          p_caja_id: string
+          p_categoria_id?: string
+          p_comprobante_imputar_a_id?: string
+          p_consorcio_id?: string
+          p_descripcion?: string
+          p_fecha: string
+          p_monto: number
+          p_referencia?: string
+          p_tipo: string
+        }
+        Returns: string
+      }
+      fz_crear_transferencia: {
+        Args: {
+          p_caja_destino_id: string
+          p_caja_origen_id: string
+          p_descripcion?: string
+          p_fecha: string
+          p_monto: number
+          p_referencia?: string
+        }
+        Returns: string
+      }
+      fz_dashboard_kpis: {
+        Args: never
+        Returns: {
+          cajas_activas: number
+          egresos_mes: number
+          ingresos_mes: number
+          movs_pendientes: number
+          saldo_total: number
+        }[]
+      }
+      fz_listar_movimientos: {
+        Args: {
+          p_caja_id?: string
+          p_fecha_desde?: string
+          p_fecha_hasta?: string
+          p_incluir_anulados?: boolean
+          p_incluir_revertidos?: boolean
+          p_limit?: number
+          p_offset?: number
+          p_search?: string
+          p_tipo?: string
+        }
+        Returns: {
+          administracion_id: string
+          administracion_nombre: string
+          caja_color: string
+          caja_id: string
+          caja_nombre: string
+          categoria_id: string
+          categoria_nombre: string
+          descripcion: string
+          estado: string
+          fecha: string
+          id: string
+          monto: number
+          movimiento_revertido_id: string
+          origen: string
+          referencia: string
+          revertido_at: string
+          tipo: string
+          total_count: number
+          transferencia_pair_id: string
+        }[]
+      }
+      fz_revertir_movimiento: {
+        Args: { p_motivo?: string; p_movimiento_id: string }
+        Returns: string
+      }
       generar_acceso_externo: {
         Args: {
           p_dias_validez?: number
@@ -5974,6 +6052,7 @@ export type Database = {
           vencimiento_id: string
         }[]
       }
+      gg_webinars_disparar_recordatorios: { Args: never; Returns: Json }
       import_comprobantes_batch: {
         Args: { p_archivo: string; p_filas: Json }
         Returns: Json

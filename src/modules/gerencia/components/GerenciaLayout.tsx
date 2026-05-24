@@ -53,7 +53,7 @@ const NAV: NavItem[] = [
   { to: '/gerencia/cuenta-corriente', label: 'Cuenta corriente', icon: Wallet },
   { to: '/gerencia/recupero', label: 'Recupero', icon: AlertCircle },
   { to: '/gerencia/partners', label: 'Partners', icon: Handshake },
-  { to: '/gerencia/finanzas', label: 'Finanzas', icon: PiggyBank, disabled: true },
+  { to: '/gerencia/finanzas', label: 'Finanzas', icon: PiggyBank },
   { to: '/gerencia/formularios', label: 'Formularios', icon: ClipboardList },
   { to: '/gerencia/campus', label: 'Campus', icon: GraduationCap },
   { to: '/gerencia/reportes', label: 'Reportes', icon: BarChart3 },
