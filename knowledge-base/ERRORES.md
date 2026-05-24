@@ -346,3 +346,40 @@
 - **Fix:** mig 0053 fuerza `https://` si el sitio_web no incluye protocolo. mig 0054 reemplaza el TMDay/TMMonth por arrays explícitos ES (`['domingo','lunes',...]`, `['enero','febrero',...]`).
 - **Prevención:** **nunca depender del locale del servidor para output en español**. Usar arrays explícitos o helpers JS en frontend. Y **siempre validar URLs construidas en SQL** asegurando protocolo + slash sanitization.
 - **Fecha / módulo:** 2026-05-24 · subsistema Webinars · webinar_email_vars.
+
+## E-GG-19 · Finanzas · KPIs inflados por movimientos de reversión
+- **Síntoma:** Al revertir un egreso de $15.000, el KPI "Ingresos del mes"
+  saltó de $180.000 a $195.000. Conceptualmente incorrecto: la reversión
+  de un egreso no es un ingreso nuevo, es una corrección.
+- **Causa raíz:** La RPC `fz_dashboard_kpis` sumaba TODOS los movs tipo
+  ingreso/egreso del mes con `revertido_at IS NULL`, pero NO filtraba por
+  `origen <> 'reversion'`. Los contrasientos generados por
+  `fz_revertir_movimiento` (que tienen origen='reversion') sumaban a sus
+  totales correspondientes.
+- **Fix (mig 0056):** agregar `AND origen <> 'reversion'` a los dos SUM.
+  El `saldo_total` se mantiene tal cual (viene de cajas_con_saldo que sí
+  debe considerar reversiones para el saldo real).
+- **Prevención:** **toda función de KPI / agregación temporal en finanzas
+  debe filtrar explícitamente movimientos de reversion** (y eventualmente
+  de transferencias internas si se reporta por administración). El "saldo"
+  y los "totales operativos del mes" son métricas conceptualmente distintas.
+- **Fecha / módulo:** 2026-05-24 · Finanzas Bloque 1 · fz_dashboard_kpis.
+
+## E-GG-20 · Finanzas · cajas linkeaban a ruta inexistente
+- **Síntoma:** Click en cualquier card de caja del dashboard llevaba a
+  `/gerencia` (Inicio) en vez de a un detalle. Fallback de React Router
+  silencioso.
+- **Causa raíz:** Las cards eran `<Link to={`/gerencia/finanzas/cajas/${id}`}>`
+  pero esa ruta NO estaba definida en `App.tsx`. React Router no encontraba
+  match exacto y caía al `<Route index>` de `/gerencia`.
+- **Fix:** En lugar de crear una página detalle separada (mayor scope), las
+  cards ahora son `<button onClick={() => setFiltroCaja(id)}>` que filtran
+  los movimientos de la tabla inferior. UX más útil: ver los movimientos
+  de la caja sin cambiar de página. Indicador visual "Filtrada" + ring
+  cyan cuando una caja está seleccionada. Click sobre la caja activa la
+  desfiltra (toggle).
+- **Prevención:** **toda `<Link to>` que se introduzca debe acompañarse
+  por la ruta en `App.tsx` en el mismo commit**. Si la página detalle no
+  está lista, no exponer el link. Alternativa común: convertir en filtro
+  in-page (menos clicks, mantiene contexto).
+- **Fecha / módulo:** 2026-05-24 · Finanzas Bloque 1 · FinanzasDashboardPage.
