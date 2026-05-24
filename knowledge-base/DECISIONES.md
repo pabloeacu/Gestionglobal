@@ -336,6 +336,47 @@
   interactiva con borrador + decisiones + patrones aprendidos.
 - **Fecha:** 2026-05-24.
 
+## DGG-22 · Finanzas Bloque 2 · conciliación bancaria con formato CSV universal
+- **Decisión (2026-05-24):** subsistema de conciliación bancaria construido
+  con un **formato CSV universal propio**, no por banco. El usuario descarga
+  una plantilla con columnas fijas (fecha, descripcion, ingreso, egreso,
+  observaciones, saldo), completa con los datos de SU cuenta (cualquier
+  banco), y sube. Esto universaliza el flujo sin depender de parsers
+  específicos por entidad bancaria.
+- **Arquitectura (mig 0057):**
+  1. `historico_banco_lotes` · cada importación queda auditada
+     (archivo, total, nuevas, duplicadas).
+  2. `historico_banco` · líneas del extracto. Hash SHA-256 de
+     caja|fecha|desc|ingreso|egreso|saldo como dedup global por caja
+     (re-importar el mismo CSV no duplica). CHECK XOR ingreso/egreso.
+     FK opcional a `movimientos` cuando se concilia.
+  3. `patrones_conciliacion` · aprendizaje opcional pattern→categoría/admin
+     para sugerir auto-categoría en líneas futuras similares.
+- **Motor de matching (fz_sugerir_matches):** busca movimientos del sistema
+  con MISMO monto exacto, misma caja, mismo tipo, en ventana de ±5 días.
+  Excluye anulados, revertidos, reversiones y los ya vinculados. Score
+  = 100 - dias_diff*5. Ordena por proximidad de fecha.
+- **3 flujos de conciliación por línea:**
+  1. **Vincular** con movimiento existente sugerido.
+  2. **Crear nuevo** movimiento (origen='conciliacion_auto') con
+     categoría + admin + descripción custom + opción "Aprender patrón".
+  3. **Ignorar** (saldo inicial, error del banco, línea informativa).
+- **CSV parser robusto (papaparse + helpers):** tolerante a separadores
+  `,`/`;`, fechas DD/MM/YYYY o YYYY-MM-DD, montos formato AR (1.234,56) y
+  US (1,234.56). Headers flexibles con aliases (descripcion/concepto/detalle,
+  ingreso/haber/credito, egreso/debe/debito, monto con signo).
+- **Decisiones descartadas:**
+  - **Parsers por banco** (Galicia/Santander/BBVA): rechazado por
+    fragilidad — cada banco cambia formato; el universal es estable.
+  - **Importar Excel directo (.xlsx)**: rechazado por simplicidad — CSV es
+    más simple, exportable desde cualquier banco/Excel y editable.
+  - **Multi-moneda en CSV**: cada caja es mono-moneda; conciliación es
+    por caja. Multi-moneda con tipo de cambio queda para futuro.
+- **Verificado e2e en navegador**: 4 líneas importadas → 1 vinculada con
+  match sugerido (mismo día del Campus) → 1 creada como egreso nuevo con
+  categoría aprendida → 1 ignorada. Dedup confirmado (re-import = 0 nuevas).
+- **Fecha:** 2026-05-24.
+
 ## DGG-11 · Webinars/Eventos = subsistema de captación (post-Campus)
 - **Decisión:** Los formularios tipo `evento` dejan de ser submission crudo
   y alimentan un subsistema de captación comercial:
