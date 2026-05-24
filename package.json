@@ -12,6 +12,7 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",
     "@types/file-saver": "^2.0.7",
+    "@types/papaparse": "^5.5.2",
     "@webex/widgets": "^1.28.2",
     "@zoom/meetingsdk": "^6.0.2",
     "clsx": "^2.1.1",
@@ -21,6 +22,7 @@
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.8",
     "lucide-react": "^0.460.0",
+    "papaparse": "^5.5.3",
     "qrcode": "^1.5.4",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",

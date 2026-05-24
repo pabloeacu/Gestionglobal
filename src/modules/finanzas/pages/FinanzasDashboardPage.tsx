@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   ArrowRightLeft, Plus, TrendingUp, TrendingDown, Wallet, AlertCircle,
-  Banknote, Search, X, RotateCcw, Ban,
+  Banknote, Search, X, RotateCcw, Ban, Landmark,
 } from 'lucide-react';
 import { Button, Input, Select, useConfirm } from '@/components/common';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
@@ -117,6 +118,12 @@ export function FinanzasDashboardPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Link
+            to="/gerencia/finanzas/conciliacion"
+            className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-brand-ink transition hover:bg-slate-50"
+          >
+            <Landmark size={14} /> Conciliar
+          </Link>
           <Button variant="secondary" onClick={() => setTransferOpen(true)}>
             <ArrowRightLeft size={14} /> Transferir
           </Button>

@@ -277,6 +277,198 @@ export async function anularMovimiento(
   }
 }
 
+// ────────────────────────────────────────────────────────────────
+// Bloque 2 · Conciliación bancaria
+// ────────────────────────────────────────────────────────────────
+
+export interface HistoricoLineaInput {
+  fecha: string; // YYYY-MM-DD
+  descripcion: string;
+  ingreso: number;
+  egreso: number;
+  observaciones?: string | null;
+  saldo?: number | null;
+}
+
+export interface ImportarLoteResult {
+  lote_id: string;
+  total: number;
+  nuevas: number;
+  duplicadas: number;
+}
+
+export async function importarHistoricoLote(
+  cajaId: string,
+  lineas: HistoricoLineaInput[],
+  archivoNombre?: string,
+  observaciones?: string,
+): Promise<ApiResponse<ImportarLoteResult>> {
+  try {
+    const { data, error } = await supabase.rpc('fz_importar_historico_lote', {
+      p_caja_id: cajaId,
+      p_lineas: lineas as unknown as Database['public']['Tables']['historico_banco']['Row'][],
+      p_archivo_nombre: archivoNombre ?? undefined,
+      p_observaciones: observaciones ?? undefined,
+    });
+    if (error) throw error;
+    const r = data as unknown as ImportarLoteResult;
+    return ok(r);
+  } catch (e) {
+    const err = toApiError(e);
+    return fail(err.code, err.message, err.details);
+  }
+}
+
+export interface HistoricoPendienteRow {
+  id: string;
+  caja_id: string;
+  caja_nombre: string;
+  fecha: string;
+  descripcion: string;
+  ingreso: number;
+  egreso: number;
+  observaciones: string | null;
+  saldo: number | null;
+  monto_efectivo: number;
+  tipo_efectivo: 'ingreso' | 'egreso';
+  total_count: number;
+}
+
+export async function listarHistoricoPendientes(
+  cajaId: string,
+  limit = 100,
+  offset = 0,
+): Promise<ApiResponse<{ rows: HistoricoPendienteRow[]; total: number }>> {
+  try {
+    const { data, error } = await supabase.rpc('fz_listar_historico_pendientes', {
+      p_caja_id: cajaId,
+      p_limit: limit,
+      p_offset: offset,
+    });
+    if (error) throw error;
+    const rows = (data ?? []) as HistoricoPendienteRow[];
+    const total = rows[0] ? Number(rows[0].total_count) : 0;
+    return ok({ rows, total });
+  } catch (e) {
+    const err = toApiError(e);
+    return fail(err.code, err.message, err.details);
+  }
+}
+
+export interface SugerenciaMatchRow {
+  movimiento_id: string;
+  fecha: string;
+  tipo: string;
+  monto: number;
+  descripcion: string | null;
+  categoria_nombre: string | null;
+  administracion_nombre: string | null;
+  dias_diff: number;
+  score: number;
+}
+
+export async function sugerirMatches(
+  historicoId: string,
+): Promise<ApiResponse<SugerenciaMatchRow[]>> {
+  try {
+    const { data, error } = await supabase.rpc('fz_sugerir_matches', {
+      p_historico_id: historicoId,
+    });
+    if (error) throw error;
+    return ok((data ?? []) as SugerenciaMatchRow[]);
+  } catch (e) {
+    const err = toApiError(e);
+    return fail(err.code, err.message, err.details);
+  }
+}
+
+export async function conciliarManual(
+  historicoId: string,
+  movimientoId: string,
+): Promise<ApiResponse<true>> {
+  try {
+    const { error } = await supabase.rpc('fz_conciliar_manual', {
+      p_historico_id: historicoId,
+      p_movimiento_id: movimientoId,
+    });
+    if (error) throw error;
+    return ok(true as const);
+  } catch (e) {
+    const err = toApiError(e);
+    return fail(err.code, err.message, err.details);
+  }
+}
+
+export interface CrearMovDesdeHistoricoInput {
+  historicoId: string;
+  categoriaId?: string | null;
+  administracionId?: string | null;
+  descripcionCustom?: string | null;
+  guardarPatron?: boolean;
+}
+
+export async function crearMovDesdeHistorico(
+  input: CrearMovDesdeHistoricoInput,
+): Promise<ApiResponse<string>> {
+  try {
+    const { data, error } = await supabase.rpc('fz_crear_mov_desde_historico', {
+      p_historico_id: input.historicoId,
+      p_categoria_id: input.categoriaId ?? undefined,
+      p_administracion_id: input.administracionId ?? undefined,
+      p_descripcion_custom: input.descripcionCustom ?? undefined,
+      p_guardar_patron: input.guardarPatron ?? false,
+    });
+    if (error) throw error;
+    return ok(String(data));
+  } catch (e) {
+    const err = toApiError(e);
+    return fail(err.code, err.message, err.details);
+  }
+}
+
+export async function ignorarLineaHistorico(
+  historicoId: string,
+  motivo?: string,
+): Promise<ApiResponse<true>> {
+  try {
+    const { error } = await supabase.rpc('fz_ignorar_linea_historico', {
+      p_historico_id: historicoId,
+      p_motivo: motivo ?? undefined,
+    });
+    if (error) throw error;
+    return ok(true as const);
+  } catch (e) {
+    const err = toApiError(e);
+    return fail(err.code, err.message, err.details);
+  }
+}
+
+export interface ConciliacionKpis {
+  total_lineas: number;
+  pendientes: number;
+  conciliadas: number;
+  ignoradas: number;
+}
+
+export async function getConciliacionKpis(cajaId?: string): Promise<ApiResponse<ConciliacionKpis>> {
+  try {
+    const { data, error } = await supabase.rpc('fz_conciliacion_kpis', {
+      p_caja_id: cajaId ?? undefined,
+    });
+    if (error) throw error;
+    const row = Array.isArray(data) ? data[0] : data;
+    return ok({
+      total_lineas: Number(row?.total_lineas ?? 0),
+      pendientes: Number(row?.pendientes ?? 0),
+      conciliadas: Number(row?.conciliadas ?? 0),
+      ignoradas: Number(row?.ignoradas ?? 0),
+    });
+  } catch (e) {
+    const err = toApiError(e);
+    return fail(err.code, err.message, err.details);
+  }
+}
+
 // Helper para autocomplete de administraciones (usado en NuevoMovimientoModal)
 export async function buscarAdministraciones(
   search: string,

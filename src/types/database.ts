@@ -2906,6 +2906,140 @@ export type Database = {
           },
         ]
       }
+      historico_banco: {
+        Row: {
+          caja_id: string
+          conciliado_at: string | null
+          created_at: string
+          descripcion: string
+          egreso: number
+          fecha: string
+          hash_dedup: string
+          id: string
+          ignorada_at: string | null
+          ignorada_motivo: string | null
+          ingreso: number
+          lote_id: string | null
+          movimiento_id: string | null
+          observaciones: string | null
+          saldo: number | null
+        }
+        Insert: {
+          caja_id: string
+          conciliado_at?: string | null
+          created_at?: string
+          descripcion: string
+          egreso?: number
+          fecha: string
+          hash_dedup: string
+          id?: string
+          ignorada_at?: string | null
+          ignorada_motivo?: string | null
+          ingreso?: number
+          lote_id?: string | null
+          movimiento_id?: string | null
+          observaciones?: string | null
+          saldo?: number | null
+        }
+        Update: {
+          caja_id?: string
+          conciliado_at?: string | null
+          created_at?: string
+          descripcion?: string
+          egreso?: number
+          fecha?: string
+          hash_dedup?: string
+          id?: string
+          ignorada_at?: string | null
+          ignorada_motivo?: string | null
+          ingreso?: number
+          lote_id?: string | null
+          movimiento_id?: string | null
+          observaciones?: string | null
+          saldo?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "historico_banco_caja_id_fkey"
+            columns: ["caja_id"]
+            isOneToOne: false
+            referencedRelation: "cajas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "historico_banco_caja_id_fkey"
+            columns: ["caja_id"]
+            isOneToOne: false
+            referencedRelation: "cajas_con_saldo"
+            referencedColumns: ["caja_id"]
+          },
+          {
+            foreignKeyName: "historico_banco_lote_id_fkey"
+            columns: ["lote_id"]
+            isOneToOne: false
+            referencedRelation: "historico_banco_lotes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "historico_banco_movimiento_id_fkey"
+            columns: ["movimiento_id"]
+            isOneToOne: false
+            referencedRelation: "movimientos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      historico_banco_lotes: {
+        Row: {
+          archivo_nombre: string | null
+          caja_id: string
+          id: string
+          importado_at: string
+          importado_por: string | null
+          lineas_duplicadas: number
+          lineas_importadas: number
+          lineas_total: number
+          observaciones: string | null
+        }
+        Insert: {
+          archivo_nombre?: string | null
+          caja_id: string
+          id?: string
+          importado_at?: string
+          importado_por?: string | null
+          lineas_duplicadas?: number
+          lineas_importadas?: number
+          lineas_total?: number
+          observaciones?: string | null
+        }
+        Update: {
+          archivo_nombre?: string | null
+          caja_id?: string
+          id?: string
+          importado_at?: string
+          importado_por?: string | null
+          lineas_duplicadas?: number
+          lineas_importadas?: number
+          lineas_total?: number
+          observaciones?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "historico_banco_lotes_caja_id_fkey"
+            columns: ["caja_id"]
+            isOneToOne: false
+            referencedRelation: "cajas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "historico_banco_lotes_caja_id_fkey"
+            columns: ["caja_id"]
+            isOneToOne: false
+            referencedRelation: "cajas_con_saldo"
+            referencedColumns: ["caja_id"]
+          },
+        ]
+      }
       import_log: {
         Row: {
           archivo: string
@@ -3711,6 +3845,54 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      patrones_conciliacion: {
+        Row: {
+          administracion_id: string | null
+          categoria_id: string | null
+          creado_por: string | null
+          created_at: string
+          descripcion_pattern: string
+          id: string
+          ultimo_uso_at: string | null
+          usos_count: number
+        }
+        Insert: {
+          administracion_id?: string | null
+          categoria_id?: string | null
+          creado_por?: string | null
+          created_at?: string
+          descripcion_pattern: string
+          id?: string
+          ultimo_uso_at?: string | null
+          usos_count?: number
+        }
+        Update: {
+          administracion_id?: string | null
+          categoria_id?: string | null
+          creado_por?: string | null
+          created_at?: string
+          descripcion_pattern?: string
+          id?: string
+          ultimo_uso_at?: string | null
+          usos_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patrones_conciliacion_administracion_id_fkey"
+            columns: ["administracion_id"]
+            isOneToOne: false
+            referencedRelation: "administraciones"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patrones_conciliacion_categoria_id_fkey"
+            columns: ["categoria_id"]
+            isOneToOne: false
+            referencedRelation: "categorias_finanzas"
             referencedColumns: ["id"]
           },
         ]
@@ -5911,6 +6093,29 @@ export type Database = {
         Args: { p_motivo?: string; p_movimiento_id: string }
         Returns: undefined
       }
+      fz_conciliacion_kpis: {
+        Args: { p_caja_id?: string }
+        Returns: {
+          conciliadas: number
+          ignoradas: number
+          pendientes: number
+          total_lineas: number
+        }[]
+      }
+      fz_conciliar_manual: {
+        Args: { p_historico_id: string; p_movimiento_id: string }
+        Returns: undefined
+      }
+      fz_crear_mov_desde_historico: {
+        Args: {
+          p_administracion_id?: string
+          p_categoria_id?: string
+          p_descripcion_custom?: string
+          p_guardar_patron?: boolean
+          p_historico_id: string
+        }
+        Returns: string
+      }
       fz_crear_movimiento_manual: {
         Args: {
           p_administracion_id?: string
@@ -5945,6 +6150,38 @@ export type Database = {
           ingresos_mes: number
           movs_pendientes: number
           saldo_total: number
+        }[]
+      }
+      fz_ignorar_linea_historico: {
+        Args: { p_historico_id: string; p_motivo?: string }
+        Returns: undefined
+      }
+      fz_importar_historico_lote: {
+        Args: {
+          p_archivo_nombre?: string
+          p_caja_id: string
+          p_lineas: Json
+          p_observaciones?: string
+        }
+        Returns: Json
+      }
+      fz_listar_historico_pendientes: {
+        Args: { p_caja_id: string; p_limit?: number; p_offset?: number }
+        Returns: {
+          caja_id: string
+          caja_nombre: string
+          conciliado_at: string
+          descripcion: string
+          egreso: number
+          fecha: string
+          id: string
+          ignorada_at: string
+          ingreso: number
+          monto_efectivo: number
+          observaciones: string
+          saldo: number
+          tipo_efectivo: string
+          total_count: number
         }[]
       }
       fz_listar_movimientos: {
@@ -5984,6 +6221,20 @@ export type Database = {
       fz_revertir_movimiento: {
         Args: { p_motivo?: string; p_movimiento_id: string }
         Returns: string
+      }
+      fz_sugerir_matches: {
+        Args: { p_historico_id: string }
+        Returns: {
+          administracion_nombre: string
+          categoria_nombre: string
+          descripcion: string
+          dias_diff: number
+          fecha: string
+          monto: number
+          movimiento_id: string
+          score: number
+          tipo: string
+        }[]
       }
       generar_acceso_externo: {
         Args: {
