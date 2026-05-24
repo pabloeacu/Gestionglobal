@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
 import {
   ArrowRightLeft, Plus, TrendingUp, TrendingDown, Wallet, AlertCircle,
   Banknote, Search, X, RotateCcw, Ban,
@@ -156,24 +155,39 @@ export function FinanzasDashboardPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {cajas.filter((c) => c.activo).map((c) => (
-              <Link
-                key={c.caja_id}
-                to={`/gerencia/finanzas/cajas/${c.caja_id}`}
-                className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-brand-cyan/40 hover:shadow-md"
-                style={{ borderLeft: `4px solid ${c.color ?? '#0891b2'}` }}
-              >
-                <TrianglesAccent position="top-right" density="soft" className="opacity-30 group-hover:opacity-60" />
-                <p className="text-xs uppercase tracking-wider text-brand-muted">{c.tipo.replace('_', ' ')}</p>
-                <h3 className="mt-1 font-display text-lg font-bold text-brand-ink">{c.nombre}</h3>
-                <p className="mt-2 font-display text-2xl font-bold tabular-nums text-brand-ink">
-                  {formatMoney(c.saldo)}
-                </p>
-                <p className="mt-0.5 text-[11px] text-brand-muted">
-                  {c.moneda}{c.movs_pendientes > 0 ? ` · ${c.movs_pendientes} pendientes` : ''}
-                </p>
-              </Link>
-            ))}
+            {cajas.filter((c) => c.activo).map((c) => {
+              const isActive = filtroCaja === c.caja_id;
+              return (
+                <button
+                  type="button"
+                  key={c.caja_id}
+                  onClick={() => setFiltroCaja(isActive ? '' : c.caja_id)}
+                  title={isActive ? 'Quitar filtro' : 'Filtrar movimientos por esta caja'}
+                  className={cn(
+                    'group relative overflow-hidden rounded-2xl border bg-white p-5 text-left shadow-sm transition',
+                    isActive
+                      ? 'border-brand-cyan ring-2 ring-brand-cyan/40 shadow-md'
+                      : 'border-slate-200 hover:border-brand-cyan/40 hover:shadow-md',
+                  )}
+                  style={{ borderLeft: `4px solid ${c.color ?? '#0891b2'}` }}
+                >
+                  <TrianglesAccent position="top-right" density="soft" className="opacity-30 group-hover:opacity-60" />
+                  <p className="text-xs uppercase tracking-wider text-brand-muted">{c.tipo.replace('_', ' ')}</p>
+                  <h3 className="mt-1 font-display text-lg font-bold text-brand-ink">{c.nombre}</h3>
+                  <p className="mt-2 font-display text-2xl font-bold tabular-nums text-brand-ink">
+                    {formatMoney(c.saldo)}
+                  </p>
+                  <p className="mt-0.5 text-[11px] text-brand-muted">
+                    {c.moneda}{c.movs_pendientes > 0 ? ` · ${c.movs_pendientes} pendientes` : ''}
+                  </p>
+                  {isActive && (
+                    <span className="absolute right-3 top-3 rounded-full bg-brand-cyan px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white">
+                      Filtrada
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
         )}
       </section>
