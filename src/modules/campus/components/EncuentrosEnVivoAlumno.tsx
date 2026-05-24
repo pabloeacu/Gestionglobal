@@ -194,45 +194,97 @@ function CustomToolbar({
   height: number;
   onSalir: () => void;
 }) {
-  const [muted, setMuted] = useState(true);
-
-  const handleMute = async () => {
-    const c = (window as any).__zoomClient;
-    if (!c) return;
-    try {
-      // El SDK Embedded tiene mute() para silenciarse a sí mismo.
-      // Para unmute hay que volver a llamar (toggle).
-      await c.mute?.();
-      setMuted((m) => !m);
-    } catch { /* opt */ }
+  // Click-forwarding: en vez de re-implementar cada acción del SDK con
+  // sus methods (que no están todos expuestos), localizamos los botones
+  // NATIVOS del SDK (escondidos por overflow del stage) y disparamos un
+  // .click() programáticamente. Así heredamos toda la funcionalidad:
+  // audio join/mute, cam on/off, chat, participantes, vista, salir, etc.
+  const clickNative = (matchers: string[]) => {
+    const paper = document.querySelector('.zoom-MuiPaper-root');
+    if (!paper) return false;
+    const buttons = paper.querySelectorAll('button[aria-label]');
+    for (const btn of Array.from(buttons)) {
+      const label = (btn.getAttribute('aria-label') || '').toLowerCase();
+      if (matchers.some((m) => label.includes(m.toLowerCase()))) {
+        (btn as HTMLButtonElement).click();
+        return true;
+      }
+    }
+    return false;
   };
 
   return (
     <div
-      className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-3 bg-gradient-to-t from-slate-950 via-slate-950/95 to-slate-950/70 px-4"
+      className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-1.5 bg-gradient-to-t from-slate-950 via-slate-950/95 to-slate-950/70 px-3 sm:gap-2"
       style={{ height }}
     >
+      <ToolbarIcon
+        onClick={() => clickNative(['unirse al audio', 'activar audio', 'silenciar', 'unmute', 'mute', 'audio'])}
+        icon="🎤"
+        label="Audio"
+      />
+      <ToolbarIcon
+        onClick={() => clickNative(['iniciar video', 'detener video', 'cámara', 'camara', 'video'])}
+        icon="📹"
+        label="Cámara"
+      />
+      <ToolbarIcon
+        onClick={() => clickNative(['participantes', 'participants'])}
+        icon="👥"
+        label="Personas"
+      />
+      <ToolbarIcon
+        onClick={() => clickNative(['chat'])}
+        icon="💬"
+        label="Chat"
+      />
+      <ToolbarIcon
+        onClick={() => clickNative(['vista', 'view', 'galería', 'galeria', 'gallery'])}
+        icon="▦"
+        label="Vista"
+      />
+      <ToolbarIcon
+        onClick={() => clickNative(['más', 'mas', 'more'])}
+        icon="⋯"
+        label="Más"
+      />
       <button
-        onClick={handleMute}
-        className={cn(
-          'inline-flex flex-col items-center gap-0.5 rounded-lg px-3 py-1.5 text-[10px] font-medium transition',
-          muted
-            ? 'bg-red-500/15 text-red-200 hover:bg-red-500/25'
-            : 'text-slate-200 hover:bg-slate-800/70',
-        )}
-        title={muted ? 'Activar audio' : 'Silenciar'}
-      >
-        <span className="text-xs">{muted ? '🔇' : '🎤'}</span>
-        <span>{muted ? 'Audio' : 'Silenciar'}</span>
-      </button>
-      <button
-        onClick={onSalir}
-        className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-[11px] font-bold text-white shadow-sm hover:bg-red-700"
+        onClick={async () => {
+          try {
+            const c = (window as any).__zoomClient;
+            await c?.leaveMeeting?.();
+          } catch {
+            /* opt */
+          }
+          onSalir();
+        }}
+        className="ml-1 inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-[11px] font-bold text-white shadow-sm hover:bg-red-700"
         title="Salir de la clase"
       >
         <X size={13} /> Salir
       </button>
     </div>
+  );
+}
+
+function ToolbarIcon({
+  onClick,
+  icon,
+  label,
+}: {
+  onClick: () => void;
+  icon: string;
+  label: string;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      title={label}
+      className="inline-flex flex-col items-center gap-0.5 rounded-lg px-2.5 py-1 text-[10px] font-medium text-slate-200 transition hover:bg-slate-800/70 sm:px-3 sm:py-1.5"
+    >
+      <span className="text-base leading-none">{icon}</span>
+      <span className="hidden sm:inline">{label}</span>
+    </button>
   );
 }
 
