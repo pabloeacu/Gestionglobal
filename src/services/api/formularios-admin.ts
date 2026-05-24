@@ -91,6 +91,7 @@ export interface ActualizarFormularioInput {
   redirect_url_after?: string | null;
   notificar_a_emails?: string[];
   exige_aceptacion_terminos?: boolean;
+  webinar_id?: string | null;
 }
 
 export async function actualizarFormulario(
@@ -111,6 +112,7 @@ export async function actualizarFormulario(
   if (patch.redirect_url_after !== undefined) update.redirect_url_after = patch.redirect_url_after;
   if (patch.notificar_a_emails !== undefined) update.notificar_a_emails = patch.notificar_a_emails;
   if (patch.exige_aceptacion_terminos !== undefined) update.exige_aceptacion_terminos = patch.exige_aceptacion_terminos;
+  if (patch.webinar_id !== undefined) update.webinar_id = patch.webinar_id;
 
   const { data, error } = await supabase
     .from('formularios')

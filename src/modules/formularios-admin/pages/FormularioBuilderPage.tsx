@@ -22,7 +22,8 @@ import {
   AlertTriangle,
   ShieldCheck,
 } from 'lucide-react';
-import { Button, Modal, Field, Input, Textarea, useConfirm } from '@/components/common';
+import { Button, Modal, Field, Input, Select, Textarea, useConfirm } from '@/components/common';
+import { listWebinars, type WebinarRow } from '@/services/api/webinars';
 import { toast } from '@/lib/toast';
 import { BrandLoader } from '@/components/brand/BrandLoader';
 import { cn } from '@/lib/cn';
@@ -592,7 +593,21 @@ function AjustesModal({
   const [textosLegales, setTextosLegales] = useState(formulario.textos_legales ?? '');
   const [emails, setEmails] = useState((formulario.notificar_a_emails ?? []).join(', '));
   const [redirect, setRedirect] = useState(formulario.redirect_url_after ?? '');
+  // DGG-11/15: Webinar destino (sólo aplica si categoria='evento')
+  const esEvento = formulario.categoria === 'evento';
+  const [webinarId, setWebinarId] = useState<string | null>(
+    (formulario as unknown as { webinar_id?: string | null }).webinar_id ?? null
+  );
+  const [webinars, setWebinars] = useState<WebinarRow[]>([]);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!esEvento) return;
+    void (async () => {
+      const res = await listWebinars();
+      if (res.ok) setWebinars(res.data);
+    })();
+  }, [esEvento]);
 
   async function onSubmit() {
     setSaving(true);
@@ -606,6 +621,7 @@ function AjustesModal({
         .split(',')
         .map((s) => s.trim())
         .filter(Boolean),
+      webinar_id: esEvento ? webinarId : undefined,
     });
     setSaving(false);
     if (!res.ok) {
@@ -664,6 +680,25 @@ function AjustesModal({
             onChange={(e) => setTextosLegales(e.target.value)}
           />
         </Field>
+
+        {esEvento && (
+          <Field
+            label="Webinar destino"
+            hint="DGG-11/15: el inscripto recibe magic-link automáticamente al enviar el formulario."
+          >
+            <Select
+              value={webinarId ?? ''}
+              onChange={(e) => setWebinarId(e.target.value || null)}
+            >
+              <option value="">— Sin webinar vinculado —</option>
+              {webinars.map((w) => (
+                <option key={w.id} value={w.id}>
+                  {w.titulo} · {new Date(w.fecha_hora).toLocaleDateString('es-AR')}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        )}
       </div>
     </Modal>
   );
