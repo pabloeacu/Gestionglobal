@@ -101,12 +101,11 @@ function ZoomEmbedScaled({
       const byW = { w: pw, h: pw * 9 / 16 };
       const byH = { w: ph * 16 / 9, h: ph };
       const fit = byW.h <= ph ? byW : byH;
-      // Scale AGRESIVO: 1.5x más allá de "fit width" para que el host video
-      // (que vive en la mitad inferior del SDK Paper) llene proporcionalmente
-      // más altura del marco. El SDK overflowea horizontal y verticalmente;
-      // anchor bottom-center centra horizontalmente. La toolbar SDK al fondo
-      // queda visible al borde inferior del marco.
-      const scale = (fit.w / SDK_NATIVE_W) * 1.5;
+      // Scale FIT WIDTH: el SDK queda del ancho exacto del marco. Su alto
+      // overflowea verticalmente y se anclará al fondo, mostrando: host
+      // en spotlight + toolbar al fondo. La parte superior del SDK
+      // (header REC + parte alta del spotlight) queda cropeada arriba.
+      const scale = fit.w / SDK_NATIVE_W;
       setDims({
         w: Math.floor(fit.w),
         h: Math.floor(fit.h),
