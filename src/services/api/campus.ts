@@ -1015,6 +1015,8 @@ export interface EncuentroInput {
   descripcion?: string | null;
   fechaHora?: string | null;
   linkZoom?: string | null;
+  /** DGG-19: 'zoom' (default, link externo) o 'webex' (widget embebido) */
+  plataforma?: 'zoom' | 'webex';
 }
 
 export async function crearEncuentro(
@@ -1028,11 +1030,40 @@ export async function crearEncuentro(
       descripcion: input.descripcion ?? null,
       fecha_hora: input.fechaHora ?? null,
       link_zoom: input.linkZoom ?? null,
+      plataforma: input.plataforma ?? 'zoom',
     })
     .select()
     .single();
   if (error) return fail('ENCUENTRO_CREATE', error.message, error);
   return ok(data);
+}
+
+/** Staff: configura manualmente una sala Webex (URL + meeting ID + password).
+ *  Webex Free plan no expone API de creación automática como Zoom S2S, así
+ *  que el gerente crea la reunión en Webex y nos pasa el join URL.
+ */
+export async function configurarSalaWebex(input: {
+  encuentroId: string;
+  joinUrl: string;
+  meetingId: string;
+  meetingNumber?: string | null;
+  password?: string | null;
+  duracionMin?: number;
+}): Promise<ApiResponse<true>> {
+  const { error } = await supabase
+    .from('curso_encuentros')
+    .update({
+      plataforma: 'webex',
+      webex_join_url: input.joinUrl,
+      webex_meeting_id: input.meetingId,
+      webex_meeting_number: input.meetingNumber ?? null,
+      webex_password: input.password ?? null,
+      webex_status: 'programado',
+      duracion_min: input.duracionMin ?? undefined,
+    })
+    .eq('id', input.encuentroId);
+  if (error) return fail('WEBEX_SET', error.message, error);
+  return ok(true);
 }
 
 export async function actualizarEncuentro(

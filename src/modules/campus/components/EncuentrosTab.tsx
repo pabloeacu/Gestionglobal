@@ -14,6 +14,7 @@ import { toast } from '@/lib/toast';
 import { cn } from '@/lib/cn';
 import {
   borrarEncuentro,
+  configurarSalaWebex,
   crearEncuentro,
   crearSalaZoom,
   fmtFechaHora,
@@ -43,7 +44,11 @@ export function EncuentrosTab({ data }: { data: CursoDetalle }) {
   const [fecha, setFecha] = useState('');
   const [duracion, setDuracion] = useState<number>(60);
   const [desc, setDesc] = useState('');
+  const [plataforma, setPlataforma] = useState<'zoom' | 'webex'>('zoom');
   const [creating, setCreating] = useState(false);
+
+  // Webex manual setup modal
+  const [webexModalEnc, setWebexModalEnc] = useState<CursoEncuentroRow | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -89,6 +94,7 @@ export function EncuentrosTab({ data }: { data: CursoDetalle }) {
       titulo: titulo.trim(),
       fechaHora: fecha ? new Date(fecha).toISOString() : null,
       descripcion: desc.trim() || null,
+      plataforma,
     });
     if (!res.ok) {
       setCreating(false);
@@ -102,6 +108,7 @@ export function EncuentrosTab({ data }: { data: CursoDetalle }) {
     setFecha('');
     setDuracion(60);
     setDesc('');
+    setPlataforma('zoom');
     toast.success('Encuentro creado');
     void load();
   }
@@ -203,9 +210,63 @@ export function EncuentrosTab({ data }: { data: CursoDetalle }) {
             <Input value={desc} onChange={(e) => setDesc(e.target.value)} />
           </Field>
         </div>
+
+        {/* DGG-19 · Selector de plataforma */}
+        <div className="mt-4">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-brand-cyan">
+            Plataforma
+          </p>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <label
+              className={cn(
+                'flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition',
+                plataforma === 'zoom'
+                  ? 'border-brand-cyan bg-brand-cyan/5 ring-1 ring-brand-cyan'
+                  : 'border-slate-200 hover:bg-slate-50',
+              )}
+            >
+              <input
+                type="radio"
+                checked={plataforma === 'zoom'}
+                onChange={() => setPlataforma('zoom')}
+                className="mt-0.5 accent-brand-cyan"
+              />
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-brand-ink">Zoom (link externo)</p>
+                <p className="mt-0.5 text-[11px] text-brand-muted">
+                  Alumnos entran a Zoom oficial. Todas las funciones: share screen, polls, breakouts. Asistencia automática.
+                </p>
+              </div>
+            </label>
+            <label
+              className={cn(
+                'flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition',
+                plataforma === 'webex'
+                  ? 'border-brand-cyan bg-brand-cyan/5 ring-1 ring-brand-cyan'
+                  : 'border-slate-200 hover:bg-slate-50',
+              )}
+            >
+              <input
+                type="radio"
+                checked={plataforma === 'webex'}
+                onChange={() => setPlataforma('webex')}
+                className="mt-0.5 accent-brand-cyan"
+              />
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-brand-ink">Webex (embebido)</p>
+                <p className="mt-0.5 text-[11px] text-brand-muted">
+                  Embed dentro del campus. Mic, cam, share, gallery. Sin polls ni breakouts.
+                </p>
+              </div>
+            </label>
+          </div>
+        </div>
+
         <div className="mt-4 flex items-center justify-between gap-2">
           <p className="text-xs text-brand-muted">
-            Después de crear el encuentro, generá la sala Zoom desde la fila.
+            {plataforma === 'zoom'
+              ? 'Después de crear el encuentro, generá la sala Zoom desde la fila.'
+              : 'Después de crear el encuentro, cargá los datos de la sala Webex (URL + ID).'}
           </p>
           <Button onClick={crear} loading={creating}>
             <Plus size={14} /> Agregar encuentro
@@ -221,8 +282,10 @@ export function EncuentrosTab({ data }: { data: CursoDetalle }) {
       ) : (
         encuentros.map((enc) => {
           const e: any = enc; // columnas nuevas tipadas vía DB types regenerados
-          const tieneSala = !!e.zoom_meeting_id;
-          const status = (e.zoom_status as string | undefined) ?? 'programado';
+          const encPlataforma = (e.plataforma as 'zoom' | 'webex' | undefined) ?? 'zoom';
+          const isWebex = encPlataforma === 'webex';
+          const tieneSala = isWebex ? !!e.webex_meeting_id : !!e.zoom_meeting_id;
+          const status = (isWebex ? e.webex_status : e.zoom_status) as string | undefined ?? 'programado';
           const statusBadge =
             status === 'en_curso'
               ? { label: '● En vivo', cls: 'bg-red-100 text-red-700 border-red-200' }
@@ -259,9 +322,20 @@ export function EncuentrosTab({ data }: { data: CursoDetalle }) {
                     <p className="mt-1 text-sm text-brand-muted">{enc.descripcion}</p>
                   )}
 
-                  {/* Acciones Zoom */}
+                  {/* Acciones · indicador de plataforma + setup según tipo */}
                   <div className="mt-3 flex flex-wrap items-center gap-2">
-                    {!tieneSala ? (
+                    <span
+                      className={cn(
+                        'rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider',
+                        isWebex
+                          ? 'border-purple-200 bg-purple-50 text-purple-700'
+                          : 'border-blue-200 bg-blue-50 text-blue-700',
+                      )}
+                    >
+                      {isWebex ? 'Webex' : 'Zoom'}
+                    </span>
+
+                    {!tieneSala && !isWebex && (
                       <button
                         onClick={() => void crearSala(enc)}
                         disabled={creandoSalaId === enc.id}
@@ -274,7 +348,37 @@ export function EncuentrosTab({ data }: { data: CursoDetalle }) {
                         )}
                         Crear sala Zoom
                       </button>
-                    ) : (
+                    )}
+                    {!tieneSala && isWebex && (
+                      <button
+                        onClick={() => setWebexModalEnc(enc)}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-brand-ink px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-brand-ink/90"
+                      >
+                        <VideoIcon size={13} /> Configurar sala Webex
+                      </button>
+                    )}
+                    {tieneSala && isWebex && (
+                      <>
+                        <a
+                          href={e.webex_join_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 rounded-lg bg-brand-cyan px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-brand-cyan/90"
+                        >
+                          <Radio size={13} /> Iniciar como host
+                        </a>
+                        <button
+                          onClick={() => setWebexModalEnc(enc)}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-brand-ink shadow-sm transition hover:bg-slate-50"
+                        >
+                          Editar datos Webex
+                        </button>
+                        <span className="rounded-md bg-slate-100 px-2 py-1 font-mono text-[11px] text-brand-muted">
+                          ID {e.webex_meeting_number || e.webex_meeting_id}
+                        </span>
+                      </>
+                    )}
+                    {tieneSala && !isWebex && (
                       <>
                         {e.zoom_start_url && (
                           <a
@@ -371,6 +475,135 @@ export function EncuentrosTab({ data }: { data: CursoDetalle }) {
           );
         })
       )}
+
+      {/* Webex setup modal · gerente pega URL + ID + password */}
+      {webexModalEnc && (
+        <WebexSetupModal
+          encuentro={webexModalEnc}
+          onClose={() => setWebexModalEnc(null)}
+          onSaved={() => {
+            setWebexModalEnc(null);
+            void load();
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function WebexSetupModal({
+  encuentro,
+  onClose,
+  onSaved,
+}: {
+  encuentro: CursoEncuentroRow;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const e: any = encuentro;
+  const [joinUrl, setJoinUrl] = useState<string>(e.webex_join_url ?? '');
+  const [meetingId, setMeetingId] = useState<string>(e.webex_meeting_id ?? '');
+  const [meetingNumber, setMeetingNumber] = useState<string>(e.webex_meeting_number ?? '');
+  const [password, setPassword] = useState<string>(e.webex_password ?? '');
+  const [duracion, setDuracion] = useState<number>(e.duracion_min ?? 60);
+  const [saving, setSaving] = useState(false);
+
+  async function save() {
+    if (!joinUrl.trim() || !meetingId.trim()) {
+      toast.error('URL y Meeting ID son obligatorios.');
+      return;
+    }
+    setSaving(true);
+    const res = await configurarSalaWebex({
+      encuentroId: encuentro.id,
+      joinUrl: joinUrl.trim(),
+      meetingId: meetingId.trim(),
+      meetingNumber: meetingNumber.trim() || null,
+      password: password.trim() || null,
+      duracionMin: duracion,
+    });
+    setSaving(false);
+    if (!res.ok) {
+      toast.error(res.error.message);
+      return;
+    }
+    toast.success('Sala Webex configurada ✓');
+    onSaved();
+  }
+
+  return (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+      <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
+        <h3 className="font-display text-lg font-bold text-brand-ink">
+          Configurar sala Webex
+        </h3>
+        <p className="mt-1 text-xs text-brand-muted">
+          Creá la reunión en{' '}
+          <a
+            href="https://webex.com/meet"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-semibold text-brand-cyan underline"
+          >
+            webex.com/meet
+          </a>{' '}
+          y pegá los datos abajo. Los alumnos verán el embed dentro del campus.
+        </p>
+
+        <div className="mt-4 space-y-3">
+          <Field label="Join URL (link público)" required>
+            <Input
+              value={joinUrl}
+              onChange={(ev) => setJoinUrl(ev.target.value)}
+              placeholder="https://gestionglobal.webex.com/meet/..."
+            />
+          </Field>
+          <Field label="Meeting ID (campo `id` de la API o slug del URL)" required>
+            <Input
+              value={meetingId}
+              onChange={(ev) => setMeetingId(ev.target.value)}
+              placeholder="abc123def456..."
+            />
+          </Field>
+          <Field label="Meeting Number (los 9-10 dígitos visibles)">
+            <Input
+              value={meetingNumber}
+              onChange={(ev) => setMeetingNumber(ev.target.value)}
+              placeholder="123 456 7890"
+            />
+          </Field>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Password (opcional)">
+              <Input
+                value={password}
+                onChange={(ev) => setPassword(ev.target.value)}
+                placeholder="••••"
+              />
+            </Field>
+            <Field label="Duración (min)">
+              <Input
+                type="number"
+                min={15}
+                max={480}
+                value={duracion}
+                onChange={(ev) => setDuracion(Number(ev.target.value) || 60)}
+              />
+            </Field>
+          </div>
+        </div>
+
+        <div className="mt-5 flex justify-end gap-2">
+          <button
+            onClick={onClose}
+            className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-brand-ink hover:bg-slate-50"
+          >
+            Cancelar
+          </button>
+          <Button onClick={save} loading={saving}>
+            Guardar
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }
