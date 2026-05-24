@@ -324,3 +324,25 @@
   el pricing page específico (no la doc del SDK) antes de la 2da hora.
   Habría ahorrado varios commits si lo hubiese verificado primero.
 - **Fecha / módulo:** 2026-05-24 · campus Fase 3 · Webex investigation.
+
+## E-GG-16 · gen_random_bytes() en RPCs SD de Webinars (regresión de E-GG-05)
+- **Síntoma:** `inscribir_a_webinar()` fallaba con `ERROR: 42883: function gen_random_bytes(integer) does not exist`.
+- **Causa raíz:** mismo patrón que E-GG-05 (mig 0043 lo fixeó para `generar_acceso_externo`): pgcrypto vive en schema `extensions`, y las RPCs `SECURITY DEFINER` con `SET search_path = public, pg_temp` NO lo encuentran. Al escribir mig 0050 olvidé el precedente.
+- **Fix:** mig 0052 cambia las dos llamadas a `encode(extensions.gen_random_bytes(32), 'hex')` con el schema explícito.
+- **Prevención:** **toda RPC SD que use gen_random_bytes/digest/pgp_sym_encrypt/etc. debe usar `extensions.<func>()` explícito** o `SET search_path = public, extensions, pg_temp`. Documentado a nivel del repo. Agregar a la checklist de QA antes de mergear cualquier migración con RPC nueva.
+- **Fecha / módulo:** 2026-05-24 · subsistema Webinars · descubierto en test e2e.
+
+## E-GG-17 · React error #310 en WebinarPublicoPage (regresión de E-GG-08)
+- **Síntoma:** página pública `/webinar/:token` quedaba en "Cargando webinar…" para siempre. Console: `Minified React error #310` (hook called conditionally).
+- **Causa raíz:** mismo patrón que E-GG-08 (CursoEditorPage). El hook custom `useCountdown()` (interno: useState + useEffect) se llamaba DESPUÉS de los early returns `if (state === 'loading') return ...` y `if (state === 'error') return ...`. Cuando state cambiaba `loading` → `ok`, el orden de hooks cambiaba → React lanzaba error #310 → componente quedaba colgado en el último render exitoso (= loading).
+- **Fix:** mover `useCountdown(resp?.webinar?.fecha_hora ?? new Date().toISOString())` ANTES de los early returns. El hook se llama siempre con un valor seguro fallback; el resultado solo se usa cuando el webinar es futuro.
+- **Prevención:** **TODOS los hooks se llaman ANTES de cualquier `return`**, incluso los condicionales de "loading" o "error". Esto incluye hooks custom como `useCountdown`. Patrón verificable: si tu componente tiene `useState` (o cualquier hook) DESPUÉS de un `return ...;`, está roto. Regla a internalizar (Rules of Hooks de React).
+- **Fecha / módulo:** 2026-05-24 · subsistema Webinars · WebinarPublicoPage.
+
+## E-GG-18 · Webinars · link sin protocolo + fecha en inglés
+- **Síntoma:** al inspeccionar `email_queue.variables` post-inscripción, el `link_acceso` salía como `gestionglobal.ar/webinar/xxxx` (sin `https://`) y la `fecha_humana` como `"Tuesday 26 de May"` (mezcla EN/ES).
+- **Causa raíz 1:** `config_global.sitio_web` está guardado como `gestionglobal.ar` sin protocolo. La RPC `private.webinar_email_vars` lo usaba como `v_base_url || '/webinar/' || p_token` → URL sin protocolo no clickeable en cliente de email.
+- **Causa raíz 2:** `to_char(... 'TMDay DD "de" TMMonth')` usa el locale del servidor. En Supabase ese locale es `en_US`, no `es_AR` → "Tuesday" en lugar de "Martes".
+- **Fix:** mig 0053 fuerza `https://` si el sitio_web no incluye protocolo. mig 0054 reemplaza el TMDay/TMMonth por arrays explícitos ES (`['domingo','lunes',...]`, `['enero','febrero',...]`).
+- **Prevención:** **nunca depender del locale del servidor para output en español**. Usar arrays explícitos o helpers JS en frontend. Y **siempre validar URLs construidas en SQL** asegurando protocolo + slash sanitization.
+- **Fecha / módulo:** 2026-05-24 · subsistema Webinars · webinar_email_vars.
