@@ -57,6 +57,11 @@ export function ZoomLiveEmbed(props: ZoomLiveEmbedProps) {
         const client = ZoomMtgEmbedded.createClient();
         clientRef.current = client;
         mountedClient = client;
+        // Expose para que el custom toolbar (en EncuentrosEnVivoAlumno)
+        // pueda llamar a métodos del SDK (mute, leaveMeeting).
+        if (typeof window !== 'undefined') {
+          (window as any).__zoomClient = client;
+        }
 
         await client.init({
           zoomAppRoot: containerRef.current,
