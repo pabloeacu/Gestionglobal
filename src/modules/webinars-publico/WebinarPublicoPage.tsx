@@ -90,6 +90,11 @@ export function WebinarPublicoPage() {
   const [resp, setResp] = useState<Resp | null>(null);
   const [errorMsg, setErrorMsg] = useState<string>('');
 
+  // CRÍTICO: TODOS los hooks deben llamarse ANTES de cualquier early return
+  // (React error #310). useCountdown se usa solo si el webinar es futuro,
+  // pero el hook se llama siempre con un valor seguro.
+  const countdown = useCountdown(resp?.webinar?.fecha_hora ?? new Date().toISOString());
+
   useEffect(() => {
     let cancelled = false;
     async function fetchData() {
@@ -148,7 +153,6 @@ export function WebinarPublicoPage() {
   const isLive = webinar.status === 'en_curso';
   const isFinished = webinar.status === 'finalizado' || acceso.is_past;
   const isCancelled = webinar.status === 'cancelado';
-  const countdown = useCountdown(webinar.fecha_hora);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-brand-cyan/5">
