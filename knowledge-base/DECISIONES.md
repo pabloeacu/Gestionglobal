@@ -266,6 +266,42 @@
   (e) registrar webhooks meetings.started/ended + meetingParticipants.*.
 - **Fecha:** 2026-05-24.
 
+## DGG-20 · Webinars públicos · dual canal Zoom + YouTube Live + magic-link
+- **Decisión final (2026-05-24):** subsistema Webinars implementado completo
+  (Fases A-G) como **tab dentro de /gerencia/formularios** (decisión del
+  usuario: "lo que pasa después de un formulario tipo evento" vive junto).
+- **Estrategia dual de canal:**
+  1. **Zoom**: cupo configurable (Free=100). FCFS al inscribirse. Asistencia
+     automática vía webhook (match por email del participante).
+  2. **YouTube Live**: fallback público ilimitado. Cuando se llena Zoom, los
+     nuevos inscriptos van a YouTube. Sin asistencia automática (no hay
+     webhook de quién entra a un stream público).
+- **Identidad del inscripto:** XOR cliente / prospecto.
+  - Si el email matchea `administraciones.email` → vincula como cliente.
+  - Si no → crea entidad `prospecto` liviana (separada de administraciones).
+  - Email UNIQUE por webinar (idempotencia).
+- **Magic-link `/webinar/:token`:** ruta pública (verify_jwt=false) que
+  muestra: hero personalizado · countdown si futuro · botón "Unirme al
+  webinar" si en vivo (Zoom o YouTube según canal asignado) · grabación
+  si finalizado · CTA "Conocé Gestión Global" si es prospecto.
+- **Conexión Formularios → Webinar (Fase E):** campo `formularios.webinar_id`
+  + trigger AFTER INSERT en `formulario_submissions`: si categoria='evento'
+  y webinar_id seteado → llama `inscribir_a_webinar` automáticamente.
+- **Centro de prospectos (Fase F):** `/gerencia/formularios/prospectos` lista
+  + filtros + botón "Convertir a cliente" (picker administración existente)
+  → RPC `convertir_prospecto_a_cliente` relinkea inscripciones.
+- **Recordatorios automáticos (Fase G):** plantillas seedeadas en
+  `email_templates` (webinar-bienvenida + recordatorio-24h + recordatorio-1h).
+  Trigger en `webinar_acceso_tokens` envía bienvenida al crear el token.
+  Cron `gg-webinars-recordatorios` cada 15 min revisa webinars próximos en
+  24h ±30min y 1h ±15min, idempotente por flags
+  `recordatorio_24h_enviado_at` y `recordatorio_1h_enviado_at`.
+- **Limitación documentada:** el match por email en webhooks de Zoom sólo
+  funciona si el participante entra logueado en Zoom o escribe el email al
+  unirse. Casos sin email (entrada por número de meeting + nombre suelto)
+  quedan registrados en log sin vincular a inscripto.
+- **Fecha:** 2026-05-24.
+
 ## DGG-11 · Webinars/Eventos = subsistema de captación (post-Campus)
 - **Decisión:** Los formularios tipo `evento` dejan de ser submission crudo
   y alimentan un subsistema de captación comercial:

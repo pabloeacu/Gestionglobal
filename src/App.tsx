@@ -54,6 +54,7 @@ const FormularioBuilderPage = lazy(() => import('@/modules/formularios-admin').t
 const FormularioVersionesPage = lazy(() => import('@/modules/formularios-admin').then(m => ({ default: m.FormularioVersionesPage })));
 const WebinarsListPage = lazy(() => import('@/modules/webinars-admin').then(m => ({ default: m.WebinarsListPage })));
 const WebinarDetailPage = lazy(() => import('@/modules/webinars-admin').then(m => ({ default: m.WebinarDetailPage })));
+const ProspectosListPage = lazy(() => import('@/modules/webinars-admin').then(m => ({ default: m.ProspectosListPage })));
 const WebinarPublicoPage = lazy(() => import('@/modules/webinars-publico/WebinarPublicoPage').then(m => ({ default: m.WebinarPublicoPage })));
 // Ronda 5 · Flujo Maestro
 const SolicitudesListPage = lazy(() => import('@/modules/solicitudes').then(m => ({ default: m.SolicitudesListPage })));
@@ -183,6 +184,7 @@ export function App() {
           <Route path="formularios" element={<FormulariosAdminListPage />} />
           <Route path="formularios/webinars" element={<WebinarsListPage />} />
           <Route path="formularios/webinars/:id" element={<WebinarDetailPage />} />
+          <Route path="formularios/prospectos" element={<ProspectosListPage />} />
           <Route path="formularios/:id" element={<FormularioBuilderPage />} />
           <Route path="formularios/:id/versiones" element={<FormularioVersionesPage />} />
           <Route path="campus" element={<CampusListPage />} />
