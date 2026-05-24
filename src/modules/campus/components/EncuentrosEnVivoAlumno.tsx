@@ -197,15 +197,24 @@ function CustomToolbar({
   // Click-forwarding: en vez de re-implementar cada acción del SDK con
   // sus methods (que no están todos expuestos), localizamos los botones
   // NATIVOS del SDK (escondidos por overflow del stage) y disparamos un
-  // .click() programáticamente. Así heredamos toda la funcionalidad:
-  // audio join/mute, cam on/off, chat, participantes, vista, salir, etc.
+  // .click() programáticamente. Match contra title O aria-label porque
+  // el SDK usa ambos según el botón (audio/cam usan title, otros
+  // aria-label).
   const clickNative = (matchers: string[]) => {
     const paper = document.querySelector('.zoom-MuiPaper-root');
     if (!paper) return false;
-    const buttons = paper.querySelectorAll('button[aria-label]');
+    const buttons = paper.querySelectorAll('button');
+    const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+    const mLow = matchers.map(norm);
     for (const btn of Array.from(buttons)) {
-      const label = (btn.getAttribute('aria-label') || '').toLowerCase();
-      if (matchers.some((m) => label.includes(m.toLowerCase()))) {
+      const haystack = norm(
+        (btn.getAttribute('aria-label') || '') +
+          ' ' +
+          (btn.getAttribute('title') || '') +
+          ' ' +
+          (btn.textContent || ''),
+      );
+      if (mLow.some((m) => haystack.includes(m))) {
         (btn as HTMLButtonElement).click();
         return true;
       }
