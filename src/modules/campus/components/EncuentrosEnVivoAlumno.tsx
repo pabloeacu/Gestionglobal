@@ -101,10 +101,12 @@ function ZoomEmbedScaled({
       const byW = { w: pw, h: pw * 9 / 16 };
       const byH = { w: ph * 16 / 9, h: ph };
       const fit = byW.h <= ph ? byW : byH;
-      // Scale para que SDK_NATIVE_W coincida con marco width — el SDK queda
-      // del ancho exacto del marco, su alto natural (874*scale) overflowea
-      // verticalmente y se anclará al fondo.
-      const scale = fit.w / SDK_NATIVE_W;
+      // Scale AGRESIVO: 1.5x más allá de "fit width" para que el host video
+      // (que vive en la mitad inferior del SDK Paper) llene proporcionalmente
+      // más altura del marco. El SDK overflowea horizontal y verticalmente;
+      // anchor bottom-center centra horizontalmente. La toolbar SDK al fondo
+      // queda visible al borde inferior del marco.
+      const scale = (fit.w / SDK_NATIVE_W) * 1.5;
       setDims({
         w: Math.floor(fit.w),
         h: Math.floor(fit.h),
@@ -127,16 +129,19 @@ function ZoomEmbedScaled({
       className="relative shrink-0 overflow-hidden rounded-2xl border border-slate-200/70 bg-slate-950 shadow-xl ring-1 ring-brand-cyan/20"
       style={{ width: dims.w, height: dims.h }}
     >
-      {/* SDK escalado y anclado al FONDO del marco. La mitad superior
-          (que tiene mucho espacio negro) queda cortada por overflow,
-          dejando visible: host en gallery + toolbar al fondo. */}
+      {/* SDK escalado y anclado al FONDO del marco · centrado horizontal.
+          Con scale 1.5× mayor al "fit width", el host video (que vive en
+          la mitad inferior del SDK) llena más altura del marco. SDK
+          overflowea horizontalmente — translateX(-50%) lo centra para
+          que el host quede al medio. La toolbar SDK al fondo siempre
+          visible al borde inferior. */}
       <div
         style={{
           position: 'absolute',
           bottom: 0,
-          left: 0,
-          transform: `scale(${dims.scale})`,
-          transformOrigin: 'bottom left',
+          left: '50%',
+          transform: `translateX(-50%) scale(${dims.scale})`,
+          transformOrigin: 'bottom center',
           width: SDK_NATIVE_W,
           height: SDK_NATIVE_H,
         }}
