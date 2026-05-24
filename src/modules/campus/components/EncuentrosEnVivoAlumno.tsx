@@ -53,13 +53,20 @@ function useIsMobile() {
   return isMobile;
 }
 
-// SDK Component View natural 720×874. El SDK rinde una columna vertical
-// con header arriba (REC, vista, minimize), área del speaker en el medio,
-// gallery thumbnails abajo de la mitad y toolbar al fondo (mic, cam, chat,
-// salir). Estrategia: scale UP + ANCHOR BOTTOM + overflow hidden para
-// quedarnos solo con la mitad inferior (host + toolbar) en un marco 16:9.
+// SDK Component View natural 720×874. Layout interno (aprox):
+//   y=0-50:    header SDK (REC, vista, minimize)
+//   y=50-650:  spotlight del speaker (donde aparece host con cara y torso)
+//   y=650-794: gallery strip (thumbnails de otros, vacío si solo host)
+//   y=794-874: toolbar nativa Zoom (mic, cam, chat, salir, vista)
+//
+// Estrategia "cirugía": scale fit-width + anchor top + translateY(-50)
+// para esconder el header SDK. Visible en marco: SOLO el spotlight donde
+// está la cara del host. Custom toolbar nuestra debajo del marco con
+// botones que llaman a métodos del client (leaveMeeting, mute).
 const SDK_NATIVE_W = 720;
 const SDK_NATIVE_H = 874;
+const SDK_HEADER_H = 50;
+const CUSTOM_TOOLBAR_H = 56;
 
 /**
  * Marco 16:9 HORIZONTAL con el SDK Component View escalado y ANCLADO al
@@ -121,36 +128,106 @@ function ZoomEmbedScaled({
     };
   }, []);
 
+  // Posicionamiento "cirugía": el SDK se ancla en el TOP del marco con
+  // translateY negativo para esconder el header SDK (50px). Visible:
+  // SOLO la zona del spotlight (cara del host).
+  const sdkTopOffset = -SDK_HEADER_H * dims.scale;
+  // Area visible del SDK en el marco (sin custom toolbar)
+  const stageH = dims.h - CUSTOM_TOOLBAR_H;
+
   return (
     <div
       ref={containerRef}
       className="relative shrink-0 overflow-hidden rounded-2xl border border-slate-200/70 bg-slate-950 shadow-xl ring-1 ring-brand-cyan/20"
       style={{ width: dims.w, height: dims.h }}
     >
-      {/* SDK escalado y anclado al FONDO del marco · centrado horizontal.
-          Con scale 1.5× mayor al "fit width", el host video (que vive en
-          la mitad inferior del SDK) llena más altura del marco. SDK
-          overflowea horizontalmente — translateX(-50%) lo centra para
-          que el host quede al medio. La toolbar SDK al fondo siempre
-          visible al borde inferior. */}
+      {/* Stage (zona donde se ve el SDK escalado). Overflow hidden recorta
+          todo lo que no sea el spotlight del host. */}
       <div
-        style={{
-          position: 'absolute',
-          bottom: 0,
-          left: '50%',
-          transform: `translateX(-50%) scale(${dims.scale})`,
-          transformOrigin: 'bottom center',
-          width: SDK_NATIVE_W,
-          height: SDK_NATIVE_H,
-        }}
+        className="absolute inset-x-0 top-0 overflow-hidden"
+        style={{ height: stageH }}
       >
-        <ZoomLiveEmbed
-          encuentroId={encuentroId}
-          userName={userName}
-          password={password}
-          onLeft={onSalir}
-        />
+        <div
+          style={{
+            position: 'absolute',
+            top: sdkTopOffset,
+            left: '50%',
+            transform: `translateX(-50%) scale(${dims.scale})`,
+            transformOrigin: 'top center',
+            width: SDK_NATIVE_W,
+            height: SDK_NATIVE_H,
+          }}
+        >
+          <ZoomLiveEmbed
+            encuentroId={encuentroId}
+            userName={userName}
+            password={password}
+            onLeft={onSalir}
+          />
+        </div>
       </div>
+
+      {/* Custom toolbar al fondo del marco con botones funcionales (llaman
+          a métodos del client del SDK) */}
+      <CustomToolbar
+        height={CUSTOM_TOOLBAR_H}
+        onSalir={async () => {
+          try {
+            const c = (window as any).__zoomClient;
+            await c?.leaveMeeting?.();
+          } catch { /* opt */ }
+          onSalir();
+        }}
+      />
+    </div>
+  );
+}
+
+function CustomToolbar({
+  height,
+  onSalir,
+}: {
+  height: number;
+  onSalir: () => void;
+}) {
+  const [muted, setMuted] = useState(true);
+
+  const handleMute = async () => {
+    const c = (window as any).__zoomClient;
+    if (!c) return;
+    try {
+      // El SDK Embedded tiene mute() para silenciarse a sí mismo.
+      // Para unmute hay que volver a llamar (toggle).
+      await c.mute?.();
+      setMuted((m) => !m);
+    } catch { /* opt */ }
+  };
+
+  return (
+    <div
+      className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-3 bg-gradient-to-t from-slate-950 via-slate-950/95 to-slate-950/70 px-4"
+      style={{ height }}
+    >
+      <button
+        onClick={handleMute}
+        className={cn(
+          'inline-flex flex-col items-center gap-0.5 rounded-lg px-3 py-1.5 text-[10px] font-medium transition',
+          muted
+            ? 'bg-red-500/15 text-red-200 hover:bg-red-500/25'
+            : 'text-slate-200 hover:bg-slate-800/70',
+        )}
+        title={muted ? 'Activar audio' : 'Silenciar'}
+      >
+        <span className="text-xs">{muted ? '🔇' : '🎤'}</span>
+        <span>{muted ? 'Audio' : 'Silenciar'}</span>
+      </button>
+      <button
+        onClick={onSalir}
+        className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-[11px] font-bold text-white shadow-sm hover:bg-red-700"
+        title="Salir de la clase"
+      >
+        <X size={13} /> Salir
+      </button>
     </div>
   );
 }
