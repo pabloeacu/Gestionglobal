@@ -65,7 +65,11 @@ function useIsMobile() {
 // botones que llaman a métodos del client (leaveMeeting, mute).
 const SDK_NATIVE_W = 720;
 const SDK_NATIVE_H = 874;
-const SDK_HEADER_H = 50;
+// Offset Y para esconder NO solo el header SDK (50px) sino también la
+// franja superior negra del spotlight (donde el SDK no renderiza video
+// cuando hay 1 participante). Empíricamente: 250px funciona — el host
+// aparece centrado verticalmente en el marco.
+const SDK_TOP_HIDE = 250;
 const CUSTOM_TOOLBAR_H = 56;
 
 /**
@@ -128,10 +132,10 @@ function ZoomEmbedScaled({
     };
   }, []);
 
-  // Posicionamiento "cirugía": el SDK se ancla en el TOP del marco con
-  // translateY negativo para esconder el header SDK (50px). Visible:
-  // SOLO la zona del spotlight (cara del host).
-  const sdkTopOffset = -SDK_HEADER_H * dims.scale;
+  // Posicionamiento "cirugía": shift hacia arriba SDK_TOP_HIDE px naturales
+  // (escala incluida) para esconder header SDK + franja negra superior
+  // del spotlight. Lo que queda visible en el stage: cara + torso del host.
+  const sdkTopOffset = -SDK_TOP_HIDE * dims.scale;
   // Area visible del SDK en el marco (sin custom toolbar)
   const stageH = dims.h - CUSTOM_TOOLBAR_H;
 
