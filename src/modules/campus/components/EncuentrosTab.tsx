@@ -240,22 +240,27 @@ export function EncuentrosTab({ data }: { data: CursoDetalle }) {
             </label>
             <label
               className={cn(
-                'flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition',
-                plataforma === 'webex'
-                  ? 'border-brand-cyan bg-brand-cyan/5 ring-1 ring-brand-cyan'
-                  : 'border-slate-200 hover:bg-slate-50',
+                'relative flex items-start gap-3 rounded-xl border p-3 transition',
+                'cursor-not-allowed border-slate-200 bg-slate-50 opacity-60',
               )}
+              title="Webex embebido requiere plan pagado (Guest Issuer deprecado · Service App + Instant Connect requieren suscripción). Scaffold listo para activar al upgrade."
             >
               <input
                 type="radio"
-                checked={plataforma === 'webex'}
-                onChange={() => setPlataforma('webex')}
+                disabled
+                checked={false}
                 className="mt-0.5 accent-brand-cyan"
+                readOnly
               />
               <div className="min-w-0">
-                <p className="text-sm font-semibold text-brand-ink">Webex (embebido)</p>
+                <div className="flex items-center gap-1.5">
+                  <p className="text-sm font-semibold text-brand-ink">Webex (embebido)</p>
+                  <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-amber-700">
+                    Plan pagado
+                  </span>
+                </div>
                 <p className="mt-0.5 text-[11px] text-brand-muted">
-                  Embed dentro del campus. Mic, cam, share, gallery. Sin polls ni breakouts.
+                  Embed dentro del campus, mic/cam/share/gallery. Requiere suscripción Webex (no Free). Scaffold listo.
                 </p>
               </div>
             </label>

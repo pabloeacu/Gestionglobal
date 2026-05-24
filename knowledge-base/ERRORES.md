@@ -286,3 +286,41 @@
   se desmonte. Las dependencias de useCallback deben ser strings estables
   (`userId`, no `user`).
 - **Fecha / módulo:** 2026-05-23 · campus Fase 3 · CursoDetalleAlumnoPage.
+
+## E-GG-15 · Webex embebido imposible en Free plan (3 caminos, 3 bloqueos)
+- **Síntoma:** tras armar scaffolding completo de Webex (mig 0048+0049 + 2
+  edge fns + `WebexLiveEmbed` + selector + modal), al intentar configurar las
+  credenciales me encontré con que ninguno de los tres caminos a guest tokens
+  funciona con el plan Free recién creado:
+  1. **Guest Issuer JWT** (camino "clásico" pre-2025): el form para crear
+     nuevos Guest Issuer ya no existe en developer.webex.com. La doc de
+     `/docs/guest-issuer` lo confirma: *"The Guest Issuer application type
+     has been removed. New Guest Issuer applications can no longer be
+     created."* Camino MUERTO en cualquier plan.
+  2. **Service App Guest Management** (reemplazo oficial): el form de
+     creación funciona, pero la doc `/docs/sa-guest-management` aclara:
+     *"Only paid Webex subscribers may create guests."* y *"This Service App
+     must be approved by an admin in Control Hub."* Requiere plan pagado +
+     admin approval — dos bloqueos.
+  3. **Instant Connect (G2G WebRTC)** (alternativa moderna sin email): la
+     doc `/help.webex.com/.../Webex-Instant-Connect` dice: *"The G2G site is
+     accessible upon subscription/license activation."* También paid.
+- **Causa raíz:** Cisco monetiza el "embed con guests" como feature
+  enterprise. El plan Free permite usar Webex como anfitrión/participante
+  con cuenta propia, pero NO emitir tokens para que terceros sin cuenta
+  joinen embebidos en una app propia. Esto contradice la promesa pública
+  de "@webex/widgets gratis para integrar" — el widget en sí es OSS pero
+  necesita un accessToken válido emitido por alguno de los 3 mecanismos
+  (todos paid hoy).
+- **Decisión:** ver **DGG-19**. Zoom queda como solución productiva (link
+  externo + asistencia automática por webhooks); Webex queda 100%
+  scaffoldeado (BD + edge fns + componentes + UI) con el radio del selector
+  deshabilitado y badge "Plan pagado". El día que el usuario suba al plan
+  pagado, la activación es: 3 secrets en Supabase + quitar `disabled` del
+  radio → embedded Webex operativo.
+- **Lección:** **investigar el modelo de monetización del SDK ANTES de
+  escribir scaffolding pesado.** El widget gratis no implica que el flujo
+  de auth sea gratis. Si una integración requiere "guest tokens", chequear
+  el pricing page específico (no la doc del SDK) antes de la 2da hora.
+  Habría ahorrado varios commits si lo hubiese verificado primero.
+- **Fecha / módulo:** 2026-05-24 · campus Fase 3 · Webex investigation.

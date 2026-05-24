@@ -228,6 +228,44 @@
   dentro de la estructura premium del campus.
 - Fecha: 2026-05-22. (Diseño pendiente, post-Fase-3 Zoom.)
 
+## DGG-19 · Dual platform Zoom (simplificada) + Webex (embebido) · Webex parked
+- **Contexto:** Iteramos 13+ versiones de embed Zoom (Meeting SDK Component
+  View, luego Video SDK custom canvas) y verificamos en producción los límites
+  duros del SDK: NO expone polls, breakouts, share screen propio ni gallery
+  toggle. Para clases reales el alumno necesitaba salirse a Zoom oficial igual.
+- **Decisión final (2026-05-23):**
+  1. **Zoom = opción simplificada (link externo).** Botón grande "Unirme a la
+     clase Zoom" → abre Zoom oficial en pestaña nueva. Bajo el botón:
+     indicador "Tu asistencia se registra automáticamente". Los webhooks de
+     Zoom siguen poblando `curso_encuentro_zoom_eventos` + asistencia
+     (`fuente='zoom_auto'`) → todas las funciones de Zoom + asistencia
+     automática garantizada. **Esto es lo que va a producción.**
+  2. **Webex = opción embebida (scaffold, parked).** Toda la pila quedó armada
+     y commiteada para activar de un click cuando el usuario suba al plan
+     pagado: mig 0048 (`plataforma` enum + columnas `webex_*`), mig 0049
+     (RPCs webex paralelos a los de Zoom), edge fn `webex-guest-token` (firma
+     JWT), edge fn `webex-webhook` (HMAC SHA-1), `WebexLiveEmbed.tsx`
+     (@webex/widgets + webex SDK), modal `WebexSetupModal` en EncuentrosTab,
+     selector de plataforma con badge "Plan pagado · Scaffold listo".
+- **Bloqueo Free plan (E-GG-15):** Los TRES caminos a guests embebidos en
+  Webex requieren plan pagado:
+  1. **Guest Issuer JWT** → DEPRECADO por Cisco (no se pueden crear nuevos).
+  2. **Service App Guest Management** → "Only paid Webex subscribers may
+     create guests" + requiere admin approval en Control Hub.
+  3. **Instant Connect (G2G/WebRTC)** → "G2G site is accessible upon
+     subscription/license activation".
+- **Acción visible en UI:** El selector Webex en `EncuentrosTab` está
+  deshabilitado con badge ámbar "Plan pagado" y tooltip explicativo. El
+  gerente NO puede crear encuentros Webex hoy. Toda la BD y los componentes
+  quedan compilados y deployados (cero deuda de migración).
+- **Reactivación futura:** cuando el usuario suba a Webex pago, los pasos
+  serán: (a) crear Service App en developer.webex.com con scopes Guest
+  Management, (b) obtener admin approval en Control Hub, (c) cargar 3 secrets
+  en Supabase (`WEBEX_SERVICE_APP_CLIENT_ID/SECRET`, `WEBEX_WEBHOOK_SECRET`),
+  (d) habilitar el radio button (quitar `disabled` y badge "Plan pagado"),
+  (e) registrar webhooks meetings.started/ended + meetingParticipants.*.
+- **Fecha:** 2026-05-24.
+
 ## DGG-11 · Webinars/Eventos = subsistema de captación (post-Campus)
 - **Decisión:** Los formularios tipo `evento` dejan de ser submission crudo
   y alimentan un subsistema de captación comercial:
