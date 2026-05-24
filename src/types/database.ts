@@ -1738,8 +1738,15 @@ export type Database = {
           iniciado_at: string | null
           link_zoom: string | null
           orden: number
+          plataforma: string
           titulo: string
           updated_at: string
+          webex_join_url: string | null
+          webex_meeting_id: string | null
+          webex_meeting_number: string | null
+          webex_password: string | null
+          webex_start_url: string | null
+          webex_status: string | null
           zoom_join_url: string | null
           zoom_meeting_id: number | null
           zoom_password: string | null
@@ -1759,8 +1766,15 @@ export type Database = {
           iniciado_at?: string | null
           link_zoom?: string | null
           orden?: number
+          plataforma?: string
           titulo: string
           updated_at?: string
+          webex_join_url?: string | null
+          webex_meeting_id?: string | null
+          webex_meeting_number?: string | null
+          webex_password?: string | null
+          webex_start_url?: string | null
+          webex_status?: string | null
           zoom_join_url?: string | null
           zoom_meeting_id?: number | null
           zoom_password?: string | null
@@ -1780,8 +1794,15 @@ export type Database = {
           iniciado_at?: string | null
           link_zoom?: string | null
           orden?: number
+          plataforma?: string
           titulo?: string
           updated_at?: string
+          webex_join_url?: string | null
+          webex_meeting_id?: string | null
+          webex_meeting_number?: string | null
+          webex_password?: string | null
+          webex_start_url?: string | null
+          webex_status?: string | null
           zoom_join_url?: string | null
           zoom_meeting_id?: number | null
           zoom_password?: string | null
