@@ -10,13 +10,9 @@ import {
   Smartphone,
   CheckCircle2,
   Mic,
-  MicOff,
   Video as VideoIcon,
-  VideoOff,
   MessageSquare,
   LogOut,
-  Users,
-  Headphones,
 } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { fmtFechaHora, type CursoEncuentroRow } from '@/services/api/campus';
@@ -57,24 +53,16 @@ function useIsMobile() {
   return isMobile;
 }
 
-// SDK Component View natural 720×874. Layout interno (aprox):
-//   y=0-50:    header SDK (REC, vista, minimize)
-//   y=50-650:  spotlight del speaker (donde aparece host con cara y torso)
-//   y=650-794: gallery strip (thumbnails de otros, vacío si solo host)
-//   y=794-874: toolbar nativa Zoom (mic, cam, chat, salir, vista)
+// SDK Component View natural 720×874 (aspect ~0.82 vertical).
 //
-// Estrategia "cirugía": scale fit-width + anchor top + translateY(-50)
-// para esconder el header SDK. Visible en marco: SOLO el spotlight donde
-// está la cara del host. Custom toolbar nuestra debajo del marco con
-// botones que llaman a métodos del client (leaveMeeting, mute).
+// Estrategia A+B (DGG-18): renderizamos el SDK a su aspect NATURAL sin
+// cropping. La toolbar nativa de Zoom + todo el chrome del SDK (header,
+// view toggle, gallery, share screen, polls, breakout rooms, chat,
+// todos los popups) quedan funcionales al 100%. Marco "phone-like"
+// vertical en el column izquierdo, cards a la derecha con botón
+// "Abrir Zoom oficial" para los que prefieren la experiencia nativa.
 const SDK_NATIVE_W = 720;
 const SDK_NATIVE_H = 874;
-// Offset Y para esconder NO solo el header SDK (50px) sino también la
-// franja superior negra del spotlight (donde el SDK no renderiza video
-// cuando hay 1 participante). Empíricamente: 250px funciona — el host
-// aparece centrado verticalmente en el marco.
-const SDK_TOP_HIDE = 250;
-const CUSTOM_TOOLBAR_H = 56;
 
 /**
  * Marco 16:9 HORIZONTAL con el SDK Component View escalado y ANCLADO al
@@ -98,11 +86,7 @@ function ZoomEmbedScaled({
   onSalir: () => void;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const [dims, setDims] = useState<{ w: number; h: number; scale: number }>({
-    w: 1024,
-    h: 576,
-    scale: 1.42,
-  });
+  const [scale, setScale] = useState(0.8);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -110,20 +94,11 @@ function ZoomEmbedScaled({
     const compute = () => {
       const parent = el.parentElement;
       if (!parent) return;
-      // Cap marco width a 760px → scale máximo ~1.06 → zoom 15% menor
-      // que con 900 (feedback usuario: reducir un 15% más). Si el column
-      // es más ancho, el marco queda centrado con padding lateral.
-      const pw = Math.min(760, parent.clientWidth);
+      // Scale para que el SDK ocupe toda la altura disponible. Width
+      // se ajusta proporcionalmente (aspect 0.82 vertical phone-like).
       const ph = Math.min(parent.clientHeight, window.innerHeight - 100);
-      const byW = { w: pw, h: pw * 9 / 16 };
-      const byH = { w: ph * 16 / 9, h: ph };
-      const fit = byW.h <= ph ? byW : byH;
-      const scale = fit.w / SDK_NATIVE_W;
-      setDims({
-        w: Math.floor(fit.w),
-        h: Math.floor(fit.h),
-        scale,
-      });
+      const s = Math.min(1.0, Math.max(0.55, ph / SDK_NATIVE_H));
+      setScale(s);
     };
     compute();
     const observer = new ResizeObserver(compute);
@@ -135,288 +110,40 @@ function ZoomEmbedScaled({
     };
   }, []);
 
-  // Posicionamiento "cirugía": shift hacia arriba SDK_TOP_HIDE px naturales
-  // (escala incluida) para esconder header SDK + franja negra superior
-  // del spotlight. Lo que queda visible en el stage: cara + torso del host.
-  const sdkTopOffset = -SDK_TOP_HIDE * dims.scale;
-  // Area visible del SDK en el marco (sin custom toolbar)
-  const stageH = dims.h - CUSTOM_TOOLBAR_H;
+  const w = SDK_NATIVE_W * scale;
+  const h = SDK_NATIVE_H * scale;
 
   return (
     <div
       ref={containerRef}
-      className="relative shrink-0 overflow-hidden rounded-2xl border border-slate-200/70 bg-slate-950 shadow-xl ring-1 ring-brand-cyan/20"
-      style={{ width: dims.w, height: dims.h }}
+      className="relative shrink-0 overflow-hidden rounded-3xl border border-slate-200/70 bg-slate-950 shadow-2xl ring-1 ring-brand-cyan/20"
+      style={{ width: w, height: h }}
     >
-      {/* Stage (zona donde se ve el SDK escalado). Overflow hidden recorta
-          todo lo que no sea el spotlight del host. */}
       <div
-        className="absolute inset-x-0 top-0 overflow-hidden"
-        style={{ height: stageH }}
-      >
-        <div
-          style={{
-            position: 'absolute',
-            top: sdkTopOffset,
-            left: '50%',
-            transform: `translateX(-50%) scale(${dims.scale})`,
-            transformOrigin: 'top center',
-            width: SDK_NATIVE_W,
-            height: SDK_NATIVE_H,
-          }}
-        >
-          <ZoomLiveEmbed
-            encuentroId={encuentroId}
-            userName={userName}
-            password={password}
-            onLeft={onSalir}
-          />
-        </div>
-      </div>
-
-      {/* Custom toolbar al fondo del marco con botones funcionales (llaman
-          a métodos del client del SDK) */}
-      <CustomToolbar
-        height={CUSTOM_TOOLBAR_H}
-        onSalir={async () => {
-          try {
-            const c = (window as any).__zoomClient;
-            await c?.leaveMeeting?.();
-          } catch { /* opt */ }
-          onSalir();
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          transform: `scale(${scale})`,
+          transformOrigin: 'top left',
+          width: SDK_NATIVE_W,
+          height: SDK_NATIVE_H,
         }}
-      />
+      >
+        <ZoomLiveEmbed
+          encuentroId={encuentroId}
+          userName={userName}
+          password={password}
+          onLeft={onSalir}
+        />
+      </div>
     </div>
   );
 }
 
-/**
- * Toolbar custom con lucide icons + state detection del SDK.
- * Lee los títulos de los botones nativos del SDK cada 500ms para saber
- * si audio/cámara están activos. Click forwarding al SDK donde aplica.
- *
- * Personas: panel propio (la popup del SDK aparece offscreen).
- * Chat / Más: forzamos al popper SDK a aparecer dentro del marco.
- * Vista: removido (rompe el layout al togglear render mode).
- */
-function CustomToolbar({
-  height,
-  onSalir,
-}: {
-  height: number;
-  onSalir: () => void;
-}) {
-  // Estado de audio/video leído del SDK nativo (titles cambian según on/off)
-  const [audioOn, setAudioOn] = useState(false);
-  const [videoOn, setVideoOn] = useState(false);
-  const [audioJoined, setAudioJoined] = useState(false);
-  const [participantsOpen, setParticipantsOpen] = useState(false);
-  const [participants, setParticipants] = useState<
-    Array<{ id: number; name: string; isHost: boolean; videoOn: boolean }>
-  >([]);
-
-  // Poll del estado del SDK
-  useEffect(() => {
-    const norm = (s: string) =>
-      s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
-    const tick = () => {
-      const paper = document.querySelector('.zoom-MuiPaper-root');
-      if (!paper) return;
-      const buttons = paper.querySelectorAll('button');
-      for (const btn of Array.from(buttons)) {
-        const title = norm(btn.getAttribute('title') || '');
-        // Audio: "Audio" no joined / "Cancelar silenciar" unmuted / "Silenciar" muted
-        if (title === 'audio') {
-          setAudioJoined(false);
-          setAudioOn(false);
-        } else if (title.includes('cancelar silenciar')) {
-          setAudioJoined(true);
-          setAudioOn(true);
-        } else if (title === 'silenciar') {
-          setAudioJoined(true);
-          setAudioOn(false);
-        }
-        // Video: "Iniciar el video" off / "Parar el video" on
-        if (title.includes('iniciar el video')) {
-          setVideoOn(false);
-        } else if (title.includes('parar el video')) {
-          setVideoOn(true);
-        }
-      }
-      // Update participants list
-      const client: any = (window as any).__zoomClient;
-      const list: any[] = client?.getAttendeeslist?.() ?? [];
-      setParticipants(
-        list.map((u: any) => ({
-          id: u.userId,
-          name: u.displayName || 'Participante',
-          isHost: !!u.isHost,
-          videoOn: !!u.bVideoOn,
-        })),
-      );
-    };
-    tick();
-    const id = setInterval(tick, 600);
-    return () => clearInterval(id);
-  }, []);
-
-  const clickNative = (titleMatcher: (t: string) => boolean) => {
-    const paper = document.querySelector('.zoom-MuiPaper-root');
-    if (!paper) return false;
-    const buttons = paper.querySelectorAll('button');
-    const norm = (s: string) =>
-      s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
-    for (const btn of Array.from(buttons)) {
-      const title = norm(btn.getAttribute('title') || '');
-      if (titleMatcher(title)) {
-        (btn as HTMLButtonElement).click();
-        return true;
-      }
-    }
-    return false;
-  };
-
-  const handleAudio = () => {
-    // Click al botón que matchee según el estado actual
-    if (!audioJoined) {
-      clickNative((t) => t === 'audio');
-    } else if (audioOn) {
-      clickNative((t) => t === 'silenciar');
-    } else {
-      clickNative((t) => t.includes('cancelar silenciar'));
-    }
-  };
-
-  const handleVideo = () => {
-    if (videoOn) {
-      clickNative((t) => t.includes('parar el video'));
-    } else {
-      clickNative((t) => t.includes('iniciar el video'));
-    }
-  };
-
-  const handleLeave = async () => {
-    try {
-      const c = (window as any).__zoomClient;
-      await c?.leaveMeeting?.();
-    } catch {
-      /* opt */
-    }
-    onSalir();
-  };
-
-  return (
-    <>
-      <div
-        className="absolute inset-x-0 bottom-0 z-30 flex items-center justify-center gap-2 bg-gradient-to-t from-slate-950 via-slate-950/95 to-slate-950/70 px-3"
-        style={{ height }}
-      >
-        <ToolbarIcon
-          onClick={handleAudio}
-          icon={!audioJoined ? Headphones : audioOn ? Mic : MicOff}
-          label={!audioJoined ? 'Activar audio' : audioOn ? 'Silenciar' : 'Activar mic'}
-          state={!audioJoined ? 'idle' : audioOn ? 'active' : 'off'}
-        />
-        <ToolbarIcon
-          onClick={handleVideo}
-          icon={videoOn ? VideoIcon : VideoOff}
-          label={videoOn ? 'Apagar cámara' : 'Encender cámara'}
-          state={videoOn ? 'active' : 'off'}
-        />
-        <ToolbarIcon
-          onClick={() => setParticipantsOpen((s) => !s)}
-          icon={Users}
-          label={`Personas (${participants.length})`}
-          state={participantsOpen ? 'active' : 'idle'}
-        />
-        <button
-          onClick={handleLeave}
-          className="ml-2 inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-2 text-[11px] font-bold text-white shadow-sm transition hover:bg-red-700"
-          title="Salir de la clase"
-        >
-          <LogOut size={13} /> Salir
-        </button>
-      </div>
-
-      {/* Panel de Personas propio (la popup nativa aparecía offscreen) */}
-      {participantsOpen && (
-        <div
-          className="absolute right-3 z-40 w-64 overflow-hidden rounded-xl border border-slate-700 bg-slate-900/95 shadow-2xl backdrop-blur"
-          style={{ bottom: height + 8, maxHeight: 320 }}
-        >
-          <div className="flex items-center justify-between border-b border-slate-700 px-3 py-2">
-            <p className="text-xs font-semibold text-white">
-              Participantes ({participants.length})
-            </p>
-            <button
-              onClick={() => setParticipantsOpen(false)}
-              className="text-slate-400 hover:text-white"
-              title="Cerrar"
-            >
-              <X size={14} />
-            </button>
-          </div>
-          <ul className="max-h-[260px] divide-y divide-slate-800 overflow-y-auto">
-            {participants.length === 0 ? (
-              <li className="px-3 py-2 text-xs text-slate-400">
-                Esperando participantes…
-              </li>
-            ) : (
-              participants.map((p) => (
-                <li
-                  key={p.id}
-                  className="flex items-center gap-2 px-3 py-2 text-xs text-slate-200"
-                >
-                  <span
-                    className={cn(
-                      'inline-block h-1.5 w-1.5 rounded-full',
-                      p.videoOn ? 'bg-emerald-400' : 'bg-slate-500',
-                    )}
-                  />
-                  <span className="flex-1 truncate">{p.name}</span>
-                  {p.isHost && (
-                    <span className="rounded bg-brand-cyan/20 px-1.5 py-0.5 text-[9px] font-semibold text-brand-cyan">
-                      HOST
-                    </span>
-                  )}
-                </li>
-              ))
-            )}
-          </ul>
-        </div>
-      )}
-    </>
-  );
-}
-
-function ToolbarIcon({
-  onClick,
-  icon: Icon,
-  label,
-  state,
-}: {
-  onClick: () => void;
-  icon: typeof Mic;
-  label: string;
-  state: 'idle' | 'active' | 'off';
-}) {
-  return (
-    <button
-      onClick={onClick}
-      title={label}
-      className={cn(
-        'inline-flex flex-col items-center gap-0.5 rounded-lg px-2.5 py-1.5 text-[10px] font-medium transition sm:px-3',
-        state === 'active' &&
-          'bg-brand-cyan/15 text-brand-cyan hover:bg-brand-cyan/25',
-        state === 'off' && 'bg-red-500/15 text-red-300 hover:bg-red-500/25',
-        state === 'idle' && 'text-slate-200 hover:bg-slate-800/70',
-      )}
-    >
-      <Icon size={17} />
-      <span className="hidden sm:inline">{label}</span>
-    </button>
-  );
-}
+// CustomToolbar y ToolbarIcon eliminados (DGG-18): el SDK Component View
+// rinde su toolbar nativa al fondo del marco vertical, con todos los
+// controles nativos funcionales (mic/cam/chat/share/polls/breakout/etc).
 
 export function EncuentrosEnVivoAlumno({
   encuentros,
@@ -686,6 +413,32 @@ export function ClaseEnVivoFullLayout({
                 </p>
               </div>
             </div>
+
+            {/* Botón link externo Zoom (opción A: app/web nativa) */}
+            {(encuentro as any).zoom_join_url && (
+              <a
+                href={(encuentro as any).zoom_join_url as string}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group flex items-center gap-2.5 rounded-2xl border border-brand-cyan/40 bg-brand-cyan/5 p-3 transition hover:bg-brand-cyan/10"
+                title="Abrir la reunión en la app o web de Zoom para acceder a TODAS las funciones (compartir pantalla, vista cuadrícula, salas pequeñas, etc.)"
+              >
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-cyan/15 text-brand-cyan group-hover:bg-brand-cyan/25">
+                  <ExternalLink size={14} />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-brand-cyan">
+                    Más funciones
+                  </p>
+                  <p className="text-[11px] font-semibold text-brand-ink">
+                    Abrir Zoom oficial
+                  </p>
+                  <p className="text-[10px] text-brand-muted">
+                    Compartir pantalla, galería, salas
+                  </p>
+                </div>
+              </a>
+            )}
 
             {/* Card 2 — participante + guía de controles */}
             <div className="space-y-3 rounded-2xl border border-slate-200/60 bg-white/80 p-4 shadow-sm backdrop-blur-sm">
