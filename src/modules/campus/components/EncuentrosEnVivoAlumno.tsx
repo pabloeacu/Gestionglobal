@@ -101,11 +101,10 @@ function ZoomEmbedScaled({
       const byW = { w: pw, h: pw * 9 / 16 };
       const byH = { w: ph * 16 / 9, h: ph };
       const fit = byW.h <= ph ? byW : byH;
-      // Scale FIT WIDTH: el SDK queda del ancho exacto del marco. Su alto
-      // overflowea verticalmente y se anclará al fondo, mostrando: host
-      // en spotlight + toolbar al fondo. La parte superior del SDK
-      // (header REC + parte alta del spotlight) queda cropeada arriba.
-      const scale = fit.w / SDK_NATIVE_W;
+      // Scale 1.25x sobre fit-width: reduce el gap negro de la SDK gallery
+      // strip vacía entre host y toolbar, sin cortar la cabeza del host
+      // (probado en vivo: 1.0x deja gap grande, 1.5x corta cabeza).
+      const scale = (fit.w / SDK_NATIVE_W) * 1.25;
       setDims({
         w: Math.floor(fit.w),
         h: Math.floor(fit.h),
