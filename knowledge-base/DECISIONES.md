@@ -302,6 +302,40 @@
   quedan registrados en log sin vincular a inscripto.
 - **Fecha:** 2026-05-24.
 
+## DGG-21 · Módulo Finanzas · Bloque 1 (operaciones diarias)
+- **Decisión (2026-05-24):** primer bloque del módulo Finanzas operativo,
+  saca "PRONTO" del sidebar. Capitaliza la base ya construida (mig 0005 ·
+  cajas + categorias + movimientos + imputaciones + VIEW cajas_con_saldo) y
+  agrega las RPCs operativas faltantes.
+- **Alcance Bloque 1 (mig 0055):**
+  1. `fz_crear_movimiento_manual` · alta de ingreso/egreso manual con
+     imputación opcional a comprobante.
+  2. `fz_crear_transferencia` · atómica entre dos cajas (mismo moneda),
+     pareja con `transferencia_pair_id`.
+  3. `fz_revertir_movimiento` · contrasiento atómico (mueve a estado
+     revertido + crea el inverso). Si era transferencia, **revierte ambas
+     patas**. Borra imputaciones (trigger recalcula saldo comprobante).
+  4. `fz_anular_movimiento` · soft delete (`estado='anulado'`) sin impacto
+     en saldo. Bloqueado si tiene imputaciones.
+  5. `fz_dashboard_kpis` · saldo_total, ingresos_mes, egresos_mes,
+     pendientes, cajas_activas.
+  6. `fz_listar_movimientos` · paginado con filtros (caja, tipo, fechas,
+     search, anulados, revertidos).
+- **UI (`/gerencia/finanzas`):** dashboard con KPI strip + grid de cajas
+  con saldo + tabla de movimientos con filtros + modales (nuevo, transferir,
+  revertir, anular).
+- **Multi-moneda parked:** ARS only por ahora (decisión del usuario). Las
+  cajas USD existen en seed pero la transferencia entre monedas distintas
+  devuelve error. Multi-moneda con tipo de cambio queda para futuro.
+- **CSV bancario (Bloque 2):** formato propio definido por el usuario:
+  **fecha, descripción, ingreso, egreso (puede ser una columna con signo),
+  observaciones, saldo**. El usuario descargará el Excel y completará con
+  los datos de su cuenta. Universaliza independiente del banco.
+- **Roadmap Bloque 2 (próximo):** importador CSV custom + motor de
+  conciliación chunked (capitaliza MANAXER 0101) + UI de conciliación
+  interactiva con borrador + decisiones + patrones aprendidos.
+- **Fecha:** 2026-05-24.
+
 ## DGG-11 · Webinars/Eventos = subsistema de captación (post-Campus)
 - **Decisión:** Los formularios tipo `evento` dejan de ser submission crudo
   y alimentan un subsistema de captación comercial:
