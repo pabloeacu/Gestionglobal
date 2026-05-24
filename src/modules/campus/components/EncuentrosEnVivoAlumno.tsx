@@ -18,6 +18,7 @@ import { cn } from '@/lib/cn';
 import { fmtFechaHora, type CursoEncuentroRow } from '@/services/api/campus';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import { ZoomLiveEmbed } from './ZoomLiveEmbed';
+import { WebexLiveEmbed } from './WebexLiveEmbed';
 
 // DGG-14: panel del alumno con encuentros sincrónicos.
 //
@@ -400,15 +401,25 @@ export function ClaseEnVivoFullLayout({
             (sobre todo derecho para que los cards NO se peguen al borde).
             min-h-0 + items-stretch garantizan altura concreta del column. */}
         <main className="relative grid min-h-0 flex-1 grid-cols-1 items-stretch gap-6 overflow-hidden px-6 py-4 lg:grid-cols-[minmax(0,1fr)_260px] lg:gap-10 lg:pl-12 lg:pr-16 xl:pl-16 xl:pr-20">
-          {/* Embed Zoom — el div interno toma h-full para que clientHeight
-              sea correcto al medir desde ZoomEmbedScaled. */}
+          {/* Embed según plataforma. Zoom NO debería caer acá normalmente
+              (el alumno usa el link externo directo); si llega, fallback al
+              Zoom embed. Webex usa el widget oficial @webex/widgets. */}
           <div className="flex h-full items-center justify-center">
-            <ZoomEmbedScaled
-              encuentroId={encuentro.id}
-              userName={userName}
-              password={(encuentro as any).zoom_password ?? null}
-              onSalir={onSalir}
-            />
+            {(encuentro as any).plataforma === 'webex' ? (
+              <WebexLiveEmbed
+                encuentroId={encuentro.id}
+                userName={userName}
+                webexJoinUrl={(encuentro as any).webex_join_url ?? null}
+                onLeft={onSalir}
+              />
+            ) : (
+              <ZoomEmbedScaled
+                encuentroId={encuentro.id}
+                userName={userName}
+                password={(encuentro as any).zoom_password ?? null}
+                onSalir={onSalir}
+              />
+            )}
           </div>
 
           {/* Aside derecho — dos cards apilados verticalmente */}

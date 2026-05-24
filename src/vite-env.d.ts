@@ -10,3 +10,6 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
+
+// @webex/widgets no incluye .d.ts (sin tipos oficiales).
+declare module '@webex/widgets';
