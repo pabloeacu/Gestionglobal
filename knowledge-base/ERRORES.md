@@ -383,3 +383,36 @@
   está lista, no exponer el link. Alternativa común: convertir en filtro
   in-page (menos clicks, mantiene contexto).
 - **Fecha / módulo:** 2026-05-24 · Finanzas Bloque 1 · FinanzasDashboardPage.
+
+## E-GG-21 · Finanzas Bloque 3 · `supabase.rpc` pierde `this` al extraerlo
+- **Síntoma:** Las RPCs nuevas del Bloque 3 (`fz_listar_cajas_admin`,
+  `fz_listar_categorias_admin`, reportes, importador) devolvían silenciosamente
+  array vacío. RPC funcionaba perfecto vía curl directo (200 + datos
+  correctos), pero desde el front siempre `data=[]`. Sin errores en consola.
+  Sin requests al servidor (fetch interceptor mostraba 0 calls).
+- **Causa raíz:** En `src/services/api/finanzas-admin.ts` extraje el
+  método `rpc` del cliente Supabase para evitar el chequeo estricto de
+  type-safety sobre los nombres (porque los types `Database` no fueron
+  regenerados aún · token pendiente del usuario):
+  ```ts
+  const rpc = supabase.rpc as unknown as <T>(...) => ...;
+  ```
+  Eso desreferencia el método del objeto. Cuando se llama `rpc(name, params)`,
+  el `this` es `undefined` y Supabase JS necesita el contexto del cliente
+  para construir el builder. Internamente el builder queda incompleto
+  (sin URL base ni headers de auth), y la "promise" devuelta resuelve a
+  algo silencioso (sin rejection), interpretado por nuestro wrapper como
+  data null → `ok([])`.
+- **Fix:** Reemplazar la extracción por un wrapper function que llame
+  `supabase.rpc(...)` directamente (preserva el this):
+  ```ts
+  function rpc<T>(name: string, params?: Record<string, unknown>): RpcResult<T> {
+    return (supabase.rpc as any)(name, params) as RpcResult<T>;
+  }
+  ```
+- **Prevención:** **Nunca extraer métodos de un cliente con state** —
+  perderlos del objeto pierde el `this`. Si necesitás un alias tipado,
+  envolvelo en una función. Regla general para clientes JS (Supabase,
+  fetch wrappers, etc.).
+- **Fecha / módulo:** 2026-05-25 · Finanzas Bloque 3 · finanzas-admin.ts.
+
