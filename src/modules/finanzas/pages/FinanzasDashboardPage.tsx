@@ -119,10 +119,29 @@ export function FinanzasDashboardPage() {
         </div>
         <div className="flex flex-wrap gap-2">
           <Link
+            to="/gerencia/finanzas/reportes"
+            className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-brand-ink transition hover:bg-slate-50"
+          >
+            <TrendingUp size={14} /> Reportes
+          </Link>
+          <Link
             to="/gerencia/finanzas/conciliacion"
             className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-brand-ink transition hover:bg-slate-50"
           >
             <Landmark size={14} /> Conciliar
+          </Link>
+          <Link
+            to="/gerencia/finanzas/importar"
+            className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-brand-ink transition hover:bg-slate-50"
+          >
+            <Banknote size={14} /> Importar histórico
+          </Link>
+          <Link
+            to="/gerencia/finanzas/admin"
+            className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-brand-ink transition hover:bg-slate-50"
+            title="Administrar cajas y categorías"
+          >
+            <Wallet size={14} /> Admin
           </Link>
           <Button variant="secondary" onClick={() => setTransferOpen(true)}>
             <ArrowRightLeft size={14} /> Transferir
