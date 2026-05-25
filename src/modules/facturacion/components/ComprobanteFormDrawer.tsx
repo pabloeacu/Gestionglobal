@@ -45,6 +45,7 @@ import {
 import {
   listServiciosActivos,
   crearPrecio,
+  resolverPrecio,
   type ServicioListItem,
 } from '@/services/api/servicios';
 import {
@@ -243,9 +244,10 @@ export function ComprobanteFormDrawer({
       arr.length === 1 ? [newItem()] : arr.filter((_, idx) => idx !== i),
     );
   }
-  function pickServicio(i: number, servicioId: string) {
+  async function pickServicio(i: number, servicioId: string) {
     const s = servicios.find((x) => x.id === servicioId);
     if (!s) return;
+    // Set inmediato con precio_base para feedback instantáneo.
     setItem(i, {
       servicio_id: s.id,
       descripcion: s.nombre,
@@ -255,6 +257,28 @@ export function ComprobanteFormDrawer({
       precio_motivo: undefined,
       alicuota_iva: s.iva_alicuota as AlicuotaIva,
     });
+    // Cierre del catálogo (DGG-3 95→100%): consultar el tabulador en cascada
+    // (convenio → consorcio → administración → base) considerando este cliente.
+    // Si hay precio preferencial, lo aplicamos como `precio_base_original` para
+    // que el modal "scope" no se dispare al partir del precio que el cliente
+    // ya tiene asignado.
+    if (administracionId) {
+      try {
+        const r = await resolverPrecio(servicioId, {
+          administracionId,
+          consorcioId: consorcioId || null,
+        });
+        if (r.ok && Number(r.data.precio_unitario) > 0) {
+          const resolved = Number(r.data.precio_unitario);
+          setItem(i, {
+            precio_unitario: resolved,
+            precio_base_original: resolved,
+          });
+        }
+      } catch {
+        /* falla silenciosa · queda el precio_base si el resolver no responde */
+      }
+    }
   }
 
   // DGG-24 · Detecta desvío del precio default y abre el modal Apple-grade
