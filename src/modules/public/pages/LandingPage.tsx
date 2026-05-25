@@ -533,20 +533,145 @@ function Plataforma() {
           </Link>
         </div>
 
-        {/* imagen institucional · edificios */}
+        {/* ilustración institucional · edificios SVG */}
         <div className="relative">
           <div className="absolute -inset-4 rounded-3xl bg-gradient-to-br from-brand-cyan/30 to-brand-teal/30 blur-2xl" />
           <div className="relative overflow-hidden rounded-2xl border border-white/15 bg-white/[0.04] p-2 backdrop-blur">
-            <img
-              src="/landing/edificios.jpg"
-              alt="Edificios — gestión profesional de consorcios"
-              className="block h-auto w-full rounded-xl object-cover"
-              loading="lazy"
-            />
+            <EdificiosIlustracion />
           </div>
         </div>
       </div>
     </section>
+  );
+}
+
+// Ilustración SVG · skyline de edificios con paleta cyan/teal de marca.
+// Reemplaza el mock dashboard fake. On-brand · vectorial · sin archivo.
+function EdificiosIlustracion() {
+  // Cada edificio: { x, w, h, gradient }
+  const BUILDINGS = [
+    { x: 20,  w: 70,  h: 200, fill: 'url(#bldA)' },
+    { x: 95,  w: 60,  h: 260, fill: 'url(#bldB)' },
+    { x: 160, w: 90,  h: 340, fill: 'url(#bldC)' },
+    { x: 255, w: 110, h: 400, fill: 'url(#bldD)' }, // central · más alto
+    { x: 370, w: 65,  h: 290, fill: 'url(#bldB)' },
+    { x: 440, w: 80,  h: 350, fill: 'url(#bldC)' },
+    { x: 525, w: 55,  h: 220, fill: 'url(#bldA)' },
+  ];
+  // Ventanas: grid pequeñas en cada edificio
+  function Windows({ x, w, h }: { x: number; w: number; h: number }) {
+    const cols = Math.max(2, Math.floor(w / 14));
+    const rows = Math.max(3, Math.floor((h - 40) / 16));
+    const cellW = (w - 12) / cols;
+    const cellH = 8;
+    const gapY = 14;
+    return (
+      <g>
+        {Array.from({ length: rows }).map((_, r) =>
+          Array.from({ length: cols }).map((_, c) => {
+            const cx = x + 6 + c * cellW;
+            const cy = 460 - (r * gapY) - 16;
+            // dejar algunas ventanas off (apagadas) para realismo
+            const lit = (r + c) % 5 !== 0;
+            if (cy < 460 - h + 18) return null;
+            return (
+              <rect
+                key={`${r}-${c}`}
+                x={cx}
+                y={cy}
+                width={cellW - 4}
+                height={cellH}
+                fill={lit ? 'rgba(186,231,247,0.7)' : 'rgba(186,231,247,0.18)'}
+                rx={1}
+              />
+            );
+          }),
+        )}
+      </g>
+    );
+  }
+
+  return (
+    <svg
+      viewBox="0 0 620 460"
+      xmlns="http://www.w3.org/2000/svg"
+      role="img"
+      aria-label="Skyline de edificios — gestión profesional de consorcios"
+      className="block h-auto w-full rounded-xl"
+    >
+      <defs>
+        {/* fondo cielo · gradient sutil del color brand-ink hacia cyan oscuro */}
+        <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#0a2733" />
+          <stop offset="60%" stopColor="#0c3845" />
+          <stop offset="100%" stopColor="#0d4654" />
+        </linearGradient>
+        {/* gradientes edificios */}
+        <linearGradient id="bldA" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#22d3ee" stopOpacity="0.95" />
+          <stop offset="100%" stopColor="#0891b2" stopOpacity="0.9" />
+        </linearGradient>
+        <linearGradient id="bldB" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#67e8f9" stopOpacity="0.9" />
+          <stop offset="100%" stopColor="#0e7490" stopOpacity="0.95" />
+        </linearGradient>
+        <linearGradient id="bldC" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#a5f3fc" stopOpacity="0.85" />
+          <stop offset="100%" stopColor="#155e75" stopOpacity="0.95" />
+        </linearGradient>
+        <linearGradient id="bldD" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#cffafe" stopOpacity="0.95" />
+          <stop offset="100%" stopColor="#0d4854" stopOpacity="1" />
+        </linearGradient>
+      </defs>
+
+      {/* cielo */}
+      <rect x="0" y="0" width="620" height="460" fill="url(#sky)" />
+
+      {/* triángulos sutiles en el cielo (consistencia con TrianglesAccent) */}
+      <g opacity="0.55">
+        <polygon points="60,40 110,40 85,90" fill="#22d3ee" opacity="0.18" />
+        <polygon points="540,90 580,90 560,135" fill="#67e8f9" opacity="0.22" />
+        <polygon points="370,50 410,50 390,95" fill="#a5f3fc" opacity="0.12" />
+      </g>
+
+      {/* triángulos decorativos esquina inferior izquierda — marca */}
+      <g opacity="0.7">
+        <polygon points="0,460 70,460 0,395" fill="#22d3ee" opacity="0.35" />
+        <polygon points="20,460 60,460 20,415" fill="#67e8f9" opacity="0.5" />
+      </g>
+
+      {/* edificios */}
+      {BUILDINGS.map((b, i) => (
+        <g key={i}>
+          <rect
+            x={b.x}
+            y={460 - b.h}
+            width={b.w}
+            height={b.h}
+            fill={b.fill}
+          />
+          {/* franja superior translúcida · línea de techo */}
+          <rect
+            x={b.x}
+            y={460 - b.h}
+            width={b.w}
+            height="4"
+            fill="rgba(255,255,255,0.18)"
+          />
+          <Windows x={b.x} w={b.w} h={b.h} />
+        </g>
+      ))}
+
+      {/* línea de horizonte / vereda */}
+      <line x1="0" y1="460" x2="620" y2="460" stroke="rgba(255,255,255,0.18)" strokeWidth="1.5" />
+
+      {/* triángulo decorativo grande esquina superior derecha */}
+      <g opacity="0.4">
+        <polygon points="540,0 620,0 620,90" fill="#22d3ee" opacity="0.18" />
+        <polygon points="568,0 620,0 620,55" fill="#67e8f9" opacity="0.28" />
+      </g>
+    </svg>
   );
 }
 
