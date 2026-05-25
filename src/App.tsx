@@ -1,15 +1,17 @@
-import { lazy, Suspense, type ReactNode } from 'react';
+import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { BrandLoaderScreen } from '@/components/brand/BrandLoader';
 
 // Críticos en el árbol inicial (landing/login/layouts) → import directo.
 import { LandingPage } from '@/modules/public/pages/LandingPage';
+import { ComingSoonCoverPage } from '@/modules/public/pages/ComingSoonCoverPage';
 import { LoginPage } from '@/modules/auth/pages/LoginPage';
 import { GerenciaLayout } from '@/modules/gerencia/components/GerenciaLayout';
 import { GerenciaHome } from '@/modules/gerencia/pages/GerenciaHome';
 import { PortalLayout } from '@/modules/portal/components/PortalLayout';
 import { PortalHome } from '@/modules/portal/pages/PortalHome';
+import { getLandingCoverStatus } from '@/services/api/configGlobal';
 
 // El resto se carga bajo demanda (lazy chunks) para bajar el bundle inicial.
 const AdministracionesListPage = lazy(() => import('@/modules/clientes/pages/AdministracionesListPage').then(m => ({ default: m.AdministracionesListPage })));
@@ -80,6 +82,22 @@ function TramiteLegacyRedirect() {
 // Redirección por rol (P-AUTH-01). Sin sesión → landing pública.
 function RoleHomeOrLanding() {
   const { loading, user, session, profileMissing } = useAuth();
+  // DGG-27 · cortina pre-lanzamiento. Sólo se evalúa cuando el visitante es
+  // anónimo (sin sesión). Los usuarios logueados bypassean siempre.
+  const [coverEnabled, setCoverEnabled] = useState<boolean | null>(null);
+  useEffect(() => {
+    // Si ya hay sesión activa o todavía cargando auth, no hace falta consultar.
+    if (loading || session) {
+      setCoverEnabled(false);
+      return;
+    }
+    let cancelled = false;
+    void getLandingCoverStatus().then((v) => {
+      if (!cancelled) setCoverEnabled(v);
+    });
+    return () => { cancelled = true; };
+  }, [loading, session]);
+
   if (loading) return <BrandLoaderScreen />;
   if (!user) {
     // Hay sesión activa pero el profile todavía no resolvió: estamos
@@ -108,6 +126,9 @@ function RoleHomeOrLanding() {
         </div>
       );
     }
+    // Esperar a saber el estado de la cortina antes de pintar landing.
+    if (coverEnabled === null) return <BrandLoaderScreen />;
+    if (coverEnabled) return <ComingSoonCoverPage />;
     return <LandingPage />;
   }
   return user.role === 'administrador' ? (
@@ -137,7 +158,8 @@ export function App() {
       <Suspense fallback={<BrandLoaderScreen />}>
       <Routes>
         <Route path="/" element={<RoleHomeOrLanding />} />
-        <Route path="/inicio" element={<LandingPage />} />
+        {/* `/inicio` también usa el mismo guard que `/` (cortina vs landing). */}
+        <Route path="/inicio" element={<RoleHomeOrLanding />} />
         <Route path="/ingresar" element={<LoginPage />} />
         <Route path="/formulario/:slug" element={<FormularioPublicoPage />} />
         <Route path="/externo/:token" element={<AccesoExternoPage />} />

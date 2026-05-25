@@ -26,3 +26,21 @@ export async function updateConfigGlobal(
   if (error) return fail('CONFIG_UPDATE', error.message, error);
   return ok(data);
 }
+
+// DGG-27 · Cortina pre-lanzamiento "Proyectando mejoras extraordinarias".
+// RPC anon-callable que devuelve si la cortina está activa.
+export async function getLandingCoverStatus(): Promise<boolean> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.rpc as any)('get_landing_cover_status');
+  if (error) return false; // fail-open · si falla, mostramos landing
+  return Boolean(data);
+}
+
+export async function setLandingCover(enabled: boolean): Promise<ApiResponse<boolean>> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.rpc as any)('set_landing_cover', {
+    p_enabled: enabled,
+  });
+  if (error) return fail('LANDING_COVER_SET', error.message, error);
+  return ok(Boolean(data));
+}
