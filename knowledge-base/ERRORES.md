@@ -438,3 +438,23 @@
   hoy es manual.
 - **Fecha / módulo:** 2026-05-25 · GerenciaLayout.tsx (DGG-25).
 
+
+## E-GG-23 · Cortina mostraba flash de landing al cargar
+- **Síntoma:** Visitantes anónimos a gestionglobal.ar veían un microflash
+  donde aparecía "el sitio debajo de la cortina" antes de que la
+  ComingSoonCoverPage se renderizara correctamente.
+- **Causa raíz:** En `RoleHomeOrLanding`, el estado inicial del flag
+  `coverEnabled` era `null`. Eso forzaba renderizar `BrandLoaderScreen`
+  (fondo blanco) entre el primer paint y la respuesta del API
+  `getLandingCoverStatus()`. El cambio blanco → gradient oscuro de la
+  cortina parecía un "flash de landing" para el ojo del usuario.
+- **Fix:** Cambiar default a `true` (optimista: cubierto) + leer de
+  `localStorage.gg.cover.enabled` para visitas recurrentes. Primer render
+  ya muestra la cortina sin pasar por loader blanco. La API sigue
+  consultándose en background y actualiza el cache.
+- **Prevención:** Al diseñar gates basados en feature flags remotos,
+  cachear el último valor conocido en localStorage y usarlo como default.
+  Evita que el primer frame sea inconsistente con el estado real del
+  feature. Aplica a cualquier toggle similar (A/B tests, beta gates).
+- **Fecha / módulo:** 2026-05-25 · App.tsx RoleHomeOrLanding (DGG-27).
+
