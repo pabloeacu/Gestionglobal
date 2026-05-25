@@ -9,9 +9,12 @@ import {
   Trash2,
   GripVertical,
   Sparkles,
+  TrendingUp,
+  TrendingDown,
 } from 'lucide-react';
 import {
   Drawer,
+  Modal,
   Button,
   Field,
   Input,
@@ -41,6 +44,7 @@ import {
 } from '@/services/api/consorcios';
 import {
   listServiciosActivos,
+  crearPrecio,
   type ServicioListItem,
 } from '@/services/api/servicios';
 import {
@@ -74,8 +78,16 @@ function esFiscal(t: Tipo): t is TipoFiscal {
   return t !== 'X' && t !== 'NC_X' && t !== 'ND_X';
 }
 
+// Decisión que toma la gerente cuando edita el precio_unitario default del
+// servicio: si esto vale solo para este comprobante, si debe quedar fijo
+// para este cliente, o si actualiza la regla general del catálogo.
+type PrecioPersistencia = 'operacion' | 'cliente' | 'general';
+
 interface ItemRow extends ItemDraft {
   id: string; // local key (drag-reorder)
+  precio_base_original?: number; // precio del catálogo al elegir el servicio
+  precio_persistencia?: PrecioPersistencia;
+  precio_motivo?: string;
 }
 
 function newItem(): ItemRow {
@@ -130,6 +142,9 @@ export function ComprobanteFormDrawer({
 
   // -------- errors --------
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // -------- modal de scope de precio (DGG-24) --------
+  const [precioModal, setPrecioModal] = useState<{ idx: number; motivo: string } | null>(null);
 
   // Reset on open
   useEffect(() => {
@@ -235,8 +250,30 @@ export function ComprobanteFormDrawer({
       servicio_id: s.id,
       descripcion: s.nombre,
       precio_unitario: Number(s.precio_base),
+      precio_base_original: Number(s.precio_base),
+      precio_persistencia: undefined,
+      precio_motivo: undefined,
       alicuota_iva: s.iva_alicuota as AlicuotaIva,
     });
+  }
+
+  // DGG-24 · Detecta desvío del precio default y abre el modal Apple-grade
+  // que pregunta el alcance (operación / cliente / regla general).
+  function onPrecioBlur(idx: number) {
+    const it = items[idx];
+    if (!it) return;
+    if (!it.servicio_id || it.precio_base_original == null) return;
+    const actual = Number(it.precio_unitario);
+    const original = Number(it.precio_base_original);
+    if (actual === original) {
+      // Volvió al precio base → resetear cualquier decisión previa.
+      if (it.precio_persistencia) {
+        setItem(idx, { precio_persistencia: undefined, precio_motivo: undefined });
+      }
+      return;
+    }
+    if (it.precio_persistencia) return; // ya decidió antes
+    setPrecioModal({ idx, motivo: '' });
   }
   function moveItem(i: number, dir: -1 | 1) {
     setItems((arr) => {
@@ -295,6 +332,32 @@ export function ComprobanteFormDrawer({
       return;
     }
     setSaving(true);
+
+    // DGG-24 · Persistir cambios de precio según el alcance elegido por la
+    // gerente en el modal "scope". Se hace ANTES de crear el comprobante
+    // para que el tabulador quede consistente con el evento que lo dispara.
+    // Si algún crearPrecio falla, abortamos el flujo (no creamos comprobante
+    // con un tabulador a medias).
+    for (const it of items) {
+      if (!it.servicio_id) continue;
+      if (!it.precio_persistencia || it.precio_persistencia === 'operacion') continue;
+      const r = await crearPrecio(it.servicio_id, {
+        precio: Number(it.precio_unitario),
+        origen: 'preferencial',
+        administracion_id: it.precio_persistencia === 'cliente' ? administracionId : null,
+        motivo:
+          it.precio_motivo ||
+          `Aplicado desde comprobante ${tipo} ${fecha}`,
+      });
+      if (!r.ok) {
+        setSaving(false);
+        toast.error('No pudimos actualizar el tabulador', {
+          description: `${r.error.message} · El comprobante NO se emitió. Volvé al detalle del servicio y revisá las reglas.`,
+        });
+        return;
+      }
+    }
+
     const itemsPayload = items.map((it) => ({
       descripcion: it.descripcion.trim(),
       cantidad: Number(it.cantidad),
@@ -668,6 +731,7 @@ export function ComprobanteFormDrawer({
                           label="Precio unitario"
                           className="sm:col-span-3"
                           error={errors[`item_${idx}_precio`]}
+                          hint={precioHint(it)}
                         >
                           <Input
                             type="number"
@@ -679,6 +743,7 @@ export function ComprobanteFormDrawer({
                                 precio_unitario: Number(e.target.value),
                               })
                             }
+                            onBlur={() => onPrecioBlur(idx)}
                           />
                         </Field>
                         <Field label="Bonif. %" className="sm:col-span-2">
@@ -841,7 +906,143 @@ export function ComprobanteFormDrawer({
           )}
         </div>
       </form>
+
+      {precioModal && (() => {
+        const it = items[precioModal.idx];
+        if (!it) return null;
+        const original = Number(it.precio_base_original ?? 0);
+        const actual = Number(it.precio_unitario);
+        const diff = actual - original;
+        const admin = administraciones.find((a) => a.id === administracionId);
+        return (
+          <Modal
+            open
+            onClose={() => setPrecioModal(null)}
+            title="Precio editado · ¿qué alcance le damos?"
+            kicker="Tabulador inteligente"
+            width={540}
+          >
+            <div className="space-y-4">
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <p className="text-xs uppercase tracking-wider text-brand-muted">
+                  {it.descripcion || '(sin descripción)'}
+                </p>
+                <div className="mt-2 flex items-baseline gap-3">
+                  <span className="text-xs text-brand-muted">Catálogo:</span>
+                  <span className="text-base font-medium text-brand-ink tabular-nums">
+                    {formatMoney(original)}
+                  </span>
+                  <span className="text-xs text-brand-muted">→</span>
+                  <span className="text-xl font-bold text-brand-ink tabular-nums">
+                    {formatMoney(actual)}
+                  </span>
+                  <span
+                    className={
+                      diff > 0
+                        ? 'inline-flex items-center gap-0.5 text-sm font-medium text-emerald-700'
+                        : 'inline-flex items-center gap-0.5 text-sm font-medium text-rose-700'
+                    }
+                  >
+                    {diff > 0 ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
+                    {diff > 0 ? '+' : ''}{formatMoney(diff)}
+                  </span>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-sm text-brand-muted">¿Cómo aplicamos este cambio?</p>
+                <ScopeOption
+                  active={false}
+                  title="Solo este comprobante"
+                  description="No toca el catálogo. El próximo comprobante volverá a usar el precio base."
+                  onClick={() => {
+                    setItem(precioModal.idx, {
+                      precio_persistencia: 'operacion',
+                      precio_motivo: undefined,
+                    });
+                    setPrecioModal(null);
+                  }}
+                />
+                <ScopeOption
+                  active={false}
+                  title={admin ? `Cliente · ${admin.nombre}` : 'Este cliente'}
+                  description="Se guarda como precio preferencial para este administrador. La próxima factura le aparecerá ya con este valor."
+                  disabled={!admin}
+                  onClick={() => {
+                    setItem(precioModal.idx, {
+                      precio_persistencia: 'cliente',
+                      precio_motivo: precioModal.motivo || undefined,
+                    });
+                    setPrecioModal(null);
+                  }}
+                />
+                <ScopeOption
+                  active={false}
+                  title="Regla general del servicio"
+                  description="Actualiza el precio base del catálogo (cierra la regla actual y abre una nueva). Aplica a todos los clientes futuros."
+                  warning
+                  onClick={() => {
+                    setItem(precioModal.idx, {
+                      precio_persistencia: 'general',
+                      precio_motivo: precioModal.motivo || undefined,
+                    });
+                    setPrecioModal(null);
+                  }}
+                />
+              </div>
+
+              <Field label="Motivo (opcional)" hint="Queda en el historial del tabulador.">
+                <Input
+                  value={precioModal.motivo}
+                  onChange={(e) => setPrecioModal({ ...precioModal, motivo: e.target.value })}
+                  placeholder="Ej: Convenio nuevo · descuento por volumen"
+                />
+              </Field>
+
+              <div className="flex justify-end">
+                <Button type="button" variant="ghost" onClick={() => setPrecioModal(null)}>
+                  Cancelar
+                </Button>
+              </div>
+            </div>
+          </Modal>
+        );
+      })()}
     </Drawer>
+  );
+}
+
+function ScopeOption({
+  title,
+  description,
+  onClick,
+  warning,
+  disabled,
+}: {
+  active: boolean;
+  title: string;
+  description: string;
+  onClick: () => void;
+  warning?: boolean;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={
+        'group w-full rounded-xl border bg-white p-3 text-left transition ' +
+        (disabled
+          ? 'cursor-not-allowed border-slate-200 opacity-50'
+          : warning
+            ? 'border-amber-200 hover:border-amber-400 hover:bg-amber-50/50'
+            : 'border-slate-200 hover:border-brand-cyan hover:bg-brand-cyan/5')
+      }
+    >
+      <p className="font-medium text-brand-ink">{title}</p>
+      <p className="mt-0.5 text-xs leading-relaxed text-brand-muted">{description}</p>
+    </button>
   );
 }
 
@@ -888,4 +1089,18 @@ function formatMoney(n: number): string {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(n);
+}
+
+// DGG-24 · Hint contextual abajo del input de precio cuando difiere del default.
+function precioHint(it: ItemRow): string | undefined {
+  if (it.precio_base_original == null) return undefined;
+  const diff = Number(it.precio_unitario) - Number(it.precio_base_original);
+  if (diff === 0) return undefined;
+  const direccion = diff > 0 ? '↑' : '↓';
+  const monto = formatMoney(Math.abs(diff));
+  const base = `${direccion} ${monto} vs catálogo (${formatMoney(Number(it.precio_base_original))})`;
+  if (!it.precio_persistencia) return `${base} · pendiente decidir alcance`;
+  if (it.precio_persistencia === 'operacion') return `${base} · solo este comprobante`;
+  if (it.precio_persistencia === 'cliente') return `${base} · se guarda para este cliente`;
+  return `${base} · actualiza la regla general del servicio`;
 }
