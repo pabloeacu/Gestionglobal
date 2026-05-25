@@ -26,6 +26,9 @@ import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
 import { cn } from '@/lib/cn';
 import { KpiStripCtaCte } from '../components/KpiStripCtaCte';
 import { formatMoney, defaultDesde, defaultHasta } from '../lib/format';
+import { ExportButtons } from '@/components/reports/ExportButtons';
+import { generateReportPdf } from '@/lib/reportPdf';
+import { generateReportXls } from '@/lib/reportXls';
 
 type SortKey = 'deuda' | 'facturado' | 'cobrado' | 'nombre';
 type SortDir = 'asc' | 'desc';
@@ -123,6 +126,77 @@ export function CtaCteListPage() {
     }
   }
 
+  // DGG-26 · Export filtrado actual a PDF (branded) y XLS.
+  const exportFiltros = useMemo(() => {
+    const items: Array<{ label: string; value: string }> = [];
+    if (desde) items.push({ label: 'Desde', value: desde });
+    if (hasta) items.push({ label: 'Hasta', value: hasta });
+    items.push({
+      label: 'Estado',
+      value:
+        estadoFilter === 'todos' ? 'Todos'
+        : estadoFilter === 'con_deuda' ? 'Con deuda'
+        : estadoFilter === 'con_vencidos' ? 'Con vencidos'
+        : 'Al día',
+    });
+    if (search.trim()) items.push({ label: 'Búsqueda', value: search.trim() });
+    return items;
+  }, [desde, hasta, estadoFilter, search]);
+
+  const exportKpis = useMemo(
+    () => [
+      { label: 'Facturado', value: formatMoney(kpis.facturado), tone: 'cyan' as const },
+      { label: 'Cobrado', value: formatMoney(kpis.cobrado), tone: 'emerald' as const },
+      { label: 'Pendiente', value: formatMoney(kpis.pendiente), tone: 'amber' as const },
+      { label: 'Vencidos', value: String(kpis.vencidos), tone: 'rose' as const },
+    ],
+    [kpis],
+  );
+
+  async function onExportPdf() {
+    await generateReportPdf<ResumenGlobalRow>({
+      filename: `cuenta-corriente-${desde}_${hasta}`,
+      titulo: 'Cuenta corriente global',
+      subtitulo: `Saldos consolidados por administración · ${desde} → ${hasta}`,
+      filtros: exportFiltros,
+      kpis: exportKpis,
+      columns: [
+        { key: 'administracion_nombre', label: 'Administración', width: '34%' },
+        { key: 'total_facturado', label: 'Facturado', align: 'right', width: '16%',
+          format: (r) => formatMoney(Number(r.total_facturado || 0)) },
+        { key: 'total_cobrado', label: 'Cobrado', align: 'right', width: '16%',
+          format: (r) => formatMoney(Number(r.total_cobrado || 0)) },
+        { key: 'deuda_total', label: 'Deuda', align: 'right', width: '16%',
+          format: (r) => formatMoney(Number(r.deuda_total || 0)) },
+        { key: 'comprobantes_vencidos', label: 'Vencidos', align: 'right', width: '18%',
+          format: (r) => String(r.comprobantes_vencidos ?? 0) },
+      ],
+      rows: filtered,
+    });
+  }
+
+  async function onExportXls() {
+    generateReportXls<ResumenGlobalRow>({
+      filename: `cuenta-corriente-${desde}_${hasta}`,
+      sheetName: 'Cuenta corriente',
+      titulo: 'Cuenta corriente global · Gestión Global',
+      subtitulo: `Período: ${desde} → ${hasta}`,
+      filtros: exportFiltros,
+      columns: [
+        { key: 'administracion_nombre', label: 'Administración', width: 36 },
+        { key: 'total_facturado', label: 'Facturado',
+          value: (r) => Number(r.total_facturado || 0), width: 16 },
+        { key: 'total_cobrado', label: 'Cobrado',
+          value: (r) => Number(r.total_cobrado || 0), width: 16 },
+        { key: 'deuda_total', label: 'Deuda',
+          value: (r) => Number(r.deuda_total || 0), width: 16 },
+        { key: 'comprobantes_vencidos', label: 'Comprobantes vencidos',
+          value: (r) => Number(r.comprobantes_vencidos ?? 0), width: 20 },
+      ],
+      rows: filtered,
+    });
+  }
+
   if (loading && rows.length === 0) {
     return (
       <div className="grid place-items-center p-16">
@@ -143,13 +217,21 @@ export function CtaCteListPage() {
             Saldos consolidados por administración para el período elegido.
           </p>
         </div>
-        <Link
-          to="/gerencia/finanzas/importar"
-          className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-brand-ink transition hover:border-brand-cyan/40 hover:bg-brand-cyan/5"
-          title="Subir movimientos históricos de cobranzas y deudas de tus clientes"
-        >
-          <FileDown size={16} /> Importar histórico
-        </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          <ExportButtons
+            onExportPdf={onExportPdf}
+            onExportXls={onExportXls}
+            disabled={filtered.length === 0}
+            hint="Cuenta corriente global"
+          />
+          <Link
+            to="/gerencia/finanzas/importar"
+            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-brand-ink transition hover:border-brand-cyan/40 hover:bg-brand-cyan/5"
+            title="Subir movimientos históricos de cobranzas y deudas de tus clientes"
+          >
+            <FileDown size={16} /> Importar histórico
+          </Link>
+        </div>
       </header>
 
       <KpiStripCtaCte
