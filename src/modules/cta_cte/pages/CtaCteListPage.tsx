@@ -143,14 +143,13 @@ export function CtaCteListPage() {
             Saldos consolidados por administración para el período elegido.
           </p>
         </div>
-        <button
-          type="button"
-          disabled
-          title="Próximamente · se integrará con el módulo de Reportes"
-          className="inline-flex cursor-not-allowed items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-brand-muted opacity-60"
+        <Link
+          to="/gerencia/finanzas/importar"
+          className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-brand-ink transition hover:border-brand-cyan/40 hover:bg-brand-cyan/5"
+          title="Subir movimientos históricos de cobranzas y deudas de tus clientes"
         >
-          <FileDown size={16} /> Generar reporte
-        </button>
+          <FileDown size={16} /> Importar histórico
+        </Link>
       </header>
 
       <KpiStripCtaCte

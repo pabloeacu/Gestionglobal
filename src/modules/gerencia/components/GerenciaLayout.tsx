@@ -1,25 +1,20 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { NavLink, Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
   Users,
   Briefcase,
   FileText,
-  Wallet,
   PiggyBank,
-  AlertCircle,
   GraduationCap,
-  BarChart3,
   Settings,
   Inbox,
-  Bell,
   CalendarDays,
-  Handshake,
-  ClipboardList,
   Menu,
   X,
   Search,
   Plus,
+  ChevronDown,
   Command as CommandIcon,
 } from 'lucide-react';
 import { BrandMark } from '@/components/brand/BrandMark';
@@ -31,34 +26,88 @@ import {
 import { cn } from '@/lib/cn';
 import { UserMenu } from './UserMenu';
 
-interface NavItem {
+// Reorganización 15→9 (DGG-25): el sidebar agrupa por flujo del usuario,
+// no por afinidad técnica. "Captación" embudo de entrada. "Facturación"
+// concentra el ciclo $ con el cliente (comprobantes → CC → recupero).
+// "Finanzas" concentra la caja interna + partners (rendiciones). "Configuración"
+// abriga el catálogo de servicios (backstage, se setea una vez).
+// Reportes NO va al sidebar — los reportes se entretejen en cada pantalla
+// como botones de export (PDF/XLS) — pedido del usuario.
+
+interface NavLeaf {
   to: string;
   label: string;
-  icon: typeof Users;
   end?: boolean;
-  disabled?: boolean;
 }
 
-const NAV: NavItem[] = [
-  { to: '/gerencia', label: 'Inicio', icon: LayoutDashboard, end: true },
-  { to: '/gerencia/solicitudes', label: 'Solicitudes', icon: Bell },
-  { to: '/gerencia/clientes', label: 'Clientes', icon: Users },
-  { to: '/gerencia/servicios', label: 'Servicios', icon: Briefcase },
-  { to: '/gerencia/facturacion', label: 'Facturación', icon: FileText },
-  { to: '/gerencia/tramites', label: 'Trámites', icon: Inbox },
-  { to: '/gerencia/agenda', label: 'Agenda', icon: CalendarDays },
-  // Vencimientos pasa a vivir como TAB dentro de /gerencia/agenda
-  // (unificación temporal — mig 0040 + Agenda como hub de TODO lo que tiene fecha).
-  // La ruta directa /gerencia/vencimientos sigue activa por compat de deep-links.
-  { to: '/gerencia/cuenta-corriente', label: 'Cuenta corriente', icon: Wallet },
-  { to: '/gerencia/recupero', label: 'Recupero', icon: AlertCircle },
-  { to: '/gerencia/partners', label: 'Partners', icon: Handshake },
-  { to: '/gerencia/finanzas', label: 'Finanzas', icon: PiggyBank },
-  { to: '/gerencia/formularios', label: 'Formularios', icon: ClipboardList },
-  { to: '/gerencia/campus', label: 'Campus', icon: GraduationCap },
-  { to: '/gerencia/reportes', label: 'Reportes', icon: BarChart3 },
-  { to: '/gerencia/configuracion', label: 'Configuración', icon: Settings },
+interface NavGroup {
+  label: string;
+  icon: typeof Users;
+  to?: string; // si es directo (sin children)
+  end?: boolean;
+  children?: NavLeaf[];
+}
+
+const NAV: NavGroup[] = [
+  { label: 'Inicio', to: '/gerencia', end: true, icon: LayoutDashboard },
+  {
+    label: 'Captación',
+    icon: Inbox,
+    children: [
+      { label: 'Solicitudes', to: '/gerencia/solicitudes' },
+      { label: 'Formularios', to: '/gerencia/formularios', end: true },
+      { label: 'Webinars', to: '/gerencia/formularios/webinars' },
+      { label: 'Prospectos', to: '/gerencia/formularios/prospectos' },
+    ],
+  },
+  { label: 'Clientes', to: '/gerencia/clientes', icon: Users },
+  { label: 'Trámites', to: '/gerencia/tramites', icon: Briefcase },
+  { label: 'Agenda', to: '/gerencia/agenda', icon: CalendarDays },
+  {
+    label: 'Facturación',
+    icon: FileText,
+    children: [
+      { label: 'Comprobantes', to: '/gerencia/facturacion', end: true },
+      { label: 'Cuenta corriente', to: '/gerencia/cuenta-corriente' },
+      { label: 'Recupero', to: '/gerencia/recupero', end: true },
+    ],
+  },
+  {
+    label: 'Finanzas',
+    icon: PiggyBank,
+    children: [
+      { label: 'Cajas y movimientos', to: '/gerencia/finanzas', end: true },
+      { label: 'Conciliación', to: '/gerencia/finanzas/conciliacion' },
+      { label: 'Partners', to: '/gerencia/partners' },
+    ],
+  },
+  { label: 'Campus', to: '/gerencia/campus', icon: GraduationCap },
+  {
+    label: 'Configuración',
+    icon: Settings,
+    children: [
+      { label: 'Servicios (catálogo)', to: '/gerencia/servicios' },
+      { label: 'ARCA', to: '/gerencia/configuracion/arca' },
+      { label: 'Plantillas email', to: '/gerencia/configuracion/emails' },
+      { label: 'Datos fiscales', to: '/gerencia/configuracion', end: true },
+    ],
+  },
 ];
+
+// Helper: la ruta `pathname` matchea esa hoja del nav
+function isLeafActive(pathname: string, leaf: NavLeaf): boolean {
+  if (leaf.end) return pathname === leaf.to;
+  return pathname === leaf.to || pathname.startsWith(leaf.to + '/');
+}
+
+// Helper: este grupo contiene la ruta actual (ya sea directo o por algún child)
+function isGroupActive(pathname: string, group: NavGroup): boolean {
+  if (group.to) {
+    if (group.end) return pathname === group.to;
+    return pathname === group.to || pathname.startsWith(group.to + '/');
+  }
+  return (group.children ?? []).some((leaf) => isLeafActive(pathname, leaf));
+}
 
 export function GerenciaLayout() {
   const { user } = useAuth();
@@ -236,31 +285,102 @@ export function GerenciaLayout() {
 }
 
 function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
+  const location = useLocation();
+  // Estado de qué grupos están expandidos. Por defecto se expande el grupo
+  // que contiene la ruta actual; persiste en localStorage para que un usuario
+  // que abre/cierra grupos manualmente conserve su preferencia entre páginas.
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => {
+    try {
+      const raw = localStorage.getItem('gg.nav.openGroups');
+      if (raw) return JSON.parse(raw) as Record<string, boolean>;
+    } catch {/* ignore */}
+    return {};
+  });
+
+  // Auto-expand el grupo cuyo child es la ruta actual.
+  useEffect(() => {
+    const active = NAV.find(
+      (g) => g.children && isGroupActive(location.pathname, g),
+    );
+    if (active && !openGroups[active.label]) {
+      setOpenGroups((prev) => ({ ...prev, [active.label]: true }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname]);
+
+  function toggleGroup(label: string) {
+    setOpenGroups((prev) => {
+      const next = { ...prev, [label]: !prev[label] };
+      try { localStorage.setItem('gg.nav.openGroups', JSON.stringify(next)); } catch {/* ignore */}
+      return next;
+    });
+  }
+
   return (
     <nav className="flex-1 overflow-y-auto px-3 py-5">
-      <ul className="space-y-1">
+      <ul className="space-y-0.5">
         {NAV.map((item) => {
           const Icon = item.icon;
-          if (item.disabled) {
+          const active = isGroupActive(location.pathname, item);
+
+          // Grupo con sub-items → expandible.
+          if (item.children) {
+            const expanded = openGroups[item.label] ?? active;
             return (
-              <li key={item.to}>
-                <span
-                  className="flex cursor-not-allowed items-center gap-3 rounded-lg px-3 py-2 text-sm text-brand-muted/70"
-                  title="Próximamente"
+              <li key={item.label} className="mb-1">
+                <button
+                  type="button"
+                  onClick={() => toggleGroup(item.label)}
+                  className={cn(
+                    'flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition',
+                    active
+                      ? 'bg-brand-cyan/10 text-brand-cyan'
+                      : 'text-brand-ink/80 hover:bg-slate-100 hover:text-brand-ink',
+                  )}
+                  aria-expanded={expanded}
                 >
                   <Icon size={17} />
-                  {item.label}
-                  <span className="ml-auto rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-brand-muted">
-                    pronto
-                  </span>
-                </span>
+                  <span>{item.label}</span>
+                  <ChevronDown
+                    size={14}
+                    className={cn(
+                      'ml-auto transition-transform',
+                      expanded ? 'rotate-0' : '-rotate-90',
+                    )}
+                  />
+                </button>
+                {expanded && (
+                  <ul className="mt-0.5 space-y-0.5 pl-3">
+                    {item.children.map((leaf) => (
+                      <li key={leaf.to}>
+                        <NavLink
+                          to={leaf.to}
+                          end={leaf.end}
+                          onClick={onNavigate}
+                          className={({ isActive }) =>
+                            cn(
+                              'flex items-center gap-3 rounded-lg border-l border-slate-200 px-3 py-1.5 pl-5 text-[13px] transition',
+                              isActive
+                                ? 'border-brand-cyan bg-brand-cyan/5 font-medium text-brand-cyan'
+                                : 'text-brand-ink/75 hover:bg-slate-100 hover:text-brand-ink',
+                            )
+                          }
+                        >
+                          {leaf.label}
+                        </NavLink>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </li>
             );
           }
+
+          // Item simple (sin children) → NavLink directo.
           return (
             <li key={item.to}>
               <NavLink
-                to={item.to}
+                to={item.to!}
                 end={item.end}
                 onClick={onNavigate}
                 className={({ isActive }) =>
