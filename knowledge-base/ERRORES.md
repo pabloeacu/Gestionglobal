@@ -458,3 +458,45 @@
   feature. Aplica a cualquier toggle similar (A/B tests, beta gates).
 - **Fecha / módulo:** 2026-05-25 · App.tsx RoleHomeOrLanding (DGG-27).
 
+
+## E-GG-24 · Cortina seguía haciendo flash de landing (continuación E-GG-23)
+- **Síntoma:** Tras el fix E-GG-23 el usuario reportó que el flash persistía:
+  "Sigo con el flash entre la cortina y la landing".
+- **Causa raíz (descubierta al revisar el useEffect):** El gate tenía una
+  línea trampa: `if (loading || session) setCoverEnabled(false); return;`.
+  Durante `loading=true` ese branch corría y *forzaba* `coverEnabled=false`,
+  pisando el default optimista cacheado. Cuando `loading` pasaba a `false`,
+  el render era `coverEnabled=false + !user` → `<LandingPage />` durante los
+  ~200 ms que tardaba la RPC `get_landing_cover_status()` en responder. Ese
+  intervalo era el flash. Además, aunque la cortina ganaba al terminar el
+  fetch, antes del fix los visitantes pasaban por `BrandLoaderScreen` blanco
+  → cortina oscura, lo que también se percibía como flash.
+- **Fix multi-capa (commit ec12de8):**
+  1. `useEffect`: si `loading`, retornar sin tocar `coverEnabled`. Solo
+     setear a `false` cuando `session` está confirmada. Solo fetchar la
+     RPC cuando `loading=false` y `session=null`.
+  2. `RoleHomeOrLanding` JSX: para anónimos (`!session`) saltar el
+     `BrandLoaderScreen` blanco — ir directo a cortina o landing según
+     el `coverEnabled` cacheado. Elimina la transición blanco→oscuro.
+  3. `index.html`: splash inline (`<div id="boot-splash">` con gradient
+     ink→teal + logo + halo cyan) que cubre el viewport en el **primer
+     paint del browser**, antes incluso de que React boot. React, una
+     vez listo (`useEffect` con `!loading`), setea `data-app-ready="1"`
+     en `<html>` y el splash hace fade-out 220 ms. Si el destino final
+     es la cortina, el reemplazo es visualmente idéntico → 0 flash.
+  4. Splash se elimina del DOM tras `transitionend` para no interceptar
+     nada (aunque tiene `pointer-events: none` igual).
+- **Prevención:**
+  - **Nunca toques un estado optimista durante `loading`**. Si tenés un
+    default sensato y un fetch async, dejá el default visible hasta que
+    el fetch responda. Setear a un valor "transitorio" durante loading
+    es lo que generó el flash acá.
+  - **Para feature gates anti-flash, garantizar el primer paint**.
+    `useState` con default + `localStorage.cache` no es suficiente si
+    además mostrás un loader intermedio con bg distinto al destino. El
+    splash inline en `index.html` es defense-in-depth: cubre el gap
+    entre primer paint del browser y la mount de React.
+  - QA: testear con localStorage limpio, SW desregistrado, en una pestaña
+    de incógnito. Si pasa esos tres, está sólido.
+- **Fecha / módulo:** 2026-05-25 · App.tsx + index.html (DGG-27 cierre).
+
