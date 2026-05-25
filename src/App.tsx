@@ -84,7 +84,18 @@ function RoleHomeOrLanding() {
   const { loading, user, session, profileMissing } = useAuth();
   // DGG-27 · cortina pre-lanzamiento. Sólo se evalúa cuando el visitante es
   // anónimo (sin sesión). Los usuarios logueados bypassean siempre.
-  const [coverEnabled, setCoverEnabled] = useState<boolean | null>(null);
+  //
+  // FIX flash (E-GG-23): default optimista = cubierto + cache en localStorage.
+  // Antes el estado inicial era `null` → BrandLoaderScreen (fondo blanco) → cortina
+  // (gradient oscuro). El cambio blanco→oscuro se veía como "flash de landing".
+  // Ahora arrancamos con `true` (cortina ya visible) y refrescamos en background.
+  const [coverEnabled, setCoverEnabled] = useState<boolean>(() => {
+    try {
+      const cached = localStorage.getItem('gg.cover.enabled');
+      if (cached === 'true' || cached === 'false') return cached === 'true';
+    } catch {/* ignore */}
+    return true; // optimista: cubierto hasta confirmar
+  });
   useEffect(() => {
     // Si ya hay sesión activa o todavía cargando auth, no hace falta consultar.
     if (loading || session) {
@@ -93,7 +104,9 @@ function RoleHomeOrLanding() {
     }
     let cancelled = false;
     void getLandingCoverStatus().then((v) => {
-      if (!cancelled) setCoverEnabled(v);
+      if (cancelled) return;
+      setCoverEnabled(v);
+      try { localStorage.setItem('gg.cover.enabled', String(v)); } catch {/* ignore */}
     });
     return () => { cancelled = true; };
   }, [loading, session]);
@@ -126,8 +139,9 @@ function RoleHomeOrLanding() {
         </div>
       );
     }
-    // Esperar a saber el estado de la cortina antes de pintar landing.
-    if (coverEnabled === null) return <BrandLoaderScreen />;
+    // `coverEnabled` arranca con `true` (default optimista) o el último valor
+    // conocido en localStorage. El primer render YA muestra la cortina, sin
+    // pasar por loader blanco intermedio.
     if (coverEnabled) return <ComingSoonCoverPage />;
     return <LandingPage />;
   }
