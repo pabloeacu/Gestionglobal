@@ -12,10 +12,10 @@ import {
   Scale,
   PlayCircle,
   CheckCircle2,
-  Sparkles,
 } from 'lucide-react';
 import { SiteNav } from '@/components/site/SiteNav';
 import { SiteFooter } from '@/components/site/SiteFooter';
+import { BrandMark } from '@/components/brand/BrandMark';
 import { HighlightMark } from '@/components/brand/HighlightMark';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 
@@ -210,9 +210,9 @@ function Hero() {
       />
 
       <div className="mx-auto max-w-6xl px-6 py-20 text-center sm:py-28">
-        <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-brand-cyan animate-fade-up">
-          <Sparkles size={12} /> Aliados de tu tiempo
-        </span>
+        <div className="flex justify-center animate-fade-up">
+          <BrandMark variant="light" size={56} withSlogan />
+        </div>
 
         <h1
           className="mx-auto mt-8 max-w-4xl animate-fade-up font-display text-5xl font-extrabold leading-[1.02] tracking-tight sm:text-7xl"
@@ -251,26 +251,8 @@ function Hero() {
           </a>
         </div>
 
-        {/* metrics tira */}
-        <div
-          className="mx-auto mt-20 grid w-full max-w-3xl grid-cols-3 divide-x divide-slate-200 rounded-2xl border border-slate-200 bg-white animate-fade-up"
-          style={{ animationDelay: '320ms' }}
-        >
-          <Metric value="+20 años" label="de trayectoria en PH" />
-          <Metric value="2 jurisdicciones" label="PBA · CABA" />
-          <Metric value="100%" label="online · sin moverte" />
-        </div>
       </div>
     </section>
-  );
-}
-
-function Metric({ value, label }: { value: string; label: string }) {
-  return (
-    <div className="px-6 py-6 text-center">
-      <p className="font-display text-2xl font-extrabold text-brand-ink">{value}</p>
-      <p className="mt-1 text-xs uppercase tracking-wider text-brand-muted">{label}</p>
-    </div>
   );
 }
 
@@ -551,69 +533,20 @@ function Plataforma() {
           </Link>
         </div>
 
-        {/* mock visual */}
+        {/* imagen institucional · edificios */}
         <div className="relative">
           <div className="absolute -inset-4 rounded-3xl bg-gradient-to-br from-brand-cyan/30 to-brand-teal/30 blur-2xl" />
-          <div className="relative rounded-2xl border border-white/15 bg-white/[0.06] p-2 backdrop-blur">
-            <div className="overflow-hidden rounded-xl bg-brand-ink">
-              <div className="flex items-center gap-1.5 px-4 py-3">
-                <span className="h-2.5 w-2.5 rounded-full bg-white/20" />
-                <span className="h-2.5 w-2.5 rounded-full bg-white/20" />
-                <span className="h-2.5 w-2.5 rounded-full bg-white/20" />
-              </div>
-              <div className="grid grid-cols-3 gap-3 px-4 pb-5">
-                <DashCard kicker="Facturado" value="$ 4.8 M" />
-                <DashCard kicker="Cobranzas" value="$ 3.2 M" tone="cyan" />
-                <DashCard kicker="Saldo" value="$ 1.6 M" />
-                <div className="col-span-3 rounded-lg bg-white/[0.04] p-4">
-                  <p className="kicker text-white/60">Cash flow mensual</p>
-                  <div className="mt-3 flex items-end gap-1.5 h-20">
-                    {[40, 65, 50, 80, 70, 90, 75, 95].map((h, i) => (
-                      <span
-                        key={i}
-                        style={{ height: `${h}%` }}
-                        className={
-                          'flex-1 rounded-t ' +
-                          (i % 2 === 0
-                            ? 'bg-brand-cyan/80'
-                            : 'bg-brand-teal/70')
-                        }
-                      />
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
+          <div className="relative overflow-hidden rounded-2xl border border-white/15 bg-white/[0.04] p-2 backdrop-blur">
+            <img
+              src="/landing/edificios.jpg"
+              alt="Edificios — gestión profesional de consorcios"
+              className="block h-auto w-full rounded-xl object-cover"
+              loading="lazy"
+            />
           </div>
         </div>
       </div>
     </section>
-  );
-}
-
-function DashCard({
-  kicker,
-  value,
-  tone,
-}: {
-  kicker: string;
-  value: string;
-  tone?: 'cyan';
-}) {
-  return (
-    <div
-      className={
-        'rounded-lg p-3 ' +
-        (tone === 'cyan' ? 'bg-brand-cyan/20' : 'bg-white/[0.04]')
-      }
-    >
-      <p className="text-[10px] uppercase tracking-wider text-white/55">
-        {kicker}
-      </p>
-      <p className="mt-1 font-display text-base font-bold text-white">
-        {value}
-      </p>
-    </div>
   );
 }
 
@@ -667,6 +600,24 @@ function Cursos() {
               </span>
             </li>
           </ul>
+
+          {/* Highlight · trayectoria educativa */}
+          <div className="mt-10 flex flex-col gap-4 rounded-2xl border border-brand-cyan/25 bg-gradient-to-br from-brand-cyan-pale/40 via-white to-brand-teal/10 p-6 sm:flex-row sm:items-center">
+            <div className="flex shrink-0 items-baseline gap-2">
+              <span className="font-display text-5xl font-extrabold leading-none text-brand-cyan">
+                +400
+              </span>
+              <span className="text-xs uppercase tracking-wider text-brand-muted">
+                alumnos
+              </span>
+            </div>
+            <p className="font-display text-lg font-bold leading-tight text-brand-ink sm:text-xl">
+              <HighlightMark tone="cyan">
+                Formando una generación
+              </HighlightMark>{' '}
+              de administradores de excelencia.
+            </p>
+          </div>
         </div>
 
         <div className="lg:col-span-2">
