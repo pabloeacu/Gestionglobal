@@ -15,9 +15,80 @@
       rel="stylesheet"
     />
     <title>Gestión Global · Aliados de tu tiempo</title>
+    <!--
+      DGG-27 · Splash inline anti-flash (E-GG-23 / E-GG-24).
+      Pinta el fondo de la cortina en el PRIMER paint, antes incluso de que
+      React monte. React, una vez listo, setea `data-app-ready="1"` en <html>
+      y el splash se desvanece. Si la decisión final es mostrar la cortina,
+      el reemplazo es visualmente idéntico → no hay flash.
+    -->
+    <style>
+      /* Mientras el splash está montado el body queda oscuro; cuando React
+         está listo y el splash se va, body vuelve a su default (las páginas
+         se pintan con su propio fondo, así que esto no se ve nunca). */
+      html { background: #0b1f33; }
+      body { margin: 0; }
+      #boot-splash {
+        position: fixed;
+        inset: 0;
+        z-index: 2147483646;
+        background:
+          radial-gradient(900px 900px at 50% 50%, rgba(0,158,202,0.10), transparent 60%),
+          linear-gradient(135deg, #0b1f33 0%, #0b1f33 55%, #073f4d 100%);
+        display: grid;
+        place-items: center;
+        color: #fff;
+        font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+        transition: opacity 220ms ease;
+        pointer-events: none;
+      }
+      #boot-splash .b-mark {
+        width: 88px;
+        height: 88px;
+        opacity: 0.92;
+        filter: drop-shadow(0 8px 22px rgba(0,158,202,0.35));
+        animation: bs-breath 2.6s ease-in-out infinite;
+      }
+      #boot-splash .b-halo {
+        position: absolute;
+        width: 220px;
+        height: 220px;
+        border-radius: 9999px;
+        background: radial-gradient(closest-side, rgba(0,158,202,0.22), transparent 70%);
+        filter: blur(12px);
+        animation: bs-pulse 2.6s ease-in-out infinite;
+      }
+      @keyframes bs-breath {
+        0%, 100% { transform: scale(1); }
+        50%      { transform: scale(1.05); }
+      }
+      @keyframes bs-pulse {
+        0%, 100% { opacity: .55; transform: scale(1); }
+        50%      { opacity: .85; transform: scale(1.08); }
+      }
+      html[data-app-ready="1"] #boot-splash {
+        opacity: 0;
+      }
+    </style>
   </head>
   <body>
+    <div id="boot-splash" aria-hidden="true">
+      <span class="b-halo"></span>
+      <img class="b-mark" src="/icons/icon-512.png" alt="" />
+    </div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <script>
+      // Cuando el splash termina su fade-out, lo sacamos del DOM para que no
+      // intercepte nada (aunque tiene pointer-events:none, mejor limpio).
+      document.addEventListener('transitionend', function onEnd(e) {
+        var el = document.getElementById('boot-splash');
+        if (!el || e.target !== el) return;
+        if (document.documentElement.getAttribute('data-app-ready') === '1') {
+          el.remove();
+          document.removeEventListener('transitionend', onEnd);
+        }
+      });
+    </script>
   </body>
 </html>

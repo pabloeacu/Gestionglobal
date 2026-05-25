@@ -85,10 +85,15 @@ function RoleHomeOrLanding() {
   // DGG-27 · cortina pre-lanzamiento. Sólo se evalúa cuando el visitante es
   // anónimo (sin sesión). Los usuarios logueados bypassean siempre.
   //
-  // FIX flash (E-GG-23): default optimista = cubierto + cache en localStorage.
-  // Antes el estado inicial era `null` → BrandLoaderScreen (fondo blanco) → cortina
-  // (gradient oscuro). El cambio blanco→oscuro se veía como "flash de landing".
-  // Ahora arrancamos con `true` (cortina ya visible) y refrescamos en background.
+  // FIX flash (E-GG-23 + E-GG-24): el bug real estaba en el useEffect, que durante
+  // `loading=true` hacía `setCoverEnabled(false)`. Entre que `loading` pasaba a
+  // false y la RPC `get_landing_cover_status` respondía (≈200 ms), el render
+  // intermedio era `coverEnabled=false + !user` → LandingPage. ESE era el flash.
+  //
+  // Solución: mientras `loading=true`, no tocamos `coverEnabled` (queda en `true`
+  // por default optimista o el último valor cacheado). Y para visitantes
+  // anónimos saltamos el BrandLoaderScreen (blanco) y vamos directo a la cortina,
+  // evitando el "fade" blanco→oscuro entre loader y cortina.
   const [coverEnabled, setCoverEnabled] = useState<boolean>(() => {
     try {
       const cached = localStorage.getItem('gg.cover.enabled');
@@ -97,11 +102,16 @@ function RoleHomeOrLanding() {
     return true; // optimista: cubierto hasta confirmar
   });
   useEffect(() => {
-    // Si ya hay sesión activa o todavía cargando auth, no hace falta consultar.
-    if (loading || session) {
+    // Mientras auth carga, no tocamos coverEnabled (E-GG-24).
+    if (loading) return;
+    // Logueado: la cortina no aplica. Lo seteamos a false por las dudas
+    // (aunque el render con `user` redirige a /gerencia o /portal y nunca
+    // pasa por la rama de la cortina).
+    if (session) {
       setCoverEnabled(false);
       return;
     }
+    // Anónimo: traemos el valor real desde BD y refrescamos caché.
     let cancelled = false;
     void getLandingCoverStatus().then((v) => {
       if (cancelled) return;
@@ -111,7 +121,25 @@ function RoleHomeOrLanding() {
     return () => { cancelled = true; };
   }, [loading, session]);
 
-  if (loading) return <BrandLoaderScreen />;
+  // Ocultamos el splash inline de index.html una vez que React decidió qué
+  // mostrar. Si la decisión es "cortina", el splash y la cortina son visual-
+  // mente idénticos, así que el reemplazo es invisible (no flash).
+  useEffect(() => {
+    if (!loading) {
+      document.documentElement.setAttribute('data-app-ready', '1');
+    }
+  }, [loading]);
+
+  if (loading) {
+    // Para anónimos (sin sesión guardada), no tiene sentido mostrar el loader
+    // blanco — ya sabemos qué vamos a renderizar (cortina o landing según
+    // coverEnabled). Esto elimina la transición blanco→oscuro percibida como
+    // "flash". Logueados sí ven el loader hasta que resuelva el profile.
+    if (!session) {
+      return coverEnabled ? <ComingSoonCoverPage /> : <LandingPage />;
+    }
+    return <BrandLoaderScreen />;
+  }
   if (!user) {
     // Hay sesión activa pero el profile todavía no resolvió: estamos
     // completando el login. Mostrar el loader, NO la landing (evita el
