@@ -6,19 +6,21 @@ export function SiteFooter() {
     <footer className="border-t border-slate-200 bg-white">
       <div className="mx-auto grid max-w-7xl gap-12 px-6 py-16 md:grid-cols-4">
         <div className="md:col-span-2">
-          <BrandMark variant="light" size={40} withSlogan />
+          <BrandMark variant="light" size={56} withSlogan />
           <p className="mt-5 max-w-sm text-sm leading-relaxed text-brand-muted">
             Gestoría, capacitación, declaraciones juradas, asesoramiento
-            jurídico y la suite de gestión — todo en un único lugar.
+            jurídico y plataforma de gestión integral — todo en un único
+            lugar.
           </p>
         </div>
 
         <div>
-          <p className="kicker">Plataforma</p>
+          <p className="kicker">Navegación</p>
           <ul className="mt-4 space-y-2 text-sm text-brand-ink/80">
             <li><a href="#servicios" className="hover:text-brand-cyan">Servicios</a></li>
-            <li><a href="#plataforma" className="hover:text-brand-cyan">Administración Global</a></li>
+            <li><a href="#plataforma" className="hover:text-brand-cyan">Plataforma</a></li>
             <li><a href="#cursos" className="hover:text-brand-cyan">Cursos</a></li>
+            <li><a href="#nosotros" className="hover:text-brand-cyan">Nosotros</a></li>
             <li><a href="/ingresar" className="hover:text-brand-cyan">Ingresar</a></li>
           </ul>
         </div>
