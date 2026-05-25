@@ -87,9 +87,9 @@ const NAV: NavGroup[] = [
     icon: Settings,
     children: [
       { label: 'Servicios (catálogo)', to: '/gerencia/servicios' },
-      { label: 'ARCA', to: '/gerencia/configuracion/arca' },
-      { label: 'Plantillas email', to: '/gerencia/configuracion/emails' },
-      { label: 'Datos fiscales', to: '/gerencia/configuracion', end: true },
+      { label: 'ARCA · facturación', to: '/gerencia/configuracion/arca', end: true },
+      { label: 'Plantillas email', to: '/gerencia/configuracion/emails/templates' },
+      // Datos fiscales (config_global) pendiente · DGG futuro
     ],
   },
 ];
