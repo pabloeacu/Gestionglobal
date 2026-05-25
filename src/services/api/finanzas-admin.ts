@@ -8,11 +8,13 @@ import { ok, fail, toApiError, type ApiResponse } from '@/lib/errors';
 //
 // NOTA: los types de Database aún no incluyen los nuevos RPCs `fz_*` porque
 // no se regeneraron (token de Supabase pendiente del usuario). Para evitar
-// errores TS y mantener type-safety local, casteamos el rpc() de Supabase
-// a una firma genérica. Una vez regenerados los types, este helper puede
-// reemplazarse por la llamada directa.
+// errores TS y mantener type-safety local, envolvemos rpc() con un wrapper
+// que preserva el this binding (regla: extraer un método pierde `this`).
 type RpcResult<T> = Promise<{ data: T | null; error: { message: string } | null }>;
-const rpc = supabase.rpc as unknown as <T>(name: string, params?: Record<string, unknown>) => RpcResult<T>;
+function rpc<T>(name: string, params?: Record<string, unknown>): RpcResult<T> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (supabase.rpc as any)(name, params) as RpcResult<T>;
+}
 
 // ────────────────────────────────────────────────────────────────
 // 3.A · Cajas custom
