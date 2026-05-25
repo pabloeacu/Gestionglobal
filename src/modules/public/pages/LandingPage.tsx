@@ -211,7 +211,7 @@ function Hero() {
 
       <div className="mx-auto max-w-6xl px-6 py-20 text-center sm:py-28">
         <div className="flex justify-center animate-fade-up">
-          <BrandMark variant="light" size={56} withSlogan />
+          <BrandMark variant="light" size={96} withSlogan />
         </div>
 
         <h1
