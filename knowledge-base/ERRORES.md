@@ -416,3 +416,25 @@
   fetch wrappers, etc.).
 - **Fecha / módulo:** 2026-05-25 · Finanzas Bloque 3 · finanzas-admin.ts.
 
+
+## E-GG-22 · Sidebar 15→9 · 2 rutas inválidas en Configuración
+- **Síntoma:** Tras el refactor del sidebar (DGG-25), 2 sub-items de
+  Configuración llevaban a destinos incorrectos:
+  1. "Plantillas email" → `/gerencia/configuracion/emails` → redirect a
+     Inicio (la ruta no existía).
+  2. "Datos fiscales" → `/gerencia/configuracion` → redirect a /arca
+     (no había página específica de datos fiscales).
+- **Causa raíz:** El refactor del NAV se hizo sin verificar contra
+  `App.tsx` las rutas reales de cada destino. La ruta REAL del template
+  email es `/gerencia/configuracion/emails/templates` (con `/templates`);
+  y la página de "Datos fiscales" simplemente no existe (config_global
+  sin UI dedicada).
+- **Fix:** (a) Plantillas email apunta ahora a la ruta correcta.
+  (b) Datos fiscales eliminado del menú (no hay página) · queda para
+  futuro DGG cuando se construya la UI de config_global.
+- **Prevención:** Al definir NAV_GROUPS, validar cada `to` contra el
+  router con `npm run dev` o un script automatizado. Idealmente,
+  generar el sidebar a partir del router (single source of truth) ·
+  hoy es manual.
+- **Fecha / módulo:** 2026-05-25 · GerenciaLayout.tsx (DGG-25).
+
