@@ -56,7 +56,7 @@ export function ComingSoonCoverPage() {
           style={{ animationDelay: '120ms' }}
         >
           <Sparkles size={13} className="text-brand-cyan" />
-          Pronto · Nueva era
+          Pronto · Nueva temporada
         </div>
 
         {/* Título display */}
@@ -76,7 +76,7 @@ export function ComingSoonCoverPage() {
           className="mt-7 max-w-2xl text-lg leading-relaxed text-white/75 animate-fade-up sm:text-xl"
           style={{ animationDelay: '300ms' }}
         >
-          Estamos preparando una nueva era para la gestión de tu administración.
+          Estamos preparando una nueva temporada para la gestión de tu administración.
           <br className="hidden sm:block" />
           Volvemos muy pronto con un ecosistema integral, premium y a la altura
           de tu trabajo.
