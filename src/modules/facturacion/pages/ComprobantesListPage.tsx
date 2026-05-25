@@ -32,6 +32,9 @@ import {
   type CobranzaEstado,
 } from '@/services/api/comprobantes';
 import { cn } from '@/lib/cn';
+import { ExportButtons } from '@/components/reports/ExportButtons';
+import { generateReportPdf } from '@/lib/reportPdf';
+import { generateReportXls } from '@/lib/reportXls';
 
 type EstadoFilter = ComprobanteEstado | 'todos';
 type CobranzaFilter = CobranzaEstado | 'todos';
@@ -123,6 +126,89 @@ export function ComprobantesListPage() {
     return { emitidos, totalEmitido, totalPendiente, totalVencido };
   }, [rows]);
 
+  // DGG-26 · Export a PDF/XLS del filtrado actual.
+  const exportFiltros = useMemo<Array<{ label: string; value: string }>>(() => {
+    const items: Array<{ label: string; value: string }> = [];
+    if (periodo) items.push({ label: 'Período', value: periodo.slice(0, 7) });
+    items.push({
+      label: 'Estado',
+      value: estado === 'todos' ? 'Todos' : ESTADO_BADGES[estado]?.label ?? estado,
+    });
+    items.push({
+      label: 'Cobranza',
+      value:
+        cobranza === 'todos' ? 'Todas' : COBRANZA_BADGES[cobranza]?.label ?? cobranza,
+    });
+    if (search.trim()) items.push({ label: 'Búsqueda', value: search.trim() });
+    return items;
+  }, [periodo, estado, cobranza, search]);
+
+  function formatComprobante(r: ComprobanteListItem): string {
+    return `${r.tipo} ${String(r.punto_venta).padStart(5, '0')}-${
+      r.numero ? String(r.numero).padStart(8, '0') : '—'
+    }`;
+  }
+
+  async function onExportPdf() {
+    await generateReportPdf<ComprobanteListItem>({
+      filename: `comprobantes-${periodo?.slice(0, 7) || new Date().toISOString().slice(0, 7)}`,
+      titulo: 'Comprobantes',
+      subtitulo: `Facturación · ${periodo?.slice(0, 7) || 'todos los periodos'}`,
+      filtros: exportFiltros,
+      kpis: [
+        { label: 'Emitidos', value: String(kpis.emitidos), tone: 'cyan' },
+        { label: 'Total emitido', value: formatMoney(kpis.totalEmitido), tone: 'emerald' },
+        { label: 'Pendiente', value: formatMoney(kpis.totalPendiente), tone: 'amber' },
+        { label: 'Vencido', value: formatMoney(kpis.totalVencido), tone: 'rose' },
+      ],
+      columns: [
+        { key: 'tipo', label: 'Comprobante', width: '20%',
+          format: (r) => formatComprobante(r) },
+        { key: 'fecha', label: 'Fecha', width: '12%',
+          format: (r) => r.fecha ? formatDate(r.fecha) : '—' },
+        { key: 'administracion_nombre', label: 'Administración', width: '24%' },
+        { key: 'total', label: 'Total', align: 'right', width: '14%',
+          format: (r) => formatMoney(r.total) },
+        { key: 'estado_cobranza', label: 'Cobranza', width: '14%',
+          format: (r) => COBRANZA_BADGES[r.estado_cobranza as CobranzaEstado]?.label ?? r.estado_cobranza },
+        { key: 'estado', label: 'Estado', width: '16%',
+          format: (r) => ESTADO_BADGES[r.estado as ComprobanteEstado]?.label ?? r.estado },
+      ],
+      rows,
+    });
+  }
+
+  async function onExportXls() {
+    generateReportXls<ComprobanteListItem>({
+      filename: `comprobantes-${periodo?.slice(0, 7) || new Date().toISOString().slice(0, 7)}`,
+      sheetName: 'Comprobantes',
+      titulo: 'Comprobantes · Gestión Global',
+      subtitulo: periodo ? `Período: ${periodo.slice(0, 7)}` : undefined,
+      filtros: exportFiltros,
+      columns: [
+        { key: 'tipo', label: 'Tipo', width: 8 },
+        { key: 'numero', label: 'Número', width: 18,
+          value: (r) => `${String(r.punto_venta).padStart(5, '0')}-${
+            r.numero ? String(r.numero).padStart(8, '0') : ''
+          }` },
+        { key: 'fecha', label: 'Fecha', width: 14,
+          value: (r) => r.fecha ? new Date(r.fecha) : null },
+        { key: 'administracion_nombre', label: 'Administración', width: 28 },
+        { key: 'receptor_razon_social', label: 'Receptor', width: 24,
+          value: (r) => r.receptor_razon_social ?? '' },
+        { key: 'total', label: 'Total', width: 14,
+          value: (r) => Number(r.total ?? 0) },
+        { key: 'saldo_pendiente', label: 'Saldo pendiente', width: 16,
+          value: (r) => Number(r.saldo_pendiente ?? 0) },
+        { key: 'estado_cobranza', label: 'Cobranza', width: 14,
+          value: (r) => COBRANZA_BADGES[r.estado_cobranza as CobranzaEstado]?.label ?? r.estado_cobranza },
+        { key: 'estado', label: 'Estado', width: 14,
+          value: (r) => ESTADO_BADGES[r.estado as ComprobanteEstado]?.label ?? r.estado },
+      ],
+      rows,
+    });
+  }
+
   return (
     <div className="mx-auto max-w-7xl space-y-6">
       <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -136,9 +222,17 @@ export function ComprobantesListPage() {
             Envío por email, cobranzas e imputación a cuenta corriente.
           </p>
         </div>
-        <Button onClick={() => setDrawerOpen(true)}>
-          <Plus size={16} /> Nuevo comprobante
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <ExportButtons
+            onExportPdf={onExportPdf}
+            onExportXls={onExportXls}
+            disabled={rows.length === 0}
+            hint="Comprobantes"
+          />
+          <Button onClick={() => setDrawerOpen(true)}>
+            <Plus size={16} /> Nuevo comprobante
+          </Button>
+        </div>
       </header>
 
       {/* KPIs */}

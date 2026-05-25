@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Award,
   Banknote,
@@ -37,6 +37,9 @@ import { AsignarAlumnoDrawer } from './AsignarAlumnoDrawer';
 import { CertificadoPreviewModal } from './CertificadoPreviewModal';
 import { RegistrarPagoModal } from './RegistrarPagoModal';
 import type { CertificadoParaPdf } from '@/services/api/campus';
+import { ExportButtons } from '@/components/reports/ExportButtons';
+import { generateReportPdf } from '@/lib/reportPdf';
+import { generateReportXls } from '@/lib/reportXls';
 
 // Tab de gestión de matrículas: lista de alumnos asignados al curso con su
 // checklist de condiciones tildable por staff (DGG-10). El examen aparece
@@ -124,6 +127,81 @@ export function GestionMatriculasTab({ data }: { data: CursoDetalle }) {
     void load();
   }
 
+  // DGG-26 · Export a PDF/XLS de las matrículas del curso, con su resumen de
+  // condiciones cumplidas y certificado emitido.
+  const exportRows = useMemo(() => {
+    return matriculas.map((m) => {
+      const conds = (condiciones[m.id] ?? []).filter((c) => c.activa);
+      const total = conds.length;
+      const cumplidas = conds.filter((c) => c.cumplida).length;
+      const cert = certificados[m.id] ?? null;
+      return {
+        ...m,
+        condiciones_resumen: total > 0 ? `${cumplidas}/${total}` : '—',
+        certificado_codigo: cert?.codigo ?? '',
+        certificado_emitido: !!cert,
+      };
+    });
+  }, [matriculas, condiciones, certificados]);
+
+  type ExportRow = (typeof exportRows)[number];
+
+  async function onExportPdf() {
+    await generateReportPdf<ExportRow>({
+      filename: `matriculas-${data.curso.slug || data.curso.id}-${new Date().toISOString().slice(0, 10)}`,
+      titulo: 'Matrículas del curso',
+      subtitulo: data.curso.titulo,
+      filtros: [{ label: 'Curso', value: data.curso.titulo }],
+      kpis: [
+        { label: 'Alumnos', value: String(matriculas.length), tone: 'cyan' },
+        {
+          label: 'Con certificado',
+          value: String(Object.keys(certificados).length),
+          tone: 'emerald',
+        },
+      ],
+      columns: [
+        { key: 'alumno_nombre', label: 'Alumno', width: '26%',
+          format: (r) => r.alumno_nombre ?? '—' },
+        { key: 'administracion_nombre', label: 'Administración', width: '22%',
+          format: (r) => r.administracion_nombre ?? '—' },
+        { key: 'inscripto_at', label: 'Fecha matrícula', width: '14%',
+          format: (r) => fmtFecha(r.inscripto_at) },
+        { key: 'estado', label: 'Estado', width: '12%' },
+        { key: 'condiciones_resumen', label: 'Condiciones', width: '12%',
+          format: (r) => r.condiciones_resumen },
+        { key: 'certificado_emitido', label: 'Certificado', width: '14%',
+          format: (r) => (r.certificado_emitido ? r.certificado_codigo || 'Emitido' : '—') },
+      ],
+      rows: exportRows,
+    });
+  }
+
+  async function onExportXls() {
+    generateReportXls<ExportRow>({
+      filename: `matriculas-${data.curso.slug || data.curso.id}-${new Date().toISOString().slice(0, 10)}`,
+      sheetName: 'Matrículas',
+      titulo: `Matrículas · ${data.curso.titulo}`,
+      filtros: [{ label: 'Curso', value: data.curso.titulo }],
+      columns: [
+        { key: 'alumno_nombre', label: 'Alumno', width: 28,
+          value: (r) => r.alumno_nombre ?? '' },
+        { key: 'administracion_nombre', label: 'Administración', width: 26,
+          value: (r) => r.administracion_nombre ?? '' },
+        { key: 'inscripto_at', label: 'Fecha matrícula', width: 16,
+          value: (r) => r.inscripto_at ? new Date(r.inscripto_at) : null },
+        { key: 'estado', label: 'Estado', width: 14 },
+        { key: 'condiciones_resumen', label: 'Condiciones', width: 14,
+          value: (r) => r.condiciones_resumen },
+        { key: 'certificado_emitido', label: 'Certificado emitido', width: 16,
+          value: (r) => (r.certificado_emitido ? 'Sí' : 'No') },
+        { key: 'certificado_codigo', label: 'Código certificado', width: 22,
+          value: (r) => r.certificado_codigo },
+      ],
+      rows: exportRows,
+    });
+  }
+
   if (loading) {
     return (
       <div className="grid h-40 place-items-center text-brand-muted">
@@ -145,9 +223,17 @@ export function GestionMatriculasTab({ data }: { data: CursoDetalle }) {
               </span>
             </h2>
           </div>
-          <Button onClick={() => setDrawerOpen(true)}>
-            <UserPlus size={14} /> Asignar alumno
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <ExportButtons
+              onExportPdf={onExportPdf}
+              onExportXls={onExportXls}
+              disabled={matriculas.length === 0}
+              hint="Matrículas"
+            />
+            <Button onClick={() => setDrawerOpen(true)}>
+              <UserPlus size={14} /> Asignar alumno
+            </Button>
+          </div>
         </header>
 
         {matriculas.length === 0 ? (

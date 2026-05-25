@@ -36,6 +36,9 @@ import {
   type PartnerListItem,
   type RendicionListItem,
 } from '@/services/api/partners';
+import { ExportButtons } from '@/components/reports/ExportButtons';
+import { generateReportPdf } from '@/lib/reportPdf';
+import { generateReportXls } from '@/lib/reportXls';
 
 type ActivoFilter = 'todos' | 'activos' | 'inactivos';
 
@@ -107,6 +110,85 @@ export function PartnersListPage() {
     return { activos, ingresos, promPct };
   }, [rows, rendiciones]);
 
+  // DGG-26 · Mapa de ingresos por partner en los últimos 30 días, calculado
+  // desde las rendiciones cargadas.
+  const ingresos30dByPartner = useMemo(() => {
+    const map = new Map<string, number>();
+    const hace31 = new Date();
+    hace31.setDate(hace31.getDate() - 31);
+    const corte = hace31.toISOString().slice(0, 10);
+    for (const r of rendiciones) {
+      if (r.periodo_hasta < corte) continue;
+      const cur = map.get(r.partner_id) ?? 0;
+      map.set(r.partner_id, cur + Number(r.total_ingresos_atribuidos ?? 0));
+    }
+    return map;
+  }, [rendiciones]);
+
+  // DGG-26 · Export a PDF/XLS del filtrado actual.
+  const exportFiltros = useMemo<Array<{ label: string; value: string }>>(() => {
+    const items: Array<{ label: string; value: string }> = [];
+    items.push({
+      label: 'Estado',
+      value:
+        activoFilter === 'todos' ? 'Todos'
+        : activoFilter === 'activos' ? 'Activos'
+        : 'Inactivos',
+    });
+    if (search.trim()) items.push({ label: 'Búsqueda', value: search.trim() });
+    return items;
+  }, [activoFilter, search]);
+
+  async function onExportPdf() {
+    await generateReportPdf<PartnerListItem>({
+      filename: `partners-${new Date().toISOString().slice(0, 10)}`,
+      titulo: 'Partners',
+      subtitulo: 'Convenios y rendiciones · Gestión Global',
+      filtros: exportFiltros,
+      kpis: [
+        { label: 'Partners activos', value: String(kpis.activos), tone: 'cyan' },
+        { label: 'Ingresos atribuidos 30d', value: fmtMoneda(kpis.ingresos), tone: 'emerald' },
+        { label: '% ingresos promedio', value: fmtPct(kpis.promPct), tone: 'amber' },
+      ],
+      columns: [
+        { key: 'nombre_legal', label: 'Partner', width: '32%' },
+        { key: 'convenio_vigente_porc_ingresos', label: '% Ingresos', align: 'right', width: '14%',
+          format: (r) => fmtPct(r.convenio_vigente_porc_ingresos) },
+        { key: 'convenio_vigente_porc_costos', label: '% Egresos', align: 'right', width: '14%',
+          format: (r) => fmtPct(r.convenio_vigente_porc_costos) },
+        { key: 'id', label: 'Ingresos 30d', align: 'right', width: '20%',
+          format: (r) => fmtMoneda(ingresos30dByPartner.get(r.id) ?? 0) },
+        { key: 'activo', label: 'Estado', width: '20%',
+          format: (r) => (r.activo ? 'Activo' : 'Inactivo') },
+      ],
+      rows: filtered,
+    });
+  }
+
+  async function onExportXls() {
+    generateReportXls<PartnerListItem>({
+      filename: `partners-${new Date().toISOString().slice(0, 10)}`,
+      sheetName: 'Partners',
+      titulo: 'Partners · Gestión Global',
+      filtros: exportFiltros,
+      columns: [
+        { key: 'nombre_legal', label: 'Partner', width: 32 },
+        { key: 'slug', label: 'Slug', width: 18 },
+        { key: 'cuit', label: 'CUIT', width: 16, value: (r) => r.cuit ?? '' },
+        { key: 'email', label: 'Email', width: 26, value: (r) => r.email ?? '' },
+        { key: 'convenio_vigente_porc_ingresos', label: '% Ingresos', width: 14,
+          value: (r) => Number(r.convenio_vigente_porc_ingresos ?? 0) },
+        { key: 'convenio_vigente_porc_costos', label: '% Egresos', width: 14,
+          value: (r) => Number(r.convenio_vigente_porc_costos ?? 0) },
+        { key: 'id', label: 'Ingresos 30d', width: 18,
+          value: (r) => Number(ingresos30dByPartner.get(r.id) ?? 0) },
+        { key: 'activo', label: 'Estado', width: 12,
+          value: (r) => (r.activo ? 'Activo' : 'Inactivo') },
+      ],
+      rows: filtered,
+    });
+  }
+
   async function onToggleActivo(p: PartnerListItem) {
     const okConf = await confirm({
       title: p.activo ? 'Desactivar partner' : 'Activar partner',
@@ -140,9 +222,17 @@ export function PartnersListPage() {
             un % de los ingresos generados y comparten un % de los costos.
           </p>
         </div>
-        <Button onClick={() => setDrawerOpen(true)}>
-          <Plus size={16} /> Nuevo partner
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <ExportButtons
+            onExportPdf={onExportPdf}
+            onExportXls={onExportXls}
+            disabled={filtered.length === 0}
+            hint="Partners"
+          />
+          <Button onClick={() => setDrawerOpen(true)}>
+            <Plus size={16} /> Nuevo partner
+          </Button>
+        </div>
       </header>
 
       {/* KPIs */}

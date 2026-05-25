@@ -43,6 +43,9 @@ import {
   type VencimientoTipo,
   type VencimientoEstado,
 } from '@/services/api/vencimientos';
+import { ExportButtons } from '@/components/reports/ExportButtons';
+import { generateReportPdf } from '@/lib/reportPdf';
+import { generateReportXls } from '@/lib/reportXls';
 
 type TipoFilter = VencimientoTipo | 'todos';
 type EstadoFilter = VencimientoEstado | 'todos';
@@ -199,6 +202,73 @@ export function VencimientosListPage() {
     });
   }
 
+  // DGG-26 · Export a PDF/XLS del filtrado actual.
+  const exportFiltros = useMemo<Array<{ label: string; value: string }>>(() => {
+    const items: Array<{ label: string; value: string }> = [];
+    items.push({
+      label: 'Tipo',
+      value: tipo === 'todos' ? 'Todos' : VENCIMIENTO_TIPO_LABEL[tipo] ?? tipo,
+    });
+    items.push({
+      label: 'Estado',
+      value: estado === 'todos' ? 'Todos' : VENCIMIENTO_ESTADO_LABEL[estado] ?? estado,
+    });
+    items.push({ label: 'Horizonte', value: `${horizonte} días` });
+    if (search.trim()) items.push({ label: 'Búsqueda', value: search.trim() });
+    return items;
+  }, [tipo, estado, horizonte, search]);
+
+  async function onExportPdf() {
+    await generateReportPdf<ProximoVencimiento>({
+      filename: `vencimientos-${new Date().toISOString().slice(0, 10)}`,
+      titulo: 'Vencimientos',
+      subtitulo: `Próximos ${horizonte} días · Gestión Global`,
+      filtros: exportFiltros,
+      kpis: [
+        { label: 'Vigentes', value: String(kpis.vigentes), tone: 'cyan' },
+        { label: 'Próximos 30d', value: String(kpis.proximos30), tone: 'amber' },
+        { label: 'Vencidos', value: String(kpis.vencidos), tone: 'rose' },
+        { label: 'Renovados 30d', value: String(kpis.renovados), tone: 'emerald' },
+      ],
+      columns: [
+        { key: 'fecha_vencimiento', label: 'Vencimiento', width: '14%' },
+        { key: 'tipo', label: 'Tipo', width: '18%',
+          format: (r) => VENCIMIENTO_TIPO_LABEL[r.tipo] ?? r.tipo },
+        { key: 'descripcion', label: 'Descripción', width: '26%',
+          format: (r) => r.descripcion ?? '—' },
+        { key: 'administracion_nombre', label: 'Administración', width: '24%' },
+        { key: 'estado', label: 'Estado', width: '18%',
+          format: (r) => VENCIMIENTO_ESTADO_LABEL[r.estado] ?? r.estado },
+      ],
+      rows: filtered,
+    });
+  }
+
+  async function onExportXls() {
+    generateReportXls<ProximoVencimiento>({
+      filename: `vencimientos-${new Date().toISOString().slice(0, 10)}`,
+      sheetName: 'Vencimientos',
+      titulo: 'Vencimientos · Gestión Global',
+      filtros: exportFiltros,
+      columns: [
+        { key: 'fecha_vencimiento', label: 'Fecha vencimiento', width: 16,
+          value: (r) => r.fecha_vencimiento ? new Date(r.fecha_vencimiento) : null },
+        { key: 'tipo', label: 'Tipo', width: 22,
+          value: (r) => VENCIMIENTO_TIPO_LABEL[r.tipo] ?? r.tipo },
+        { key: 'descripcion', label: 'Descripción', width: 30,
+          value: (r) => r.descripcion ?? '' },
+        { key: 'administracion_nombre', label: 'Administración', width: 28 },
+        { key: 'consorcio_nombre', label: 'Consorcio', width: 22,
+          value: (r) => r.consorcio_nombre ?? '' },
+        { key: 'dias_restantes', label: 'Días restantes', width: 14,
+          value: (r) => Number(r.dias_restantes ?? 0) },
+        { key: 'estado', label: 'Estado', width: 14,
+          value: (r) => VENCIMIENTO_ESTADO_LABEL[r.estado] ?? r.estado },
+      ],
+      rows: filtered,
+    });
+  }
+
   // 6.E · vencimientos críticos HOY (dias_restantes <= 0 && vigente).
   const [bannerCerrado, setBannerCerrado] = useState(false);
   const venceHoy = useMemo(
@@ -272,7 +342,14 @@ export function VencimientosListPage() {
               <Building2 size={13} /> Por cliente
             </button>
           </div>
-          {/* 6.D · export CSV. */}
+          {/* DGG-26 · export PDF/XLS branded. */}
+          <ExportButtons
+            onExportPdf={onExportPdf}
+            onExportXls={onExportXls}
+            disabled={filtered.length === 0}
+            hint="Vencimientos"
+          />
+          {/* 6.D · export CSV (mantengo para compatibilidad). */}
           <Button variant="ghost" onClick={exportarCSV} title="Exportar CSV con los filtros aplicados">
             <Download size={15} /> Export CSV
           </Button>

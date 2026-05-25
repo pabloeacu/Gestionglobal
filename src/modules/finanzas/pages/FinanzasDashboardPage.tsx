@@ -16,6 +16,9 @@ import { cn } from '@/lib/cn';
 import { NuevoMovimientoModal } from '../components/NuevoMovimientoModal';
 import { TransferenciaModal } from '../components/TransferenciaModal';
 import { TipoBadge, EstadoBadge, formatMonto, montoColor } from '../components/MovimientoBadges';
+import { ExportButtons } from '@/components/reports/ExportButtons';
+import { generateReportPdf } from '@/lib/reportPdf';
+import { generateReportXls } from '@/lib/reportXls';
 
 function formatMoney(n: number): string {
   return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n);
@@ -66,6 +69,80 @@ export function FinanzasDashboardPage() {
   }, [search]);
 
   const balanceNeto = useMemo(() => kpis.ingresos_mes - kpis.egresos_mes, [kpis]);
+
+  // DGG-26 · Export a PDF/XLS de los movimientos visibles.
+  const exportFiltros = useMemo<Array<{ label: string; value: string }>>(() => {
+    const items: Array<{ label: string; value: string }> = [];
+    if (filtroCaja) {
+      const caja = cajas.find((c) => c.caja_id === filtroCaja);
+      items.push({ label: 'Caja', value: caja?.nombre ?? filtroCaja });
+    }
+    if (filtroTipo) {
+      const label: Record<string, string> = {
+        ingreso: 'Ingresos',
+        egreso: 'Egresos',
+        transferencia_in: 'Transferencia (entrada)',
+        transferencia_out: 'Transferencia (salida)',
+      };
+      items.push({ label: 'Tipo', value: label[filtroTipo] ?? filtroTipo });
+    }
+    if (search.trim()) items.push({ label: 'Búsqueda', value: search.trim() });
+    return items;
+  }, [filtroCaja, filtroTipo, search, cajas]);
+
+  async function onExportPdf() {
+    await generateReportPdf<MovimientoListadoRow>({
+      filename: `movimientos-${new Date().toISOString().slice(0, 10)}`,
+      titulo: 'Movimientos financieros',
+      subtitulo: 'Caja & bancos · Gestión Global',
+      filtros: exportFiltros,
+      kpis: [
+        { label: 'Saldo total', value: formatMoney(kpis.saldo_total), tone: 'cyan' },
+        { label: 'Ingresos mes', value: formatMoney(kpis.ingresos_mes), tone: 'emerald' },
+        { label: 'Egresos mes', value: formatMoney(kpis.egresos_mes), tone: 'rose' },
+        { label: 'Balance neto', value: formatMoney(balanceNeto),
+          tone: balanceNeto >= 0 ? 'emerald' : 'rose' },
+      ],
+      columns: [
+        { key: 'fecha', label: 'Fecha', width: '12%',
+          format: (r) => fmtFecha(r.fecha) },
+        { key: 'caja_nombre', label: 'Caja', width: '18%' },
+        { key: 'tipo', label: 'Tipo', width: '14%' },
+        { key: 'categoria_nombre', label: 'Categoría', width: '18%',
+          format: (r) => r.categoria_nombre ?? '—' },
+        { key: 'monto', label: 'Monto', align: 'right', width: '14%',
+          format: (r) => formatMoney(r.monto) },
+        { key: 'descripcion', label: 'Descripción', width: '24%',
+          format: (r) => r.descripcion ?? '—' },
+      ],
+      rows: movs,
+    });
+  }
+
+  async function onExportXls() {
+    generateReportXls<MovimientoListadoRow>({
+      filename: `movimientos-${new Date().toISOString().slice(0, 10)}`,
+      sheetName: 'Movimientos',
+      titulo: 'Movimientos · Gestión Global',
+      filtros: exportFiltros,
+      columns: [
+        { key: 'fecha', label: 'Fecha', width: 14,
+          value: (r) => r.fecha ? new Date(r.fecha + 'T00:00:00') : null },
+        { key: 'caja_nombre', label: 'Caja', width: 22 },
+        { key: 'tipo', label: 'Tipo', width: 14 },
+        { key: 'categoria_nombre', label: 'Categoría', width: 22,
+          value: (r) => r.categoria_nombre ?? '' },
+        { key: 'monto', label: 'Monto', width: 16,
+          value: (r) => Number(r.monto ?? 0) },
+        { key: 'descripcion', label: 'Descripción', width: 36,
+          value: (r) => r.descripcion ?? '' },
+        { key: 'administracion_nombre', label: 'Administración', width: 24,
+          value: (r) => r.administracion_nombre ?? '' },
+        { key: 'estado', label: 'Estado', width: 12 },
+      ],
+      rows: movs,
+    });
+  }
 
   async function onRevertir(m: MovimientoListadoRow) {
     if (m.origen === 'reversion') {
@@ -118,6 +195,12 @@ export function FinanzasDashboardPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <ExportButtons
+            onExportPdf={onExportPdf}
+            onExportXls={onExportXls}
+            disabled={movs.length === 0}
+            hint="Movimientos"
+          />
           <Link
             to="/gerencia/finanzas/reportes"
             className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-brand-ink transition hover:bg-slate-50"

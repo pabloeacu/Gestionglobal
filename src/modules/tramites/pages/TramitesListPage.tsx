@@ -40,6 +40,9 @@ import {
   type TramiteCategoria,
   type TramitePrioridad,
 } from '@/services/api/tramites';
+import { ExportButtons } from '@/components/reports/ExportButtons';
+import { generateReportPdf } from '@/lib/reportPdf';
+import { generateReportXls } from '@/lib/reportXls';
 
 type EstadoFilter = TramiteEstado | 'todos';
 type CategoriaFilter = TramiteCategoria | 'todos';
@@ -130,6 +133,92 @@ export function TramitesListPage() {
     return { abiertos, resueltos, vencidos, sinAsignar };
   }, [rows]);
 
+  // DGG-26 · Export a PDF/XLS del filtrado actual.
+  const exportFiltros = useMemo<Array<{ label: string; value: string }>>(() => {
+    const items: Array<{ label: string; value: string }> = [];
+    items.push({
+      label: 'Estado',
+      value: estado === 'todos' ? 'Todos' : TRAMITE_ESTADO_LABEL[estado] ?? estado,
+    });
+    items.push({
+      label: 'Categoría',
+      value: categoria === 'todos' ? 'Todas' : TRAMITE_CATEGORIA_LABEL[categoria] ?? categoria,
+    });
+    items.push({
+      label: 'Prioridad',
+      value: prioridad === 'todos' ? 'Todas' : TRAMITE_PRIORIDAD_LABEL[prioridad] ?? prioridad,
+    });
+    if (search.trim()) items.push({ label: 'Búsqueda', value: search.trim() });
+    return items;
+  }, [estado, categoria, prioridad, search]);
+
+  function formatFecha(s: string | null): string {
+    if (!s) return '—';
+    try {
+      return new Date(s).toLocaleDateString('es-AR');
+    } catch {
+      return s;
+    }
+  }
+
+  async function onExportPdf() {
+    await generateReportPdf<TramiteListItem>({
+      filename: `tramites-${new Date().toISOString().slice(0, 10)}`,
+      titulo: 'Trámites',
+      subtitulo: 'Expedientes y solicitudes · Gestión Global',
+      filtros: exportFiltros,
+      kpis: [
+        { label: 'Abiertos', value: String(kpis.abiertos), tone: 'cyan' },
+        { label: 'Resueltos', value: String(kpis.resueltos), tone: 'emerald' },
+        { label: 'Sin asignar', value: String(kpis.sinAsignar), tone: 'amber' },
+        { label: 'Vencidos', value: String(kpis.vencidos), tone: 'rose' },
+      ],
+      columns: [
+        { key: 'codigo', label: 'Código', width: '12%' },
+        { key: 'titulo', label: 'Descripción', width: '28%' },
+        { key: 'administracion_nombre', label: 'Cliente', width: '20%',
+          format: (r) => r.administracion_nombre ?? r.solicitante_nombre ?? '—' },
+        { key: 'estado', label: 'Estado', width: '14%',
+          format: (r) => TRAMITE_ESTADO_LABEL[r.estado as TramiteEstado] ?? r.estado },
+        { key: 'created_at', label: 'Creación', width: '12%',
+          format: (r) => formatFecha(r.created_at) },
+        { key: 'vence_at', label: 'Objetivo', width: '14%',
+          format: (r) => formatFecha(r.vence_at) },
+      ],
+      rows,
+    });
+  }
+
+  async function onExportXls() {
+    generateReportXls<TramiteListItem>({
+      filename: `tramites-${new Date().toISOString().slice(0, 10)}`,
+      sheetName: 'Trámites',
+      titulo: 'Trámites · Gestión Global',
+      filtros: exportFiltros,
+      columns: [
+        { key: 'codigo', label: 'Código', width: 14 },
+        { key: 'titulo', label: 'Descripción', width: 32 },
+        { key: 'categoria', label: 'Categoría', width: 18,
+          value: (r) => TRAMITE_CATEGORIA_LABEL[r.categoria as TramiteCategoria] ?? r.categoria },
+        { key: 'administracion_nombre', label: 'Cliente', width: 26,
+          value: (r) => r.administracion_nombre ?? r.solicitante_nombre ?? '' },
+        { key: 'consorcio_nombre', label: 'Consorcio', width: 20,
+          value: (r) => r.consorcio_nombre ?? '' },
+        { key: 'asignado_nombre', label: 'Asignado', width: 20,
+          value: (r) => r.asignado_nombre ?? '' },
+        { key: 'estado', label: 'Estado', width: 16,
+          value: (r) => TRAMITE_ESTADO_LABEL[r.estado as TramiteEstado] ?? r.estado },
+        { key: 'prioridad', label: 'Prioridad', width: 12,
+          value: (r) => TRAMITE_PRIORIDAD_LABEL[r.prioridad as TramitePrioridad] ?? r.prioridad },
+        { key: 'created_at', label: 'Creación', width: 14,
+          value: (r) => r.created_at ? new Date(r.created_at) : null },
+        { key: 'vence_at', label: 'Objetivo', width: 14,
+          value: (r) => r.vence_at ? new Date(r.vence_at) : null },
+      ],
+      rows,
+    });
+  }
+
   return (
     <div className="mx-auto max-w-7xl space-y-6">
       <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -143,7 +232,13 @@ export function TramitesListPage() {
             jurídicas, renovaciones, reclamos.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <ExportButtons
+            onExportPdf={onExportPdf}
+            onExportXls={onExportXls}
+            disabled={rows.length === 0}
+            hint="Trámites"
+          />
           <Link
             to="/gerencia/tramites/kanban"
             className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-brand-ink transition hover:border-brand-cyan hover:text-brand-cyan"

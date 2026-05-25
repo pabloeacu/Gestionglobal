@@ -29,6 +29,9 @@ import {
   SolicitudCard,
   SolicitudCardSkeleton,
 } from '../components/SolicitudCard';
+import { ExportButtons } from '@/components/reports/ExportButtons';
+import { generateReportPdf } from '@/lib/reportPdf';
+import { generateReportXls } from '@/lib/reportXls';
 
 type EstadoFilter = SolicitudEstado | 'todos' | 'activas';
 
@@ -124,6 +127,84 @@ export function SolicitudesListPage() {
     [kpis],
   );
 
+  // DGG-26 · Export a PDF/XLS del filtrado actual.
+  const exportFiltros = useMemo<Array<{ label: string; value: string }>>(() => {
+    const items: Array<{ label: string; value: string }> = [];
+    const estadoLabel: Record<EstadoFilter, string> = {
+      activas: 'Activas (no procesadas)',
+      recibida: 'Recibidas',
+      en_revision: 'En revisión',
+      derivada: 'Derivadas',
+      activada: 'Activadas',
+      descartada: 'Descartadas',
+      todos: 'Todas',
+    };
+    items.push({ label: 'Estado', value: estadoLabel[estado] ?? estado });
+    if (categoria) items.push({ label: 'Categoría', value: categoria });
+    if (search.trim()) items.push({ label: 'Búsqueda', value: search.trim() });
+    return items;
+  }, [estado, categoria, search]);
+
+  function formatFecha(s: string | null): string {
+    if (!s) return '—';
+    try {
+      return new Date(s).toLocaleDateString('es-AR');
+    } catch {
+      return s;
+    }
+  }
+
+  async function onExportPdf() {
+    await generateReportPdf<SolicitudListItem>({
+      filename: `solicitudes-${new Date().toISOString().slice(0, 10)}`,
+      titulo: 'Solicitudes recibidas',
+      subtitulo: 'Centro de solicitudes · Gestión Global',
+      filtros: exportFiltros,
+      kpis: [
+        { label: 'Recibidas', value: String(kpis?.recibidas ?? 0), tone: 'cyan' },
+        { label: 'En revisión', value: String(kpis?.en_revision ?? 0), tone: 'amber' },
+        { label: 'Derivadas', value: String(kpis?.derivadas ?? 0), tone: 'cyan' },
+        { label: 'Activadas hoy', value: String(kpis?.activadas_hoy ?? 0), tone: 'emerald' },
+      ],
+      columns: [
+        { key: 'created_at', label: 'Fecha', width: '14%', format: (r) => formatFecha(r.created_at) },
+        { key: 'solicitante_nombre', label: 'Solicitante', width: '24%',
+          format: (r) => r.solicitante_nombre ?? '—' },
+        { key: 'formulario_categoria', label: 'Categoría', width: '18%',
+          format: (r) => r.formulario_categoria ?? '—' },
+        { key: 'formulario_titulo', label: 'Formulario', width: '26%',
+          format: (r) => r.formulario_titulo ?? '—' },
+        { key: 'estado', label: 'Estado', width: '18%' },
+      ],
+      rows: rowsFiltrados,
+    });
+  }
+
+  async function onExportXls() {
+    generateReportXls<SolicitudListItem>({
+      filename: `solicitudes-${new Date().toISOString().slice(0, 10)}`,
+      sheetName: 'Solicitudes',
+      titulo: 'Solicitudes recibidas · Gestión Global',
+      filtros: exportFiltros,
+      columns: [
+        { key: 'created_at', label: 'Fecha',
+          value: (r) => r.created_at ? new Date(r.created_at) : null, width: 14 },
+        { key: 'solicitante_nombre', label: 'Solicitante', width: 28,
+          value: (r) => r.solicitante_nombre ?? '' },
+        { key: 'solicitante_email', label: 'Email', width: 28,
+          value: (r) => r.solicitante_email ?? '' },
+        { key: 'solicitante_telefono', label: 'Teléfono', width: 18,
+          value: (r) => r.solicitante_telefono ?? '' },
+        { key: 'formulario_categoria', label: 'Categoría', width: 18,
+          value: (r) => r.formulario_categoria ?? '' },
+        { key: 'formulario_titulo', label: 'Formulario', width: 28,
+          value: (r) => r.formulario_titulo ?? '' },
+        { key: 'estado', label: 'Estado', width: 14 },
+      ],
+      rows: rowsFiltrados,
+    });
+  }
+
   return (
     <div className="relative mx-auto max-w-6xl space-y-6">
       <TrianglesAccent
@@ -135,16 +216,24 @@ export function SolicitudesListPage() {
       />
 
       {/* Header */}
-      <header>
-        <p className="kicker text-brand-cyan">Operación</p>
-        <h1 className="font-display text-3xl font-bold text-brand-ink sm:text-4xl">
-          Solicitudes recibidas
-        </h1>
-        <p className="mt-1 max-w-2xl text-sm text-brand-muted">
-          Cada formulario público se convierte automáticamente en una solicitud
-          operativa. Acá las revisás, derivás a gestoría y las activás como
-          tracking del cliente.
-        </p>
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="kicker text-brand-cyan">Operación</p>
+          <h1 className="font-display text-3xl font-bold text-brand-ink sm:text-4xl">
+            Solicitudes recibidas
+          </h1>
+          <p className="mt-1 max-w-2xl text-sm text-brand-muted">
+            Cada formulario público se convierte automáticamente en una solicitud
+            operativa. Acá las revisás, derivás a gestoría y las activás como
+            tracking del cliente.
+          </p>
+        </div>
+        <ExportButtons
+          onExportPdf={onExportPdf}
+          onExportXls={onExportXls}
+          disabled={rowsFiltrados.length === 0}
+          hint="Solicitudes"
+        />
       </header>
 
       {/* KPIs */}

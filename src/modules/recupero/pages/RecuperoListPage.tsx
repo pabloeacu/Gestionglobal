@@ -28,6 +28,9 @@ import {
   type RecuperoKpis,
   type RecuperoNivel,
 } from '@/services/api/recupero';
+import { ExportButtons } from '@/components/reports/ExportButtons';
+import { generateReportPdf } from '@/lib/reportPdf';
+import { generateReportXls } from '@/lib/reportXls';
 
 type NivelFilter = RecuperoNivel | 'todos';
 
@@ -91,6 +94,92 @@ export function RecuperoListPage() {
     );
   }, [rows, search]);
 
+  // DGG-26 · Export a PDF/XLS del filtrado actual.
+  const exportFiltros = useMemo<Array<{ label: string; value: string }>>(() => {
+    const items: Array<{ label: string; value: string }> = [];
+    items.push({
+      label: 'Nivel',
+      value: nivel === 'todos' ? 'Todos' : RECUPERO_NIVEL_LABEL[nivel as RecuperoNivel] ?? String(nivel),
+    });
+    if (search.trim()) items.push({ label: 'Búsqueda', value: search.trim() });
+    return items;
+  }, [nivel, search]);
+
+  function formatMoney(n: number | string | null): string {
+    const v = Number(n ?? 0);
+    return new Intl.NumberFormat('es-AR', {
+      style: 'currency',
+      currency: 'ARS',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(v);
+  }
+
+  function formatFecha(s: string | null): string {
+    if (!s) return '—';
+    try {
+      return new Date(s).toLocaleDateString('es-AR');
+    } catch {
+      return s;
+    }
+  }
+
+  async function onExportPdf() {
+    await generateReportPdf<AccionListItem>({
+      filename: `recupero-${new Date().toISOString().slice(0, 10)}`,
+      titulo: 'Acciones de recupero',
+      subtitulo: 'Gestión progresiva de mora · Gestión Global',
+      filtros: exportFiltros,
+      kpis: [
+        { label: 'Deuda total', value: formatMoney(kpis.deuda_total), tone: 'rose' },
+        { label: 'Morosos', value: String(kpis.morosos_count), tone: 'amber' },
+        { label: 'R1 30d', value: String(kpis.r1_30d), tone: 'cyan' },
+        { label: 'R2/R3 30d', value: String(kpis.r2_30d + kpis.r3_30d), tone: 'rose' },
+      ],
+      columns: [
+        { key: 'administracion_nombre', label: 'Administración', width: '30%',
+          format: (r) => r.administracion_nombre ?? '—' },
+        { key: 'monto_adeudado', label: 'Deuda', align: 'right', width: '14%',
+          format: (r) => formatMoney(r.monto_adeudado) },
+        { key: 'dias_vencido', label: 'Días mora', align: 'right', width: '12%',
+          format: (r) => String(r.dias_vencido ?? '—') },
+        { key: 'nivel', label: 'Nivel', width: '14%',
+          format: (r) => RECUPERO_NIVEL_LABEL[r.nivel as RecuperoNivel] ?? String(r.nivel) },
+        { key: 'enviado_at', label: 'Última gestión', width: '14%',
+          format: (r) => formatFecha(r.enviado_at) },
+        { key: 'autor_nombre', label: 'Autor', width: '16%',
+          format: (r) => r.autor_nombre ?? '—' },
+      ],
+      rows: filtered,
+    });
+  }
+
+  async function onExportXls() {
+    generateReportXls<AccionListItem>({
+      filename: `recupero-${new Date().toISOString().slice(0, 10)}`,
+      sheetName: 'Recupero',
+      titulo: 'Recupero · Gestión Global',
+      filtros: exportFiltros,
+      columns: [
+        { key: 'administracion_nombre', label: 'Administración', width: 32,
+          value: (r) => r.administracion_nombre ?? '' },
+        { key: 'consorcio_nombre', label: 'Consorcio', width: 24,
+          value: (r) => r.consorcio_nombre ?? '' },
+        { key: 'monto_adeudado', label: 'Deuda', width: 16,
+          value: (r) => Number(r.monto_adeudado ?? 0) },
+        { key: 'dias_vencido', label: 'Días mora', width: 12,
+          value: (r) => Number(r.dias_vencido ?? 0) },
+        { key: 'nivel', label: 'Nivel', width: 12,
+          value: (r) => RECUPERO_NIVEL_LABEL[r.nivel as RecuperoNivel] ?? String(r.nivel) },
+        { key: 'enviado_at', label: 'Última gestión', width: 16,
+          value: (r) => r.enviado_at ? new Date(r.enviado_at) : null },
+        { key: 'autor_nombre', label: 'Autor', width: 22,
+          value: (r) => r.autor_nombre ?? '' },
+      ],
+      rows: filtered,
+    });
+  }
+
   return (
     <div className="mx-auto max-w-7xl space-y-6">
       <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -105,6 +194,12 @@ export function RecuperoListPage() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <ExportButtons
+            onExportPdf={onExportPdf}
+            onExportXls={onExportXls}
+            disabled={filtered.length === 0}
+            hint="Recupero"
+          />
           <Link
             to="/gerencia/recupero/plantillas"
             className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-brand-ink transition hover:border-brand-cyan hover:text-brand-cyan"

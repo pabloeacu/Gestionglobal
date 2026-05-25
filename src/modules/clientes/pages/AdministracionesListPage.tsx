@@ -25,6 +25,9 @@ import {
   type AdministracionListItem,
   type AdministracionEstado,
 } from '@/services/api/administraciones';
+import { ExportButtons } from '@/components/reports/ExportButtons';
+import { generateReportPdf } from '@/lib/reportPdf';
+import { generateReportXls } from '@/lib/reportXls';
 
 type Estado = AdministracionEstado | 'todos';
 
@@ -93,6 +96,68 @@ export function AdministracionesListPage() {
     return { activos, prospectos, consorcios };
   }, [rows]);
 
+  // DGG-26 · Export a PDF/XLS del filtrado actual.
+  const exportFiltros = useMemo<Array<{ label: string; value: string }>>(() => {
+    const items: Array<{ label: string; value: string }> = [];
+    items.push({
+      label: 'Estado',
+      value:
+        estado === 'todos' ? 'Todos'
+        : estado === 'activo' ? 'Activos'
+        : estado === 'prospecto' ? 'Prospectos'
+        : estado === 'suspendido' ? 'Suspendidos'
+        : 'Bajas',
+    });
+    if (search.trim()) items.push({ label: 'Búsqueda', value: search.trim() });
+    return items;
+  }, [estado, search]);
+
+  async function onExportPdf() {
+    await generateReportPdf<AdministracionListItem>({
+      filename: `administraciones-${new Date().toISOString().slice(0, 10)}`,
+      titulo: 'Administraciones',
+      subtitulo: 'Clientes contractuales · Gestión Global',
+      filtros: exportFiltros,
+      kpis: [
+        { label: 'En la vista', value: String(rows.length), tone: 'cyan' },
+        { label: 'Activos', value: String(kpis.activos), tone: 'emerald' },
+        { label: 'Prospectos', value: String(kpis.prospectos), tone: 'amber' },
+        { label: 'Consorcios', value: String(kpis.consorcios), tone: 'cyan' },
+      ],
+      columns: [
+        { key: 'nombre', label: 'Administración', width: '28%' },
+        { key: 'codigo', label: 'Código', width: '10%' },
+        { key: 'cuit', label: 'CUIT', width: '14%', format: (r) => r.cuit ?? '—' },
+        { key: 'email', label: 'Email', width: '20%', format: (r) => r.email ?? '—' },
+        { key: 'telefono', label: 'Teléfono', width: '14%', format: (r) => r.telefono ?? '—' },
+        { key: 'estado', label: 'Estado', width: '14%',
+          format: (r) => ESTADO_BADGES[r.estado as AdministracionEstado]?.label ?? r.estado },
+      ],
+      rows,
+    });
+  }
+
+  async function onExportXls() {
+    generateReportXls<AdministracionListItem>({
+      filename: `administraciones-${new Date().toISOString().slice(0, 10)}`,
+      sheetName: 'Administraciones',
+      titulo: 'Administraciones · Gestión Global',
+      filtros: exportFiltros,
+      columns: [
+        { key: 'nombre', label: 'Administración', width: 32 },
+        { key: 'codigo', label: 'Código', width: 14 },
+        { key: 'cuit', label: 'CUIT', width: 16 },
+        { key: 'email', label: 'Email', width: 28 },
+        { key: 'telefono', label: 'Teléfono', width: 18 },
+        { key: 'consorcios_count', label: 'Consorcios',
+          value: (r) => Number(r.consorcios_count ?? 0), width: 12 },
+        { key: 'estado', label: 'Estado', width: 14,
+          value: (r) => ESTADO_BADGES[r.estado as AdministracionEstado]?.label ?? r.estado },
+      ],
+      rows,
+    });
+  }
+
   return (
     <div className="mx-auto max-w-6xl space-y-6">
       <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -106,9 +171,17 @@ export function AdministracionesListPage() {
             trámites y portal.
           </p>
         </div>
-        <Button onClick={() => setDrawerOpen(true)}>
-          <Plus size={16} /> Nueva administración
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <ExportButtons
+            onExportPdf={onExportPdf}
+            onExportXls={onExportXls}
+            disabled={rows.length === 0}
+            hint="Administraciones"
+          />
+          <Button onClick={() => setDrawerOpen(true)}>
+            <Plus size={16} /> Nueva administración
+          </Button>
+        </div>
       </header>
 
       {/* KPI mini-cards */}
