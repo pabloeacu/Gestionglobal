@@ -3,6 +3,8 @@ import { cn } from '@/lib/cn';
 interface BrandMarkProps {
   // 'dark' = sobre fondo oscuro (wordmark blanco) · 'light' = fondo claro (tinta)
   variant?: 'dark' | 'light';
+  // 'horizontal' (default) = iso + wordmark al lado · 'vertical' = iso encima del wordmark
+  orientation?: 'horizontal' | 'vertical';
   // alto del logo en px
   size?: number;
   withSlogan?: boolean;
@@ -10,17 +12,20 @@ interface BrandMarkProps {
 }
 
 // Logo institucional Gestión Global. Usa los archivos oficiales con su
-// tipografía propia (carpeta /public/brand/). Cuatro variantes según
-// fondo claro/oscuro y con/sin slogan.
+// tipografía propia (carpeta /public/brand/). Soporta orientación
+// horizontal (h, default) y vertical (v); variante para fondo claro
+// (light, full color) y oscuro (dark, blanco sólido); con o sin slogan.
 export function BrandMark({
   variant = 'light',
+  orientation = 'horizontal',
   size = 40,
   withSlogan = false,
   className,
 }: BrandMarkProps) {
-  const src = withSlogan
-    ? (variant === 'dark' ? '/brand/logo-h-slogan-white.png' : '/brand/logo-h-slogan.png')
-    : (variant === 'dark' ? '/brand/logo-h-white.png' : '/brand/logo-h.png');
+  const prefix = orientation === 'vertical' ? 'logo-v' : 'logo-h';
+  const sloganSuffix = withSlogan ? '-slogan' : '';
+  const colorSuffix = variant === 'dark' ? '-white' : '';
+  const src = `/brand/${prefix}${sloganSuffix}${colorSuffix}.png`;
   return (
     <img
       src={src}

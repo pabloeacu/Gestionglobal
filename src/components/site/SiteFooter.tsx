@@ -49,7 +49,7 @@ export function SiteFooter() {
                 <Instagram size={18} />
               </a>
               <a
-                href="https://www.facebook.com/"
+                href="https://www.facebook.com/gestionglobal.ar"
                 aria-label="Facebook"
                 className="text-brand-ink/70 transition hover:text-brand-cyan"
               >
