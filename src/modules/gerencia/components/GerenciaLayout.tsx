@@ -18,6 +18,7 @@ import {
   Command as CommandIcon,
 } from 'lucide-react';
 import { BrandMark } from '@/components/brand/BrandMark';
+import { LandingCoverBadge } from './LandingCoverBadge';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   useCommandPalette,
@@ -190,6 +191,7 @@ export function GerenciaLayout() {
           </Link>
         </div>
         <SidebarNav />
+        <LandingCoverBadge />
       </aside>
 
       {/* Sidebar (mobile) */}
@@ -211,6 +213,7 @@ export function GerenciaLayout() {
               </button>
             </div>
             <SidebarNav onNavigate={() => setMobileOpen(false)} />
+            <LandingCoverBadge />
           </aside>
         </div>
       )}
