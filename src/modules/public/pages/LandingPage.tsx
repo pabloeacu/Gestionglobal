@@ -167,7 +167,7 @@ const PARTNERS: Array<{ nombre: string; logo: string; descripcion: string }> = [
   },
   {
     nombre: 'CAMEAC',
-    logo: '/landing/partners/cameac.png',
+    logo: '/landing/partners/cameac.webp',
     descripcion: 'Cámara Metropolitana de Administradores',
   },
 ];
