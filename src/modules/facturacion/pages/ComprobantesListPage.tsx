@@ -33,6 +33,7 @@ import {
 } from '@/services/api/comprobantes';
 import { cn } from '@/lib/cn';
 import { ExportButtons } from '@/components/reports/ExportButtons';
+import { copyAsCsv } from '@/lib/csvCopy';
 import { generateReportPdf } from '@/lib/reportPdf';
 import { generateReportXls } from '@/lib/reportXls';
 
@@ -209,6 +210,30 @@ export function ComprobantesListPage() {
     });
   }
 
+  // P2-#16 · copia al portapapeles
+  async function onCopyCsv() {
+    return copyAsCsv(
+      rows,
+      [
+        { key: 'fecha', label: 'Fecha', format: (r) => formatDate(r.fecha) },
+        { key: 'tipo', label: 'Tipo' },
+        { key: 'punto_venta', label: 'PV' },
+        { key: 'numero', label: 'Número' },
+        { key: 'receptor_razon_social', label: 'Cliente',
+          format: (r) => r.receptor_razon_social ?? '' },
+        { key: 'total', label: 'Total',
+          format: (r) => Number(r.total ?? 0).toFixed(2) },
+        { key: 'saldo_pendiente', label: 'Saldo',
+          format: (r) => Number(r.saldo_pendiente ?? 0).toFixed(2) },
+        { key: 'estado_cobranza', label: 'Cobranza',
+          format: (r) => COBRANZA_BADGES[r.estado_cobranza as CobranzaEstado]?.label ?? r.estado_cobranza },
+        { key: 'estado', label: 'Estado',
+          format: (r) => ESTADO_BADGES[r.estado as ComprobanteEstado]?.label ?? r.estado },
+      ],
+      { separator: ';' },
+    );
+  }
+
   return (
     <div className="mx-auto max-w-7xl space-y-6">
       <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -226,6 +251,7 @@ export function ComprobantesListPage() {
           <ExportButtons
             onExportPdf={onExportPdf}
             onExportXls={onExportXls}
+            onCopyCsv={onCopyCsv}
             disabled={rows.length === 0}
             hint="Comprobantes"
           />

@@ -48,6 +48,7 @@ import {
 import { ExportButtons } from '@/components/reports/ExportButtons';
 import { generateReportPdf } from '@/lib/reportPdf';
 import { generateReportXls } from '@/lib/reportXls';
+import { copyAsCsv } from '@/lib/csvCopy';
 
 type TipoFilter = VencimientoTipo | 'todos';
 type EstadoFilter = VencimientoEstado | 'todos';
@@ -293,6 +294,27 @@ export function VencimientosListPage() {
     });
   }
 
+  // P2-#16 · Copy as CSV (al portapapeles, separador ';' para Excel-AR)
+  async function onCopyCsv() {
+    return copyAsCsv(
+      filtered,
+      [
+        { key: 'fecha_vencimiento', label: 'Fecha vencimiento' },
+        { key: 'tipo', label: 'Tipo',
+          format: (r) => VENCIMIENTO_TIPO_LABEL[r.tipo] ?? r.tipo },
+        { key: 'descripcion', label: 'Descripción',
+          format: (r) => r.descripcion ?? '' },
+        { key: 'administracion_nombre', label: 'Administración' },
+        { key: 'consorcio_nombre', label: 'Consorcio',
+          format: (r) => r.consorcio_nombre ?? '' },
+        { key: 'dias_restantes', label: 'Días restantes' },
+        { key: 'estado', label: 'Estado',
+          format: (r) => VENCIMIENTO_ESTADO_LABEL[r.estado] ?? r.estado },
+      ],
+      { separator: ';' },
+    );
+  }
+
   // 6.E · vencimientos críticos HOY (dias_restantes <= 0 && vigente).
   const [bannerCerrado, setBannerCerrado] = useState(false);
   const venceHoy = useMemo(
@@ -370,6 +392,7 @@ export function VencimientosListPage() {
           <ExportButtons
             onExportPdf={onExportPdf}
             onExportXls={onExportXls}
+            onCopyCsv={onCopyCsv}
             disabled={filtered.length === 0}
             hint="Vencimientos"
           />

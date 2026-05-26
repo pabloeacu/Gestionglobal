@@ -7,6 +7,7 @@ import { BrandLoaderScreen } from '@/components/brand/BrandLoader';
 import { LandingPage } from '@/modules/public/pages/LandingPage';
 import { ComingSoonCoverPage } from '@/modules/public/pages/ComingSoonCoverPage';
 import { LoginPage } from '@/modules/auth/pages/LoginPage';
+import { HealthPage } from '@/modules/public/pages/HealthPage';
 import { GerenciaLayout } from '@/modules/gerencia/components/GerenciaLayout';
 import { GerenciaHome } from '@/modules/gerencia/pages/GerenciaHome';
 import { PortalLayout } from '@/modules/portal/components/PortalLayout';
@@ -69,6 +70,7 @@ const SolicitudDetailPage = lazy(() => import('@/modules/solicitudes').then(m =>
 const TrackingDetailPage = lazy(() => import('@/modules/trackings').then(m => ({ default: m.TrackingDetailPage })));
 const AgendaPage = lazy(() => import('@/modules/agenda').then(m => ({ default: m.AgendaPage })));
 const AccesoExternoPage = lazy(() => import('@/modules/acceso-externo').then(m => ({ default: m.AccesoExternoPage })));
+const AuditoriaPage = lazy(() => import('@/modules/auditoria').then(m => ({ default: m.AuditoriaPage })));
 
 type Role = 'gerente' | 'operador' | 'administrador';
 
@@ -212,6 +214,7 @@ export function App() {
         {/* `/inicio` también usa el mismo guard que `/` (cortina vs landing). */}
         <Route path="/inicio" element={<RoleHomeOrLanding />} />
         <Route path="/ingresar" element={<LoginPage />} />
+        <Route path="/health" element={<HealthPage />} />
         <Route path="/formulario/:slug" element={<FormularioPublicoPage />} />
         <Route path="/externo/:token" element={<AccesoExternoPage />} />
         <Route path="/verificar/:codigo" element={<VerificarCertificadoPage />} />
@@ -280,6 +283,7 @@ export function App() {
             <Route path="arca/cola" element={<ArcaQueuePage />} />
             <Route path="emails/templates" element={<EmailTemplatesPage />} />
             <Route path="emails/cola" element={<EmailQueuePage />} />
+            <Route path="auditoria" element={<AuditoriaPage />} />
           </Route>
           <Route path="perfil" element={<PerfilPage />} />
         </Route>

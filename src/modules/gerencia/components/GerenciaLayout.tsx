@@ -20,11 +20,18 @@ import {
 import { BrandMark } from '@/components/brand/BrandMark';
 import { LandingCoverBadge } from './LandingCoverBadge';
 import { NotificationBell } from '@/components/common/NotificationBell';
+import { RealtimeStatus } from '@/components/common/RealtimeStatus';
+import { QuickActionsFAB } from '@/components/common/QuickActionsFAB';
+import {
+  KeyboardShortcutsModal,
+  useShortcutsHotkey,
+} from '@/components/common/KeyboardShortcutsModal';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   useCommandPalette,
   useRegisterCommand,
 } from '@/contexts/CommandPaletteContext';
+import { Keyboard } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { UserMenu } from './UserMenu';
 
@@ -91,6 +98,7 @@ const NAV: NavGroup[] = [
       { label: 'Servicios (catálogo)', to: '/gerencia/servicios' },
       { label: 'ARCA · facturación', to: '/gerencia/configuracion/arca', end: true },
       { label: 'Plantillas email', to: '/gerencia/configuracion/emails/templates' },
+      { label: 'Bitácora de cambios', to: '/gerencia/configuracion/auditoria' },
       // Datos fiscales (config_global) pendiente · DGG futuro
     ],
   },
@@ -114,6 +122,9 @@ function isGroupActive(pathname: string, group: NavGroup): boolean {
 export function GerenciaLayout() {
   const { user } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  // P2-#12 · hotkey "?" abre cheat sheet de atajos.
+  useShortcutsHotkey(setShortcutsOpen);
   const location = useLocation();
   const navigate = useNavigate();
   const palette = useCommandPalette();
@@ -176,11 +187,26 @@ export function GerenciaLayout() {
     [navigate],
   );
 
+  // P2-#12 · comando "Atajos de teclado" en el palette + shortcutHint "?"
+  const cmdAtajos = useMemo(
+    () => ({
+      id: 'help.shortcuts',
+      label: 'Atajos de teclado',
+      description: 'Ver todos los shortcuts disponibles',
+      group: 'acciones' as const,
+      icon: Keyboard,
+      shortcutHint: '?',
+      action: () => setShortcutsOpen(true),
+    }),
+    [],
+  );
+
   useRegisterCommand(cmdInicio);
   useRegisterCommand(cmdClientes);
   useRegisterCommand(cmdFacturacion);
   useRegisterCommand(cmdNuevaAdmin);
   useRegisterCommand(cmdNuevoComprobante);
+  useRegisterCommand(cmdAtajos);
 
   return (
     <div className="flex min-h-screen bg-brand-zebra/40 font-sans">
@@ -248,6 +274,18 @@ export function GerenciaLayout() {
                 <CommandIcon size={9} />K
               </kbd>
             </button>
+            {/* P2-#15 · Indicador Realtime (dot + label) */}
+            <RealtimeStatus />
+            {/* P2-#12 · Botón "?" para abrir atajos */}
+            <button
+              type="button"
+              onClick={() => setShortcutsOpen(true)}
+              className="hidden h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-brand-muted transition hover:border-brand-cyan hover:text-brand-cyan sm:inline-flex"
+              title="Atajos de teclado (?)"
+              aria-label="Atajos de teclado"
+            >
+              <Keyboard size={14} />
+            </button>
             {/* DGG-30 / P5-7.C · Centro de notificaciones in-app. */}
             <NotificationBell />
             <UserMenu perfilHref="/gerencia/perfil" />
@@ -286,6 +324,15 @@ export function GerenciaLayout() {
           </div>
         </footer>
       </div>
+
+      {/* P2-#12 · Modal cheat sheet de atajos */}
+      <KeyboardShortcutsModal
+        open={shortcutsOpen}
+        onClose={() => setShortcutsOpen(false)}
+      />
+
+      {/* P2-#9 · FAB con acciones rápidas en mobile */}
+      <QuickActionsFAB onShortcuts={() => setShortcutsOpen(true)} />
     </div>
   );
 }

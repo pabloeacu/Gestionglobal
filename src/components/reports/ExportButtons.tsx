@@ -7,12 +7,15 @@
 // ============================================================================
 
 import { useState } from 'react';
-import { FileDown, FileSpreadsheet, Loader2 } from 'lucide-react';
+import { FileDown, FileSpreadsheet, ClipboardCopy, Loader2 } from 'lucide-react';
 import { toast } from '@/lib/toast';
 
 interface ExportButtonsProps {
   onExportPdf: () => Promise<void>;
   onExportXls: () => Promise<void>;
+  /** P2-#16 · opcional: si pasás esta función, se agrega un botón "Copiar"
+   *  que copia las filas como CSV al portapapeles. */
+  onCopyCsv?: () => Promise<boolean> | boolean;
   // Opcional: deshabilitar mientras no hay datos.
   disabled?: boolean;
   // Texto del tooltip / aria-label.
@@ -22,16 +25,29 @@ interface ExportButtonsProps {
 export function ExportButtons({
   onExportPdf,
   onExportXls,
+  onCopyCsv,
   disabled,
   hint,
 }: ExportButtonsProps) {
-  const [busy, setBusy] = useState<'pdf' | 'xls' | null>(null);
+  const [busy, setBusy] = useState<'pdf' | 'xls' | 'csv' | null>(null);
 
-  async function run(kind: 'pdf' | 'xls', fn: () => Promise<void>) {
+  async function run(
+    kind: 'pdf' | 'xls' | 'csv',
+    fn: () => Promise<unknown> | unknown,
+  ) {
     if (disabled || busy) return;
     setBusy(kind);
     try {
-      await fn();
+      const r = await fn();
+      if (kind === 'csv') {
+        if (r === false) {
+          toast.error('No pudimos copiar al portapapeles');
+        } else {
+          toast.success('Tabla copiada como CSV', {
+            description: 'Pegala en Excel, Sheets o un mail.',
+          });
+        }
+      }
     } catch (e) {
       toast.error('No pudimos exportar', {
         description: e instanceof Error ? e.message : 'Probá de nuevo',
@@ -72,6 +88,26 @@ export function ExportButtons({
         )}
         XLS
       </button>
+      {onCopyCsv && (
+        <>
+          <span className="h-5 w-px bg-slate-200" />
+          <button
+            type="button"
+            disabled={disabled || busy !== null}
+            onClick={() => run('csv', onCopyCsv)}
+            title={hint ? `${hint} · Copiar como CSV` : 'Copiar tabla como CSV al portapapeles'}
+            aria-label="Copiar como CSV"
+            className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-brand-ink transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {busy === 'csv' ? (
+              <Loader2 size={15} className="animate-spin" />
+            ) : (
+              <ClipboardCopy size={15} />
+            )}
+            <span className="hidden sm:inline">Copiar</span>
+          </button>
+        </>
+      )}
     </div>
   );
 }

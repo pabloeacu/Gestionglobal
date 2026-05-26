@@ -38,6 +38,7 @@ import {
   pushSoportado,
 } from '@/services/api/push';
 import { AvatarEditor } from '@/modules/auth/components/AvatarEditor';
+import { PerfilSesionesActivas } from '@/modules/auth/components/PerfilSesionesActivas';
 import { cn } from '@/lib/cn';
 
 // "Mi perfil" — único lugar donde el usuario edita su propio nombre/avatar/
@@ -78,6 +79,9 @@ export function PerfilPage() {
       <PerfilPassword play={play} />
 
       <PerfilNotificacionesPush userId={user.id} play={play} />
+
+      {/* P2-#35 · Sesiones activas (multi-device + cerrar otras) */}
+      <PerfilSesionesActivas />
 
       <PerfilSesion
         onSignOut={async () => {
