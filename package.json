@@ -11,6 +11,12 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",
+    "@tiptap/extension-color": "^2.27.2",
+    "@tiptap/extension-link": "^2.27.2",
+    "@tiptap/extension-placeholder": "^2.27.2",
+    "@tiptap/extension-text-style": "^2.27.2",
+    "@tiptap/react": "^2.27.2",
+    "@tiptap/starter-kit": "^2.27.2",
     "@types/file-saver": "^2.0.7",
     "@types/papaparse": "^5.5.2",
     "@webex/widgets": "^1.28.2",

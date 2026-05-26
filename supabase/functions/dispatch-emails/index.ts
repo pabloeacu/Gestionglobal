@@ -13,9 +13,12 @@
 // NO existen: info@, facturacion@, tramites@, recupero@ (eran fake).
 // Cualquier email enviado FROM un alias inexistente se descarta silenciosamente
 // (Gmail acepta en API pero no entrega). Por eso se mapea casilla → alias
-// real vía `aliasFor()` más abajo. Reply-To = mismo alias que From para
-// mantener coherencia de conversación (los 4 alias rutean al mismo inbox de
-// contacto@ así que cualquier alias en Reply-To es seguro).
+// real vía `aliasFor()` más abajo.
+//
+// Layout MANAXER (2026-05-26 v3): cuando `layout_version = 'manaxer-v1'`,
+// el HTML final se construye desde los campos visuales (kicker, titulo_visual,
+// color_acento, mostrar_logo, cuerpo_html_visual, firma, cta_text, cta_url,
+// incluir_tabla_envio). En caso contrario se usa el legacy `body_html`.
 //
 // Secrets requeridos:
 //   GOOGLE_OAUTH_CLIENT_ID
@@ -30,6 +33,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.46.1';
 
 const DOMAIN = 'gestionglobal.ar';
 const CONTACTO = `contacto@${DOMAIN}`;
+const LOGO_URL = `https://www.${DOMAIN}/logo-color.png`;
 
 // Mapeo casilla (metadata semántica del template) → alias REAL.
 // Casillas no listadas caen al default (contacto@).
@@ -45,16 +49,15 @@ function aliasFor(casilla: string | null | undefined): string {
     case 'consultoria_juridica':
       return `consultoriajuridica@${DOMAIN}`;
     default:
-      return CONTACTO; // info, facturacion, tramites, recupero, general, otros → contacto@
+      return CONTACTO;
   }
 }
 
 const THROTTLE_KEY = 'global';
-const THROTTLE_MS = 5 * 60 * 1000; // 5 min hard (E42/D05)
-const BATCH_MAX = 1; // por cada tick mandamos UN email (throttle global)
+const THROTTLE_MS = 5 * 60 * 1000;
+const BATCH_MAX = 1;
 
-// `from_casilla` ahora SÍ afecta los headers MIME (mapeado a alias real).
-type Casilla = string; // texto libre; aliasFor() resuelve
+type Casilla = string;
 
 interface TemplateRow {
   slug: string;
@@ -63,6 +66,17 @@ interface TemplateRow {
   body_text: string | null;
   from_casilla: Casilla;
   reply_to: string | null;
+  // MANAXER layout fields
+  kicker: string;
+  titulo_visual: string;
+  color_acento: string;
+  mostrar_logo: boolean;
+  cuerpo_html_visual: string;
+  firma: string | null;
+  incluir_tabla_envio: boolean;
+  cta_text: string | null;
+  cta_url: string | null;
+  layout_version: string;
 }
 
 interface QueueRow {
@@ -79,7 +93,6 @@ interface QueueRow {
 }
 
 Deno.serve(async (req) => {
-  // Permitir GET para health-check manual.
   if (req.method === 'GET') return new Response('dispatch-emails alive', { status: 200 });
 
   const admin = createClient(
@@ -97,7 +110,7 @@ Deno.serve(async (req) => {
     }
   }
 
-  // 2) Próximos jobs (prioridad ASC, programado_para ASC).
+  // 2) Próximos jobs.
   const { data: rows, error: errQueue } = await admin
     .from('email_queue')
     .select('id, template_slug, to_email, to_nombre, variables, prioridad, intento, max_intentos, administracion_id, consorcio_id')
@@ -112,10 +125,14 @@ Deno.serve(async (req) => {
 
   const job = rows[0] as QueueRow;
 
-  // 3) Cargar template.
+  // 3) Cargar template (con campos MANAXER).
   const { data: tplRow, error: errTpl } = await admin
     .from('email_templates')
-    .select('slug, asunto, body_html, body_text, from_casilla, reply_to')
+    .select(`
+      slug, asunto, body_html, body_text, from_casilla, reply_to,
+      kicker, titulo_visual, color_acento, mostrar_logo, cuerpo_html_visual,
+      firma, incluir_tabla_envio, cta_text, cta_url, layout_version
+    `)
     .eq('slug', job.template_slug)
     .eq('activo', true)
     .maybeSingle();
@@ -125,29 +142,30 @@ Deno.serve(async (req) => {
   }
   const tpl = tplRow as TemplateRow;
 
-  // 4) Resolver refresh_token. Todas las casillas comparten el mismo token
-  //    porque envían desde contacto@ (única casilla real).
+  // 4) Resolver alias real para From / Reply-To.
   const casilla = tpl.from_casilla;
   const senderEmail = aliasFor(casilla);
-  const replyToEmail = senderEmail; // Reply-To = mismo alias (todos rutean al mismo inbox)
+  const replyToEmail = senderEmail;
   const refreshToken =
     Deno.env.get('GMAIL_OAUTH_REFRESH_TOKEN_DEFAULT') ??
-    Deno.env.get('GOOGLE_OAUTH_REFRESH_TOKEN'); // compat con send-comprobante-email
+    Deno.env.get('GOOGLE_OAUTH_REFRESH_TOKEN');
   const clientId = Deno.env.get('GOOGLE_OAUTH_CLIENT_ID');
   const clientSecret = Deno.env.get('GOOGLE_OAUTH_CLIENT_SECRET');
 
   if (!clientId || !clientSecret || !refreshToken) {
-    await failJob(admin, job, `OAuth no configurado (GOOGLE_OAUTH_REFRESH_TOKEN o GMAIL_OAUTH_REFRESH_TOKEN_DEFAULT faltante)`);
+    await failJob(admin, job, `OAuth no configurado`);
     return jsonError(500, 'oauth missing');
   }
 
-  // 5) Render del subject/html/text con {{var}}.
+  // 5) Render del subject + html usando layout MANAXER o legacy.
   const vars = (job.variables ?? {}) as Record<string, unknown>;
   const subject = renderVars(tpl.asunto, vars);
-  const html = renderVars(tpl.body_html, vars);
+  const html = tpl.layout_version === 'manaxer-v1'
+    ? buildManaxerHtml(tpl, vars, senderEmail, replyToEmail)
+    : renderVars(tpl.body_html, vars);
   const text = tpl.body_text ? renderVars(tpl.body_text, vars) : undefined;
 
-  // 6) OAuth2 → access token.
+  // 6) OAuth2 access token.
   let accessToken: string;
   try {
     accessToken = await refreshAccessToken(clientId, clientSecret, refreshToken);
@@ -156,9 +174,7 @@ Deno.serve(async (req) => {
     return jsonError(502, 'oauth refresh failed');
   }
 
-  // 7) MIME + Gmail API. Reply-To siempre apunta a contacto@ — los
-  //    valores per-template en email_templates.reply_to se ignoran a
-  //    propósito (decisión 2026-05-26).
+  // 7) MIME + Gmail send.
   const fromHeader = `${encodeRfc2047('Gestión Global')} <${senderEmail}>`;
   const mime = buildMimeMessage({
     from: fromHeader,
@@ -202,7 +218,7 @@ Deno.serve(async (req) => {
   await admin.from('sent_emails').insert({
     to_email: job.to_email,
     from_email: senderEmail,
-    from_casilla: casilla, // metadata: categoría de comunicación
+    from_casilla: casilla,
     reply_to: replyToEmail,
     asunto: subject,
     plantilla: tpl.slug,
@@ -225,10 +241,133 @@ Deno.serve(async (req) => {
   return json({ ok: true, drained: 1, sent_id: job.id, provider_msg_id: providerMsgId });
 });
 
+// =========================================================================
+// MANAXER layout — armado del HTML completo desde los campos visuales
+// =========================================================================
+function buildManaxerHtml(
+  tpl: TemplateRow,
+  vars: Record<string, unknown>,
+  fromEmail: string,
+  replyToEmail: string,
+): string {
+  const accent = sanitizeHex(tpl.color_acento) ?? '#0891b2';
+  const kicker = renderVars(tpl.kicker, vars);
+  const titulo = renderVars(tpl.titulo_visual, vars);
+  const cuerpo = renderVars(tpl.cuerpo_html_visual, vars);
+  const firma = tpl.firma ? renderVars(tpl.firma, vars) : null;
+  const ctaText = tpl.cta_text ? renderVars(tpl.cta_text, vars) : null;
+  const ctaUrl = tpl.cta_url ? renderVars(tpl.cta_url, vars) : null;
+  const hasCta = !!(ctaText && ctaUrl);
+
+  const logoBlock = tpl.mostrar_logo
+    ? `<tr><td align="center" style="padding:32px 24px 12px 24px;">
+        <img src="${LOGO_URL}" alt="Gestión Global"
+             style="display:block;max-width:220px;height:auto;margin:0 auto;" />
+      </td></tr>`
+    : '';
+
+  const kickerBlock = kicker
+    ? `<tr><td style="padding:24px 32px 4px 32px;">
+        <p style="margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:12px;font-weight:700;letter-spacing:1.6px;text-transform:uppercase;color:${accent};">${escapeAttr(kicker)}</p>
+      </td></tr>`
+    : '';
+
+  const tituloBlock = titulo
+    ? `<tr><td style="padding:0 32px 8px 32px;">
+        <h1 style="margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:28px;line-height:1.18;font-weight:800;color:#0f172a;">${escapeAttr(titulo)}</h1>
+      </td></tr>`
+    : '';
+
+  const separator = `<tr><td style="padding:16px 32px 0 32px;">
+      <hr style="border:0;border-top:1px solid #e2e8f0;margin:0;" />
+    </td></tr>`;
+
+  const cuerpoBlock = `<tr><td style="padding:20px 32px 8px 32px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:15px;line-height:1.65;color:#1e293b;">${cuerpo}</td></tr>`;
+
+  const ctaBlock = hasCta
+    ? `<tr><td style="padding:8px 32px 24px 32px;">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+          <tr><td style="border-radius:10px;background-color:${accent};">
+            <a href="${escapeAttr(ctaUrl!)}" target="_blank" rel="noopener"
+               style="display:inline-block;padding:12px 22px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:14px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:10px;">
+              ${escapeAttr(ctaText!)}
+            </a>
+          </td></tr>
+        </table>
+      </td></tr>`
+    : '';
+
+  const firmaBlock = firma
+    ? `<tr><td style="padding:12px 32px 28px 32px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:13px;color:#64748b;">${escapeAttr(firma)}</td></tr>`
+    : '';
+
+  const tablaEnvio = tpl.incluir_tabla_envio
+    ? `<tr><td style="padding:0 32px 16px 32px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+               style="border-collapse:collapse;background:#f8fafc;border-radius:10px;">
+          <tr>
+            <td style="padding:10px 14px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:12px;color:#475569;">
+              <strong style="color:#0f172a;">FROM</strong> ${escapeAttr(fromEmail)} ·
+              <strong style="color:#0f172a;">REPLY-TO</strong> ${escapeAttr(replyToEmail)}
+            </td>
+          </tr>
+        </table>
+      </td></tr>`
+    : '';
+
+  const footerBlock = `<tr><td style="padding:18px 32px 28px 32px;border-top:1px solid #e2e8f0;background:#f8fafc;border-radius:0 0 16px 16px;">
+      <p style="margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:11px;color:#94a3b8;text-align:center;">
+        Enviado por <strong style="color:#475569;">Gestión Global</strong> · <a href="https://www.${DOMAIN}" style="color:${accent};text-decoration:none;">${DOMAIN}</a>
+      </p>
+    </td></tr>`;
+
+  return `<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>${escapeAttr(titulo || 'Gestión Global')}</title>
+</head>
+<body style="margin:0;padding:0;background:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f1f5f9;padding:24px 12px;">
+  <tr><td align="center">
+    <table role="presentation" width="640" cellpadding="0" cellspacing="0" border="0" style="max-width:640px;width:100%;background:#ffffff;border-radius:16px;box-shadow:0 4px 24px rgba(15,23,42,0.06);overflow:hidden;">
+      ${logoBlock}
+      ${kickerBlock}
+      ${tituloBlock}
+      ${separator}
+      ${cuerpoBlock}
+      ${ctaBlock}
+      ${firmaBlock}
+      ${tablaEnvio}
+      ${footerBlock}
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>`;
+}
+
+function escapeAttr(s: string): string {
+  return s
+    .replaceAll('&', '&amp;')
+    .replaceAll('"', '&quot;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;');
+}
+
+function sanitizeHex(s: string | null | undefined): string | null {
+  if (!s) return null;
+  return /^#[0-9a-fA-F]{6}$/.test(s) ? s : null;
+}
+
+// =========================================================================
+// Helpers existentes (sin cambios)
+// =========================================================================
+
 async function failJob(admin: ReturnType<typeof createClient>, job: QueueRow, msg: string) {
   const nextIntento = (job.intento ?? 0) + 1;
   const exhausted = nextIntento >= job.max_intentos;
-  // backoff exponencial: 2^intento minutos (1, 2, 4, 8, 16, ...).
   const backoffMin = Math.min(Math.pow(2, nextIntento), 60);
   const nextSchedule = new Date(Date.now() + backoffMin * 60 * 1000).toISOString();
 
@@ -236,7 +375,7 @@ async function failJob(admin: ReturnType<typeof createClient>, job: QueueRow, ms
     await admin.from('email_queue').update({
       intento: nextIntento,
       ultimo_error: msg,
-      enviado_at: new Date().toISOString(), // marca cierre con error
+      enviado_at: new Date().toISOString(),
     }).eq('id', job.id);
   } else {
     await admin.from('email_queue').update({
@@ -256,7 +395,6 @@ function renderVars(tpl: string, vars: Record<string, unknown>): string {
 }
 
 function escapeHtmlIfNeeded(s: string): string {
-  // No re-escapamos el HTML del template; sólo los valores de variables.
   return s.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
 }
 
@@ -299,14 +437,8 @@ function buildMimeMessage(a: MimeArgs): string {
   if (a.replyTo) headers.push(`Reply-To: ${a.replyTo}`);
   headers.push(`Subject: ${encodeRfc2047(a.subject)}`);
   headers.push('MIME-Version: 1.0');
-  // EGG-QA-07 v2 (2026-05-26): emails 1:1 transaccionales (acuse de solicitud,
-  // confirmaciones, comprobantes) NO deben llevar Precedence: list ni
-  // List-Unsubscribe — esos son headers de mailing-lists/newsletters y
-  // disparan el clasificador "Promociones" de Gmail. Sólo agregamos
-  // identificadores neutros que no marcan bulk.
   headers.push('X-Auto-Response-Suppress: All');
   headers.push('X-Mailer: Gestion Global Platform');
-  // (NO Auto-Submitted / Precedence / List-Unsubscribe → eso es para newsletters)
 
   if (hasText) {
     headers.push(`Content-Type: multipart/alternative; boundary="${boundary}"`);

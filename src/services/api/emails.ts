@@ -115,6 +115,42 @@ export async function updateTemplate(
   return ok(data);
 }
 
+// Patch para los campos visuales MANAXER (todos requeridos).
+export interface TemplateVisualPatch {
+  kicker: string;
+  titulo_visual: string;
+  color_acento: string;
+  mostrar_logo: boolean;
+  cuerpo_html_visual: string;
+  firma: string | null;
+  incluir_tabla_envio: boolean;
+  cta_text: string | null;
+  cta_url: string | null;
+  asunto?: string | null;
+}
+
+export async function updateTemplateVisual(
+  slug: string,
+  patch: TemplateVisualPatch,
+): Promise<ApiResponse<EmailTemplateRow>> {
+  const args = {
+    p_slug: slug,
+    p_kicker: patch.kicker,
+    p_titulo_visual: patch.titulo_visual,
+    p_color_acento: patch.color_acento,
+    p_mostrar_logo: patch.mostrar_logo,
+    p_cuerpo_html_visual: patch.cuerpo_html_visual,
+    p_firma: patch.firma ?? '',
+    p_incluir_tabla_envio: patch.incluir_tabla_envio,
+    p_cta_text: patch.cta_text ?? '',
+    p_cta_url: patch.cta_url ?? '',
+    p_asunto: patch.asunto ?? null,
+  } as unknown as Parameters<typeof supabase.rpc<'email_template_actualizar_visual'>>[1];
+  const { data, error } = await supabase.rpc('email_template_actualizar_visual', args);
+  if (error) return fail('TPL_UPDATE_VISUAL', error.message, error);
+  return ok(data as unknown as EmailTemplateRow);
+}
+
 // Substituye {{var}} en asunto + html + text usando las variables dadas.
 // Aplica el mismo escape que el dispatcher (sólo escapa valores, no el HTML).
 export function previewTemplate(

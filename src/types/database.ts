@@ -2541,13 +2541,23 @@ export type Database = {
           asunto: string
           body_html: string
           body_text: string | null
+          color_acento: string
           created_at: string
+          cta_text: string | null
+          cta_url: string | null
+          cuerpo_html_visual: string
           descripcion: string | null
+          firma: string | null
           from_casilla: string
           id: string
+          incluir_tabla_envio: boolean
+          kicker: string
+          layout_version: string
+          mostrar_logo: boolean
           nombre: string
           reply_to: string | null
           slug: string
+          titulo_visual: string
           updated_at: string
           variables: Json
         }
@@ -2556,13 +2566,23 @@ export type Database = {
           asunto: string
           body_html: string
           body_text?: string | null
+          color_acento?: string
           created_at?: string
+          cta_text?: string | null
+          cta_url?: string | null
+          cuerpo_html_visual?: string
           descripcion?: string | null
+          firma?: string | null
           from_casilla?: string
           id?: string
+          incluir_tabla_envio?: boolean
+          kicker?: string
+          layout_version?: string
+          mostrar_logo?: boolean
           nombre: string
           reply_to?: string | null
           slug: string
+          titulo_visual?: string
           updated_at?: string
           variables?: Json
         }
@@ -2571,13 +2591,23 @@ export type Database = {
           asunto?: string
           body_html?: string
           body_text?: string | null
+          color_acento?: string
           created_at?: string
+          cta_text?: string | null
+          cta_url?: string | null
+          cuerpo_html_visual?: string
           descripcion?: string | null
+          firma?: string | null
           from_casilla?: string
           id?: string
+          incluir_tabla_envio?: boolean
+          kicker?: string
+          layout_version?: string
+          mostrar_logo?: boolean
           nombre?: string
           reply_to?: string | null
           slug?: string
+          titulo_visual?: string
           updated_at?: string
           variables?: Json
         }
@@ -6329,6 +6359,52 @@ export type Database = {
           p_observaciones?: string
         }
         Returns: string
+      }
+      email_template_actualizar_visual: {
+        Args: {
+          p_asunto?: string
+          p_color_acento: string
+          p_cta_text: string
+          p_cta_url: string
+          p_cuerpo_html_visual: string
+          p_firma: string
+          p_incluir_tabla_envio: boolean
+          p_kicker: string
+          p_mostrar_logo: boolean
+          p_slug: string
+          p_titulo_visual: string
+        }
+        Returns: {
+          activo: boolean
+          asunto: string
+          body_html: string
+          body_text: string | null
+          color_acento: string
+          created_at: string
+          cta_text: string | null
+          cta_url: string | null
+          cuerpo_html_visual: string
+          descripcion: string | null
+          firma: string | null
+          from_casilla: string
+          id: string
+          incluir_tabla_envio: boolean
+          kicker: string
+          layout_version: string
+          mostrar_logo: boolean
+          nombre: string
+          reply_to: string | null
+          slug: string
+          titulo_visual: string
+          updated_at: string
+          variables: Json
+        }
+        SetofOptions: {
+          from: "*"
+          to: "email_templates"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       emitir_certificado: { Args: { p_matricula_id: string }; Returns: string }
       emitir_certificado_si_corresponde: {
