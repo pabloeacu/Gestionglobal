@@ -364,6 +364,33 @@ Test fresh enviado post-activación: provider_msg_id `19e649333d95494a`, from co
 
 ---
 
+## EGG-QA-23 · 🔴 CRÍTICO · Sistema NO detecta cliente existente al recibir nueva submission
+
+**Módulo**: trigger `crear_tramite_desde_submission_auto`
+**Flujo afectado**: el escenario "cliente confundido" del mandato del usuario.
+
+**Descripción**: Cuando un cliente que YA existe (en `administraciones`) vuelve a la landing pública y completa un nuevo formulario, el sistema NO lo detectaba. Verificado: María Soledad López (CUIT 27321456784, ya cliente activo) hizo submission desde landing para "Renovación RPAC" → `solicitudes.cliente_id` quedaba `NULL`, `formulario_submissions.administracion_id` quedaba `NULL`, gerencia recibía notif estándar "solicitud_nueva" como si fuera un desconocido.
+
+**Impacto**: gerencia tenía que descubrir manualmente que el solicitante es un cliente existente al abrir el wizard de activación. Riesgo de duplicar cliente por error. Mala UX cuando el cliente debería haber usado su portal.
+
+**Fix aplicado** (mig 0078): el trigger ahora detecta coincidencia por:
+1. CUIT (preferido) — match en `administraciones.cuit`
+2. Email — fallback en `administraciones.email`
+
+Si encuentra match:
+- Setea `solicitudes.cliente_id = admin_existente.id`
+- Setea `formulario_submissions.administracion_id = admin_existente.id`
+- Emite notif EXTRA `cliente_existente_landing` con cuerpo: "Hizo solicitud X desde landing pública en vez del portal" + link a la solicitud
+
+**Verificación e2e**: 2do submission de María (servicio "certificado-rpac") tras el fix:
+- `solicitudes.cliente_id = 3e99513d-...` ✅
+- `notif cliente_existente_landing` emitida a los 2 gerentes ✅
+- NO se duplicó admin ✅
+
+**Estado**: ✅ FIXEADO.
+
+---
+
 ## EGG-QA-19 · 🔴 CRÍTICO · Portal cliente nuevo: "Tu cuenta no tiene una administración asociada"
 
 **Módulo**: edge function `alta-cliente-portal` + RLS `administraciones_select`
