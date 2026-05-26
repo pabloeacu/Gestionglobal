@@ -18,7 +18,7 @@ import {
   User2,
   Calendar,
 } from 'lucide-react';
-import { Skeleton } from '@/components/common';
+import { Skeleton, SkeletonWithTimeout } from '@/components/common';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import { IllustratedEmpty } from '@/components/brand/IllustratedEmpty';
 import { cn } from '@/lib/cn';
@@ -194,11 +194,13 @@ export function AuditoriaPage() {
       {/* Lista */}
       <section className="space-y-2">
         {loading ? (
-          <div className="space-y-2">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <Skeleton key={i} className="h-16 w-full rounded-xl" />
-            ))}
-          </div>
+          <SkeletonWithTimeout loading onRetry={() => void load()}>
+            <div className="space-y-2">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <Skeleton key={i} className="h-16 w-full rounded-xl" />
+              ))}
+            </div>
+          </SkeletonWithTimeout>
         ) : items.length === 0 ? (
           <IllustratedEmpty
             illustration="lista"

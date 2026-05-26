@@ -33,6 +33,7 @@ import {
   AnimatedNumber,
 } from '@/components/common';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
+import { IllustratedEmpty } from '@/components/brand/IllustratedEmpty';
 import { toast } from '@/lib/toast';
 import { useAuth } from '@/contexts/AuthContext';
 import {
@@ -155,8 +156,12 @@ export function EmailTemplatesPage() {
               </td></tr>
             )}
             {!loading && rows.length === 0 && (
-              <tr><td colSpan={5} className="py-10 text-center text-brand-muted">
-                No hay plantillas todavía.
+              <tr><td colSpan={5}>
+                <IllustratedEmpty
+                  illustration="lista"
+                  title="No hay plantillas todavía"
+                  description="Las plantillas se sincronizan desde el repositorio. Si esperabas verlas acá, revisá la migración 0006_emails.sql."
+                />
               </td></tr>
             )}
             {rows.map((t) => (

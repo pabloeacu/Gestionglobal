@@ -5,6 +5,7 @@ import {
   CheckCircle2, XCircle, Landmark, Smartphone, PiggyBank, Banknote,
 } from 'lucide-react';
 import { Button, Field, Input, Select, Modal, useConfirm } from '@/components/common';
+import { IllustratedEmpty } from '@/components/brand/IllustratedEmpty';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/cn';
 import {
@@ -168,11 +169,23 @@ function CajasTab() {
           Cargando…
         </div>
       ) : visibles.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-12 text-center">
-          <Wallet size={32} className="mx-auto mb-3 text-slate-400" />
-          <p className="text-brand-muted">
-            {mostrarArchivadas ? 'No hay cajas todavía.' : 'No hay cajas activas. Creá la primera.'}
-          </p>
+        <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50">
+          <IllustratedEmpty
+            illustration="lista"
+            title={mostrarArchivadas ? 'No hay cajas archivadas' : 'No hay cajas activas'}
+            description={
+              mostrarArchivadas
+                ? 'Las cajas archivadas se guardan acá para consulta histórica.'
+                : 'Creá la primera caja para empezar a registrar movimientos.'
+            }
+            action={
+              !mostrarArchivadas && (
+                <Button onClick={() => setCreating(true)}>
+                  <Plus size={16} /> Nueva caja
+                </Button>
+              )
+            }
+          />
         </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

@@ -5,6 +5,7 @@ export { DialogProvider, useConfirm, usePrompt, useAlert } from './DialogProvide
 export { Field, Input, Select, Textarea } from './Field';
 export { Tabs, type TabItem } from './Tabs';
 export { Skeleton, SkeletonText, SkeletonRow } from './Skeleton';
+export { SkeletonWithTimeout } from './SkeletonWithTimeout';
 export { AnimatedNumber } from './AnimatedNumber';
 export { Stepper, StepPanel, type Step } from './Stepper';
 export { CopyButton } from './CopyButton';

@@ -123,7 +123,7 @@ export function SolicitudCard({ s }: Props) {
         <p className="kicker text-brand-cyan">
           {s.formulario_categoria ?? 'Solicitud'}
         </p>
-        <h3 className="mt-0.5 font-display text-base font-bold leading-tight text-brand-ink">
+        <h3 className="mt-0.5 font-display text-base font-semibold leading-tight text-brand-ink">
           {s.formulario_titulo ?? s.servicio_nombre ?? 'Servicio sin identificar'}
         </h3>
       </div>

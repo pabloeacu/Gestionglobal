@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { AlertCircle, ArrowRight } from 'lucide-react';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
-import { Skeleton } from '@/components/common';
+import { Skeleton, SkeletonWithTimeout } from '@/components/common';
 import { listMorososResumen, type MorosoRow } from '@/services/api/ctaCte';
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
 import { formatMoney } from '../lib/format';
@@ -72,11 +72,13 @@ export function MorososWidget({ limit = 5 }: Props) {
         </div>
 
         {loading && rows.length === 0 ? (
-          <div className="space-y-2">
-            {[0, 1, 2].map((i) => (
-              <Skeleton key={i} className="h-12 w-full rounded-lg" />
-            ))}
-          </div>
+          <SkeletonWithTimeout loading onRetry={() => void load()}>
+            <div className="space-y-2">
+              {[0, 1, 2].map((i) => (
+                <Skeleton key={i} className="h-12 w-full rounded-lg" />
+              ))}
+            </div>
+          </SkeletonWithTimeout>
         ) : error ? (
           <p className="py-6 text-center text-sm text-red-600">{error}</p>
         ) : rows.length === 0 ? (

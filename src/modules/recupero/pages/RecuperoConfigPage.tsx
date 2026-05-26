@@ -4,6 +4,7 @@ import { ArrowLeft, Save, Sliders } from 'lucide-react';
 import { toast } from '@/lib/toast';
 import { Field, Input, Skeleton, Button } from '@/components/common';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
+import { IllustratedEmpty } from '@/components/brand/IllustratedEmpty';
 import {
   listConfig,
   actualizarConfig,
@@ -131,9 +132,11 @@ export function RecuperoConfigPage() {
               ))}
             </div>
           ) : rows.length === 0 ? (
-            <p className="text-sm text-brand-muted">
-              No hay configuraciones cargadas.
-            </p>
+            <IllustratedEmpty
+              illustration="lista"
+              title="No hay configuraciones cargadas"
+              description="Definí umbrales y reglas de recupero para empezar a automatizar la cobranza."
+            />
           ) : (
             rows.map((r) => (
               <article
