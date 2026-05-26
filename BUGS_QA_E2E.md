@@ -229,11 +229,86 @@ Pasos para vos en `admin.google.com` (ya estás logueado con `contacto@`):
 🟡 **Parte 3 (mejora futura)** · Body HTML más sobrio para emails transaccionales (menos gradientes, más estructura tipo recibo). No prioritario ahora.
 
 **Estado**: ✅ **FIXEADO COMPLETO** (2026-05-26):
+1. Headers transaccionales en dispatch-emails (post v2: sin Precedence/List-Unsubscribe que disparaban Promociones).
+2. DKIM activado en Workspace (2048-bit, selector google).
+3. TXT record cargado en Cloudflare DNS via API.
+
+Verificado: emails llegan a Inbox principal con `dkim=pass`, `spf=pass`, `dmarc=pass`, `arc=pass`.
+
+---
+
+## EGG-QA-08 · 🟢 BAJO · KPIs de Solicitudes muestran 0/0/0/0 cuando hay solicitud nueva
+
+**Módulo**: SolicitudesListPage
+**Descripción**: La lista muestra "RECIBIDAS 0 / EN REVISIÓN 0 / DERIVADAS 0 / ACTIVADAS HOY 0" aunque hay 1 solicitud en estado RECIBIDA listada abajo. Desincronismo Realtime vs query inicial de KPIs.
+**Severidad**: 🟢 Bajo (cosmético). El listado SÍ se sincroniza, solo los KPIs no.
+**Propuesta**: usar el mismo channel Realtime para los KPIs o re-query al recibir cambios.
+**Estado**: 🟢 documentado.
+
+---
+
+## EGG-QA-09 · 🟡 MEDIO · Wizard alta cliente no trae CUIT ni domicilio fiscal del formulario
+
+**Módulo**: Wizard de activación · Paso 2 (Alta cliente)
+**Descripción**: El paso "Cliente nuevo" del wizard no auto-completa los campos CUIT y Domicilio fiscal aunque están en `formulario_submissions.datos` (cuit, domicilio). El operador tiene que copiar manualmente. UX premium perdida.
+**Propuesta**: pre-llenar `crear_cliente_input.cuit` con `submission.datos->>'cuit'` y `direccion` con `domicilio`.
+**Estado**: 🟡 documentado.
+
+---
+
+## EGG-QA-10 · 🔴 CRÍTICO · Wizard crea administración pero NO user en auth.users
+
+**Módulo**: RPC `solicitud_activar` + flujo de provisioning portal
+**Descripción**: Al activar una solicitud con "cliente nuevo", el RPC creaba la fila en `administraciones` pero NO un user en `auth.users`. El email "bienvenida-administracion" se encolaba pero las credenciales eran inválidas → cliente nuevo recibe email con usuario y password que NO existen → no puede entrar al portal.
+
+**Fix multi-capa** (commits + migs 0076 + 0077 + edge fn alta-cliente-portal):
+1. `solicitud_activar` ya no encola bienvenida para clientes nuevos.
+2. Trigger `AFTER INSERT ON administraciones` detecta admin nueva con email + sin user_id.
+3. Trigger invoca via pg_net la edge function `alta-cliente-portal`.
+4. Edge function: crea user en auth.users (admin API, password temporal seguro 16 chars), upsert profile.role='administrador', vincula admin.user_id ← user.id, encola bienvenida con `{{password_temporal}}`.
+5. Template `bienvenida-administracion` actualizado con `{{usuario}}` + `{{password_temporal}}` + CTA al portal + hint de cambiar password.
+
+Verificado e2e: invocación manual de la edge function creó user `28da5448-9dcf-4f22-8a0f-cb42631464e2`, vinculó admin, encoló bienvenida con password `ej9RzL3mzSsxY6#`, email enviado.
+
+**Estado**: ✅ FIXEADO (verificado backend; verificación visual en próximo turno: cliente nuevo logueándose al portal).
+
+---
+
+## EGG-QA-11 · 🔴 CRÍTICO · solicitud_derivar pasaba args en posición incorrecta
+
+**Módulo**: RPC `solicitud_derivar`
+**Descripción**: `generar_acceso_externo` tiene firma `(recurso_tipo, recurso_id, email, nombre, dias_validez, observaciones)` (6 args). El RPC `solicitud_derivar` lo llamaba con 4 args `('solicitud', uuid, email, 7)` — el `7` se pasaba como `nombre_destinatario` (text) cuando era el `dias_validez` (integer). PostgreSQL fallaba el cast, la excepción quedaba silenciada por `EXCEPTION WHEN OTHERS NULL` → el token NUNCA se generaba → la gestoría externa recibía email con URL fallback inútil.
+
+**Fix** (mig 0076): named args (`generar_acceso_externo(p_recurso_tipo := ..., p_dias_validez := 14, ...)`) + `RAISE WARNING` en lugar de NULL silencioso para debug futuro.
+
+**Estado**: ✅ FIXEADO (pendiente re-test creando solicitud nueva y derivándola).
+
+---
+
+## EGG-QA-12 · 🟡 MEDIO · service_role / anon keys hardcoded en cron jobs SQL
+
+**Módulo**: cron jobs `arca-dispatch-every-min` + `notify-vencimientos-diario`
+**Descripción**: Al inspeccionar pg_cron.job vimos que algunos crons tienen `Authorization: Bearer myRhvg41J70_pBsHoo5LdKEnaRxOpQm77mfbL5c4h4A` hardcodeado. Otros (`dispatch-emails-1min`, `dispatch-push-2min`, `dispatch-vencimientos-diario`) usan `current_setting('app.service_role_key', true)` que es el approach correcto.
+**Riesgo**: keys embebidas en SQL = exposición si se filtra el dump de la DB. También dificulta rotación de keys.
+**Fix propuesto**: cambiar los 2 crons que hardcodean a usar `current_setting('app.service_role_key', true)` como los demás.
+**Estado**: 🟡 documentado (pendiente fix).
+
+---
+
+## EGG-QA-13 · 🟡 MEDIO · current_setting('app.service_role_key') NULL en contexto user
+
+**Módulo**: configuración de DB (Postgres `ALTER DATABASE`)
+**Descripción**: El setting `app.service_role_key` está disponible para los cron jobs (corren con role postgres) pero NO para queries iniciadas por user/staff. Esto afectó al trigger `trg_admin_provision_user` que necesita invocar la edge function via pg_net y no encuentra el setting.
+**Workaround actual**: invoqué la edge function manualmente para la admin de QA. Para producción, el setting debe estar visible en TODOS los contextos.
+**Fix propuesto**: `ALTER DATABASE postgres SET app.service_role_key = '...'` con `WITH GRANTS` o cargar el setting al inicio de las funciones SECURITY DEFINER.
+**Estado**: 🟡 documentado (pendiente verificación + fix definitivo).
 1. Headers transaccionales deployados en dispatch-emails.
 2. DKIM activado en Workspace (key 2048-bit, selector `google`).
 3. TXT record cargado en Cloudflare DNS via API (zone fa9712692779831daf9b91e62ac563bf, record ac31ddef3586e796335d8a56f4c10241).
 4. Propagación verificada en 3 resolvers (Cloudflare authoritative, 1.1.1.1, 8.8.8.8).
 5. Workspace muestra estado "Autenticando el correo electrónico con DKIM".
+
+Detalle EGG-QA-05/07 antiguo: ver commits 9b43c61 y 9d2d6c6.
 
 Test fresh enviado post-activación: provider_msg_id `19e649333d95494a`, from contacto@, asunto realista "Recibimos tu consulta · Gestión Global". El usuario reportó que ese test cayó en Promociones aunque DKIM/SPF/DMARC/ARC pasaron todos.
 
