@@ -9,6 +9,7 @@ export interface UsuarioRow {
   user_id: string;
   email: string;
   full_name: string;
+  avatar_url: string | null;
   role: string;
   administracion_id: string | null;
   administracion_nombre: string | null;

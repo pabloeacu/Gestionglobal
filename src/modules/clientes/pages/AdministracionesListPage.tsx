@@ -275,9 +275,17 @@ export function AdministracionesListPage() {
                           to={`/gerencia/clientes/${r.id}`}
                           className="flex items-center gap-3 font-medium text-brand-ink transition group-hover:text-brand-cyan"
                         >
-                          <span className="grid h-9 w-9 place-items-center rounded-lg bg-brand-cyan-pale/40 text-brand-cyan transition group-hover:scale-105 group-hover:bg-brand-cyan group-hover:text-white">
-                            <Building2 size={16} />
-                          </span>
+                          {r.responsable_avatar_url ? (
+                            <img
+                              src={r.responsable_avatar_url}
+                              alt=""
+                              className="h-9 w-9 flex-shrink-0 rounded-lg object-cover ring-1 ring-slate-200 transition group-hover:scale-105 group-hover:ring-brand-cyan"
+                            />
+                          ) : (
+                            <span className="grid h-9 w-9 flex-shrink-0 place-items-center rounded-lg bg-brand-cyan-pale/40 text-brand-cyan transition group-hover:scale-105 group-hover:bg-brand-cyan group-hover:text-white">
+                              <Building2 size={16} />
+                            </span>
+                          )}
                           <span className="min-w-0">
                             <span className="block truncate">{r.nombre}</span>
                             <span className="block truncate text-xs text-brand-muted">

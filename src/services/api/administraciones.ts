@@ -20,6 +20,7 @@ export interface ListAdministracionesParams {
 
 export interface AdministracionListItem extends AdministracionRow {
   consorcios_count: number;
+  responsable_avatar_url: string | null;
 }
 
 export async function listAdministraciones(
@@ -48,7 +49,7 @@ export async function listAdministraciones(
   const { data, error, count } = await query;
   if (error) return fail('ADMIN_LIST', error.message, error);
 
-  const rows: AdministracionListItem[] = (data ?? []).map((r) => {
+  const rowsBase = (data ?? []).map((r) => {
     const cAny = (r as { consorcios?: Array<{ count: number }> }).consorcios;
     const consorcios_count = Array.isArray(cAny) && cAny[0] ? cAny[0].count : 0;
     const { consorcios: _drop, ...rest } = r as AdministracionRow & {
@@ -56,6 +57,25 @@ export async function listAdministraciones(
     };
     return { ...(rest as AdministracionRow), consorcios_count };
   });
+
+  // Enrich con avatar del responsable (profiles.avatar_url). El FK admin.user_id
+  // apunta a auth.users — usamos un IN sobre profiles.id (que comparte el uuid).
+  const userIds = rowsBase
+    .map((r) => r.user_id)
+    .filter((id): id is string => !!id);
+  const avatarMap = new Map<string, string | null>();
+  if (userIds.length > 0) {
+    const { data: profs } = await supabase
+      .from('profiles')
+      .select('id, avatar_url')
+      .in('id', userIds);
+    (profs ?? []).forEach((p) => avatarMap.set(p.id, p.avatar_url));
+  }
+
+  const rows: AdministracionListItem[] = rowsBase.map((r) => ({
+    ...r,
+    responsable_avatar_url: r.user_id ? (avatarMap.get(r.user_id) ?? null) : null,
+  }));
 
   // PostgREST a veces devuelve count=0 cuando el select tiene relaciones
   // embebidas (`consorcios:consorcios(count)`). Si count es null o 0 pero
