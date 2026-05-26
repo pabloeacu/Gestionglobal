@@ -161,4 +161,31 @@ Resultado: la API devuelve éxito (mensaje aceptado en outbox de la cuenta), per
 
 ---
 
+## EGG-QA-06 · 🔴 CRÍTICO · Plantillas usaban alias INEXISTENTES → emails descartados
+
+**Módulo**: dispatch-emails edge function + DB email_templates
+**Flujo afectado**: TODOS los outbounds del sistema.
+
+**Causa raíz REAL** (el "no recibí emails" original): el Workspace tiene sólo 4 alias REALES (`cursos@`, `webinar@`, `consultoriajuridica@`, `contacto@`). Las casillas `info@`, `facturacion@`, `tramites@`, `recupero@` que el código asumía como aliases válidos **NO existen**. Gmail aceptaba el mensaje en la API (provider_msg_id válido) pero el delivery final lo descartaba silenciosamente porque el From: no correspondía a un alias autorizado en la cuenta autenticada.
+
+El commit anterior (ab9a45c) "unificó todo a contacto@" pero perdió identidad por servicio. Este fix re-introduce los aliases reales por categoría:
+
+| from_casilla | Alias real | Templates |
+|---|---|---|
+| `cursos` | `cursos@gestionglobal.ar` | certificado-emitido, curso-inscripcion-confirmada |
+| `webinar` | `webinar@gestionglobal.ar` | webinar-bienvenida + 2 recordatorios |
+| `juridico` | `consultoriajuridica@gestionglobal.ar` | (futuro) |
+| `general` | `contacto@gestionglobal.ar` | 17 templates (bienvenida, acuses, comprobantes, recupero, trámites, vencimientos, etc.) |
+
+**Fix aplicado** (commit 1d0c47b · mig 0075):
+- Edge function `dispatch-emails`: helper `aliasFor(casilla)` mapea categoría a alias real. Reply-To = mismo alias.
+- Mig 0075: drop CHECK viejo, UPDATE templates a los 4 valores nuevos, nuevo CHECK con los 4 valores reales.
+- Frontend: `FromCasilla` type + `CASILLAS` array + `RespuestaCasilla` + `SolicitudDetailPage` dropdown actualizado con hints del alias real.
+
+**Verificación**: test enviado con `from_casilla='cursos'` registró `from_email=cursos@gestionglobal.ar` y `reply_to=cursos@` en sent_emails. provider_msg_id `19e646a7dad0df24`.
+
+**Estado**: ✅ FIXEADO · pendiente confirmación del usuario que el email llega al inbox desde cursos@. Mismo test pendiente para webinar@ y consultoriajuridica@ (throttle 5min entre envíos).
+
+---
+
 ---
