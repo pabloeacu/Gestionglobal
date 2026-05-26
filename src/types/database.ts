@@ -6159,6 +6159,46 @@ export type Database = {
         }[]
       }
       cerrar_mi_sesion: { Args: { p_session_id: string }; Returns: boolean }
+      cliente_catalogo_formularios: {
+        Args: never
+        Returns: {
+          categoria: string
+          descripcion: string
+          formulario_id: string
+          slug: string
+          titulo: string
+        }[]
+      }
+      cliente_deuda_neta: {
+        Args: { p_administracion_id: string }
+        Returns: {
+          pendientes_count: number
+          proximo_vencimiento: string
+          total: number
+          vencidos_count: number
+        }[]
+      }
+      cliente_portal_dashboard: { Args: never; Returns: Json }
+      cliente_tramites_listar: {
+        Args: { p_solo_abiertos?: boolean }
+        Returns: {
+          categoria: string
+          codigo: string
+          consorcio_id: string
+          created_at: string
+          estado: string
+          horas_desde_actividad: number
+          id: string
+          prioridad: string
+          servicio_id: string
+          titulo: string
+          total_adjuntos: number
+          total_comentarios: number
+          ultima_actividad_at: string
+          vence_at: string
+        }[]
+      }
+      cliente_webinars_listar: { Args: never; Returns: Json }
       comprobantes_morosos: {
         Args: { p_administracion_id?: string }
         Returns: {

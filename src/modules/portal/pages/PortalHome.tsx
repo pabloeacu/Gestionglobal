@@ -1,555 +1,530 @@
+// PortalHome · Dashboard premium del cliente (administrador).
+// Filosofía: muestra SERVICIOS ACTIVOS y OPORTUNIDADES DE RENOVACIÓN, no
+// deuda como eje. Cuenta corriente solo aparece si hay saldo real. Mobile-first.
+//
+// Estructura:
+//   1. Hero card premium (saludo + datos)
+//   2. Hot cards adaptativos (clase HOY, webinar próximo, vencimientos críticos, deuda real)
+//   3. Atajos principales (Mis cursos, Mis gestiones, Mis webinars, Solicitar nuevo)
+//   4. Oportunidades cross-sell (sutil, basado en reglas del nicho)
+//   5. Mis cursos activos (compacto)
+//   6. Próximos vencimientos (compacto)
+//
+// Citas: regla 4 (queries en services/), regla 13 (sin window.confirm).
+
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Receipt,
-  Wallet,
-  CalendarClock,
-  Building2,
-  ArrowRight,
-  ChevronRight,
+  Sparkles,
+  GraduationCap,
+  Video,
   FileText,
+  PlusCircle,
+  CalendarClock,
+  BadgeCheck,
+  Wallet,
+  ArrowRight,
+  AlertTriangle,
+  ChevronRight,
+  PlayCircle,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { AnimatedNumber } from '@/components/common';
-import { BrandLoader } from '@/components/brand/BrandLoader';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
-import { getAdministracion, type AdministracionRow } from '@/services/api/administraciones';
-import { getPortalDashboard, type PortalDashboard } from '@/services/api/portal';
-import {
-  listCtaCteAdministracion,
-  type CtaCteEntry,
-} from '@/services/api/cobranzas';
+import { Skeleton } from '@/components/common';
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
-import { formatDateShort, parseLocalDate } from '@/lib/dates';
-import { cn } from '@/lib/cn';
+import {
+  fetchClientePortalDashboard,
+  type ClientePortalDashboard,
+  type ClienteOportunidad,
+} from '@/services/api/portal-dashboard';
 
-// Dashboard del portal del administrador. Las queries usan administracion_id
-// del profile actual; la RLS filtra automáticamente.
-
+// =========================================================================
 export function PortalHome() {
   const { user } = useAuth();
-  const [admin, setAdmin] = useState<AdministracionRow | null>(null);
-  const [dash, setDash] = useState<PortalDashboard | null>(null);
-  const [ctacte, setCtacte] = useState<CtaCteEntry[]>([]);
+  const [data, setData] = useState<ClientePortalDashboard | null>(null);
   const [loading, setLoading] = useState(true);
 
   async function load() {
-    if (!user?.administracionId) return;
-    setLoading(true);
-    const [a, d, c] = await Promise.all([
-      getAdministracion(user.administracionId),
-      getPortalDashboard(user.administracionId),
-      listCtaCteAdministracion(user.administracionId),
-    ]);
-    if (a.ok) setAdmin(a.data);
-    if (d.ok) setDash(d.data);
-    if (c.ok) setCtacte(c.data.slice(0, 5));
+    const res = await fetchClientePortalDashboard();
     setLoading(false);
+    if (res.ok && !res.data.error) setData(res.data);
   }
 
-  useEffect(() => {
-    void load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.administracionId]);
+  useEffect(() => { void load(); }, []);
 
-  useRealtimeRefresh(
-    ['comprobantes', 'movimiento_imputaciones'],
-    () => void load(),
-  );
+  // Realtime refresh on relevant tables
+  useRealtimeRefresh(['curso_encuentros', 'webinar_inscriptos', 'vencimientos', 'tramites', 'comprobantes'], () => { void load(); });
 
-  if (!user?.administracionId) {
+  if (loading) {
     return (
-      <div className="mx-auto max-w-md p-12 text-center text-sm text-brand-muted">
-        Tu cuenta no tiene una administración asociada. Contactá al staff.
+      <div className="space-y-4 sm:space-y-5">
+        <Skeleton className="h-40 rounded-3xl" />
+        <Skeleton className="h-32 rounded-3xl" />
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {[0,1,2,3].map(i => <Skeleton key={i} className="h-28 rounded-2xl" />)}
+        </div>
       </div>
     );
   }
 
-  if (loading && !dash) {
+  if (!data) {
     return (
-      <div className="grid place-items-center p-16">
-        <BrandLoader size={56} label="Cargando tu portal" />
+      <div className="rounded-3xl border border-amber-200 bg-amber-50 p-6 text-center">
+        <p className="text-sm text-amber-800">
+          No pudimos cargar tu información. Intentá refrescar la página.
+        </p>
       </div>
     );
   }
+
+  const userName = user?.fullName?.split(' ')[0] ?? data.administracion.responsable_nombre ?? 'Hola';
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
-      <PortalCover admin={admin} userName={user.fullName ?? user.email} />
+    <div className="space-y-5 sm:space-y-6 pb-12">
+      <Hero
+        userName={userName}
+        nombre={data.administracion.nombre}
+        responsable={data.administracion.responsable_nombre}
+        tieneMatricula={data.administracion.tiene_matricula}
+        matricula={data.administracion.matricula_rpac}
+        cursosCount={data.cursos_activos.length}
+        tramitesCount={data.tramites_abiertos_count}
+      />
 
-      <KpiStrip dash={dash} />
+      <HotCards
+        claseHoy={data.clase_hoy}
+        webinar={data.webinar_proximo}
+        oportunidades={data.oportunidades}
+        deuda={data.deuda}
+      />
 
-      <section className="grid gap-4 lg:grid-cols-3">
-        <ProximosVencimientos dash={dash} />
-        <UltimaActividad ctacte={ctacte} />
-      </section>
+      <Atajos />
 
-      <QuickActions />
+      {data.oportunidades.length > 0 && (
+        <Oportunidades items={data.oportunidades} />
+      )}
+
+      {data.cursos_activos.length > 0 && (
+        <MisCursosCompact items={data.cursos_activos} />
+      )}
+
+      {data.vencimientos_proximos.length > 0 && (
+        <ProximosVencimientos items={data.vencimientos_proximos} />
+      )}
     </div>
   );
 }
 
-// ---------------- cover ----------------
-
-function PortalCover({
-  admin,
-  userName,
+// =========================================================================
+// Hero — Bienvenida + nombre admin + matrícula
+// =========================================================================
+function Hero({
+  userName, nombre, responsable, tieneMatricula, matricula, cursosCount, tramitesCount,
 }: {
-  admin: AdministracionRow | null;
   userName: string;
+  nombre: string;
+  responsable: string | null;
+  tieneMatricula: boolean;
+  matricula: string | null;
+  cursosCount: number;
+  tramitesCount: number;
 }) {
-  const initials = (admin?.nombre ?? userName ?? '?')
-    .split(/\s+/)
-    .map((p) => p[0])
-    .filter(Boolean)
-    .slice(0, 2)
-    .join('')
-    .toUpperCase();
-
+  const greeting = greetingFromHour();
   return (
-    <section className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm motion-safe:animate-fade-up">
-      <div className="relative h-32 bg-gradient-to-br from-brand-cyan via-brand-cyan to-brand-teal md:h-40">
-        <TrianglesAccent
-          position="top-right"
-          size={240}
-          tone="cyan"
-          density="rich"
-          className="opacity-60"
-        />
-        <TrianglesAccent
-          position="bottom-left"
-          size={170}
-          tone="teal"
-          density="soft"
-          className="opacity-40"
-        />
-        <span
-          aria-hidden
-          className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(255,255,255,0.35),transparent_55%)]"
-        />
-      </div>
-      <div className="relative px-6 pb-6 pt-0 sm:px-8">
-        <div className="-mt-12 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div className="flex items-end gap-4">
-            <span className="grid h-24 w-24 shrink-0 place-items-center rounded-2xl border-4 border-white bg-gradient-to-br from-brand-cyan to-brand-teal font-display text-3xl font-bold text-white shadow-lg sm:h-28 sm:w-28">
-              {initials || <Building2 size={32} />}
-            </span>
-            <div className="min-w-0 pb-1">
-              <p className="kicker text-brand-cyan">{greeting()}</p>
-              <h1 className="break-words font-display text-2xl font-bold leading-tight text-brand-ink sm:text-3xl">
-                {admin?.nombre ?? 'Tu administración'}
-              </h1>
-              <p className="mt-1 text-sm text-brand-muted">
-                Bienvenido/a, {userName.split(' ')[0]}. Acá vas a ver tus
-                comprobantes, cuenta corriente y consorcios.
-              </p>
-            </div>
-          </div>
+    <section className="card-premium relative overflow-hidden">
+      <TrianglesAccent position="top-right" size={220} tone="cyan" density="soft" className="opacity-30" />
+      <div className="relative flex flex-col gap-4 p-5 sm:flex-row sm:items-end sm:justify-between sm:p-6">
+        <div className="min-w-0 flex-1">
+          <p className="kicker text-brand-cyan">{greeting}</p>
+          <h1 className="font-display text-2xl font-bold leading-tight text-brand-ink sm:text-3xl">
+            {userName}{userName?.length > 0 ? ',' : ''} bienvenido
+          </h1>
+          <p className="mt-1 text-sm text-brand-muted">
+            <span className="font-medium text-brand-ink">{nombre}</span>
+            {responsable && <span> · {responsable}</span>}
+          </p>
+          {tieneMatricula && matricula && (
+            <p className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-200">
+              <BadgeCheck size={11} /> Matrícula {matricula}
+            </p>
+          )}
+        </div>
+        <div className="flex flex-row gap-3 sm:flex-col sm:items-end sm:gap-1">
+          <HeroStat n={cursosCount} label="cursos activos" />
+          <HeroStat n={tramitesCount} label="gestiones abiertas" />
         </div>
       </div>
     </section>
   );
 }
 
-// ---------------- KPIs ----------------
+function HeroStat({ n, label }: { n: number; label: string }) {
+  return (
+    <div className="flex items-baseline gap-2 sm:flex-col sm:items-end sm:gap-0">
+      <span className="font-display text-2xl font-bold leading-none text-brand-ink tabular">{n}</span>
+      <span className="text-[11px] font-medium uppercase tracking-wider text-brand-muted">{label}</span>
+    </div>
+  );
+}
 
-function KpiStrip({ dash }: { dash: PortalDashboard | null }) {
-  const venceTone =
-    !dash?.proximoVencimiento
-      ? 'teal'
-      : dash.proximoVencimiento.dias < 0
-        ? 'amber'
-        : dash.proximoVencimiento.dias <= 7
-          ? 'amber'
-          : 'teal';
+function greetingFromHour(): string {
+  const h = new Date().getHours();
+  if (h < 12) return 'BUEN DÍA';
+  if (h < 19) return 'BUENAS TARDES';
+  return 'BUENAS NOCHES';
+}
 
+// =========================================================================
+// Hot cards — solo las relevantes, sin orden vacío
+// =========================================================================
+function HotCards({
+  claseHoy, webinar, oportunidades, deuda,
+}: {
+  claseHoy: ClientePortalDashboard['clase_hoy'];
+  webinar: ClientePortalDashboard['webinar_proximo'];
+  oportunidades: ClienteOportunidad[];
+  deuda: ClientePortalDashboard['deuda'];
+}) {
+  const cards: React.ReactNode[] = [];
+
+  if (claseHoy) {
+    const mins = Math.max(0, claseHoy.minutos_para_inicio);
+    const inProgress = mins <= 0 && (claseHoy.iniciado_at || claseHoy.minutos_para_inicio >= -120);
+    cards.push(
+      <HotCard
+        key="clase"
+        kicker={inProgress ? 'CLASE EN VIVO' : 'TU CLASE EMPIEZA YA'}
+        titulo={claseHoy.encuentro_titulo}
+        descripcion={
+          inProgress
+            ? `${claseHoy.curso_titulo} · En curso`
+            : `${claseHoy.curso_titulo} · En ${formatMinutes(mins)}`
+        }
+        ctaLabel="Unirme"
+        ctaHref={claseHoy.link_zoom ?? claseHoy.link_webex ?? `/portal/campus/${claseHoy.curso_slug}`}
+        ctaExternal={!!(claseHoy.link_zoom || claseHoy.link_webex)}
+        icon={<PlayCircle size={22} />}
+        tone="urgente"
+      />
+    );
+  }
+
+  if (webinar) {
+    const horas = Math.max(0, webinar.horas_para_inicio);
+    cards.push(
+      <HotCard
+        key="webinar"
+        kicker={webinar.status === 'en_curso' ? 'WEBINAR EN VIVO' : 'TU WEBINAR'}
+        titulo={webinar.titulo}
+        descripcion={
+          webinar.status === 'en_curso'
+            ? 'Está empezando ahora'
+            : horas < 24
+              ? `En ${formatHours(horas)}`
+              : `En ${Math.round(horas / 24)} días`
+        }
+        ctaLabel={webinar.status === 'en_curso' ? 'Unirme' : 'Ver detalle'}
+        ctaHref={webinar.link ?? '/portal/webinars'}
+        ctaExternal={!!webinar.link && webinar.status === 'en_curso'}
+        icon={<Video size={22} />}
+        tone={webinar.status === 'en_curso' ? 'urgente' : 'alto'}
+      />
+    );
+  }
+
+  // Sólo el oportunidad más urgente como hot card (las demás van al stripe de oportunidades abajo)
+  const urgente = oportunidades.find(o => o.tone === 'urgente') || oportunidades.find(o => o.tone === 'alto');
+  if (urgente) {
+    cards.push(
+      <HotCard
+        key={`op-${urgente.codigo}`}
+        kicker={urgente.kicker}
+        titulo={urgente.titulo}
+        descripcion={urgente.descripcion}
+        ctaLabel={urgente.cta_label}
+        ctaHref={urgente.cta_path}
+        icon={iconForOportunidad(urgente.icono)}
+        tone={urgente.tone}
+      />
+    );
+  }
+
+  if (deuda.tiene_deuda) {
+    cards.push(
+      <HotCard
+        key="deuda"
+        kicker="SALDO PENDIENTE"
+        titulo={`${formatARS(deuda.total)} a regularizar`}
+        descripcion={`${deuda.pendientes_count} comprobante${deuda.pendientes_count > 1 ? 's' : ''} pendiente${deuda.pendientes_count > 1 ? 's' : ''}${deuda.vencidos_count > 0 ? ' · ' + deuda.vencidos_count + ' vencido' + (deuda.vencidos_count > 1 ? 's' : '') : ''}`}
+        ctaLabel="Ver detalle"
+        ctaHref="/portal/cuenta-corriente"
+        icon={<Wallet size={22} />}
+        tone={deuda.vencidos_count > 0 ? 'urgente' : 'medio'}
+      />
+    );
+  }
+
+  if (cards.length === 0) return null;
+  return (
+    <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      {cards}
+    </section>
+  );
+}
+
+function HotCard({
+  kicker, titulo, descripcion, ctaLabel, ctaHref, ctaExternal, icon, tone,
+}: {
+  kicker: string;
+  titulo: string;
+  descripcion: string;
+  ctaLabel: string;
+  ctaHref: string;
+  ctaExternal?: boolean;
+  icon: React.ReactNode;
+  tone: 'urgente' | 'alto' | 'medio' | 'suave';
+}) {
+  const toneClasses = {
+    urgente: 'bg-gradient-to-br from-rose-50 via-white to-orange-50 ring-rose-200 hover:ring-rose-300',
+    alto:    'bg-gradient-to-br from-amber-50 via-white to-yellow-50 ring-amber-200 hover:ring-amber-300',
+    medio:   'bg-gradient-to-br from-brand-cyan-pale/60 via-white to-cyan-50 ring-cyan-200 hover:ring-brand-cyan/50',
+    suave:   'bg-gradient-to-br from-violet-50 via-white to-fuchsia-50 ring-violet-200 hover:ring-violet-300',
+  }[tone];
+
+  const iconClasses = {
+    urgente: 'bg-rose-100 text-rose-700',
+    alto:    'bg-amber-100 text-amber-700',
+    medio:   'bg-brand-cyan-pale text-brand-cyan',
+    suave:   'bg-violet-100 text-violet-700',
+  }[tone];
+
+  const linkContent = (
+    <div className={`group relative flex flex-col gap-3 overflow-hidden rounded-2xl p-4 ring-1 ring-inset transition sm:p-5 ${toneClasses}`}>
+      <div className="flex items-start gap-3">
+        <div className={`grid h-11 w-11 flex-shrink-0 place-items-center rounded-xl ${iconClasses}`}>
+          {icon}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="kicker truncate text-brand-cyan opacity-80">{kicker}</p>
+          <h3 className="font-display text-lg font-bold leading-tight text-brand-ink">{titulo}</h3>
+          <p className="mt-0.5 line-clamp-2 text-sm text-brand-muted">{descripcion}</p>
+        </div>
+      </div>
+      <div className="mt-auto flex items-center justify-end gap-1 text-sm font-semibold text-brand-ink transition group-hover:gap-2">
+        <span>{ctaLabel}</span>
+        <ArrowRight size={14} className="transition group-hover:translate-x-0.5" />
+      </div>
+    </div>
+  );
+
+  if (ctaExternal) {
+    return <a href={ctaHref} target="_blank" rel="noopener noreferrer" className="block">{linkContent}</a>;
+  }
+  return <Link to={ctaHref} className="block">{linkContent}</Link>;
+}
+
+function iconForOportunidad(name: string): React.ReactNode {
+  switch (name) {
+    case 'badge-check': return <BadgeCheck size={22} />;
+    case 'file-text': return <FileText size={22} />;
+    case 'graduation-cap': return <GraduationCap size={22} />;
+    case 'sparkles': return <Sparkles size={22} />;
+    case 'video': return <Video size={22} />;
+    default: return <Sparkles size={22} />;
+  }
+}
+
+// =========================================================================
+// Atajos principales (grid 2x2 mobile, 4 col desktop)
+// =========================================================================
+function Atajos() {
+  const items = [
+    { to: '/portal/campus',     icon: GraduationCap, label: 'Mis cursos',   sub: 'Clases y certificados' },
+    { to: '/portal/gestiones',  icon: FileText,      label: 'Mis gestiones', sub: 'Trámites en curso' },
+    { to: '/portal/webinars',   icon: Video,         label: 'Mis webinars',  sub: 'Próximos y pasados' },
+    { to: '/portal/nuevo',      icon: PlusCircle,    label: 'Nuevo servicio', sub: 'Iniciar trámite' },
+  ];
   return (
     <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-      <KpiCard
-        icon={Receipt}
-        label="Comprobantes activos"
-        value={<AnimatedNumber value={dash?.comprobantesActivos ?? 0} />}
-        hint="autorizados"
-        tone="cyan"
-        delay={0}
-      />
-      <KpiCard
-        icon={Wallet}
-        label="Saldo pendiente"
-        value={
-          <span className="tabular">
-            $<AnimatedNumber value={Math.round(dash?.saldoPendienteTotal ?? 0)} />
+      {items.map((it) => (
+        <Link
+          key={it.to}
+          to={it.to}
+          className="group relative flex flex-col gap-2 overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-brand-cyan hover:shadow-md"
+        >
+          <span className="grid h-10 w-10 place-items-center rounded-xl bg-brand-cyan-pale text-brand-cyan transition group-hover:scale-105">
+            <it.icon size={18} />
           </span>
-        }
-        hint={
-          (dash?.vencidosCount ?? 0) > 0
-            ? `${dash?.vencidosCount} vencidos`
-            : 'al día'
-        }
-        tone={(dash?.vencidosCount ?? 0) > 0 ? 'amber' : 'teal'}
-        delay={60}
-      />
-      <KpiCard
-        icon={CalendarClock}
-        label="Próximo vencimiento"
-        value={
-          dash?.proximoVencimiento ? (
-            dash.proximoVencimiento.dias < 0 ? (
-              <span className="text-red-600">vencido</span>
-            ) : dash.proximoVencimiento.dias === 0 ? (
-              <span>hoy</span>
-            ) : (
-              <span>
-                <AnimatedNumber value={dash.proximoVencimiento.dias} /> d
-              </span>
-            )
-          ) : (
-            <span className="text-brand-muted">—</span>
-          )
-        }
-        hint={
-          dash?.proximoVencimiento?.fecha
-            ? formatDateShort(dash.proximoVencimiento.fecha)
-            : 'sin vencimientos'
-        }
-        tone={venceTone}
-        delay={120}
-      />
-      <KpiCard
-        icon={Building2}
-        label="Consorcios"
-        value={<AnimatedNumber value={dash?.consorciosActivos ?? 0} />}
-        hint="activos"
-        tone="cyan"
-        delay={180}
-      />
+          <div>
+            <p className="font-semibold text-brand-ink">{it.label}</p>
+            <p className="text-[11px] text-brand-muted">{it.sub}</p>
+          </div>
+        </Link>
+      ))}
     </section>
   );
 }
 
-function KpiCard({
-  icon: Icon,
-  label,
-  value,
-  hint,
-  tone,
-  delay = 0,
-}: {
-  icon: typeof Receipt;
-  label: string;
-  value: React.ReactNode;
-  hint?: string;
-  tone: 'cyan' | 'teal' | 'amber';
-  delay?: number;
-}) {
-  const ring =
-    tone === 'cyan'
-      ? 'border-brand-cyan/30 hover:border-brand-cyan/60'
-      : tone === 'teal'
-        ? 'border-brand-teal/30 hover:border-brand-teal/60'
-        : 'border-amber-300/50 hover:border-amber-400/70';
-  const iconCls =
-    tone === 'cyan'
-      ? 'bg-brand-cyan-pale/50 text-brand-cyan'
-      : tone === 'teal'
-        ? 'bg-brand-teal/10 text-brand-teal'
-        : 'bg-amber-100 text-amber-700';
-  return (
-    <div
-      className={cn(
-        'group relative overflow-hidden rounded-2xl border bg-white p-4 transition motion-safe:animate-fade-up hover:-translate-y-0.5',
-        ring,
-      )}
-      style={{ animationDelay: `${delay}ms` }}
-    >
-      <TrianglesAccent
-        position="top-right"
-        size={110}
-        tone={tone === 'amber' ? 'cyan' : tone}
-        density="soft"
-        className="opacity-35"
-      />
-      <div className="relative flex items-start gap-3">
-        <span className={cn('grid h-9 w-9 shrink-0 place-items-center rounded-xl', iconCls)}>
-          <Icon size={16} />
-        </span>
-        <div className="min-w-0">
-          <p className="kicker text-brand-muted">{label}</p>
-          <p className="mt-0.5 font-display text-xl font-bold leading-none text-brand-ink">
-            {value}
-          </p>
-          {hint && <p className="mt-1 text-xs text-brand-muted">{hint}</p>}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ---------------- Próximos vencimientos ----------------
-
-function ProximosVencimientos({ dash }: { dash: PortalDashboard | null }) {
-  const items = dash?.proximosVencimientos ?? [];
-  const today = new Date();
+// =========================================================================
+// Oportunidades cross-sell (todas las que no fueron hot)
+// =========================================================================
+function Oportunidades({ items }: { items: ClienteOportunidad[] }) {
+  // Excluir la urgente/alto que ya está en HotCards
+  const restantes = items.filter((_, idx) => {
+    const urgenteIdx = items.findIndex(o => o.tone === 'urgente');
+    const altoIdx = items.findIndex(o => o.tone === 'alto');
+    const usadoIdx = urgenteIdx >= 0 ? urgenteIdx : altoIdx;
+    return idx !== usadoIdx;
+  });
+  if (restantes.length === 0) return null;
 
   return (
-    <div className="card-premium relative overflow-hidden p-5 lg:col-span-2">
-      <TrianglesAccent
-        position="top-right"
-        size={150}
-        tone="cyan"
-        density="soft"
-        className="opacity-25"
-      />
-      <div className="relative">
-        <div className="mb-4 flex items-center justify-between">
-          <div>
-            <p className="kicker text-brand-cyan">Próximos vencimientos</p>
-            <h2 className="mt-0.5 font-display text-lg font-bold text-brand-ink">
-              {items.length === 0
-                ? 'Sin vencimientos próximos'
-                : `${items.length} ${items.length === 1 ? 'comprobante' : 'comprobantes'} por vencer`}
-            </h2>
-          </div>
+    <section>
+      <header className="mb-3 flex items-center justify-between px-1">
+        <p className="kicker text-brand-muted">SUGERIDO PARA VOS</p>
+      </header>
+      <div className="grid gap-3 sm:grid-cols-2">
+        {restantes.map((op) => (
           <Link
-            to="/portal/comprobantes"
-            className="inline-flex items-center gap-1 text-xs font-medium text-brand-cyan hover:underline"
+            key={op.codigo}
+            to={op.cta_path}
+            className="group flex items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4 transition hover:border-brand-cyan hover:shadow-md"
           >
-            Ver todos <ArrowRight size={12} />
-          </Link>
-        </div>
-        {items.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 py-8 text-center">
-            <span className="grid h-12 w-12 place-items-center rounded-xl bg-emerald-50 text-emerald-700">
-              <CalendarClock size={20} />
+            <span className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-xl bg-brand-cyan-pale text-brand-cyan">
+              {iconForOportunidad(op.icono)}
             </span>
-            <p className="text-sm text-brand-muted">
-              Estás al día. No hay comprobantes pendientes que venzan en los
-              próximos 30 días.
-            </p>
-          </div>
-        ) : (
-          <ul className="divide-y divide-slate-100">
-            {items.map((c, idx) => {
-              const dias = c.vencimiento
-                ? Math.ceil(
-                    (parseLocalDate(c.vencimiento).getTime() - today.getTime()) /
-                      (1000 * 60 * 60 * 24),
-                  )
-                : null;
-              const venceTone =
-                dias === null
-                  ? 'text-brand-muted'
-                  : dias < 0
-                    ? 'text-red-700 bg-red-50'
-                    : dias <= 7
-                      ? 'text-amber-700 bg-amber-50'
-                      : 'text-brand-cyan bg-brand-cyan-pale/40';
-              const numStr = c.numero
-                ? `${String(c.punto_venta).padStart(5, '0')}-${String(c.numero).padStart(8, '0')}`
-                : '—';
-              return (
-                <li
-                  key={c.id}
-                  className="motion-safe:animate-fade-up"
-                  style={{ animationDelay: `${Math.min(idx, 6) * 30}ms` }}
-                >
-                  <Link
-                    to={`/portal/comprobantes/${c.id}`}
-                    className="group flex items-center gap-3 py-3 transition hover:bg-brand-zebra/30"
-                  >
-                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-brand-cyan-pale/40 text-brand-cyan transition group-hover:bg-brand-cyan group-hover:text-white">
-                      <FileText size={15} />
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-brand-ink">
-                        <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-mono uppercase tracking-wider text-brand-muted">
-                          {c.tipo}
-                        </span>{' '}
-                        <span className="tabular">{numStr}</span>
-                      </p>
-                      <p className="truncate text-xs text-brand-muted">
-                        {c.consorcio_nombre ?? c.receptor_razon_social}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm font-medium tabular text-brand-ink">
-                        {formatMoney(Number(c.saldo_pendiente ?? c.total))}
-                      </p>
-                      <span
-                        className={cn(
-                          'mt-0.5 inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold',
-                          venceTone,
-                        )}
-                      >
-                        {dias === null
-                          ? '—'
-                          : dias < 0
-                            ? `vencido hace ${-dias}d`
-                            : dias === 0
-                              ? 'vence hoy'
-                              : `en ${dias}d`}
-                      </span>
-                    </div>
-                    <ChevronRight
-                      size={14}
-                      className="text-brand-muted transition group-hover:translate-x-0.5 group-hover:text-brand-cyan"
-                    />
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ---------------- Última actividad ----------------
-
-function UltimaActividad({ ctacte }: { ctacte: CtaCteEntry[] }) {
-  return (
-    <div className="card-premium relative overflow-hidden p-5">
-      <TrianglesAccent
-        position="bottom-left"
-        size={130}
-        tone="teal"
-        density="soft"
-        className="opacity-25"
-      />
-      <div className="relative">
-        <div className="mb-4 flex items-center justify-between">
-          <div>
-            <p className="kicker text-brand-cyan">Última actividad</p>
-            <h2 className="mt-0.5 font-display text-lg font-bold text-brand-ink">
-              Movimientos
-            </h2>
-          </div>
-          <Link
-            to="/portal/cuenta-corriente"
-            className="inline-flex items-center gap-1 text-xs font-medium text-brand-cyan hover:underline"
-          >
-            Ver todo <ArrowRight size={12} />
+            <div className="min-w-0 flex-1">
+              <p className="kicker text-brand-cyan opacity-80">{op.kicker}</p>
+              <p className="font-semibold text-brand-ink">{op.titulo}</p>
+              <p className="line-clamp-2 text-xs text-brand-muted">{op.descripcion}</p>
+              <p className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-brand-cyan transition group-hover:gap-1.5">
+                {op.cta_label} <ArrowRight size={11} />
+              </p>
+            </div>
           </Link>
-        </div>
-        {ctacte.length === 0 ? (
-          <div className="py-8 text-center text-sm text-brand-muted">
-            Aún no hay movimientos.
-          </div>
-        ) : (
-          <ul className="space-y-2.5">
-            {ctacte.map((r, idx) => (
-              <li
-                key={r.id}
-                className="flex items-center justify-between gap-3 motion-safe:animate-fade-up"
-                style={{ animationDelay: `${Math.min(idx, 6) * 30}ms` }}
-              >
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm text-brand-ink">{r.titulo}</p>
-                  <p className="text-[11px] tabular text-brand-muted">
-                    {formatDateShort(r.fecha)}
-                  </p>
-                </div>
-                <span
-                  className={cn(
-                    'whitespace-nowrap text-sm font-medium tabular',
-                    r.signo === 1 ? 'text-brand-ink' : 'text-emerald-700',
-                  )}
-                >
-                  {r.signo === 1 ? '+' : '-'}
-                  {formatMoney(r.monto)}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
+        ))}
       </div>
-    </div>
-  );
-}
-
-// ---------------- Quick actions ----------------
-
-function QuickActions() {
-  return (
-    <section className="grid gap-3 sm:grid-cols-3">
-      <QuickActionCard
-        to="/portal/comprobantes"
-        icon={Receipt}
-        title="Ver mis comprobantes"
-        description="Listado, filtros y descarga de PDF"
-      />
-      <QuickActionCard
-        to="/portal/cuenta-corriente"
-        icon={Wallet}
-        title="Cuenta corriente"
-        description="Cargos, cobranzas y saldo"
-      />
-      <QuickActionCard
-        to="/portal/consorcios"
-        icon={Building2}
-        title="Mis consorcios"
-        description="Edificios bajo administración"
-      />
     </section>
   );
 }
 
-function QuickActionCard({
-  to,
-  icon: Icon,
-  title,
-  description,
-}: {
-  to: string;
-  icon: typeof Receipt;
-  title: string;
-  description: string;
-}) {
+// =========================================================================
+// Mis cursos compact
+// =========================================================================
+function MisCursosCompact({ items }: { items: ClientePortalDashboard['cursos_activos'] }) {
   return (
-    <Link
-      to={to}
-      className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 transition hover:-translate-y-0.5 hover:border-brand-cyan/50 hover:shadow-md"
-    >
-      <TrianglesAccent
-        position="top-right"
-        size={100}
-        tone="cyan"
-        density="soft"
-        className="opacity-20 transition group-hover:opacity-40"
-      />
-      <div className="relative flex items-start gap-3">
-        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand-cyan-pale/40 text-brand-cyan transition group-hover:bg-brand-cyan group-hover:text-white">
-          <Icon size={18} />
-        </span>
-        <div className="flex-1">
-          <p className="font-display text-sm font-bold text-brand-ink">{title}</p>
-          <p className="mt-0.5 text-xs text-brand-muted">{description}</p>
-        </div>
-        <ArrowRight
-          size={16}
-          className="text-brand-muted transition group-hover:translate-x-0.5 group-hover:text-brand-cyan"
-        />
+    <section>
+      <header className="mb-3 flex items-center justify-between px-1">
+        <p className="kicker text-brand-muted">MIS CURSOS ACTIVOS</p>
+        <Link to="/portal/campus" className="inline-flex items-center gap-1 text-xs font-semibold text-brand-cyan hover:gap-1.5 transition">
+          Ver todos <ChevronRight size={11} />
+        </Link>
+      </header>
+      <div className="space-y-2">
+        {items.slice(0, 3).map((c) => (
+          <Link
+            key={c.matricula_id}
+            to={`/portal/campus/${c.curso_slug}`}
+            className="group flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 transition hover:border-brand-cyan hover:shadow-sm"
+          >
+            <span className="grid h-9 w-9 place-items-center rounded-lg bg-brand-cyan-pale text-brand-cyan">
+              <GraduationCap size={15} />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium text-brand-ink">{c.curso_titulo}</p>
+              <p className="text-[11px] text-brand-muted">
+                {c.modalidad}{c.vigencia_hasta ? ` · vigente hasta ${formatDateShort(c.vigencia_hasta)}` : ''}
+              </p>
+            </div>
+            <ChevronRight size={14} className="text-brand-muted transition group-hover:translate-x-0.5" />
+          </Link>
+        ))}
       </div>
-    </Link>
+    </section>
   );
 }
 
-// ---------------- helpers ----------------
-
-function greeting(): string {
-  const h = new Date().getHours();
-  if (h < 12) return 'Buen día';
-  if (h < 19) return 'Buenas tardes';
-  return 'Buenas noches';
+// =========================================================================
+// Próximos vencimientos
+// =========================================================================
+function ProximosVencimientos({ items }: { items: ClientePortalDashboard['vencimientos_proximos'] }) {
+  return (
+    <section>
+      <header className="mb-3 flex items-center justify-between px-1">
+        <p className="kicker text-brand-muted">PRÓXIMOS VENCIMIENTOS</p>
+      </header>
+      <div className="rounded-2xl border border-slate-200 bg-white">
+        {items.map((v, idx) => {
+          const isCritical = v.dias_restantes <= 15;
+          return (
+            <div
+              key={v.id}
+              className={`flex items-center gap-3 p-3 ${idx > 0 ? 'border-t border-slate-100' : ''}`}
+            >
+              <span className={`grid h-9 w-9 place-items-center rounded-lg ${isCritical ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'}`}>
+                {isCritical ? <AlertTriangle size={14} /> : <CalendarClock size={14} />}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium text-brand-ink">
+                  {labelForTipoVencimiento(v.tipo)}{v.descripcion ? ` · ${v.descripcion}` : ''}
+                </p>
+                <p className="text-[11px] text-brand-muted">
+                  {formatDateLong(v.fecha_vencimiento)} · en {v.dias_restantes} día{v.dias_restantes === 1 ? '' : 's'}
+                </p>
+              </div>
+              {isCritical && (
+                <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-amber-800">
+                  pronto
+                </span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
 }
 
-function formatMoney(n: number): string {
-  return new Intl.NumberFormat('es-AR', {
-    style: 'currency',
-    currency: 'ARS',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(n);
+// =========================================================================
+// Helpers
+// =========================================================================
+function labelForTipoVencimiento(tipo: string): string {
+  const map: Record<string, string> = {
+    matricula_rpac: 'Matrícula RPAC',
+    ddjj_anual: 'DDJJ anual',
+    certificado_arca: 'Certificado ARCA',
+    seguro_consorcio: 'Seguro consorcio',
+    habilitacion_municipal: 'Habilitación municipal',
+    libro_actas: 'Libro de actas',
+    libro_administracion: 'Libro administración',
+    revision_ascensor: 'Revisión de ascensor',
+    otro: 'Otro vencimiento',
+  };
+  return map[tipo] ?? tipo;
 }
 
+function formatARS(n: number): string {
+  return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n);
+}
+
+function formatMinutes(mins: number): string {
+  if (mins < 60) return `${mins} min`;
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return m === 0 ? `${h} h` : `${h} h ${m} min`;
+}
+
+function formatHours(h: number): string {
+  const hours = Math.floor(h);
+  const mins = Math.round((h - hours) * 60);
+  if (hours < 1) return `${mins} min`;
+  return mins > 0 ? `${hours} h ${mins} min` : `${hours} h`;
+}
+
+function formatDateLong(iso: string): string {
+  return new Date(iso).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function formatDateShort(iso: string): string {
+  return new Date(iso).toLocaleDateString('es-AR', { day: '2-digit', month: 'short' });
+}
