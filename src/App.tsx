@@ -30,6 +30,7 @@ const VencimientosListPage = lazy(() => import('@/modules/vencimientos').then(m 
 const VencimientosConfigPage = lazy(() => import('@/modules/vencimientos').then(m => ({ default: m.VencimientosConfigPage })));
 const EmailTemplatesPage = lazy(() => import('@/modules/configuracion/pages/EmailTemplatesPage').then(m => ({ default: m.EmailTemplatesPage })));
 const EmailQueuePage = lazy(() => import('@/modules/configuracion/pages/EmailQueuePage').then(m => ({ default: m.EmailQueuePage })));
+const UsuariosPage = lazy(() => import('@/modules/configuracion/pages/UsuariosPage').then(m => ({ default: m.UsuariosPage })));
 const RecuperoListPage = lazy(() => import('@/modules/recupero').then(m => ({ default: m.RecuperoListPage })));
 const MorososPage = lazy(() => import('@/modules/recupero').then(m => ({ default: m.MorososPage })));
 const RecuperoConfigPage = lazy(() => import('@/modules/recupero').then(m => ({ default: m.RecuperoConfigPage })));
@@ -206,6 +207,19 @@ export function App() {
   // ready. El splash transiciona out con 220ms y se quita del DOM.
   useEffect(() => {
     document.documentElement.setAttribute('data-app-ready', '1');
+    // PWA heartbeat: si la app corre en display-mode standalone (PWA instalada),
+    // reportamos al backend para telemetría del panel Configuración → Usuarios.
+    try {
+      const isStandalone =
+        window.matchMedia?.('(display-mode: standalone)').matches ||
+        // iOS Safari legacy
+        (window.navigator as unknown as { standalone?: boolean }).standalone === true;
+      if (isStandalone) {
+        void import('@/services/api/usuarios').then(({ reportarPwa }) => reportarPwa(true));
+      }
+    } catch {
+      // no crítico
+    }
   }, []);
 
   return (
@@ -285,6 +299,7 @@ export function App() {
             <Route path="arca" element={<ArcaConfigPage />} />
             <Route path="arca/cola" element={<ArcaQueuePage />} />
             <Route path="emails/templates" element={<EmailTemplatesPage />} />
+            <Route path="usuarios" element={<UsuariosPage />} />
             <Route path="emails/cola" element={<EmailQueuePage />} />
             <Route path="auditoria" element={<AuditoriaPage />} />
             <Route path="errores" element={<ErroresRuntimePage />} />

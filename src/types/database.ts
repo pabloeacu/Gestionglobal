@@ -4151,6 +4151,8 @@ export type Database = {
           full_name: string | null
           id: string
           phone: string | null
+          pwa_installed_at: string | null
+          pwa_last_seen_at: string | null
           role: string
           updated_at: string
         }
@@ -4162,6 +4164,8 @@ export type Database = {
           full_name?: string | null
           id: string
           phone?: string | null
+          pwa_installed_at?: string | null
+          pwa_last_seen_at?: string | null
           role?: string
           updated_at?: string
         }
@@ -4173,6 +4177,8 @@ export type Database = {
           full_name?: string | null
           id?: string
           phone?: string | null
+          pwa_installed_at?: string | null
+          pwa_last_seen_at?: string | null
           role?: string
           updated_at?: string
         }
@@ -6726,6 +6732,28 @@ export type Database = {
         }
         Returns: string
       }
+      gestion_gerente_eliminar: {
+        Args: { p_user_id: string }
+        Returns: undefined
+      }
+      gestion_usuarios_listar: {
+        Args: never
+        Returns: {
+          administracion_id: string
+          administracion_nombre: string
+          created_at: string
+          email: string
+          email_confirmed: boolean
+          full_name: string
+          last_sign_in_at: string
+          push_activo: boolean
+          push_subs_count: number
+          pwa_installed_at: string
+          pwa_last_seen_at: string
+          role: string
+          user_id: string
+        }[]
+      }
       get_landing_cover_status: { Args: never; Returns: boolean }
       gg_agenda_listar_unificada: {
         Args: { p_from: string; p_fuentes?: string[]; p_to: string }
@@ -6769,6 +6797,10 @@ export type Database = {
       gg_campus_tema_certificado: {
         Args: { p_curso_id: string }
         Returns: number
+      }
+      gg_profile_marcar_pwa: {
+        Args: { p_installed: boolean }
+        Returns: undefined
       }
       gg_vencimientos_planificar_alertas: {
         Args: { p_fecha?: string }
