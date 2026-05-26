@@ -235,7 +235,11 @@ Pasos para vos en `admin.google.com` (ya estás logueado con `contacto@`):
 4. Propagación verificada en 3 resolvers (Cloudflare authoritative, 1.1.1.1, 8.8.8.8).
 5. Workspace muestra estado "Autenticando el correo electrónico con DKIM".
 
-Test fresh enviado post-activación: provider_msg_id `19e649333d95494a`, from contacto@, asunto realista "Recibimos tu consulta · Gestión Global". Pendiente confirmación del usuario que llega a Inbox principal (no Promociones).
+Test fresh enviado post-activación: provider_msg_id `19e649333d95494a`, from contacto@, asunto realista "Recibimos tu consulta · Gestión Global". El usuario reportó que ese test cayó en Promociones aunque DKIM/SPF/DMARC/ARC pasaron todos.
+
+**v2 (commit 9d2d6c6)**: el análisis del raw header mostró que los headers "transaccionales" que agregué eran en realidad headers de mailing-lists (`Precedence: list`, `List-Unsubscribe`, `Auto-Submitted`) — Gmail los interpretó como bulk → Promociones. Removidos. Solo quedan `X-Auto-Response-Suppress` y `X-Mailer` (neutros).
+
+**Verificación final** (provider_msg_id 19e649681489dfe0, asunto "Recibimos tu solicitud · Gestión Global"): ✅ **Inbox principal** confirmado por el usuario. Pipeline outbound transaccional ahora premium-grade.
 
 ---
 
