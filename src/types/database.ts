@@ -763,6 +763,42 @@ export type Database = {
         }
         Relationships: []
       }
+      audit_log: {
+        Row: {
+          action: string
+          actor_email: string | null
+          actor_id: string | null
+          created_at: string
+          id: number
+          payload_after: Json | null
+          payload_before: Json | null
+          row_pk: string | null
+          table_name: string
+        }
+        Insert: {
+          action: string
+          actor_email?: string | null
+          actor_id?: string | null
+          created_at?: string
+          id?: number
+          payload_after?: Json | null
+          payload_before?: Json | null
+          row_pk?: string | null
+          table_name: string
+        }
+        Update: {
+          action?: string
+          actor_email?: string | null
+          actor_id?: string | null
+          created_at?: string
+          id?: number
+          payload_after?: Json | null
+          payload_before?: Json | null
+          row_pk?: string | null
+          table_name?: string
+        }
+        Relationships: []
+      }
       auditoria_cambios: {
         Row: {
           created_at: string
@@ -1302,6 +1338,7 @@ export type Database = {
           email_remitente_nombre: string | null
           email_reply_to: string | null
           id: number
+          landing_cover_enabled: boolean
           localidad: string | null
           logo_url: string | null
           nombre_fantasia: string
@@ -1324,6 +1361,7 @@ export type Database = {
           email_remitente_nombre?: string | null
           email_reply_to?: string | null
           id?: number
+          landing_cover_enabled?: boolean
           localidad?: string | null
           logo_url?: string | null
           nombre_fantasia?: string
@@ -1346,6 +1384,7 @@ export type Database = {
           email_remitente_nombre?: string | null
           email_reply_to?: string | null
           id?: number
+          landing_cover_enabled?: boolean
           localidad?: string | null
           logo_url?: string | null
           nombre_fantasia?: string
@@ -2562,6 +2601,51 @@ export type Database = {
         }
         Relationships: []
       }
+      errores_runtime: {
+        Row: {
+          count: number
+          fingerprint: string
+          first_seen: string
+          id: string
+          last_seen: string
+          message: string
+          payload: Json | null
+          resuelto_at: string | null
+          stack: string | null
+          url: string | null
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          count?: number
+          fingerprint: string
+          first_seen?: string
+          id?: string
+          last_seen?: string
+          message: string
+          payload?: Json | null
+          resuelto_at?: string | null
+          stack?: string | null
+          url?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          count?: number
+          fingerprint?: string
+          first_seen?: string
+          id?: string
+          last_seen?: string
+          message?: string
+          payload?: Json | null
+          resuelto_at?: string | null
+          stack?: string | null
+          url?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       examen_intentos: {
         Row: {
           aprobado: boolean | null
@@ -3368,6 +3452,7 @@ export type Database = {
           fecha: string
           hash_dedup: string | null
           id: string
+          lote_historico_id: string | null
           monto: number
           motivo_pendiente: string | null
           movimiento_revertido_id: string | null
@@ -3393,6 +3478,7 @@ export type Database = {
           fecha?: string
           hash_dedup?: string | null
           id?: string
+          lote_historico_id?: string | null
           monto: number
           motivo_pendiente?: string | null
           movimiento_revertido_id?: string | null
@@ -3418,6 +3504,7 @@ export type Database = {
           fecha?: string
           hash_dedup?: string | null
           id?: string
+          lote_historico_id?: string | null
           monto?: number
           motivo_pendiente?: string | null
           movimiento_revertido_id?: string | null
@@ -3487,6 +3574,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "movimientos_lote_historico_id_fkey"
+            columns: ["lote_historico_id"]
+            isOneToOne: false
+            referencedRelation: "movimientos_lotes_historico"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "movimientos_movimiento_revertido_id_fkey"
             columns: ["movimiento_revertido_id"]
             isOneToOne: false
@@ -3501,6 +3595,89 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      movimientos_lotes_historico: {
+        Row: {
+          archivo_nombre: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          observaciones: string | null
+          total_duplicadas: number
+          total_errores: number
+          total_importadas: number
+          total_lineas: number
+        }
+        Insert: {
+          archivo_nombre?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          observaciones?: string | null
+          total_duplicadas?: number
+          total_errores?: number
+          total_importadas?: number
+          total_lineas?: number
+        }
+        Update: {
+          archivo_nombre?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          observaciones?: string | null
+          total_duplicadas?: number
+          total_errores?: number
+          total_importadas?: number
+          total_lineas?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "movimientos_lotes_historico_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notificaciones_internas: {
+        Row: {
+          archivado_at: string | null
+          created_at: string
+          cuerpo: string | null
+          id: string
+          leido_at: string | null
+          payload: Json | null
+          tipo: string
+          titulo: string
+          url: string | null
+          user_id: string
+        }
+        Insert: {
+          archivado_at?: string | null
+          created_at?: string
+          cuerpo?: string | null
+          id?: string
+          leido_at?: string | null
+          payload?: Json | null
+          tipo: string
+          titulo: string
+          url?: string | null
+          user_id: string
+        }
+        Update: {
+          archivado_at?: string | null
+          created_at?: string
+          cuerpo?: string | null
+          id?: string
+          leido_at?: string | null
+          payload?: Json | null
+          tipo?: string
+          titulo?: string
+          url?: string | null
+          user_id?: string
+        }
+        Relationships: []
       }
       numeradores: {
         Row: {
@@ -5407,6 +5584,39 @@ export type Database = {
           },
         ]
       }
+      vistas_guardadas: {
+        Row: {
+          created_at: string
+          es_default: boolean
+          filtros: Json
+          id: string
+          modulo: string
+          nombre: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          es_default?: boolean
+          filtros?: Json
+          id?: string
+          modulo: string
+          nombre: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          es_default?: boolean
+          filtros?: Json
+          id?: string
+          modulo?: string
+          nombre?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       webinar_acceso_tokens: {
         Row: {
           created_at: string
@@ -5813,6 +6023,48 @@ export type Database = {
           tabulador_nuevo_id: string
         }[]
       }
+      analitica_cobranzas_mensual: {
+        Args: { p_meses?: number }
+        Returns: {
+          cantidad: number
+          mes: string
+          total: number
+        }[]
+      }
+      analitica_facturacion_mensual: {
+        Args: { p_meses?: number }
+        Returns: {
+          cantidad: number
+          mes: string
+          total: number
+        }[]
+      }
+      analitica_funnel: {
+        Args: { p_dias?: number }
+        Returns: {
+          cantidad: number
+          etapa: string
+          orden: number
+        }[]
+      }
+      analitica_mix_servicios: {
+        Args: { p_dias?: number }
+        Returns: {
+          cantidad: number
+          nombre: string
+          servicio_id: string
+          total: number
+        }[]
+      }
+      analitica_top_clientes: {
+        Args: { p_dias?: number; p_limit?: number }
+        Returns: {
+          administracion_id: string
+          nombre: string
+          total_comprobantes: number
+          total_facturado: number
+        }[]
+      }
       anular_comprobante: {
         Args: { p_comprobante_id: string; p_motivo: string }
         Returns: string
@@ -5829,6 +6081,36 @@ export type Database = {
           sent_email_id: string
         }[]
       }
+      audit_log_listar: {
+        Args: {
+          p_action_filter?: string
+          p_actor_filter?: string
+          p_desde?: string
+          p_hasta?: string
+          p_limit?: number
+          p_offset?: number
+          p_table_filter?: string
+        }
+        Returns: {
+          action: string
+          actor_email: string
+          actor_id: string
+          created_at: string
+          id: number
+          payload_after: Json
+          payload_before: Json
+          row_pk: string
+          table_name: string
+        }[]
+      }
+      audit_log_resumen: {
+        Args: never
+        Returns: {
+          table_name: string
+          total: number
+          ultimos_7d: number
+        }[]
+      }
       busqueda_global: {
         Args: { p_limit?: number; p_q: string }
         Returns: {
@@ -5840,6 +6122,7 @@ export type Database = {
           url_path: string
         }[]
       }
+      cerrar_mi_sesion: { Args: { p_session_id: string }; Returns: boolean }
       comprobantes_morosos: {
         Args: { p_administracion_id?: string }
         Returns: {
@@ -6089,8 +6372,94 @@ export type Database = {
         Args: { p_comprobante_id: string }
         Returns: string
       }
+      errores_capturar: {
+        Args: {
+          p_fingerprint: string
+          p_message: string
+          p_payload?: Json
+          p_stack?: string
+          p_url?: string
+          p_user_agent?: string
+        }
+        Returns: string
+      }
+      errores_listar: {
+        Args: { p_limit?: number; p_solo_no_resueltos?: boolean }
+        Returns: {
+          count: number
+          fingerprint: string
+          first_seen: string
+          id: string
+          last_seen: string
+          message: string
+          resuelto_at: string
+          stack: string
+          url: string
+          user_agent: string
+          user_email: string
+          user_id: string
+        }[]
+      }
+      errores_marcar_resuelto: { Args: { p_id: string }; Returns: boolean }
       fz_anular_movimiento: {
         Args: { p_motivo?: string; p_movimiento_id: string }
+        Returns: undefined
+      }
+      fz_caja_actualizar: {
+        Args: {
+          p_alias?: string
+          p_banco_entidad?: string
+          p_caja_id: string
+          p_cbu?: string
+          p_color?: string
+          p_icono?: string
+          p_nombre: string
+          p_numero_cuenta?: string
+          p_orden?: number
+        }
+        Returns: undefined
+      }
+      fz_caja_archivar: { Args: { p_caja_id: string }; Returns: undefined }
+      fz_caja_crear: {
+        Args: {
+          p_alias?: string
+          p_banco_entidad?: string
+          p_cbu?: string
+          p_color?: string
+          p_icono?: string
+          p_moneda?: string
+          p_nombre: string
+          p_numero_cuenta?: string
+          p_tipo: string
+        }
+        Returns: string
+      }
+      fz_caja_reactivar: { Args: { p_caja_id: string }; Returns: undefined }
+      fz_categoria_actualizar: {
+        Args: {
+          p_categoria_id: string
+          p_color?: string
+          p_icono?: string
+          p_nombre: string
+          p_tipo: string
+        }
+        Returns: undefined
+      }
+      fz_categoria_archivar: {
+        Args: { p_categoria_id: string }
+        Returns: undefined
+      }
+      fz_categoria_crear: {
+        Args: {
+          p_color?: string
+          p_icono?: string
+          p_nombre: string
+          p_tipo: string
+        }
+        Returns: string
+      }
+      fz_categoria_reactivar: {
+        Args: { p_categoria_id: string }
         Returns: undefined
       }
       fz_conciliacion_kpis: {
@@ -6165,6 +6534,48 @@ export type Database = {
         }
         Returns: Json
       }
+      fz_importar_historico_masivo: {
+        Args: {
+          p_archivo_nombre?: string
+          p_dry_run?: boolean
+          p_lineas: Json
+          p_observaciones?: string
+        }
+        Returns: Json
+      }
+      fz_listar_cajas_admin: {
+        Args: { p_incluir_archivadas?: boolean }
+        Returns: {
+          activo: boolean
+          alias: string
+          banco_entidad: string
+          caja_id: string
+          cantidad_movimientos: number
+          cbu: string
+          color: string
+          created_at: string
+          icono: string
+          moneda: string
+          nombre: string
+          numero_cuenta: string
+          orden: number
+          saldo: number
+          tipo: string
+        }[]
+      }
+      fz_listar_categorias_admin: {
+        Args: { p_incluir_archivadas?: boolean }
+        Returns: {
+          activo: boolean
+          cantidad_movimientos: number
+          categoria_id: string
+          color: string
+          created_at: string
+          icono: string
+          nombre: string
+          tipo: string
+        }[]
+      }
       fz_listar_historico_pendientes: {
         Args: { p_caja_id: string; p_limit?: number; p_offset?: number }
         Returns: {
@@ -6182,6 +6593,20 @@ export type Database = {
           saldo: number
           tipo_efectivo: string
           total_count: number
+        }[]
+      }
+      fz_listar_lotes_historico: {
+        Args: { p_limit?: number; p_offset?: number }
+        Returns: {
+          archivo_nombre: string
+          created_at: string
+          created_by_nombre: string
+          lote_id: string
+          observaciones: string
+          total_duplicadas: number
+          total_errores: number
+          total_importadas: number
+          total_lineas: number
         }[]
       }
       fz_listar_movimientos: {
@@ -6218,6 +6643,60 @@ export type Database = {
           transferencia_pair_id: string
         }[]
       }
+      fz_reporte_balance_mensual: {
+        Args: { p_anio?: number; p_solo_activas?: boolean }
+        Returns: {
+          caja_color: string
+          caja_id: string
+          caja_nombre: string
+          caja_tipo: string
+          egresos: number
+          ingresos: number
+          mes_label: string
+          mes_num: number
+          saldo_final: number
+          saldo_inicial: number
+        }[]
+      }
+      fz_reporte_comparativo: {
+        Args: { p_anio?: number }
+        Returns: {
+          egresos_actual: number
+          egresos_anterior: number
+          egresos_var_pct: number
+          ingresos_actual: number
+          ingresos_anterior: number
+          ingresos_var_pct: number
+          mes_label: string
+          mes_num: number
+          neto_actual: number
+          neto_anterior: number
+        }[]
+      }
+      fz_reporte_flujo_caja: {
+        Args: { p_anio?: number; p_caja_id?: string }
+        Returns: {
+          egresos: number
+          ingresos: number
+          mes_inicio: string
+          mes_label: string
+          mes_num: number
+          neto: number
+          saldo_acumulado: number
+        }[]
+      }
+      fz_reporte_pyg: {
+        Args: { p_desde?: string; p_hasta?: string }
+        Returns: {
+          cantidad_movimientos: number
+          categoria_color: string
+          categoria_id: string
+          categoria_nombre: string
+          categoria_tipo: string
+          tipo_movimiento: string
+          total: number
+        }[]
+      }
       fz_revertir_movimiento: {
         Args: { p_motivo?: string; p_movimiento_id: string }
         Returns: string
@@ -6247,6 +6726,7 @@ export type Database = {
         }
         Returns: string
       }
+      get_landing_cover_status: { Args: never; Returns: boolean }
       gg_agenda_listar_unificada: {
         Args: { p_from: string; p_fuentes?: string[]; p_to: string }
         Returns: {
@@ -6374,6 +6854,13 @@ export type Database = {
         Args: { p_nueva_fecha_vencimiento: string; p_vencimiento_id: string }
         Returns: string
       }
+      marcar_renovados_masivo: {
+        Args: { p_ids: string[]; p_nuevas_fechas: string[] }
+        Returns: {
+          nuevo_id: string
+          original_id: string
+        }[]
+      }
       matricula_sync_examen: {
         Args: { p_matricula_id: string }
         Returns: undefined
@@ -6386,7 +6873,41 @@ export type Database = {
         }
         Returns: undefined
       }
+      mis_sesiones_activas: {
+        Args: never
+        Returns: {
+          created_at: string
+          es_actual: boolean
+          id: string
+          ip: unknown
+          not_after: string
+          refreshed_at: string
+          updated_at: string
+          user_agent: string
+        }[]
+      }
       normalizar_nombre: { Args: { p: string }; Returns: string }
+      notif_archivar: { Args: { p_id: string }; Returns: boolean }
+      notif_listar: {
+        Args: {
+          p_limit?: number
+          p_offset?: number
+          p_solo_no_leidas?: boolean
+        }
+        Returns: {
+          created_at: string
+          cuerpo: string
+          id: string
+          leido_at: string
+          payload: Json
+          tipo: string
+          titulo: string
+          url: string
+        }[]
+      }
+      notif_marcar_leida: { Args: { p_id: string }; Returns: boolean }
+      notif_marcar_todas_leidas: { Args: never; Returns: number }
+      notif_no_leidas_count: { Args: never; Returns: number }
       partner_anular_rendicion: {
         Args: { p_motivo: string; p_rendicion_id: string }
         Returns: string
@@ -6473,6 +6994,7 @@ export type Database = {
         Args: { p_id: string; p_motivo: string }
         Returns: undefined
       }
+      set_landing_cover: { Args: { p_enabled: boolean }; Returns: boolean }
       solicitud_activar: {
         Args: {
           p_cliente_id?: string
@@ -6586,6 +7108,27 @@ export type Database = {
         Returns: undefined
       }
       verificar_certificado: { Args: { p_codigo: string }; Returns: Json }
+      vistas_borrar: { Args: { p_id: string }; Returns: boolean }
+      vistas_guardar: {
+        Args: {
+          p_es_default?: boolean
+          p_filtros: Json
+          p_modulo: string
+          p_nombre: string
+        }
+        Returns: string
+      }
+      vistas_listar: {
+        Args: { p_modulo: string }
+        Returns: {
+          created_at: string
+          es_default: boolean
+          filtros: Json
+          id: string
+          nombre: string
+        }[]
+      }
+      vistas_set_default: { Args: { p_id: string }; Returns: boolean }
       webex_encuentro_ended: {
         Args: { p_ended_at?: string; p_webex_meeting_id: string }
         Returns: string
