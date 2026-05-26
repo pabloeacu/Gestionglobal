@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { SoundProvider } from '@/contexts/SoundContext';
 import { CommandPaletteProvider } from '@/contexts/CommandPaletteContext';
+import { GlobalPeriodProvider } from '@/contexts/GlobalPeriodContext';
 import { DialogProvider } from '@/components/common';
 import { ToastViewport } from '@/components/common/ToastViewport';
 import { CommandPalette } from '@/components/common/CommandPalette';
@@ -14,11 +15,13 @@ createRoot(document.getElementById('root')!).render(
     <SoundProvider>
       <AuthProvider>
         <CommandPaletteProvider>
-          <DialogProvider>
-            <App />
-            <ToastViewport />
-            <CommandPalette />
-          </DialogProvider>
+          <GlobalPeriodProvider>
+            <DialogProvider>
+              <App />
+              <ToastViewport />
+              <CommandPalette />
+            </DialogProvider>
+          </GlobalPeriodProvider>
         </CommandPaletteProvider>
       </AuthProvider>
     </SoundProvider>

@@ -46,6 +46,7 @@ import {
   type VencimientoEstado,
 } from '@/services/api/vencimientos';
 import { ExportButtons } from '@/components/reports/ExportButtons';
+import { SavedViewsMenu } from '@/components/common/SavedViewsMenu';
 import { generateReportPdf } from '@/lib/reportPdf';
 import { generateReportXls } from '@/lib/reportXls';
 import { copyAsCsv } from '@/lib/csvCopy';
@@ -388,6 +389,24 @@ export function VencimientosListPage() {
               <Building2 size={13} /> Por cliente
             </button>
           </div>
+          {/* P2-#26 · Mis vistas (filtros guardados) */}
+          <SavedViewsMenu
+            modulo="vencimientos"
+            currentFiltros={{
+              search,
+              tipo,
+              estado,
+              horizonte,
+              vista,
+            }}
+            onApply={(f) => {
+              if (typeof f.search === 'string') setSearch(f.search);
+              if (typeof f.tipo === 'string') setTipo(f.tipo as TipoFilter);
+              if (typeof f.estado === 'string') setEstado(f.estado as EstadoFilter);
+              if (typeof f.horizonte === 'number') setHorizonte(f.horizonte);
+              if (f.vista === 'lista' || f.vista === 'cliente') setVista(f.vista);
+            }}
+          />
           {/* DGG-26 · export PDF/XLS branded. */}
           <ExportButtons
             onExportPdf={onExportPdf}
