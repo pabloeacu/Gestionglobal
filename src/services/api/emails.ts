@@ -12,20 +12,18 @@ export type EmailTemplateRow = Database['public']['Tables']['email_templates']['
 export type EmailQueueRow    = Database['public']['Tables']['email_queue']['Row'];
 export type SentEmailRow     = Database['public']['Tables']['sent_emails']['Row'];
 
-export type FromCasilla = 'info' | 'cursos' | 'facturacion' | 'tramites' | 'recupero';
+// Decisión 2026-05-26 v2 (EGG-QA-06): Workspace tiene 4 alias REALES.
+// Las casillas info@/facturacion@/tramites@/recupero@ NO existen → fueron
+// removidas. Las 4 aliases reales mapean 1:1 con las 4 categorías:
+export type FromCasilla = 'cursos' | 'webinar' | 'juridico' | 'general';
 
-// Decisión 2026-05-26: existe UNA SOLA casilla real (contacto@gestionglobal.ar).
-// Las "casillas" son etiquetas de categoría para tracking interno (qué tipo de
-// comunicación es: cobranza, facturación, etc.) — el email real de envío y de
-// reply siempre es contacto@. NO mostrar las casillas fake al usuario.
-export const CASILLA_REAL_EMAIL = 'contacto@gestionglobal.ar';
+export const CASILLA_GENERAL_EMAIL = 'contacto@gestionglobal.ar';
 
 export const CASILLAS: { value: FromCasilla; label: string; email: string }[] = [
-  { value: 'info',        label: 'Info',        email: CASILLA_REAL_EMAIL },
-  { value: 'cursos',      label: 'Cursos',      email: CASILLA_REAL_EMAIL },
-  { value: 'facturacion', label: 'Facturación', email: CASILLA_REAL_EMAIL },
-  { value: 'tramites',    label: 'Trámites',    email: CASILLA_REAL_EMAIL },
-  { value: 'recupero',    label: 'Recupero',    email: CASILLA_REAL_EMAIL },
+  { value: 'general',   label: 'General',     email: 'contacto@gestionglobal.ar' },
+  { value: 'cursos',    label: 'Cursos',      email: 'cursos@gestionglobal.ar' },
+  { value: 'webinar',   label: 'Webinars',    email: 'webinar@gestionglobal.ar' },
+  { value: 'juridico',  label: 'Jurídico',    email: 'consultoriajuridica@gestionglobal.ar' },
 ];
 
 export interface EncolarEmailInput {

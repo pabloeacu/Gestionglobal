@@ -42,15 +42,14 @@ import {
 import { WizardActivacion } from '../components/WizardActivacion';
 import { cn } from '@/lib/cn';
 
-// Categorías para clasificar la respuesta. Todas envían desde contacto@
-// gestionglobal.ar (decisión 2026-05-26: única casilla real); las "casillas"
-// quedan como metadata interna del tipo de comunicación.
-const CASILLAS_RESPUESTA: { value: RespuestaCasilla; label: string }[] = [
-  { value: 'tramites', label: 'Trámites' },
-  { value: 'info', label: 'Info' },
-  { value: 'cursos', label: 'Cursos' },
-  { value: 'facturacion', label: 'Facturación' },
-  { value: 'recupero', label: 'Recupero' },
+// Categorías de respuesta. Cada una mapea a un alias REAL en Workspace
+// (EGG-QA-06): general→contacto@, cursos→cursos@, webinar→webinar@,
+// juridico→consultoriajuridica@. Los 4 alias rutean al mismo inbox.
+const CASILLAS_RESPUESTA: { value: RespuestaCasilla; label: string; hint: string }[] = [
+  { value: 'general',  label: 'General',          hint: 'contacto@gestionglobal.ar' },
+  { value: 'cursos',   label: 'Cursos',           hint: 'cursos@gestionglobal.ar' },
+  { value: 'webinar',  label: 'Webinars',         hint: 'webinar@gestionglobal.ar' },
+  { value: 'juridico', label: 'Consultoría jurídica', hint: 'consultoriajuridica@gestionglobal.ar' },
 ];
 
 const ESTADO_BADGE: Record<SolicitudEstado, string> = {
@@ -587,14 +586,14 @@ function ResponderModal({
 }) {
   const [asunto, setAsunto] = useState(asuntoSugerido);
   const [cuerpo, setCuerpo] = useState('');
-  const [casilla, setCasilla] = useState<RespuestaCasilla>('tramites');
+  const [casilla, setCasilla] = useState<RespuestaCasilla>('general');
   const [enviando, setEnviando] = useState(false);
 
   useEffect(() => {
     if (open) {
       setAsunto(asuntoSugerido);
       setCuerpo('');
-      setCasilla('tramites');
+      setCasilla('general');
     }
   }, [open, asuntoSugerido]);
 

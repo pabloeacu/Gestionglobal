@@ -329,13 +329,13 @@ export async function restaurarSolicitud(
 
 // 1.H · responde una solicitud desde la plataforma (motor de email Workspace).
 // Persiste en sent_emails ligado a la solicitud. `fromCasilla` elige el alias
-// del dominio (info/cursos/facturacion/tramites/recupero).
+// REAL del dominio (post EGG-QA-06): cursos/webinar/juridico/general.
+// dispatch-emails.ts::aliasFor() mapea el valor a la dirección de correo real.
 export type RespuestaCasilla =
-  | 'info'
   | 'cursos'
-  | 'facturacion'
-  | 'tramites'
-  | 'recupero';
+  | 'webinar'
+  | 'juridico'
+  | 'general';
 
 export async function responderSolicitud(
   id: string,
@@ -345,7 +345,7 @@ export async function responderSolicitud(
     p_solicitud_id: id,
     p_asunto: input.asunto,
     p_cuerpo: input.cuerpo,
-    p_from_casilla: input.fromCasilla ?? 'tramites',
+    p_from_casilla: input.fromCasilla ?? 'general',
   });
   if (error) return fail('SOL_RESPONDER', error.message, error);
   return ok({ sentEmailId: data as string });

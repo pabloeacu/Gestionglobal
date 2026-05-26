@@ -4,13 +4,18 @@
 // Reuso del patrón de send-comprobante-email/index.ts: misma técnica para
 // refresh access token + RFC 2047 + multipart MIME.
 //
-// IMPORTANTE (decisión del usuario 2026-05-26): existe UNA SOLA casilla
-// real, `contacto@gestionglobal.ar`. Las casillas `info@`, `cursos@`,
-// `facturacion@`, `tramites@`, `recupero@` NO existen — son aliases que
-// rutean al inbox de contacto@. Por eso TODOS los emails se envían FROM
-// `contacto@gestionglobal.ar` y Reply-To también es `contacto@`. El campo
-// `from_casilla` se conserva como metadata interna (para filtros / tracking
-// del tipo de comunicación), pero NO afecta los headers MIME del envío.
+// IMPORTANTE (decisión del usuario 2026-05-26 v2): el Workspace tiene 4
+// alias REALES, NO 1:
+//   cursos@gestionglobal.ar                  (cursos y certificados)
+//   webinar@gestionglobal.ar                 (webinars: bienvenida + recordatorios)
+//   consultoriajuridica@gestionglobal.ar     (consultas jurídicas)
+//   contacto@gestionglobal.ar                (todo lo demás — default)
+// NO existen: info@, facturacion@, tramites@, recupero@ (eran fake).
+// Cualquier email enviado FROM un alias inexistente se descarta silenciosamente
+// (Gmail acepta en API pero no entrega). Por eso se mapea casilla → alias
+// real vía `aliasFor()` más abajo. Reply-To = mismo alias que From para
+// mantener coherencia de conversación (los 4 alias rutean al mismo inbox de
+// contacto@ así que cualquier alias en Reply-To es seguro).
 //
 // Secrets requeridos:
 //   GOOGLE_OAUTH_CLIENT_ID
@@ -23,18 +28,33 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.46.1';
 
-// Casilla real única — todas las demás son aliases (Workspace) que
-// rutean al mismo inbox. Cambio aquí afecta a TODO el outbound del sistema.
-const SENDER_EMAIL = 'contacto@gestionglobal.ar';
-const REPLY_TO_EMAIL = 'contacto@gestionglobal.ar';
+const DOMAIN = 'gestionglobal.ar';
+const CONTACTO = `contacto@${DOMAIN}`;
+
+// Mapeo casilla (metadata semántica del template) → alias REAL.
+// Casillas no listadas caen al default (contacto@).
+function aliasFor(casilla: string | null | undefined): string {
+  switch (casilla) {
+    case 'cursos':
+      return `cursos@${DOMAIN}`;
+    case 'webinar':
+    case 'evento':
+      return `webinar@${DOMAIN}`;
+    case 'juridico':
+    case 'consultoria':
+    case 'consultoria_juridica':
+      return `consultoriajuridica@${DOMAIN}`;
+    default:
+      return CONTACTO; // info, facturacion, tramites, recupero, general, otros → contacto@
+  }
+}
 
 const THROTTLE_KEY = 'global';
 const THROTTLE_MS = 5 * 60 * 1000; // 5 min hard (E42/D05)
 const BATCH_MAX = 1; // por cada tick mandamos UN email (throttle global)
 
-// `from_casilla` se mantiene como metadata (label de la comunicación)
-// aunque el envío real siempre sale de SENDER_EMAIL.
-type Casilla = 'info' | 'cursos' | 'facturacion' | 'tramites' | 'recupero';
+// `from_casilla` ahora SÍ afecta los headers MIME (mapeado a alias real).
+type Casilla = string; // texto libre; aliasFor() resuelve
 
 interface TemplateRow {
   slug: string;
@@ -108,7 +128,8 @@ Deno.serve(async (req) => {
   // 4) Resolver refresh_token. Todas las casillas comparten el mismo token
   //    porque envían desde contacto@ (única casilla real).
   const casilla = tpl.from_casilla;
-  const senderEmail = SENDER_EMAIL;
+  const senderEmail = aliasFor(casilla);
+  const replyToEmail = senderEmail; // Reply-To = mismo alias (todos rutean al mismo inbox)
   const refreshToken =
     Deno.env.get('GMAIL_OAUTH_REFRESH_TOKEN_DEFAULT') ??
     Deno.env.get('GOOGLE_OAUTH_REFRESH_TOKEN'); // compat con send-comprobante-email
@@ -142,7 +163,7 @@ Deno.serve(async (req) => {
   const mime = buildMimeMessage({
     from: fromHeader,
     to: [job.to_email],
-    replyTo: REPLY_TO_EMAIL,
+    replyTo: replyToEmail,
     subject,
     html,
     text,
@@ -181,8 +202,8 @@ Deno.serve(async (req) => {
   await admin.from('sent_emails').insert({
     to_email: job.to_email,
     from_email: senderEmail,
-    from_casilla: casilla, // metadata: tipo de comunicación, no afecta el envío
-    reply_to: REPLY_TO_EMAIL,
+    from_casilla: casilla, // metadata: categoría de comunicación
+    reply_to: replyToEmail,
     asunto: subject,
     plantilla: tpl.slug,
     template_slug: tpl.slug,
