@@ -13,6 +13,7 @@ import {
   Users,
   FileText,
   Inbox,
+  Sparkles,
   CalendarClock,
   Briefcase,
   GraduationCap,
@@ -54,7 +55,8 @@ const KIND_META: Record<
 > = {
   administracion: { label: 'Cliente',       icon: Users,         chip: 'bg-brand-cyan-pale/60 text-brand-cyan'      },
   comprobante:    { label: 'Comprobante',   icon: FileText,      chip: 'bg-amber-50 text-amber-700'                 },
-  tramite:        { label: 'Trámite',       icon: Inbox,         chip: 'bg-violet-50 text-violet-700'               },
+  solicitud:      { label: 'Solicitud',     icon: Sparkles,      chip: 'bg-cyan-50 text-cyan-700'                   },
+  tramite:        { label: 'Tracking',      icon: Inbox,         chip: 'bg-violet-50 text-violet-700'               },
   vencimiento:    { label: 'Vencimiento',   icon: CalendarClock, chip: 'bg-rose-50 text-rose-700'                   },
   servicio:       { label: 'Servicio',      icon: Briefcase,     chip: 'bg-emerald-50 text-emerald-700'             },
   curso:          { label: 'Curso',         icon: GraduationCap, chip: 'bg-indigo-50 text-indigo-700'               },
@@ -64,6 +66,7 @@ const KIND_META: Record<
 
 const KIND_ORDER: BusquedaKind[] = [
   'administracion',
+  'solicitud',
   'comprobante',
   'tramite',
   'vencimiento',

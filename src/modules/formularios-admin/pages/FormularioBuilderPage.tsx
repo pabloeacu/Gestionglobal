@@ -21,6 +21,8 @@ import {
   CloudUpload,
   AlertTriangle,
   ShieldCheck,
+  Undo2,
+  Redo2,
 } from 'lucide-react';
 import { Button, Modal, Field, Input, Select, Textarea, useConfirm } from '@/components/common';
 import { listWebinars, type WebinarRow } from '@/services/api/webinars';
@@ -166,14 +168,110 @@ export function FormularioBuilderPage() {
   }
 
   // ----- Mutaciones del schema (locales, persisten al "Guardar") -----
+  //
+  // 4.D · Undo / Redo (DGG-32). Cada llamada a `mutate(fn)` empuja el snapshot
+  // previo al stack `past`. ⌘Z mueve `present → future` y pone el último
+  // `past` como nuevo `present`. ⌘⇧Z o ⌘Y revierten. Capamos en HISTORY_CAP
+  // (30 pasos) para no inflar memoria. Las acciones que vienen del propio
+  // undo/redo NO se empujan al stack (skipHistory.current = true).
+  const HISTORY_CAP = 30;
+  const historyPast = useRef<FormularioSchemaDef[]>([]);
+  const historyFuture = useRef<FormularioSchemaDef[]>([]);
+  const skipHistory = useRef(false);
+  const [historyCounts, setHistoryCounts] = useState<{ past: number; future: number }>({
+    past: 0,
+    future: 0,
+  });
+
+  function refreshHistoryCounts() {
+    setHistoryCounts({
+      past: historyPast.current.length,
+      future: historyFuture.current.length,
+    });
+  }
 
   function mutate(fn: (s: FormularioSchemaDef) => FormularioSchemaDef) {
     setSchema((prev) => {
+      if (!skipHistory.current) {
+        historyPast.current.push(structuredClone(prev));
+        if (historyPast.current.length > HISTORY_CAP) historyPast.current.shift();
+        // Cualquier mutación nueva invalida el future stack.
+        historyFuture.current = [];
+      }
+      skipHistory.current = false;
       const next = fn(structuredClone(prev));
       return next;
     });
     setDirty(true);
+    // setState es asíncrono — diferimos a un microtask para que la lectura
+    // de los refs sea consistente con el render que viene.
+    queueMicrotask(refreshHistoryCounts);
   }
+
+  function undo() {
+    if (historyPast.current.length === 0) return;
+    setSchema((current) => {
+      const prev = historyPast.current.pop()!;
+      historyFuture.current.unshift(structuredClone(current));
+      if (historyFuture.current.length > HISTORY_CAP) historyFuture.current.pop();
+      return prev;
+    });
+    skipHistory.current = true; // el próximo mutate no debe re-pushear
+    setDirty(true);
+    queueMicrotask(refreshHistoryCounts);
+  }
+
+  function redo() {
+    if (historyFuture.current.length === 0) return;
+    setSchema((current) => {
+      const next = historyFuture.current.shift()!;
+      historyPast.current.push(structuredClone(current));
+      if (historyPast.current.length > HISTORY_CAP) historyPast.current.shift();
+      return next;
+    });
+    skipHistory.current = true;
+    setDirty(true);
+    queueMicrotask(refreshHistoryCounts);
+  }
+
+  // Cuando recargamos el schema desde la BD (mount o reload), reseteamos
+  // el historial — no tiene sentido "deshacer" una carga inicial.
+  useEffect(() => {
+    historyPast.current = [];
+    historyFuture.current = [];
+    setHistoryCounts({ past: 0, future: 0 });
+  }, [formulario?.id]);
+
+  // Atajos de teclado: ⌘Z = undo, ⌘⇧Z / ⌘Y = redo.
+  // Sólo si el foco NO está en un input/textarea/contenteditable, para no
+  // pisar el undo nativo del browser dentro de campos de texto.
+  useEffect(() => {
+    function isEditableTarget(t: EventTarget | null): boolean {
+      const el = t as HTMLElement | null;
+      if (!el) return false;
+      const tag = el.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
+      if (el.isContentEditable) return true;
+      return false;
+    }
+    function onKey(e: KeyboardEvent) {
+      const mod = e.metaKey || e.ctrlKey;
+      if (!mod) return;
+      const k = e.key.toLowerCase();
+      if (k === 'z' && !e.shiftKey) {
+        if (isEditableTarget(e.target)) return;
+        e.preventDefault();
+        undo();
+      } else if ((k === 'z' && e.shiftKey) || k === 'y') {
+        if (isEditableTarget(e.target)) return;
+        e.preventDefault();
+        redo();
+      }
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function onInsertField(
     sectionIdx: number,
@@ -418,6 +516,46 @@ export function FormularioBuilderPage() {
         <div className="flex flex-wrap items-center gap-2">
           {/* 4.F · badge validador del schema en tiempo real. */}
           <ValidadorBadge warnings={warnings} onJump={scrollToWarning} />
+          {/* 4.D · Undo / Redo (DGG-32). Atajos ⌘Z / ⌘⇧Z. */}
+          <div className="inline-flex items-center gap-0.5 rounded-lg border border-slate-200 bg-white p-0.5">
+            <button
+              type="button"
+              onClick={undo}
+              disabled={historyCounts.past === 0}
+              title={`Deshacer${historyCounts.past ? ` (${historyCounts.past})` : ''} · ⌘Z`}
+              aria-label="Deshacer"
+              className={cn(
+                'inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition',
+                historyCounts.past > 0
+                  ? 'text-brand-ink hover:bg-slate-100'
+                  : 'cursor-not-allowed text-slate-300',
+              )}
+            >
+              <Undo2 size={13} />
+              {historyCounts.past > 0 && (
+                <span className="tabular-nums">{historyCounts.past}</span>
+              )}
+            </button>
+            <span className="h-4 w-px bg-slate-200" aria-hidden />
+            <button
+              type="button"
+              onClick={redo}
+              disabled={historyCounts.future === 0}
+              title={`Rehacer${historyCounts.future ? ` (${historyCounts.future})` : ''} · ⌘⇧Z`}
+              aria-label="Rehacer"
+              className={cn(
+                'inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition',
+                historyCounts.future > 0
+                  ? 'text-brand-ink hover:bg-slate-100'
+                  : 'cursor-not-allowed text-slate-300',
+              )}
+            >
+              <Redo2 size={13} />
+              {historyCounts.future > 0 && (
+                <span className="tabular-nums">{historyCounts.future}</span>
+              )}
+            </button>
+          </div>
           <Button variant="ghost" onClick={() => setAjustesOpen(true)}>
             <Settings2 size={14} /> Ajustes
           </Button>

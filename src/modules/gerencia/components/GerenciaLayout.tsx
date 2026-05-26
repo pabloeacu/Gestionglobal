@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { BrandMark } from '@/components/brand/BrandMark';
 import { LandingCoverBadge } from './LandingCoverBadge';
+import { NotificationBell } from '@/components/common/NotificationBell';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   useCommandPalette,
@@ -247,6 +248,8 @@ export function GerenciaLayout() {
                 <CommandIcon size={9} />K
               </kbd>
             </button>
+            {/* DGG-30 / P5-7.C · Centro de notificaciones in-app. */}
+            <NotificationBell />
             <UserMenu perfilHref="/gerencia/perfil" />
           </div>
         </header>

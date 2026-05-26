@@ -21,12 +21,15 @@ import {
   CheckCircle2,
   Clock,
   Copy,
+  Download,
   Eye,
   EyeOff,
   FileText,
+  GitBranch,
   History,
   Layers,
   Link2,
+  List,
   ListChecks,
   Loader2,
   Paperclip,
@@ -70,7 +73,9 @@ import {
   type TrackingVencimientoLigado,
 } from '@/services/api/trackings';
 import { LineaTrackingCard } from '../components/LineaTrackingCard';
+import { LineasTimeline } from '../components/LineasTimeline';
 import { AgregarLineaDrawer } from '../components/AgregarLineaDrawer';
+import { generateReportPdf } from '@/lib/reportPdf';
 import { RecurrenciaList } from '../components/RecurrenciaList';
 import { EstadosConfigManager } from '../components/EstadosConfigManager';
 import { CategoriasConfigManager } from '../components/CategoriasConfigManager';
@@ -90,6 +95,16 @@ export function TrackingDetailPage() {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<TabKey>('resumen');
   const [filtroCategoria, setFiltroCategoria] = useState<string>('');
+  // 2.A · vista del tab Líneas: lista clásica o timeline visual. Persistimos
+  // la preferencia para que el gerente no la elija cada vez.
+  const [vistaLineas, setVistaLineas] = useState<'lista' | 'timeline'>(() => {
+    try {
+      const v = localStorage.getItem('gg.tracking.vistaLineas');
+      return v === 'timeline' ? 'timeline' : 'lista';
+    } catch { return 'lista'; }
+  });
+  // 2.C · estado de generación del PDF (para deshabilitar el botón mientras corre)
+  const [pdfBusy, setPdfBusy] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [programarOpen, setProgramarOpen] = useState(false);
   // 2.G · cuando true, el modal de programar abre en modo edición del
@@ -157,6 +172,115 @@ export function TrackingDetailPage() {
     () => (data?.lineas ?? []).filter((l) => l.alerta_en && new Date(l.alerta_en).getTime() > Date.now()).length,
     [data],
   );
+
+  // 2.A · cambia de vista y persiste la preferencia.
+  function toggleVistaLineas(next: 'lista' | 'timeline') {
+    setVistaLineas(next);
+    try { localStorage.setItem('gg.tracking.vistaLineas', next); } catch {/* noop */}
+  }
+
+  // 2.C · Exportar tracking como PDF resumen premium (DGG-31).
+  //
+  // Reutiliza el sistema de DGG-26 (`generateReportPdf`): cada línea es una
+  // fila de la "tabla" del reporte. Los datos del tracking (cliente,
+  // servicio, estado, fechas, KPIs) van como header/subtitle + filtros chips
+  // + KPI strip. Header con logo + footer "Generado por Gestión Global".
+  async function handleExportPdf() {
+    if (!data) return;
+    setPdfBusy(true);
+    try {
+      const filename = `tracking-${data.codigo ?? data.id.slice(0, 8)}-${new Date()
+        .toISOString()
+        .slice(0, 10)}.pdf`;
+      const diasAbiertos = Math.max(
+        0,
+        Math.floor(
+          (Date.now() - new Date(data.created_at).getTime()) /
+            (1000 * 60 * 60 * 24),
+        ),
+      );
+      // Categoría → label (para que la columna se vea humana, no slug).
+      const catLabel = (slug: string) =>
+        categoriaConfigMap.get(slug)?.label ?? slug;
+      // Estado label
+      const estadoLabel =
+        data.estados_disponibles.find((e) => e.slug === data.estado)?.label ??
+        data.estado;
+      await generateReportPdf({
+        filename,
+        titulo: data.servicio?.nombre ?? data.titulo,
+        subtitulo: `${data.codigo} · ${data.administracion?.nombre ?? '—'}`,
+        filtros: [
+          { label: 'Estado', value: estadoLabel },
+          ...(data.periodo ? [{ label: 'Período', value: data.periodo }] : []),
+          {
+            label: 'Inicio',
+            value: data.fecha_inicio
+              ? formatDateShort(data.fecha_inicio)
+              : '—',
+          },
+          ...(data.consorcio
+            ? [{ label: 'Consorcio', value: data.consorcio.nombre }]
+            : []),
+          ...(data.solicitante_nombre
+            ? [{ label: 'Solicitante', value: data.solicitante_nombre }]
+            : []),
+        ],
+        kpis: [
+          { label: 'Líneas', value: String(data.lineas.length), tone: 'cyan' },
+          { label: 'Adjuntos', value: String(adjuntosTodos.length), tone: 'amber' },
+          { label: 'Pendientes', value: String(lineasPendientes), tone: 'rose' },
+          { label: 'Días abiertos', value: String(diasAbiertos), tone: 'ink' },
+        ],
+        columns: [
+          {
+            key: 'fecha',
+            label: 'Fecha',
+            width: '18%',
+            format: (l: TrackingLineaRow) => formatDateTime(l.created_at),
+          },
+          {
+            key: 'categoria',
+            label: 'Categoría',
+            width: '22%',
+            format: (l: TrackingLineaRow) => catLabel(l.categoria),
+          },
+          {
+            key: 'estado',
+            label: 'Estado→',
+            width: '14%',
+            format: (l: TrackingLineaRow) => l.estado_asociado ?? '—',
+          },
+          {
+            key: 'descripcion',
+            label: 'Nota / detalle',
+            format: (l: TrackingLineaRow) => l.descripcion ?? '—',
+          },
+          {
+            key: 'adjuntos',
+            label: 'Adj',
+            align: 'right',
+            width: '8%',
+            format: (l: TrackingLineaRow) =>
+              String(l.archivos_urls?.length ?? 0),
+          },
+        ],
+        rows: [...data.lineas].sort(
+          (a, b) =>
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+        ),
+      });
+      toast.success('PDF generado', {
+        description: `Descargá ${filename}`,
+      });
+    } catch (err) {
+      toast.error('No pudimos generar el PDF', {
+        description: err instanceof Error ? err.message : 'Error desconocido',
+      });
+    } finally {
+      setPdfBusy(false);
+    }
+  }
 
   async function handleCerrar() {
     if (!data) return;
@@ -305,6 +429,20 @@ export function TrackingDetailPage() {
             <Button onClick={() => setDrawerOpen(true)}>
               <Plus className="h-4 w-4" /> Agregar línea
             </Button>
+            {/* 2.C · Exportar tracking como PDF resumen premium (DGG-31). */}
+            <Button
+              variant="ghost"
+              onClick={() => void handleExportPdf()}
+              disabled={pdfBusy}
+              title="Generar PDF resumen del tracking (líneas + KPIs)"
+            >
+              {pdfBusy ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4" />
+              )}{' '}
+              Exportar PDF
+            </Button>
             {/* 2.B · botón "Compartir externo" inline → modal con email +
                 vigencia + copia/envío del link público. */}
             {isStaff && (
@@ -421,38 +559,76 @@ export function TrackingDetailPage() {
 
       {tab === 'lineas' && (
         <section className="space-y-4">
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setFiltroCategoria('')}
-              className={cn(
-                'rounded-full border px-3 py-1 text-xs font-medium transition',
-                filtroCategoria === ''
-                  ? 'border-cyan-300 bg-cyan-100 text-cyan-700'
-                  : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300',
-              )}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setFiltroCategoria('')}
+                className={cn(
+                  'rounded-full border px-3 py-1 text-xs font-medium transition',
+                  filtroCategoria === ''
+                    ? 'border-cyan-300 bg-cyan-100 text-cyan-700'
+                    : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300',
+                )}
+              >
+                Todas ({data.lineas.length})
+              </button>
+              {data.categorias_disponibles.map((c) => {
+                const count = data.lineas.filter((l) => l.categoria === c.slug).length;
+                if (count === 0) return null;
+                return (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => setFiltroCategoria(c.slug)}
+                    className={cn(
+                      'rounded-full border px-3 py-1 text-xs font-medium transition',
+                      filtroCategoria === c.slug
+                        ? 'border-cyan-300 bg-cyan-100 text-cyan-700'
+                        : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300',
+                    )}
+                  >
+                    {c.label} ({count})
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* 2.A · Toggle Lista / Timeline. Persistido en localStorage. */}
+            <div
+              className="inline-flex items-center gap-0.5 rounded-full border border-slate-200 bg-white p-0.5 text-[11px]"
+              role="tablist"
+              aria-label="Vista de líneas"
             >
-              Todas ({data.lineas.length})
-            </button>
-            {data.categorias_disponibles.map((c) => {
-              const count = data.lineas.filter((l) => l.categoria === c.slug).length;
-              if (count === 0) return null;
-              return (
-                <button
-                  key={c.id}
-                  type="button"
-                  onClick={() => setFiltroCategoria(c.slug)}
-                  className={cn(
-                    'rounded-full border px-3 py-1 text-xs font-medium transition',
-                    filtroCategoria === c.slug
-                      ? 'border-cyan-300 bg-cyan-100 text-cyan-700'
-                      : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300',
-                  )}
-                >
-                  {c.label} ({count})
-                </button>
-              );
-            })}
+              <button
+                type="button"
+                role="tab"
+                aria-selected={vistaLineas === 'lista'}
+                onClick={() => toggleVistaLineas('lista')}
+                className={cn(
+                  'inline-flex items-center gap-1 rounded-full px-2.5 py-1 font-medium transition',
+                  vistaLineas === 'lista'
+                    ? 'bg-brand-cyan text-white shadow-sm'
+                    : 'text-brand-muted hover:text-brand-ink',
+                )}
+              >
+                <List size={12} /> Lista
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={vistaLineas === 'timeline'}
+                onClick={() => toggleVistaLineas('timeline')}
+                className={cn(
+                  'inline-flex items-center gap-1 rounded-full px-2.5 py-1 font-medium transition',
+                  vistaLineas === 'timeline'
+                    ? 'bg-brand-cyan text-white shadow-sm'
+                    : 'text-brand-muted hover:text-brand-ink',
+                )}
+              >
+                <GitBranch size={12} /> Timeline
+              </button>
+            </div>
           </div>
 
           {lineasFiltradas.length === 0 ? (
@@ -460,6 +636,11 @@ export function TrackingDetailPage() {
               icon={<ListChecks />}
               title="Sin líneas todavía"
               hint='Agregá la primera línea con el botón "Agregar línea" del header.'
+            />
+          ) : vistaLineas === 'timeline' ? (
+            <LineasTimeline
+              lineas={lineasFiltradas}
+              categoriaConfigMap={categoriaConfigMap}
             />
           ) : (
             <ol className="space-y-3">

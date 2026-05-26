@@ -239,6 +239,22 @@ export async function marcarRenovado(
   return ok(data as string);
 }
 
+// DGG-34 / P5-6.B · Bulk renovar. ids[] y nuevasFechas[] paralelos. Atómico.
+export async function marcarRenovadosMasivo(
+  ids: string[],
+  nuevasFechas: string[],
+): Promise<ApiResponse<Array<{ original_id: string; nuevo_id: string }>>> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.rpc as any)(
+    'marcar_renovados_masivo',
+    { p_ids: ids, p_nuevas_fechas: nuevasFechas },
+  );
+  if (error) return fail('VENC_RENOVAR_MASIVO', error.message, error);
+  return ok(
+    (data ?? []) as Array<{ original_id: string; nuevo_id: string }>,
+  );
+}
+
 export async function cancelarVencimiento(
   id: string,
 ): Promise<ApiResponse<true>> {

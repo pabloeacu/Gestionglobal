@@ -30,7 +30,9 @@ import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
 import { cn } from '@/lib/cn';
 import { VencimientoFormDrawer } from '../components/VencimientoFormDrawer';
 import { RenovarModal } from '../components/RenovarModal';
+import { BulkRenovarModal } from '../components/BulkRenovarModal';
 import { VencimientoCard } from '../components/VencimientoCard';
+import { CheckSquare, RefreshCcw as RefreshIcon, Square, X as CloseIcon } from 'lucide-react';
 import {
   getProximosVencimientos,
   cancelarVencimiento,
@@ -66,6 +68,28 @@ export function VencimientosListPage() {
   // 6.A · vista Lista vs Por cliente (agrupada por administración).
   const [vista, setVista] = useState<'lista' | 'cliente'>('lista');
   const [colapsadas, setColapsadas] = useState<Set<string>>(new Set());
+  // 6.B · multi-select para bulk renovar (DGG-34). Sólo vigentes / vencidos
+  // pueden incluirse en la selección. La barra flotante aparece cuando hay
+  // al menos uno.
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkRenovarOpen, setBulkRenovarOpen] = useState(false);
+
+  function toggleSelected(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+  function isRenovable(v: ProximoVencimiento) {
+    return v.estado === 'vigente' || v.estado === 'vencido';
+  }
+  function selectAllVisible() {
+    setSelectedIds(new Set(filtered.filter(isRenovable).map((v) => v.id)));
+  }
+  function clearSelection() {
+    setSelectedIds(new Set());
+  }
 
   async function load() {
     setLoading(true);
@@ -540,20 +564,18 @@ export function VencimientosListPage() {
           ) : vista === 'lista' ? (
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {filtered.map((v) => (
-                <VencimientoCard
+                <SelectableCard
                   key={v.id}
-                  venc={v}
-                  onRenovar={
-                    v.estado === 'vigente' || v.estado === 'vencido'
-                      ? setRenovar
-                      : undefined
-                  }
-                  onCancelar={
-                    v.estado === 'vigente' || v.estado === 'vencido'
-                      ? onCancelar
-                      : undefined
-                  }
-                />
+                  v={v}
+                  selected={selectedIds.has(v.id)}
+                  onToggle={isRenovable(v) ? () => toggleSelected(v.id) : undefined}
+                >
+                  <VencimientoCard
+                    venc={v}
+                    onRenovar={isRenovable(v) ? setRenovar : undefined}
+                    onCancelar={isRenovable(v) ? onCancelar : undefined}
+                  />
+                </SelectableCard>
               ))}
             </div>
           ) : (
@@ -597,20 +619,20 @@ export function VencimientosListPage() {
                     {!colapsado && (
                       <div className="grid gap-3 border-t border-slate-100 p-4 sm:grid-cols-2 lg:grid-cols-3">
                         {g.items.map((v) => (
-                          <VencimientoCard
+                          <SelectableCard
                             key={v.id}
-                            venc={v}
-                            onRenovar={
-                              v.estado === 'vigente' || v.estado === 'vencido'
-                                ? setRenovar
-                                : undefined
+                            v={v}
+                            selected={selectedIds.has(v.id)}
+                            onToggle={
+                              isRenovable(v) ? () => toggleSelected(v.id) : undefined
                             }
-                            onCancelar={
-                              v.estado === 'vigente' || v.estado === 'vencido'
-                                ? onCancelar
-                                : undefined
-                            }
-                          />
+                          >
+                            <VencimientoCard
+                              venc={v}
+                              onRenovar={isRenovable(v) ? setRenovar : undefined}
+                              onCancelar={isRenovable(v) ? onCancelar : undefined}
+                            />
+                          </SelectableCard>
                         ))}
                       </div>
                     )}
@@ -634,6 +656,91 @@ export function VencimientosListPage() {
         onClose={() => setRenovar(null)}
         onRenewed={() => void load()}
       />
+
+      {/* 6.B · Bulk modal: aparece cuando hay selección y el usuario abre. */}
+      <BulkRenovarModal
+        open={bulkRenovarOpen}
+        onClose={() => setBulkRenovarOpen(false)}
+        vencimientos={rows.filter((v) => selectedIds.has(v.id))}
+        onRenewed={() => {
+          clearSelection();
+          void load();
+        }}
+      />
+
+      {/* 6.B · Barra flotante de selección. */}
+      {selectedIds.size > 0 && (
+        <div className="fixed inset-x-0 bottom-4 z-40 flex justify-center px-4 motion-safe:animate-fade-up">
+          <div className="flex flex-wrap items-center gap-3 rounded-full border border-slate-200 bg-white px-4 py-2.5 shadow-[0_18px_48px_-15px_rgba(18,34,48,0.35)]">
+            <span className="inline-flex items-center gap-1.5 text-xs font-medium text-brand-ink">
+              <CheckSquare size={13} className="text-brand-cyan" />
+              {selectedIds.size}{' '}
+              {selectedIds.size === 1 ? 'seleccionado' : 'seleccionados'}
+            </span>
+            <button
+              type="button"
+              onClick={selectAllVisible}
+              className="text-xs text-brand-muted underline-offset-2 hover:underline"
+              title="Marcar todos los renovables visibles"
+            >
+              Marcar todos
+            </button>
+            <Button onClick={() => setBulkRenovarOpen(true)}>
+              <RefreshIcon size={13} /> Renovar masivo
+            </Button>
+            <button
+              type="button"
+              onClick={clearSelection}
+              className="inline-flex h-7 w-7 items-center justify-center rounded-full text-brand-muted hover:bg-slate-100"
+              aria-label="Cancelar selección"
+              title="Cancelar selección"
+            >
+              <CloseIcon size={14} />
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// 6.B · SelectableCard
+// Wrapper que rodea a VencimientoCard con un overlay para checkbox de
+// selección. Sólo se muestra el checkbox cuando el vencimiento es renovable
+// (es decir, onToggle existe). El borde cambia a brand-cyan cuando seleccionado.
+// ---------------------------------------------------------------------------
+function SelectableCard({
+  v,
+  selected,
+  onToggle,
+  children,
+}: {
+  v: ProximoVencimiento;
+  selected: boolean;
+  onToggle?: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className={cn('relative', selected && 'ring-2 ring-brand-cyan/50 rounded-2xl')}>
+      {onToggle && (
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-label={selected ? 'Quitar de la selección' : 'Agregar a la selección'}
+          aria-pressed={selected}
+          title={v.descripcion ?? VENCIMIENTO_TIPO_LABEL[v.tipo]}
+          className={cn(
+            'absolute left-2 top-2 z-10 inline-flex h-7 w-7 items-center justify-center rounded-md border-2 bg-white/95 transition',
+            selected
+              ? 'border-brand-cyan bg-brand-cyan text-white shadow'
+              : 'border-slate-300 text-brand-muted hover:border-brand-cyan',
+          )}
+        >
+          {selected ? <CheckSquare size={14} /> : <Square size={14} />}
+        </button>
+      )}
+      {children}
     </div>
   );
 }

@@ -10,6 +10,7 @@ export type BusquedaKind =
   | 'administracion'
   | 'comprobante'
   | 'tramite'
+  | 'solicitud'
   | 'vencimiento'
   | 'servicio'
   | 'curso'
