@@ -112,7 +112,9 @@ Verificación: query post-fix muestra 7/7 servicios con formulario público vinc
 
 ---
 
-## EGG-QA-05 · 🔴 CRÍTICO · DKIM no configurado en Workspace · emails llegan a spam o se descartan
+## EGG-QA-05 · 🟡 MEDIO · DKIM + DMARC sin configurar · deliverability subóptima
+
+**(Re-diagnóstico 2026-05-26)**: El test fresh llegó al Inbox del usuario sin DKIM. Causa original del "no recibí ningún mail" fue que los emails previos tenían asuntos genéricos ("Recibimos tu formulario", "Bienvenido a Gestión Global") que el usuario ignoró pensando que eran tests internos. Confirmado por inspección manual de Gmail. Bajo severidad a 🟡 Medio: la falta de DKIM no rompe delivery hoy, pero la deliverability no está optimizada para volúmenes mayores ni para evitar futuros filtros más estrictos.
 
 **Módulo**: DNS + Google Workspace · pipeline de delivery email
 **Flujo afectado**: TODOS los emails outbound del sistema (acuses, gerencia, comprobantes, recupero, certificados, vencimientos, webinars).
@@ -133,7 +135,7 @@ MX     ✅ Google Workspace (aspmx.l.google.com)
 
 Resultado: la API devuelve éxito (mensaje aceptado en outbox de la cuenta), pero el delivery final no llega al inbox del destinatario.
 
-**Severidad**: 🔴 CRÍTICO — toda la comunicación del sistema con clientes y gerencia depende de email. Sin DKIM, el alcance es errático y depende del proveedor del destinatario.
+**Severidad**: 🟡 MEDIO (re-evaluada) — los emails llegan hoy pero la configuración es subóptima. Recomendado activar DKIM + subir DMARC a `quarantine` antes del lanzamiento masivo.
 
 **Fix requerido** (acción del usuario + acción mía):
 
@@ -155,7 +157,7 @@ Resultado: la API devuelve éxito (mensaje aceptado en outbox de la cuenta), per
 
 **Mejora adicional**: subir DMARC a `p=quarantine` después de tener DKIM probado por ~2 semanas, y eventualmente a `p=reject` para máxima protección anti-phishing.
 
-**Estado**: 🔴 documentado · pendiente acción del usuario + DNS update.
+**Estado**: 🟡 documentado · mejora pendiente (no bloqueante). Re-priorizar antes del lanzamiento masivo.
 
 ---
 
