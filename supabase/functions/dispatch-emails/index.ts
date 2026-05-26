@@ -299,18 +299,14 @@ function buildMimeMessage(a: MimeArgs): string {
   if (a.replyTo) headers.push(`Reply-To: ${a.replyTo}`);
   headers.push(`Subject: ${encodeRfc2047(a.subject)}`);
   headers.push('MIME-Version: 1.0');
-  // EGG-QA-07 · headers para que Gmail clasifique como transaccional (Inbox
-  // principal) y no como promoción. Combinados con DKIM activo deberían
-  // mantener los emails fuera de la pestaña Promociones.
+  // EGG-QA-07 v2 (2026-05-26): emails 1:1 transaccionales (acuse de solicitud,
+  // confirmaciones, comprobantes) NO deben llevar Precedence: list ni
+  // List-Unsubscribe — esos son headers de mailing-lists/newsletters y
+  // disparan el clasificador "Promociones" de Gmail. Sólo agregamos
+  // identificadores neutros que no marcan bulk.
   headers.push('X-Auto-Response-Suppress: All');
-  headers.push('Auto-Submitted: auto-generated');
-  headers.push('X-Mailer: Gestion Global Platform / Workspace API');
-  headers.push('Precedence: list');
-  // List-Unsubscribe legítimo para que Gmail trate como bulk-pero-controlado.
-  // mailto: rutea al inbox de contacto@ para procesar desuscripciones manuales.
-  // RFC 8058 one-click via header parsing.
-  headers.push('List-Unsubscribe: <mailto:contacto@gestionglobal.ar?subject=unsubscribe>');
-  headers.push('List-Unsubscribe-Post: List-Unsubscribe=One-Click');
+  headers.push('X-Mailer: Gestion Global Platform');
+  // (NO Auto-Submitted / Precedence / List-Unsubscribe → eso es para newsletters)
 
   if (hasText) {
     headers.push(`Content-Type: multipart/alternative; boundary="${boundary}"`);
