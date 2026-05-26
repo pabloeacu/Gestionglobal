@@ -195,6 +195,15 @@ function Protected({
 }
 
 export function App() {
+  // E-GG-24 follow-up: el splash de index.html sólo se ocultaba cuando
+  // RoleHomeOrLanding montaba (rutas `/` y `/inicio`). Si el usuario entra
+  // por `/ingresar`, `/portal`, etc., el splash quedaba pegado. Acá
+  // universalizamos el signal: en cuanto React monta el App, marcamos
+  // ready. El splash transiciona out con 220ms y se quita del DOM.
+  useEffect(() => {
+    document.documentElement.setAttribute('data-app-ready', '1');
+  }, []);
+
   return (
     <BrowserRouter>
       <Suspense fallback={<BrandLoaderScreen />}>
