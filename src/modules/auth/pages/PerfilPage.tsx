@@ -39,6 +39,7 @@ import {
 } from '@/services/api/push';
 import { AvatarEditor } from '@/modules/auth/components/AvatarEditor';
 import { PerfilSesionesActivas } from '@/modules/auth/components/PerfilSesionesActivas';
+import { Perfil2FA } from '@/modules/auth/components/Perfil2FA';
 import { cn } from '@/lib/cn';
 
 // "Mi perfil" — único lugar donde el usuario edita su propio nombre/avatar/
@@ -79,6 +80,9 @@ export function PerfilPage() {
       <PerfilPassword play={play} />
 
       <PerfilNotificacionesPush userId={user.id} play={play} />
+
+      {/* P2-#33 · 2FA TOTP opcional */}
+      <Perfil2FA />
 
       {/* P2-#35 · Sesiones activas (multi-device + cerrar otras) */}
       <PerfilSesionesActivas />

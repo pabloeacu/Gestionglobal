@@ -1,10 +1,15 @@
 import { useState, type FormEvent } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { LogIn, ArrowLeft } from 'lucide-react';
+import { LogIn, ArrowLeft, ShieldCheck, Loader2 } from 'lucide-react';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { Button } from '@/components/common';
 import { BrandBackdrop } from '@/components/brand/BrandBackdrop';
 import { BrandMark } from '@/components/brand/BrandMark';
+import {
+  challengeAndVerify,
+  getAuthAal,
+  listFactors,
+} from '@/services/api/mfa';
 
 // Login único. Tras autenticar, App.tsx redirige según el rol del profile
 // (gerente → /gerencia, administrador → /portal).
@@ -15,6 +20,12 @@ export function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  // P2-#33 · MFA challenge state: si el user tiene 2FA, mostramos el step
+  // de código TOTP en lugar de redirigir directo.
+  const [mfaStep, setMfaStep] = useState<{ factorId: string } | null>(null);
+  const [mfaCode, setMfaCode] = useState('');
+  const [verifying, setVerifying] = useState(false);
+
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
@@ -24,12 +35,49 @@ export function LoginPage() {
     }
     setLoading(true);
     const { error: err } = await supabase.auth.signInWithPassword({ email, password });
-    setLoading(false);
     if (err) {
+      setLoading(false);
       setError('Email o contraseña incorrectos.');
       return;
     }
+    // ¿Necesita upgradear a AAL2 por tener MFA activo?
+    const aal = await getAuthAal();
+    if (aal.ok && aal.data.nextLevel === 'aal2' && aal.data.currentLevel === 'aal1') {
+      const factors = await listFactors();
+      const verified = factors.ok ? factors.data.find((f) => f.status === 'verified') : null;
+      if (verified) {
+        setMfaStep({ factorId: verified.id });
+        setLoading(false);
+        return;
+      }
+    }
+    setLoading(false);
     navigate('/');
+  }
+
+  async function onSubmitMfa(e: FormEvent) {
+    e.preventDefault();
+    if (!mfaStep) return;
+    if (!/^\d{6}$/.test(mfaCode.trim())) {
+      setError('Ingresá los 6 dígitos del código.');
+      return;
+    }
+    setError(null);
+    setVerifying(true);
+    const r = await challengeAndVerify(mfaStep.factorId, mfaCode.trim());
+    setVerifying(false);
+    if (!r.ok) {
+      setError('Código incorrecto · probá con el actual de tu app.');
+      return;
+    }
+    navigate('/');
+  }
+
+  async function cancelMfa() {
+    await supabase.auth.signOut();
+    setMfaStep(null);
+    setMfaCode('');
+    setError(null);
   }
 
   return (
@@ -68,6 +116,51 @@ export function LoginPage() {
 
           <BrandMark variant="light" size={42} className="mb-7 lg:hidden" />
 
+          {mfaStep ? (
+            <>
+              <p className="kicker">Doble factor</p>
+              <h1 className="mt-1 inline-flex items-center gap-2 font-display text-3xl font-bold text-brand-ink">
+                <ShieldCheck size={26} className="text-brand-cyan" />
+                Verificación 2FA
+              </h1>
+              <p className="mt-2 text-sm text-brand-muted">
+                Abrí tu app autenticadora e ingresá el código de 6 dígitos
+                que aparece en pantalla.
+              </p>
+              <form onSubmit={onSubmitMfa} className="mt-7 space-y-4">
+                <div className="space-y-1.5">
+                  <label className="kicker block">Código TOTP</label>
+                  <input
+                    autoFocus
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    maxLength={6}
+                    value={mfaCode}
+                    onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, ''))}
+                    placeholder="123456"
+                    className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-center font-mono text-2xl tracking-[0.5em] outline-none transition focus:border-brand-cyan focus:ring-4 focus:ring-brand-cyan/10"
+                  />
+                </div>
+                {error && <p className="text-sm text-red-600">{error}</p>}
+                <Button
+                  type="submit"
+                  loading={verifying}
+                  className="w-full rounded-xl bg-gradient-to-r from-brand-cyan to-brand-blue py-3 shadow-[0_8px_24px_-8px_rgba(0,158,202,0.6)] hover:from-brand-blue hover:to-brand-blue"
+                >
+                  {verifying ? <Loader2 size={16} className="animate-spin" /> : <ShieldCheck size={16} />}
+                  Confirmar e ingresar
+                </Button>
+                <button
+                  type="button"
+                  onClick={() => void cancelMfa()}
+                  className="block w-full text-center text-xs text-brand-muted hover:text-brand-ink"
+                >
+                  Cancelar y volver al login
+                </button>
+              </form>
+            </>
+          ) : (
+          <>
           <p className="kicker">Acceso a la plataforma</p>
           <h1 className="mt-1 font-display text-3xl font-bold text-brand-ink">
             Ingresá a tu cuenta
@@ -123,6 +216,8 @@ export function LoginPage() {
               Conocé los servicios
             </Link>
           </p>
+          </>
+          )}
         </div>
       </div>
     </div>
