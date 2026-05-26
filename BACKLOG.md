@@ -4,6 +4,13 @@
 
 ---
 
+## Estado actualizado 2026-05-25 (post P2 ola 1+2)
+**Progreso 25→24 mejoras P2 hechas** · 14 pendientes:
+- 4 audits visuales menores (#1, #3, #4, #6)
+- 2 features con valor pendientes (#13 período global, #26 filtros guardados)
+- 8 grandes L que requieren decisión del usuario (#10 tour, #23 email tracking, #24
+  dashboard avanzado, #25 exports programados, #31 Sentry, #33 2FA, #37 i18n, #38 OpenAPI)
+
 ## 9-Step Roadmap del usuario
 
 1. **Bugfixes ronda 1** → ✅ Completado (commit `054ffd2`)
@@ -20,64 +27,54 @@
 
 ## Backlog de los 38 puntos del Punto 2
 
-### Hechos (13)
+### Hechos (24 / 38) — actualizado 2026-05-25 post P2 olas 1+2
 
 - [x] #2 AnimatedNumber sin "0→N" inicial
 - [x] #5 Footer institucional mini con versión
 - [x] #7 Grilla de atajos completa (11 items)
 - [x] #8 Dashboard analítico con KPI strip + sparkline en home
-- [x] #11 Búsqueda global ⌘K end-to-end con RPC
+- [x] #9 FAB con quick actions (P2-ola1 · QuickActionsFAB)
+- [x] #11 Búsqueda global ⌘K end-to-end con RPC (+ DGG-29 solicitudes/trackings)
+- [x] #12 Docs de atajos de teclado en palette `?` (P2-ola1 · KeyboardShortcutsModal)
 - [x] #14 Tabs sticky en ConfiguracionLayout
+- [x] #15 Indicador Realtime dot en header (P2-ola1 · RealtimeStatus)
+- [x] #16 Botón "Copiar como CSV" en tablas (P2-ola1 · ExportButtons + csvCopy)
+- [x] #17 Editor visual de schema JSONB drag&drop (Ronda 5 / FormularioBuilderPage)
+- [x] #18 Plantillas de formularios (Ronda 5 / "Desde plantilla" botón en /gerencia/formularios)
+- [x] #19 Embed iframe + JS snippet (Ronda 5 / EmbedCodeModal)
 - [x] #20 Editor templates con autocomplete `{{vars}}`
 - [x] #21 Botón "Enviar prueba a mí"
 - [x] #22 Preview email desktop/mobile sandboxed
 - [x] #27 Code splitting React.lazy (35 páginas)
 - [x] #28 Avatar WebP con fallback JPEG
 - [x] #29 PWA service worker + manifest installable
+- [x] #30 Push notifications VAPID (Ronda 5 · push_subscriptions + dispatch-push)
+- [x] #32 Health check page `/health` (P2-ola2 · HealthPage)
+- [x] #34 Audit log unificado (P2-ola2 / DGG-35 · mig 0067 + AuditoriaPage)
+- [x] #35 Sesiones activas en Perfil (P2-ola2 / DGG-36 · mig 0068 + PerfilSesionesActivas)
+- [x] #36 DNS gestionglobal.ar → Vercel (DGG-28 · NIC.ar → Cloudflare → Vercel)
 
-### Pendientes (25)
+### Pendientes (14 / 38) — todos S/M residuales o L "agency-grade"
 
-**Estética & branding**
-- [ ] #1 Tipografía de cards homogénea (32px vs 36px)
-- [ ] #3 IllustratedEmpty consistente en todas las páginas vacías
-- [ ] #4 Skeleton loaders con timeout/fallback
-- [ ] #6 Iconografía stroke-width audit
+**Estética & branding · audits visuales menores**
+- [ ] #1 Tipografía de cards homogénea (32px vs 36px) — pasada visual, ajustar Skeleton CSS
+- [ ] #3 IllustratedEmpty consistente en todas las páginas vacías — algunas listas siguen con texto plano
+- [ ] #4 Skeleton loaders con timeout/fallback — Skeleton existe, falta wrapper "si tarda >2s mostrar toast"
+- [ ] #6 Iconografía stroke-width audit — verificar consistencia lucide (1.75 vs 2)
 
-**Inicio / Operación**
-- [ ] #9 FAB con quick actions
-- [ ] #10 Tour de bienvenida (Shepherd.js o similar)
-- [ ] #12 Docs de atajos de teclado en el palette (`?`)
-- [ ] #13 Selector de período global en header
-- [ ] #15 Indicador de estado Realtime (dot)
-- [ ] #16 Botón "Copiar como CSV" en tablas
+**Operación · features con valor**
+- [ ] #13 Selector de período global en header — dropdown 7d/30d/90d/1a/custom
+- [ ] #26 Filtros guardados ("Mis vistas") — tabla `vistas_guardadas` + UI por listado
 
-**Form builder (Ronda 5 — Agente E)**
-- [ ] #17 Editor visual de schema JSONB drag&drop
-- [ ] #18 Plantillas de formularios
-- [ ] #19 Embed (iframe + JS snippet)
-
-**Comunicación & email**
-- [ ] #23 Tracking de aperturas y clicks
-
-**Reportes & datos**
-- [ ] #24 Dashboard analítico con gráficos avanzados (no sparkline)
-- [ ] #25 Exportes programados (cron mensual + email)
-- [ ] #26 Filtros guardados ("Mis vistas")
-
-**Performance & DevOps**
-- [ ] #30 Push notifications VAPID (Ronda 5 — Agente F)
-- [ ] #31 Sentry / error tracking
-- [ ] #32 Health check page `/health`
-
-**Seguridad**
-- [ ] #33 2FA TOTP opcional
-- [ ] #34 Audit log unificado
-- [ ] #35 Sesiones activas en Perfil
-
-**Negocio**
-- [ ] #36 DNS gestionglobal.ar → Vercel
-- [ ] #37 Multi-idioma EN/PT (i18n)
-- [ ] #38 API pública con OpenAPI
+**Grandes (L) — requieren integración / decisión del usuario**
+- [ ] #10 Tour de bienvenida (Shepherd.js) — primera vez del gerente, tour de 6 pasos
+- [ ] #23 Tracking de aperturas y clicks de emails — pixel + redirect proxy + tabla logs
+- [ ] #24 Dashboard analítico con gráficos avanzados (recharts/nivo) — distinto al sparkline actual
+- [ ] #25 Exportes programados (cron mensual + email PDF/XLS)
+- [ ] #31 Sentry / error tracking — requiere DSN del usuario
+- [ ] #33 2FA TOTP opcional — Supabase Auth MFA + UI enroll
+- [ ] #37 Multi-idioma EN/PT (i18n) — refactor masivo con i18next
+- [ ] #38 API pública con OpenAPI — Supabase REST + docs Swagger
 
 ---
 
