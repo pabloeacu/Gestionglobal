@@ -21,8 +21,6 @@ import { BrandMark } from '@/components/brand/BrandMark';
 import { IsoMark } from '@/components/brand/IsoMark';
 import { LandingCoverBadge } from './LandingCoverBadge';
 import { NotificationBell } from '@/components/common/NotificationBell';
-import { RealtimeStatus } from '@/components/common/RealtimeStatus';
-import { PeriodSelector } from '@/components/common/PeriodSelector';
 import { QuickActionsFAB } from '@/components/common/QuickActionsFAB';
 import {
   KeyboardShortcutsModal,
@@ -282,10 +280,6 @@ export function GerenciaLayout() {
                 <CommandIcon size={9} />K
               </kbd>
             </button>
-            {/* P2-#13 · Selector de período global */}
-            <PeriodSelector />
-            {/* P2-#15 · Indicador Realtime (dot + label) */}
-            <RealtimeStatus />
             {/* P2-#12 · Botón "?" para abrir atajos */}
             <button
               type="button"

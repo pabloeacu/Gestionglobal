@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import { usePeriod } from '@/contexts/GlobalPeriodContext';
+import { PeriodSelector } from '@/components/common/PeriodSelector';
 import { cn } from '@/lib/cn';
 import {
   getAnaliticaCobranzasMensual,
@@ -106,18 +107,22 @@ export function AnaliticaPage() {
       <header className="relative overflow-hidden rounded-3xl border border-slate-200 bg-gradient-to-br from-white via-brand-cyan-pale/15 to-white p-6">
         <TrianglesAccent position="top-right" tone="cyan" density="rich" />
         <div className="relative">
-          <p className="kicker text-brand-cyan">Inteligencia de negocio</p>
-          <h1 className="font-display text-2xl font-bold text-brand-ink sm:text-3xl">
-            Analítica avanzada
-          </h1>
-          <p className="mt-1 max-w-2xl text-sm text-brand-muted">
-            Tendencias mensuales, ranking de clientes, mix de servicios y
-            funnel de conversión. El rango se ajusta con el selector global
-            de período del header.
-          </p>
-          <div className="mt-1 inline-flex items-center gap-1.5 text-[11px] text-brand-muted">
-            <Filter size={11} /> Rango activo:{' '}
-            <span className="font-semibold text-brand-ink">{period.label}</span>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="kicker text-brand-cyan">Inteligencia de negocio</p>
+              <h1 className="font-display text-2xl font-bold text-brand-ink sm:text-3xl">
+                Analítica avanzada
+              </h1>
+              <p className="mt-1 max-w-2xl text-sm text-brand-muted">
+                Tendencias mensuales, ranking de clientes, mix de servicios y
+                funnel de conversión.
+              </p>
+              <div className="mt-1 inline-flex items-center gap-1.5 text-[11px] text-brand-muted">
+                <Filter size={11} /> Rango activo:{' '}
+                <span className="font-semibold text-brand-ink">{period.label}</span>
+              </div>
+            </div>
+            <PeriodSelector />
           </div>
           <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
             <KpiTile
