@@ -73,6 +73,7 @@ const NAV: NavGroup[] = [
   { label: 'Clientes', to: '/gerencia/clientes', icon: Users },
   { label: 'Trámites', to: '/gerencia/tramites', icon: Briefcase },
   { label: 'Agenda', to: '/gerencia/agenda', icon: CalendarDays },
+  { label: 'Analítica', to: '/gerencia/analitica', icon: PiggyBank },
   {
     label: 'Facturación',
     icon: FileText,

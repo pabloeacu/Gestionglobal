@@ -72,6 +72,7 @@ const AgendaPage = lazy(() => import('@/modules/agenda').then(m => ({ default: m
 const AccesoExternoPage = lazy(() => import('@/modules/acceso-externo').then(m => ({ default: m.AccesoExternoPage })));
 const AuditoriaPage = lazy(() => import('@/modules/auditoria').then(m => ({ default: m.AuditoriaPage })));
 const ErroresRuntimePage = lazy(() => import('@/modules/errores').then(m => ({ default: m.ErroresRuntimePage })));
+const AnaliticaPage = lazy(() => import('@/modules/analitica').then(m => ({ default: m.AnaliticaPage })));
 
 type Role = 'gerente' | 'operador' | 'administrador';
 
@@ -278,6 +279,7 @@ export function App() {
           <Route path="campus/:id" element={<CursoEditorPage />} />
           <Route path="reportes" element={<ReportesHubPage />} />
           <Route path="reportes/importador" element={<ImportadorPage />} />
+          <Route path="analitica" element={<AnaliticaPage />} />
           <Route path="configuracion" element={<ConfiguracionLayout />}>
             <Route index element={<Navigate to="arca" replace />} />
             <Route path="arca" element={<ArcaConfigPage />} />
