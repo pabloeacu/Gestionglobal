@@ -212,7 +212,7 @@ export function GerenciaLayout() {
   useRegisterCommand(cmdAtajos);
 
   return (
-    <div className="flex min-h-screen bg-brand-zebra/40 font-sans">
+    <div className="flex min-h-screen bg-white font-sans">
       {/* Sidebar (desktop) */}
       <aside className="hidden w-64 shrink-0 border-r border-slate-200 bg-white md:flex md:flex-col">
         <div className="flex h-16 items-center border-b border-slate-100 px-5">

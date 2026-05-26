@@ -79,7 +79,7 @@ export function PortalLayout() {
     .toUpperCase();
 
   return (
-    <div className="flex min-h-screen bg-brand-zebra/40 font-sans">
+    <div className="flex min-h-screen bg-white font-sans">
       {/* Sidebar (desktop) */}
       <aside className="hidden w-[72px] shrink-0 flex-col border-r border-slate-200 bg-white md:flex">
         <div className="flex h-16 items-center justify-center border-b border-slate-100">
