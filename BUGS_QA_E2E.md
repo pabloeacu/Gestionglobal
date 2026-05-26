@@ -350,4 +350,29 @@ Test fresh enviado post-activación: provider_msg_id `19e649333d95494a`, from co
 
 ---
 
+## EGG-QA-17 · 🟡 MEDIO · Vista pública `/externo/:token` no muestra líneas de tracking
+
+**Módulo**: AccesoExternoPage (token capaz)
+**Descripción**: Cuando el cliente/gestoría abre el link de acceso externo, ve el detalle del trámite (código, título, descripción, categoría, prioridad, estado) pero NO ve las **líneas de avance** ni los adjuntos. La promesa "el cliente puede seguir el avance" no se cumple en esta vista.
+**Otros detalles UX**:
+- El saludo dice "Hola pabloeacu+maria@gmail.com" → debería ser "Hola María Soledad López".
+- La DESCRIPCIÓN expone UUID interno (2b1e2250-...) → feo para el cliente.
+
+**Propuesta**: agregar sección "Avances" con las `tracking_lineas` filtradas por `visible_para_cliente=true`, y sección "Documentos" con los adjuntos. Saludo con nombre humano.
+
+**Estado**: 🟡 documentado.
+
+---
+
+## EGG-QA-18 · 🟡 MEDIO · Cerrar tracking no encola email "tramite-resuelto" al cliente
+
+**Módulo**: RPC de cierre de tracking
+**Descripción**: Al cerrar el tracking con documento final, el sistema marca estado=cerrado, guarda `documento_final_url`, crea una línea de cierre automática, PERO NO encola el email `tramite-resuelto` al cliente. Verificado en DB: `email_queue WHERE to_email='pabloeacu+maria@gmail.com' AND template_slug='tramite-resuelto'` → 0 filas tras el cierre.
+
+**Impacto**: el cliente no se entera de que su trámite se cerró ni recibe el link del documento final automáticamente. Falta clave del flow.
+
+**Propuesta**: en el RPC de cierre, llamar `encolar_email('tramite-resuelto', cliente.email, ...)` con vars que incluyan el `documento_final_url`.
+
+**Estado**: 🟡 documentado (pendiente fix).
+
 ---
