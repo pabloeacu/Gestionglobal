@@ -302,6 +302,38 @@ Verificado e2e: invocación manual de la edge function creó user `28da5448-9dcf
 **Workaround actual**: invoqué la edge function manualmente para la admin de QA. Para producción, el setting debe estar visible en TODOS los contextos.
 **Fix propuesto**: `ALTER DATABASE postgres SET app.service_role_key = '...'` con `WITH GRANTS` o cargar el setting al inicio de las funciones SECURITY DEFINER.
 **Estado**: 🟡 documentado (pendiente verificación + fix definitivo).
+
+---
+
+## EGG-QA-14 · 🟡 MEDIO · Falta CTA "Emitir comprobante" desde Cta. corriente del cliente
+
+**Módulo**: AdministracionDetailPage · tab Cta. corriente
+**Descripción**: Cuando el operador abre el detalle del cliente y va al tab "Cta. corriente", si está vacía sólo ve el empty state pero NO un botón "Emitir comprobante" o "Nuevo cargo". Tiene que navegar a Facturación → Nuevo comprobante → buscar el cliente manualmente. UX premium perdida.
+**Propuesta**: agregar CTA primario "+ Emitir comprobante" en el header o empty state, con la administración pre-seleccionada en el wizard.
+**Estado**: 🟡 documentado.
+
+---
+
+## EGG-QA-15 · 🟢 BAJO · KPIs de Facturación inconsistentes con tabla (timing realtime)
+
+**Módulo**: ComprobantesListPage (`/gerencia/facturacion`)
+**Descripción**: Inmediatamente después de emitir un comprobante, los KPIs (TOTAL EMITIDO, PENDIENTE COBRO) muestran un valor stale. Tras unos segundos / refresh se actualiza al valor correcto. Mismo patrón que EGG-QA-08.
+**Severidad**: 🟢 Bajo (cosmético, se autoregula).
+**Propuesta**: subscribir KPIs al mismo channel Realtime que la lista.
+**Estado**: 🟢 documentado.
+
+---
+
+## EGG-QA-16 · 🟡 MEDIO · Precio del servicio en wizard de comprobante difiere del catálogo
+
+**Módulo**: ComprobanteFormDrawer · paso ITEMS
+**Descripción**: Servicio "rpac_inscripcion" tiene precio_base=$80.000 en catálogo. Al seleccionarlo en el wizard de nuevo comprobante para María Soledad López (cliente sin convenio, sin consorcio, sin override admin), el wizard cargó $150.000.
+**Hipótesis**: el `resolver_precio_servicio` RPC tiene una regla custom o un valor del tabulador histórico que sobreescribe el precio_base. Investigar `tabulador_precios` table + RPC logic.
+**Impacto**: el operador ve un precio que no es el del catálogo y emite la factura con valor potencialmente equivocado. UX confusing.
+**Propuesta**: mostrar en el wizard el origen del precio (ej. "Precio base $80.000 · Tabulador 2026 +87% = $150.000") con tooltip que explique. Y permitir editar manualmente con confirm.
+**Estado**: 🟡 documentado.
+
+---
 1. Headers transaccionales deployados en dispatch-emails.
 2. DKIM activado en Workspace (key 2048-bit, selector `google`).
 3. TXT record cargado en Cloudflare DNS via API (zone fa9712692779831daf9b91e62ac563bf, record ac31ddef3586e796335d8a56f4c10241).
