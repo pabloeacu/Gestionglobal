@@ -142,7 +142,7 @@ export function WebinarPublicoPage() {
           <p className="mt-2 text-sm text-brand-muted">{errorMsg}</p>
           <p className="mt-4 text-xs text-brand-muted">
             Si recibiste un link reciente y no funciona, contactanos a{' '}
-            <a href="mailto:cursos@gestionglobal.ar" className="text-brand-cyan underline">cursos@gestionglobal.ar</a>.
+            <a href="mailto:contacto@gestionglobal.ar" className="text-brand-cyan underline">contacto@gestionglobal.ar</a>.
           </p>
         </div>
       </div>
@@ -297,8 +297,8 @@ export function WebinarPublicoPage() {
         <p>Gestión Global · gestionglobal.ar</p>
         <p className="mt-1">
           ¿Problemas con el acceso? Escribinos a{' '}
-          <a href="mailto:cursos@gestionglobal.ar" className="text-brand-cyan hover:underline">
-            cursos@gestionglobal.ar
+          <a href="mailto:contacto@gestionglobal.ar" className="text-brand-cyan hover:underline">
+            contacto@gestionglobal.ar
           </a>
         </p>
       </footer>

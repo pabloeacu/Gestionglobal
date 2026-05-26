@@ -14,12 +14,18 @@ export type SentEmailRow     = Database['public']['Tables']['sent_emails']['Row'
 
 export type FromCasilla = 'info' | 'cursos' | 'facturacion' | 'tramites' | 'recupero';
 
+// Decisión 2026-05-26: existe UNA SOLA casilla real (contacto@gestionglobal.ar).
+// Las "casillas" son etiquetas de categoría para tracking interno (qué tipo de
+// comunicación es: cobranza, facturación, etc.) — el email real de envío y de
+// reply siempre es contacto@. NO mostrar las casillas fake al usuario.
+export const CASILLA_REAL_EMAIL = 'contacto@gestionglobal.ar';
+
 export const CASILLAS: { value: FromCasilla; label: string; email: string }[] = [
-  { value: 'info',        label: 'Info',        email: 'info@gestionglobal.ar' },
-  { value: 'cursos',      label: 'Cursos',      email: 'cursos@gestionglobal.ar' },
-  { value: 'facturacion', label: 'Facturación', email: 'facturacion@gestionglobal.ar' },
-  { value: 'tramites',    label: 'Trámites',    email: 'tramites@gestionglobal.ar' },
-  { value: 'recupero',    label: 'Recupero',    email: 'recupero@gestionglobal.ar' },
+  { value: 'info',        label: 'Info',        email: CASILLA_REAL_EMAIL },
+  { value: 'cursos',      label: 'Cursos',      email: CASILLA_REAL_EMAIL },
+  { value: 'facturacion', label: 'Facturación', email: CASILLA_REAL_EMAIL },
+  { value: 'tramites',    label: 'Trámites',    email: CASILLA_REAL_EMAIL },
+  { value: 'recupero',    label: 'Recupero',    email: CASILLA_REAL_EMAIL },
 ];
 
 export interface EncolarEmailInput {

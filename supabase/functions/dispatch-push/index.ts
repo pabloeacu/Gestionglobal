@@ -14,7 +14,7 @@
 // Secrets:
 //   VAPID_PUBLIC_KEY  (base64url, 65 bytes uncompressed P-256)
 //   VAPID_PRIVATE_KEY (base64url, 32 bytes)
-//   VAPID_SUBJECT     (mailto:..., opcional, default mailto:info@gestionglobal.ar)
+//   VAPID_SUBJECT     (mailto:..., opcional, default mailto:contacto@gestionglobal.ar)
 //
 // Si los secrets no están seteados, la función log-only (no rompe nada).
 
@@ -32,7 +32,7 @@ Deno.serve(async (req) => {
 
   const pubB64 = Deno.env.get('VAPID_PUBLIC_KEY');
   const privB64 = Deno.env.get('VAPID_PRIVATE_KEY');
-  const subject = Deno.env.get('VAPID_SUBJECT') ?? 'mailto:info@gestionglobal.ar';
+  const subject = Deno.env.get('VAPID_SUBJECT') ?? 'mailto:contacto@gestionglobal.ar';
 
   if (!pubB64 || !privB64) {
     return json({ ok: true, skipped: 'VAPID keys not configured' });

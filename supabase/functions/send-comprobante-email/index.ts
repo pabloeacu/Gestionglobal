@@ -1,12 +1,17 @@
 // send-comprobante-email · Gmail API REST con OAuth2 refresh_token.
 //
+// IMPORTANTE (decisión 2026-05-26): existe UNA SOLA casilla real,
+// contacto@gestionglobal.ar. GOOGLE_OAUTH_SENDER_EMAIL y WORKSPACE_REPLY_TO
+// DEBEN apuntar a contacto@ (no a facturacion@ ni otras). Las casillas
+// aliasadas no existen como inbox propio.
+//
 // Secrets requeridos:
 //   GOOGLE_OAUTH_CLIENT_ID
 //   GOOGLE_OAUTH_CLIENT_SECRET
 //   GOOGLE_OAUTH_REFRESH_TOKEN  (obtenido via oauth-callback la 1ª vez)
-//   GOOGLE_OAUTH_SENDER_EMAIL   (e.g. facturacion@gestionglobal.ar)
+//   GOOGLE_OAUTH_SENDER_EMAIL   (= contacto@gestionglobal.ar)
 //   WORKSPACE_FROM_NAME         (e.g. Gestión Global)
-//   WORKSPACE_REPLY_TO          (opcional)
+//   WORKSPACE_REPLY_TO          (= contacto@gestionglobal.ar)
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.46.1';
 

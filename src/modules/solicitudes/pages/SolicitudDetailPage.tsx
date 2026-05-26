@@ -42,13 +42,15 @@ import {
 import { WizardActivacion } from '../components/WizardActivacion';
 import { cn } from '@/lib/cn';
 
-// 1.H · aliases de dominio elegibles como FROM (espejan email_templates.from_casilla).
+// Categorías para clasificar la respuesta. Todas envían desde contacto@
+// gestionglobal.ar (decisión 2026-05-26: única casilla real); las "casillas"
+// quedan como metadata interna del tipo de comunicación.
 const CASILLAS_RESPUESTA: { value: RespuestaCasilla; label: string }[] = [
-  { value: 'tramites', label: 'tramites@gestionglobal.ar' },
-  { value: 'info', label: 'info@gestionglobal.ar' },
-  { value: 'cursos', label: 'cursos@gestionglobal.ar' },
-  { value: 'facturacion', label: 'facturacion@gestionglobal.ar' },
-  { value: 'recupero', label: 'recupero@gestionglobal.ar' },
+  { value: 'tramites', label: 'Trámites' },
+  { value: 'info', label: 'Info' },
+  { value: 'cursos', label: 'Cursos' },
+  { value: 'facturacion', label: 'Facturación' },
+  { value: 'recupero', label: 'Recupero' },
 ];
 
 const ESTADO_BADGE: Record<SolicitudEstado, string> = {
@@ -643,7 +645,10 @@ function ResponderModal({
         <Field label="Para">
           <Input value={destinatario} disabled />
         </Field>
-        <Field label="Desde (remitente)">
+        <Field
+          label="Categoría"
+          hint="Se envía desde contacto@gestionglobal.ar · la categoría es sólo para tracking interno."
+        >
           <Select
             value={casilla}
             onChange={(e) => setCasilla(e.target.value as RespuestaCasilla)}

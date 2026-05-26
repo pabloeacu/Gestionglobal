@@ -4,29 +4,36 @@
 // Reuso del patrón de send-comprobante-email/index.ts: misma técnica para
 // refresh access token + RFC 2047 + multipart MIME.
 //
+// IMPORTANTE (decisión del usuario 2026-05-26): existe UNA SOLA casilla
+// real, `contacto@gestionglobal.ar`. Las casillas `info@`, `cursos@`,
+// `facturacion@`, `tramites@`, `recupero@` NO existen — son aliases que
+// rutean al inbox de contacto@. Por eso TODOS los emails se envían FROM
+// `contacto@gestionglobal.ar` y Reply-To también es `contacto@`. El campo
+// `from_casilla` se conserva como metadata interna (para filtros / tracking
+// del tipo de comunicación), pero NO afecta los headers MIME del envío.
+//
 // Secrets requeridos:
 //   GOOGLE_OAUTH_CLIENT_ID
 //   GOOGLE_OAUTH_CLIENT_SECRET
-//   Por casilla (al menos una; si falta una, los emails de esa casilla
-//   se reagendan con error explícito):
-//     GMAIL_OAUTH_REFRESH_TOKEN_INFO         info@gestionglobal.ar
-//     GMAIL_OAUTH_REFRESH_TOKEN_CURSOS       cursos@gestionglobal.ar
-//     GMAIL_OAUTH_REFRESH_TOKEN_FACTURACION  facturacion@gestionglobal.ar
-//     GMAIL_OAUTH_REFRESH_TOKEN_TRAMITES     tramites@gestionglobal.ar
-//     GMAIL_OAUTH_REFRESH_TOKEN_RECUPERO     recupero@gestionglobal.ar
-//   Fallback: GMAIL_OAUTH_REFRESH_TOKEN_DEFAULT (refresh_token único,
-//   delegado por Workspace para enviar como cualquier casilla del dominio).
+//   GOOGLE_OAUTH_REFRESH_TOKEN  (refresh_token para contacto@)
+//   (También sirve GMAIL_OAUTH_REFRESH_TOKEN_DEFAULT con la misma idea.)
 //
 // Trigger: pg_cron */1 min via net.http_post con Bearer service_role.
 // Idempotente: si no hay nada que enviar, devuelve {drained:0}.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.46.1';
 
-const CASILLA_DOMAIN = 'gestionglobal.ar';
+// Casilla real única — todas las demás son aliases (Workspace) que
+// rutean al mismo inbox. Cambio aquí afecta a TODO el outbound del sistema.
+const SENDER_EMAIL = 'contacto@gestionglobal.ar';
+const REPLY_TO_EMAIL = 'contacto@gestionglobal.ar';
+
 const THROTTLE_KEY = 'global';
 const THROTTLE_MS = 5 * 60 * 1000; // 5 min hard (E42/D05)
 const BATCH_MAX = 1; // por cada tick mandamos UN email (throttle global)
 
+// `from_casilla` se mantiene como metadata (label de la comunicación)
+// aunque el envío real siempre sale de SENDER_EMAIL.
 type Casilla = 'info' | 'cursos' | 'facturacion' | 'tramites' | 'recupero';
 
 interface TemplateRow {
@@ -98,20 +105,19 @@ Deno.serve(async (req) => {
   }
   const tpl = tplRow as TemplateRow;
 
-  // 4) Resolver casilla → refresh_token + sender email.
+  // 4) Resolver refresh_token. Todas las casillas comparten el mismo token
+  //    porque envían desde contacto@ (única casilla real).
   const casilla = tpl.from_casilla;
-  const senderEmail = `${casilla}@${CASILLA_DOMAIN}`;
-  const envName = `GMAIL_OAUTH_REFRESH_TOKEN_${casilla.toUpperCase()}`;
+  const senderEmail = SENDER_EMAIL;
   const refreshToken =
-    Deno.env.get(envName) ??
     Deno.env.get('GMAIL_OAUTH_REFRESH_TOKEN_DEFAULT') ??
     Deno.env.get('GOOGLE_OAUTH_REFRESH_TOKEN'); // compat con send-comprobante-email
   const clientId = Deno.env.get('GOOGLE_OAUTH_CLIENT_ID');
   const clientSecret = Deno.env.get('GOOGLE_OAUTH_CLIENT_SECRET');
 
   if (!clientId || !clientSecret || !refreshToken) {
-    await failJob(admin, job, `OAuth no configurado para casilla ${casilla} (env ${envName} faltante)`);
-    return jsonError(500, `oauth missing for ${casilla}`);
+    await failJob(admin, job, `OAuth no configurado (GOOGLE_OAUTH_REFRESH_TOKEN o GMAIL_OAUTH_REFRESH_TOKEN_DEFAULT faltante)`);
+    return jsonError(500, 'oauth missing');
   }
 
   // 5) Render del subject/html/text con {{var}}.
@@ -129,12 +135,14 @@ Deno.serve(async (req) => {
     return jsonError(502, 'oauth refresh failed');
   }
 
-  // 7) MIME + Gmail API.
+  // 7) MIME + Gmail API. Reply-To siempre apunta a contacto@ — los
+  //    valores per-template en email_templates.reply_to se ignoran a
+  //    propósito (decisión 2026-05-26).
   const fromHeader = `${encodeRfc2047('Gestión Global')} <${senderEmail}>`;
   const mime = buildMimeMessage({
     from: fromHeader,
     to: [job.to_email],
-    replyTo: tpl.reply_to ?? senderEmail,
+    replyTo: REPLY_TO_EMAIL,
     subject,
     html,
     text,
@@ -173,8 +181,8 @@ Deno.serve(async (req) => {
   await admin.from('sent_emails').insert({
     to_email: job.to_email,
     from_email: senderEmail,
-    from_casilla: casilla,
-    reply_to: tpl.reply_to ?? senderEmail,
+    from_casilla: casilla, // metadata: tipo de comunicación, no afecta el envío
+    reply_to: REPLY_TO_EMAIL,
     asunto: subject,
     plantilla: tpl.slug,
     template_slug: tpl.slug,
