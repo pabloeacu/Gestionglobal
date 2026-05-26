@@ -111,3 +111,52 @@ Verificación: query post-fix muestra 7/7 servicios con formulario público vinc
 **Estado**: ✅ **FIXEADO** · mig 0074. Nuevo template `solicitud-nueva-gerencia` + loop en trigger que encola 1 email por gerente activo. Verificado: 2 emails encolados (1 por gerente).
 
 ---
+
+## EGG-QA-05 · 🔴 CRÍTICO · DKIM no configurado en Workspace · emails llegan a spam o se descartan
+
+**Módulo**: DNS + Google Workspace · pipeline de delivery email
+**Flujo afectado**: TODOS los emails outbound del sistema (acuses, gerencia, comprobantes, recupero, certificados, vencimientos, webinars).
+
+**Descripción**: El usuario reporta que NO recibe ningún email en `pabloeacu@gmail.com` a pesar de que `sent_emails` muestra 4 envíos con `estado='sent'`, `webhook_status='enviado'` y `provider_msg_id` válido de Gmail API. Diagnóstico DNS:
+
+```
+SPF    ✅ "v=spf1 include:spf.hostmar.com include:_spf.google.com -all"
+DKIM   ❌ google._domainkey.gestionglobal.ar → SIN registro
+DMARC  ⚠️ "v=DMARC1; p=none"
+MX     ✅ Google Workspace (aspmx.l.google.com)
+```
+
+**Causa raíz**: cuando Gmail envía un mensaje desde Workspace via API REST:
+1. Sin DKIM, el mensaje sale sin firma criptográfica.
+2. Gmail (y otros proveedores) tratan la falta de DKIM como factor fuerte de spam, especialmente cuando el sender es un dominio externo enviando desde infra de Google.
+3. DMARC `p=none` significa que Gmail no rebota explícitamente; aplica el filtrado spam silencioso.
+
+Resultado: la API devuelve éxito (mensaje aceptado en outbox de la cuenta), pero el delivery final no llega al inbox del destinatario.
+
+**Severidad**: 🔴 CRÍTICO — toda la comunicación del sistema con clientes y gerencia depende de email. Sin DKIM, el alcance es errático y depende del proveedor del destinatario.
+
+**Fix requerido** (acción del usuario + acción mía):
+
+1. **Usuario**: activar DKIM en `admin.google.com`:
+   - Apps → Google Workspace → Gmail → Autenticación de correo electrónico
+   - Generar nuevo registro DKIM (selector default: `google`) con 2048-bit
+   - Copiar la clave TXT que Google genera
+
+2. **Sistema**: agregar el TXT record en Cloudflare/Vercel DNS:
+   - Host: `google._domainkey`
+   - Tipo: `TXT`
+   - Valor: la clave que Google generó
+
+3. **Volver a Workspace**: clickear "Iniciar autenticación" para que Google active el signing.
+
+4. **Verificar** con `dig +short TXT google._domainkey.gestionglobal.ar` que la propagación está OK.
+
+5. **Mandar nuevo test** y verificar entrega al inbox.
+
+**Mejora adicional**: subir DMARC a `p=quarantine` después de tener DKIM probado por ~2 semanas, y eventualmente a `p=reject` para máxima protección anti-phishing.
+
+**Estado**: 🔴 documentado · pendiente acción del usuario + DNS update.
+
+---
+
+---
