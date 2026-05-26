@@ -113,12 +113,26 @@ Deno.serve(async (req) => {
     userId = newUser.user.id;
     passwordSet = true;
 
-    // 5) Asegurar profile.role='administrador' (el trigger handle_new_user lo crea con role
-    //    según user_metadata pero por las dudas force-update)
+    // 5) Asegurar profile.role='administrador' + administracion_id vinculado
+    //    El trigger handle_new_user crea profile pero NO setea administracion_id.
+    //    La RLS administraciones_select requiere profiles.administracion_id != NULL,
+    //    por eso lo seteamos acá (EGG-QA-19).
     await admin
       .from('profiles')
-      .upsert({ id: userId, role: 'administrador', full_name: body.nombre });
+      .upsert({
+        id: userId,
+        role: 'administrador',
+        full_name: body.nombre,
+        administracion_id: body.administracion_id,
+      });
   }
+
+  // 5b) Asegurar el vínculo profiles.administracion_id (también para user
+  //     pre-existente; idempotente para el recién creado).
+  await admin
+    .from('profiles')
+    .update({ administracion_id: body.administracion_id })
+    .eq('id', userId);
 
   // 6) Vincular administraciones.user_id ← user.id
   if (adminRow.user_id !== userId) {

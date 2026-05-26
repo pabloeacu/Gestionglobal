@@ -364,6 +364,64 @@ Test fresh enviado post-activación: provider_msg_id `19e649333d95494a`, from co
 
 ---
 
+## EGG-QA-19 · 🔴 CRÍTICO · Portal cliente nuevo: "Tu cuenta no tiene una administración asociada"
+
+**Módulo**: edge function `alta-cliente-portal` + RLS `administraciones_select`
+**Descripción**: Tras crear cuenta + setear `administraciones.user_id`, el cliente loguea OK pero el portal dice "Tu cuenta no tiene una administración asociada. Contactá al staff."
+
+**Causa raíz**: la RLS `administraciones_select` evalúa `private.current_administracion_id()` que lee de `profiles.administracion_id`. La edge function actualizaba `administraciones.user_id` pero NO `profiles.administracion_id`. Vínculo unidireccional → cliente bloqueado.
+
+**Fix**: edge function `alta-cliente-portal` ahora hace `profiles.administracion_id = body.administracion_id` además del vínculo inverso. Idempotente para users pre-existentes.
+
+**Verificado** post-fix: María Soledad López ve correctamente su portal con su nombre, comprobante, saldo $0 (pagado), datos correctos. RLS bloquea acceso a otros clientes (Test 21 PASA implícito por el mismo path).
+
+**Estado**: ✅ FIXEADO (edge fn re-deployada + UPDATE manual para María).
+
+---
+
+## EGG-QA-20 · 🟡 MEDIO · No se exige cambio de password en primer ingreso
+
+**Módulo**: Login flow + portal del cliente
+**Descripción**: La regla del usuario era "obligue cambio de contraseña en primer ingreso". Pero el cliente nuevo entra al portal directamente con el password temporal sin que se le pida cambiarlo. Tampoco hay indicador "Cambiá tu password en Perfil" visible.
+
+**Impacto**: el password temporal queda en uso indefinidamente. Riesgo de seguridad (alguien que vea el email puede acceder).
+
+**Propuesta**:
+- Edge function `alta-cliente-portal`: setear `user_metadata.must_reset_password = true` al crear user.
+- Frontend: middleware `must_reset_password` redirige a `/portal/perfil/cambiar-password` en primer login bloqueando otras rutas hasta cambiar.
+- Email "bienvenida-administracion": agregar advertencia visible "Por seguridad, cambiá tu password en tu primer ingreso".
+
+**Estado**: 🟡 documentado.
+
+---
+
+## EGG-QA-21 · 🟡 MEDIO · Falta tour inicial / invitación PWA / activar push en primer login
+
+**Módulo**: Portal cliente · onboarding
+**Descripción**: La regla del usuario explícita:
+> "Tour inicial: panel principal, servicios contratados, tracking, cuenta corriente, comprobantes, descargas, formularios internos, campus si corresponde, notificaciones, instalación PWA/app. Debe invitar a instalar la app y activar push notifications."
+
+Hoy el cliente nuevo aterriza directo en el dashboard sin tour ni invitaciones. Onboarding inexistente para clientes.
+
+**Propuesta**:
+- Componente `<PortalOnboardingTour>` con 8-10 steps (intro + 1 step por sección + CTA instalar PWA + CTA activar push). Disparar la 1ª vez si `profiles.tour_visto_at IS NULL`.
+- Persistir `tour_visto_at` en `profiles` con un button "Saltar tour" + "Terminé".
+- Banner persistente en home si PWA no está instalada o push no está habilitado.
+
+**Estado**: 🟡 documentado.
+
+---
+
+## EGG-QA-22 · 🟢 BAJO · KPI "PAGADO $27.147" en Mis Comprobantes no coincide con total real
+
+**Módulo**: PortalComprobantesPage
+**Descripción**: KPI "PAGADO" muestra $27.147 pero el único comprobante listado es $181.500 ya pagado. KPI calculado mal o stale.
+**Impacto**: cosmético — la información del comprobante en sí está bien.
+**Propuesta**: revisar el agregado del RPC `gg_portal_comprobantes_kpis` o equivalente.
+**Estado**: 🟢 documentado.
+
+---
+
 ## EGG-QA-18 · 🟡 MEDIO · Cerrar tracking no encola email "tramite-resuelto" al cliente
 
 **Módulo**: RPC de cierre de tracking
