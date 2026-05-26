@@ -51,6 +51,9 @@ const PortalComprobantesPage = lazy(() => import('@/modules/portal/pages/PortalC
 const PortalComprobanteDetailPage = lazy(() => import('@/modules/portal/pages/PortalComprobanteDetailPage').then(m => ({ default: m.PortalComprobanteDetailPage })));
 const PortalCtaCtePage = lazy(() => import('@/modules/portal/pages/PortalCtaCtePage').then(m => ({ default: m.PortalCtaCtePage })));
 const PortalConsorciosPage = lazy(() => import('@/modules/portal/pages/PortalConsorciosPage').then(m => ({ default: m.PortalConsorciosPage })));
+const PortalGestionesPage = lazy(() => import('@/modules/portal/pages/PortalGestionesPage').then(m => ({ default: m.PortalGestionesPage })));
+const PortalWebinarsPage = lazy(() => import('@/modules/portal/pages/PortalWebinarsPage').then(m => ({ default: m.PortalWebinarsPage })));
+const PortalNuevoServicioPage = lazy(() => import('@/modules/portal/pages/PortalNuevoServicioPage').then(m => ({ default: m.PortalNuevoServicioPage })));
 const PerfilPage = lazy(() => import('@/modules/auth/pages/PerfilPage').then(m => ({ default: m.PerfilPage })));
 const FormularioPublicoPage = lazy(() => import('@/modules/public/pages/FormularioPublicoPage').then(m => ({ default: m.FormularioPublicoPage })));
 const FormulariosAdminListPage = lazy(() => import('@/modules/formularios-admin').then(m => ({ default: m.FormulariosAdminListPage })));
@@ -316,6 +319,9 @@ export function App() {
           }
         >
           <Route index element={<PortalHome />} />
+          <Route path="gestiones" element={<PortalGestionesPage />} />
+          <Route path="webinars" element={<PortalWebinarsPage />} />
+          <Route path="nuevo" element={<PortalNuevoServicioPage />} />
           <Route path="comprobantes" element={<PortalComprobantesPage />} />
           <Route
             path="comprobantes/:id"

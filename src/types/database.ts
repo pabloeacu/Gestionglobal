@@ -6198,6 +6198,10 @@ export type Database = {
           vence_at: string
         }[]
       }
+      cliente_webinar_inscribirme: {
+        Args: { p_webinar_id: string }
+        Returns: string
+      }
       cliente_webinars_listar: { Args: never; Returns: Json }
       comprobantes_morosos: {
         Args: { p_administracion_id?: string }

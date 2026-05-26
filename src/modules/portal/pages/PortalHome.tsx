@@ -37,12 +37,16 @@ import {
   type ClientePortalDashboard,
   type ClienteOportunidad,
 } from '@/services/api/portal-dashboard';
+import { PortalOnboardingTour, tourCompletado } from '../components/PortalOnboardingTour';
+import { PortalPwaAssistant } from '../components/PortalPwaAssistant';
+import { PortalPushAssistant } from '../components/PortalPushAssistant';
 
 // =========================================================================
 export function PortalHome() {
   const { user } = useAuth();
   const [data, setData] = useState<ClientePortalDashboard | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showTour, setShowTour] = useState(false);
 
   async function load() {
     const res = await fetchClientePortalDashboard();
@@ -51,6 +55,15 @@ export function PortalHome() {
   }
 
   useEffect(() => { void load(); }, []);
+
+  // Tour de bienvenida (sólo primera vez)
+  useEffect(() => {
+    if (!tourCompletado()) {
+      // Delay para que la página cargue primero
+      const t = setTimeout(() => setShowTour(true), 800);
+      return () => clearTimeout(t);
+    }
+  }, []);
 
   // Realtime refresh on relevant tables
   useRealtimeRefresh(['curso_encuentros', 'webinar_inscriptos', 'vencimientos', 'tramites', 'comprobantes'], () => { void load(); });
@@ -100,6 +113,8 @@ export function PortalHome() {
 
       <Atajos />
 
+      <Assistants />
+
       {data.oportunidades.length > 0 && (
         <Oportunidades items={data.oportunidades} />
       )}
@@ -111,7 +126,21 @@ export function PortalHome() {
       {data.vencimientos_proximos.length > 0 && (
         <ProximosVencimientos items={data.vencimientos_proximos} />
       )}
+
+      <PortalOnboardingTour open={showTour} onClose={() => setShowTour(false)} />
     </div>
+  );
+}
+
+// =========================================================================
+// Assistants strip (PWA install + Push activation)
+// =========================================================================
+function Assistants() {
+  return (
+    <section className="space-y-3">
+      <PortalPwaAssistant />
+      <PortalPushAssistant />
+    </section>
   );
 }
 

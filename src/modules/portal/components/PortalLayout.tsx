@@ -16,6 +16,10 @@ import {
   X,
   Volume2,
   VolumeX,
+  GraduationCap,
+  FileText,
+  Video,
+  PlusCircle,
 } from 'lucide-react';
 import { BrandMark } from '@/components/brand/BrandMark';
 import { useAuth } from '@/contexts/AuthContext';
@@ -36,6 +40,10 @@ interface NavItem {
 
 const NAV: NavItem[] = [
   { to: '/portal', label: 'Inicio', icon: Home, end: true },
+  { to: '/portal/campus', label: 'Mis cursos', icon: GraduationCap },
+  { to: '/portal/gestiones', label: 'Mis gestiones', icon: FileText },
+  { to: '/portal/webinars', label: 'Mis webinars', icon: Video },
+  { to: '/portal/nuevo', label: 'Solicitar', icon: PlusCircle },
   { to: '/portal/comprobantes', label: 'Comprobantes', icon: Receipt },
   { to: '/portal/cuenta-corriente', label: 'Cuenta corriente', icon: Wallet },
   { to: '/portal/consorcios', label: 'Consorcios', icon: Building2 },
