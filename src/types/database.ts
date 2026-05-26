@@ -1077,6 +1077,66 @@ export type Database = {
           },
         ]
       }
+      cj_documentos: {
+        Row: {
+          color_acento: string
+          created_at: string
+          created_by: string | null
+          cuerpo_html: string
+          destinatario_email: string | null
+          destinatario_nombre: string
+          firma: string | null
+          id: string
+          kicker: string
+          last_emailed_at: string | null
+          last_emailed_to: string | null
+          mostrar_logo: boolean
+          pdf_generated_at: string | null
+          pdf_storage_path: string | null
+          tema: string
+          titulo: string
+          updated_at: string
+        }
+        Insert: {
+          color_acento?: string
+          created_at?: string
+          created_by?: string | null
+          cuerpo_html?: string
+          destinatario_email?: string | null
+          destinatario_nombre: string
+          firma?: string | null
+          id?: string
+          kicker?: string
+          last_emailed_at?: string | null
+          last_emailed_to?: string | null
+          mostrar_logo?: boolean
+          pdf_generated_at?: string | null
+          pdf_storage_path?: string | null
+          tema: string
+          titulo: string
+          updated_at?: string
+        }
+        Update: {
+          color_acento?: string
+          created_at?: string
+          created_by?: string | null
+          cuerpo_html?: string
+          destinatario_email?: string | null
+          destinatario_nombre?: string
+          firma?: string | null
+          id?: string
+          kicker?: string
+          last_emailed_at?: string | null
+          last_emailed_to?: string | null
+          mostrar_logo?: boolean
+          pdf_generated_at?: string | null
+          pdf_storage_path?: string | null
+          tema?: string
+          titulo?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       comprobante_avisos_vencimiento: {
         Row: {
           comprobante_id: string
@@ -6159,6 +6219,159 @@ export type Database = {
         }[]
       }
       cerrar_mi_sesion: { Args: { p_session_id: string }; Returns: boolean }
+      cj_documento_actualizar: {
+        Args: {
+          p_color_acento: string
+          p_cuerpo_html: string
+          p_destinatario_email: string
+          p_destinatario_nombre: string
+          p_firma: string
+          p_id: string
+          p_kicker: string
+          p_mostrar_logo: boolean
+          p_tema: string
+          p_titulo: string
+        }
+        Returns: {
+          color_acento: string
+          created_at: string
+          created_by: string | null
+          cuerpo_html: string
+          destinatario_email: string | null
+          destinatario_nombre: string
+          firma: string | null
+          id: string
+          kicker: string
+          last_emailed_at: string | null
+          last_emailed_to: string | null
+          mostrar_logo: boolean
+          pdf_generated_at: string | null
+          pdf_storage_path: string | null
+          tema: string
+          titulo: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "cj_documentos"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      cj_documento_crear: {
+        Args: {
+          p_color_acento: string
+          p_cuerpo_html: string
+          p_destinatario_email: string
+          p_destinatario_nombre: string
+          p_firma: string
+          p_kicker: string
+          p_mostrar_logo: boolean
+          p_tema: string
+          p_titulo: string
+        }
+        Returns: {
+          color_acento: string
+          created_at: string
+          created_by: string | null
+          cuerpo_html: string
+          destinatario_email: string | null
+          destinatario_nombre: string
+          firma: string | null
+          id: string
+          kicker: string
+          last_emailed_at: string | null
+          last_emailed_to: string | null
+          mostrar_logo: boolean
+          pdf_generated_at: string | null
+          pdf_storage_path: string | null
+          tema: string
+          titulo: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "cj_documentos"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      cj_documento_eliminar: { Args: { p_id: string }; Returns: undefined }
+      cj_documento_get: {
+        Args: { p_id: string }
+        Returns: {
+          color_acento: string
+          created_at: string
+          created_by: string | null
+          cuerpo_html: string
+          destinatario_email: string | null
+          destinatario_nombre: string
+          firma: string | null
+          id: string
+          kicker: string
+          last_emailed_at: string | null
+          last_emailed_to: string | null
+          mostrar_logo: boolean
+          pdf_generated_at: string | null
+          pdf_storage_path: string | null
+          tema: string
+          titulo: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "cj_documentos"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      cj_documento_marcar_enviado: {
+        Args: { p_id: string; p_to: string }
+        Returns: undefined
+      }
+      cj_documento_marcar_pdf: {
+        Args: { p_id: string; p_storage_path: string }
+        Returns: {
+          color_acento: string
+          created_at: string
+          created_by: string | null
+          cuerpo_html: string
+          destinatario_email: string | null
+          destinatario_nombre: string
+          firma: string | null
+          id: string
+          kicker: string
+          last_emailed_at: string | null
+          last_emailed_to: string | null
+          mostrar_logo: boolean
+          pdf_generated_at: string | null
+          pdf_storage_path: string | null
+          tema: string
+          titulo: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "cj_documentos"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      cj_documentos_listar: {
+        Args: never
+        Returns: {
+          created_at: string
+          destinatario_email: string
+          destinatario_nombre: string
+          id: string
+          last_emailed_at: string
+          last_emailed_to: string
+          pdf_generated_at: string
+          pdf_storage_path: string
+          tema: string
+          titulo: string
+        }[]
+      }
       cliente_catalogo_formularios: {
         Args: never
         Returns: {
@@ -6861,6 +7074,7 @@ export type Database = {
         Returns: {
           administracion_id: string
           administracion_nombre: string
+          avatar_url: string
           created_at: string
           email: string
           email_confirmed: boolean

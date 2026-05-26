@@ -31,6 +31,7 @@ const VencimientosConfigPage = lazy(() => import('@/modules/vencimientos').then(
 const EmailTemplatesPage = lazy(() => import('@/modules/configuracion/pages/EmailTemplatesPage').then(m => ({ default: m.EmailTemplatesPage })));
 const EmailQueuePage = lazy(() => import('@/modules/configuracion/pages/EmailQueuePage').then(m => ({ default: m.EmailQueuePage })));
 const UsuariosPage = lazy(() => import('@/modules/configuracion/pages/UsuariosPage').then(m => ({ default: m.UsuariosPage })));
+const GeneracionCjPage = lazy(() => import('@/modules/configuracion/pages/GeneracionCjPage').then(m => ({ default: m.GeneracionCjPage })));
 const RecuperoListPage = lazy(() => import('@/modules/recupero').then(m => ({ default: m.RecuperoListPage })));
 const MorososPage = lazy(() => import('@/modules/recupero').then(m => ({ default: m.MorososPage })));
 const RecuperoConfigPage = lazy(() => import('@/modules/recupero').then(m => ({ default: m.RecuperoConfigPage })));
@@ -304,6 +305,7 @@ export function App() {
             <Route path="arca/cola" element={<ArcaQueuePage />} />
             <Route path="emails/templates" element={<EmailTemplatesPage />} />
             <Route path="usuarios" element={<UsuariosPage />} />
+            <Route path="generacion-cj" element={<GeneracionCjPage />} />
             <Route path="emails/cola" element={<EmailQueuePage />} />
             <Route path="auditoria" element={<AuditoriaPage />} />
             <Route path="errores" element={<ErroresRuntimePage />} />
