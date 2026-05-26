@@ -184,7 +184,51 @@ El commit anterior (ab9a45c) "unificó todo a contacto@" pero perdió identidad 
 
 **Verificación**: test enviado con `from_casilla='cursos'` registró `from_email=cursos@gestionglobal.ar` y `reply_to=cursos@` en sent_emails. provider_msg_id `19e646a7dad0df24`.
 
-**Estado**: ✅ FIXEADO · pendiente confirmación del usuario que el email llega al inbox desde cursos@. Mismo test pendiente para webinar@ y consultoriajuridica@ (throttle 5min entre envíos).
+**Estado**: ✅ FIXEADO · usuario confirmó recepción desde `cursos@` y que Reply funciona correctamente. Pendiente solo validación adicional para `webinar@` y `consultoriajuridica@` cuando haya casos reales.
+
+---
+
+## EGG-QA-07 · 🟠 ALTO · Emails caen en pestaña "Promociones" en lugar de Primary
+
+**Módulo**: Headers MIME + DKIM + reputación del dominio
+**Flujo afectado**: Percepción premium · los clientes pueden no ver los emails transaccionales si no miran Promociones.
+
+**Descripción**: Usuario confirma que el último test (`cursos@`) llegó al inbox pero a la pestaña **Promociones** de Gmail. Para emails transaccionales (acuses, confirmaciones, comprobantes, certificados) esto es subóptimo — deberían ir a la pestaña Principal.
+
+**Causas combinadas**:
+1. **DKIM no firmado** (EGG-QA-05) — Gmail clasifica como promocional sin signature criptográfica.
+2. **Sin headers transaccionales** — falta `List-Unsubscribe`, `Auto-Submitted`, `Precedence`.
+3. **Body con HTML colorido** (gradientes cyan, botones llamativos) que pattern-match a marketing.
+4. **Reputación de dominio** joven — gestionglobal.ar empezó a enviar recién.
+
+**Fix multi-capa**:
+
+✅ **Parte 1 (sin acción del usuario)** · Headers MIME transaccionales:
+```
+X-Auto-Response-Suppress: All
+Auto-Submitted: auto-generated
+X-Mailer: Gestion Global Platform / Workspace API
+Precedence: list
+List-Unsubscribe: <mailto:contacto@gestionglobal.ar?subject=unsubscribe>
+List-Unsubscribe-Post: List-Unsubscribe=One-Click
+```
+Aplicado en `dispatch-emails`. Estos headers reducen falsos positivos de Gmail.
+
+🔴 **Parte 2 (requiere acción del usuario · 5 min)** · Activar DKIM en Workspace (es EGG-QA-05 re-priorizado a ALTO):
+
+Pasos para vos en `admin.google.com` (ya estás logueado con `contacto@`):
+1. Ir a **Apps → Google Workspace → Gmail → Autenticar correo electrónico** (en el menú izquierdo).
+2. Seleccionar el dominio **`gestionglobal.ar`**.
+3. Clickear **"Generar nuevo registro"** (default: selector `google`, longitud 2048-bit).
+4. Google muestra un valor TXT largo (empieza con `v=DKIM1; k=rsa; p=MIIBIjA...`). **Copiámelo entero**.
+5. Pegámelo en el chat y yo lo cargo en Vercel DNS automáticamente.
+6. Verifico propagación (puede tardar 5-30 min).
+7. Vos volvés a admin.google.com y clickeás **"Iniciar autenticación"** en la misma pantalla.
+8. Yo mando otro test y confirmamos que aterriza en Primary.
+
+🟡 **Parte 3 (mejora futura)** · Body HTML más sobrio para emails transaccionales (menos gradientes, más estructura tipo recibo). No prioritario ahora.
+
+**Estado**: Parte 1 aplicada (deployada). Parte 2 esperando que el usuario me pase la clave DKIM de Workspace.
 
 ---
 

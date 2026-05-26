@@ -299,6 +299,18 @@ function buildMimeMessage(a: MimeArgs): string {
   if (a.replyTo) headers.push(`Reply-To: ${a.replyTo}`);
   headers.push(`Subject: ${encodeRfc2047(a.subject)}`);
   headers.push('MIME-Version: 1.0');
+  // EGG-QA-07 · headers para que Gmail clasifique como transaccional (Inbox
+  // principal) y no como promoción. Combinados con DKIM activo deberían
+  // mantener los emails fuera de la pestaña Promociones.
+  headers.push('X-Auto-Response-Suppress: All');
+  headers.push('Auto-Submitted: auto-generated');
+  headers.push('X-Mailer: Gestion Global Platform / Workspace API');
+  headers.push('Precedence: list');
+  // List-Unsubscribe legítimo para que Gmail trate como bulk-pero-controlado.
+  // mailto: rutea al inbox de contacto@ para procesar desuscripciones manuales.
+  // RFC 8058 one-click via header parsing.
+  headers.push('List-Unsubscribe: <mailto:contacto@gestionglobal.ar?subject=unsubscribe>');
+  headers.push('List-Unsubscribe-Post: List-Unsubscribe=One-Click');
 
   if (hasText) {
     headers.push(`Content-Type: multipart/alternative; boundary="${boundary}"`);
