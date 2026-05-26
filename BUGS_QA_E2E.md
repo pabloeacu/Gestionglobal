@@ -364,6 +364,30 @@ Test fresh enviado post-activación: provider_msg_id `19e649333d95494a`, from co
 
 ---
 
+## EGG-QA-25 · 🟠 ALTO · Submission de form curso NO genera solicitud
+
+**Módulo**: trigger `crear_tramite_desde_submission_auto`
+**Descripción**: El trigger sólo procesaba categorias 'tramite', 'servicio', 'consulta'. Forms de curso (categoria='curso') quedaban sin solicitud → gerencia no veía al alumno en el listado para activarlo. Confirmado: insert de submission para "Carlos Pereyra" en curso-formacion → 0 solicitudes generadas.
+
+**Fix aplicado** (mig 0080): 'curso' agregado al whitelist. Re-test: solicitud creada con `servicio_slug='curso-formacion'` y `servicio_solicitado_id` apuntando al servicio Curso de Formación RPAC.
+
+**Estado**: ✅ FIXEADO.
+
+---
+
+## EGG-QA-26 · 🟡 MEDIO · Wizard activación de curso no crea matrícula campus automáticamente
+
+**Módulo**: RPC `solicitud_activar`
+**Descripción**: Cuando se activa una solicitud de curso desde el wizard, se crea admin + tracking categoria='curso' + email bienvenida. PERO la matrícula en `curso_matriculas` (que habilita acceso al campus) NO se crea automáticamente. El gerente tiene que ir manualmente a Campus → Curso → Asignar alumno → llenar otro modal.
+
+**Impacto**: paso manual extra. Riesgo de que el gerente olvide hacerlo y el alumno no pueda entrar al campus aunque pagó.
+
+**Propuesta**: extender `solicitud_activar`: si el servicio del catálogo tiene `tiene_campus=true` o si `servicio.codigo` empieza con `curso_`, llamar `public.curso_asignar_alumno(curso_id, admin_id)` automáticamente.
+
+**Estado**: 🟡 documentado (mejora futura · no bloqueante porque hay path manual).
+
+---
+
 ## EGG-QA-24 · 🔴 CRÍTICO · Submission de webinar genérico no genera prospecto CRM
 
 **Módulo**: trigger `inscribir_webinar_desde_submission`
