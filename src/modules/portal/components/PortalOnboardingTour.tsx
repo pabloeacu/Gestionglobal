@@ -196,7 +196,7 @@ export function PortalOnboardingTour({ open, onClose }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-[100] overflow-y-auto px-3 sm:px-4 backdrop-blur">
+    <div className="fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto px-3 sm:px-4 pt-8 sm:pt-12 pb-6 backdrop-blur">
       {/* overlay */}
       <div
         className="fixed inset-0 bg-brand-ink/60"
@@ -204,9 +204,9 @@ export function PortalOnboardingTour({ open, onClose }: Props) {
         aria-hidden
       />
 
-      {/* card · alineada arriba con margen superior, no centrada */}
+      {/* card · alineada arriba (items-start del flex parent) */}
       <div
-        className="relative mx-auto mt-10 sm:mt-16 mb-6 w-full max-w-md overflow-hidden rounded-3xl bg-white shadow-2xl motion-safe:animate-fade-up"
+        className="relative w-full max-w-md overflow-hidden rounded-3xl bg-white shadow-2xl motion-safe:animate-fade-up"
         role="dialog"
         aria-modal="true"
         aria-labelledby="tour-title"
