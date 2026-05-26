@@ -64,3 +64,50 @@ Fix aplicado:
 Verificación: query post-fix muestra 7/7 servicios con formulario público vinculado correctamente (✅), 3 servicios sin form público propio (legítimo, NULL).
 
 ---
+
+## EGG-QA-02 · 🟠 ALTO · No se encola email de acuse al solicitante
+
+**Módulo**: Trigger `crear_tramite_desde_submission_auto` / motor de emails
+**Flujo afectado**: Submit de formulario público (escenarios A, B, C, F, H).
+
+**Descripción**: Cuando un visitante anónimo manda un submission, el trigger crea la solicitud + dispara notificación in-app a los gerentes, pero NO encola email de acuse al solicitante. La plantilla `formulario-submission-recibido` existe en `email_templates` pero ningún trigger/RPC la usa para esa categoría.
+
+**Pasos para reproducir**:
+1. INSERT en `formulario_submissions` con email_contacto válido.
+2. Verificar `email_queue WHERE to_email = <email>`: 0 rows.
+
+**Resultado esperado**: el solicitante recibe email "Recibimos tu formulario" automáticamente.
+
+**Resultado obtenido**: silencio total. El visitante no sabe si su solicitud llegó.
+
+**Propuesta de fix**: extender `crear_tramite_desde_submission_auto` para llamar `encolar_email('formulario-submission-recibido', NEW.email_contacto, ...)` cuando hay `email_contacto` válido.
+
+**Estado**: ✅ **FIXEADO** · mig 0074 aplicada. Trigger extendido. Verificado: nuevo submission encola acuse al solicitante (1 row en email_queue con template `formulario-submission-recibido`).
+
+---
+
+## EGG-QA-03 · 🟡 MEDIO · Cuerpo de notif "solicitud_nueva" usa slug técnico
+
+**Módulo**: Trigger `_notif_solicitud_nueva_trg`
+**Flujo afectado**: Notificación in-app al gerente.
+
+**Descripción**: El cuerpo de la notificación es literal `"matriculacion-rpac · maria.lopez.qatest@example.com"` (slug técnico + email). Debería usar el TÍTULO del formulario (humano) o un mensaje contextual.
+
+**Propuesta de fix**: cambiar el cuerpo a `"<formulario.titulo> · <solicitante>"` en lugar del slug.
+
+**Estado**: ✅ **FIXEADO** · mig 0074. Trigger `_notif_solicitud_nueva_trg` ahora hace JOIN con `formularios` y usa `f.titulo`. Verificado: notif body cambió de "matriculacion-rpac · …" → "Inscripción al Registro Público de Administradores de Consorcios (RPAC) · …".
+
+---
+
+## EGG-QA-04 · 🟡 MEDIO · Sin email a gerencia cuando llega solicitud nueva
+
+**Módulo**: Trigger `crear_tramite_desde_submission_auto`
+**Flujo afectado**: Awareness gerencial.
+
+**Descripción**: Solo se dispara notif in-app a gerentes. NO email. Si el gerente no está activo en la plataforma, podría no enterarse.
+
+**Decisión del usuario**: implementar email a gerencia.
+
+**Estado**: ✅ **FIXEADO** · mig 0074. Nuevo template `solicitud-nueva-gerencia` + loop en trigger que encola 1 email por gerente activo. Verificado: 2 emails encolados (1 por gerente).
+
+---
