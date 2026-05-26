@@ -364,6 +364,29 @@ Test fresh enviado post-activación: provider_msg_id `19e649333d95494a`, from co
 
 ---
 
+## EGG-QA-24 · 🔴 CRÍTICO · Submission de webinar genérico no genera prospecto CRM
+
+**Módulo**: trigger `inscribir_webinar_desde_submission`
+**Flujo afectado**: form `webinarios` (categoria='evento', webinar_id=NULL) — el form CRM general que el usuario tiene para captar interesados en webinars futuros.
+
+**Descripción**: El trigger original sólo procesaba si `formularios.webinar_id IS NOT NULL`. El form genérico "webinarios" (sin webinar específico) generaba `formulario_submission` pero NADA más: ni inscripción, ni prospecto en CRM, ni notificación a gerencia. La submission quedaba en limbo. Confirmado visualmente: Juan Pérez se inscribió desde landing → toast "Formulario enviado" → DB: 0 prospectos, 0 webinar_inscriptos.
+
+**Impacto**: la promesa del mandato del usuario sobre webinars NO se cumplía:
+> "registro como prospecto CRM, no generar deuda, permitir envío de link, permitir campañas posteriores, permitir segmentación"
+
+**Fix aplicado** (mig 0079): trigger refactorizado en 3 casos:
+- **Caso A**: form con `webinar_id` → inscribe directo (lógica original)
+- **Caso B**: email pertenece a admin existente → NO crea prospecto + notif `cliente_existente_landing` con texto "Se inscribió a X desde landing pública"
+- **Caso C**: prospecto nuevo → upsert en `prospectos` (origen='webinar_landing') + notif `prospecto_webinar` a gerencia
+
+**Verificación e2e**:
+- Lucia Romero (nuevo): `prospectos` count=1, `administraciones` count=0, notif `prospecto_webinar` × 2 (uno por gerente) ✅
+- María Soledad López (cliente existente): `prospectos` count=0 (no duplicó), notif `cliente_existente_landing` × 2 ✅
+
+**Estado**: ✅ FIXEADO.
+
+---
+
 ## EGG-QA-23 · 🔴 CRÍTICO · Sistema NO detecta cliente existente al recibir nueva submission
 
 **Módulo**: trigger `crear_tramite_desde_submission_auto`
