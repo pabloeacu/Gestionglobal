@@ -21,6 +21,7 @@ import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
 import { getDashboardGlobal, type DashboardKpis } from '@/services/api/dashboard';
 import { DashboardKpiStrip } from '@/modules/gerencia/components/DashboardKpiStrip';
 import { SparklineFacturado } from '@/modules/gerencia/components/SparklineFacturado';
+import { ReporteMensualBanner } from '@/components/common/ReporteMensualBanner';
 
 interface QuickItem {
   to: string;
@@ -80,6 +81,9 @@ export function GerenciaHome() {
           Todo el ecosistema en un solo panel. Elegí por dónde arrancar.
         </p>
       </header>
+
+      {/* P2-#25 · Banner inteligente que invita a cerrar el mes anterior */}
+      <ReporteMensualBanner />
 
       <DashboardKpiStrip data={kpis} loading={loadingKpis} />
       <SparklineFacturado

@@ -8,7 +8,11 @@ import { DialogProvider } from '@/components/common';
 import { ToastViewport } from '@/components/common/ToastViewport';
 import { CommandPalette } from '@/components/common/CommandPalette';
 import { App } from '@/App';
+import { installGlobalErrorReporter } from '@/lib/errorReport';
 import '@/index.css';
+
+// P2-#31 · Captura global de errores JS para tracking propio (DGG-38).
+installGlobalErrorReporter();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

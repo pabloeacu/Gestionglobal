@@ -71,6 +71,7 @@ const TrackingDetailPage = lazy(() => import('@/modules/trackings').then(m => ({
 const AgendaPage = lazy(() => import('@/modules/agenda').then(m => ({ default: m.AgendaPage })));
 const AccesoExternoPage = lazy(() => import('@/modules/acceso-externo').then(m => ({ default: m.AccesoExternoPage })));
 const AuditoriaPage = lazy(() => import('@/modules/auditoria').then(m => ({ default: m.AuditoriaPage })));
+const ErroresRuntimePage = lazy(() => import('@/modules/errores').then(m => ({ default: m.ErroresRuntimePage })));
 
 type Role = 'gerente' | 'operador' | 'administrador';
 
@@ -284,6 +285,7 @@ export function App() {
             <Route path="emails/templates" element={<EmailTemplatesPage />} />
             <Route path="emails/cola" element={<EmailQueuePage />} />
             <Route path="auditoria" element={<AuditoriaPage />} />
+            <Route path="errores" element={<ErroresRuntimePage />} />
           </Route>
           <Route path="perfil" element={<PerfilPage />} />
         </Route>

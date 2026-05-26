@@ -100,6 +100,7 @@ const NAV: NavGroup[] = [
       { label: 'ARCA · facturación', to: '/gerencia/configuracion/arca', end: true },
       { label: 'Plantillas email', to: '/gerencia/configuracion/emails/templates' },
       { label: 'Bitácora de cambios', to: '/gerencia/configuracion/auditoria' },
+      { label: 'Errores en runtime', to: '/gerencia/configuracion/errores' },
       // Datos fiscales (config_global) pendiente · DGG futuro
     ],
   },
