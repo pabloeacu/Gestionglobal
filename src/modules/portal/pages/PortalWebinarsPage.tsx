@@ -178,7 +178,8 @@ function WebinarMyCard({ w }: { w: ClienteWebinarItem }) {
     label = `EN ${Math.round(minsHasta / 60)} H`;
     toneClass = 'bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-200';
   } else {
-    label = `EN ${Math.round(minsHasta / 60 / 24)} DÍAS`;
+    const d = Math.round(minsHasta / 60 / 24);
+    label = `EN ${d} ${d === 1 ? 'DÍA' : 'DÍAS'}`;
     toneClass = 'bg-brand-cyan-pale text-brand-cyan ring-1 ring-inset ring-brand-cyan/30';
   }
 

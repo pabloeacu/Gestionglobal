@@ -18,6 +18,7 @@ import {
   Command as CommandIcon,
 } from 'lucide-react';
 import { BrandMark } from '@/components/brand/BrandMark';
+import { IsoMark } from '@/components/brand/IsoMark';
 import { LandingCoverBadge } from './LandingCoverBadge';
 import { NotificationBell } from '@/components/common/NotificationBell';
 import { RealtimeStatus } from '@/components/common/RealtimeStatus';
@@ -216,9 +217,12 @@ export function GerenciaLayout() {
     <div className="flex min-h-screen bg-white font-sans">
       {/* Sidebar (desktop) */}
       <aside className="hidden w-64 shrink-0 border-r border-slate-200 bg-white md:flex md:flex-col">
-        <div className="flex h-16 items-center border-b border-slate-100 px-5">
-          <Link to="/gerencia" className="block">
-            <BrandMark variant="light" size={30} />
+        <div className="flex h-16 items-center gap-3 border-b border-slate-100 px-5">
+          <Link to="/gerencia" className="inline-flex items-center gap-2 transition hover:opacity-85" aria-label="Inicio">
+            <IsoMark size={32} />
+            <span className="font-display text-sm font-bold leading-tight text-brand-ink">
+              Gestión <br />Global
+            </span>
           </Link>
         </div>
         <SidebarNav />

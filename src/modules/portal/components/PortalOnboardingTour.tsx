@@ -1,11 +1,15 @@
 // PortalOnboardingTour · Tour custom (sin libs externas) que guía al
-// cliente la primera vez que entra al portal. Modal central con steps
-// que destacan las secciones clave. Reproducible en mobile y desktop.
+// cliente la primera vez que entra al portal. Modal alineado top (no
+// centrado, para no taparse con el header). Reproducible en mobile.
 //
-// El estado se persiste en localStorage (`gg_portal_tour_completed`)
-// para no re-aparecer en cada visita. Reseteable desde Perfil.
+// El estado se persiste en localStorage (`gg_portal_tour_v1`) para no
+// re-aparecer en cada visita. Reseteable desde Perfil.
+//
+// Paso "Instalá la app" muestra contenido adaptativo según device:
+//   - en celular sin standalone → instrucciones de install
+//   - en desktop → tip "te lo podés instalar como app en el celu"
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Home,
   GraduationCap,
@@ -16,6 +20,10 @@ import {
   ChevronRight,
   ChevronLeft,
   X,
+  Bell,
+  Smartphone,
+  Share2,
+  Plus,
 } from 'lucide-react';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 
@@ -30,7 +38,26 @@ interface Step {
   icon: typeof Home;
   kicker: string;
   titulo: string;
-  descripcion: string;
+  // Si descripcion es función, recibe info de device para variar contenido
+  descripcion: string | ((ctx: DeviceCtx) => React.ReactNode);
+}
+
+interface DeviceCtx {
+  isStandalone: boolean;
+  isIos: boolean;
+  isMobile: boolean;
+}
+
+function detectDevice(): DeviceCtx {
+  if (typeof window === 'undefined') return { isStandalone: false, isIos: false, isMobile: false };
+  const ua = navigator.userAgent;
+  const isIos = /iPad|iPhone|iPod/.test(ua);
+  const isAndroid = /Android/.test(ua);
+  const isMobile = isIos || isAndroid || /Mobile/.test(ua);
+  const isStandalone =
+    window.matchMedia('(display-mode: standalone)').matches ||
+    (navigator as Navigator & { standalone?: boolean }).standalone === true;
+  return { isStandalone, isIos, isMobile };
 }
 
 const STEPS: Step[] = [
@@ -38,42 +65,104 @@ const STEPS: Step[] = [
     icon: Sparkles,
     kicker: 'BIENVENIDO',
     titulo: 'Tu portal de servicios',
-    descripcion: 'Acá tenés todo lo que contrataste con Gestión Global: cursos, trámites, webinars y comprobantes. Te lo presentamos en 5 pasos rápidos.',
+    descripcion:
+      'Acá tenés todo lo que contrataste con Gestión Global: cursos, trámites, webinars, comprobantes y más. Te lo presentamos en pocos pasos.',
   },
   {
     icon: Home,
     kicker: 'INICIO',
     titulo: 'Acceso inteligente',
-    descripcion: 'La pantalla principal te muestra lo más importante del día: tus clases próximas, webinars de hoy, vencimientos urgentes y oportunidades para vos.',
+    descripcion:
+      'La pantalla principal te muestra lo más importante del día: tus clases próximas, webinars de hoy, vencimientos urgentes y oportunidades para vos.',
   },
   {
     icon: GraduationCap,
     kicker: 'CAMPUS',
     titulo: 'Mis cursos & clases en vivo',
-    descripcion: 'Tu carrera profesional centralizada. Cuando una clase esté por empezar, vas a ver el botón "Unirme" desde el inicio.',
+    descripcion:
+      'Tu carrera profesional centralizada. Cuando una clase esté por empezar, vas a ver el botón "Unirme" desde el inicio.',
   },
   {
     icon: Video,
     kicker: 'WEBINARS',
     titulo: 'Capacitaciones gratuitas',
-    descripcion: 'Anotate a webinars formativos sin costo. Te avisamos por email + push notification antes de cada evento.',
+    descripcion:
+      'Anotate a webinars formativos sin costo. Te avisamos antes de cada evento por mail y notificación push.',
   },
   {
     icon: FileText,
     kicker: 'GESTIONES',
     titulo: 'Mis trámites · sin perderles el rastro',
-    descripcion: 'Todos tus trámites con estado actualizado, comentarios, archivos y novedades. Si necesitamos algo tuyo, lo verás como "Tu acción".',
+    descripcion:
+      'Todos tus trámites con estado actualizado, comentarios, archivos y novedades. Si necesitamos algo tuyo, lo verás como "Tu acción".',
   },
   {
     icon: PlusCircle,
     kicker: 'NUEVO SERVICIO',
     titulo: 'Pedí lo que necesites',
-    descripcion: 'Desde acá iniciás un nuevo trámite, una consulta jurídica, una renovación de matrícula o inscripción a curso. Te guiamos paso a paso.',
+    descripcion:
+      'Desde acá iniciás un nuevo trámite, consulta jurídica, renovación de matrícula o inscripción a curso. Te guiamos paso a paso.',
+  },
+  {
+    icon: Bell,
+    kicker: 'NOTIFICACIONES',
+    titulo: 'Activá la campanita',
+    descripcion:
+      'Te avisamos antes de cada clase, webinar y vencimiento importante. Sin spam, sólo lo necesario. La activás desde el banner del inicio.',
+  },
+  {
+    icon: Smartphone,
+    kicker: 'EXPERIENCIA APP',
+    titulo: 'Llevátelo al celular',
+    descripcion: (ctx) => {
+      if (ctx.isStandalone) {
+        return (
+          <span>
+            Ya tenés Gestión Global instalada como app en este dispositivo. Vas a recibir notificaciones push y abrir directo desde el escritorio. ¡Listo!
+          </span>
+        );
+      }
+      if (ctx.isMobile && ctx.isIos) {
+        return (
+          <span>
+            En 3 pasos, agregás Gestión Global como app al inicio de tu iPhone:
+            <ol className="mt-2 space-y-1 text-xs">
+              <li className="flex items-start gap-2">
+                <span className="grid h-5 w-5 flex-shrink-0 place-items-center rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold">1</span>
+                <span>Tocá <Share2 size={11} className="inline mb-0.5" /> <strong>Compartir</strong> abajo</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="grid h-5 w-5 flex-shrink-0 place-items-center rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold">2</span>
+                <span>Bajá hasta <Plus size={11} className="inline mb-0.5" /> <strong>Agregar a inicio</strong></span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="grid h-5 w-5 flex-shrink-0 place-items-center rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold">3</span>
+                <span>Confirmá. ¡Listo!</span>
+              </li>
+            </ol>
+          </span>
+        );
+      }
+      if (ctx.isMobile) {
+        return (
+          <span>
+            En la barra del navegador vas a ver una opción para <strong>"Agregar a la pantalla de inicio"</strong> o <strong>"Instalar app"</strong>. Confirmá y queda como app nativa.
+          </span>
+        );
+      }
+      // Desktop
+      return (
+        <span>
+          Este portal funciona como <strong>app instalable</strong>. Abrí esta misma URL desde tu celular para tener Gestión Global como app de tu teléfono con notificaciones push. También se puede instalar como app de escritorio desde la barra de URL de Chrome/Edge.
+        </span>
+      );
+    },
   },
 ];
 
 export function PortalOnboardingTour({ open, onClose }: Props) {
   const [idx, setIdx] = useState(0);
+  const ctx = useMemo(detectDevice, []);
   const totalSteps = STEPS.length;
 
   useEffect(() => {
@@ -94,6 +183,7 @@ export function PortalOnboardingTour({ open, onClose }: Props) {
   const step = STEPS[idx]!;
   const Icon = step.icon;
   const isLast = idx === totalSteps - 1;
+  const descripcion = typeof step.descripcion === 'function' ? step.descripcion(ctx) : step.descripcion;
 
   function complete() {
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ completed_at: new Date().toISOString() })); } catch {}
@@ -106,17 +196,17 @@ export function PortalOnboardingTour({ open, onClose }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-[100] grid place-items-end sm:place-items-center px-3 sm:px-4 py-4 sm:py-6 backdrop-blur">
+    <div className="fixed inset-0 z-[100] overflow-y-auto px-3 sm:px-4 backdrop-blur">
       {/* overlay */}
       <div
-        className="absolute inset-0 bg-brand-ink/60"
+        className="fixed inset-0 bg-brand-ink/60"
         onClick={skip}
         aria-hidden
       />
 
-      {/* card */}
+      {/* card · alineada arriba con margen superior, no centrada */}
       <div
-        className="relative w-full max-w-md overflow-hidden rounded-3xl bg-white shadow-2xl motion-safe:animate-fade-up"
+        className="relative mx-auto mt-10 sm:mt-16 mb-6 w-full max-w-md overflow-hidden rounded-3xl bg-white shadow-2xl motion-safe:animate-fade-up"
         role="dialog"
         aria-modal="true"
         aria-labelledby="tour-title"
@@ -156,9 +246,9 @@ export function PortalOnboardingTour({ open, onClose }: Props) {
           <h2 id="tour-title" className="mt-1 font-display text-2xl font-bold text-brand-ink">
             {step.titulo}
           </h2>
-          <p className="mt-3 text-sm leading-relaxed text-brand-muted">
-            {step.descripcion}
-          </p>
+          <div className="mt-3 text-sm leading-relaxed text-brand-muted">
+            {descripcion}
+          </div>
         </div>
 
         {/* Footer */}

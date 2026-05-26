@@ -250,7 +250,7 @@ function HotCards({
             ? 'Está empezando ahora'
             : horas < 24
               ? `En ${formatHours(horas)}`
-              : `En ${Math.round(horas / 24)} días`
+              : `En ${formatDias(Math.round(horas / 24))}`
         }
         ctaLabel={webinar.status === 'en_curso' ? 'Unirme' : 'Ver detalle'}
         ctaHref={webinar.link ?? '/portal/webinars'}
@@ -273,7 +273,8 @@ function HotCards({
         ctaLabel={urgente.cta_label}
         ctaHref={urgente.cta_path}
         icon={iconForOportunidad(urgente.icono)}
-        tone={urgente.tone}
+        // Oportunidades = verde (renovación/capacitación = bueno hacerlo)
+        tone="oportunidad"
       />
     );
   }
@@ -311,20 +312,24 @@ function HotCard({
   ctaHref: string;
   ctaExternal?: boolean;
   icon: React.ReactNode;
-  tone: 'urgente' | 'alto' | 'medio' | 'suave';
+  // urgente = rojo (clase), alto = amarillo (webinar), oportunidad = verde
+  // (renovaciones), medio = cyan (info), suave = violeta (cross-sell suave)
+  tone: 'urgente' | 'alto' | 'oportunidad' | 'medio' | 'suave';
 }) {
   const toneClasses = {
-    urgente: 'bg-gradient-to-br from-rose-50 via-white to-orange-50 ring-rose-200 hover:ring-rose-300',
-    alto:    'bg-gradient-to-br from-amber-50 via-white to-yellow-50 ring-amber-200 hover:ring-amber-300',
-    medio:   'bg-gradient-to-br from-brand-cyan-pale/60 via-white to-cyan-50 ring-cyan-200 hover:ring-brand-cyan/50',
-    suave:   'bg-gradient-to-br from-violet-50 via-white to-fuchsia-50 ring-violet-200 hover:ring-violet-300',
+    urgente:     'bg-gradient-to-br from-rose-50 via-white to-orange-50 ring-rose-200 hover:ring-rose-300',
+    alto:        'bg-gradient-to-br from-amber-50 via-white to-yellow-50 ring-amber-200 hover:ring-amber-300',
+    oportunidad: 'bg-gradient-to-br from-emerald-50 via-white to-green-50 ring-emerald-200 hover:ring-emerald-300',
+    medio:       'bg-gradient-to-br from-brand-cyan-pale/60 via-white to-cyan-50 ring-cyan-200 hover:ring-brand-cyan/50',
+    suave:       'bg-gradient-to-br from-violet-50 via-white to-fuchsia-50 ring-violet-200 hover:ring-violet-300',
   }[tone];
 
   const iconClasses = {
-    urgente: 'bg-rose-100 text-rose-700',
-    alto:    'bg-amber-100 text-amber-700',
-    medio:   'bg-brand-cyan-pale text-brand-cyan',
-    suave:   'bg-violet-100 text-violet-700',
+    urgente:     'bg-rose-100 text-rose-700',
+    alto:        'bg-amber-100 text-amber-700',
+    oportunidad: 'bg-emerald-100 text-emerald-700',
+    medio:       'bg-brand-cyan-pale text-brand-cyan',
+    suave:       'bg-violet-100 text-violet-700',
   }[tone];
 
   const linkContent = (
@@ -548,6 +553,10 @@ function formatHours(h: number): string {
   const mins = Math.round((h - hours) * 60);
   if (hours < 1) return `${mins} min`;
   return mins > 0 ? `${hours} h ${mins} min` : `${hours} h`;
+}
+
+function formatDias(n: number): string {
+  return `${n} día${n === 1 ? '' : 's'}`;
 }
 
 function formatDateLong(iso: string): string {

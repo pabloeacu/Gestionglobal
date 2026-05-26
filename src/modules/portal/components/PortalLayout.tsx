@@ -7,7 +7,6 @@ import {
 } from 'react-router-dom';
 import {
   Home,
-  Receipt,
   Wallet,
   Building2,
   UserRound,
@@ -22,6 +21,8 @@ import {
   PlusCircle,
 } from 'lucide-react';
 import { BrandMark } from '@/components/brand/BrandMark';
+import { IsoMark } from '@/components/brand/IsoMark';
+import { Tooltip } from '@/components/common/Tooltip';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSounds } from '@/contexts/SoundContext';
 import { getAdministracion } from '@/services/api/administraciones';
@@ -44,8 +45,7 @@ const NAV: NavItem[] = [
   { to: '/portal/gestiones', label: 'Mis gestiones', icon: FileText },
   { to: '/portal/webinars', label: 'Mis webinars', icon: Video },
   { to: '/portal/nuevo', label: 'Solicitar', icon: PlusCircle },
-  { to: '/portal/comprobantes', label: 'Comprobantes', icon: Receipt },
-  { to: '/portal/cuenta-corriente', label: 'Cuenta corriente', icon: Wallet },
+  { to: '/portal/mi-cuenta', label: 'Mi cuenta', icon: Wallet },
   { to: '/portal/consorcios', label: 'Consorcios', icon: Building2 },
   { to: '/portal/perfil', label: 'Mi perfil', icon: UserRound },
 ];
@@ -97,7 +97,7 @@ export function PortalLayout() {
             aria-label="Inicio"
             title="Gestión Global"
           >
-            <BrandMark variant="light" size={28} />
+            <IsoMark size={34} />
           </Link>
         </div>
         <SidebarNavCompact />
@@ -234,35 +234,33 @@ function SidebarNavCompact() {
           const Icon = item.icon;
           return (
             <li key={item.to}>
-              <NavLink
-                to={item.to}
-                end={item.end}
-                title={item.label}
-                className={({ isActive }) =>
-                  cn(
-                    'group relative grid h-11 w-full place-items-center rounded-xl transition',
-                    isActive
-                      ? 'bg-brand-cyan/10 text-brand-cyan'
-                      : 'text-brand-muted hover:bg-slate-100 hover:text-brand-ink',
-                  )
-                }
-              >
-                {({ isActive }) => (
-                  <>
-                    <Icon size={18} />
-                    {isActive && (
-                      <span
-                        aria-hidden
-                        className="absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-r bg-brand-cyan"
-                      />
-                    )}
-                    {/* Tooltip al hover */}
-                    <span className="pointer-events-none absolute left-full top-1/2 z-50 ml-2 -translate-y-1/2 whitespace-nowrap rounded-md bg-brand-ink px-2 py-1 text-[11px] font-medium text-white opacity-0 shadow-lg transition group-hover:opacity-100">
-                      {item.label}
-                    </span>
-                  </>
-                )}
-              </NavLink>
+              <Tooltip label={item.label} side="right">
+                <NavLink
+                  to={item.to}
+                  end={item.end}
+                  aria-label={item.label}
+                  className={({ isActive }) =>
+                    cn(
+                      'relative grid h-11 w-full place-items-center rounded-xl transition',
+                      isActive
+                        ? 'bg-brand-cyan/10 text-brand-cyan'
+                        : 'text-brand-muted hover:bg-slate-100 hover:text-brand-ink',
+                    )
+                  }
+                >
+                  {({ isActive }) => (
+                    <>
+                      <Icon size={18} />
+                      {isActive && (
+                        <span
+                          aria-hidden
+                          className="absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-r bg-brand-cyan"
+                        />
+                      )}
+                    </>
+                  )}
+                </NavLink>
+              </Tooltip>
             </li>
           );
         })}
@@ -308,33 +306,35 @@ function SidebarFootCompact({ onSignOut }: { onSignOut: () => Promise<void> }) {
   return (
     <div className="border-t border-slate-100 p-2">
       <div className="flex flex-col items-center gap-1">
-        <button
-          type="button"
-          onClick={() => {
-            const next = !enabled;
-            setEnabled(next);
-            if (next) play('click');
-          }}
-          className={cn(
-            'grid h-10 w-10 place-items-center rounded-lg transition',
-            enabled
-              ? 'text-brand-cyan hover:bg-brand-cyan-pale/40'
-              : 'text-brand-muted hover:bg-slate-100 hover:text-brand-ink',
-          )}
-          aria-label={enabled ? 'Silenciar sonidos' : 'Activar sonidos'}
-          title={enabled ? 'Sonidos activados' : 'Sonidos silenciados'}
-        >
-          {enabled ? <Volume2 size={15} /> : <VolumeX size={15} />}
-        </button>
-        <button
-          type="button"
-          onClick={() => void onSignOut()}
-          className="grid h-10 w-10 place-items-center rounded-lg text-brand-muted transition hover:bg-slate-100 hover:text-brand-ink"
-          aria-label="Cerrar sesión"
-          title="Cerrar sesión"
-        >
-          <LogOut size={15} />
-        </button>
+        <Tooltip label={enabled ? 'Silenciar sonidos' : 'Activar sonidos'} side="right">
+          <button
+            type="button"
+            onClick={() => {
+              const next = !enabled;
+              setEnabled(next);
+              if (next) play('click');
+            }}
+            className={cn(
+              'grid h-10 w-10 place-items-center rounded-lg transition',
+              enabled
+                ? 'text-brand-cyan hover:bg-brand-cyan-pale/40'
+                : 'text-brand-muted hover:bg-slate-100 hover:text-brand-ink',
+            )}
+            aria-label={enabled ? 'Silenciar sonidos' : 'Activar sonidos'}
+          >
+            {enabled ? <Volume2 size={15} /> : <VolumeX size={15} />}
+          </button>
+        </Tooltip>
+        <Tooltip label="Cerrar sesión" side="right">
+          <button
+            type="button"
+            onClick={() => void onSignOut()}
+            className="grid h-10 w-10 place-items-center rounded-lg text-brand-muted transition hover:bg-slate-100 hover:text-brand-ink"
+            aria-label="Cerrar sesión"
+          >
+            <LogOut size={15} />
+          </button>
+        </Tooltip>
       </div>
     </div>
   );

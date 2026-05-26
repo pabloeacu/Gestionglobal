@@ -15,6 +15,9 @@ import {
   PlusCircle,
   ArrowRight,
   ChevronRight,
+  X as XIcon,
+  Calendar,
+  Tag,
 } from 'lucide-react';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import { IllustratedEmpty } from '@/components/brand/IllustratedEmpty';
@@ -26,6 +29,7 @@ export function PortalGestionesPage() {
   const [items, setItems] = useState<ClienteTramite[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'abiertos' | 'todos'>('abiertos');
+  const [selected, setSelected] = useState<ClienteTramite | null>(null);
 
   async function load() {
     setLoading(true);
@@ -118,13 +122,103 @@ export function PortalGestionesPage() {
         <ul className="space-y-2">
           {items.map((t) => (
             <li key={t.id}>
-              <TramiteCard t={t} />
+              <TramiteCard t={t} onOpen={setSelected} />
             </li>
           ))}
         </ul>
       )}
+
+      <TramiteDetalleModal tramite={selected} onClose={() => setSelected(null)} />
     </div>
   );
+}
+
+// =========================================================================
+// Modal de detalle (read-only para el cliente)
+// =========================================================================
+function TramiteDetalleModal({ tramite, onClose }: { tramite: ClienteTramite | null; onClose: () => void }) {
+  useEffect(() => {
+    if (!tramite) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const onEsc = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    window.addEventListener('keydown', onEsc);
+    return () => { document.body.style.overflow = prev; window.removeEventListener('keydown', onEsc); };
+  }, [tramite, onClose]);
+
+  if (!tramite) return null;
+  const estadoInfo = ESTADOS[tramite.estado] ?? { label: tramite.estado, tone: 'slate' as const, icon: FileText };
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-end sm:place-items-center px-3 sm:px-4 py-4 sm:py-6">
+      <div className="absolute inset-0 bg-brand-ink/50 backdrop-blur-sm" onClick={onClose} aria-hidden />
+      <div className="relative w-full max-w-lg overflow-hidden rounded-3xl bg-white shadow-2xl motion-safe:animate-fade-up">
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute right-3 top-3 z-10 grid h-8 w-8 place-items-center rounded-full bg-white/80 text-brand-muted hover:bg-white hover:text-brand-ink"
+          aria-label="Cerrar"
+        >
+          <XIcon size={14} />
+        </button>
+
+        <div className="p-6 sm:p-7">
+          <div className="flex items-center gap-3">
+            <span className={`grid h-12 w-12 place-items-center rounded-2xl ${TONES[estadoInfo.tone]}`}>
+              <estadoInfo.icon size={20} />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="kicker text-brand-cyan">GESTIÓN</p>
+              <p className="font-mono text-[11px] text-brand-muted">{tramite.codigo}</p>
+            </div>
+            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${TONE_BADGE[estadoInfo.tone]}`}>
+              {estadoInfo.label}
+            </span>
+          </div>
+
+          <h2 className="mt-4 font-display text-xl font-bold leading-tight text-brand-ink">
+            {tramite.titulo}
+          </h2>
+
+          <dl className="mt-5 space-y-3 rounded-2xl border border-slate-100 bg-slate-50/60 p-4">
+            <Row icon={Tag} label="Categoría" value={labelCategoria(tramite.categoria)} />
+            <Row icon={CircleDot} label="Prioridad" value={capitalize(tramite.prioridad)} />
+            <Row icon={Calendar} label="Iniciado" value={formatFecha(tramite.created_at)} />
+            <Row icon={Clock} label="Última actividad" value={formatActividad(tramite.horas_desde_actividad)} />
+            {tramite.vence_at && (
+              <Row icon={Calendar} label="Vence" value={formatFecha(tramite.vence_at)} />
+            )}
+          </dl>
+
+          {(tramite.total_comentarios > 0 || tramite.total_adjuntos > 0) && (
+            <p className="mt-4 text-xs text-brand-muted">
+              {tramite.total_comentarios > 0 && <>💬 {tramite.total_comentarios} comentario{tramite.total_comentarios > 1 ? 's' : ''}{' · '}</>}
+              {tramite.total_adjuntos > 0 && <>📎 {tramite.total_adjuntos} adjunto{tramite.total_adjuntos > 1 ? 's' : ''}</>}
+            </p>
+          )}
+
+          <div className="mt-5 rounded-xl border border-dashed border-slate-200 bg-white px-4 py-3 text-xs text-brand-muted">
+            ¿Necesitás aclarar algo? Escribinos a <a href="mailto:contacto@gestionglobal.ar" className="font-semibold text-brand-cyan">contacto@gestionglobal.ar</a> citando el código <span className="font-mono">{tramite.codigo}</span>.
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Row({ icon: Icon, label, value }: { icon: typeof FileText; label: string; value: string }) {
+  return (
+    <div className="flex items-center gap-3 text-sm">
+      <Icon size={13} className="text-brand-muted" />
+      <span className="text-brand-muted">{label}</span>
+      <span className="ml-auto font-medium text-brand-ink">{value}</span>
+    </div>
+  );
+}
+
+function capitalize(s: string): string { return s.charAt(0).toUpperCase() + s.slice(1); }
+function formatFecha(iso: string): string {
+  return new Date(iso).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
 // =========================================================================
@@ -151,11 +245,15 @@ function StatBox({ label, value, tone, icon: Icon }: {
   );
 }
 
-function TramiteCard({ t }: { t: ClienteTramite }) {
+function TramiteCard({ t, onOpen }: { t: ClienteTramite; onOpen: (t: ClienteTramite) => void }) {
   const estadoInfo = ESTADOS[t.estado] ?? { label: t.estado, tone: 'slate' as const, icon: FileText };
   const isReadOnly = ['resuelto','cerrado','cancelado'].includes(t.estado);
   return (
-    <article className={`group rounded-2xl border bg-white p-4 transition hover:border-brand-cyan hover:shadow-md ${isReadOnly ? 'border-slate-200 opacity-90' : 'border-slate-200'}`}>
+    <button
+      type="button"
+      onClick={() => onOpen(t)}
+      className={`group w-full text-left rounded-2xl border bg-white p-4 transition hover:border-brand-cyan hover:shadow-md ${isReadOnly ? 'border-slate-200 opacity-90' : 'border-slate-200'}`}
+    >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="flex items-start gap-3 sm:flex-1">
           <span className={`grid h-10 w-10 flex-shrink-0 place-items-center rounded-xl ${TONES[estadoInfo.tone]}`}>
@@ -184,7 +282,7 @@ function TramiteCard({ t }: { t: ClienteTramite }) {
           <ChevronRight size={14} />
         </div>
       </div>
-    </article>
+    </button>
   );
 }
 
