@@ -17,8 +17,17 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.46.1';
 const DOMAIN = 'gestionglobal.ar';
 const FROM = `consultoriajuridica@${DOMAIN}`;
 
+// CORS · esta edge function es invocada desde el browser (supabase.functions.invoke)
+// → hay que aceptar el preflight OPTIONS y mandar Access-Control headers en cada response.
+const CORS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
 Deno.serve(async (req) => {
-  if (req.method !== 'POST') return new Response('POST only', { status: 405 });
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
+  if (req.method !== 'POST') return new Response('POST only', { status: 405, headers: CORS });
 
   const admin = createClient(
     Deno.env.get('SUPABASE_URL')!,
@@ -261,9 +270,9 @@ function base64UrlEncode(s: string): string {
 }
 
 function json(data: unknown, status = 200) {
-  return new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json' } });
+  return new Response(JSON.stringify(data), { status, headers: { ...CORS, 'Content-Type': 'application/json' } });
 }
 
 function jsonError(status: number, message: string) {
-  return new Response(JSON.stringify({ ok: false, error: message }), { status, headers: { 'Content-Type': 'application/json' } });
+  return new Response(JSON.stringify({ ok: false, error: message }), { status, headers: { ...CORS, 'Content-Type': 'application/json' } });
 }
