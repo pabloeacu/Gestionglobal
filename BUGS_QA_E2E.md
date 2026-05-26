@@ -228,7 +228,14 @@ Pasos para vos en `admin.google.com` (ya estás logueado con `contacto@`):
 
 🟡 **Parte 3 (mejora futura)** · Body HTML más sobrio para emails transaccionales (menos gradientes, más estructura tipo recibo). No prioritario ahora.
 
-**Estado**: Parte 1 aplicada (deployada). Parte 2 esperando que el usuario me pase la clave DKIM de Workspace.
+**Estado**: ✅ **FIXEADO COMPLETO** (2026-05-26):
+1. Headers transaccionales deployados en dispatch-emails.
+2. DKIM activado en Workspace (key 2048-bit, selector `google`).
+3. TXT record cargado en Cloudflare DNS via API (zone fa9712692779831daf9b91e62ac563bf, record ac31ddef3586e796335d8a56f4c10241).
+4. Propagación verificada en 3 resolvers (Cloudflare authoritative, 1.1.1.1, 8.8.8.8).
+5. Workspace muestra estado "Autenticando el correo electrónico con DKIM".
+
+Test fresh enviado post-activación: provider_msg_id `19e649333d95494a`, from contacto@, asunto realista "Recibimos tu consulta · Gestión Global". Pendiente confirmación del usuario que llega a Inbox principal (no Promociones).
 
 ---
 
