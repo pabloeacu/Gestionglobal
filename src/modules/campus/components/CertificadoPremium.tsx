@@ -381,7 +381,7 @@ export const CertificadoPremium = forwardRef<HTMLDivElement, CertificadoPremiumP
             width: '100%',
             height: '100%',
             boxSizing: 'border-box',
-            padding: '70px 90px 265px',
+            padding: '60px 90px 300px',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
@@ -401,7 +401,7 @@ export const CertificadoPremium = forwardRef<HTMLDivElement, CertificadoPremiumP
               src={marcaLogo}
               alt=""
               crossOrigin="anonymous"
-              style={{ height: 140, width: 'auto', objectFit: 'contain' }}
+              style={{ height: 110, width: 'auto', objectFit: 'contain' }}
             />
           </div>
 
@@ -545,36 +545,37 @@ export const CertificadoPremium = forwardRef<HTMLDivElement, CertificadoPremiumP
             )}
           </div>
 
-          {/* Espaciador */}
-          <div style={{ flex: 1 }} />
+        </div>
 
-          {/* ====== Firmas (izq / der), sin sello dentro ====== */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'flex-end',
-              justifyContent: 'space-between',
-              width: '100%',
-              maxWidth: 900,
-              marginTop: 14,
-              marginBottom: 0,
-            }}
-          >
-            <Firma
-              tema={tema}
-              imgSrc={firma1Img}
-              nombre={firma1Nombre}
-              cargo={firma1Cargo}
-            />
-            {/* Hueco central donde encaja el sello (absolute) */}
-            <div style={{ width: 160 }} aria-hidden />
-            <Firma
-              tema={tema}
-              imgSrc={firma2Img}
-              nombre={firma2Nombre}
-              cargo={firma2Cargo}
-            />
-          </div>
+        {/* ====== Firmas absolute (no afectadas por overflow del contenido) ====== */}
+        <div
+          style={{
+            position: 'absolute',
+            left: '50%',
+            bottom: 140,
+            transform: 'translateX(-50%)',
+            display: 'flex',
+            alignItems: 'flex-end',
+            justifyContent: 'space-between',
+            width: '100%',
+            maxWidth: 900,
+            zIndex: 3,
+          }}
+        >
+          <Firma
+            tema={tema}
+            imgSrc={firma1Img}
+            nombre={firma1Nombre}
+            cargo={firma1Cargo}
+          />
+          {/* Hueco central donde encaja el sello (absolute) */}
+          <div style={{ width: 160 }} aria-hidden />
+          <Firma
+            tema={tema}
+            imgSrc={firma2Img}
+            nombre={firma2Nombre}
+            cargo={firma2Cargo}
+          />
         </div>
 
         {/* ====== Sello holográfico: absolute, cruza la franja inferior ====== */}
@@ -582,7 +583,7 @@ export const CertificadoPremium = forwardRef<HTMLDivElement, CertificadoPremiumP
           style={{
             position: 'absolute',
             left: '50%',
-            bottom: 100,
+            bottom: 60,
             transform: 'translateX(-50%)',
             zIndex: 4,
           }}
