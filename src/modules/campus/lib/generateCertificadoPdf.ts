@@ -138,56 +138,6 @@ async function embedAssets(esquema: EsquemaCert | undefined): Promise<EsquemaCer
   };
 }
 
-/**
- * Pre-fetchea SOLO la fuente Great Vibes (el script font del nombre del
- * alumno) como data: URL. El resto de las fonts (Inter, Sora, Cormorant
- * Garamond) tienen fallbacks razonables del sistema y no justifican el costo
- * de embed (Google Fonts devuelve ~30 archivos woff2 por familia × peso ×
- * unicode-range subset = render de 10s+).
- *
- * Filtramos por `@font-face` que contengan "Great Vibes" y el subset latin
- * (default cuando no se especifica unicode-range). El resultado se pasa
- * como `fontEmbedCSS` a html-to-image para que "María Test" se vea en
- * cursiva script (no en system fallback).
- *
- * Devuelve '' si algo falla → fallback a `skipFonts: true`.
- */
-async function buildFontEmbedCSS(): Promise<string> {
-  const fontsUrl = 'https://fonts.googleapis.com/css2?family=Great+Vibes&display=swap';
-  try {
-    const cssRes = await fetch(fontsUrl, { mode: 'cors' });
-    if (!cssRes.ok) return '';
-    let cssText = await cssRes.text();
-    const matches = cssText.match(/url\(https:\/\/[^)]+\)/g) ?? [];
-    const urls = Array.from(new Set(matches.map((m) => m.slice(4, -1))));
-    const replacements = await Promise.all(
-      urls.map(async (url) => {
-        try {
-          const res = await fetch(url, { mode: 'cors' });
-          if (!res.ok) return null;
-          const blob = await res.blob();
-          const dataUrl = await new Promise<string>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(reader.result as string);
-            reader.onerror = reject;
-            reader.readAsDataURL(blob);
-          });
-          return [url, dataUrl] as const;
-        } catch {
-          return null;
-        }
-      }),
-    );
-    for (const r of replacements) {
-      if (!r) continue;
-      cssText = cssText.split(r[0]).join(r[1]);
-    }
-    return cssText;
-  } catch {
-    return '';
-  }
-}
-
 async function esperarRecursos(node: HTMLElement): Promise<void> {
   try {
     if (document.fonts?.ready) await document.fonts.ready;
@@ -223,20 +173,7 @@ export async function generateCertificadoPdf(
   // html-to-image no inlinea bien las firmas/logos/watermark dentro del
   // foreignObject SVG → la captura sale sin las imágenes (espacio vacío
   // donde deberían estar las firmas escaneadas).
-  //
-  // Pre-cargar fontEmbedCSS con timeout duro 4s. Si Google Fonts responde
-  // rápido, las fonts viajan en el SVG y el alumno se ve en Great Vibes
-  // (script). Si tarda, devuelve '' y caemos a skipFonts (fallback de
-  // system font para el script — feo pero no fatal). El timeout evita
-  // colgar 60s+ en network lento.
-  const fontEmbedCSSPromise = Promise.race<string>([
-    buildFontEmbedCSS(),
-    new Promise<string>((r) => setTimeout(() => r(''), 4000)),
-  ]);
-  const [esquemaEmbedded, fontEmbedCSS] = await Promise.all([
-    embedAssets(esquema),
-    fontEmbedCSSPromise,
-  ]);
+  const esquemaEmbedded = await embedAssets(esquema);
 
   // Host VISIBLE pero invisible al usuario · z-index alto + opacity 0.
   // Sin position:fixed offscreen — el browser necesita layoutar de verdad
@@ -274,17 +211,19 @@ export async function generateCertificadoPdf(
     // html-to-image: serializa DOM dentro de un foreignObject SVG y rasteriza
     // en canvas. Captura fielmente SVGs, conic-gradient, drop-shadow, etc.
     //
-    // Si fontEmbedCSS llegó a tiempo (<4s) lo pasamos para que las fonts
-    // viajen en el SVG. Si vino vacío, usamos skipFonts:true para saltar el
-    // auto-scan cross-origin de Google Fonts (SecurityError) y dejar que el
-    // browser use las fonts que ya tiene cargadas en memoria. En el peor caso
-    // el "María Test" cae a system-ui (feo pero no rompe firmas/logos).
+    // skipFonts: true — CRÍTICO. html-to-image intenta leer las cssRules de
+    // las stylesheets de Google Fonts (cross-origin) y falla con SecurityError,
+    // lo que rompe el render del cert (las firmas y otras imágenes salen vacías
+    // o sin pintar). Las fuentes ya están cargadas en el browser cuando el
+    // cert se renderiza offscreen (esperamos document.fonts.ready), entonces
+    // skipFonts:true se salta el inline de CSS pero el browser sigue usando
+    // las fuentes correctas en el rasterizado final.
     const dataUrl = await toPng(target, {
       width: CERT_W,
       height: CERT_H,
       pixelRatio: 3,
       cacheBust: true,
-      ...(fontEmbedCSS ? { fontEmbedCSS } : { skipFonts: true }),
+      skipFonts: true,
       fetchRequestInit: { mode: 'cors', credentials: 'omit' },
     });
 
