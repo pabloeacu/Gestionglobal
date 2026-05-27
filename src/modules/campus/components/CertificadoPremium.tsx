@@ -227,29 +227,6 @@ function FranjaInferior({ tema }: { tema: Tema }) {
 }
 
 // ============================================================================
-// Polígonos translúcidos de fondo (geometría facetada diagonal)
-// ============================================================================
-function PoligonosFondo({ tema }: { tema: Tema }) {
-  return (
-    <svg
-      width={CERT_W}
-      height={CERT_H}
-      viewBox={`0 0 ${CERT_W} ${CERT_H}`}
-      style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none', opacity: 1 }}
-      aria-hidden
-    >
-      {/* Polígonos grandes diagonales, baja opacidad */}
-      <polygon points="120,180 380,260 280,540 80,420" fill={tema.accent} opacity={0.045} />
-      <polygon points="380,260 620,200 600,500 280,540" fill={tema.accentLight} opacity={0.04} />
-      <polygon points="620,200 880,300 820,580 600,500" fill={tema.accent} opacity={0.05} />
-      <polygon points="880,300 1080,240 1050,520 820,580" fill={tema.accentLight} opacity={0.035} />
-      <polygon points="200,520 480,580 420,720 180,680" fill={tema.accent} opacity={0.04} />
-      <polygon points="600,540 880,600 820,720 580,700" fill={tema.accent} opacity={0.035} />
-    </svg>
-  );
-}
-
-// ============================================================================
 // Sello dorado holográfico central (CSS/SVG inline)
 // ============================================================================
 function SelloHolografico({ tema }: { tema: Tema }) {
@@ -290,7 +267,7 @@ function SelloHolografico({ tema }: { tema: Tema }) {
           boxShadow: `inset 0 0 6px rgba(0,0,0,0.5)`,
         }}
       />
-      {/* Texto central */}
+      {/* Logo Gestión Global centrado (reemplaza texto SELLO OFICIAL) */}
       <div
         style={{
           position: 'absolute',
@@ -299,16 +276,20 @@ function SelloHolografico({ tema }: { tema: Tema }) {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          color: tema.goldSoft,
-          textAlign: 'center',
-          fontFamily: TITLE,
-          fontSize: 10,
-          letterSpacing: 1.5,
-          lineHeight: 1.1,
-          textShadow: '0 1px 2px rgba(0,0,0,0.7)',
+          overflow: 'hidden',
         }}
       >
-        SELLO<br />OFICIAL
+        <img
+          src="/logo-white.png"
+          alt=""
+          crossOrigin="anonymous"
+          style={{
+            width: '68%',
+            height: '68%',
+            objectFit: 'contain',
+            filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.5))',
+          }}
+        />
       </div>
       {/* Brillo superior izquierdo */}
       <div
@@ -389,9 +370,6 @@ export const CertificadoPremium = forwardRef<HTMLDivElement, CertificadoPremiumP
           aria-hidden
         />
 
-        {/* Polígonos facetados translúcidos diagonales */}
-        <PoligonosFondo tema={tema} />
-
         {/* Franjas superior e inferior */}
         <FranjaSuperior tema={tema} />
         <FranjaInferior tema={tema} />
@@ -423,7 +401,7 @@ export const CertificadoPremium = forwardRef<HTMLDivElement, CertificadoPremiumP
               src={marcaLogo}
               alt=""
               crossOrigin="anonymous"
-              style={{ height: 78, width: 'auto', objectFit: 'contain' }}
+              style={{ height: 156, width: 'auto', objectFit: 'contain' }}
             />
           </div>
 
@@ -531,6 +509,23 @@ export const CertificadoPremium = forwardRef<HTMLDivElement, CertificadoPremiumP
             {cert.curso_titulo}
           </div>
 
+          {/* ====== Leyenda legal (debajo del curso, antes de la fecha) ====== */}
+          <div
+            style={{
+              fontFamily: SERIF,
+              fontStyle: 'italic',
+              fontSize: 11,
+              color: tema.inkSoft,
+              maxWidth: 780,
+              textAlign: 'center',
+              lineHeight: 1.5,
+              marginTop: 10,
+              opacity: 0.95,
+            }}
+          >
+            {LEYENDA_LEGAL}
+          </div>
+
           {/* ====== Fecha (mes y año) ====== */}
           <div
             style={{
@@ -586,23 +581,6 @@ export const CertificadoPremium = forwardRef<HTMLDivElement, CertificadoPremiumP
             />
           </div>
 
-          {/* ====== Leyenda legal ====== */}
-          <div
-            style={{
-              fontFamily: SERIF,
-              fontStyle: 'italic',
-              fontSize: 10,
-              color: tema.inkSoft,
-              maxWidth: 760,
-              textAlign: 'center',
-              lineHeight: 1.55,
-              opacity: 0.85,
-              marginTop: -2,
-              marginBottom: 12,
-            }}
-          >
-            {LEYENDA_LEGAL}
-          </div>
         </div>
 
         {/* ====== Pie absoluto: logo GG izquierda + QR derecha ====== */}
@@ -691,20 +669,20 @@ function Firma({
   cargo: string;
 }) {
   return (
-    <div style={{ width: 240, textAlign: 'center', position: 'relative' }}>
+    <div style={{ width: 280, textAlign: 'center', position: 'relative' }}>
       {/* Imagen de firma (escaneada) */}
-      <div style={{ height: 64, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+      <div style={{ height: 77, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
         <img
           src={imgSrc}
           alt=""
           crossOrigin="anonymous"
-          style={{ maxHeight: 64, maxWidth: 180, objectFit: 'contain' }}
+          style={{ maxHeight: 77, maxWidth: 216, objectFit: 'contain' }}
         />
       </div>
       {/* Línea de firma */}
       <div
         style={{
-          width: 200,
+          width: 240,
           height: 1,
           background: tema.ink,
           margin: '4px auto 6px',
