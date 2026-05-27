@@ -110,26 +110,29 @@ export function CertificadoPreviewModal({
             <button
               onClick={() => void onDescargar()}
               disabled={descargando}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-brand-cyan px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-brand-cyan/90 disabled:opacity-60"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-brand-cyan px-3 py-2 text-sm font-semibold text-white transition hover:bg-brand-cyan/90 disabled:opacity-60"
+              aria-label="Descargar PDF"
             >
               {descargando ? (
                 <Loader2 size={14} className="animate-spin" />
               ) : (
                 <Download size={14} />
               )}
-              Descargar PDF
+              <span className="hidden sm:inline">Descargar PDF</span>
             </button>
             <a
               href={url}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-brand-muted hover:text-brand-ink"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-brand-muted hover:text-brand-ink"
+              aria-label="Verificar"
             >
-              <ShieldCheck size={14} /> Verificar
+              <ShieldCheck size={14} />
+              <span className="hidden sm:inline">Verificar</span>
             </a>
             <button
               onClick={onClose}
-              className="rounded-md p-1.5 text-brand-muted hover:bg-slate-100"
+              className="rounded-md p-2 text-brand-muted hover:bg-slate-100"
               aria-label="Cerrar"
             >
               <X size={18} />

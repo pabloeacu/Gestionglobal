@@ -24,6 +24,8 @@ import {
   Smartphone,
   Share2,
   Plus,
+  Lock,
+  Download,
 } from 'lucide-react';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 
@@ -45,19 +47,48 @@ interface Step {
 interface DeviceCtx {
   isStandalone: boolean;
   isIos: boolean;
+  isAndroid: boolean;
   isMobile: boolean;
+  isIosSafari: boolean;
+  isIosChrome: boolean;
+  isAndroidChrome: boolean;
+  isAndroidFirefox: boolean;
+  isFirefox: boolean;
+  notifSupported: boolean;
+  notifPermission: NotificationPermission | 'unsupported';
 }
 
 function detectDevice(): DeviceCtx {
-  if (typeof window === 'undefined') return { isStandalone: false, isIos: false, isMobile: false };
+  if (typeof window === 'undefined') {
+    return {
+      isStandalone: false, isIos: false, isAndroid: false, isMobile: false,
+      isIosSafari: false, isIosChrome: false, isAndroidChrome: false,
+      isAndroidFirefox: false, isFirefox: false, notifSupported: false,
+      notifPermission: 'unsupported',
+    };
+  }
   const ua = navigator.userAgent;
   const isIos = /iPad|iPhone|iPod/.test(ua);
   const isAndroid = /Android/.test(ua);
   const isMobile = isIos || isAndroid || /Mobile/.test(ua);
+  // iOS Chrome ("CriOS") y iOS Firefox ("FxiOS"): igual son WebKit pero distinto chrome de instalación
+  const isIosChrome = isIos && /CriOS/.test(ua);
+  const isIosSafari = isIos && !/CriOS|FxiOS|EdgiOS/.test(ua);
+  const isAndroidChrome = isAndroid && /Chrome/.test(ua) && !/Firefox/.test(ua);
+  const isAndroidFirefox = isAndroid && /Firefox/.test(ua);
+  const isFirefox = /Firefox/.test(ua);
   const isStandalone =
     window.matchMedia('(display-mode: standalone)').matches ||
     (navigator as Navigator & { standalone?: boolean }).standalone === true;
-  return { isStandalone, isIos, isMobile };
+  const notifSupported = 'Notification' in window && 'serviceWorker' in navigator;
+  const notifPermission: NotificationPermission | 'unsupported' = notifSupported
+    ? Notification.permission
+    : 'unsupported';
+  return {
+    isStandalone, isIos, isAndroid, isMobile,
+    isIosSafari, isIosChrome, isAndroidChrome, isAndroidFirefox, isFirefox,
+    notifSupported, notifPermission,
+  };
 }
 
 const STEPS: Step[] = [
@@ -107,8 +138,49 @@ const STEPS: Step[] = [
     icon: Bell,
     kicker: 'NOTIFICACIONES',
     titulo: 'Activá la campanita',
-    descripcion:
-      'Te avisamos antes de cada clase, webinar y vencimiento importante. Sin spam, sólo lo necesario. La activás desde el banner del inicio.',
+    descripcion: (ctx) => {
+      if (!ctx.notifSupported) {
+        return (
+          <span>
+            Tu navegador no soporta notificaciones push. Probá desde Chrome, Safari moderno o Firefox para recibir avisos antes de cada clase, webinar y vencimiento.
+          </span>
+        );
+      }
+      if (ctx.notifPermission === 'granted') {
+        return (
+          <span>
+            Ya tenés las notificaciones <strong>activadas</strong>. Te vamos a avisar antes de cada clase, webinar y vencimiento importante. Sin spam.
+          </span>
+        );
+      }
+      if (ctx.notifPermission === 'denied') {
+        if (ctx.isIos) {
+          return (
+            <span>
+              Las notificaciones están bloqueadas. En iPhone: <strong>Ajustes → Notificaciones → Safari/Gestión Global → permitir</strong>. Después volvés acá y se activan solas.
+            </span>
+          );
+        }
+        if (ctx.isAndroid) {
+          return (
+            <span>
+              Las notificaciones están bloqueadas. En Android: tocá el candado <Lock size={11} className="inline mb-0.5" /> a la izquierda de la URL → <strong>Permisos → Notificaciones</strong> → permitir.
+            </span>
+          );
+        }
+        return (
+          <span>
+            Las notificaciones están bloqueadas. Hacé click en el candado <Lock size={11} className="inline mb-0.5" /> al lado de la URL → <strong>Notificaciones → Permitir</strong>.
+          </span>
+        );
+      }
+      // default
+      return (
+        <span>
+          Te avisamos antes de cada clase, webinar y vencimiento importante. Sin spam, sólo lo necesario. La activás desde el banner verde del inicio · un toque y listo.
+        </span>
+      );
+    },
   },
   {
     icon: Smartphone,
@@ -118,18 +190,19 @@ const STEPS: Step[] = [
       if (ctx.isStandalone) {
         return (
           <span>
-            Ya tenés Gestión Global instalada como app en este dispositivo. Vas a recibir notificaciones push y abrir directo desde el escritorio. ¡Listo!
+            Ya tenés Gestión Global instalada como app en este dispositivo <Sparkles size={12} className="inline mb-0.5 text-amber-500" />. Vas a recibir notificaciones push y abrir directo desde el escritorio.
           </span>
         );
       }
-      if (ctx.isMobile && ctx.isIos) {
+      // iOS Safari → instrucciones nativas
+      if (ctx.isIosSafari) {
         return (
           <span>
-            En 3 pasos, agregás Gestión Global como app al inicio de tu iPhone:
+            En iPhone/iPad, agregás Gestión Global como app en 3 pasos desde Safari:
             <ol className="mt-2 space-y-1 text-xs">
               <li className="flex items-start gap-2">
                 <span className="grid h-5 w-5 flex-shrink-0 place-items-center rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold">1</span>
-                <span>Tocá <Share2 size={11} className="inline mb-0.5" /> <strong>Compartir</strong> abajo</span>
+                <span>Tocá <Share2 size={11} className="inline mb-0.5" /> <strong>Compartir</strong> abajo en el centro</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="grid h-5 w-5 flex-shrink-0 place-items-center rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold">2</span>
@@ -137,23 +210,47 @@ const STEPS: Step[] = [
               </li>
               <li className="flex items-start gap-2">
                 <span className="grid h-5 w-5 flex-shrink-0 place-items-center rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold">3</span>
-                <span>Confirmá. ¡Listo!</span>
+                <span>Confirmá. ¡Ya tenés la app! <Sparkles size={11} className="inline mb-0.5 text-amber-500" /></span>
               </li>
             </ol>
           </span>
         );
       }
+      // iOS Chrome / Firefox / Edge → no se puede instalar, redirigir a Safari
+      if (ctx.isIos) {
+        return (
+          <span>
+            En iPhone, la instalación funciona solo desde <strong>Safari</strong>. Copiá esta URL y abrila en Safari (icono brújula), después: <Share2 size={11} className="inline mb-0.5" /> Compartir → <Plus size={11} className="inline mb-0.5" /> Agregar a inicio.
+          </span>
+        );
+      }
+      // Android Chrome (debería disparar beforeinstallprompt automáticamente)
+      if (ctx.isAndroidChrome) {
+        return (
+          <span>
+            Vas a ver el banner verde <strong>"Instalá Gestión Global"</strong> en el inicio · un toque y queda como app. Si no aparece, tocá el menú <strong>⋮</strong> arriba a la derecha → <strong>Instalar app</strong> o <strong>Agregar a la pantalla de inicio</strong>.
+          </span>
+        );
+      }
+      if (ctx.isAndroidFirefox) {
+        return (
+          <span>
+            En Firefox Android, tocá el menú <strong>⋮</strong> arriba a la derecha → <strong>Instalar</strong>. Queda como app nativa con notificaciones push.
+          </span>
+        );
+      }
+      // Otros mobile
       if (ctx.isMobile) {
         return (
           <span>
-            En la barra del navegador vas a ver una opción para <strong>"Agregar a la pantalla de inicio"</strong> o <strong>"Instalar app"</strong>. Confirmá y queda como app nativa.
+            En la barra del navegador vas a ver una opción para <strong>"Instalar app"</strong> o <strong>"Agregar a inicio"</strong>. Confirmá y queda como app nativa.
           </span>
         );
       }
       // Desktop
       return (
         <span>
-          Este portal funciona como <strong>app instalable</strong>. Abrí esta misma URL desde tu celular para tener Gestión Global como app de tu teléfono con notificaciones push. También se puede instalar como app de escritorio desde la barra de URL de Chrome/Edge.
+          Este portal funciona como <strong>app instalable</strong>. Tocá el ícono <Download size={11} className="inline mb-0.5" /> en la barra de URL de Chrome/Edge para instalarla en escritorio. Y abrí esta misma URL desde tu celular para tenerla como app del teléfono con notificaciones push.
         </span>
       );
     },

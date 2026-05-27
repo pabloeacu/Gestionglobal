@@ -144,7 +144,7 @@ export function PortalCtaCtePage() {
       </section>
 
       {/* Stats secundarios */}
-      <section className="grid grid-cols-3 gap-3">
+      <section className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <StatCard
           label="Cargos"
           value={stats.totalCargos}

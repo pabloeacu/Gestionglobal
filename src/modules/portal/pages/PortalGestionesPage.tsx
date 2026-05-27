@@ -76,7 +76,7 @@ export function PortalGestionesPage() {
       </section>
 
       {/* Stats */}
-      <section className="grid grid-cols-3 gap-3">
+      <section className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <StatBox label="Abiertos" value={stats.abiertos} tone="cyan" icon={CircleDot} />
         <StatBox label="Esperan acción tuya" value={stats.esperando} tone="amber" icon={AlertCircle} />
         <StatBox label="Resueltos" value={stats.resueltos} tone="emerald" icon={CheckCircle2} />
