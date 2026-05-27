@@ -342,7 +342,9 @@ export const CertificadoPremium = forwardRef<HTMLDivElement, CertificadoPremiumP
     const partes: string[] = [];
     if (cert.duracion_horas) partes.push(`${cert.duracion_horas} horas reloj`);
     if (cert.nota_examen !== null && cert.nota_examen !== undefined) {
-      partes.push(`Calificación ${cert.nota_examen}/100`);
+      const nota = cert.nota_examen;
+      const escala = nota <= 10 ? 10 : 100;
+      partes.push(`Calificación ${nota}/${escala}`);
     }
 
     // Variables del modelo (defaults institucionales — Paso 2 las hace
@@ -401,7 +403,7 @@ export const CertificadoPremium = forwardRef<HTMLDivElement, CertificadoPremiumP
             width: '100%',
             height: '100%',
             boxSizing: 'border-box',
-            padding: '150px 90px 150px',
+            padding: '140px 90px 165px',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
@@ -421,7 +423,7 @@ export const CertificadoPremium = forwardRef<HTMLDivElement, CertificadoPremiumP
               src={marcaLogo}
               alt=""
               crossOrigin="anonymous"
-              style={{ height: 56, width: 'auto', objectFit: 'contain' }}
+              style={{ height: 78, width: 'auto', objectFit: 'contain' }}
             />
           </div>
 
@@ -589,12 +591,14 @@ export const CertificadoPremium = forwardRef<HTMLDivElement, CertificadoPremiumP
             style={{
               fontFamily: SERIF,
               fontStyle: 'italic',
-              fontSize: 9,
+              fontSize: 10,
               color: tema.inkSoft,
               maxWidth: 760,
               textAlign: 'center',
-              lineHeight: 1.45,
+              lineHeight: 1.55,
               opacity: 0.85,
+              marginTop: -2,
+              marginBottom: 12,
             }}
           >
             {LEYENDA_LEGAL}
