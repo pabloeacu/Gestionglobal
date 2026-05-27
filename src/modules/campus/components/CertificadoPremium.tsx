@@ -381,7 +381,7 @@ export const CertificadoPremium = forwardRef<HTMLDivElement, CertificadoPremiumP
             width: '100%',
             height: '100%',
             boxSizing: 'border-box',
-            padding: '140px 90px 165px',
+            padding: '110px 90px 230px',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
@@ -555,8 +555,9 @@ export const CertificadoPremium = forwardRef<HTMLDivElement, CertificadoPremiumP
               alignItems: 'flex-end',
               justifyContent: 'space-between',
               width: '100%',
-              maxWidth: 880,
-              marginBottom: 16,
+              maxWidth: 900,
+              marginTop: 20,
+              marginBottom: 0,
             }}
           >
             {/* Firma izquierda */}
@@ -568,7 +569,7 @@ export const CertificadoPremium = forwardRef<HTMLDivElement, CertificadoPremiumP
             />
 
             {/* Sello central */}
-            <div style={{ textAlign: 'center', position: 'relative', top: -8 }}>
+            <div style={{ textAlign: 'center', position: 'relative', top: 22 }}>
               <SelloHolografico tema={tema} />
             </div>
 
