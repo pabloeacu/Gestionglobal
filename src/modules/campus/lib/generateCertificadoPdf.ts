@@ -51,34 +51,40 @@ async function generarQrDataUrl(url: string, dark: string): Promise<string | nul
  * referencia la URL pero el rasterizador final no resuelve el blob.
  * Solución: meter la imagen como data URL inline en el src antes del render.
  */
+/**
+ * Convierte una URL a data:image/png;base64 SIN usar fetch().
+ * Usa <img> nativo → canvas → toDataURL. Esto evita los problemas con cookies
+ * y el security checkpoint de Vercel (que devolvía 403 a fetches sin credentials),
+ * porque el browser carga las imágenes via session normal (con todos los cookies).
+ * Timeout 5s para no colgar el render si una imagen falla.
+ */
 async function urlToDataUrl(url: string | null | undefined): Promise<string | null> {
   if (!url) return null;
-  // Ya es data URL → no hacer nada
   if (url.startsWith('data:')) return url;
-  // Detectar same-origin vs cross-origin
-  const isSameOrigin =
-    url.startsWith('/') ||
-    (url.startsWith('http') &&
-      typeof window !== 'undefined' &&
-      new URL(url, window.location.href).origin === window.location.origin);
-  // CRÍTICO: same-origin necesita 'include' para pasar el security checkpoint
-  // de Vercel (sin cookies devuelve 403). cross-origin queda en 'omit'.
-  const init: RequestInit = isSameOrigin
-    ? { credentials: 'include' }
-    : { mode: 'cors', credentials: 'omit' };
-  try {
-    const res = await fetch(url, init);
-    if (!res.ok) return null;
-    const blob = await res.blob();
-    return await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
-    });
-  } catch {
-    return null;
-  }
+  return new Promise<string | null>((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    const timer = setTimeout(() => resolve(null), 5000);
+    img.onload = () => {
+      clearTimeout(timer);
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return resolve(null);
+        ctx.drawImage(img, 0, 0);
+        resolve(canvas.toDataURL('image/png'));
+      } catch {
+        resolve(null);
+      }
+    };
+    img.onerror = () => {
+      clearTimeout(timer);
+      resolve(null);
+    };
+    img.src = url;
+  });
 }
 
 /**
