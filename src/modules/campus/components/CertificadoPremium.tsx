@@ -381,7 +381,7 @@ export const CertificadoPremium = forwardRef<HTMLDivElement, CertificadoPremiumP
             width: '100%',
             height: '100%',
             boxSizing: 'border-box',
-            padding: '70px 90px 250px',
+            padding: '70px 90px 265px',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
