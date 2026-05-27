@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { cn } from '@/lib/cn';
 
 interface FieldProps {
-  label?: string;
+  label?: ReactNode;  // permite badges / íconos inline en el label
   hint?: string;
   error?: string | null;
   required?: boolean;

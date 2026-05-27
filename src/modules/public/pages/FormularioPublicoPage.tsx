@@ -9,6 +9,7 @@ import { FormularioRunner } from '@/modules/public/components/FormularioRunner';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   getFormularioPorSlug,
+  fetchClientePerfilDatosFormulario,
   type FormularioRow,
 } from '@/services/api/formularios';
 
@@ -20,6 +21,7 @@ export function FormularioPublicoPage() {
   const [formulario, setFormulario] = useState<FormularioRow | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [prefillValues, setPrefillValues] = useState<Record<string, unknown> | undefined>(undefined);
 
   useEffect(() => {
     if (!slug) return;
@@ -34,6 +36,19 @@ export function FormularioPublicoPage() {
       setFormulario(res.data);
     });
   }, [slug]);
+
+  // Si el cliente está logueado y entró desde el portal, traemos los datos
+  // de su perfil para pre-poblar los campos del formulario que coincidan
+  // (matching case-insensitive por nombre: 'cuit', 'email', 'dni', etc.).
+  useEffect(() => {
+    if (!user || !desdePortal) {
+      setPrefillValues(undefined);
+      return;
+    }
+    void fetchClientePerfilDatosFormulario().then((data) => {
+      setPrefillValues(data);
+    });
+  }, [user, desdePortal]);
 
   return (
     <div className="min-h-screen bg-white font-sans">
@@ -89,21 +104,27 @@ export function FormularioPublicoPage() {
             </div>
           </header>
 
-          <main className="mx-auto -mt-8 max-w-3xl px-6 pb-16 sm:pb-24">
-            {desdePortal && user && (
-              <div className="mb-4 flex items-start gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900 shadow-sm">
+          {/* Banner del cliente logueado: AFUERA del main para que NO quede
+              tapado por el offset negativo del main. Sólo se muestra si entró
+              desde el portal y hay sesión. */}
+          {desdePortal && user && (
+            <div className="mx-auto mt-6 max-w-3xl px-6">
+              <div className="flex items-start gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900 shadow-sm">
                 <ShieldCheck className="mt-0.5 shrink-0 text-emerald-600" size={18} />
                 <div className="min-w-0">
                   <p className="font-semibold">
                     Esta solicitud quedará vinculada a tu cuenta
                   </p>
                   <p className="mt-0.5 text-xs text-emerald-800/90">
-                    Hola <strong>{user.fullName || user.email}</strong>. Tus datos personales ya los tenemos registrados — solo completá lo que el formulario te pida específicamente. No vas a tener que volver a cargar tu nombre, email o DNI.
+                    Hola <strong>{user.fullName || user.email}</strong>. Vamos a pre-rellenar los campos que coincidan con tu perfil — solo completá lo que falte específico de esta solicitud.
                   </p>
                 </div>
               </div>
-            )}
-            <FormularioRunner formulario={formulario} />
+            </div>
+          )}
+
+          <main className="mx-auto mt-6 max-w-3xl px-6 pb-16 sm:pb-24">
+            <FormularioRunner formulario={formulario} prefillValues={prefillValues} />
 
             {formulario.textos_legales && (
               <div className="mt-6 rounded-xl border border-slate-200 bg-brand-zebra/40 p-4 text-xs leading-relaxed text-brand-muted">

@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { toast } from '@/lib/toast';
 import {
   Send,
@@ -20,23 +20,76 @@ import { cn } from '@/lib/cn';
 
 interface FormularioRunnerProps {
   formulario: FormularioRow;
+  /**
+   * Valores pre-cargados (típicamente vienen del perfil del cliente cuando
+   * está logueado desde el portal). El runner hace matching case-insensitive
+   * por nombre del campo y lo precarga + marca como "auto-rellenado".
+   */
+  prefillValues?: Record<string, unknown>;
 }
 
 interface FieldState {
   value: unknown;
   touched: boolean;
+  prefilled?: boolean;  // viene de perfil del cliente, mostrar badge
+}
+
+/**
+ * Normaliza un nombre de campo para matching: lowercase + sin acentos + sin
+ * espacios/guiones. Permite que 'Correo Electrónico' matchee con 'correo_electronico'.
+ */
+function normalizeKey(k: string): string {
+  return k
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[\s\-]+/g, '_');
 }
 
 // Runner: renderiza un formulario desde su schema jsonb, maneja validaciones
 // reactivas, lógica condicional declarativa, adjuntos múltiples por campo y
 // submit al edge function. Pensado para uso público (URL `/formulario/:slug`).
-export function FormularioRunner({ formulario }: FormularioRunnerProps) {
+export function FormularioRunner({ formulario, prefillValues }: FormularioRunnerProps) {
   const schema = formulario.schema as unknown as FormularioSchemaDef;
   const [state, setState] = useState<Record<string, FieldState>>({});
   const [files, setFiles] = useState<Record<string, File[]>>({});
   const [sending, setSending] = useState(false);
   const [done, setDone] = useState<{ mensaje: string; redirect: string | null } | null>(null);
   const [topError, setTopError] = useState<string | null>(null);
+  const [prefilledCount, setPrefilledCount] = useState(0);
+
+  // Auto-fill al recibir prefillValues. Hace matching case-insensitive entre
+  // el name de cada campo del schema y las keys del dict del perfil del cliente.
+  useEffect(() => {
+    if (!prefillValues || Object.keys(prefillValues).length === 0) return;
+
+    // Normalizar keys del prefill para lookup rápido
+    const lookup: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(prefillValues)) {
+      if (v === null || v === undefined || v === '') continue;
+      if (k.startsWith('_')) continue;  // _user_id, _origen son meta
+      lookup[normalizeKey(k)] = v;
+    }
+
+    const newState: Record<string, FieldState> = {};
+    let count = 0;
+    for (const section of schema.sections) {
+      for (const field of section.fields) {
+        if (['heading', 'separator', 'html', 'file'].includes(field.type)) continue;
+        const normalizedName = normalizeKey(field.name);
+        const match = lookup[normalizedName];
+        if (match !== undefined) {
+          newState[field.name] = { value: match, touched: false, prefilled: true };
+          count++;
+        }
+      }
+    }
+    if (count > 0) {
+      setState(newState);
+      setPrefilledCount(count);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefillValues]);
 
   const data = useMemo(() => {
     const d: Record<string, unknown> = {};
@@ -152,6 +205,19 @@ export function FormularioRunner({ formulario }: FormularioRunnerProps) {
 
   return (
     <form onSubmit={onSubmit} className="space-y-6">
+      {prefilledCount > 0 && (
+        <div className="flex items-start gap-3 rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4 text-sm text-emerald-900 shadow-sm">
+          <CheckCircle2 className="mt-0.5 shrink-0 text-emerald-600" size={18} />
+          <div className="min-w-0">
+            <p className="font-semibold">
+              Pre-rellenamos {prefilledCount} {prefilledCount === 1 ? 'campo' : 'campos'} con tus datos
+            </p>
+            <p className="mt-0.5 text-xs text-emerald-800/90">
+              Tomamos los datos de tu perfil. Si necesitás modificarlos para esta solicitud, simplemente editá el valor.
+            </p>
+          </div>
+        </div>
+      )}
       {schema.sections.map((section, sIdx) => (
         <section
           key={sIdx}
@@ -183,6 +249,7 @@ export function FormularioRunner({ formulario }: FormularioRunnerProps) {
                   key={field.name}
                   field={field}
                   value={data[field.name]}
+                  prefilled={state[field.name]?.prefilled === true}
                   onChange={(v) => setField(field.name, v)}
                   files={files[field.name] ?? []}
                   onFilesChange={(fs) => setFiles((s) => ({ ...s, [field.name]: fs }))}
@@ -223,12 +290,36 @@ export function FormularioRunner({ formulario }: FormularioRunnerProps) {
 interface FieldRendererProps {
   field: FormularioFieldDef;
   value: unknown;
+  prefilled?: boolean;
   onChange: (v: unknown) => void;
   files: File[];
   onFilesChange: (f: File[]) => void;
 }
 
-function FieldRenderer({ field, value, onChange, files, onFilesChange }: FieldRendererProps) {
+/** Badge sutil que indica que el campo fue pre-rellenado desde el perfil del cliente. */
+function PrefilledBadge() {
+  return (
+    <span
+      className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700"
+      title="Tomado de tu perfil"
+    >
+      <CheckCircle2 size={10} /> de tu perfil
+    </span>
+  );
+}
+
+/** Compose label con badge si está pre-rellenado. */
+function fieldLabel(field: FormularioFieldDef, prefilled: boolean): React.ReactNode {
+  if (!prefilled) return field.label;
+  return (
+    <span className="inline-flex items-center gap-2">
+      {field.label}
+      <PrefilledBadge />
+    </span>
+  );
+}
+
+function FieldRenderer({ field, value, prefilled = false, onChange, files, onFilesChange }: FieldRendererProps) {
   switch (field.type) {
     case 'heading':
       return (
@@ -246,7 +337,7 @@ function FieldRenderer({ field, value, onChange, files, onFilesChange }: FieldRe
 
     case 'textarea':
       return (
-        <Field label={field.label} required={field.required} hint={field.hint}>
+        <Field label={fieldLabel(field, prefilled)} required={field.required} hint={field.hint}>
           <Textarea
             rows={4}
             value={String(value ?? '')}
@@ -259,7 +350,7 @@ function FieldRenderer({ field, value, onChange, files, onFilesChange }: FieldRe
 
     case 'select':
       return (
-        <Field label={field.label} required={field.required} hint={field.hint}>
+        <Field label={fieldLabel(field, prefilled)} required={field.required} hint={field.hint}>
           <Select
             value={String(value ?? '')}
             onChange={(e) => onChange(e.target.value)}
@@ -277,7 +368,7 @@ function FieldRenderer({ field, value, onChange, files, onFilesChange }: FieldRe
 
     case 'radio':
       return (
-        <Field label={field.label} required={field.required} hint={field.hint}>
+        <Field label={fieldLabel(field, prefilled)} required={field.required} hint={field.hint}>
           <div className="grid gap-2 sm:grid-cols-2">
             {field.options?.map((opt) => {
               const checked = String(value) === opt;
@@ -338,7 +429,7 @@ function FieldRenderer({ field, value, onChange, files, onFilesChange }: FieldRe
     default:
       // text / email / tel / number / date
       return (
-        <Field label={field.label} required={field.required} hint={field.hint}>
+        <Field label={fieldLabel(field, prefilled)} required={field.required} hint={field.hint}>
           <Input
             type={field.type === 'tel' ? 'tel' : field.type === 'number' ? 'number' : field.type === 'date' ? 'date' : field.type === 'email' ? 'email' : 'text'}
             value={String(value ?? '')}

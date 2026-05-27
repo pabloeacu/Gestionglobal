@@ -155,3 +155,18 @@ export async function listSubmissions(
   if (error) return fail('SUBM_LIST', error.message, error);
   return ok(data ?? []);
 }
+
+// ----------------------------------------------------------------------------
+// AUTO-FILL: perfil del cliente logueado para pre-poblar formularios
+// ----------------------------------------------------------------------------
+/**
+ * Devuelve dict con todos los datos del usuario logueado en aliases conocidos
+ * (nombre, email, cuit, dni, matricula, telefono, dirección, etc.) para que el
+ * FormularioRunner pueda hacer matching por nombre de campo y auto-poblar.
+ * Si no hay usuario o falla → devuelve {} (no rompe el flujo).
+ */
+export async function fetchClientePerfilDatosFormulario(): Promise<Record<string, unknown>> {
+  const { data, error } = await supabase.rpc('cliente_perfil_datos_formulario' as never);
+  if (error) return {};
+  return (data ?? {}) as Record<string, unknown>;
+}
