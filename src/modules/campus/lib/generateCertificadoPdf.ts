@@ -226,13 +226,18 @@ export async function generateCertificadoPdf(
   // foreignObject SVG → la captura sale sin las imágenes (espacio vacío
   // donde deberían estar las firmas escaneadas).
   //
-  // Pre-cargar también Google Fonts CSS con woff2 como data: URLs, para que
-  // el rasterizado del SVG foreignObject use las fonts correctas (Great Vibes
-  // para el nombre del alumno, Cormorant Garamond para itálicas, etc.).
-  // En paralelo para minimizar latencia.
+  // Pre-cargar fontEmbedCSS con timeout duro 4s. Si Google Fonts responde
+  // rápido, las fonts viajan en el SVG y el alumno se ve en Great Vibes
+  // (script). Si tarda, devuelve '' y caemos a skipFonts (fallback de
+  // system font para el script — feo pero no fatal). El timeout evita
+  // colgar 60s+ en network lento.
+  const fontEmbedCSSPromise = Promise.race<string>([
+    buildFontEmbedCSS(),
+    new Promise<string>((r) => setTimeout(() => r(''), 4000)),
+  ]);
   const [esquemaEmbedded, fontEmbedCSS] = await Promise.all([
     embedAssets(esquema),
-    buildFontEmbedCSS(),
+    fontEmbedCSSPromise,
   ]);
 
   // Host VISIBLE pero invisible al usuario · z-index alto + opacity 0.
@@ -271,17 +276,17 @@ export async function generateCertificadoPdf(
     // html-to-image: serializa DOM dentro de un foreignObject SVG y rasteriza
     // en canvas. Captura fielmente SVGs, conic-gradient, drop-shadow, etc.
     //
-    // fontEmbedCSS: pre-construído por buildFontEmbedCSS — CSS de Google Fonts
-    // con cada url(.woff2) reemplazado por data:font/woff2;base64. Esto reemplaza
-    // el auto-scan de stylesheets de html-to-image (que falla con SecurityError
-    // al leer cssRules cross-origin de Google Fonts). Al proveer fontEmbedCSS,
-    // html-to-image salta el auto-scan y usa el CSS provisto.
+    // Si fontEmbedCSS llegó a tiempo (<4s) lo pasamos para que las fonts
+    // viajen en el SVG. Si vino vacío, usamos skipFonts:true para saltar el
+    // auto-scan cross-origin de Google Fonts (SecurityError) y dejar que el
+    // browser use las fonts que ya tiene cargadas en memoria. En el peor caso
+    // el "María Test" cae a system-ui (feo pero no rompe firmas/logos).
     const dataUrl = await toPng(target, {
       width: CERT_W,
       height: CERT_H,
       pixelRatio: 3,
       cacheBust: true,
-      fontEmbedCSS,
+      ...(fontEmbedCSS ? { fontEmbedCSS } : { skipFonts: true }),
       fetchRequestInit: { mode: 'cors', credentials: 'omit' },
     });
 
