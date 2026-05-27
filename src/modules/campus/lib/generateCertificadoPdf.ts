@@ -210,14 +210,20 @@ export async function generateCertificadoPdf(
 
     // html-to-image: serializa DOM dentro de un foreignObject SVG y rasteriza
     // en canvas. Captura fielmente SVGs, conic-gradient, drop-shadow, etc.
+    //
+    // skipFonts: true — CRÍTICO. html-to-image intenta leer las cssRules de
+    // las stylesheets de Google Fonts (cross-origin) y falla con SecurityError,
+    // lo que rompe el render del cert (las firmas y otras imágenes salen vacías
+    // o sin pintar). Las fuentes ya están cargadas en el browser cuando el
+    // cert se renderiza offscreen (esperamos document.fonts.ready), entonces
+    // skipFonts:true se salta el inline de CSS pero el browser sigue usando
+    // las fuentes correctas en el rasterizado final.
     const dataUrl = await toPng(target, {
       width: CERT_W,
       height: CERT_H,
       pixelRatio: 3,
       cacheBust: true,
-      // Skips fonts download (las ya tenemos en document.fonts)
-      skipFonts: false,
-      // Permitir CORS para imágenes externas (logo, firmas, watermark)
+      skipFonts: true,
       fetchRequestInit: { mode: 'cors', credentials: 'omit' },
     });
 
