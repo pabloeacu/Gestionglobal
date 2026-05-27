@@ -34,6 +34,7 @@ import { Skeleton } from '@/components/common';
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
 import {
   fetchClientePortalDashboard,
+  fetchTrackingAvancesNuevosCount,
   type ClientePortalDashboard,
   type ClienteOportunidad,
 } from '@/services/api/portal-dashboard';
@@ -45,13 +46,18 @@ import { PortalPushAssistant } from '../components/PortalPushAssistant';
 export function PortalHome() {
   const { user } = useAuth();
   const [data, setData] = useState<ClientePortalDashboard | null>(null);
+  const [avancesNuevos, setAvancesNuevos] = useState(0);
   const [loading, setLoading] = useState(true);
   const [showTour, setShowTour] = useState(false);
 
   async function load() {
-    const res = await fetchClientePortalDashboard();
+    const [res, count] = await Promise.all([
+      fetchClientePortalDashboard(),
+      fetchTrackingAvancesNuevosCount(),
+    ]);
     setLoading(false);
     if (res.ok && !res.data.error) setData(res.data);
+    setAvancesNuevos(count);
   }
 
   useEffect(() => { void load(); }, []);
@@ -111,7 +117,7 @@ export function PortalHome() {
         deuda={data.deuda}
       />
 
-      <Atajos />
+      <Atajos avancesNuevos={avancesNuevos} />
 
       <Assistants />
 
@@ -370,13 +376,14 @@ function iconForOportunidad(name: string): React.ReactNode {
 
 // =========================================================================
 // Atajos principales (grid 2x2 mobile, 4 col desktop)
+// Si "Mis gestiones" tiene tracking_avances no leídos, mostramos badge "X nuevos"
 // =========================================================================
-function Atajos() {
+function Atajos({ avancesNuevos }: { avancesNuevos: number }) {
   const items = [
-    { to: '/portal/campus',     icon: GraduationCap, label: 'Mis cursos',   sub: 'Clases y certificados' },
-    { to: '/portal/gestiones',  icon: FileText,      label: 'Mis gestiones', sub: 'Trámites en curso' },
-    { to: '/portal/webinars',   icon: Video,         label: 'Mis webinars',  sub: 'Próximos y pasados' },
-    { to: '/portal/nuevo',      icon: PlusCircle,    label: 'Nuevo servicio', sub: 'Iniciar trámite' },
+    { to: '/portal/campus',     icon: GraduationCap, label: 'Mis cursos',   sub: 'Clases y certificados', badge: 0 },
+    { to: '/portal/gestiones',  icon: FileText,      label: 'Mis gestiones', sub: 'Trámites en curso',     badge: avancesNuevos },
+    { to: '/portal/webinars',   icon: Video,         label: 'Mis webinars',  sub: 'Próximos y pasados',    badge: 0 },
+    { to: '/portal/nuevo',      icon: PlusCircle,    label: 'Nuevo servicio', sub: 'Iniciar trámite',      badge: 0 },
   ];
   return (
     <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -389,6 +396,14 @@ function Atajos() {
           <span className="grid h-10 w-10 place-items-center rounded-xl bg-brand-cyan-pale text-brand-cyan transition group-hover:scale-105">
             <it.icon size={18} />
           </span>
+          {it.badge > 0 && (
+            <span
+              className="absolute right-2 top-2 inline-flex items-center justify-center rounded-full bg-rose-500 px-2 py-0.5 text-[10px] font-bold text-white shadow-sm ring-2 ring-white animate-pulse"
+              title={`${it.badge} novedad${it.badge > 1 ? 'es' : ''} sin leer`}
+            >
+              {it.badge > 9 ? '9+' : it.badge} {it.badge === 1 ? 'nuevo' : 'nuevos'}
+            </span>
+          )}
           <div>
             <p className="font-semibold text-brand-ink">{it.label}</p>
             <p className="text-[11px] text-brand-muted">{it.sub}</p>

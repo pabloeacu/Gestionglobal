@@ -23,7 +23,11 @@ import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import { IllustratedEmpty } from '@/components/brand/IllustratedEmpty';
 import { Skeleton } from '@/components/common';
 import { toast } from '@/lib/toast';
-import { fetchClienteTramites, type ClienteTramite } from '@/services/api/portal-dashboard';
+import {
+  fetchClienteTramites,
+  marcarTrackingAvanceLeido,
+  type ClienteTramite,
+} from '@/services/api/portal-dashboard';
 
 export function PortalGestionesPage() {
   const [items, setItems] = useState<ClienteTramite[]>([]);
@@ -43,6 +47,12 @@ export function PortalGestionesPage() {
   }
 
   useEffect(() => { void load(); /* eslint-disable-next-line */ }, [filter]);
+
+  // Cuando el cliente abre el detalle de un tramite, marcamos como leídos
+  // los tracking_avance asociados → desaparece el badge del dashboard.
+  useEffect(() => {
+    if (selected?.id) void marcarTrackingAvanceLeido(selected.id);
+  }, [selected]);
 
   const stats = useMemo(() => ({
     abiertos: items.filter((t) => ['abierto','en_progreso','esperando_cliente'].includes(t.estado)).length,

@@ -508,3 +508,28 @@ export function colorBadge(color: string | null | undefined): string {
   const key = color ?? 'slate';
   return COLOR_BADGE[key] ?? COLOR_BADGE.slate ?? '';
 }
+
+// ----------------------------------------------------------------------------
+// PROXIMOS SEGUIMIENTOS (dashboard gerencia widget)
+// ----------------------------------------------------------------------------
+export interface ProximoSeguimientoRow {
+  linea_id: string;
+  tramite_id: string;
+  tramite_titulo: string;
+  tramite_codigo: string | null;
+  alerta_en: string;       // ISO timestamptz
+  dias_restantes: number;
+  categoria: string;
+  descripcion: string;
+  administracion_nombre: string;
+}
+
+export async function fetchProximosSeguimientos(
+  dias = 7,
+): Promise<ApiResponse<ProximoSeguimientoRow[]>> {
+  const { data, error } = await supabase.rpc('gerencia_proximos_seguimientos' as never, {
+    p_dias: dias,
+  } as never);
+  if (error) return fail('PROXIMOS_SEGUIMIENTOS', error.message, error);
+  return ok((data ?? []) as unknown as ProximoSeguimientoRow[]);
+}

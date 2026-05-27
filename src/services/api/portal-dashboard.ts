@@ -123,6 +123,28 @@ export async function fetchClientePortalDashboard(): Promise<ApiResponse<Cliente
   return ok(data as unknown as ClientePortalDashboard);
 }
 
+/**
+ * Cuenta de avances de tracking sin leer (notif_internas tipo='tracking_avance').
+ * Usado para el badge "X nuevos" en la card "Mis gestiones" del portal.
+ */
+export async function fetchTrackingAvancesNuevosCount(): Promise<number> {
+  const { data, error } = await supabase.rpc('cliente_tracking_avances_nuevos_count' as never);
+  if (error) return 0;
+  return (data as unknown as number) ?? 0;
+}
+
+/**
+ * Marca como leídas las notif_internas tipo tracking_avance asociadas a un tramite.
+ * Se llama cuando el cliente abre la vista detalle del tramite.
+ */
+export async function marcarTrackingAvanceLeido(tramiteId: string): Promise<number> {
+  const { data, error } = await supabase.rpc('cliente_marcar_tracking_leido' as never, {
+    p_tramite_id: tramiteId,
+  } as never);
+  if (error) return 0;
+  return (data as unknown as number) ?? 0;
+}
+
 // =========================================================================
 // Mis trámites
 // =========================================================================

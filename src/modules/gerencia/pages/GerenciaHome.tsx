@@ -17,6 +17,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import { ProximosVencimientosWidget } from '@/modules/vencimientos';
 import { MorososWidget } from '@/modules/cta_cte';
+import { ProximosSeguimientosWidget } from '@/modules/gerencia/components/ProximosSeguimientosWidget';
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
 import { getDashboardGlobal, type DashboardKpis } from '@/services/api/dashboard';
 import { DashboardKpiStrip } from '@/modules/gerencia/components/DashboardKpiStrip';
@@ -145,6 +146,10 @@ export function GerenciaHome() {
       <section className="grid gap-6 lg:grid-cols-2">
         <ProximosVencimientosWidget />
         <MorososWidget limit={5} />
+      </section>
+
+      <section className="grid gap-6 lg:grid-cols-1">
+        <ProximosSeguimientosWidget dias={7} limit={8} />
       </section>
     </div>
   );
