@@ -155,38 +155,6 @@ async function embedAssets(esquema: EsquemaCert | undefined): Promise<EsquemaCer
   };
 }
 
-/**
- * Pre-fetchea un woff2 same-origin y lo convierte a data:font/woff2;base64.
- * Timeout 3s. Devuelve null si falla (caemos al fallback de skipFonts:true).
- */
-async function fetchFontAsDataUrl(url: string): Promise<string | null> {
-  return new Promise<string | null>((resolve) => {
-    const timer = setTimeout(() => resolve(null), 3000);
-    fetch(url, { credentials: 'include' })
-      .then((r) => (r.ok ? r.blob() : null))
-      .then((blob) => {
-        if (!blob) {
-          clearTimeout(timer);
-          return resolve(null);
-        }
-        const reader = new FileReader();
-        reader.onload = () => {
-          clearTimeout(timer);
-          resolve(reader.result as string);
-        };
-        reader.onerror = () => {
-          clearTimeout(timer);
-          resolve(null);
-        };
-        reader.readAsDataURL(blob);
-      })
-      .catch(() => {
-        clearTimeout(timer);
-        resolve(null);
-      });
-  });
-}
-
 async function esperarRecursos(node: HTMLElement): Promise<void> {
   try {
     if (document.fonts?.ready) await document.fonts.ready;
@@ -222,15 +190,7 @@ export async function generateCertificadoPdf(
   // html-to-image no inlinea bien las firmas/logos/watermark dentro del
   // foreignObject SVG → la captura sale sin las imágenes (espacio vacío
   // donde deberían estar las firmas escaneadas).
-  //
-  // Pre-cargar también Great Vibes woff2 local (self-hosted) como data URL.
-  // Lo inyectamos como @font-face inline en el host del cert → html-to-image
-  // lo serializa dentro del SVG foreignObject y "María Test Administradora"
-  // se renderiza en script font (no fallback system cursive).
-  const [esquemaEmbedded, greatVibesDataUrl] = await Promise.all([
-    embedAssets(esquema),
-    fetchFontAsDataUrl('/fonts/great-vibes-latin.woff2'),
-  ]);
+  const esquemaEmbedded = await embedAssets(esquema);
 
   // Host VISIBLE pero invisible al usuario · z-index alto + opacity 0.
   // Sin position:fixed offscreen — el browser necesita layoutar de verdad
@@ -246,22 +206,6 @@ export async function generateCertificadoPdf(
   host.style.zIndex = '-9999';
   host.style.overflow = 'hidden';
   document.body.appendChild(host);
-
-  // Inyectar @font-face inline de Great Vibes (script del nombre del alumno).
-  // El <style> queda dentro del host → html-to-image lo serializa al SVG
-  // foreignObject → la fuente está disponible durante el rasterizado.
-  if (greatVibesDataUrl) {
-    const fontStyle = document.createElement('style');
-    fontStyle.textContent = `
-      @font-face {
-        font-family: 'Great Vibes';
-        font-style: normal;
-        font-weight: 400;
-        src: url(${greatVibesDataUrl}) format('woff2');
-      }
-    `;
-    host.appendChild(fontStyle);
-  }
 
   const root = createRoot(host);
   try {
