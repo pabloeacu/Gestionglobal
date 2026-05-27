@@ -138,6 +138,58 @@ async function embedAssets(esquema: EsquemaCert | undefined): Promise<EsquemaCer
   };
 }
 
+/**
+ * Pre-fetchea el CSS de Google Fonts y reemplaza cada url(.woff2) por una
+ * data: URL base64. El resultado se pasa como `fontEmbedCSS` a html-to-image
+ * para que las fonts (Great Vibes, Cormorant Garamond, Inter, Sora) viajen
+ * dentro del SVG foreignObject y queden disponibles durante el rasterizado.
+ *
+ * Sin esto, el rasterizado cae al system font porque el browser no resuelve
+ * @font-face dentro del foreignObject del SVG. Con esto, "María Test
+ * Administradora" se ve en Great Vibes (script) tal cual el preview.
+ */
+async function buildFontEmbedCSS(): Promise<string> {
+  const fontsUrl =
+    'https://fonts.googleapis.com/css2?' +
+    'family=Inter:wght@400;500;600;700;800' +
+    '&family=Sora:wght@600;700;800' +
+    '&family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500;1,600' +
+    '&family=Great+Vibes' +
+    '&display=swap';
+  try {
+    const cssRes = await fetch(fontsUrl, { mode: 'cors' });
+    if (!cssRes.ok) return '';
+    let cssText = await cssRes.text();
+    const matches = cssText.match(/url\(https:\/\/[^)]+\)/g) ?? [];
+    const urls = Array.from(new Set(matches.map((m) => m.slice(4, -1))));
+    const replacements = await Promise.all(
+      urls.map(async (url) => {
+        try {
+          const res = await fetch(url, { mode: 'cors' });
+          if (!res.ok) return null;
+          const blob = await res.blob();
+          const dataUrl = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+          });
+          return [url, dataUrl] as const;
+        } catch {
+          return null;
+        }
+      }),
+    );
+    for (const r of replacements) {
+      if (!r) continue;
+      cssText = cssText.split(r[0]).join(r[1]);
+    }
+    return cssText;
+  } catch {
+    return '';
+  }
+}
+
 async function esperarRecursos(node: HTMLElement): Promise<void> {
   try {
     if (document.fonts?.ready) await document.fonts.ready;
@@ -173,7 +225,15 @@ export async function generateCertificadoPdf(
   // html-to-image no inlinea bien las firmas/logos/watermark dentro del
   // foreignObject SVG → la captura sale sin las imágenes (espacio vacío
   // donde deberían estar las firmas escaneadas).
-  const esquemaEmbedded = await embedAssets(esquema);
+  //
+  // Pre-cargar también Google Fonts CSS con woff2 como data: URLs, para que
+  // el rasterizado del SVG foreignObject use las fonts correctas (Great Vibes
+  // para el nombre del alumno, Cormorant Garamond para itálicas, etc.).
+  // En paralelo para minimizar latencia.
+  const [esquemaEmbedded, fontEmbedCSS] = await Promise.all([
+    embedAssets(esquema),
+    buildFontEmbedCSS(),
+  ]);
 
   // Host VISIBLE pero invisible al usuario · z-index alto + opacity 0.
   // Sin position:fixed offscreen — el browser necesita layoutar de verdad
@@ -211,19 +271,17 @@ export async function generateCertificadoPdf(
     // html-to-image: serializa DOM dentro de un foreignObject SVG y rasteriza
     // en canvas. Captura fielmente SVGs, conic-gradient, drop-shadow, etc.
     //
-    // skipFonts: true — CRÍTICO. html-to-image intenta leer las cssRules de
-    // las stylesheets de Google Fonts (cross-origin) y falla con SecurityError,
-    // lo que rompe el render del cert (las firmas y otras imágenes salen vacías
-    // o sin pintar). Las fuentes ya están cargadas en el browser cuando el
-    // cert se renderiza offscreen (esperamos document.fonts.ready), entonces
-    // skipFonts:true se salta el inline de CSS pero el browser sigue usando
-    // las fuentes correctas en el rasterizado final.
+    // fontEmbedCSS: pre-construído por buildFontEmbedCSS — CSS de Google Fonts
+    // con cada url(.woff2) reemplazado por data:font/woff2;base64. Esto reemplaza
+    // el auto-scan de stylesheets de html-to-image (que falla con SecurityError
+    // al leer cssRules cross-origin de Google Fonts). Al proveer fontEmbedCSS,
+    // html-to-image salta el auto-scan y usa el CSS provisto.
     const dataUrl = await toPng(target, {
       width: CERT_W,
       height: CERT_H,
       pixelRatio: 3,
       cacheBust: true,
-      skipFonts: true,
+      fontEmbedCSS,
       fetchRequestInit: { mode: 'cors', credentials: 'omit' },
     });
 
