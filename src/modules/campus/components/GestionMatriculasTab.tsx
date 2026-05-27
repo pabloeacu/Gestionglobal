@@ -24,11 +24,13 @@ import {
   listCertificadosPorCurso,
   listCondicionesMatricula,
   listMatriculas,
+  resolverEsquemaParaCert,
   tildarCondicion,
   verificacionUrl,
   type CertificadoRow,
   type CondicionTipo,
   type CursoDetalle,
+  type EsquemaCertSnapshot,
   type MatriculaCondicionItem,
   type MatriculaListItem,
 } from '@/services/api/campus';
@@ -57,6 +59,7 @@ export function GestionMatriculasTab({ data }: { data: CursoDetalle }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [pagoTarget, setPagoTarget] = useState<MatriculaListItem | null>(null);
   const [previewCert, setPreviewCert] = useState<CertificadoParaPdf | null>(null);
+  const [previewEsquema, setPreviewEsquema] = useState<EsquemaCertSnapshot | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -97,10 +100,22 @@ export function GestionMatriculasTab({ data }: { data: CursoDetalle }) {
 
   async function onDescargar(cert: CertificadoRow) {
     try {
-      await generateCertificadoPdf(certificadoParaPdf(cert));
+      const esquema = await resolverEsquemaParaCert(cert);
+      await generateCertificadoPdf(
+        certificadoParaPdf(cert),
+        esquema ?? undefined,
+      );
     } catch {
       toast.error('No pudimos generar el PDF.');
     }
+  }
+
+  // Abre el preview cargando el esquema del cert (snapshot persistido o,
+  // en su defecto, el del curso actual).
+  async function abrirPreview(cert: CertificadoRow) {
+    const esquema = await resolverEsquemaParaCert(cert);
+    setPreviewEsquema(esquema);
+    setPreviewCert(certificadoParaPdf(cert));
   }
 
   useEffect(() => {
@@ -363,7 +378,7 @@ export function GestionMatriculasTab({ data }: { data: CursoDetalle }) {
                         {cert.codigo}
                       </span>
                       <button
-                        onClick={() => setPreviewCert(certificadoParaPdf(cert))}
+                        onClick={() => void abrirPreview(cert)}
                         className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand-cyan hover:underline"
                       >
                         <Eye size={13} /> Vista previa
@@ -429,7 +444,11 @@ export function GestionMatriculasTab({ data }: { data: CursoDetalle }) {
       <CertificadoPreviewModal
         cert={previewCert}
         open={previewCert !== null}
-        onClose={() => setPreviewCert(null)}
+        onClose={() => {
+          setPreviewCert(null);
+          setPreviewEsquema(null);
+        }}
+        esquema={previewEsquema ?? undefined}
       />
     </div>
   );

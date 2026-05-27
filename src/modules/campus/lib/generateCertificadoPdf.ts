@@ -9,6 +9,7 @@ import {
   CertificadoPremium,
   CERT_W,
   CERT_H,
+  type EsquemaCert,
 } from '../components/CertificadoPremium';
 
 // ============================================================================
@@ -63,10 +64,11 @@ async function esperarRecursos(node: HTMLElement): Promise<void> {
 
 export async function generateCertificadoPdf(
   cert: CertificadoParaPdf,
+  esquema?: EsquemaCert,
 ): Promise<void> {
   const url = verificacionUrl(cert.codigo);
-  // El QR usa un dark neutro oscuro para máximo contraste/escaneabilidad.
-  const qrDataUrl = await generarQrDataUrl(url, '#0b1f33');
+  // El QR usa el color de acento del esquema (o navy neutro por default).
+  const qrDataUrl = await generarQrDataUrl(url, esquema?.color_acento ?? '#0b1f33');
 
   // Contenedor offscreen (visible para el navegador, fuera del viewport).
   const host = document.createElement('div');
@@ -86,6 +88,7 @@ export async function generateCertificadoPdf(
           cert,
           qrDataUrl,
           verificarUrl: url,
+          esquema,
         }),
       );
       // Damos un tick para que React monte el árbol.

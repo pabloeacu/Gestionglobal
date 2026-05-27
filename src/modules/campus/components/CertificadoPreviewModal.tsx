@@ -11,6 +11,7 @@ import {
   CertificadoPremium,
   CERT_W,
   CERT_H,
+  type EsquemaCert,
 } from './CertificadoPremium';
 import { generateCertificadoPdf } from '../lib/generateCertificadoPdf';
 
@@ -22,10 +23,13 @@ export function CertificadoPreviewModal({
   cert,
   open,
   onClose,
+  esquema,
 }: {
   cert: CertificadoParaPdf | null;
   open: boolean;
   onClose: () => void;
+  /** Esquema visual (DGG-29). Si no se pasa, se usa el default institucional. */
+  esquema?: EsquemaCert;
 }) {
   const [qr, setQr] = useState<string | null>(null);
   const [descargando, setDescargando] = useState(false);
@@ -77,7 +81,7 @@ export function CertificadoPreviewModal({
     if (!cert) return;
     setDescargando(true);
     try {
-      await generateCertificadoPdf(cert);
+      await generateCertificadoPdf(cert, esquema);
     } catch {
       toast.error('No pudimos generar el PDF.');
     } finally {
@@ -148,7 +152,12 @@ export function CertificadoPreviewModal({
                   transformOrigin: 'top left',
                 }}
               >
-                <CertificadoPremium cert={cert} qrDataUrl={qr} verificarUrl={url} />
+                <CertificadoPremium
+                  cert={cert}
+                  qrDataUrl={qr}
+                  verificarUrl={url}
+                  esquema={esquema}
+                />
               </div>
             </div>
           </div>

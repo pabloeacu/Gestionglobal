@@ -1292,6 +1292,105 @@ export function certificadoParaPdf(c: CertificadoRow): CertificadoParaPdf {
   };
 }
 
+// DGG-29: forma normalizada del esquema visual (snapshot del cert o fila de BD)
+// Los nombres coinciden con EsquemaCert del componente CertificadoPremium.
+export interface EsquemaCertSnapshot {
+  color_acento: string;
+  color_dorado: string;
+  visible_marca_logo: boolean;
+  marca_logo_url: string | null;
+  visible_sigla: boolean;
+  sigla_texto: string;
+  visible_texto_descriptivo: boolean;
+  texto_descriptivo: string;
+  visible_leyenda_legal: boolean;
+  leyenda_legal: string;
+  visible_firma_1: boolean;
+  firma_1_img_url: string | null;
+  firma_1_nombre: string;
+  firma_1_cargo: string;
+  visible_firma_2: boolean;
+  firma_2_img_url: string | null;
+  firma_2_nombre: string;
+  firma_2_cargo: string;
+  visible_sello: boolean;
+  sello_logo_url: string | null;
+  visible_watermark: boolean;
+  watermark_url: string | null;
+}
+
+// Normaliza un row/jsonb del esquema al shape mínimo que consume el render.
+function normalizarEsquema(raw: unknown): EsquemaCertSnapshot | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const r = raw as Record<string, unknown>;
+  if (typeof r.color_acento !== 'string') return null;
+  return r as unknown as EsquemaCertSnapshot;
+}
+
+/**
+ * DGG-29 · Resuelve el esquema visual a aplicar al render de un certificado:
+ *  1) Si el cert tiene snapshot persistido (esquema_snapshot), lo usa tal cual.
+ *  2) Si no (cert legacy o aún no persistido), busca el esquema del curso.
+ *  3) Fallback final: esquema default del sistema.
+ */
+export async function resolverEsquemaParaCert(
+  c: CertificadoRow,
+): Promise<EsquemaCertSnapshot | null> {
+  const snap = normalizarEsquema(c.esquema_snapshot);
+  if (snap) return snap;
+  const { data } = await supabase
+    .from('cursos')
+    .select('cert_esquema_id')
+    .eq('id', c.curso_id)
+    .maybeSingle();
+  const esquemaId = data?.cert_esquema_id;
+  if (esquemaId) {
+    const { data: e } = await supabase
+      .from('certificado_esquemas')
+      .select('*')
+      .eq('id', esquemaId)
+      .maybeSingle();
+    const n = normalizarEsquema(e);
+    if (n) return n;
+  }
+  const { data: def } = await supabase
+    .from('certificado_esquemas')
+    .select('*')
+    .eq('es_default', true)
+    .maybeSingle();
+  return normalizarEsquema(def);
+}
+
+/**
+ * Resuelve el esquema cuando todavía no hay cert emitido (vista previa antes
+ * de la emisión). Solo usa el curso → esquema o el default.
+ */
+export async function resolverEsquemaPorCurso(
+  cursoId: string,
+): Promise<EsquemaCertSnapshot | null> {
+  const { data } = await supabase
+    .from('cursos')
+    .select('cert_esquema_id')
+    .eq('id', cursoId)
+    .maybeSingle();
+  const esquemaId = data?.cert_esquema_id;
+  if (esquemaId) {
+    const { data: e } = await supabase
+      .from('certificado_esquemas')
+      .select('*')
+      .eq('id', esquemaId)
+      .maybeSingle();
+    const n = normalizarEsquema(e);
+    if (n) return n;
+  }
+  const { data: def } = await supabase
+    .from('certificado_esquemas')
+    .select('*')
+    .eq('es_default', true)
+    .maybeSingle();
+  return normalizarEsquema(def);
+}
+
 // Certificado de una matrícula (o null si todavía no se emitió).
 export async function getCertificadoMatricula(
   matriculaId: string,

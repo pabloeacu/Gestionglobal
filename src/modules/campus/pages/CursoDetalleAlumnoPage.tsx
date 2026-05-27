@@ -29,6 +29,7 @@ import {
   listEncuentros,
   listMatriculas,
   listProgreso,
+  resolverEsquemaParaCert,
   verificacionUrl,
   type CertificadoRow,
   type CursoDetalle,
@@ -419,7 +420,11 @@ function CondicionesAlumnoPanel({
     if (!certificado) return;
     setDescargando(true);
     try {
-      await generateCertificadoPdf(certificadoParaPdf(certificado));
+      const esquema = await resolverEsquemaParaCert(certificado);
+      await generateCertificadoPdf(
+        certificadoParaPdf(certificado),
+        esquema ?? undefined,
+      );
     } catch {
       toast.error('No pudimos generar el PDF. Probá de nuevo.');
     } finally {
