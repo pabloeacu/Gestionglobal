@@ -381,7 +381,7 @@ export const CertificadoPremium = forwardRef<HTMLDivElement, CertificadoPremiumP
             width: '100%',
             height: '100%',
             boxSizing: 'border-box',
-            padding: '70px 90px 220px',
+            padding: '70px 90px 250px',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
@@ -582,7 +582,7 @@ export const CertificadoPremium = forwardRef<HTMLDivElement, CertificadoPremiumP
           style={{
             position: 'absolute',
             left: '50%',
-            bottom: 80,
+            bottom: 100,
             transform: 'translateX(-50%)',
             zIndex: 4,
           }}
@@ -686,14 +686,16 @@ function Firma({
           style={{ maxHeight: 154, maxWidth: 320, objectFit: 'contain' }}
         />
       </div>
-      {/* Línea de firma */}
+      {/* Línea de firma (cruza la firma, efecto holográfico) */}
       <div
         style={{
           width: 280,
           height: 1,
           background: tema.ink,
-          margin: '4px auto 6px',
+          margin: '-34px auto 8px',
           opacity: 0.55,
+          position: 'relative',
+          zIndex: 1,
         }}
       />
       {/* Nombre */}
