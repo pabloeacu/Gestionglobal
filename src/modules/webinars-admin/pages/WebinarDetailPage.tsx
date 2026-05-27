@@ -22,6 +22,7 @@ import {
   inscribirManual,
   crearReunionZoom,
   actualizarWebinar,
+  emitirCertificadosWebinarLote,
   type WebinarRow,
   type InscriptoConCanal,
 } from '@/services/api/webinars';
@@ -370,7 +371,26 @@ function CertificadoWebinarSection({
           </div>
         )}
       </div>
-      <div className="mt-3 flex justify-end">
+      <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
+        {webinar.cert_emite && (
+          <Button
+            variant="ghost"
+            onClick={async () => {
+              const r = await emitirCertificadosWebinarLote(webinar.id);
+              if (!r.ok) {
+                toast.error('No pudimos emitir', { description: r.error.message });
+                return;
+              }
+              toast.success(
+                r.data === 0
+                  ? 'No había asistentes nuevos para emitir'
+                  : `${r.data} certificado${r.data === 1 ? '' : 's'} emitido${r.data === 1 ? '' : 's'}`,
+              );
+            }}
+          >
+            Emitir a asistentes
+          </Button>
+        )}
         <Button onClick={guardar} loading={saving}>
           Guardar
         </Button>

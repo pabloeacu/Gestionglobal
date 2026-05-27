@@ -1330,7 +1330,8 @@ function normalizarEsquema(raw: unknown): EsquemaCertSnapshot | null {
 /**
  * DGG-29 · Resuelve el esquema visual a aplicar al render de un certificado:
  *  1) Si el cert tiene snapshot persistido (esquema_snapshot), lo usa tal cual.
- *  2) Si no (cert legacy o aún no persistido), busca el esquema del curso.
+ *  2) Si no (cert legacy o aún no persistido), busca el esquema del origen
+ *     (curso o webinar — XOR).
  *  3) Fallback final: esquema default del sistema.
  */
 export async function resolverEsquemaParaCert(
@@ -1338,12 +1339,23 @@ export async function resolverEsquemaParaCert(
 ): Promise<EsquemaCertSnapshot | null> {
   const snap = normalizarEsquema(c.esquema_snapshot);
   if (snap) return snap;
-  const { data } = await supabase
-    .from('cursos')
-    .select('cert_esquema_id')
-    .eq('id', c.curso_id)
-    .maybeSingle();
-  const esquemaId = data?.cert_esquema_id;
+
+  let esquemaId: string | null = null;
+  if (c.curso_id) {
+    const { data } = await supabase
+      .from('cursos')
+      .select('cert_esquema_id')
+      .eq('id', c.curso_id)
+      .maybeSingle();
+    esquemaId = data?.cert_esquema_id ?? null;
+  } else if ((c as { webinar_id?: string | null }).webinar_id) {
+    const { data } = await supabase
+      .from('webinars')
+      .select('cert_esquema_id')
+      .eq('id', (c as { webinar_id: string }).webinar_id)
+      .maybeSingle();
+    esquemaId = data?.cert_esquema_id ?? null;
+  }
   if (esquemaId) {
     const { data: e } = await supabase
       .from('certificado_esquemas')
@@ -1414,7 +1426,9 @@ export async function listCertificadosPorCurso(
     .eq('curso_id', cursoId);
   if (error) return fail('CERT_LIST', error.message, error);
   const acc: Record<string, CertificadoRow> = {};
-  for (const c of data ?? []) acc[c.matricula_id] = c;
+  for (const c of data ?? []) {
+    if (c.matricula_id) acc[c.matricula_id] = c;
+  }
   return ok(acc);
 }
 

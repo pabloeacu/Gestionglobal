@@ -1087,13 +1087,13 @@ export type Database = {
           alumno_profile_id: string
           codigo: string
           created_at: string
-          curso_id: string
+          curso_id: string | null
           emitido_at: string
           enviado_email_at: string | null
           esquema_snapshot: Json | null
           id: string
           instructor_nombre: string | null
-          matricula_id: string
+          matricula_id: string | null
           nota_examen: number | null
           payload_snapshot: Json
           pdf_storage_path: string | null
@@ -1102,19 +1102,20 @@ export type Database = {
           tema: number
           updated_at: string
           verificacion_hash: string
+          webinar_id: string | null
         }
         Insert: {
           administracion_id?: string | null
           alumno_profile_id: string
           codigo: string
           created_at?: string
-          curso_id: string
+          curso_id?: string | null
           emitido_at?: string
           enviado_email_at?: string | null
           esquema_snapshot?: Json | null
           id?: string
           instructor_nombre?: string | null
-          matricula_id: string
+          matricula_id?: string | null
           nota_examen?: number | null
           payload_snapshot?: Json
           pdf_storage_path?: string | null
@@ -1123,19 +1124,20 @@ export type Database = {
           tema?: number
           updated_at?: string
           verificacion_hash: string
+          webinar_id?: string | null
         }
         Update: {
           administracion_id?: string | null
           alumno_profile_id?: string
           codigo?: string
           created_at?: string
-          curso_id?: string
+          curso_id?: string | null
           emitido_at?: string
           enviado_email_at?: string | null
           esquema_snapshot?: Json | null
           id?: string
           instructor_nombre?: string | null
-          matricula_id?: string
+          matricula_id?: string | null
           nota_examen?: number | null
           payload_snapshot?: Json
           pdf_storage_path?: string | null
@@ -1144,6 +1146,7 @@ export type Database = {
           tema?: number
           updated_at?: string
           verificacion_hash?: string
+          webinar_id?: string | null
         }
         Relationships: [
           {
@@ -1172,6 +1175,13 @@ export type Database = {
             columns: ["matricula_id"]
             isOneToOne: true
             referencedRelation: "curso_matriculas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "certificados_webinar_id_fkey"
+            columns: ["webinar_id"]
+            isOneToOne: false
+            referencedRelation: "webinars"
             referencedColumns: ["id"]
           },
         ]
@@ -6793,6 +6803,14 @@ export type Database = {
         Args: { p_matricula_id: string }
         Returns: string
       }
+      emitir_certificado_webinar: {
+        Args: { p_profile_id: string; p_webinar_id: string }
+        Returns: string
+      }
+      emitir_certificados_webinar_lote: {
+        Args: { p_webinar_id: string }
+        Returns: number
+      }
       emitir_comprobante_manual: {
         Args: {
           p_administracion_id: string
@@ -7458,6 +7476,11 @@ export type Database = {
       reset_arca_jobs_colgados: {
         Args: { p_max_age_min?: number }
         Returns: number
+      }
+      resolver_esquema_curso: { Args: { p_curso_id: string }; Returns: Json }
+      resolver_esquema_webinar: {
+        Args: { p_webinar_id: string }
+        Returns: Json
       }
       resolver_precio_servicio: {
         Args: {

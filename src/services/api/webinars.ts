@@ -146,6 +146,30 @@ export async function eliminarWebinar(id: string): Promise<ApiResponse<true>> {
   }
 }
 
+// DGG-29 · emitir cert a un asistente del webinar
+export async function emitirCertificadoWebinar(
+  webinarId: string,
+  profileId: string,
+): Promise<ApiResponse<string>> {
+  const { data, error } = await supabase.rpc('emitir_certificado_webinar', {
+    p_webinar_id: webinarId,
+    p_profile_id: profileId,
+  });
+  if (error) return fail('CERT_WEBINAR_EMITIR', error.message, error);
+  return ok(data as string);
+}
+
+// DGG-29 · emite cert a todos los asistentes (con profile_id y asistio=true)
+export async function emitirCertificadosWebinarLote(
+  webinarId: string,
+): Promise<ApiResponse<number>> {
+  const { data, error } = await supabase.rpc('emitir_certificados_webinar_lote', {
+    p_webinar_id: webinarId,
+  });
+  if (error) return fail('CERT_WEBINAR_LOTE', error.message, error);
+  return ok((data as number) ?? 0);
+}
+
 export interface CrearReunionZoomInput {
   webinarId: string;
   hostEmail?: string;
