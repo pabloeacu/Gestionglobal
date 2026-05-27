@@ -58,8 +58,15 @@ async function esperarRecursos(node: HTMLElement): Promise<void> {
         }),
     ),
   );
-  // Un frame extra para que el layout de fuentes asiente.
-  await new Promise((r) => requestAnimationFrame(() => r(null)));
+  // Esperamos varios frames para que el layout (incluido position:absolute,
+  // svg, conic-gradient, drop-shadow filters) asiente completamente antes de
+  // que html2canvas snapshotee. Un solo frame puede ser insuficiente para
+  // que el browser rasterice las firmas/sello/franjas absolute.
+  for (let i = 0; i < 4; i++) {
+    await new Promise((r) => requestAnimationFrame(() => r(null)));
+  }
+  // Pequeña pausa adicional (browsers móviles tardan más en composición).
+  await new Promise((r) => setTimeout(r, 60));
 }
 
 export async function generateCertificadoPdf(
@@ -70,13 +77,19 @@ export async function generateCertificadoPdf(
   // El QR usa el color de acento del esquema (o navy neutro por default).
   const qrDataUrl = await generarQrDataUrl(url, esquema?.color_acento ?? '#0b1f33');
 
-  // Contenedor offscreen (visible para el navegador, fuera del viewport).
+  // Contenedor offscreen. Mantenemos el host en el flujo (top:0, left:0) y
+  // lo movemos fuera con `transform` — esto fuerza al browser a rasterizar
+  // todos los position:absolute / SVG / filters hijos correctamente
+  // (con position:fixed + left:-10000 algunos motores no aplican composición
+  // a hijos absolutos → la franja inferior y firmas salían recortadas).
   const host = document.createElement('div');
-  host.style.position = 'fixed';
-  host.style.left = '-10000px';
+  host.style.position = 'absolute';
   host.style.top = '0';
+  host.style.left = '0';
   host.style.width = `${CERT_W}px`;
   host.style.height = `${CERT_H}px`;
+  host.style.transform = 'translateX(-99999px)';
+  host.style.pointerEvents = 'none';
   host.style.zIndex = '-1';
   document.body.appendChild(host);
 
@@ -106,6 +119,12 @@ export async function generateCertificadoPdf(
       logging: false,
       width: CERT_W,
       height: CERT_H,
+      windowWidth: CERT_W,
+      windowHeight: CERT_H,
+      // Garantiza que html2canvas snapshotee TODO el árbol del cert sin
+      // depender del viewport real (que en mobile puede ser 390px y romper
+      // mediciones de elementos absolutos).
+      foreignObjectRendering: false,
     });
     const png = canvas.toDataURL('image/png');
 
