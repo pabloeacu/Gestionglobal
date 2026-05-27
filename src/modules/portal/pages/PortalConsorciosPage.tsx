@@ -218,13 +218,13 @@ function ConsorcioDetailModal({
   onClose: () => void;
 }) {
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-brand-ink/40 px-4 py-8 motion-safe:animate-fade-up">
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-brand-ink/40 px-4 py-6 motion-safe:animate-fade-up sm:items-center sm:py-8">
       <div
-        className="absolute inset-0"
+        className="fixed inset-0"
         onClick={onClose}
         aria-hidden
       />
-      <div className="relative w-full max-w-lg overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
+      <div className="relative my-auto w-full max-w-lg overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
         <div className="relative h-24 bg-gradient-to-br from-brand-cyan via-brand-cyan to-brand-teal">
           <TrianglesAccent
             position="top-right"

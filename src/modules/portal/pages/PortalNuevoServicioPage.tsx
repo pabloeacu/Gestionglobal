@@ -165,9 +165,7 @@ function ServicioCard({ f }: { f: ClienteFormularioCatalogItem }) {
   const tone = toneForCategoria(f.categoria);
   return (
     <Link
-      to={`/formulario/${f.slug}`}
-      target="_blank"
-      rel="noopener"
+      to={`/formulario/${f.slug}?origen=portal`}
       className="group flex h-full flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 transition hover:border-brand-cyan hover:shadow-md"
     >
       <div className="flex items-start gap-3">

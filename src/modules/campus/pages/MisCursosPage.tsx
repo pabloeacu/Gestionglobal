@@ -103,10 +103,10 @@ export function MisCursosPage() {
               {matriculas.map((m) => {
                 const r = progresos[m.id];
                 return (
-                  <li key={m.id}>
+                  <li key={m.id} className="min-w-0">
                     <Link
                       to={`/portal/campus/${m.curso?.slug ?? m.curso_id}`}
-                      className="group flex h-full flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-brand-cyan hover:shadow-md motion-safe:animate-fade-up"
+                      className="group flex h-full min-w-0 flex-col gap-3 overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-brand-cyan hover:shadow-md motion-safe:animate-fade-up"
                     >
                       <header className="flex items-start justify-between gap-2">
                         <div className="min-w-0">

@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { AlertCircle } from 'lucide-react';
+import { useParams, useSearchParams, Link } from 'react-router-dom';
+import { AlertCircle, ShieldCheck } from 'lucide-react';
 import { BrandLoader } from '@/components/brand/BrandLoader';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import { SiteNav } from '@/components/site/SiteNav';
 import { SiteFooter } from '@/components/site/SiteFooter';
 import { FormularioRunner } from '@/modules/public/components/FormularioRunner';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   getFormularioPorSlug,
   type FormularioRow,
@@ -13,6 +14,9 @@ import {
 
 export function FormularioPublicoPage() {
   const { slug } = useParams<{ slug: string }>();
+  const [params] = useSearchParams();
+  const desdePortal = params.get('origen') === 'portal';
+  const { user } = useAuth();
   const [formulario, setFormulario] = useState<FormularioRow | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -86,6 +90,19 @@ export function FormularioPublicoPage() {
           </header>
 
           <main className="mx-auto -mt-8 max-w-3xl px-6 pb-16 sm:pb-24">
+            {desdePortal && user && (
+              <div className="mb-4 flex items-start gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900 shadow-sm">
+                <ShieldCheck className="mt-0.5 shrink-0 text-emerald-600" size={18} />
+                <div className="min-w-0">
+                  <p className="font-semibold">
+                    Esta solicitud quedará vinculada a tu cuenta
+                  </p>
+                  <p className="mt-0.5 text-xs text-emerald-800/90">
+                    Hola <strong>{user.fullName || user.email}</strong>. Tus datos personales ya los tenemos registrados — solo completá lo que el formulario te pida específicamente. No vas a tener que volver a cargar tu nombre, email o DNI.
+                  </p>
+                </div>
+              </div>
+            )}
             <FormularioRunner formulario={formulario} />
 
             {formulario.textos_legales && (
