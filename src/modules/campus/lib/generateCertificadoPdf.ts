@@ -139,23 +139,21 @@ async function embedAssets(esquema: EsquemaCert | undefined): Promise<EsquemaCer
 }
 
 /**
- * Pre-fetchea el CSS de Google Fonts y reemplaza cada url(.woff2) por una
- * data: URL base64. El resultado se pasa como `fontEmbedCSS` a html-to-image
- * para que las fonts (Great Vibes, Cormorant Garamond, Inter, Sora) viajen
- * dentro del SVG foreignObject y queden disponibles durante el rasterizado.
+ * Pre-fetchea SOLO la fuente Great Vibes (el script font del nombre del
+ * alumno) como data: URL. El resto de las fonts (Inter, Sora, Cormorant
+ * Garamond) tienen fallbacks razonables del sistema y no justifican el costo
+ * de embed (Google Fonts devuelve ~30 archivos woff2 por familia × peso ×
+ * unicode-range subset = render de 10s+).
  *
- * Sin esto, el rasterizado cae al system font porque el browser no resuelve
- * @font-face dentro del foreignObject del SVG. Con esto, "María Test
- * Administradora" se ve en Great Vibes (script) tal cual el preview.
+ * Filtramos por `@font-face` que contengan "Great Vibes" y el subset latin
+ * (default cuando no se especifica unicode-range). El resultado se pasa
+ * como `fontEmbedCSS` a html-to-image para que "María Test" se vea en
+ * cursiva script (no en system fallback).
+ *
+ * Devuelve '' si algo falla → fallback a `skipFonts: true`.
  */
 async function buildFontEmbedCSS(): Promise<string> {
-  const fontsUrl =
-    'https://fonts.googleapis.com/css2?' +
-    'family=Inter:wght@400;500;600;700;800' +
-    '&family=Sora:wght@600;700;800' +
-    '&family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500;1,600' +
-    '&family=Great+Vibes' +
-    '&display=swap';
+  const fontsUrl = 'https://fonts.googleapis.com/css2?family=Great+Vibes&display=swap';
   try {
     const cssRes = await fetch(fontsUrl, { mode: 'cors' });
     if (!cssRes.ok) return '';
