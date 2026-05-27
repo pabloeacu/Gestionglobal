@@ -67,7 +67,7 @@ export function VerificarCertificadoPage() {
           <img
             src="/logo-h-white.png"
             alt="Gestión Global"
-            className="h-9 w-auto"
+            className="h-24 w-auto sm:h-28"
           />
           <div className="mt-6 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-medium text-white/90 backdrop-blur">
             <ShieldCheck size={14} /> Verificación pública de certificados
