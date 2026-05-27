@@ -31,6 +31,7 @@ export function AgregarLineaDrawer({
   const [estadoAsociado, setEstadoAsociado] = useState<string>('');
   const [archivosTxt, setArchivosTxt] = useState('');
   const [alertaEn, setAlertaEn] = useState('');
+  const [visibleCliente, setVisibleCliente] = useState(false);
   const [saving, setSaving] = useState(false);
 
   function reset() {
@@ -39,6 +40,7 @@ export function AgregarLineaDrawer({
     setEstadoAsociado('');
     setArchivosTxt('');
     setAlertaEn('');
+    setVisibleCliente(false);
   }
 
   async function handleSave() {
@@ -57,6 +59,7 @@ export function AgregarLineaDrawer({
       estado_asociado: permiteCambiarEstado && estadoAsociado ? estadoAsociado : null,
       archivos_urls: urls,
       alerta_en: alertaEn ? new Date(alertaEn).toISOString() : null,
+      visible_cliente: visibleCliente,
     });
     setSaving(false);
     if (!res.ok) {
@@ -124,6 +127,25 @@ export function AgregarLineaDrawer({
             className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-200"
           />
         </Field>
+
+        {/* ¿El cliente lo ve? — encola push + email al cliente con template
+            tracking-avance-cliente. Default false = nota interna. */}
+        <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-cyan-200 bg-cyan-50/50 p-3 text-sm hover:bg-cyan-50 transition-colors">
+          <input
+            type="checkbox"
+            checked={visibleCliente}
+            onChange={(e) => setVisibleCliente(e.target.checked)}
+            className="mt-0.5 h-4 w-4 cursor-pointer rounded border-slate-300 text-cyan-600 focus:ring-cyan-500"
+          />
+          <div className="flex-1">
+            <div className="font-semibold text-slate-800">¿El cliente lo ve?</div>
+            <div className="mt-0.5 text-xs leading-relaxed text-slate-600">
+              Si lo activás, esta línea aparece en el portal del cliente y le llega
+              <strong> aviso push + email</strong> al instante. Si lo dejás vacío,
+              queda como nota interna del equipo.
+            </div>
+          </div>
+        </label>
 
         <div className="flex justify-end gap-2 pt-2">
           <Button variant="ghost" onClick={onClose} disabled={saving}>

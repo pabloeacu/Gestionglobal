@@ -244,6 +244,7 @@ export interface AgregarLineaInput {
   estado_asociado?: string | null;
   archivos_urls?: string[];
   alerta_en?: string | null;  // ISO timestamptz
+  visible_cliente?: boolean;  // si true → encola email + push al cliente
 }
 
 export async function agregarLinea(
@@ -257,7 +258,8 @@ export async function agregarLinea(
     p_estado_asociado: input.estado_asociado ?? undefined,
     p_archivos_urls: input.archivos_urls ?? [],
     p_alerta_en: input.alerta_en ?? undefined,
-  });
+    p_visible_cliente: input.visible_cliente ?? false,
+  } as never);
   if (error) return fail('TRACKING_LINEA_ADD', error.message, error);
   return ok(data as string);
 }
