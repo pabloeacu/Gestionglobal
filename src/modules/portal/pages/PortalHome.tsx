@@ -27,6 +27,7 @@ import {
   AlertTriangle,
   ChevronRight,
   PlayCircle,
+  BellRing,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
@@ -109,6 +110,8 @@ export function PortalHome() {
         cursosCount={data.cursos_activos.length}
         tramitesCount={data.tramites_abiertos_count}
       />
+
+      {avancesNuevos > 0 && <AvancesNuevosBanner count={avancesNuevos} />}
 
       <HotCards
         claseHoy={data.clase_hoy}
@@ -339,7 +342,7 @@ function HotCard({
   }[tone];
 
   const linkContent = (
-    <div className={`group relative flex flex-col gap-3 overflow-hidden rounded-2xl p-4 ring-1 ring-inset transition sm:p-5 ${toneClasses}`}>
+    <div className={`group relative flex h-full flex-col gap-3 overflow-hidden rounded-2xl p-4 ring-1 ring-inset transition sm:p-5 ${toneClasses}`}>
       <div className="flex items-start gap-3">
         <div className={`grid h-11 w-11 flex-shrink-0 place-items-center rounded-xl ${iconClasses}`}>
           {icon}
@@ -358,9 +361,9 @@ function HotCard({
   );
 
   if (ctaExternal) {
-    return <a href={ctaHref} target="_blank" rel="noopener noreferrer" className="block">{linkContent}</a>;
+    return <a href={ctaHref} target="_blank" rel="noopener noreferrer" className="block h-full">{linkContent}</a>;
   }
-  return <Link to={ctaHref} className="block">{linkContent}</Link>;
+  return <Link to={ctaHref} className="block h-full">{linkContent}</Link>;
 }
 
 function iconForOportunidad(name: string): React.ReactNode {
@@ -580,4 +583,36 @@ function formatDateLong(iso: string): string {
 
 function formatDateShort(iso: string): string {
   return new Date(iso).toLocaleDateString('es-AR', { day: '2-digit', month: 'short' });
+}
+
+// =========================================================================
+// Banner destacado "Tenés X avances nuevos" — aparece arriba de las
+// HotCards cuando hay tracking_avances no leídos. Click → Mis gestiones.
+// Tono cyan (info positivo, no urgente como deuda).
+// =========================================================================
+function AvancesNuevosBanner({ count }: { count: number }) {
+  const plural = count > 1;
+  return (
+    <Link
+      to="/portal/gestiones"
+      className="group relative flex items-center gap-4 overflow-hidden rounded-2xl border border-cyan-200 bg-gradient-to-br from-cyan-50 via-white to-teal-50 p-4 shadow-sm ring-1 ring-cyan-100 transition hover:border-brand-cyan hover:shadow-md sm:p-5"
+    >
+      <span className="grid h-12 w-12 flex-shrink-0 place-items-center rounded-2xl bg-brand-cyan text-white shadow-sm">
+        <BellRing size={22} className="motion-safe:animate-[wiggle_1.2s_ease-in-out_infinite]" />
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="kicker text-brand-cyan">Tenés novedades</p>
+        <p className="font-display text-base font-bold leading-tight text-brand-ink sm:text-lg">
+          {count} {plural ? 'nuevos avances' : 'nuevo avance'} en tus gestiones
+        </p>
+        <p className="mt-0.5 line-clamp-2 text-xs text-brand-muted sm:text-sm">
+          Entrá a Mis gestiones para ver el detalle completo y los archivos adjuntos.
+        </p>
+      </div>
+      <ArrowRight
+        size={18}
+        className="shrink-0 text-brand-cyan transition group-hover:translate-x-1"
+      />
+    </Link>
+  );
 }

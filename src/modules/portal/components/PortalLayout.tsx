@@ -23,6 +23,7 @@ import {
 import { BrandMark } from '@/components/brand/BrandMark';
 import { IsoMark } from '@/components/brand/IsoMark';
 import { Tooltip } from '@/components/common/Tooltip';
+import { NotificationBell } from '@/components/common/NotificationBell';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSounds } from '@/contexts/SoundContext';
 import { getAdministracion } from '@/services/api/administraciones';
@@ -147,6 +148,10 @@ export function PortalLayout() {
           </div>
 
           <div className="relative flex items-center gap-3">
+            {/* Centro de notificaciones in-app (campana). Siempre visible.
+                Si hay no leídas, muestra badge. Click → dropdown con lista. */}
+            <NotificationBell />
+
             <button
               type="button"
               onClick={() => setMenuOpen((v) => !v)}
