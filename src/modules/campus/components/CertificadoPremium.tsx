@@ -257,7 +257,7 @@ function FranjaInferior({ tema }: { tema: Tema }) {
       width={CERT_W}
       height={130}
       viewBox={`0 0 ${CERT_W} 130`}
-      style={{ position: 'absolute', bottom: 0, left: 0, pointerEvents: 'none' }}
+      style={{ position: 'absolute', top: CERT_H - 130, left: 0, pointerEvents: 'none' }}
       aria-hidden
     >
       <defs>
@@ -628,11 +628,14 @@ export const CertificadoPremium = forwardRef<HTMLDivElement, CertificadoPremiumP
         </div>
 
         {/* ====== Firmas absolute (coordenadas estables, visibility por toggle) ====== */}
+        {/* Usamos top calculado en vez de bottom para evitar bug de html2canvas
+            con position:absolute + bottom (no rasteriza correctamente en algunos
+            motores y la franja inferior + footer quedan sin pintar al exportar PDF). */}
         <div
           style={{
             position: 'absolute',
             left: '50%',
-            bottom: 140,
+            top: CERT_H - 140 - 160, // 140 desde el fondo + ~160 de alto del bloque firmas
             transform: 'translateX(-50%)',
             display: 'flex',
             alignItems: 'flex-end',
@@ -662,12 +665,12 @@ export const CertificadoPremium = forwardRef<HTMLDivElement, CertificadoPremiumP
           </div>
         </div>
 
-        {/* ====== Sello holográfico: absolute, cruza la franja inferior ====== */}
+        {/* ====== Sello holográfico: absolute con top calculado (cruza la franja inferior) ====== */}
         <div
           style={{
             position: 'absolute',
             left: '50%',
-            bottom: 60,
+            top: CERT_H - 60 - 110, // 60 desde el fondo + 110 alto del sello
             transform: 'translateX(-50%)',
             zIndex: 4,
             visibility: esquema.visible_sello ? 'visible' : 'hidden',
@@ -681,7 +684,7 @@ export const CertificadoPremium = forwardRef<HTMLDivElement, CertificadoPremiumP
           style={{
             position: 'absolute',
             left: 36,
-            bottom: 28,
+            top: CERT_H - 28 - 24, // 28 desde el fondo + 24 alto del logo
             display: 'flex',
             alignItems: 'center',
             gap: 8,
@@ -700,7 +703,7 @@ export const CertificadoPremium = forwardRef<HTMLDivElement, CertificadoPremiumP
           style={{
             position: 'absolute',
             right: 36,
-            bottom: 24,
+            top: CERT_H - 24 - 60, // 24 desde el fondo + ~60 alto del bloque QR
             display: 'flex',
             alignItems: 'center',
             gap: 10,
