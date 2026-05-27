@@ -548,6 +548,12 @@ export const CertificadoPremium = forwardRef<HTMLDivElement, CertificadoPremiumP
               padding: '0 20px',
               maxWidth: '90%',
               textAlign: 'center',
+              // CRÍTICO para el PDF: si Great Vibes falla y cae al fallback
+              // (Brush Script MT / system cursive — más ancho), forzar 1 línea
+              // y altura fija para que NO se solape con el curso name de abajo.
+              whiteSpace: 'nowrap',
+              height: 76,
+              overflow: 'hidden',
             }}
           >
             {cert.alumno_nombre}
