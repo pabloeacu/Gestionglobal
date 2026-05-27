@@ -48,8 +48,11 @@ export const TEMAS_LEGACY_HEX: Record<number, { acento: string; dorado: string }
 };
 
 // Tipografías
+// SCRIPT cambió de Great Vibes (no rendereaba bien en PDF, fallback partía
+// en 2 líneas el nombre del alumno) a italic serif system-safe → siempre
+// renderiza igual sin importar fonts custom.
 const TITLE = "'Bebas Neue', 'Oswald', 'Impact', sans-serif";
-const SCRIPT = "'Great Vibes', 'Allura', 'Brush Script MT', cursive";
+const SCRIPT = "Georgia, 'Times New Roman', serif";
 const SANS = "'Inter', 'Sora', system-ui, sans-serif";
 const SERIF = "'Cormorant Garamond', 'Times New Roman', serif";
 
@@ -398,7 +401,7 @@ export const CertificadoPremium = forwardRef<HTMLDivElement, CertificadoPremiumP
     const tema = paletaFromEsquema(esquema);
 
     const partes: string[] = [];
-    if (cert.duracion_horas) partes.push(`${cert.duracion_horas} horas reloj`);
+    if (cert.duracion_horas) partes.push(`${cert.duracion_horas} horas`);
     if (cert.nota_examen !== null && cert.nota_examen !== undefined) {
       const nota = cert.nota_examen;
       const escala = nota <= 10 ? 10 : 100;
@@ -537,23 +540,25 @@ export const CertificadoPremium = forwardRef<HTMLDivElement, CertificadoPremiumP
             Otorgado a
           </div>
 
-          {/* ====== Nombre del alumno (script grande) ====== */}
+          {/* ====== Nombre del alumno (italic serif elegante) ====== */}
           <div
             style={{
               fontFamily: SCRIPT,
-              fontSize: 68,
+              fontStyle: 'italic',
+              fontSize: 54,
+              fontWeight: 600,
               color: tema.ink,
-              lineHeight: 1,
-              marginTop: 0,
-              padding: '0 20px',
-              maxWidth: '90%',
+              lineHeight: 1.1,
+              marginTop: 4,
+              padding: '0 40px',
               textAlign: 'center',
-              // CRÍTICO para el PDF: si Great Vibes falla y cae al fallback
-              // (Brush Script MT / system cursive — más ancho), forzar 1 línea
-              // y altura fija para que NO se solape con el curso name de abajo.
+              // Garantiza una sola línea aún si el nombre es largo
               whiteSpace: 'nowrap',
-              height: 76,
               overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              letterSpacing: 0.5,
+              width: '100%',
+              boxSizing: 'border-box',
             }}
           >
             {cert.alumno_nombre}
@@ -612,7 +617,7 @@ export const CertificadoPremium = forwardRef<HTMLDivElement, CertificadoPremiumP
             {esquema.leyenda_legal}
           </div>
 
-          {/* ====== Fecha (mes y año) ====== */}
+          {/* ====== Fecha (mes y año) — 1 línea garantizada ====== */}
           <div
             style={{
               fontFamily: SERIF,
@@ -621,6 +626,7 @@ export const CertificadoPremium = forwardRef<HTMLDivElement, CertificadoPremiumP
               fontWeight: 600,
               color: tema.ink,
               marginTop: 6,
+              whiteSpace: 'nowrap',
             }}
           >
             {fechaLargaMes(cert.emitido_at)}
