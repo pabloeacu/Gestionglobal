@@ -985,6 +985,102 @@ export type Database = {
         }
         Relationships: []
       }
+      certificado_esquemas: {
+        Row: {
+          color_acento: string
+          color_dorado: string
+          created_at: string
+          created_by: string | null
+          descripcion: string | null
+          es_default: boolean
+          firma_1_cargo: string
+          firma_1_img_url: string | null
+          firma_1_nombre: string
+          firma_2_cargo: string
+          firma_2_img_url: string | null
+          firma_2_nombre: string
+          id: string
+          leyenda_legal: string
+          marca_logo_url: string | null
+          nombre: string
+          sello_logo_url: string | null
+          sigla_texto: string
+          texto_descriptivo: string
+          updated_at: string
+          visible_firma_1: boolean
+          visible_firma_2: boolean
+          visible_leyenda_legal: boolean
+          visible_marca_logo: boolean
+          visible_sello: boolean
+          visible_sigla: boolean
+          visible_texto_descriptivo: boolean
+          visible_watermark: boolean
+          watermark_url: string | null
+        }
+        Insert: {
+          color_acento?: string
+          color_dorado?: string
+          created_at?: string
+          created_by?: string | null
+          descripcion?: string | null
+          es_default?: boolean
+          firma_1_cargo?: string
+          firma_1_img_url?: string | null
+          firma_1_nombre?: string
+          firma_2_cargo?: string
+          firma_2_img_url?: string | null
+          firma_2_nombre?: string
+          id?: string
+          leyenda_legal?: string
+          marca_logo_url?: string | null
+          nombre: string
+          sello_logo_url?: string | null
+          sigla_texto?: string
+          texto_descriptivo?: string
+          updated_at?: string
+          visible_firma_1?: boolean
+          visible_firma_2?: boolean
+          visible_leyenda_legal?: boolean
+          visible_marca_logo?: boolean
+          visible_sello?: boolean
+          visible_sigla?: boolean
+          visible_texto_descriptivo?: boolean
+          visible_watermark?: boolean
+          watermark_url?: string | null
+        }
+        Update: {
+          color_acento?: string
+          color_dorado?: string
+          created_at?: string
+          created_by?: string | null
+          descripcion?: string | null
+          es_default?: boolean
+          firma_1_cargo?: string
+          firma_1_img_url?: string | null
+          firma_1_nombre?: string
+          firma_2_cargo?: string
+          firma_2_img_url?: string | null
+          firma_2_nombre?: string
+          id?: string
+          leyenda_legal?: string
+          marca_logo_url?: string | null
+          nombre?: string
+          sello_logo_url?: string | null
+          sigla_texto?: string
+          texto_descriptivo?: string
+          updated_at?: string
+          visible_firma_1?: boolean
+          visible_firma_2?: boolean
+          visible_leyenda_legal?: boolean
+          visible_marca_logo?: boolean
+          visible_sello?: boolean
+          visible_sigla?: boolean
+          visible_texto_descriptivo?: boolean
+          visible_watermark?: boolean
+          watermark_url?: string | null
+        }
+        Relationships: []
+      }
       certificados: {
         Row: {
           administracion_id: string | null
@@ -994,6 +1090,7 @@ export type Database = {
           curso_id: string
           emitido_at: string
           enviado_email_at: string | null
+          esquema_snapshot: Json | null
           id: string
           instructor_nombre: string | null
           matricula_id: string
@@ -1014,6 +1111,7 @@ export type Database = {
           curso_id: string
           emitido_at?: string
           enviado_email_at?: string | null
+          esquema_snapshot?: Json | null
           id?: string
           instructor_nombre?: string | null
           matricula_id: string
@@ -1034,6 +1132,7 @@ export type Database = {
           curso_id?: string
           emitido_at?: string
           enviado_email_at?: string | null
+          esquema_snapshot?: Json | null
           id?: string
           instructor_nombre?: string | null
           matricula_id?: string
@@ -2213,6 +2312,8 @@ export type Database = {
           activo: boolean
           banner_url: string | null
           categoria: string | null
+          cert_emite_auto: boolean
+          cert_esquema_id: string | null
           created_at: string
           created_by: string | null
           cupo_max: number | null
@@ -2238,6 +2339,8 @@ export type Database = {
           activo?: boolean
           banner_url?: string | null
           categoria?: string | null
+          cert_emite_auto?: boolean
+          cert_esquema_id?: string | null
           created_at?: string
           created_by?: string | null
           cupo_max?: number | null
@@ -2263,6 +2366,8 @@ export type Database = {
           activo?: boolean
           banner_url?: string | null
           categoria?: string | null
+          cert_emite_auto?: boolean
+          cert_esquema_id?: string | null
           created_at?: string
           created_by?: string | null
           cupo_max?: number | null
@@ -2285,6 +2390,13 @@ export type Database = {
           vigencia_meses?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "cursos_cert_esquema_id_fkey"
+            columns: ["cert_esquema_id"]
+            isOneToOne: false
+            referencedRelation: "certificado_esquemas"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "cursos_created_by_fkey"
             columns: ["created_by"]
@@ -5909,6 +6021,8 @@ export type Database = {
       }
       webinars: {
         Row: {
+          cert_emite: boolean
+          cert_esquema_id: string | null
           creado_por: string | null
           created_at: string
           cupo_zoom: number | null
@@ -5935,6 +6049,8 @@ export type Database = {
           zoom_start_url: string | null
         }
         Insert: {
+          cert_emite?: boolean
+          cert_esquema_id?: string | null
           creado_por?: string | null
           created_at?: string
           cupo_zoom?: number | null
@@ -5961,6 +6077,8 @@ export type Database = {
           zoom_start_url?: string | null
         }
         Update: {
+          cert_emite?: boolean
+          cert_esquema_id?: string | null
           creado_por?: string | null
           created_at?: string
           cupo_zoom?: number | null
@@ -5987,6 +6105,13 @@ export type Database = {
           zoom_start_url?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "webinars_cert_esquema_id_fkey"
+            columns: ["cert_esquema_id"]
+            isOneToOne: false
+            referencedRelation: "certificado_esquemas"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "webinars_formulario_id_fkey"
             columns: ["formulario_id"]

@@ -38,51 +38,13 @@ interface Tema {
   goldSoft: string;
 }
 
-const TEMAS: Record<number, Tema> = {
-  // 1 · Navy + dorado (default · Curso de Formación / Integral)
-  1: {
-    accent: '#0b1f33',
-    accentDeep: '#06121f',
-    accentLight: '#1a3a5c',
-    ink: '#0f172a',
-    inkSoft: '#475569',
-    gold: '#c9a961',
-    goldDeep: '#8a6e35',
-    goldSoft: '#e8d6a6',
-  },
-  // 2 · Dorado profundo (Actualización 2024)
-  2: {
-    accent: '#5c440e',
-    accentDeep: '#3d2c08',
-    accentLight: '#8a6a1d',
-    ink: '#0f172a',
-    inkSoft: '#475569',
-    gold: '#c9a961',
-    goldDeep: '#8a6e35',
-    goldSoft: '#e8d6a6',
-  },
-  // 3 · Cyan / teal (Actualización 2025)
-  3: {
-    accent: '#0d4a5c',
-    accentDeep: '#072d3a',
-    accentLight: '#1b9da8',
-    ink: '#0f172a',
-    inkSoft: '#475569',
-    gold: '#c9a961',
-    goldDeep: '#8a6e35',
-    goldSoft: '#e8d6a6',
-  },
-  // 4 · Violeta (Actualización 2026)
-  4: {
-    accent: '#3a205c',
-    accentDeep: '#21113b',
-    accentLight: '#6d40a8',
-    ink: '#0f172a',
-    inkSoft: '#475569',
-    gold: '#c9a961',
-    goldDeep: '#8a6e35',
-    goldSoft: '#e8d6a6',
-  },
+// Legacy: los 4 temas predefinidos quedan disponibles para sandbox/compatibilidad
+// pero la fuente de verdad es ahora el esquema (color_acento + color_dorado).
+export const TEMAS_LEGACY_HEX: Record<number, { acento: string; dorado: string }> = {
+  1: { acento: '#0b1f33', dorado: '#c9a961' },  // Navy + dorado
+  2: { acento: '#5c440e', dorado: '#c9a961' },  // Dorado profundo
+  3: { acento: '#0d4a5c', dorado: '#c9a961' },  // Cyan/teal
+  4: { acento: '#3a205c', dorado: '#c9a961' },  // Violeta
 };
 
 // Tipografías
@@ -98,19 +60,128 @@ function fechaLargaMes(iso: string): string {
   return `${meses[d.getMonth()]} de ${d.getFullYear()}`;
 }
 
-// Defaults institucionales (mientras no estén configurables por curso)
-const DEFAULT_MARCA_TITULO = 'FU.DE.CO.IN.';
-const DEFAULT_MARCA_LOGO = '/cert/logo-fundplata.png';
-const DEFAULT_FIRMA1_IMG = '/cert/firma-acuna.png';
-const DEFAULT_FIRMA1_NOMBRE = 'Dr. Pablo E. Acuña';
-const DEFAULT_FIRMA1_CARGO = 'Coordinador Académico';
-const DEFAULT_FIRMA2_IMG = '/cert/firma-parente.png';
-const DEFAULT_FIRMA2_NOMBRE = 'Pablo M. Parente';
-const DEFAULT_FIRMA2_CARGO = 'Presidente · FU.DE.CO.IN.';
+// ============================================================================
+// Esquema · derivación editable de la plantilla base (DGG-29)
+// Cada esquema se vincula a 0..N cursos/webinars desde el editor.
+// ============================================================================
+export interface EsquemaCert {
+  // Paleta
+  color_acento: string;          // HEX, ej '#0b1f33'
+  color_dorado: string;          // HEX, ej '#c9a961'
 
-const LEYENDA_LEGAL =
-  'Certificado emitido conforme a la habilitación de FU.DE.CO.IN., Ley N.° 14.701, ' +
-  'Decreto N.° 1734/22 y Disposición N.° 27/23. Organizado por Gestión Global.';
+  // Logo emisor
+  visible_marca_logo: boolean;
+  marca_logo_url: string | null;
+
+  // Sigla institucional
+  visible_sigla: boolean;
+  sigla_texto: string;
+
+  // Texto descriptivo
+  visible_texto_descriptivo: boolean;
+  texto_descriptivo: string;
+
+  // Leyenda legal
+  visible_leyenda_legal: boolean;
+  leyenda_legal: string;
+
+  // Firma 1
+  visible_firma_1: boolean;
+  firma_1_img_url: string | null;
+  firma_1_nombre: string;
+  firma_1_cargo: string;
+
+  // Firma 2
+  visible_firma_2: boolean;
+  firma_2_img_url: string | null;
+  firma_2_nombre: string;
+  firma_2_cargo: string;
+
+  // Sello
+  visible_sello: boolean;
+  sello_logo_url: string | null;
+
+  // Watermark
+  visible_watermark: boolean;
+  watermark_url: string | null;
+}
+
+// Esquema default — reproduce el certificado hardcoded original (FU.DE.CO.IN.).
+export const ESQUEMA_DEFAULT: EsquemaCert = {
+  color_acento: '#0b1f33',
+  color_dorado: '#c9a961',
+  visible_marca_logo: true,
+  marca_logo_url: '/cert/logo-fundplata.png',
+  visible_sigla: true,
+  sigla_texto: 'FU.DE.CO.IN.',
+  visible_texto_descriptivo: true,
+  texto_descriptivo: 'por haber completado y aprobado satisfactoriamente el curso',
+  visible_leyenda_legal: true,
+  leyenda_legal:
+    'Certificado emitido conforme a la habilitación de FU.DE.CO.IN., Ley N.° 14.701, ' +
+    'Decreto N.° 1734/22 y Disposición N.° 27/23. Organizado por Gestión Global.',
+  visible_firma_1: true,
+  firma_1_img_url: '/cert/firma-acuna.png',
+  firma_1_nombre: 'Dr. Pablo E. Acuña',
+  firma_1_cargo: 'Coordinador Académico',
+  visible_firma_2: true,
+  firma_2_img_url: '/cert/firma-parente.png',
+  firma_2_nombre: 'Pablo M. Parente',
+  firma_2_cargo: 'Presidente · FU.DE.CO.IN.',
+  visible_sello: true,
+  sello_logo_url: '/logo-white.png',
+  visible_watermark: true,
+  watermark_url: '/cert/logo-fondo.png',
+};
+
+// ============================================================================
+// Derivación de paleta desde HEX (HSL manipulation)
+// ============================================================================
+function hexToHsl(hex: string): [number, number, number] {
+  const h = hex.replace('#', '');
+  const r = parseInt(h.slice(0, 2), 16) / 255;
+  const g = parseInt(h.slice(2, 4), 16) / 255;
+  const b = parseInt(h.slice(4, 6), 16) / 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  let hue = 0, sat = 0;
+  const lum = (max + min) / 2;
+  if (max !== min) {
+    const d = max - min;
+    sat = lum > 0.5 ? d / (2 - max - min) : d / (max + min);
+    switch (max) {
+      case r: hue = ((g - b) / d + (g < b ? 6 : 0)) / 6; break;
+      case g: hue = ((b - r) / d + 2) / 6; break;
+      case b: hue = ((r - g) / d + 4) / 6; break;
+    }
+  }
+  return [hue * 360, sat * 100, lum * 100];
+}
+
+function hslToHex(h: number, s: number, l: number): string {
+  l = Math.max(0, Math.min(100, l)) / 100;
+  const a = (s / 100) * Math.min(l, 1 - l);
+  const f = (n: number) => {
+    const k = (n + h / 30) % 12;
+    const c = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+    return Math.round(c * 255).toString(16).padStart(2, '0');
+  };
+  return `#${f(0)}${f(8)}${f(4)}`;
+}
+
+function paletaFromEsquema(esquema: EsquemaCert): Tema {
+  const [h, s, l] = hexToHsl(esquema.color_acento);
+  const [gh, gs, gl] = hexToHsl(esquema.color_dorado);
+  return {
+    accent: esquema.color_acento,
+    accentDeep: hslToHex(h, s, Math.max(l - 8, 4)),
+    accentLight: hslToHex(h, Math.max(s - 5, 0), Math.min(l + 18, 55)),
+    ink: '#0f172a',
+    inkSoft: '#475569',
+    gold: esquema.color_dorado,
+    goldDeep: hslToHex(gh, gs, Math.max(gl - 18, 12)),
+    goldSoft: hslToHex(gh, Math.max(gs - 5, 0), Math.min(gl + 18, 88)),
+  };
+}
 
 // ============================================================================
 // Franja superior · navy con recortes angulares + línea dorada
@@ -229,7 +300,7 @@ function FranjaInferior({ tema }: { tema: Tema }) {
 // ============================================================================
 // Sello dorado holográfico central (CSS/SVG inline)
 // ============================================================================
-function SelloHolografico({ tema }: { tema: Tema }) {
+function SelloHolografico({ tema, logoUrl }: { tema: Tema; logoUrl: string }) {
   return (
     <div style={{ position: 'relative', width: 110, height: 110 }}>
       {/* Anillo exterior dorado metálico (gradient conic simula facetas) */}
@@ -280,7 +351,7 @@ function SelloHolografico({ tema }: { tema: Tema }) {
         }}
       >
         <img
-          src="/logo-white.png"
+          src={logoUrl}
           alt=""
           crossOrigin="anonymous"
           style={{
@@ -315,11 +386,17 @@ export interface CertificadoPremiumProps {
   cert: CertificadoParaPdf;
   qrDataUrl: string | null;
   verificarUrl: string;
+  // Esquema editable — si no se pasa, usa ESQUEMA_DEFAULT (institucional).
+  // En producción se cablea desde el curso/webinar vinculado.
+  esquema?: EsquemaCert;
 }
 
 export const CertificadoPremium = forwardRef<HTMLDivElement, CertificadoPremiumProps>(
-  function CertificadoPremium({ cert, qrDataUrl, verificarUrl }, ref) {
-    const tema = TEMAS[cert.tema] ?? TEMAS[1]!;
+  function CertificadoPremium({ cert, qrDataUrl, verificarUrl, esquema = ESQUEMA_DEFAULT }, ref) {
+    // La paleta se deriva del color_acento + color_dorado del esquema.
+    // El cert.tema (legacy) se ignora cuando hay esquema.
+    const tema = paletaFromEsquema(esquema);
+
     const partes: string[] = [];
     if (cert.duracion_horas) partes.push(`${cert.duracion_horas} horas reloj`);
     if (cert.nota_examen !== null && cert.nota_examen !== undefined) {
@@ -328,16 +405,12 @@ export const CertificadoPremium = forwardRef<HTMLDivElement, CertificadoPremiumP
       partes.push(`Calificación ${nota}/${escala}`);
     }
 
-    // Variables del modelo (defaults institucionales — Paso 2 las hace
-    // configurables por curso).
-    const marcaTitulo = DEFAULT_MARCA_TITULO;
-    const marcaLogo = DEFAULT_MARCA_LOGO;
-    const firma1Img = DEFAULT_FIRMA1_IMG;
-    const firma1Nombre = DEFAULT_FIRMA1_NOMBRE;
-    const firma1Cargo = DEFAULT_FIRMA1_CARGO;
-    const firma2Img = DEFAULT_FIRMA2_IMG;
-    const firma2Nombre = DEFAULT_FIRMA2_NOMBRE;
-    const firma2Cargo = DEFAULT_FIRMA2_CARGO;
+    // Resolver URLs (null → no se muestra el bloque si visible=false, igual)
+    const marcaLogo = esquema.marca_logo_url ?? ESQUEMA_DEFAULT.marca_logo_url!;
+    const firma1Img = esquema.firma_1_img_url ?? ESQUEMA_DEFAULT.firma_1_img_url!;
+    const firma2Img = esquema.firma_2_img_url ?? ESQUEMA_DEFAULT.firma_2_img_url!;
+    const watermarkUrl = esquema.watermark_url ?? ESQUEMA_DEFAULT.watermark_url!;
+    const selloLogoUrl = esquema.sello_logo_url ?? ESQUEMA_DEFAULT.sello_logo_url!;
 
     return (
       <div
@@ -353,22 +426,24 @@ export const CertificadoPremium = forwardRef<HTMLDivElement, CertificadoPremiumP
         }}
       >
         {/* Marca de agua del isologo grande (centro, opacidad baja) */}
-        <img
-          src="/cert/logo-fondo.png"
-          alt=""
-          crossOrigin="anonymous"
-          style={{
-            position: 'absolute',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-            width: 580,
-            height: 'auto',
-            opacity: 0.06,
-            pointerEvents: 'none',
-          }}
-          aria-hidden
-        />
+        {esquema.visible_watermark && (
+          <img
+            src={watermarkUrl}
+            alt=""
+            crossOrigin="anonymous"
+            style={{
+              position: 'absolute',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              width: 580,
+              height: 'auto',
+              opacity: 0.06,
+              pointerEvents: 'none',
+            }}
+            aria-hidden
+          />
+        )}
 
         {/* Franjas superior e inferior */}
         <FranjaSuperior tema={tema} />
@@ -387,23 +462,25 @@ export const CertificadoPremium = forwardRef<HTMLDivElement, CertificadoPremiumP
             alignItems: 'center',
           }}
         >
-          {/* ====== Logo emisor + sigla institucional ====== */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 18,
-              marginBottom: 0,
-            }}
-          >
-            <img
-              src={marcaLogo}
-              alt=""
-              crossOrigin="anonymous"
-              style={{ height: 110, width: 'auto', objectFit: 'contain' }}
-            />
-          </div>
+          {/* ====== Logo emisor ====== */}
+          {esquema.visible_marca_logo && (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 18,
+                marginBottom: 0,
+              }}
+            >
+              <img
+                src={marcaLogo}
+                alt=""
+                crossOrigin="anonymous"
+                style={{ height: 110, width: 'auto', objectFit: 'contain' }}
+              />
+            </div>
+          )}
 
           {/* ====== Título "CERTIFICADO" ====== */}
           <div
@@ -421,32 +498,34 @@ export const CertificadoPremium = forwardRef<HTMLDivElement, CertificadoPremiumP
           </div>
 
           {/* ====== Sigla institucional con líneas doradas ====== */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 16,
-              marginTop: 0,
-              marginBottom: 10,
-              width: 540,
-            }}
-          >
-            <div style={{ flex: 1, height: 1, background: tema.gold }} />
+          {esquema.visible_sigla && (
             <div
               style={{
-                fontFamily: SERIF,
-                fontSize: 18,
-                fontWeight: 600,
-                letterSpacing: 5,
-                color: tema.accent,
-                whiteSpace: 'nowrap',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 16,
+                marginTop: 0,
+                marginBottom: 10,
+                width: 540,
               }}
             >
-              {marcaTitulo}
+              <div style={{ flex: 1, height: 1, background: tema.gold }} />
+              <div
+                style={{
+                  fontFamily: SERIF,
+                  fontSize: 18,
+                  fontWeight: 600,
+                  letterSpacing: 5,
+                  color: tema.accent,
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {esquema.sigla_texto}
+              </div>
+              <div style={{ flex: 1, height: 1, background: tema.gold }} />
             </div>
-            <div style={{ flex: 1, height: 1, background: tema.gold }} />
-          </div>
+          )}
 
           {/* ====== Otorgado a ====== */}
           <div
@@ -478,18 +557,20 @@ export const CertificadoPremium = forwardRef<HTMLDivElement, CertificadoPremiumP
           </div>
 
           {/* ====== Texto descriptivo ====== */}
-          <div
-            style={{
-              fontSize: 13,
-              color: tema.inkSoft,
-              marginTop: 10,
-              textAlign: 'center',
-              maxWidth: 720,
-              lineHeight: 1.5,
-            }}
-          >
-            por haber completado y aprobado satisfactoriamente el curso
-          </div>
+          {esquema.visible_texto_descriptivo && (
+            <div
+              style={{
+                fontSize: 13,
+                color: tema.inkSoft,
+                marginTop: 10,
+                textAlign: 'center',
+                maxWidth: 720,
+                lineHeight: 1.5,
+              }}
+            >
+              {esquema.texto_descriptivo}
+            </div>
+          )}
 
           {/* ====== Nombre del curso ====== */}
           <div
@@ -510,21 +591,23 @@ export const CertificadoPremium = forwardRef<HTMLDivElement, CertificadoPremiumP
           </div>
 
           {/* ====== Leyenda legal (debajo del curso, antes de la fecha) ====== */}
-          <div
-            style={{
-              fontFamily: SERIF,
-              fontStyle: 'italic',
-              fontSize: 11,
-              color: tema.inkSoft,
-              maxWidth: 780,
-              textAlign: 'center',
-              lineHeight: 1.45,
-              marginTop: 8,
-              opacity: 0.95,
-            }}
-          >
-            {LEYENDA_LEGAL}
-          </div>
+          {esquema.visible_leyenda_legal && (
+            <div
+              style={{
+                fontFamily: SERIF,
+                fontStyle: 'italic',
+                fontSize: 11,
+                color: tema.inkSoft,
+                maxWidth: 780,
+                textAlign: 'center',
+                lineHeight: 1.45,
+                marginTop: 8,
+                opacity: 0.95,
+              }}
+            >
+              {esquema.leyenda_legal}
+            </div>
+          )}
 
           {/* ====== Fecha (mes y año) ====== */}
           <div
@@ -548,48 +631,60 @@ export const CertificadoPremium = forwardRef<HTMLDivElement, CertificadoPremiumP
         </div>
 
         {/* ====== Firmas absolute (no afectadas por overflow del contenido) ====== */}
-        <div
-          style={{
-            position: 'absolute',
-            left: '50%',
-            bottom: 140,
-            transform: 'translateX(-50%)',
-            display: 'flex',
-            alignItems: 'flex-end',
-            justifyContent: 'space-between',
-            width: '100%',
-            maxWidth: 900,
-            zIndex: 3,
-          }}
-        >
-          <Firma
-            tema={tema}
-            imgSrc={firma1Img}
-            nombre={firma1Nombre}
-            cargo={firma1Cargo}
-          />
-          {/* Hueco central donde encaja el sello (absolute) */}
-          <div style={{ width: 160 }} aria-hidden />
-          <Firma
-            tema={tema}
-            imgSrc={firma2Img}
-            nombre={firma2Nombre}
-            cargo={firma2Cargo}
-          />
-        </div>
+        {(esquema.visible_firma_1 || esquema.visible_firma_2) && (
+          <div
+            style={{
+              position: 'absolute',
+              left: '50%',
+              bottom: 140,
+              transform: 'translateX(-50%)',
+              display: 'flex',
+              alignItems: 'flex-end',
+              justifyContent: 'space-between',
+              width: '100%',
+              maxWidth: 900,
+              zIndex: 3,
+            }}
+          >
+            {esquema.visible_firma_1 ? (
+              <Firma
+                tema={tema}
+                imgSrc={firma1Img}
+                nombre={esquema.firma_1_nombre}
+                cargo={esquema.firma_1_cargo}
+              />
+            ) : (
+              <div style={{ width: 340 }} aria-hidden />
+            )}
+            {/* Hueco central donde encaja el sello (absolute) */}
+            <div style={{ width: 160 }} aria-hidden />
+            {esquema.visible_firma_2 ? (
+              <Firma
+                tema={tema}
+                imgSrc={firma2Img}
+                nombre={esquema.firma_2_nombre}
+                cargo={esquema.firma_2_cargo}
+              />
+            ) : (
+              <div style={{ width: 340 }} aria-hidden />
+            )}
+          </div>
+        )}
 
         {/* ====== Sello holográfico: absolute, cruza la franja inferior ====== */}
-        <div
-          style={{
-            position: 'absolute',
-            left: '50%',
-            bottom: 60,
-            transform: 'translateX(-50%)',
-            zIndex: 4,
-          }}
-        >
-          <SelloHolografico tema={tema} />
-        </div>
+        {esquema.visible_sello && (
+          <div
+            style={{
+              position: 'absolute',
+              left: '50%',
+              bottom: 60,
+              transform: 'translateX(-50%)',
+              zIndex: 4,
+            }}
+          >
+            <SelloHolografico tema={tema} logoUrl={selloLogoUrl} />
+          </div>
+        )}
 
         {/* ====== Pie absoluto: logo GG izquierda + QR derecha ====== */}
         <div
