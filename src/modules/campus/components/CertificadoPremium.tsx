@@ -381,7 +381,7 @@ export const CertificadoPremium = forwardRef<HTMLDivElement, CertificadoPremiumP
             width: '100%',
             height: '100%',
             boxSizing: 'border-box',
-            padding: '70px 90px 200px',
+            padding: '70px 90px 220px',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
@@ -676,20 +676,20 @@ function Firma({
   cargo: string;
 }) {
   return (
-    <div style={{ width: 280, textAlign: 'center', position: 'relative' }}>
+    <div style={{ width: 340, textAlign: 'center', position: 'relative' }}>
       {/* Imagen de firma (escaneada) */}
-      <div style={{ height: 77, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+      <div style={{ height: 154, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
         <img
           src={imgSrc}
           alt=""
           crossOrigin="anonymous"
-          style={{ maxHeight: 77, maxWidth: 216, objectFit: 'contain' }}
+          style={{ maxHeight: 154, maxWidth: 320, objectFit: 'contain' }}
         />
       </div>
       {/* Línea de firma */}
       <div
         style={{
-          width: 240,
+          width: 280,
           height: 1,
           background: tema.ink,
           margin: '4px auto 6px',
