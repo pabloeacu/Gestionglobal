@@ -17,6 +17,7 @@ export { CursoEditorPage } from './pages/CursoEditorPage';
 export { CursoDetalleAlumnoPage } from './pages/CursoDetalleAlumnoPage';
 export { MisCursosPage } from './pages/MisCursosPage';
 export { VerificarCertificadoPage } from './pages/VerificarCertificadoPage';
+export { CertificadoSandboxPage } from './pages/CertificadoSandboxPage';
 
 export { CursoCard } from './components/CursoCard';
 export { ClasePlayer } from './components/ClasePlayer';
