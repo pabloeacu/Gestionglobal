@@ -55,8 +55,19 @@ async function urlToDataUrl(url: string | null | undefined): Promise<string | nu
   if (!url) return null;
   // Ya es data URL → no hacer nada
   if (url.startsWith('data:')) return url;
+  // Detectar same-origin vs cross-origin
+  const isSameOrigin =
+    url.startsWith('/') ||
+    (url.startsWith('http') &&
+      typeof window !== 'undefined' &&
+      new URL(url, window.location.href).origin === window.location.origin);
+  // CRÍTICO: same-origin necesita 'include' para pasar el security checkpoint
+  // de Vercel (sin cookies devuelve 403). cross-origin queda en 'omit'.
+  const init: RequestInit = isSameOrigin
+    ? { credentials: 'include' }
+    : { mode: 'cors', credentials: 'omit' };
   try {
-    const res = await fetch(url, { mode: 'cors', credentials: 'omit' });
+    const res = await fetch(url, init);
     if (!res.ok) return null;
     const blob = await res.blob();
     return await new Promise<string>((resolve, reject) => {
@@ -224,7 +235,9 @@ export async function generateCertificadoPdf(
       pixelRatio: 3,
       cacheBust: true,
       skipFonts: true,
-      fetchRequestInit: { mode: 'cors', credentials: 'omit' },
+      // credentials:'include' para pasar el security checkpoint de Vercel
+      // en fetches same-origin (si quedó algún <img> sin pre-embed).
+      fetchRequestInit: { credentials: 'include' },
     });
 
     const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
