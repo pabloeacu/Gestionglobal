@@ -381,7 +381,7 @@ export const CertificadoPremium = forwardRef<HTMLDivElement, CertificadoPremiumP
             width: '100%',
             height: '100%',
             boxSizing: 'border-box',
-            padding: '110px 90px 230px',
+            padding: '70px 90px 200px',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
@@ -394,14 +394,14 @@ export const CertificadoPremium = forwardRef<HTMLDivElement, CertificadoPremiumP
               alignItems: 'center',
               justifyContent: 'center',
               gap: 18,
-              marginBottom: 14,
+              marginBottom: 0,
             }}
           >
             <img
               src={marcaLogo}
               alt=""
               crossOrigin="anonymous"
-              style={{ height: 156, width: 'auto', objectFit: 'contain' }}
+              style={{ height: 140, width: 'auto', objectFit: 'contain' }}
             />
           </div>
 
@@ -409,12 +409,12 @@ export const CertificadoPremium = forwardRef<HTMLDivElement, CertificadoPremiumP
           <div
             style={{
               fontFamily: TITLE,
-              fontSize: 92,
+              fontSize: 76,
               fontWeight: 400,
-              letterSpacing: 8,
+              letterSpacing: 6,
               color: tema.ink,
               lineHeight: 1,
-              marginBottom: 4,
+              marginBottom: 2,
             }}
           >
             CERTIFICADO
@@ -427,8 +427,8 @@ export const CertificadoPremium = forwardRef<HTMLDivElement, CertificadoPremiumP
               alignItems: 'center',
               justifyContent: 'center',
               gap: 16,
-              marginTop: 2,
-              marginBottom: 16,
+              marginTop: 0,
+              marginBottom: 10,
               width: 540,
             }}
           >
@@ -455,7 +455,7 @@ export const CertificadoPremium = forwardRef<HTMLDivElement, CertificadoPremiumP
               letterSpacing: 4,
               color: tema.inkSoft,
               textTransform: 'uppercase',
-              marginBottom: 4,
+              marginBottom: 2,
             }}
           >
             Otorgado a
@@ -465,10 +465,10 @@ export const CertificadoPremium = forwardRef<HTMLDivElement, CertificadoPremiumP
           <div
             style={{
               fontFamily: SCRIPT,
-              fontSize: 76,
+              fontSize: 68,
               color: tema.ink,
-              lineHeight: 1.05,
-              marginTop: 2,
+              lineHeight: 1,
+              marginTop: 0,
               padding: '0 20px',
               maxWidth: '90%',
               textAlign: 'center',
@@ -482,7 +482,7 @@ export const CertificadoPremium = forwardRef<HTMLDivElement, CertificadoPremiumP
             style={{
               fontSize: 13,
               color: tema.inkSoft,
-              marginTop: 14,
+              marginTop: 10,
               textAlign: 'center',
               maxWidth: 720,
               lineHeight: 1.5,
@@ -500,7 +500,7 @@ export const CertificadoPremium = forwardRef<HTMLDivElement, CertificadoPremiumP
               color: tema.accent,
               textTransform: 'uppercase',
               letterSpacing: 2,
-              marginTop: 8,
+              marginTop: 6,
               maxWidth: 800,
               textAlign: 'center',
               lineHeight: 1.18,
@@ -518,8 +518,8 @@ export const CertificadoPremium = forwardRef<HTMLDivElement, CertificadoPremiumP
               color: tema.inkSoft,
               maxWidth: 780,
               textAlign: 'center',
-              lineHeight: 1.5,
-              marginTop: 10,
+              lineHeight: 1.45,
+              marginTop: 8,
               opacity: 0.95,
             }}
           >
@@ -534,7 +534,7 @@ export const CertificadoPremium = forwardRef<HTMLDivElement, CertificadoPremiumP
               fontSize: 14,
               fontWeight: 600,
               color: tema.ink,
-              marginTop: 8,
+              marginTop: 6,
             }}
           >
             {fechaLargaMes(cert.emitido_at)}
@@ -548,7 +548,7 @@ export const CertificadoPremium = forwardRef<HTMLDivElement, CertificadoPremiumP
           {/* Espaciador */}
           <div style={{ flex: 1 }} />
 
-          {/* ====== Sello + firmas ====== */}
+          {/* ====== Firmas (izq / der), sin sello dentro ====== */}
           <div
             style={{
               display: 'flex',
@@ -556,24 +556,18 @@ export const CertificadoPremium = forwardRef<HTMLDivElement, CertificadoPremiumP
               justifyContent: 'space-between',
               width: '100%',
               maxWidth: 900,
-              marginTop: 20,
+              marginTop: 14,
               marginBottom: 0,
             }}
           >
-            {/* Firma izquierda */}
             <Firma
               tema={tema}
               imgSrc={firma1Img}
               nombre={firma1Nombre}
               cargo={firma1Cargo}
             />
-
-            {/* Sello central */}
-            <div style={{ textAlign: 'center', position: 'relative', top: 22 }}>
-              <SelloHolografico tema={tema} />
-            </div>
-
-            {/* Firma derecha */}
+            {/* Hueco central donde encaja el sello (absolute) */}
+            <div style={{ width: 160 }} aria-hidden />
             <Firma
               tema={tema}
               imgSrc={firma2Img}
@@ -581,7 +575,19 @@ export const CertificadoPremium = forwardRef<HTMLDivElement, CertificadoPremiumP
               cargo={firma2Cargo}
             />
           </div>
+        </div>
 
+        {/* ====== Sello holográfico: absolute, cruza la franja inferior ====== */}
+        <div
+          style={{
+            position: 'absolute',
+            left: '50%',
+            bottom: 80,
+            transform: 'translateX(-50%)',
+            zIndex: 4,
+          }}
+        >
+          <SelloHolografico tema={tema} />
         </div>
 
         {/* ====== Pie absoluto: logo GG izquierda + QR derecha ====== */}
