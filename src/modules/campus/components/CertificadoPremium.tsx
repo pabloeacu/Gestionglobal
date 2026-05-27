@@ -426,24 +426,23 @@ export const CertificadoPremium = forwardRef<HTMLDivElement, CertificadoPremiumP
         }}
       >
         {/* Marca de agua del isologo grande (centro, opacidad baja) */}
-        {esquema.visible_watermark && (
-          <img
-            src={watermarkUrl}
-            alt=""
-            crossOrigin="anonymous"
-            style={{
-              position: 'absolute',
-              top: '50%',
-              left: '50%',
-              transform: 'translate(-50%, -50%)',
-              width: 580,
-              height: 'auto',
-              opacity: 0.06,
-              pointerEvents: 'none',
-            }}
-            aria-hidden
-          />
-        )}
+        <img
+          src={watermarkUrl}
+          alt=""
+          crossOrigin="anonymous"
+          style={{
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            width: 580,
+            height: 'auto',
+            opacity: 0.06,
+            pointerEvents: 'none',
+            visibility: esquema.visible_watermark ? 'visible' : 'hidden',
+          }}
+          aria-hidden
+        />
 
         {/* Franjas superior e inferior */}
         <FranjaSuperior tema={tema} />
@@ -463,24 +462,23 @@ export const CertificadoPremium = forwardRef<HTMLDivElement, CertificadoPremiumP
           }}
         >
           {/* ====== Logo emisor ====== */}
-          {esquema.visible_marca_logo && (
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 18,
-                marginBottom: 0,
-              }}
-            >
-              <img
-                src={marcaLogo}
-                alt=""
-                crossOrigin="anonymous"
-                style={{ height: 110, width: 'auto', objectFit: 'contain' }}
-              />
-            </div>
-          )}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 18,
+              marginBottom: 0,
+              visibility: esquema.visible_marca_logo ? 'visible' : 'hidden',
+            }}
+          >
+            <img
+              src={marcaLogo}
+              alt=""
+              crossOrigin="anonymous"
+              style={{ height: 110, width: 'auto', objectFit: 'contain' }}
+            />
+          </div>
 
           {/* ====== Título "CERTIFICADO" ====== */}
           <div
@@ -498,34 +496,33 @@ export const CertificadoPremium = forwardRef<HTMLDivElement, CertificadoPremiumP
           </div>
 
           {/* ====== Sigla institucional con líneas doradas ====== */}
-          {esquema.visible_sigla && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 16,
+              marginTop: 0,
+              marginBottom: 10,
+              width: 540,
+              visibility: esquema.visible_sigla ? 'visible' : 'hidden',
+            }}
+          >
+            <div style={{ flex: 1, height: 1, background: tema.gold }} />
             <div
               style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 16,
-                marginTop: 0,
-                marginBottom: 10,
-                width: 540,
+                fontFamily: SERIF,
+                fontSize: 18,
+                fontWeight: 600,
+                letterSpacing: 5,
+                color: tema.accent,
+                whiteSpace: 'nowrap',
               }}
             >
-              <div style={{ flex: 1, height: 1, background: tema.gold }} />
-              <div
-                style={{
-                  fontFamily: SERIF,
-                  fontSize: 18,
-                  fontWeight: 600,
-                  letterSpacing: 5,
-                  color: tema.accent,
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {esquema.sigla_texto}
-              </div>
-              <div style={{ flex: 1, height: 1, background: tema.gold }} />
+              {esquema.sigla_texto}
             </div>
-          )}
+            <div style={{ flex: 1, height: 1, background: tema.gold }} />
+          </div>
 
           {/* ====== Otorgado a ====== */}
           <div
@@ -557,20 +554,20 @@ export const CertificadoPremium = forwardRef<HTMLDivElement, CertificadoPremiumP
           </div>
 
           {/* ====== Texto descriptivo ====== */}
-          {esquema.visible_texto_descriptivo && (
-            <div
-              style={{
-                fontSize: 13,
-                color: tema.inkSoft,
-                marginTop: 10,
-                textAlign: 'center',
-                maxWidth: 720,
-                lineHeight: 1.5,
-              }}
-            >
-              {esquema.texto_descriptivo}
-            </div>
-          )}
+          <div
+            style={{
+              fontSize: 13,
+              color: tema.inkSoft,
+              marginTop: 10,
+              textAlign: 'center',
+              maxWidth: 720,
+              lineHeight: 1.5,
+              visibility: esquema.visible_texto_descriptivo ? 'visible' : 'hidden',
+              minHeight: 20,
+            }}
+          >
+            {esquema.texto_descriptivo}
+          </div>
 
           {/* ====== Nombre del curso ====== */}
           <div
@@ -591,23 +588,23 @@ export const CertificadoPremium = forwardRef<HTMLDivElement, CertificadoPremiumP
           </div>
 
           {/* ====== Leyenda legal (debajo del curso, antes de la fecha) ====== */}
-          {esquema.visible_leyenda_legal && (
-            <div
-              style={{
-                fontFamily: SERIF,
-                fontStyle: 'italic',
-                fontSize: 11,
-                color: tema.inkSoft,
-                maxWidth: 780,
-                textAlign: 'center',
-                lineHeight: 1.45,
-                marginTop: 8,
-                opacity: 0.95,
-              }}
-            >
-              {esquema.leyenda_legal}
-            </div>
-          )}
+          <div
+            style={{
+              fontFamily: SERIF,
+              fontStyle: 'italic',
+              fontSize: 11,
+              color: tema.inkSoft,
+              maxWidth: 780,
+              textAlign: 'center',
+              lineHeight: 1.45,
+              marginTop: 8,
+              opacity: 0.95,
+              visibility: esquema.visible_leyenda_legal ? 'visible' : 'hidden',
+              minHeight: 32,
+            }}
+          >
+            {esquema.leyenda_legal}
+          </div>
 
           {/* ====== Fecha (mes y año) ====== */}
           <div
@@ -630,61 +627,54 @@ export const CertificadoPremium = forwardRef<HTMLDivElement, CertificadoPremiumP
 
         </div>
 
-        {/* ====== Firmas absolute (no afectadas por overflow del contenido) ====== */}
-        {(esquema.visible_firma_1 || esquema.visible_firma_2) && (
-          <div
-            style={{
-              position: 'absolute',
-              left: '50%',
-              bottom: 140,
-              transform: 'translateX(-50%)',
-              display: 'flex',
-              alignItems: 'flex-end',
-              justifyContent: 'space-between',
-              width: '100%',
-              maxWidth: 900,
-              zIndex: 3,
-            }}
-          >
-            {esquema.visible_firma_1 ? (
-              <Firma
-                tema={tema}
-                imgSrc={firma1Img}
-                nombre={esquema.firma_1_nombre}
-                cargo={esquema.firma_1_cargo}
-              />
-            ) : (
-              <div style={{ width: 340 }} aria-hidden />
-            )}
-            {/* Hueco central donde encaja el sello (absolute) */}
-            <div style={{ width: 160 }} aria-hidden />
-            {esquema.visible_firma_2 ? (
-              <Firma
-                tema={tema}
-                imgSrc={firma2Img}
-                nombre={esquema.firma_2_nombre}
-                cargo={esquema.firma_2_cargo}
-              />
-            ) : (
-              <div style={{ width: 340 }} aria-hidden />
-            )}
+        {/* ====== Firmas absolute (coordenadas estables, visibility por toggle) ====== */}
+        <div
+          style={{
+            position: 'absolute',
+            left: '50%',
+            bottom: 140,
+            transform: 'translateX(-50%)',
+            display: 'flex',
+            alignItems: 'flex-end',
+            justifyContent: 'space-between',
+            width: '100%',
+            maxWidth: 900,
+            zIndex: 3,
+          }}
+        >
+          <div style={{ visibility: esquema.visible_firma_1 ? 'visible' : 'hidden' }}>
+            <Firma
+              tema={tema}
+              imgSrc={firma1Img}
+              nombre={esquema.firma_1_nombre}
+              cargo={esquema.firma_1_cargo}
+            />
           </div>
-        )}
+          {/* Hueco central donde encaja el sello */}
+          <div style={{ width: 160 }} aria-hidden />
+          <div style={{ visibility: esquema.visible_firma_2 ? 'visible' : 'hidden' }}>
+            <Firma
+              tema={tema}
+              imgSrc={firma2Img}
+              nombre={esquema.firma_2_nombre}
+              cargo={esquema.firma_2_cargo}
+            />
+          </div>
+        </div>
 
         {/* ====== Sello holográfico: absolute, cruza la franja inferior ====== */}
-        {esquema.visible_sello && (
-          <div
-            style={{
-              position: 'absolute',
-              left: '50%',
-              bottom: 60,
-              transform: 'translateX(-50%)',
-              zIndex: 4,
-            }}
-          >
-            <SelloHolografico tema={tema} logoUrl={selloLogoUrl} />
-          </div>
-        )}
+        <div
+          style={{
+            position: 'absolute',
+            left: '50%',
+            bottom: 60,
+            transform: 'translateX(-50%)',
+            zIndex: 4,
+            visibility: esquema.visible_sello ? 'visible' : 'hidden',
+          }}
+        >
+          <SelloHolografico tema={tema} logoUrl={selloLogoUrl} />
+        </div>
 
         {/* ====== Pie absoluto: logo GG izquierda + QR derecha ====== */}
         <div

@@ -328,7 +328,7 @@ export function CertificadoPlantillasPage() {
                 </div>
               </div>
 
-              <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
+              <div className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
                 {/* Formulario por bloques */}
                 <div className="card-premium space-y-1 divide-y divide-slate-100 p-1">
                   <FormField label="Nombre del esquema">
@@ -348,6 +348,42 @@ export function CertificadoPlantillasPage() {
                       className="input-field"
                     />
                   </FormField>
+
+                  {/* Campos automáticos · vienen del curso/webinar y la matrícula */}
+                  <div className="p-3">
+                    <header className="mb-2 flex items-center gap-2">
+                      <h3 className="text-sm font-semibold text-brand-ink">
+                        Campos automáticos
+                      </h3>
+                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-brand-muted">
+                        no editables
+                      </span>
+                    </header>
+                    <p className="mb-3 text-[11px] text-brand-muted">
+                      Se completan al emitir el certificado, desde el curso/webinar al que está vinculado este esquema y los datos del alumno.
+                    </p>
+                    <ul className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+                      {[
+                        { l: 'Nombre del alumno', o: 'Desde la matrícula' },
+                        { l: 'Nombre del curso o webinar', o: 'Desde el curso/webinar vinculado' },
+                        { l: 'Fecha de emisión', o: 'Mes y año del egreso' },
+                        { l: 'Duración en horas', o: 'Desde el curso' },
+                        { l: 'Calificación', o: 'Si corresponde (examen)' },
+                        { l: 'Código + QR de verificación', o: 'Generados automáticamente' },
+                      ].map((c) => (
+                        <li
+                          key={c.l}
+                          className="flex items-start gap-2 rounded-lg border border-slate-100 bg-slate-50/50 px-2.5 py-1.5"
+                        >
+                          <span className="mt-0.5 h-2 w-2 shrink-0 rounded-full bg-brand-cyan" />
+                          <div className="min-w-0">
+                            <p className="text-xs font-medium text-brand-ink">{c.l}</p>
+                            <p className="text-[10px] text-brand-muted">{c.o}</p>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
 
                   {/* Paleta */}
                   <SeccionBlock title="Paleta · color base" icon="palette">
@@ -442,7 +478,7 @@ export function CertificadoPlantillasPage() {
                       onClear={() => setDraft({ ...draft, firma_1_img_url: null })}
                       defaultUrl="/cert/firma-acuna.png"
                     />
-                    <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    <div className="mt-2 grid grid-cols-1 gap-2">
                       <FormField label="Nombre" compact>
                         <input
                           type="text"
@@ -477,7 +513,7 @@ export function CertificadoPlantillasPage() {
                       onClear={() => setDraft({ ...draft, firma_2_img_url: null })}
                       defaultUrl="/cert/firma-parente.png"
                     />
-                    <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    <div className="mt-2 grid grid-cols-1 gap-2">
                       <FormField label="Nombre" compact>
                         <input
                           type="text"
