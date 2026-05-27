@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
   ArrowLeft,
+  Award,
   BookOpen,
   ChevronLeft,
   ChevronRight,
@@ -10,6 +11,9 @@ import {
   Save,
   Trash2,
 } from 'lucide-react';
+import { listarEsquemas } from '@/services/api/certificado-esquemas';
+
+type CertEsquemaOpt = { id: string; nombre: string; es_default: boolean };
 import {
   Button,
   Field,
@@ -197,7 +201,20 @@ function DatosTab({
   );
   const [bio, setBio] = useState(data.curso.instructor_bio ?? '');
   const [banner, setBanner] = useState(data.curso.banner_url ?? '');
+  const [certEsquemaId, setCertEsquemaId] = useState<string | null>(
+    data.curso.cert_esquema_id ?? null,
+  );
+  const [certEmiteAuto, setCertEmiteAuto] = useState<boolean>(
+    data.curso.cert_emite_auto ?? true,
+  );
+  const [esquemas, setEsquemas] = useState<CertEsquemaOpt[]>([]);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    void listarEsquemas().then((r) => {
+      if (r.ok) setEsquemas(r.data.map((e) => ({ id: e.id, nombre: e.nombre, es_default: e.es_default })));
+    });
+  }, []);
 
   async function guardar() {
     setSaving(true);
@@ -214,6 +231,8 @@ function DatosTab({
       instructor_nombre: instructor || null,
       instructor_bio: bio || null,
       banner_url: banner || null,
+      cert_esquema_id: certEsquemaId,
+      cert_emite_auto: certEmiteAuto,
     });
     setSaving(false);
     if (!res.ok) {
@@ -339,6 +358,59 @@ function DatosTab({
             rows={2}
           />
         </Field>
+
+        {/* Certificado · esquema visual + flag emisión automática */}
+        <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4">
+          <div className="mb-3 flex items-center gap-2">
+            <Award size={14} className="text-brand-cyan" />
+            <h3 className="text-sm font-semibold text-brand-ink">Certificado</h3>
+            <a
+              href="/gerencia/campus/plantillas"
+              className="ml-auto text-[11px] font-medium text-brand-cyan hover:underline"
+            >
+              Gestionar plantillas →
+            </a>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field
+              label="Esquema de certificado"
+              hint="El diseño visual que se aplica cuando el alumno egresa."
+            >
+              <Select
+                value={certEsquemaId ?? ''}
+                onChange={(e) => setCertEsquemaId(e.target.value || null)}
+              >
+                <option value="">
+                  Default institucional
+                  {esquemas.find((x) => x.es_default)
+                    ? ` (${esquemas.find((x) => x.es_default)!.nombre})`
+                    : ''}
+                </option>
+                {esquemas
+                  .filter((x) => !x.es_default)
+                  .map((e) => (
+                    <option key={e.id} value={e.id}>
+                      {e.nombre}
+                    </option>
+                  ))}
+              </Select>
+            </Field>
+            <Field
+              label="Emisión"
+              hint="Si está activo, el motor emite el cert apenas se cumplen las condiciones."
+            >
+              <label className="flex h-[38px] items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={certEmiteAuto}
+                  onChange={(e) => setCertEmiteAuto(e.target.checked)}
+                  className="h-4 w-4 rounded border-slate-300 text-brand-cyan focus:ring-brand-cyan"
+                />
+                <span className="text-brand-ink">Emitir automáticamente al cumplir condiciones</span>
+              </label>
+            </Field>
+          </div>
+        </div>
 
         <div className="flex justify-end">
           <Button onClick={guardar} loading={saving}>

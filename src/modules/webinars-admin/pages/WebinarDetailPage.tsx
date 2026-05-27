@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
   ArrowLeft,
+  Award,
   ExternalLink,
   Video,
   Youtube,
@@ -12,6 +13,7 @@ import {
   Link2,
 } from 'lucide-react';
 import { Button, Field, Input, Modal } from '@/components/common';
+import { listarEsquemas } from '@/services/api/certificado-esquemas';
 import { toast } from '@/lib/toast';
 import {
   getWebinar,
@@ -281,7 +283,99 @@ function ConfigTab({ webinar, onCrearZoom, creatingZoom, onRecargar }: {
           </a>
         </section>
       )}
+
+      {/* Certificado de asistencia */}
+      <CertificadoWebinarSection webinar={webinar} onRecargar={onRecargar} />
     </div>
+  );
+}
+
+function CertificadoWebinarSection({
+  webinar,
+  onRecargar,
+}: {
+  webinar: WebinarRow;
+  onRecargar: () => Promise<void>;
+}) {
+  const [emite, setEmite] = useState<boolean>(webinar.cert_emite ?? false);
+  const [esquemaId, setEsquemaId] = useState<string | null>(webinar.cert_esquema_id ?? null);
+  const [esquemas, setEsquemas] = useState<Array<{ id: string; nombre: string; es_default: boolean }>>([]);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    void listarEsquemas().then((r) => {
+      if (r.ok) setEsquemas(r.data.map((e) => ({ id: e.id, nombre: e.nombre, es_default: e.es_default })));
+    });
+  }, []);
+
+  async function guardar() {
+    setSaving(true);
+    const res = await actualizarWebinar(webinar.id, {
+      certEmite: emite,
+      certEsquemaId: emite ? esquemaId : null,
+    });
+    setSaving(false);
+    if (!res.ok) {
+      toast.error('No pudimos guardar', { description: res.error.message });
+      return;
+    }
+    toast.success('Certificado del webinar actualizado');
+    void onRecargar();
+  }
+
+  return (
+    <section className="md:col-span-2 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="mb-3 flex items-center gap-2">
+        <Award size={18} className="text-brand-cyan" />
+        <h2 className="font-display text-lg font-bold text-brand-ink">Certificado de asistencia</h2>
+        <a
+          href="/gerencia/campus/plantillas"
+          className="ml-auto text-[11px] font-medium text-brand-cyan hover:underline"
+        >
+          Gestionar plantillas →
+        </a>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <label className="flex items-center gap-2 text-sm text-brand-ink">
+          <input
+            type="checkbox"
+            checked={emite}
+            onChange={(e) => setEmite(e.target.checked)}
+            className="h-4 w-4 rounded border-slate-300 text-brand-cyan focus:ring-brand-cyan"
+          />
+          Emitir certificado a quienes asistan
+        </label>
+        {emite && (
+          <div>
+            <p className="kicker mb-1 text-brand-muted">Plantilla</p>
+            <select
+              value={esquemaId ?? ''}
+              onChange={(e) => setEsquemaId(e.target.value || null)}
+              className="input-field w-full"
+            >
+              <option value="">
+                Default institucional
+                {esquemas.find((x) => x.es_default)
+                  ? ` (${esquemas.find((x) => x.es_default)!.nombre})`
+                  : ''}
+              </option>
+              {esquemas
+                .filter((x) => !x.es_default)
+                .map((e) => (
+                  <option key={e.id} value={e.id}>
+                    {e.nombre}
+                  </option>
+                ))}
+            </select>
+          </div>
+        )}
+      </div>
+      <div className="mt-3 flex justify-end">
+        <Button onClick={guardar} loading={saving}>
+          Guardar
+        </Button>
+      </div>
+    </section>
   );
 }
 

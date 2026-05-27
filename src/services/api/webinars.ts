@@ -105,6 +105,8 @@ export interface ActualizarWebinarInput {
   youtubeLiveUrl?: string | null;
   grabacionUrl?: string | null;
   status?: 'programado' | 'en_curso' | 'finalizado' | 'cancelado';
+  certEsquemaId?: string | null;
+  certEmite?: boolean;
 }
 
 export async function actualizarWebinar(
@@ -122,6 +124,8 @@ export async function actualizarWebinar(
     if (input.youtubeLiveUrl !== undefined) patch.youtube_live_url = input.youtubeLiveUrl;
     if (input.grabacionUrl !== undefined) patch.grabacion_url = input.grabacionUrl;
     if (input.status !== undefined) patch.status = input.status;
+    if (input.certEsquemaId !== undefined) patch.cert_esquema_id = input.certEsquemaId;
+    if (input.certEmite !== undefined) patch.cert_emite = input.certEmite;
     const { error } = await supabase.from('webinars').update(patch).eq('id', id);
     if (error) throw error;
     return ok(true as const);
