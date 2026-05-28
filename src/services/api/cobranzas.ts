@@ -136,97 +136,57 @@ export interface CtaCteEntry {
   consorcio_nombre: string | null;
 }
 
+/**
+ * Lista la CC del cliente logueado.
+ *
+ * Fix #144 (2026-05-27): unificado al RPC SQL `cliente_ctacte_extracto`
+ * (mig 0093), que delega a `cuenta_corriente_extracto` (la misma que usa
+ * gerencia). Antes hacía 2 queries TS separados sin atomicidad → la cobranza
+ * desde gerencia se reflejaba con delay/inconsistencia en el portal. Ahora
+ * single query SQL = misma fuente de verdad. El parámetro administracion_id
+ * se ignora (queda por compat) — la RPC usa current_administracion_id().
+ */
 export async function listCtaCteAdministracion(
-  administracion_id: string,
+  _administracion_id?: string,
 ): Promise<ApiResponse<CtaCteEntry[]>> {
-  // Comprobantes (cargos): autorizados, no anulados.
-  const compsRes = await supabase
-    .from('comprobantes')
-    .select('id, tipo, punto_venta, numero, fecha, total, estado, consorcios(nombre)')
-    .eq('administracion_id', administracion_id)
-    .neq('estado', 'anulado')
-    .neq('estado', 'borrador')
-    .order('fecha', { ascending: true });
-  if (compsRes.error) return fail('CTACTE_COMPS', compsRes.error.message, compsRes.error);
+  const { data, error } = await supabase.rpc('cliente_ctacte_extracto' as never);
+  if (error) return fail('CTACTE_EXTRACTO', error.message, error);
 
-  // Imputaciones (abonos) hacia comprobantes de esta admin.
-  const impsRes = await supabase
-    .from('movimiento_imputaciones')
-    .select(
-      `id, monto_imputado, created_at, comprobante_id,
-       movimiento:movimientos!inner(fecha, descripcion, referencia)`,
-    )
-    .not('comprobante_id', 'is', null);
-  if (impsRes.error) return fail('CTACTE_IMPS', impsRes.error.message, impsRes.error);
-
-  type CompRow = {
-    id: string;
-    tipo: string;
-    punto_venta: number;
-    numero: number | null;
+  type ExtractoRow = {
     fecha: string;
-    total: number | string;
-    consorcios: { nombre: string } | null;
+    tipo: 'saldo_inicial' | 'cargo' | 'abono';
+    descripcion: string | null;
+    debe: number | string;
+    haber: number | string;
+    saldo: number | string;
+    comprobante_id: string | null;
+    movimiento_id: string | null;
+    imputacion_id: string | null;
+    consorcio_nombre: string | null;
   };
-  type ImpRow = {
-    id: string;
-    monto_imputado: number | string;
-    comprobante_id: string;
-    movimiento: { fecha: string; descripcion: string | null; referencia: string | null };
-  };
 
-  // Filtramos imputaciones cuyo comprobante pertenece a esta admin.
-  const compIdsDeLaAdmin = new Set((compsRes.data ?? []).map((c) => (c as CompRow).id));
-  const impsFiltradas = ((impsRes.data ?? []) as ImpRow[]).filter((i) =>
-    compIdsDeLaAdmin.has(i.comprobante_id),
-  );
-
-  const entries: Array<Omit<CtaCteEntry, 'saldo'>> = [];
-
-  for (const raw of (compsRes.data ?? []) as CompRow[]) {
-    const numStr = raw.numero
-      ? `${String(raw.punto_venta).padStart(5, '0')}-${String(raw.numero).padStart(8, '0')}`
-      : '—';
-    entries.push({
-      id: `c:${raw.id}`,
-      fecha: raw.fecha,
-      tipo: 'comprobante',
-      titulo: `${raw.tipo} ${numStr}`,
-      detalle: raw.consorcios?.nombre ?? null,
-      signo: 1,
-      monto: Number(raw.total),
-      comprobante_id: raw.id,
-      consorcio_nombre: raw.consorcios?.nombre ?? null,
+  const rows = (data ?? []) as unknown as ExtractoRow[];
+  const out: CtaCteEntry[] = rows
+    .filter((r) => r.tipo !== 'saldo_inicial')
+    .map((r) => {
+      const debe = Number(r.debe) || 0;
+      const haber = Number(r.haber) || 0;
+      const isCargo = r.tipo === 'cargo';
+      return {
+        id: `${r.tipo[0]}:${r.comprobante_id ?? r.imputacion_id ?? r.fecha}`,
+        fecha: r.fecha,
+        tipo: isCargo ? 'comprobante' : 'cobranza',
+        titulo: r.descripcion ?? (isCargo ? 'Comprobante' : 'Cobranza'),
+        detalle: r.consorcio_nombre,
+        signo: isCargo ? 1 : -1,
+        monto: isCargo ? debe : haber,
+        saldo: Number(r.saldo) || 0,
+        comprobante_id: r.comprobante_id,
+        consorcio_nombre: r.consorcio_nombre,
+      };
     });
-  }
-
-  for (const i of impsFiltradas) {
-    entries.push({
-      id: `i:${i.id}`,
-      fecha: i.movimiento.fecha,
-      tipo: 'cobranza',
-      titulo:
-        i.movimiento.descripcion?.trim() ||
-        `Cobranza${i.movimiento.referencia ? ` · ${i.movimiento.referencia}` : ''}`,
-      detalle: i.movimiento.referencia ?? null,
-      signo: -1,
-      monto: Number(i.monto_imputado),
-      comprobante_id: i.comprobante_id,
-      consorcio_nombre: null,
-    });
-  }
-
-  // Orden cronológico ASC para acumular el saldo, después invertimos para mostrar.
-  entries.sort((a, b) =>
-    a.fecha === b.fecha ? a.id.localeCompare(b.id) : a.fecha.localeCompare(b.fecha),
-  );
-
-  let saldo = 0;
-  const withSaldo: CtaCteEntry[] = entries.map((e) => {
-    saldo += e.signo * e.monto;
-    return { ...e, saldo };
-  });
-
-  // Mostrar más recientes arriba.
-  return ok(withSaldo.reverse());
+  return ok(out);
 }
+
+// Legacy de 2 queries TS removida (commit fix #144) — la implementación viva
+// arriba usa la RPC unificada `cliente_ctacte_extracto` (mig 0093).
