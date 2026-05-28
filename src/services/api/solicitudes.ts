@@ -391,3 +391,23 @@ export async function getKpis(): Promise<ApiResponse<SolicitudesKpis>> {
     activadas_hoy: act.count ?? 0,
   });
 }
+
+// #148 · Vincular comprobante emitido a la solicitud (después de generarlo
+// via emitir_comprobante_manual desde el panel de Facturación).
+export async function setSolicitudComprobante(
+  solicitudId: string,
+  comprobanteId: string,
+): Promise<ApiResponse<true>> {
+  // Cast: la columna se agregó en mig 0100 pero los types regenerados pueden
+  // no haberse subido aún al repo. Inserción type-safe sin romper build.
+  const upd = supabase.from('solicitudes') as unknown as {
+    update(values: Record<string, unknown>): {
+      eq(col: string, val: string): Promise<{ error: { message: string } | null }>;
+    };
+  };
+  const { error } = await upd
+    .update({ comprobante_id: comprobanteId })
+    .eq('id', solicitudId);
+  if (error) return fail('SOL_SET_COMPROBANTE', error.message, error);
+  return ok(true);
+}

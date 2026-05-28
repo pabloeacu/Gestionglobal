@@ -40,6 +40,7 @@ import {
   type SolicitudEstado,
 } from '@/services/api/solicitudes';
 import { WizardActivacion } from '../components/WizardActivacion';
+import { PanelComprobanteCobranza } from '../components/PanelComprobanteCobranza';
 import { cn } from '@/lib/cn';
 
 // Categorías de respuesta. Cada una mapea a un alias REAL en Workspace
@@ -418,6 +419,16 @@ export function SolicitudDetailPage() {
           </ul>
         </section>
       )}
+
+      {/* #148 · Panel comprobante + cobranza desde la solicitud */}
+      <PanelComprobanteCobranza
+        solicitudId={data.id}
+        administracionId={data.cliente_id ?? null}
+        comprobanteId={(data as { comprobante_id?: string | null }).comprobante_id ?? null}
+        servicioNombre={data.servicio_nombre}
+        receptorNombre={data.cliente_nombre ?? data.solicitante_nombre ?? '—'}
+        onComprobanteCreado={() => void load()}
+      />
 
       {/* Si ya activada, link al tracking */}
       {yaActivada && data.tramite_id && (
