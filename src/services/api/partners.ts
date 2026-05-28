@@ -165,6 +165,36 @@ export async function fetchPartnerMisRendiciones(): Promise<
   return ok((data ?? []) as unknown as PartnerRendicionResumen[]);
 }
 
+// Bloque D / obs 8 · Detalle pormenorizado de movimientos del partner con
+// saldo evolutivo. Sirve para la vista "Mi caja" estilo cuenta corriente.
+export interface PartnerMovimientoRow {
+  atribucion_id: string;
+  fecha: string;
+  tipo: 'ingreso' | 'egreso';
+  cliente_nombre: string | null;
+  servicio_nombre: string | null;
+  comprobante_label: string;
+  monto_base: number;
+  porcentaje: number;
+  monto_atribuido: number;
+  saldo_running: number;
+}
+
+export async function fetchPartnerMovimientos(
+  desde?: string | null,
+  hasta?: string | null,
+): Promise<ApiResponse<PartnerMovimientoRow[]>> {
+  const args: Record<string, unknown> = {};
+  if (desde) args.p_desde = desde;
+  if (hasta) args.p_hasta = hasta;
+  const { data, error } = await supabase.rpc(
+    'partner_rendicion_movimientos' as never,
+    args as never,
+  );
+  if (error) return fail('PARTNER_MOV', error.message, error);
+  return ok((data ?? []) as unknown as PartnerMovimientoRow[]);
+}
+
 export async function listPartners(
   params: ListPartnersParams = {},
 ): Promise<ApiResponse<{ rows: PartnerListItem[]; total: number }>> {

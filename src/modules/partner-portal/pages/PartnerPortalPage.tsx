@@ -16,15 +16,19 @@ import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import {
   fetchPartnerMisComprobantes,
   fetchPartnerMisRendiciones,
+  fetchPartnerMovimientos,
   partnerMarcarFacturado,
   type PartnerComprobanteRow,
   type PartnerRendicionResumen,
+  type PartnerMovimientoRow,
 } from '@/services/api/partners';
 import { toast } from '@/lib/toast';
 
 export function PartnerPortalPage() {
   const [comps, setComps] = useState<PartnerComprobanteRow[] | null>(null);
   const [rends, setRends] = useState<PartnerRendicionResumen[] | null>(null);
+  // Bloque D / obs 8: movimientos detallados con saldo evolutivo
+  const [movs, setMovs] = useState<PartnerMovimientoRow[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [openFacturar, setOpenFacturar] = useState<PartnerComprobanteRow | null>(null);
   // #9 walkthrough · filtros de fecha
@@ -38,12 +42,14 @@ export function PartnerPortalPage() {
   }
 
   async function reload() {
-    const [c, r] = await Promise.all([
+    const [c, r, m] = await Promise.all([
       fetchPartnerMisComprobantes(),
       fetchPartnerMisRendiciones(),
+      fetchPartnerMovimientos(desde || null, hasta || null),
     ]);
     setComps(c.ok ? c.data : []);
     setRends(r.ok ? r.data : []);
+    setMovs(m.ok ? m.data : []);
   }
 
   useEffect(() => {
@@ -51,7 +57,16 @@ export function PartnerPortalPage() {
       await reload();
       setLoading(false);
     })();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [desde, hasta]);
+
+  // Totales del periodo filtrado (de los movimientos detallados)
+  const totalIngresos = (movs ?? []).filter((m) => m.tipo === 'ingreso').reduce((s, m) => s + Number(m.monto_atribuido), 0);
+  const totalEgresos = (movs ?? []).filter((m) => m.tipo === 'egreso').reduce((s, m) => s + Number(m.monto_atribuido), 0);
+  const movsList = movs ?? [];
+  const saldoFinal = movsList.length > 0
+    ? Number(movsList[movsList.length - 1]!.saldo_running)
+    : 0;
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -78,10 +93,119 @@ export function PartnerPortalPage() {
 
         {!loading && (
           <>
+            {/* Bloque D / obs 8 — Mi caja con saldo evolutivo */}
+            <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+                <div>
+                  <p className="kicker text-brand-cyan inline-flex items-center gap-2">
+                    <Briefcase size={14} /> Mi caja · Movimientos detallados
+                  </p>
+                  <p className="mt-0.5 text-xs text-brand-muted">
+                    Cada operación atribuida al partner con su % de convenio y saldo evolutivo.
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-end gap-2">
+                  <label className="text-xs text-brand-muted">
+                    Desde
+                    <input
+                      type="date"
+                      value={desde}
+                      onChange={(e) => setDesde(e.target.value)}
+                      className="ml-1 rounded border border-slate-200 px-1.5 py-0.5 text-xs"
+                    />
+                  </label>
+                  <label className="text-xs text-brand-muted">
+                    Hasta
+                    <input
+                      type="date"
+                      value={hasta}
+                      onChange={(e) => setHasta(e.target.value)}
+                      className="ml-1 rounded border border-slate-200 px-1.5 py-0.5 text-xs"
+                    />
+                  </label>
+                  {(desde || hasta) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDesde('');
+                        setHasta('');
+                      }}
+                      className="text-xs text-brand-cyan hover:underline"
+                    >
+                      Limpiar
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Cards de totales del periodo */}
+              <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50/40 p-3">
+                  <p className="kicker text-emerald-700">Ingresos atribuidos</p>
+                  <p className="mt-1 font-display text-xl font-bold text-emerald-700 tabular">
+                    {fmtMoney(totalIngresos)}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-rose-200 bg-rose-50/40 p-3">
+                  <p className="kicker text-rose-700">Egresos atribuidos</p>
+                  <p className="mt-1 font-display text-xl font-bold text-rose-700 tabular">
+                    {fmtMoney(totalEgresos)}
+                  </p>
+                </div>
+                <div className={`rounded-xl border p-3 ${saldoFinal >= 0 ? 'border-brand-cyan/30 bg-brand-cyan-pale/30' : 'border-rose-200 bg-rose-50/40'}`}>
+                  <p className="kicker text-brand-cyan">Saldo evolutivo</p>
+                  <p className={`mt-1 font-display text-xl font-bold tabular ${saldoFinal >= 0 ? 'text-brand-cyan' : 'text-rose-700'}`}>
+                    {fmtMoney(saldoFinal)}
+                  </p>
+                </div>
+              </div>
+
+              {movs && movs.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="text-xs text-brand-muted">
+                      <tr className="border-b border-slate-100">
+                        <th className="py-2 px-2 text-left">Fecha</th>
+                        <th className="py-2 px-2 text-left">Cliente</th>
+                        <th className="py-2 px-2 text-left">Servicio</th>
+                        <th className="py-2 px-2 text-left">Comprobante</th>
+                        <th className="py-2 px-2 text-right">Monto base</th>
+                        <th className="py-2 px-2 text-right">%</th>
+                        <th className="py-2 px-2 text-right">Atribuido</th>
+                        <th className="py-2 px-2 text-right">Saldo</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {movs.map((m) => (
+                        <tr key={m.atribucion_id} className="border-b border-slate-50 hover:bg-slate-50/50">
+                          <td className="py-2 px-2 tabular text-xs text-brand-muted">{fmtDate(m.fecha)}</td>
+                          <td className="py-2 px-2">{m.cliente_nombre ?? '—'}</td>
+                          <td className="py-2 px-2 text-xs">{m.servicio_nombre ?? '—'}</td>
+                          <td className="py-2 px-2 text-xs font-mono">{m.comprobante_label}</td>
+                          <td className="py-2 px-2 text-right tabular">{fmtMoney(m.monto_base)}</td>
+                          <td className="py-2 px-2 text-right tabular text-brand-muted">{Number(m.porcentaje).toFixed(1)}%</td>
+                          <td className={`py-2 px-2 text-right tabular font-medium ${m.tipo === 'ingreso' ? 'text-emerald-700' : 'text-rose-700'}`}>
+                            {m.tipo === 'ingreso' ? '+' : '-'} {fmtMoney(m.monto_atribuido)}
+                          </td>
+                          <td className={`py-2 px-2 text-right tabular font-semibold ${Number(m.saldo_running) >= 0 ? 'text-brand-ink' : 'text-rose-700'}`}>
+                            {fmtMoney(m.saldo_running)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p className="text-sm text-brand-muted">
+                  No hay movimientos atribuidos a tu cuenta en este período.
+                </p>
+              )}
+            </section>
+
             <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
               <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
                 <p className="kicker text-brand-cyan inline-flex items-center gap-2">
-                  <FileText size={14} /> Rendiciones (
+                  <FileText size={14} /> Resumen por período (
                   {rends?.filter((r) => pasaFiltro(r.periodo_desde)).length ?? 0}
                   )
                 </p>
