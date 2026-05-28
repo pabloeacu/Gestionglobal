@@ -29,7 +29,9 @@ export function PortalCtaCtePage() {
     if (!user?.administracionId) return;
     setLoading(true);
     setError(null);
-    const res = await listCtaCteAdministracion(user.administracionId);
+    // Portal cliente NO pasa admin_id: la RPC usa current_administracion_id().
+    // Pasarlo dispara "solo staff puede consultar CC de otra admin".
+    const res = await listCtaCteAdministracion();
     setLoading(false);
     if (!res.ok) {
       setError(res.error.message);
