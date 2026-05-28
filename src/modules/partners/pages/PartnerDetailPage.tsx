@@ -8,6 +8,10 @@ import {
   FileBarChart,
   ListChecks,
   Pencil,
+  UserPlus,
+  Loader2,
+  Copy,
+  X as XIcon,
 } from 'lucide-react';
 import { toast } from '@/lib/toast';
 import {
@@ -17,6 +21,7 @@ import {
   useConfirm,
   type TabItem,
 } from '@/components/common';
+import { crearUsuarioPartner } from '@/services/api/usuarios';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
 import { formatDateLong } from '@/lib/dates';
@@ -58,6 +63,7 @@ export function PartnerDetailPage() {
   const [editOpen, setEditOpen] = useState(false);
   const [convOpen, setConvOpen] = useState(false);
   const [rendOpen, setRendOpen] = useState(false);
+  const [usuarioOpen, setUsuarioOpen] = useState(false);
 
   async function load() {
     if (!id) return;
@@ -208,6 +214,9 @@ export function PartnerDetailPage() {
             </Button>
             <Button variant="ghost" onClick={() => setConvOpen(true)}>
               <Plus size={14} /> Convenio
+            </Button>
+            <Button variant="secondary" onClick={() => setUsuarioOpen(true)}>
+              <UserPlus size={14} /> Crear usuario
             </Button>
             <Button onClick={() => setRendOpen(true)}>
               <Plus size={14} /> Nueva rendición
@@ -425,6 +434,168 @@ export function PartnerDetailPage() {
         partnerNombre={partner.nombre_legal}
         onCreated={() => void load()}
       />
+      {usuarioOpen && (
+        <ModalCrearUsuarioPartner
+          partnerId={partner.id}
+          partnerNombre={partner.nombre_legal}
+          onClose={() => setUsuarioOpen(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+// Modal liviano para crear un usuario role='partner' asociado al partner actual.
+function ModalCrearUsuarioPartner({
+  partnerId,
+  partnerNombre,
+  onClose,
+}: {
+  partnerId: string;
+  partnerNombre: string;
+  onClose: () => void;
+}) {
+  const [email, setEmail] = useState('');
+  const [nombre, setNombre] = useState('');
+  const [enviando, setEnviando] = useState(false);
+  const [resultado, setResultado] = useState<{ user_id: string; password?: string } | null>(null);
+
+  async function crear() {
+    if (!email.trim() || !nombre.trim()) {
+      toast.error('Email y nombre son obligatorios');
+      return;
+    }
+    setEnviando(true);
+    const res = await crearUsuarioPartner(email.trim(), nombre.trim(), partnerId);
+    setEnviando(false);
+    if (!res.ok) {
+      toast.error(res.error.message);
+      return;
+    }
+    toast.success('Usuario partner creado');
+    setResultado({ user_id: res.data.user_id, password: res.data.password_temporal });
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 px-4 py-8"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-4 flex items-center justify-between">
+          <div>
+            <p className="kicker text-brand-cyan">Crear usuario partner</p>
+            <h2 className="font-display text-xl font-bold text-brand-ink">
+              {partnerNombre}
+            </h2>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded p-1 text-brand-muted hover:bg-slate-100 hover:text-brand-ink"
+            aria-label="Cerrar"
+          >
+            <XIcon size={16} />
+          </button>
+        </div>
+
+        {!resultado ? (
+          <div className="space-y-3">
+            <label className="block">
+              <span className="kicker text-brand-muted">Email</span>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="usuario@partner.com"
+                className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2 text-sm"
+                autoFocus
+              />
+            </label>
+            <label className="block">
+              <span className="kicker text-brand-muted">Nombre</span>
+              <input
+                type="text"
+                value={nombre}
+                onChange={(e) => setNombre(e.target.value)}
+                placeholder="Nombre y apellido"
+                className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2 text-sm"
+              />
+            </label>
+            <p className="text-xs text-brand-muted">
+              Se generará una contraseña temporal segura. Al usuario se le
+              dará el rol <strong>partner</strong> y verá sólo lo de
+              {' '}<strong>{partnerNombre}</strong>.
+            </p>
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={enviando}
+                className="rounded-lg px-3 py-1.5 text-sm font-medium text-brand-muted hover:bg-slate-100"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={crear}
+                disabled={enviando}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-brand-cyan px-3 py-1.5 text-sm font-semibold text-white hover:bg-brand-teal disabled:bg-slate-300"
+              >
+                {enviando ? (
+                  <>
+                    <Loader2 size={13} className="animate-spin" /> Creando…
+                  </>
+                ) : (
+                  <>
+                    <UserPlus size={13} /> Crear usuario
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <p className="text-sm text-brand-ink">
+              Usuario creado. Guardá esta contraseña temporal y envíasela al
+              partner por un canal seguro.
+            </p>
+            {resultado.password && (
+              <div className="rounded-lg bg-slate-50 p-3">
+                <p className="kicker mb-1 text-brand-muted">Contraseña temporal</p>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 break-all rounded bg-white px-2 py-1 font-mono text-sm">
+                    {resultado.password}
+                  </code>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void navigator.clipboard.writeText(resultado.password!);
+                      toast.success('Copiado');
+                    }}
+                    className="rounded p-1 text-brand-muted hover:bg-slate-100 hover:text-brand-ink"
+                    aria-label="Copiar"
+                  >
+                    <Copy size={13} />
+                  </button>
+                </div>
+              </div>
+            )}
+            <div className="flex justify-end pt-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="rounded-lg bg-brand-cyan px-3 py-1.5 text-sm font-semibold text-white hover:bg-brand-teal"
+              >
+                Listo
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
