@@ -277,3 +277,22 @@ export async function peekProximoNumero(
   if (error) return fail('COMP_PEEK', error.message, error);
   return ok((data as number) ?? 1);
 }
+
+/**
+ * #150 · Transforma un comprobante simple (tipo='X') en fiscal (A/B/C).
+ * Asigna nuevo número del tipo destino y deja el comprobante en estado
+ * 'borrador' listo para enviar a ARCA cuando se confirme.
+ *
+ * Valida: estado != 'anulado', tipo actual = 'X', emitido_arca = false.
+ */
+export async function transformarComprobanteAFiscal(
+  comprobanteId: string,
+  nuevoTipo: 'A' | 'B' | 'C',
+): Promise<ApiResponse<string>> {
+  const { data, error } = await supabase.rpc('comprobante_transformar_a_fiscal' as never, {
+    p_comprobante_id: comprobanteId,
+    p_nuevo_tipo: nuevoTipo,
+  } as never);
+  if (error) return fail('COMP_TRANSFORMAR', error.message, error);
+  return ok(data as string);
+}

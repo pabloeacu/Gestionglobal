@@ -48,12 +48,14 @@ import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import {
   getComprobante,
   anularComprobante,
+  transformarComprobanteAFiscal,
   type ComprobanteRow,
   type ComprobanteItemRow,
   type ComprobanteEstado,
   type CobranzaEstado,
 } from '@/services/api/comprobantes';
 import { cn } from '@/lib/cn';
+import { FileCheck2 } from 'lucide-react';
 
 const ESTADO_BADGES: Record<ComprobanteEstado, { label: string; cls: string }> = {
   borrador:   { label: 'Borrador',   cls: 'bg-slate-100 text-slate-600 border-slate-200' },
@@ -172,6 +174,40 @@ export function ComprobanteDetailPage() {
     void load();
   }
 
+  // #150 · Transformar comprobante simple (X) a fiscal (A/B/C)
+  async function onTransformar() {
+    if (!comp) return;
+    const tipo = await prompt({
+      title: 'Transformar a factura fiscal',
+      message: 'Vas a convertir este comprobante simple en una factura fiscal. Se asignará nueva numeración del tipo elegido y quedará en borrador, lista para enviar a ARCA.\n\nElegí el tipo: A (consumidor RI), B (RI o exento), C (consumidor monotributo).',
+      label: 'Tipo destino',
+      placeholder: 'A · B · C',
+      confirmLabel: 'Transformar',
+    });
+    if (!tipo) return;
+    const tipoUp = tipo.trim().toUpperCase();
+    if (!['A', 'B', 'C'].includes(tipoUp)) {
+      toast.error('Tipo inválido', { description: 'Elegí A, B o C.' });
+      return;
+    }
+    const okConfirm = await confirm({
+      title: `¿Transformar a factura ${tipoUp}?`,
+      message: `Se asignará nuevo número del tipo ${tipoUp} y el comprobante queda listo para enviar a ARCA. La cobranza registrada se mantiene.`,
+      confirmLabel: 'Sí, transformar',
+      cancelLabel: 'Volver',
+    });
+    if (!okConfirm) return;
+    const res = await transformarComprobanteAFiscal(comp.id, tipoUp as 'A' | 'B' | 'C');
+    if (!res.ok) {
+      toast.error('No se pudo transformar', { description: res.error.message });
+      return;
+    }
+    toast.success(`Transformado a factura ${tipoUp}`, {
+      description: 'Quedó en borrador listo para enviar a ARCA.',
+    });
+    void load();
+  }
+
   if (loading && !comp) {
     return (
       <div className="grid place-items-center p-16">
@@ -281,6 +317,12 @@ export function ComprobanteDetailPage() {
                   <Send size={14} /> Enviar
                 </Button>
               )}
+              {/* #150 · Solo comprobantes simples (X) sin envío a ARCA pueden transformarse */}
+              {comp.tipo === 'X' && comp.estado !== 'anulado' && !comp.emitido_arca && (
+                <Button variant="secondary" onClick={() => void onTransformar()}>
+                  <FileCheck2 size={14} /> Transformar a factura
+                </Button>
+              )}
               {comp.estado !== 'anulado' && !comp.cae && (
                 <Button variant="ghost" onClick={() => void onAnular()}>
                   <Trash2 size={14} /> Anular
@@ -290,6 +332,20 @@ export function ComprobanteDetailPage() {
           </div>
         </div>
       </section>
+
+      {/* #150 · Banner informativo cuando el comprobante es simple */}
+      {comp.tipo === 'X' && comp.estado !== 'anulado' && (
+        <section className="flex items-start gap-3 rounded-2xl border border-cyan-200 bg-cyan-50/60 p-4 text-sm text-cyan-900 shadow-sm">
+          <FileCheck2 className="mt-0.5 shrink-0 text-cyan-600" size={18} />
+          <div className="min-w-0">
+            <p className="font-semibold">Comprobante simple · sin emisión fiscal</p>
+            <p className="mt-0.5 text-xs text-cyan-800/90">
+              Podés cobrarlo y editarlo sin restricciones. Cuando quieras facturar formalmente,
+              tocá <strong>Transformar a factura</strong> para emitirlo ante ARCA (A/B/C).
+            </p>
+          </div>
+        </section>
+      )}
 
       {/* KPI strip */}
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
