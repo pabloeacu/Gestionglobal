@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import {
   Award,
   Bell,
@@ -8,21 +9,26 @@ import {
   FileCheck,
   GraduationCap,
   Mail,
+  Pencil,
   Send,
   Tag,
   AlertCircle,
   UserCog,
   XCircle,
+  X,
   Paperclip,
   Clock,
 } from 'lucide-react';
 import { cn } from '@/lib/cn';
+import { toast } from '@/lib/toast';
 import { formatDateTime } from '@/lib/dates';
 import {
   colorBadge,
   type TrackingLineaRow,
   type TrackingCategoriaConfigRow,
 } from '@/services/api/trackings';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabase';
 
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   'file-check': FileCheck,
@@ -44,16 +50,48 @@ export interface LineaTrackingCardProps {
   linea: TrackingLineaRow;
   categoriaConfig?: TrackingCategoriaConfigRow;
   autorNombre?: string | null;
+  // Bloque E / obs 9: cuando se le pasa este callback, la gerencia puede
+  // editar el texto de cualquier avance (propio, de otro gerente o del
+  // gestor externo). El componente padre refresca la lista al guardar.
+  onEdited?: () => void;
 }
 
 export function LineaTrackingCard({
   linea,
   categoriaConfig,
   autorNombre,
+  onEdited,
 }: LineaTrackingCardProps) {
   const Icon = categoriaConfig?.icono ? ICON_MAP[categoriaConfig.icono] ?? Tag : Tag;
   const futura =
     linea.alerta_en !== null && new Date(linea.alerta_en).getTime() > Date.now();
+  const { user } = useAuth();
+  // 'operador' es el rol staff que puede editar. La RPC valida también
+  // private.is_staff() en backend, así que esto es solo UX (mostrar/ocultar).
+  const isStaff = user?.role === 'operador';
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(linea.descripcion);
+  const [saving, setSaving] = useState(false);
+
+  async function guardar() {
+    if (!draft.trim()) {
+      toast.error('La descripción no puede quedar vacía');
+      return;
+    }
+    setSaving(true);
+    const { error } = await supabase.rpc(
+      'gerente_editar_avance_tracking' as never,
+      { p_linea_id: linea.id, p_descripcion: draft } as never,
+    );
+    setSaving(false);
+    if (error) {
+      toast.error('No pudimos guardar', { description: error.message });
+      return;
+    }
+    toast.success('Avance actualizado');
+    setEditing(false);
+    onEdited?.();
+  }
 
   return (
     <article
@@ -97,9 +135,55 @@ export function LineaTrackingCard({
             )}
           </header>
 
-          <p className="mt-2 whitespace-pre-wrap text-sm text-slate-700">
-            {linea.descripcion}
-          </p>
+          {editing ? (
+            <div className="mt-2 space-y-2">
+              <textarea
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                rows={4}
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-cyan focus:outline-none focus:ring-1 focus:ring-brand-cyan"
+                disabled={saving}
+              />
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={guardar}
+                  disabled={saving}
+                  className="inline-flex items-center gap-1 rounded-lg bg-brand-cyan px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-cyan/90 disabled:opacity-50"
+                >
+                  <Check className="h-3 w-3" /> {saving ? 'Guardando…' : 'Guardar'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditing(false);
+                    setDraft(linea.descripcion);
+                  }}
+                  className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
+                  disabled={saving}
+                >
+                  <X className="h-3 w-3" /> Cancelar
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="mt-2 flex items-start gap-2">
+              <p className="flex-1 whitespace-pre-wrap text-sm text-slate-700">
+                {linea.descripcion}
+              </p>
+              {isStaff && (
+                <button
+                  type="button"
+                  onClick={() => setEditing(true)}
+                  className="shrink-0 rounded-md p-1 text-slate-400 transition hover:bg-slate-100 hover:text-brand-cyan"
+                  title="Editar (gerencia)"
+                  aria-label="Editar este avance"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+          )}
 
           {linea.archivos_urls && linea.archivos_urls.length > 0 && (
             <ul className="mt-3 flex flex-wrap gap-2">
