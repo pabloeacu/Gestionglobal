@@ -110,16 +110,35 @@ function buildHtml(input: TramitePdfInput): string {
   .page { width: 794px; padding: 48px 56px 40px; background: #fff; min-height: 1100px; }
   .header {
     position: relative;
-    padding: 24px 28px;
+    padding: 28px 32px 24px;
     background: linear-gradient(135deg, ${BRAND_CYAN} 0%, #0891B2 100%);
     color: #fff;
     border-radius: 16px;
     margin-bottom: 28px;
   }
-  .header .logo {
-    height: 38px;
-    margin-bottom: 12px;
-    filter: brightness(0) invert(1);
+  .header .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .header .brand-mark {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: rgba(255,255,255,0.18);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 16px;
+    letter-spacing: -0.5px;
+  }
+  .header .brand-name {
+    font-size: 18px;
+    font-weight: 800;
+    letter-spacing: 0.3px;
+    line-height: 1;
   }
   .header .kicker {
     margin: 0;
@@ -127,10 +146,10 @@ function buildHtml(input: TramitePdfInput): string {
     font-weight: 700;
     letter-spacing: 1.8px;
     text-transform: uppercase;
-    opacity: 0.85;
+    color: rgba(255,255,255,0.95);
   }
   .header h1 {
-    margin: 6px 0 2px;
+    margin: 6px 0 4px;
     font-size: 26px;
     font-weight: 800;
     line-height: 1.2;
@@ -138,7 +157,7 @@ function buildHtml(input: TramitePdfInput): string {
   .header .meta {
     margin-top: 6px;
     font-size: 12px;
-    opacity: 0.95;
+    color: rgba(255,255,255,0.92);
   }
   h2 {
     font-size: 14px;
@@ -233,7 +252,10 @@ function buildHtml(input: TramitePdfInput): string {
 <div class="page">
 
   <div class="header">
-    <img class="logo" src="https://www.${DOMAIN}/logo-color.png" alt="Gestión Global" crossorigin="anonymous" />
+    <div class="brand">
+      <span class="brand-mark">GG</span>
+      <span class="brand-name">Gestión Global</span>
+    </div>
     <p class="kicker">Detalle del trámite</p>
     <h1>${escapeHtml(input.formulario_titulo || input.servicio)}</h1>
     <p class="meta">
@@ -299,18 +321,8 @@ export async function generateTramitePdfBlob(
   container.innerHTML = html;
   document.body.appendChild(container);
 
-  // Esperar imágenes (el logo del header)
-  const imgs = Array.from(container.querySelectorAll('img'));
-  await Promise.all(
-    imgs.map(
-      (img) =>
-        new Promise<void>((resolve) => {
-          if (img.complete) return resolve();
-          img.addEventListener('load', () => resolve(), { once: true });
-          img.addEventListener('error', () => resolve(), { once: true });
-        }),
-    ),
-  );
+  // El header ya no usa imágenes externas (cambié logo → "GG" + texto)
+  // así que no hay imgs que esperar. Solo fuentes y el frame.
   try {
     if (document.fonts?.ready) await document.fonts.ready;
   } catch {
