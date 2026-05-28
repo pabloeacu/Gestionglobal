@@ -221,3 +221,33 @@ export async function fetchClienteCatalogo(): Promise<ApiResponse<ClienteFormula
   if (error) return fail('CLIENTE_CATALOGO', error.message, error);
   return ok((data ?? []) as ClienteFormularioCatalogItem[]);
 }
+
+// =========================================================================
+// Líneas de tracking visibles al cliente (timeline en modal de Mis gestiones)
+// =========================================================================
+
+export interface ClienteTrackingLinea {
+  id: string;
+  categoria_slug: string;
+  categoria_label: string;
+  categoria_icono: string;
+  categoria_color: string;
+  descripcion: string;
+  archivos_urls: string[];
+  autor_nombre: string;
+  created_at: string;
+}
+
+/**
+ * Lista las líneas de avance visibles al cliente para un trámite suyo.
+ * RPC valida que el trámite pertenezca a la administración del usuario.
+ */
+export async function fetchClienteTrackingLineas(
+  tramiteId: string,
+): Promise<ClienteTrackingLinea[]> {
+  const { data, error } = await supabase.rpc('cliente_tracking_lineas' as never, {
+    p_tramite_id: tramiteId,
+  } as never);
+  if (error) return [];
+  return (data ?? []) as unknown as ClienteTrackingLinea[];
+}
