@@ -30,11 +30,14 @@ export function PortalCtaCtePage() {
     setLoading(true);
     setError(null);
     // Portal cliente NO pasa admin_id: la RPC usa current_administracion_id().
-    // Pasarlo dispara "solo staff puede consultar CC de otra admin".
+    // Si por alguna razón la RPC falla, NO mostramos el texto técnico crudo
+    // al cliente (ej.: "Solo staff puede consultar CC de otra administración"
+    // es una salvaguarda del backend que no aporta nada al usuario final y
+    // confunde — su CC es siempre la suya por diseño).
     const res = await listCtaCteAdministracion();
     setLoading(false);
     if (!res.ok) {
-      setError(res.error.message);
+      setError('No pudimos cargar tu cuenta corriente. Recargá la página.');
       return;
     }
     setRows(res.data);
