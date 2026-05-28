@@ -67,6 +67,7 @@ const FUENTES_FILTROS: ReadonlyArray<{ key: 'todo' | AgendaFuente; label: string
   { key: 'tramite', label: 'Trámites', color: '#8b5cf6' },
   { key: 'comprobante', label: 'Cobranzas', color: '#ef4444' },
   { key: 'solicitud', label: 'Solicitudes', color: '#06b6d4' },
+  { key: 'tracking_alarma', label: 'Alarmas tracking', color: '#dc2626' },
 ];
 
 function getFuentesIniciales(): Array<'todo' | AgendaFuente> {
@@ -242,6 +243,12 @@ export function AgendaPage({ initialTab }: AgendaPageProps = {}) {
       case 'solicitud':
         // Ruta verificada: /gerencia/solicitudes/:id
         navigate(`/gerencia/solicitudes/${item.origenId}`);
+        return;
+      case 'tracking_alarma':
+        // Bloque A · Fase 2: origenId = tracking_lineas.id. Necesitamos el
+        // tramite_id para abrir el tracking — el modal lo recibe via item
+        // serializado por backend. Hasta tenerlo, listamos trámites.
+        navigate(`/gerencia/tramites`);
         return;
       default:
         // eslint-disable-next-line no-console

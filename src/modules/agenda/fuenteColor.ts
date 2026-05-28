@@ -12,6 +12,7 @@ export const FUENTE_COLORES: Record<AgendaFuente, string> = {
   tramite: '#8b5cf6', // violeta
   comprobante: '#ef4444', // rojo
   solicitud: '#06b6d4', // cyan (igual a personal por afinidad)
+  tracking_alarma: '#dc2626', // rojo intenso — Bloque A · Fase 2
 };
 
 export const FUENTE_LABEL: Record<AgendaFuente, string> = {
@@ -20,6 +21,7 @@ export const FUENTE_LABEL: Record<AgendaFuente, string> = {
   tramite: 'Trámites',
   comprobante: 'Cobranzas',
   solicitud: 'Solicitudes',
+  tracking_alarma: 'Alarmas tracking',
 };
 
 export const FUENTE_DESCRIPCION: Record<AgendaFuente, string> = {
@@ -28,6 +30,7 @@ export const FUENTE_DESCRIPCION: Record<AgendaFuente, string> = {
   tramite: 'Trámites y trackings con fecha estimada o próximo paso.',
   comprobante: 'Comprobantes con vencimiento de cobro (factura por cobrar).',
   solicitud: 'Solicitudes recibidas con fecha de seguimiento.',
+  tracking_alarma: 'Recordatorios de seguimiento configurados en los avances de tracking.',
 };
 
 export function colorDeFuente(f: AgendaFuente): string {

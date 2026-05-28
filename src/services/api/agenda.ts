@@ -549,7 +549,13 @@ export async function posponerEvento(
 
 // --- Agenda unificada (hub temporal · mig 0040) ---------------------------
 
-export type AgendaFuente = 'personal' | 'vencimiento' | 'tramite' | 'comprobante' | 'solicitud';
+export type AgendaFuente =
+  | 'personal'
+  | 'vencimiento'
+  | 'tramite'
+  | 'comprobante'
+  | 'solicitud'
+  | 'tracking_alarma'; // Bloque A · Fase 2: alarmas de líneas de tracking
 
 export interface OcurrenciaUnificada {
   fuente: AgendaFuente;
