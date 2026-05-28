@@ -114,10 +114,25 @@ export function PortalComprobanteDetailPage() {
     if (!comp) return;
     try {
       const doc = await generateComprobantePdf({ comprobante: comp, items });
-      const numStr = comp.numero
-        ? `${String(comp.punto_venta).padStart(5, '0')}-${String(comp.numero).padStart(8, '0')}`
-        : 'sin-numero';
-      doc.save(`comprobante-${comp.tipo}-${numStr}.pdf`);
+      // Cuando hay facturación externa del partner usamos el nº de la factura
+      // como nombre del archivo para que el cliente reciba "factura-XXXX.pdf".
+      // El cliente no debe ver mención al partner — sólo a "Gestión Global"
+      // como emisor de la factura (regla UX del usuario, mig 0107).
+      const compExt = comp as unknown as {
+        partner_facturado_at: string | null;
+        partner_numero_externo: string | null;
+      };
+      let fileName: string;
+      if (compExt.partner_facturado_at && compExt.partner_numero_externo) {
+        const safeNum = compExt.partner_numero_externo.replace(/[^A-Za-z0-9-]/g, '-');
+        fileName = `factura-${safeNum}.pdf`;
+      } else {
+        const numStr = comp.numero
+          ? `${String(comp.punto_venta).padStart(5, '0')}-${String(comp.numero).padStart(8, '0')}`
+          : 'sin-numero';
+        fileName = `comprobante-${comp.tipo}-${numStr}.pdf`;
+      }
+      doc.save(fileName);
     } catch (e) {
       toast.error('No pudimos generar el PDF', {
         description: (e as Error).message,
