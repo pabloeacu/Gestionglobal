@@ -59,7 +59,12 @@ export function PortalCtaCtePage() {
   }, [rows, desde, hasta]);
 
   const stats = useMemo(() => {
-    const saldoActual = rows[0]?.saldo ?? 0;
+    // Las filas vienen en orden cronológico ASC desde la RPC
+    // cuenta_corriente_extracto (mig 0112). El saldo actual es el de la
+    // ÚLTIMA fila (más reciente). Usar rows[0] daba el saldo del movimiento
+    // más antiguo y mostraba una "deuda" inexistente cuando la cuenta ya
+    // estaba saldada.
+    const saldoActual = rows[rows.length - 1]?.saldo ?? 0;
     const totalCargos = filtered
       .filter((r) => r.signo === 1)
       .reduce((s, r) => s + r.monto, 0);
