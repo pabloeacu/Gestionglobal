@@ -120,7 +120,7 @@ function buildHtml(input: TramitePdfInput): string {
     margin-bottom: 8px;
   }
   .header .brand img {
-    height: 240px;
+    height: 90px;
     width: auto;
     display: block;
   }
@@ -237,7 +237,7 @@ function buildHtml(input: TramitePdfInput): string {
 
   <div class="header">
     <div class="brand">
-      <img src="https://www.${DOMAIN}/logo-h-white.png" alt="Gestión Global" crossorigin="anonymous" />
+      <img src="https://www.${DOMAIN}/brand/logo-h-white.png" alt="Gestión Global" crossorigin="anonymous" />
     </div>
     <p class="kicker">Detalle del trámite</p>
     <h1>${escapeHtml(input.formulario_titulo || input.servicio)}</h1>
