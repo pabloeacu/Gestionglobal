@@ -117,28 +117,12 @@ function buildHtml(input: TramitePdfInput): string {
     margin-bottom: 28px;
   }
   .header .brand {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 16px;
+    margin-bottom: 18px;
   }
-  .header .brand-mark {
-    width: 36px;
+  .header .brand img {
     height: 36px;
-    border-radius: 10px;
-    background: rgba(255,255,255,0.18);
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 800;
-    font-size: 16px;
-    letter-spacing: -0.5px;
-  }
-  .header .brand-name {
-    font-size: 18px;
-    font-weight: 800;
-    letter-spacing: 0.3px;
-    line-height: 1;
+    width: auto;
+    display: block;
   }
   .header .kicker {
     margin: 0;
@@ -253,8 +237,7 @@ function buildHtml(input: TramitePdfInput): string {
 
   <div class="header">
     <div class="brand">
-      <span class="brand-mark">GG</span>
-      <span class="brand-name">Gestión Global</span>
+      <img src="https://www.${DOMAIN}/logo-h-white.png" alt="Gestión Global" crossorigin="anonymous" />
     </div>
     <p class="kicker">Detalle del trámite</p>
     <h1>${escapeHtml(input.formulario_titulo || input.servicio)}</h1>
@@ -321,8 +304,20 @@ export async function generateTramitePdfBlob(
   container.innerHTML = html;
   document.body.appendChild(container);
 
-  // El header ya no usa imágenes externas (cambié logo → "GG" + texto)
-  // así que no hay imgs que esperar. Solo fuentes y el frame.
+  // Esperar el logo del header (logo-h-white.png con CORS habilitado)
+  const imgs = Array.from(container.querySelectorAll('img'));
+  await Promise.all(
+    imgs.map(
+      (img) =>
+        new Promise<void>((resolve) => {
+          if (img.complete) return resolve();
+          img.addEventListener('load', () => resolve(), { once: true });
+          img.addEventListener('error', () => resolve(), { once: true });
+          // Failsafe: si tarda más de 4s, seguimos sin él
+          setTimeout(() => resolve(), 4000);
+        }),
+    ),
+  );
   try {
     if (document.fonts?.ready) await document.fonts.ready;
   } catch {
