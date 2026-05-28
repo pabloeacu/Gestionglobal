@@ -66,9 +66,9 @@ export function LineaTrackingCard({
   const futura =
     linea.alerta_en !== null && new Date(linea.alerta_en).getTime() > Date.now();
   const { user } = useAuth();
-  // 'operador' es el rol staff que puede editar. La RPC valida también
-  // private.is_staff() en backend, así que esto es solo UX (mostrar/ocultar).
-  const isStaff = user?.role === 'operador';
+  // Staff = 'gerente' u 'operador'. La RPC valida también private.is_staff()
+  // en backend, así que esto es solo UX (mostrar/ocultar el lápiz).
+  const isStaff = user?.role === 'gerente' || user?.role === 'operador';
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(linea.descripcion);
   const [saving, setSaving] = useState(false);
