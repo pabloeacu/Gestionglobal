@@ -472,29 +472,54 @@ function PanelGestor({ token }: { token: string }) {
     if (!res.error && res.data) {
       const d = res.data as InfoSolicitud;
       setInfo(d);
-      // Firmar URLs de los adjuntos del cliente (bucket form-adjuntos privado)
+      // Firmar URLs de los adjuntos. download:true fuerza Content-Disposition
+      // attachment para que el browser baje el archivo en vez de previsualizar.
+      // Así el gestor puede archivar los originales sin esfuerzo extra.
       const signed: Record<string, string> = {};
       for (const a of d.adjuntos) {
         const { data: s } = await supabase.storage
           .from('form-adjuntos')
-          .createSignedUrl(a.storage_path, 60 * 60);
+          .createSignedUrl(a.storage_path, 60 * 60, {
+            download: a.filename_original,
+          });
         if (s?.signedUrl) signed[a.storage_path] = s.signedUrl;
       }
       setAdjuntosUrls(signed);
     }
   }
 
-  function descargarInfoJson() {
+  async function descargarInfoPdf() {
     if (!info) return;
-    const blob = new Blob([JSON.stringify(info, null, 2)], {
-      type: 'application/json',
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `tramite-${info.solicitud_id.slice(0, 8)}-info.json`;
-    a.click();
-    URL.revokeObjectURL(url);
+    try {
+      const { generateTramitePdfBlob } = await import(
+        '@/modules/acceso-externo/lib/generateTramitePdf'
+      );
+      const blob = await generateTramitePdfBlob({
+        solicitud_id: info.solicitud_id,
+        servicio: info.servicio,
+        formulario_titulo: info.formulario_titulo,
+        formulario_categoria: info.formulario_categoria,
+        solicitante_nombre: info.solicitante_nombre,
+        solicitante_email: info.solicitante_email,
+        solicitante_telefono: info.solicitante_telefono,
+        datos: info.datos,
+        adjuntos: info.adjuntos.map((a) => ({
+          ...a,
+          url_descarga: adjuntosUrls[a.storage_path] ?? undefined,
+        })),
+        created_at: info.created_at,
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `tramite-${info.solicitud_id.slice(0, 8)}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      toast.error('No pudimos generar el PDF', {
+        description: (e as Error).message,
+      });
+    }
   }
 
   useEffect(() => {
@@ -606,11 +631,11 @@ function PanelGestor({ token }: { token: string }) {
               </button>
               <button
                 type="button"
-                onClick={descargarInfoJson}
-                className="inline-flex items-center gap-1 rounded-lg bg-brand-cyan/10 px-2.5 py-1 text-xs font-medium text-brand-cyan hover:bg-brand-cyan/20"
-                title="Descargar info como JSON"
+                onClick={() => void descargarInfoPdf()}
+                className="inline-flex items-center gap-1 rounded-lg bg-brand-cyan px-3 py-1 text-xs font-semibold text-white hover:bg-brand-cyan/90"
+                title="Descargar ficha del trámite como PDF"
               >
-                <UploadCloud size={11} className="rotate-180" /> JSON
+                <UploadCloud size={11} className="rotate-180" /> Descargar PDF
               </button>
             </div>
           </div>
@@ -633,23 +658,24 @@ function PanelGestor({ token }: { token: string }) {
                 ))}
               </dl>
 
-              {/* Adjuntos del cliente */}
+              {/* Adjuntos del cliente — descarga directa con download attr */}
               {info.adjuntos.length > 0 && (
                 <div className="mt-3">
                   <p className="kicker mb-1.5 text-brand-muted">
-                    Adjuntos del cliente ({info.adjuntos.length})
+                    Documentación adjunta del cliente ({info.adjuntos.length})
                   </p>
                   <ul className="space-y-1">
                     {info.adjuntos.map((a) => (
                       <li key={a.storage_path}>
                         <a
                           href={adjuntosUrls[a.storage_path] ?? '#'}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 rounded-lg bg-slate-50 px-2.5 py-1.5 text-xs text-brand-ink hover:bg-slate-100"
+                          download={a.filename_original}
+                          className="inline-flex items-center gap-1.5 rounded-lg bg-slate-50 px-2.5 py-1.5 text-xs text-brand-ink hover:bg-brand-cyan/10 hover:text-brand-cyan"
+                          title="Descargar archivo"
                         >
                           <Paperclip size={11} className="text-brand-cyan" />
                           {a.filename_original}
+                          <UploadCloud size={10} className="rotate-180 text-brand-muted" />
                         </a>
                       </li>
                     ))}
