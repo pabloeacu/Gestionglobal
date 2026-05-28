@@ -104,6 +104,10 @@ export function WizardActivacion({
   const [observDerivacion, setObservDerivacion] = useState(
     draftInicial?.observDerivacion ?? '',
   );
+  // Bloque K (obs nueva): validez del enlace seguro al gestor (1..365 días).
+  // Default 14 — el gerente puede acortar si es trámite urgente o extender
+  // si el gestor está de viaje, etc. Se respeta caso por caso.
+  const [diasValidez, setDiasValidez] = useState<number>(14);
   const [busy1, setBusy1] = useState(false);
   const [paso1Hecho, setPaso1Hecho] = useState(
     draftInicial?.paso1Hecho ?? false,
@@ -277,6 +281,7 @@ export function WizardActivacion({
       destinatario_email: destinatarioEmail.trim(),
       destinatario_nombre: destinatarioNombre.trim() || undefined,
       observaciones: observDerivacion.trim() || undefined,
+      dias_validez: diasValidez,
     });
     setBusy1(false);
     if (!res.ok) {
@@ -388,6 +393,27 @@ export function WizardActivacion({
                 />
               </Field>
 
+              {/* Bloque K (obs nueva): TTL del enlace seguro al gestor.
+                  Default 14 días, editable caso por caso. */}
+              <Field label="Validez del enlace (días)">
+                <div className="flex items-center gap-3">
+                  <Input
+                    type="number"
+                    min={1}
+                    max={365}
+                    value={diasValidez}
+                    onChange={(e) => {
+                      const n = parseInt(e.target.value, 10);
+                      setDiasValidez(isNaN(n) ? 14 : Math.min(365, Math.max(1, n)));
+                    }}
+                    className="w-28"
+                  />
+                  <span className="text-xs text-brand-muted">
+                    Default 14. Rango 1-365 días.
+                  </span>
+                </div>
+              </Field>
+
               <div className="rounded-lg border border-brand-cyan/30 bg-brand-cyan-pale/30 p-3 text-xs text-brand-ink">
                 <p className="font-semibold">
                   <Send size={11} className="mr-1 inline" />
@@ -401,7 +427,14 @@ export function WizardActivacion({
                     </span>
                   </li>
                   <li>Adjuntos del solicitante en links descargables.</li>
-                  <li>Acceso seguro de 14 días (sin requerir login).</li>
+                  <li>
+                    Datos del formulario (descargables como JSON +
+                    listado HTML).
+                  </li>
+                  <li>
+                    Acceso seguro de <strong>{diasValidez} días</strong>{' '}
+                    (sin requerir login).
+                  </li>
                 </ul>
               </div>
             </div>

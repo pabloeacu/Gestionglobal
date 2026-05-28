@@ -425,9 +425,32 @@ interface AdjuntoStaged {
   error?: string;
 }
 
+// Bloque K (obs nueva): info que ve el gestor sobre la solicitud original.
+// Le permite descargar lo que el cliente envió: datos del formulario +
+// adjuntos. Antes solo subía avances sin contexto.
+type InfoSolicitud = {
+  solicitud_id: string;
+  servicio: string;
+  solicitante_nombre: string;
+  solicitante_email: string;
+  solicitante_telefono: string;
+  formulario_titulo: string | null;
+  formulario_categoria: string | null;
+  datos: Record<string, unknown>;
+  adjuntos: Array<{
+    field_name: string;
+    filename_original: string;
+    storage_path: string;
+  }>;
+  created_at: string;
+};
+
 function PanelGestor({ token }: { token: string }) {
   const [avances, setAvances] = useState<GestorAvanceLinea[] | null>(null);
   const [loadingAvances, setLoadingAvances] = useState(true);
+  const [info, setInfo] = useState<InfoSolicitud | null>(null);
+  const [infoOpen, setInfoOpen] = useState(false);
+  const [adjuntosUrls, setAdjuntosUrls] = useState<Record<string, string>>({});
   const [descripcion, setDescripcion] = useState('');
   const [enviando, setEnviando] = useState(false);
   const [enviado, setEnviado] = useState(false);
@@ -441,8 +464,42 @@ function PanelGestor({ token }: { token: string }) {
     setLoadingAvances(false);
   }
 
+  async function cargarInfo() {
+    const res = (await supabase.rpc(
+      'gestor_obtener_info_solicitud' as never,
+      { p_token: token } as never,
+    )) as { data: unknown; error: { message: string } | null };
+    if (!res.error && res.data) {
+      const d = res.data as InfoSolicitud;
+      setInfo(d);
+      // Firmar URLs de los adjuntos del cliente (bucket form-adjuntos privado)
+      const signed: Record<string, string> = {};
+      for (const a of d.adjuntos) {
+        const { data: s } = await supabase.storage
+          .from('form-adjuntos')
+          .createSignedUrl(a.storage_path, 60 * 60);
+        if (s?.signedUrl) signed[a.storage_path] = s.signedUrl;
+      }
+      setAdjuntosUrls(signed);
+    }
+  }
+
+  function descargarInfoJson() {
+    if (!info) return;
+    const blob = new Blob([JSON.stringify(info, null, 2)], {
+      type: 'application/json',
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `tramite-${info.solicitud_id.slice(0, 8)}-info.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   useEffect(() => {
     void cargarAvances();
+    void cargarInfo();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
@@ -522,6 +579,87 @@ function PanelGestor({ token }: { token: string }) {
         <Briefcase size={18} />
         <span className="kicker">Panel de gestoría</span>
       </div>
+
+      {/* Bloque K (obs nueva): info que recibió el gestor — datos del
+          formulario que llenó el cliente + adjuntos descargables. Cierra
+          el bucle: ver lo que pidió → resolver → subir resultado. */}
+      {info && (
+        <div className="mb-5 rounded-2xl border border-slate-200 bg-white p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <div>
+              <p className="kicker text-brand-cyan">Información del trámite</p>
+              <h3 className="font-display text-base font-bold text-brand-ink">
+                {info.formulario_titulo || info.servicio}
+              </h3>
+              <p className="text-xs text-brand-muted">
+                Solicitante: {info.solicitante_nombre}
+                {info.solicitante_email && ` · ${info.solicitante_email}`}
+              </p>
+            </div>
+            <div className="flex gap-1.5">
+              <button
+                type="button"
+                onClick={() => setInfoOpen((v) => !v)}
+                className="rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-medium text-brand-muted hover:bg-slate-50"
+              >
+                {infoOpen ? 'Ocultar' : 'Ver datos'}
+              </button>
+              <button
+                type="button"
+                onClick={descargarInfoJson}
+                className="inline-flex items-center gap-1 rounded-lg bg-brand-cyan/10 px-2.5 py-1 text-xs font-medium text-brand-cyan hover:bg-brand-cyan/20"
+                title="Descargar info como JSON"
+              >
+                <UploadCloud size={11} className="rotate-180" /> JSON
+              </button>
+            </div>
+          </div>
+
+          {infoOpen && (
+            <>
+              {/* Datos del formulario en formato legible */}
+              <dl className="mt-2 grid grid-cols-1 gap-1.5 rounded-lg bg-slate-50/60 p-3 text-xs sm:grid-cols-2">
+                {Object.entries(info.datos).map(([k, v]) => (
+                  <div key={k}>
+                    <dt className="text-brand-muted">{k.replace(/_/g, ' ')}</dt>
+                    <dd className="font-medium text-brand-ink break-words">
+                      {v === null || v === undefined || v === ''
+                        ? '—'
+                        : typeof v === 'object'
+                          ? JSON.stringify(v)
+                          : String(v)}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+
+              {/* Adjuntos del cliente */}
+              {info.adjuntos.length > 0 && (
+                <div className="mt-3">
+                  <p className="kicker mb-1.5 text-brand-muted">
+                    Adjuntos del cliente ({info.adjuntos.length})
+                  </p>
+                  <ul className="space-y-1">
+                    {info.adjuntos.map((a) => (
+                      <li key={a.storage_path}>
+                        <a
+                          href={adjuntosUrls[a.storage_path] ?? '#'}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 rounded-lg bg-slate-50 px-2.5 py-1.5 text-xs text-brand-ink hover:bg-slate-100"
+                        >
+                          <Paperclip size={11} className="text-brand-cyan" />
+                          {a.filename_original}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
 
       {/* Form */}
       <div className="space-y-3">

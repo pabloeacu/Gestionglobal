@@ -256,6 +256,9 @@ export interface DerivarInput {
   destinatario_nombre?: string;
   plantilla_slug?: string;
   observaciones?: string;
+  // Bloque K (obs nueva): TTL del enlace seguro del gestor.
+  // Default 14 días. Rango 1..365. Configurable por caso desde el wizard.
+  dias_validez?: number;
 }
 
 export async function derivar(
@@ -268,7 +271,8 @@ export async function derivar(
     p_destinatario_nombre: input.destinatario_nombre ?? null,
     p_plantilla_slug: input.plantilla_slug ?? 'solicitud-derivada-gestoria',
     p_observaciones: input.observaciones ?? null,
-  });
+    p_dias_validez: input.dias_validez ?? 14,
+  } as unknown as Parameters<typeof rpc>[1]);
   if (error) return fail('SOL_DERIVAR', error.message, error);
   return ok({ derivacionId: data as string });
 }
