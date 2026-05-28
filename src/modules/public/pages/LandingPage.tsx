@@ -28,9 +28,14 @@ type ServicioGrupo = {
     icon: typeof ShieldCheck;
     titulo: string;
     descripcion: string;
+    cta?: { href: string; label: string };
   }>;
 };
 
+// Cada servicio incluye `cta` con la URL al formulario público o pantalla
+// relacionada — slug debe existir en `public.formularios` (publico=true, activo=true).
+// Ver mig 0035 + cargas de formularios. Si un servicio no tiene CTA, se renderiza
+// igual pero sin botón "Solicitar".
 const SERVICIOS: ServicioGrupo[] = [
   {
     kicker: 'RPAC · Provincia de Buenos Aires',
@@ -41,24 +46,28 @@ const SERVICIOS: ServicioGrupo[] = [
         titulo: 'Inscripción al RPAC',
         descripcion:
           'Te acompañamos en cada paso para que obtengas tu matrícula sin demoras ni observaciones.',
+        cta: { href: '/formulario/matriculacion-rpac', label: 'Iniciar inscripción' },
       },
       {
         icon: RefreshCcw,
         titulo: 'Renovación de matrícula',
         descripcion:
           'Gestión integral año a año, cubriendo las nuevas exigencias y con asesoría personalizada.',
+        cta: { href: '/formulario/renovacion-rpac', label: 'Renovar ahora' },
       },
       {
         icon: FileCheck2,
         titulo: 'Certificado de acreditación',
         descripcion:
           'Tu matrícula vigente, lista para asambleas u organismos cuando la necesites.',
+        cta: { href: '/formulario/certificado-rpac', label: 'Solicitar certificado' },
       },
       {
         icon: ClipboardList,
         titulo: 'Declaraciones juradas anuales',
         descripcion:
           'Plataforma digital guiada paso a paso: orden, respaldo y cero olvidos.',
+        cta: { href: '/formulario/ddjj-anual', label: 'Presentar DDJJ' },
       },
     ],
   },
@@ -71,24 +80,28 @@ const SERVICIOS: ServicioGrupo[] = [
         titulo: 'Curso de formación RPAC',
         descripcion:
           'Curso obligatorio de inscripción · sincrónico · con docentes expertos y campus propio.',
+        cta: { href: '/formulario/curso-formacion', label: 'Inscribirme al curso' },
       },
       {
         icon: BookOpen,
         titulo: 'Actualización RPAC',
         descripcion:
           'Para renovación: clases asincrónicas con tutorías sincrónicas, pensadas para la práctica real.',
+        cta: { href: '/formulario/curso-actualizacion', label: 'Inscribirme' },
       },
       {
         icon: BookOpen,
         titulo: 'Actualización RPA · CABA',
         descripcion:
           '100% asincrónico · contenido actualizado · a tu ritmo y según tu disponibilidad.',
+        cta: { href: '/formulario/curso-actualizacion', label: 'Inscribirme' },
       },
       {
         icon: PlayCircle,
         titulo: 'Capacitaciones gratuitas',
         descripcion:
           'Webinars, podcasts y charlas con especialistas — una comunidad que aprende y crece.',
+        cta: { href: '/formulario/webinarios', label: 'Sumarme gratis' },
       },
     ],
   },
@@ -101,12 +114,14 @@ const SERVICIOS: ServicioGrupo[] = [
         titulo: 'Plataforma de gestión',
         descripcion:
           'Plataforma web integral para consorcios: ingresos, gastos, comunicaciones y acceso a propietarios.',
+        cta: { href: '/ingresar', label: 'Conocer la plataforma' },
       },
       {
         icon: Scale,
         titulo: 'Asesoría jurídica',
         descripcion:
           'Equipo especializado en propiedad horizontal. Respuestas claras, con fundamento y aplicabilidad.',
+        cta: { href: '/formulario/consultoria-juridica', label: 'Consultar ahora' },
       },
     ],
   },
@@ -447,22 +462,48 @@ function Servicios() {
                 </div>
               </div>
               <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-                {grupo.items.map(({ icon: Icon, titulo, descripcion }) => (
-                  <article
-                    key={titulo}
-                    className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-6 transition hover:-translate-y-0.5 hover:border-brand-cyan/50 hover:shadow-[0_18px_40px_-24px_rgba(0,158,202,0.45)]"
-                  >
-                    <span className="grid h-10 w-10 place-items-center rounded-xl bg-brand-cyan-pale/40 text-brand-cyan transition group-hover:bg-brand-cyan group-hover:text-white">
-                      <Icon size={20} />
-                    </span>
-                    <h4 className="mt-5 font-display text-lg font-bold">
-                      {titulo}
-                    </h4>
-                    <p className="mt-2 text-sm leading-relaxed text-brand-muted">
-                      {descripcion}
-                    </p>
-                  </article>
-                ))}
+                {grupo.items.map(({ icon: Icon, titulo, descripcion, cta }) => {
+                  const card = (
+                    <>
+                      <span className="grid h-10 w-10 place-items-center rounded-xl bg-brand-cyan-pale/40 text-brand-cyan transition group-hover:bg-brand-cyan group-hover:text-white">
+                        <Icon size={20} />
+                      </span>
+                      <h4 className="mt-5 font-display text-lg font-bold">
+                        {titulo}
+                      </h4>
+                      <p className="mt-2 text-sm leading-relaxed text-brand-muted">
+                        {descripcion}
+                      </p>
+                      {cta && (
+                        <p className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-brand-cyan transition group-hover:gap-2">
+                          <span>{cta.label}</span>
+                          <ArrowUpRight size={14} />
+                        </p>
+                      )}
+                    </>
+                  );
+                  // Card clickeable end-to-end cuando tiene CTA. Si es ruta interna
+                  // usa Link de React Router; si fuese externa, <a target=_blank>.
+                  if (cta) {
+                    return (
+                      <Link
+                        key={titulo}
+                        to={cta.href}
+                        className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white p-6 transition hover:-translate-y-0.5 hover:border-brand-cyan/50 hover:shadow-[0_18px_40px_-24px_rgba(0,158,202,0.45)]"
+                      >
+                        {card}
+                      </Link>
+                    );
+                  }
+                  return (
+                    <article
+                      key={titulo}
+                      className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-6 transition hover:-translate-y-0.5 hover:border-brand-cyan/50 hover:shadow-[0_18px_40px_-24px_rgba(0,158,202,0.45)]"
+                    >
+                      {card}
+                    </article>
+                  );
+                })}
               </div>
             </div>
           ))}
