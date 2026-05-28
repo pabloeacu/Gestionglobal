@@ -11,14 +11,21 @@ import {
   User,
   Mail,
   Phone,
+  Briefcase,
+  Send,
+  CheckCircle2,
 } from 'lucide-react';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import { cn } from '@/lib/cn';
 import {
   fetchAccesoExterno,
+  fetchGestorAvances,
+  gestorCargarAvance,
   registrarApertura,
   type AccesoExternoPayload,
+  type GestorAvanceLinea,
 } from '@/services/api/accesos';
+import { toast } from '@/lib/toast';
 
 // Página pública sin login. Carga el recurso vía edge function `acceso-externo`.
 // Diseño premium: hero cyan, tarjeta de datos, galería de adjuntos, footer
@@ -116,6 +123,12 @@ export function AccesoExternoPage() {
               <div className="kicker mb-3 text-brand-cyan">Detalle</div>
               <RecursoView payload={data} />
             </section>
+
+            {/* #147 · Perfil Gestor: si el token es de una solicitud, mostramos
+                timeline + formulario de carga de avance. */}
+            {data.acceso?.tipo === 'solicitud' && token && (
+              <PanelGestor token={token} />
+            )}
 
             {/* 5.B · tarjeta "Tu contacto" — humaniza el acceso. */}
             <TuContacto responsable={data.responsable} />
@@ -395,6 +408,149 @@ function formatICSDate(d: Date): string {
 
 function escapeICS(s: string): string {
   return s.replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/,/g, '\\,').replace(/;/g, '\\;');
+}
+
+// =============================================================================
+// #147 · Perfil Gestor (carga de avance desde acceso externo)
+// =============================================================================
+function PanelGestor({ token }: { token: string }) {
+  const [avances, setAvances] = useState<GestorAvanceLinea[] | null>(null);
+  const [loadingAvances, setLoadingAvances] = useState(true);
+  const [descripcion, setDescripcion] = useState('');
+  const [enviando, setEnviando] = useState(false);
+  const [enviado, setEnviado] = useState(false);
+
+  async function cargarAvances() {
+    setLoadingAvances(true);
+    const res = await fetchGestorAvances(token);
+    if (res.ok) setAvances(res.data);
+    setLoadingAvances(false);
+  }
+
+  useEffect(() => {
+    void cargarAvances();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]);
+
+  async function enviar() {
+    if (descripcion.trim().length < 3) {
+      toast.error('Escribí una descripción de tu avance');
+      return;
+    }
+    setEnviando(true);
+    const res = await gestorCargarAvance(token, descripcion.trim(), []);
+    setEnviando(false);
+    if (!res.ok) {
+      toast.error(res.error.message);
+      return;
+    }
+    toast.success('Avance enviado al cliente');
+    setEnviado(true);
+    setDescripcion('');
+    void cargarAvances();
+  }
+
+  return (
+    <section className="rounded-2xl border border-brand-cyan/30 bg-gradient-to-br from-brand-cyan-pale/30 via-white to-white p-6 shadow-sm">
+      <div className="mb-4 flex items-center gap-2 text-brand-cyan">
+        <Briefcase size={18} />
+        <span className="kicker">Panel de gestoría</span>
+      </div>
+
+      {/* Form */}
+      <div className="space-y-3">
+        <label className="block text-sm font-medium text-brand-ink">
+          Cargar avance / documentación
+        </label>
+        <textarea
+          rows={4}
+          value={descripcion}
+          onChange={(e) => setDescripcion(e.target.value)}
+          placeholder="Contale al cliente qué resolviste, qué se entregó al organismo, próximos pasos…"
+          className="w-full rounded-xl border border-slate-200 bg-white p-3 text-sm text-brand-ink shadow-sm transition focus:border-brand-cyan focus:outline-none focus:ring-2 focus:ring-brand-cyan/20"
+          disabled={enviando}
+        />
+        <p className="text-xs text-brand-muted">
+          El cliente recibirá un email y notificación push automáticamente.
+        </p>
+        <button
+          type="button"
+          onClick={enviar}
+          disabled={enviando || descripcion.trim().length < 3}
+          className="inline-flex items-center gap-2 rounded-xl bg-brand-cyan px-4 py-2 text-sm font-semibold text-white shadow transition hover:bg-brand-teal disabled:cursor-not-allowed disabled:bg-slate-300"
+        >
+          {enviando ? (
+            <>
+              <Loader2 size={14} className="animate-spin" /> Enviando…
+            </>
+          ) : (
+            <>
+              <Send size={14} /> Enviar avance
+            </>
+          )}
+        </button>
+        {enviado && (
+          <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">
+            <CheckCircle2 size={12} /> Recibido por el cliente
+          </div>
+        )}
+      </div>
+
+      {/* Timeline */}
+      <div className="mt-6 border-t border-slate-200 pt-4">
+        <div className="kicker mb-3 text-brand-muted">
+          Historial visible al cliente
+        </div>
+        {loadingAvances ? (
+          <div className="flex items-center gap-2 text-xs text-brand-muted">
+            <Loader2 size={12} className="animate-spin" /> Cargando…
+          </div>
+        ) : !avances || avances.length === 0 ? (
+          <p className="text-xs text-brand-muted">
+            Todavía no hay avances cargados.
+          </p>
+        ) : (
+          <ul className="space-y-3">
+            {avances.map((a) => (
+              <li key={a.id} className="rounded-xl border border-slate-200 bg-white p-3">
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="kicker text-brand-cyan">
+                    {a.categoria_label}
+                  </span>
+                  <span className="text-[10px] text-brand-muted">
+                    {fmtRel(a.created_at)}
+                  </span>
+                </div>
+                <p className="mt-1 whitespace-pre-wrap text-sm text-brand-ink">
+                  {a.descripcion}
+                </p>
+                <p className="mt-1 text-[10px] text-brand-muted">
+                  por {a.autor_nombre}
+                </p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function fmtRel(iso: string): string {
+  const t = new Date(iso).getTime();
+  if (Number.isNaN(t)) return iso;
+  const min = (Date.now() - t) / 60000;
+  if (min < 1) return 'hace instantes';
+  if (min < 60) return `hace ${Math.round(min)} min`;
+  const h = min / 60;
+  if (h < 24) return `hace ${Math.round(h)} h`;
+  const d = h / 24;
+  if (d < 7) return `hace ${Math.round(d)} d`;
+  return new Date(iso).toLocaleDateString('es-AR', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
 }
 
 export default AccesoExternoPage;

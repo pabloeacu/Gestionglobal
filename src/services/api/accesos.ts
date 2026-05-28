@@ -183,3 +183,70 @@ export async function fetchAccesoExterno(
     return fail(err.code, err.message, err.details);
   }
 }
+
+// =============================================================================
+// #147 · Perfil Gestor: gestor (acceso externo) carga línea de avance
+// =============================================================================
+
+export interface GestorAvanceLinea {
+  id: string;
+  categoria_slug: string;
+  categoria_label: string;
+  categoria_icono: string;
+  categoria_color: string;
+  descripcion: string;
+  archivos_urls: string[];
+  autor_nombre: string;
+  created_at: string;
+}
+
+/**
+ * Lista líneas de avance previas del trámite asociado al token.
+ * Da contexto al gestor antes de cargar su aporte. Pública (anon).
+ */
+export async function fetchGestorAvances(
+  token: string,
+): Promise<ApiResponse<GestorAvanceLinea[]>> {
+  try {
+    const { data, error } = await supabase.rpc(
+      'gestor_listar_avances' as never,
+      { p_token: token } as never,
+    );
+    if (error) throw error;
+    return ok((data ?? []) as unknown as GestorAvanceLinea[]);
+  } catch (e) {
+    const err = toApiError(e);
+    return fail(err.code, err.message, err.details);
+  }
+}
+
+/**
+ * El gestor carga su avance. Inserta tracking_lineas con visible_cliente=true
+ * (el trigger envía email+push+notif al cliente). Pública (anon, valida token).
+ */
+export async function gestorCargarAvance(
+  token: string,
+  descripcion: string,
+  archivosUrls: string[] = [],
+): Promise<ApiResponse<string>> {
+  try {
+    const args = {
+      p_token: token,
+      p_descripcion: descripcion,
+      p_archivos_urls: archivosUrls,
+    } as unknown as {
+      p_token: string;
+      p_descripcion: string;
+      p_archivos_urls: string[];
+    };
+    const { data, error } = await supabase.rpc(
+      'gestor_cargar_avance' as never,
+      args as never,
+    );
+    if (error) throw error;
+    return ok(data as unknown as string);
+  } catch (e) {
+    const err = toApiError(e);
+    return fail(err.code, err.message, err.details);
+  }
+}
