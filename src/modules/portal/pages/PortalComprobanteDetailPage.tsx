@@ -16,10 +16,7 @@ import {
 } from 'lucide-react';
 import { generateComprobantePdf } from '@/modules/facturacion/lib/generateComprobantePdf';
 import { EnviarComprobanteModal } from '@/modules/facturacion/components/EnviarComprobanteModal';
-import {
-  listCobranzasDeComprobante,
-  type CobranzaListItem,
-} from '@/services/api/cobranzas';
+import { supabase } from '@/lib/supabase';
 import { formatDateShort, parseLocalDate } from '@/lib/dates';
 import {
   Button,
@@ -61,6 +58,19 @@ const COBRANZA_BADGES: Record<CobranzaEstado, { label: string; cls: string }> = 
   anulado:     { label: 'Anulado',         cls: 'bg-slate-100 text-slate-500 border-slate-200' },
 };
 
+// Fila de pago devuelta por la RPC cliente_listar_pagos_comprobante (mig 0113).
+// La RPC bypassa RLS de movimientos (que exige is_staff) para que el cliente
+// pueda ver sus propios pagos imputados al comprobante.
+type PagoRow = {
+  imputacion_id: string;
+  movimiento_id: string;
+  fecha: string;
+  caja_nombre: string | null;
+  referencia: string | null;
+  monto_imputado: number;
+  created_at: string;
+};
+
 export function PortalComprobanteDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -68,14 +78,16 @@ export function PortalComprobanteDetailPage() {
   const [items, setItems] = useState<ComprobanteItemRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [enviarOpen, setEnviarOpen] = useState(false);
-  const [cobranzas, setCobranzas] = useState<CobranzaListItem[]>([]);
+  const [pagos, setPagos] = useState<PagoRow[]>([]);
 
   async function load() {
     if (!id) return;
     setLoading(true);
-    const [res, cobRes] = await Promise.all([
+    const [res, pagosRes] = await Promise.all([
       getComprobante(id),
-      listCobranzasDeComprobante(id),
+      supabase.rpc('cliente_listar_pagos_comprobante' as never, {
+        p_comprobante_id: id,
+      } as never),
     ]);
     setLoading(false);
     if (!res.ok) {
@@ -84,7 +96,13 @@ export function PortalComprobanteDetailPage() {
     }
     setComp(res.data.comprobante);
     setItems(res.data.items);
-    if (cobRes.ok) setCobranzas(cobRes.data);
+    const pagosResAny = pagosRes as {
+      data: unknown[] | null;
+      error: { message: string } | null;
+    };
+    if (!pagosResAny.error && pagosResAny.data) {
+      setPagos(pagosResAny.data as unknown as PagoRow[]);
+    }
   }
 
   useEffect(() => {
@@ -206,7 +224,11 @@ export function PortalComprobanteDetailPage() {
             </div>
             <div className="flex flex-wrap gap-2">
               <Button onClick={() => void onDescargarPdf()}>
-                <Download size={14} /> Descargar PDF
+                <Download size={14} />
+                {(comp as unknown as { partner_facturado_at: string | null })
+                  .partner_facturado_at
+                  ? 'Descargar factura'
+                  : 'Descargar PDF'}
               </Button>
               {comp.estado !== 'anulado' && (
                 <Button variant="secondary" onClick={() => setEnviarOpen(true)}>
@@ -448,14 +470,14 @@ export function PortalComprobanteDetailPage() {
               <div>
                 <p className="kicker text-brand-cyan">Pagos registrados</p>
                 <h3 className="font-display text-lg font-bold text-brand-ink">
-                  {cobranzas.length === 0
+                  {pagos.length === 0
                     ? 'Sin pagos'
-                    : `${cobranzas.length} ${cobranzas.length === 1 ? 'pago' : 'pagos'}`}
+                    : `${pagos.length} ${pagos.length === 1 ? 'pago' : 'pagos'}`}
                 </h3>
               </div>
             </div>
           </div>
-          {cobranzas.length === 0 ? (
+          {pagos.length === 0 ? (
             <div className="flex flex-col items-center gap-2 px-5 py-10 text-center">
               <span className="grid h-12 w-12 place-items-center rounded-xl bg-brand-cyan-pale/40 text-brand-cyan">
                 <CreditCard size={20} />
@@ -476,27 +498,27 @@ export function PortalComprobanteDetailPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {cobranzas.map((c, idx) => (
+                  {pagos.map((p, idx) => (
                     <tr
-                      key={c.id}
+                      key={p.imputacion_id}
                       className="border-b border-slate-100 motion-safe:animate-fade-up"
                       style={{ animationDelay: `${Math.min(idx, 6) * 30}ms` }}
                     >
                       <td className="px-4 py-3 tabular text-brand-muted">
-                        {formatDateShort(c.movimiento.fecha)}
+                        {formatDateShort(p.fecha)}
                       </td>
                       <td className="px-4 py-3 text-brand-ink">
-                        {c.movimiento.caja_nombre ?? '—'}
+                        {p.caja_nombre ?? '—'}
                       </td>
                       <td className="px-4 py-3 text-xs">
-                        {c.movimiento.referencia ? (
-                          <CopyButton value={c.movimiento.referencia} label="Referencia" />
+                        {p.referencia ? (
+                          <CopyButton value={p.referencia} label="Referencia" />
                         ) : (
                           <span className="text-brand-muted">—</span>
                         )}
                       </td>
                       <td className="px-4 py-3 text-right tabular font-medium text-emerald-700">
-                        {formatMoney(Number(c.monto_imputado))}
+                        {formatMoney(Number(p.monto_imputado))}
                       </td>
                     </tr>
                   ))}
