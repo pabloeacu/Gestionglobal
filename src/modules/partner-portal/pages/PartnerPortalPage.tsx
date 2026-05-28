@@ -27,6 +27,15 @@ export function PartnerPortalPage() {
   const [rends, setRends] = useState<PartnerRendicionResumen[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [openFacturar, setOpenFacturar] = useState<PartnerComprobanteRow | null>(null);
+  // #9 walkthrough · filtros de fecha
+  const [desde, setDesde] = useState('');
+  const [hasta, setHasta] = useState('');
+
+  function pasaFiltro(fecha: string): boolean {
+    if (desde && fecha < desde) return false;
+    if (hasta && fecha > hasta) return false;
+    return true;
+  }
 
   async function reload() {
     const [c, r] = await Promise.all([
@@ -70,10 +79,46 @@ export function PartnerPortalPage() {
         {!loading && (
           <>
             <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-              <p className="kicker mb-3 text-brand-cyan inline-flex items-center gap-2">
-                <FileText size={14} /> Rendiciones ({rends?.length ?? 0})
-              </p>
-              {rends && rends.length > 0 ? (
+              <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
+                <p className="kicker text-brand-cyan inline-flex items-center gap-2">
+                  <FileText size={14} /> Rendiciones (
+                  {rends?.filter((r) => pasaFiltro(r.periodo_desde)).length ?? 0}
+                  )
+                </p>
+                <div className="flex flex-wrap items-end gap-2">
+                  <label className="text-xs text-brand-muted">
+                    Desde
+                    <input
+                      type="date"
+                      value={desde}
+                      onChange={(e) => setDesde(e.target.value)}
+                      className="ml-1 rounded border border-slate-200 px-1.5 py-0.5 text-xs"
+                    />
+                  </label>
+                  <label className="text-xs text-brand-muted">
+                    Hasta
+                    <input
+                      type="date"
+                      value={hasta}
+                      onChange={(e) => setHasta(e.target.value)}
+                      className="ml-1 rounded border border-slate-200 px-1.5 py-0.5 text-xs"
+                    />
+                  </label>
+                  {(desde || hasta) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDesde('');
+                        setHasta('');
+                      }}
+                      className="text-xs text-brand-cyan hover:underline"
+                    >
+                      Limpiar
+                    </button>
+                  )}
+                </div>
+              </div>
+              {rends && rends.filter((r) => pasaFiltro(r.periodo_desde)).length > 0 ? (
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead className="text-xs text-brand-muted">
@@ -87,24 +132,28 @@ export function PartnerPortalPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {rends.map((r) => (
-                        <tr key={r.id} className="border-t border-slate-100">
-                          <td className="py-2">
-                            {fmtDate(r.periodo_desde)} → {fmtDate(r.periodo_hasta)}
-                          </td>
-                          <td className="py-2 capitalize">{r.estado}</td>
-                          <td className="py-2 text-right">{fmtMoney(r.total_ingresos_brutos)}</td>
-                          <td className="py-2 text-right text-emerald-700">{fmtMoney(r.total_ingresos_atribuidos)}</td>
-                          <td className="py-2 text-right">{fmtMoney(r.total_costos_brutos)}</td>
-                          <td className="py-2 text-right text-rose-700">{fmtMoney(r.total_costos_atribuidos)}</td>
-                        </tr>
-                      ))}
+                      {rends
+                        .filter((r) => pasaFiltro(r.periodo_desde))
+                        .map((r) => (
+                          <tr key={r.id} className="border-t border-slate-100">
+                            <td className="py-2">
+                              {fmtDate(r.periodo_desde)} → {fmtDate(r.periodo_hasta)}
+                            </td>
+                            <td className="py-2 capitalize">{r.estado}</td>
+                            <td className="py-2 text-right">{fmtMoney(r.total_ingresos_brutos)}</td>
+                            <td className="py-2 text-right text-emerald-700">{fmtMoney(r.total_ingresos_atribuidos)}</td>
+                            <td className="py-2 text-right">{fmtMoney(r.total_costos_brutos)}</td>
+                            <td className="py-2 text-right text-rose-700">{fmtMoney(r.total_costos_atribuidos)}</td>
+                          </tr>
+                        ))}
                     </tbody>
                   </table>
                 </div>
               ) : (
                 <p className="text-sm text-brand-muted">
-                  Aún no hay rendiciones cerradas para tu cuenta.
+                  {rends && rends.length > 0
+                    ? 'No hay rendiciones que coincidan con el filtro.'
+                    : 'Aún no hay rendiciones cerradas para tu cuenta.'}
                 </p>
               )}
             </section>
