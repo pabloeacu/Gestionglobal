@@ -98,6 +98,48 @@ export async function listPartnersActivos(): Promise<ApiResponse<PartnerOpcion[]
   return ok(rows);
 }
 
+// #149 · Vista del usuario role='partner': sus comprobantes asignados + rendiciones
+export interface PartnerComprobanteRow {
+  id: string;
+  tipo: string;
+  numero: number | null;
+  punto_venta: number;
+  fecha: string;
+  vencimiento: string | null;
+  total: number;
+  estado: string;
+  estado_cobranza: string;
+  emitido_arca: boolean;
+  receptor_razon_social: string;
+}
+
+export async function fetchPartnerMisComprobantes(): Promise<
+  ApiResponse<PartnerComprobanteRow[]>
+> {
+  const { data, error } = await supabase.rpc('partner_mis_comprobantes' as never);
+  if (error) return fail('PARTNER_MIS_COMP', error.message, error);
+  return ok((data ?? []) as unknown as PartnerComprobanteRow[]);
+}
+
+export interface PartnerRendicionResumen {
+  id: string;
+  periodo_desde: string;
+  periodo_hasta: string;
+  estado: string;
+  total_ingresos_brutos: number;
+  total_ingresos_atribuidos: number;
+  total_costos_brutos: number;
+  total_costos_atribuidos: number;
+}
+
+export async function fetchPartnerMisRendiciones(): Promise<
+  ApiResponse<PartnerRendicionResumen[]>
+> {
+  const { data, error } = await supabase.rpc('partner_mis_rendiciones' as never);
+  if (error) return fail('PARTNER_MIS_REND', error.message, error);
+  return ok((data ?? []) as unknown as PartnerRendicionResumen[]);
+}
+
 export async function listPartners(
   params: ListPartnersParams = {},
 ): Promise<ApiResponse<{ rows: PartnerListItem[]; total: number }>> {

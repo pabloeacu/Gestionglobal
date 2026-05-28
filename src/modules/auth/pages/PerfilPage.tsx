@@ -50,12 +50,14 @@ const ROLE_LABEL: Record<Role, string> = {
   gerente: 'Gerente',
   operador: 'Operador',
   administrador: 'Administrador',
+  partner: 'Partner',
 };
 
 const ROLE_TONE: Record<Role, string> = {
   gerente: 'bg-brand-cyan-pale/40 text-brand-cyan border-brand-cyan/30',
   operador: 'bg-brand-teal/10 text-brand-teal border-brand-teal/30',
   administrador: 'bg-amber-50 text-amber-700 border-amber-200',
+  partner: 'bg-violet-50 text-violet-700 border-violet-200',
 };
 
 export function PerfilPage() {

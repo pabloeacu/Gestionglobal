@@ -78,11 +78,12 @@ const SolicitudDetailPage = lazy(() => import('@/modules/solicitudes').then(m =>
 const TrackingDetailPage = lazy(() => import('@/modules/trackings').then(m => ({ default: m.TrackingDetailPage })));
 const AgendaPage = lazy(() => import('@/modules/agenda').then(m => ({ default: m.AgendaPage })));
 const AccesoExternoPage = lazy(() => import('@/modules/acceso-externo').then(m => ({ default: m.AccesoExternoPage })));
+const PartnerPortalPage = lazy(() => import('@/modules/partner-portal/pages/PartnerPortalPage').then(m => ({ default: m.PartnerPortalPage })));
 const AuditoriaPage = lazy(() => import('@/modules/auditoria').then(m => ({ default: m.AuditoriaPage })));
 const ErroresRuntimePage = lazy(() => import('@/modules/errores').then(m => ({ default: m.ErroresRuntimePage })));
 const AnaliticaPage = lazy(() => import('@/modules/analitica').then(m => ({ default: m.AnaliticaPage })));
 
-type Role = 'gerente' | 'operador' | 'administrador';
+type Role = 'gerente' | 'operador' | 'administrador' | 'partner';
 
 // 7.A · redirige rutas legacy `/gerencia/tramites/:id` al TrackingDetail
 // nuevo conservando el id. Cita E-GG-01.
@@ -185,11 +186,9 @@ function RoleHomeOrLanding() {
     if (coverEnabled) return <ComingSoonCoverPage />;
     return <LandingPage />;
   }
-  return user.role === 'administrador' ? (
-    <Navigate to="/portal" replace />
-  ) : (
-    <Navigate to="/gerencia" replace />
-  );
+  if (user.role === 'administrador') return <Navigate to="/portal" replace />;
+  if (user.role === 'partner') return <Navigate to="/partner" replace />;
+  return <Navigate to="/gerencia" replace />;
 }
 
 function Protected({
@@ -240,6 +239,14 @@ export function App() {
         <Route path="/health" element={<HealthPage />} />
         <Route path="/formulario/:slug" element={<FormularioPublicoPage />} />
         <Route path="/externo/:token" element={<AccesoExternoPage />} />
+        <Route
+          path="/partner"
+          element={
+            <Protected allow={['partner']}>
+              <PartnerPortalPage />
+            </Protected>
+          }
+        />
         <Route path="/verificar/:codigo" element={<VerificarCertificadoPage />} />
         <Route path="/webinar/:token" element={<WebinarPublicoPage />} />
 

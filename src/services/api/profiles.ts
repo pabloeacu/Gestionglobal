@@ -2,7 +2,7 @@ import { supabase } from '@/lib/supabase';
 import { ok, fail, toApiError, type ApiResponse } from '@/lib/errors';
 import type { Database } from '@/types/database';
 
-export type Role = 'gerente' | 'operador' | 'administrador';
+export type Role = 'gerente' | 'operador' | 'administrador' | 'partner';
 export type ProfileRow = Database['public']['Tables']['profiles']['Row'];
 
 export interface CurrentProfile {
