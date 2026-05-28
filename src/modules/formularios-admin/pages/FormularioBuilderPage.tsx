@@ -51,7 +51,27 @@ import { EmbedCodeModal } from '../components/EmbedCodeModal';
 import type { Selection } from '../types';
 
 function emptySchema(): FormularioSchemaDef {
-  return { sections: [{ title: 'Primera sección', fields: [] }], submit_label: 'Enviar' };
+  // Bloque J / obs 14: todo formulario nuevo arranca con los 5 campos de
+  // identificación estándar (Apellido, Nombre, DNI, CUIT, Email). Sirven
+  // para el cross-match contra administraciones existentes (RPC
+  // solicitud_match_cliente) y para que el wizard sepa si el solicitante ya
+  // es cliente. El operador puede editarlos / borrarlos en el builder, pero
+  // arrancar con ellos cubre el 90% de los casos.
+  return {
+    sections: [
+      {
+        title: 'Identificación',
+        fields: [
+          { name: 'apellido', type: 'text', label: 'Apellido', required: true },
+          { name: 'nombre',   type: 'text', label: 'Nombre',   required: true },
+          { name: 'dni',      type: 'text', label: 'DNI',      required: true },
+          { name: 'cuit',     type: 'text', label: 'CUIT/CUIL', required: false },
+          { name: 'email',    type: 'email', label: 'Correo electrónico', required: true },
+        ],
+      },
+    ],
+    submit_label: 'Enviar',
+  };
 }
 
 export function FormularioBuilderPage() {

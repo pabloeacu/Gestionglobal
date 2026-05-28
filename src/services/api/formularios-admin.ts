@@ -25,11 +25,21 @@ export interface CrearFormularioInput {
   schema?: FormularioSchemaDef;
 }
 
+// Bloque J / obs 14: todo formulario arranca con identificación estándar
+// (Apellido, Nombre, DNI, CUIT, Email). Cross-match contra administraciones
+// usa email/cuit/dni — no nombre (homónimos). El operador puede editarlos en
+// el builder.
 const SCHEMA_VACIO: FormularioSchemaDef = {
   sections: [
     {
-      title: 'Primera sección',
-      fields: [],
+      title: 'Identificación',
+      fields: [
+        { name: 'apellido', type: 'text', label: 'Apellido', required: true } as unknown as never,
+        { name: 'nombre',   type: 'text', label: 'Nombre',   required: true } as unknown as never,
+        { name: 'dni',      type: 'text', label: 'DNI',      required: true } as unknown as never,
+        { name: 'cuit',     type: 'text', label: 'CUIT/CUIL', required: false } as unknown as never,
+        { name: 'email',    type: 'email', label: 'Correo electrónico', required: true } as unknown as never,
+      ],
     },
   ],
   submit_label: 'Enviar',

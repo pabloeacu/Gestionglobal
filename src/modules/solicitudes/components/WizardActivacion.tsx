@@ -188,6 +188,48 @@ export function WizardActivacion({
     toast.success('Borrador descartado');
   }
 
+  // Bloque J / obs 14: al abrir el wizard, si la solicitud no está vinculada
+  // a un cliente, le pedimos al backend que cruce email/CUIT/DNI de la
+  // submission contra administraciones existentes. Si hay match, lo
+  // sugerimos: el operador puede aceptar (auto-set existente + ID) o
+  // ignorar (seguir con 'nuevo').
+  const [matchSugerido, setMatchSugerido] = useState<{
+    administracion_id: string;
+    administracion_nombre: string;
+    match_por: string;
+  } | null>(null);
+  const [matchIgnorado, setMatchIgnorado] = useState(false);
+  useEffect(() => {
+    if (!open) return;
+    if (solicitud.cliente_id) return; // ya está vinculado
+    if (!solicitud.formulario_submission_id) return;
+    if (matchSugerido !== null) return;
+    void supabase
+      .rpc('solicitud_match_cliente' as never, {
+        p_submission_id: solicitud.formulario_submission_id,
+      } as never)
+      .then((res) => {
+        const data = (res as { data?: Array<Record<string, unknown>> }).data;
+        if (data && data.length > 0) {
+          const row = data[0] as {
+            administracion_id: string;
+            administracion_nombre: string;
+            match_por: string;
+          };
+          setMatchSugerido(row);
+        }
+      });
+  }, [open, solicitud.cliente_id, solicitud.formulario_submission_id, matchSugerido]);
+
+  function aceptarMatch() {
+    if (!matchSugerido) return;
+    setModoCliente('existente');
+    setClienteIdExistente(matchSugerido.administracion_id);
+    toast.success('Cliente vinculado', {
+      description: `Servicio se añadirá a ${matchSugerido.administracion_nombre}`,
+    });
+  }
+
   // Búsqueda de clientes existentes
   useEffect(() => {
     if (modoCliente !== 'existente') return;
@@ -390,6 +432,36 @@ export function WizardActivacion({
             title="2 · Alta del cliente"
             subtitle="Si el solicitante es un cliente nuevo lo creamos ahora con sus datos. Si ya existe en el sistema lo vinculamos sin duplicar."
           >
+            {/* Bloque J / obs 14: banner de cross-match cuando se detecta que
+                el solicitante coincide por email/CUIT/DNI con un cliente
+                existente. El operador puede aceptar (auto-vincula) o ignorar. */}
+            {matchSugerido && !matchIgnorado && clienteIdExistente !== matchSugerido.administracion_id && (
+              <div className="mb-4 rounded-xl border-2 border-amber-300 bg-amber-50 p-3">
+                <p className="text-xs font-semibold uppercase tracking-wider text-amber-700">
+                  Coincidencia detectada
+                </p>
+                <p className="mt-1 text-sm text-brand-ink">
+                  Este solicitante coincide por <strong>{matchSugerido.match_por}</strong> con un cliente existente:{' '}
+                  <strong>{matchSugerido.administracion_nombre}</strong>. ¿Querés añadir el servicio a esa cuenta en vez de crear un cliente nuevo?
+                </p>
+                <div className="mt-2 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={aceptarMatch}
+                    className="inline-flex items-center gap-1 rounded-lg bg-amber-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-800"
+                  >
+                    Vincular a {matchSugerido.administracion_nombre}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMatchIgnorado(true)}
+                    className="rounded-lg border border-amber-300 px-3 py-1.5 text-xs font-medium text-amber-800 hover:bg-amber-100"
+                  >
+                    Es un cliente nuevo
+                  </button>
+                </div>
+              </div>
+            )}
             {/* Toggle modo */}
             <div className="flex gap-2 rounded-xl border border-slate-200 bg-slate-50 p-1">
               <button
