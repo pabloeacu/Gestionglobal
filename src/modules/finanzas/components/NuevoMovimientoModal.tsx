@@ -5,6 +5,7 @@ import {
   crearMovimientoManual, listCategoriasFinanzas, buscarAdministraciones,
   type CajaConSaldoRow, type CategoriaFinanzaRow,
 } from '@/services/api/finanzas';
+import { listPartnersActivos, type PartnerOpcion } from '@/services/api/partners';
 import { cn } from '@/lib/cn';
 
 interface Props {
@@ -25,12 +26,17 @@ export function NuevoMovimientoModal({ cajas, onClose, onCreated }: Props) {
   const [adminSearch, setAdminSearch] = useState('');
   const [admins, setAdmins] = useState<Array<{ id: string; nombre: string; codigo: string | null }>>([]);
   const [adminId, setAdminId] = useState<string | null>(null);
+  // #145 · participa partner
+  const [partners, setPartners] = useState<PartnerOpcion[]>([]);
+  const [partnerId, setPartnerId] = useState<string>('');
   const [creating, setCreating] = useState(false);
 
   useEffect(() => {
     void (async () => {
       const r = await listCategoriasFinanzas();
       if (r.ok) setCategorias(r.data);
+      const p = await listPartnersActivos();
+      if (p.ok) setPartners(p.data);
     })();
   }, []);
 
@@ -63,6 +69,7 @@ export function NuevoMovimientoModal({ cajas, onClose, onCreated }: Props) {
       descripcion: descripcion.trim() || null,
       referencia: referencia.trim() || null,
       administracionId: adminId,
+      partnerIdAtribucion: partnerId || null,
     });
     setCreating(false);
     if (!res.ok) {
@@ -165,6 +172,26 @@ export function NuevoMovimientoModal({ cajas, onClose, onCreated }: Props) {
         <Field label="Referencia externa (opcional)" hint="Número de transacción, CBU, recibo, etc.">
           <Input value={referencia} onChange={(e) => setReferencia(e.target.value)} />
         </Field>
+
+        {/* #145 · Participa partner (opcional) */}
+        {partners.length > 0 && (
+          <Field
+            label="Participa partner"
+            hint="Si lo marcás, este movimiento entra en la rendición del partner con su % diferencial."
+          >
+            <Select
+              value={partnerId}
+              onChange={(e) => setPartnerId(e.target.value)}
+            >
+              <option value="">— No participa —</option>
+              {partners.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.nombre}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        )}
 
         {/* Asociar a administración (opcional, autocomplete) */}
         <Field label="Asociar a administración (opcional)">

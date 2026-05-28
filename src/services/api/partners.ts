@@ -80,6 +80,24 @@ export interface PartnerListItem extends PartnerRow {
   convenio_vigente_porc_costos: number | null;
 }
 
+// #145 · Listado mínimo para selectores (solo activos). Devuelve id + nombre.
+export interface PartnerOpcion {
+  id: string;
+  nombre: string;
+}
+export async function listPartnersActivos(): Promise<ApiResponse<PartnerOpcion[]>> {
+  const { data, error } = await supabase
+    .from('partners')
+    .select('id, nombre_legal')
+    .eq('activo', true)
+    .order('nombre_legal', { ascending: true });
+  if (error) return fail('PARTNERS_OPCIONES', error.message, error);
+  const rows = ((data ?? []) as Array<{ id: string; nombre_legal: string }>).map(
+    (r) => ({ id: r.id, nombre: r.nombre_legal }),
+  );
+  return ok(rows);
+}
+
 export async function listPartners(
   params: ListPartnersParams = {},
 ): Promise<ApiResponse<{ rows: PartnerListItem[]; total: number }>> {

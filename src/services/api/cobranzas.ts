@@ -15,12 +15,13 @@ export interface CobranzaInput {
   descripcion?: string;
   referencia?: string;
   categoria_id?: string | null;
+  partner_id_atribucion?: string | null; // #145 · flag "participa partner"
 }
 
 export async function registrarCobranza(
   input: CobranzaInput,
 ): Promise<ApiResponse<{ movimiento_id: string }>> {
-  const { data, error } = await supabase.rpc('registrar_cobranza_comprobante', {
+  const baseArgs = {
     p_comprobante_id: input.comprobante_id,
     p_caja_id: input.caja_id,
     p_fecha: input.fecha,
@@ -28,15 +29,22 @@ export async function registrarCobranza(
     p_descripcion: input.descripcion ?? '',
     p_referencia: input.referencia ?? '',
     p_categoria_id: input.categoria_id ?? null,
-  } as unknown as {
-    p_comprobante_id: string;
-    p_caja_id: string;
-    p_fecha: string;
-    p_monto: number;
-    p_descripcion: string;
-    p_referencia: string;
-    p_categoria_id: string;
-  });
+  } as Record<string, unknown>;
+  if (input.partner_id_atribucion) {
+    baseArgs.p_partner_id_atribucion = input.partner_id_atribucion;
+  }
+  const { data, error } = await supabase.rpc(
+    'registrar_cobranza_comprobante',
+    baseArgs as unknown as {
+      p_comprobante_id: string;
+      p_caja_id: string;
+      p_fecha: string;
+      p_monto: number;
+      p_descripcion: string;
+      p_referencia: string;
+      p_categoria_id: string;
+    },
+  );
   if (error) return fail('COBR_REGISTRAR', error.message, error);
   return ok({ movimiento_id: data as string });
 }

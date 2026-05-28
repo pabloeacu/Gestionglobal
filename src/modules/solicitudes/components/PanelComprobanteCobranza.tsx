@@ -35,6 +35,7 @@ import {
   registrarCobranza,
   type CajaRow,
 } from '@/services/api/cobranzas';
+import { listPartnersActivos, type PartnerOpcion } from '@/services/api/partners';
 import { setSolicitudComprobante } from '@/services/api/solicitudes';
 
 interface Props {
@@ -389,6 +390,8 @@ function ModalRegistrarPago({
   const [fecha, setFecha] = useState(hoy);
   const [monto, setMonto] = useState<string>(saldoSugerido.toFixed(2));
   const [descripcion, setDescripcion] = useState('');
+  const [partners, setPartners] = useState<PartnerOpcion[]>([]);
+  const [partnerId, setPartnerId] = useState('');
   const [enviando, setEnviando] = useState(false);
 
   useEffect(() => {
@@ -398,6 +401,7 @@ function ModalRegistrarPago({
         if (r.data[0]?.id) setCajaId(r.data[0].id);
       }
     });
+    void listPartnersActivos().then((r) => r.ok && setPartners(r.data));
   }, []);
 
   async function registrar() {
@@ -417,6 +421,7 @@ function ModalRegistrarPago({
       fecha,
       monto: m,
       descripcion: descripcion.trim() || 'Cobranza desde solicitud',
+      partner_id_atribucion: partnerId || null,
     });
     setEnviando(false);
     if (!r.ok) {
@@ -465,6 +470,24 @@ function ModalRegistrarPago({
             placeholder="Detalle del pago…"
           />
         </Field>
+        {partners.length > 0 && (
+          <Field
+            label="Participa partner"
+            hint="Si lo marcás, este pago entra en la rendición del partner."
+          >
+            <Select
+              value={partnerId}
+              onChange={(e) => setPartnerId(e.target.value)}
+            >
+              <option value="">— No participa —</option>
+              {partners.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.nombre}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        )}
         <p className="text-xs text-brand-muted">
           Saldo sugerido: {fmtMoney(saldoSugerido)}
         </p>

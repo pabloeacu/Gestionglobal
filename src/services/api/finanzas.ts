@@ -188,13 +188,14 @@ export interface CrearMovimientoInput {
   administracionId?: string | null;
   consorcioId?: string | null;
   imputarAComprobanteId?: string | null;
+  partnerIdAtribucion?: string | null; // #145 · flag "participa partner"
 }
 
 export async function crearMovimientoManual(
   input: CrearMovimientoInput,
 ): Promise<ApiResponse<string>> {
   try {
-    const { data, error } = await supabase.rpc('fz_crear_movimiento_manual', {
+    const args: Record<string, unknown> = {
       p_caja_id: input.cajaId,
       p_tipo: input.tipo,
       p_monto: input.monto,
@@ -205,7 +206,20 @@ export async function crearMovimientoManual(
       p_administracion_id: input.administracionId ?? undefined,
       p_consorcio_id: input.consorcioId ?? undefined,
       p_comprobante_imputar_a_id: input.imputarAComprobanteId ?? undefined,
-    });
+    };
+    if (input.partnerIdAtribucion) {
+      args.p_partner_id_atribucion = input.partnerIdAtribucion;
+    }
+    // Cast: tipos no regenerados aún, pero la RPC ya acepta el param (mig 0101).
+    const { data, error } = await supabase.rpc(
+      'fz_crear_movimiento_manual',
+      args as unknown as {
+        p_caja_id: string;
+        p_tipo: string;
+        p_monto: number;
+        p_fecha: string;
+      },
+    );
     if (error) throw error;
     return ok(String(data));
   } catch (e) {
