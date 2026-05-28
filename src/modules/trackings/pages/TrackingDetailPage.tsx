@@ -649,6 +649,7 @@ export function TrackingDetailPage() {
                   <LineaTrackingCard
                     linea={l}
                     categoriaConfig={categoriaConfigMap.get(l.categoria)}
+                    onEdited={() => void load()}
                   />
                 </li>
               ))}
