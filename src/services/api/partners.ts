@@ -111,6 +111,8 @@ export interface PartnerComprobanteRow {
   estado_cobranza: string;
   emitido_arca: boolean;
   receptor_razon_social: string;
+  partner_facturado_at: string | null;
+  partner_numero_externo: string | null;
 }
 
 export async function fetchPartnerMisComprobantes(): Promise<
@@ -119,6 +121,29 @@ export async function fetchPartnerMisComprobantes(): Promise<
   const { data, error } = await supabase.rpc('partner_mis_comprobantes' as never);
   if (error) return fail('PARTNER_MIS_COMP', error.message, error);
   return ok((data ?? []) as unknown as PartnerComprobanteRow[]);
+}
+
+// #153 · Partner marca un comprobante como facturado (sistema externo)
+export async function partnerMarcarFacturado(
+  comprobanteId: string,
+  numeroExterno: string,
+  observacion?: string,
+): Promise<ApiResponse<string>> {
+  const args = {
+    p_comprobante_id: comprobanteId,
+    p_numero_externo: numeroExterno,
+    p_observacion: observacion ?? null,
+  } as unknown as {
+    p_comprobante_id: string;
+    p_numero_externo: string;
+    p_observacion: string;
+  };
+  const { data, error } = await supabase.rpc(
+    'partner_marcar_facturado' as never,
+    args as never,
+  );
+  if (error) return fail('PARTNER_FACTURAR', error.message, error);
+  return ok(data as unknown as string);
 }
 
 export interface PartnerRendicionResumen {

@@ -3,28 +3,43 @@
 // partner_id del profile. Visualización read-only — el partner no edita.
 
 import { useEffect, useState } from 'react';
-import { Loader2, Receipt, FileText, Briefcase } from 'lucide-react';
+import {
+  Loader2,
+  Receipt,
+  FileText,
+  Briefcase,
+  CheckCircle2,
+  FileCheck2,
+  X as XIcon,
+} from 'lucide-react';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import {
   fetchPartnerMisComprobantes,
   fetchPartnerMisRendiciones,
+  partnerMarcarFacturado,
   type PartnerComprobanteRow,
   type PartnerRendicionResumen,
 } from '@/services/api/partners';
+import { toast } from '@/lib/toast';
 
 export function PartnerPortalPage() {
   const [comps, setComps] = useState<PartnerComprobanteRow[] | null>(null);
   const [rends, setRends] = useState<PartnerRendicionResumen[] | null>(null);
   const [loading, setLoading] = useState(true);
+  const [openFacturar, setOpenFacturar] = useState<PartnerComprobanteRow | null>(null);
+
+  async function reload() {
+    const [c, r] = await Promise.all([
+      fetchPartnerMisComprobantes(),
+      fetchPartnerMisRendiciones(),
+    ]);
+    setComps(c.ok ? c.data : []);
+    setRends(r.ok ? r.data : []);
+  }
 
   useEffect(() => {
     void (async () => {
-      const [c, r] = await Promise.all([
-        fetchPartnerMisComprobantes(),
-        fetchPartnerMisRendiciones(),
-      ]);
-      setComps(c.ok ? c.data : []);
-      setRends(r.ok ? r.data : []);
+      await reload();
       setLoading(false);
     })();
   }, []);
@@ -108,7 +123,8 @@ export function PartnerPortalPage() {
                         <th className="py-2 text-left">Fecha</th>
                         <th className="py-2 text-right">Total</th>
                         <th className="py-2 text-center">Estado</th>
-                        <th className="py-2 text-center">ARCA</th>
+                        <th className="py-2 text-center">Facturación</th>
+                        <th className="py-2 text-right">Acción</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -123,7 +139,28 @@ export function PartnerPortalPage() {
                           <td className="py-2 text-right">{fmtMoney(c.total)}</td>
                           <td className="py-2 text-center capitalize">{c.estado}</td>
                           <td className="py-2 text-center">
-                            {c.emitido_arca ? '✓' : '—'}
+                            {c.partner_facturado_at ? (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-700">
+                                <CheckCircle2 size={10} /> Facturado · {c.partner_numero_externo}
+                              </span>
+                            ) : (
+                              <span className="text-xs text-brand-muted">Pendiente</span>
+                            )}
+                          </td>
+                          <td className="py-2 text-right">
+                            {c.estado === 'anulado' ? (
+                              <span className="text-xs text-rose-600">—</span>
+                            ) : c.partner_facturado_at ? (
+                              <span className="text-xs text-emerald-600">Listo</span>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => setOpenFacturar(c)}
+                                className="inline-flex items-center gap-1 rounded-lg bg-brand-cyan px-2.5 py-1 text-xs font-semibold text-white shadow-sm transition hover:bg-brand-teal"
+                              >
+                                <FileCheck2 size={11} /> Realizar factura
+                              </button>
+                            )}
                           </td>
                         </tr>
                       ))}
@@ -143,6 +180,159 @@ export function PartnerPortalPage() {
       <footer className="border-t border-slate-200 bg-white py-6 text-center text-xs text-brand-muted">
         Gestión Global · gestionglobal.ar
       </footer>
+
+      {openFacturar && (
+        <ModalFacturar
+          comprobante={openFacturar}
+          onClose={() => setOpenFacturar(null)}
+          onDone={async () => {
+            setOpenFacturar(null);
+            await reload();
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function ModalFacturar({
+  comprobante,
+  onClose,
+  onDone,
+}: {
+  comprobante: PartnerComprobanteRow;
+  onClose: () => void;
+  onDone: () => void | Promise<void>;
+}) {
+  const [numero, setNumero] = useState('');
+  const [observacion, setObservacion] = useState('');
+  const [enviando, setEnviando] = useState(false);
+
+  async function confirmar() {
+    if (numero.trim().length < 1) {
+      toast.error('Ingresá el número de factura externa');
+      return;
+    }
+    setEnviando(true);
+    const res = await partnerMarcarFacturado(
+      comprobante.id,
+      numero.trim(),
+      observacion.trim() || undefined,
+    );
+    setEnviando(false);
+    if (!res.ok) {
+      toast.error(res.error.message);
+      return;
+    }
+    toast.success('Comprobante marcado como facturado');
+    await onDone();
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 px-4 py-8"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-4 flex items-center justify-between">
+          <div>
+            <p className="kicker text-brand-cyan">Realizar factura</p>
+            <h2 className="font-display text-xl font-bold text-brand-ink">
+              {comprobante.tipo} · PV {String(comprobante.punto_venta).padStart(4, '0')}
+              {comprobante.numero
+                ? ' · Nº ' + String(comprobante.numero).padStart(8, '0')
+                : ''}
+            </h2>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded p-1 text-brand-muted hover:bg-slate-100 hover:text-brand-ink"
+            aria-label="Cerrar"
+          >
+            <XIcon size={16} />
+          </button>
+        </div>
+
+        <dl className="mb-4 grid grid-cols-2 gap-2 rounded-xl bg-slate-50 p-3 text-xs">
+          <div>
+            <dt className="text-brand-muted">Receptor</dt>
+            <dd className="font-medium text-brand-ink">
+              {comprobante.receptor_razon_social}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-brand-muted">Fecha</dt>
+            <dd className="text-brand-ink">{fmtDate(comprobante.fecha)}</dd>
+          </div>
+          <div className="col-span-2">
+            <dt className="text-brand-muted">Total</dt>
+            <dd className="text-base font-semibold text-brand-ink">
+              {fmtMoney(comprobante.total)}
+            </dd>
+          </div>
+        </dl>
+
+        <div className="space-y-3">
+          <label className="block">
+            <span className="kicker text-brand-muted">
+              Número de factura externa
+            </span>
+            <input
+              type="text"
+              value={numero}
+              onChange={(e) => setNumero(e.target.value)}
+              placeholder="Ej. 0001-00000123"
+              className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2 text-sm focus:border-brand-cyan focus:outline-none focus:ring-2 focus:ring-brand-cyan/20"
+              autoFocus
+            />
+          </label>
+          <label className="block">
+            <span className="kicker text-brand-muted">Observación (opcional)</span>
+            <textarea
+              rows={2}
+              value={observacion}
+              onChange={(e) => setObservacion(e.target.value)}
+              className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2 text-sm focus:border-brand-cyan focus:outline-none focus:ring-2 focus:ring-brand-cyan/20"
+              placeholder="Notas internas para la gerencia…"
+            />
+          </label>
+          <p className="text-xs text-brand-muted">
+            Al confirmar, la gerencia recibirá una notificación con tu número
+            de factura. Esta acción no se puede deshacer.
+          </p>
+        </div>
+
+        <div className="mt-5 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={enviando}
+            className="rounded-lg px-3 py-1.5 text-sm font-medium text-brand-muted hover:bg-slate-100"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            onClick={confirmar}
+            disabled={enviando || numero.trim().length < 1}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-brand-cyan px-3 py-1.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-teal disabled:cursor-not-allowed disabled:bg-slate-300"
+          >
+            {enviando ? (
+              <>
+                <Loader2 size={13} className="animate-spin" /> Confirmando…
+              </>
+            ) : (
+              <>
+                <FileCheck2 size={13} /> Confirmar facturación
+              </>
+            )}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

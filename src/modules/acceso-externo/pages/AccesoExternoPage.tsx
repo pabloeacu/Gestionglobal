@@ -14,6 +14,9 @@ import {
   Briefcase,
   Send,
   CheckCircle2,
+  Paperclip,
+  X as XIcon,
+  UploadCloud,
 } from 'lucide-react';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import { cn } from '@/lib/cn';
@@ -25,6 +28,7 @@ import {
   type AccesoExternoPayload,
   type GestorAvanceLinea,
 } from '@/services/api/accesos';
+import { supabase } from '@/lib/supabase';
 import { toast } from '@/lib/toast';
 
 // Página pública sin login. Carga el recurso vía edge function `acceso-externo`.
@@ -413,12 +417,22 @@ function escapeICS(s: string): string {
 // =============================================================================
 // #147 · Perfil Gestor (carga de avance desde acceso externo)
 // =============================================================================
+interface AdjuntoStaged {
+  nombre: string;
+  size: number;
+  url: string;     // URL pública del bucket
+  uploading: boolean;
+  error?: string;
+}
+
 function PanelGestor({ token }: { token: string }) {
   const [avances, setAvances] = useState<GestorAvanceLinea[] | null>(null);
   const [loadingAvances, setLoadingAvances] = useState(true);
   const [descripcion, setDescripcion] = useState('');
   const [enviando, setEnviando] = useState(false);
   const [enviado, setEnviado] = useState(false);
+  // #154 · adjuntos ilimitados
+  const [adjuntos, setAdjuntos] = useState<AdjuntoStaged[]>([]);
 
   async function cargarAvances() {
     setLoadingAvances(true);
@@ -432,13 +446,64 @@ function PanelGestor({ token }: { token: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
+  // #154 · sube cada archivo al bucket 'gestor-uploads' bajo prefijo
+  // <token>/<timestamp>-<random>-<filename>. Devuelve URL pública del bucket.
+  async function onFilesPicked(files: FileList | null) {
+    if (!files || files.length === 0) return;
+    const staged: AdjuntoStaged[] = Array.from(files).map((f) => ({
+      nombre: f.name,
+      size: f.size,
+      url: '',
+      uploading: true,
+    }));
+    setAdjuntos((prev) => [...prev, ...staged]);
+
+    await Promise.all(
+      Array.from(files).map(async (f, i) => {
+        const stagedIdx = adjuntos.length + i;
+        try {
+          const safeName = f.name.replace(/[^\w.\-]/g, '_');
+          const path = `${token}/${Date.now()}-${Math.random()
+            .toString(36)
+            .slice(2, 8)}-${safeName}`;
+          const { error } = await supabase.storage
+            .from('gestor-uploads')
+            .upload(path, f, { upsert: false, contentType: f.type || undefined });
+          if (error) throw error;
+          const pub = supabase.storage.from('gestor-uploads').getPublicUrl(path);
+          setAdjuntos((prev) =>
+            prev.map((a, k) =>
+              k === stagedIdx ? { ...a, uploading: false, url: pub.data.publicUrl } : a,
+            ),
+          );
+        } catch (e) {
+          const msg = (e as { message?: string })?.message ?? 'Falló la subida';
+          setAdjuntos((prev) =>
+            prev.map((a, k) =>
+              k === stagedIdx ? { ...a, uploading: false, error: msg } : a,
+            ),
+          );
+        }
+      }),
+    );
+  }
+
+  function quitarAdjunto(idx: number) {
+    setAdjuntos((prev) => prev.filter((_, k) => k !== idx));
+  }
+
   async function enviar() {
     if (descripcion.trim().length < 3) {
       toast.error('Escribí una descripción de tu avance');
       return;
     }
+    if (adjuntos.some((a) => a.uploading)) {
+      toast.error('Esperá a que terminen de subir los adjuntos');
+      return;
+    }
+    const urls = adjuntos.filter((a) => !a.error && a.url).map((a) => a.url);
     setEnviando(true);
-    const res = await gestorCargarAvance(token, descripcion.trim(), []);
+    const res = await gestorCargarAvance(token, descripcion.trim(), urls);
     setEnviando(false);
     if (!res.ok) {
       toast.error(res.error.message);
@@ -447,6 +512,7 @@ function PanelGestor({ token }: { token: string }) {
     toast.success('Avance enviado al cliente');
     setEnviado(true);
     setDescripcion('');
+    setAdjuntos([]);
     void cargarAvances();
   }
 
@@ -473,6 +539,69 @@ function PanelGestor({ token }: { token: string }) {
         <p className="text-xs text-brand-muted">
           El cliente recibirá un email y notificación push automáticamente.
         </p>
+
+        {/* #154 · Adjuntos ilimitados */}
+        <div className="rounded-xl border border-dashed border-brand-cyan/30 bg-white p-3">
+          <div className="flex items-center justify-between gap-2">
+            <span className="kicker text-brand-cyan inline-flex items-center gap-1">
+              <Paperclip size={12} /> Archivos adjuntos
+              {adjuntos.length > 0 ? ` (${adjuntos.length})` : ''}
+            </span>
+            <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-brand-cyan-pale/40 px-3 py-1.5 text-xs font-medium text-brand-cyan transition hover:bg-brand-cyan-pale">
+              <UploadCloud size={12} />
+              Agregar
+              <input
+                type="file"
+                multiple
+                className="sr-only"
+                onChange={(e) => {
+                  void onFilesPicked(e.target.files);
+                  e.target.value = '';
+                }}
+              />
+            </label>
+          </div>
+          {adjuntos.length > 0 ? (
+            <ul className="mt-2 space-y-1.5">
+              {adjuntos.map((a, idx) => (
+                <li
+                  key={idx}
+                  className="flex items-center justify-between gap-2 rounded-lg bg-slate-50 px-2.5 py-1.5 text-xs"
+                >
+                  <span className="flex min-w-0 items-center gap-1.5">
+                    <Paperclip size={11} className="shrink-0 text-brand-cyan" />
+                    <span className="truncate text-brand-ink">{a.nombre}</span>
+                    <span className="shrink-0 text-brand-muted">
+                      ({Math.max(1, Math.round(a.size / 1024))} KB)
+                    </span>
+                  </span>
+                  <span className="flex items-center gap-2">
+                    {a.uploading ? (
+                      <Loader2 size={11} className="animate-spin text-brand-muted" />
+                    ) : a.error ? (
+                      <span className="text-rose-600">{a.error}</span>
+                    ) : (
+                      <CheckCircle2 size={11} className="text-emerald-600" />
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => quitarAdjunto(idx)}
+                      className="rounded p-0.5 text-brand-muted hover:bg-slate-200 hover:text-brand-ink"
+                      aria-label="Quitar"
+                    >
+                      <XIcon size={11} />
+                    </button>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-1 text-xs text-brand-muted">
+              Sin adjuntos. Sumá los que necesites: planos, resoluciones, fotos, etc.
+            </p>
+          )}
+        </div>
+
         <button
           type="button"
           onClick={enviar}
@@ -524,6 +653,22 @@ function PanelGestor({ token }: { token: string }) {
                 <p className="mt-1 whitespace-pre-wrap text-sm text-brand-ink">
                   {a.descripcion}
                 </p>
+                {a.archivos_urls && a.archivos_urls.length > 0 && (
+                  <ul className="mt-1.5 flex flex-wrap gap-1.5">
+                    {a.archivos_urls.map((u, k) => (
+                      <li key={k}>
+                        <a
+                          href={u}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] text-brand-cyan hover:underline"
+                        >
+                          <Paperclip size={10} /> {nombreArchivo(u)}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                )}
                 <p className="mt-1 text-[10px] text-brand-muted">
                   por {a.autor_nombre}
                 </p>
@@ -534,6 +679,17 @@ function PanelGestor({ token }: { token: string }) {
       </div>
     </section>
   );
+}
+
+function nombreArchivo(url: string): string {
+  try {
+    const last = url.split('/').pop() ?? '';
+    // El formato es <ts>-<rand>-<nombre>. Quitamos prefijo si está.
+    const m = last.match(/^\d+-[a-z0-9]+-(.*)$/i);
+    return m?.[1] ?? last;
+  } catch {
+    return 'archivo';
+  }
 }
 
 function fmtRel(iso: string): string {
