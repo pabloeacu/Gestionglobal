@@ -120,7 +120,7 @@ function buildHtml(input: TramitePdfInput): string {
     margin-bottom: 24px;
   }
   .header .brand img {
-    height: 72px;
+    height: 120px;
     width: auto;
     display: block;
   }
