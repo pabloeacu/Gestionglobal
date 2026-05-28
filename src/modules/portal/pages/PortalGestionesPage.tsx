@@ -15,9 +15,6 @@ import {
   PlusCircle,
   ArrowRight,
   ChevronRight,
-  X as XIcon,
-  Calendar,
-  Tag,
 } from 'lucide-react';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import { IllustratedEmpty } from '@/components/brand/IllustratedEmpty';
@@ -25,17 +22,15 @@ import { Skeleton } from '@/components/common';
 import { toast } from '@/lib/toast';
 import {
   fetchClienteTramites,
-  fetchClienteTrackingLineas,
-  marcarTrackingAvanceLeido,
   type ClienteTramite,
-  type ClienteTrackingLinea,
 } from '@/services/api/portal-dashboard';
 
 export function PortalGestionesPage() {
   const [items, setItems] = useState<ClienteTramite[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'abiertos' | 'todos'>('abiertos');
-  const [selected, setSelected] = useState<ClienteTramite | null>(null);
+  // Bloque H / obs 12: el modal fue reemplazado por pantalla propia
+  // (PortalGestionDetailPage). selected/setSelected ya no se usan.
 
   async function load() {
     setLoading(true);
@@ -50,11 +45,8 @@ export function PortalGestionesPage() {
 
   useEffect(() => { void load(); /* eslint-disable-next-line */ }, [filter]);
 
-  // Cuando el cliente abre el detalle de un tramite, marcamos como leídos
-  // los tracking_avance asociados → desaparece el badge del dashboard.
-  useEffect(() => {
-    if (selected?.id) void marcarTrackingAvanceLeido(selected.id);
-  }, [selected]);
+  // Bloque H / obs 12: el marcado-como-leído ahora lo hace PortalGestionDetailPage
+  // cuando el cliente abre la pantalla. Acá ya no hay selected/modal.
 
   const stats = useMemo(() => ({
     abiertos: items.filter((t) => ['abierto','en_progreso','esperando_cliente'].includes(t.estado)).length,
@@ -134,247 +126,23 @@ export function PortalGestionesPage() {
         <ul className="space-y-2">
           {items.map((t) => (
             <li key={t.id}>
-              <TramiteCard t={t} onOpen={setSelected} />
+              <TramiteCard t={t} />
             </li>
           ))}
         </ul>
       )}
 
-      <TramiteDetalleModal tramite={selected} onClose={() => setSelected(null)} />
+      {/* Bloque H / obs 12: el modal ya no se usa (avances tienen pantalla
+          propia ahora). Se mantiene el componente abajo solo por compat con
+          imports si quedaran sueltos. */}
     </div>
   );
 }
 
-// =========================================================================
-// Modal de detalle (read-only para el cliente)
-// =========================================================================
-function TramiteDetalleModal({ tramite, onClose }: { tramite: ClienteTramite | null; onClose: () => void }) {
-  const [lineas, setLineas] = useState<ClienteTrackingLinea[]>([]);
-  const [loadingLineas, setLoadingLineas] = useState(false);
-
-  useEffect(() => {
-    if (!tramite) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    const onEsc = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
-    window.addEventListener('keydown', onEsc);
-    return () => { document.body.style.overflow = prev; window.removeEventListener('keydown', onEsc); };
-  }, [tramite, onClose]);
-
-  // Cargar timeline de líneas visibles al cliente al abrir
-  useEffect(() => {
-    if (!tramite?.id) {
-      setLineas([]);
-      return;
-    }
-    let cancel = false;
-    setLoadingLineas(true);
-    void fetchClienteTrackingLineas(tramite.id).then((data) => {
-      if (cancel) return;
-      setLineas(data);
-      setLoadingLineas(false);
-    });
-    return () => { cancel = true; };
-  }, [tramite?.id]);
-
-  if (!tramite) return null;
-  const estadoInfo = ESTADOS[tramite.estado] ?? { label: tramite.estado, tone: 'slate' as const, icon: FileText };
-
-  return (
-    <div className="fixed inset-0 z-50 grid place-items-end sm:place-items-center px-3 sm:px-4 py-4 sm:py-6">
-      <div className="absolute inset-0 bg-brand-ink/50 backdrop-blur-sm" onClick={onClose} aria-hidden />
-      <div className="relative w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col rounded-3xl bg-white shadow-2xl motion-safe:animate-fade-up">
-        <button
-          type="button"
-          onClick={onClose}
-          className="absolute right-3 top-3 z-10 grid h-8 w-8 place-items-center rounded-full bg-white/80 text-brand-muted hover:bg-white hover:text-brand-ink"
-          aria-label="Cerrar"
-        >
-          <XIcon size={14} />
-        </button>
-
-        {/* Header con datos del tramite (sticky para que se vea al scrollear) */}
-        <div className="border-b border-slate-100 p-6 sm:p-7">
-          <div className="flex items-center gap-3">
-            <span className={`grid h-12 w-12 place-items-center rounded-2xl ${TONES[estadoInfo.tone]}`}>
-              <estadoInfo.icon size={20} />
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="kicker text-brand-cyan">GESTIÓN · {tramite.codigo}</p>
-              <h2 className="mt-1 font-display text-lg font-bold leading-tight text-brand-ink sm:text-xl">
-                {tramite.titulo}
-              </h2>
-            </div>
-            <span className={`shrink-0 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${TONE_BADGE[estadoInfo.tone]}`}>
-              {estadoInfo.label}
-            </span>
-          </div>
-
-          <div className="mt-4 grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
-            <DataChip icon={Tag} label="Categoría" value={labelCategoria(tramite.categoria)} />
-            <DataChip icon={CircleDot} label="Prioridad" value={capitalize(tramite.prioridad)} />
-            <DataChip icon={Calendar} label="Iniciado" value={formatFechaCorta(tramite.created_at)} />
-            <DataChip icon={Clock} label="Actividad" value={formatActividad(tramite.horas_desde_actividad)} />
-          </div>
-        </div>
-
-        {/* Timeline scrolleable */}
-        <div className="flex-1 overflow-y-auto p-6 sm:p-7">
-          <h3 className="font-display text-base font-bold text-brand-ink">Avances</h3>
-          <p className="mt-0.5 text-xs text-brand-muted">
-            Cada actualización de tu gestión, en orden cronológico.
-          </p>
-
-          {loadingLineas ? (
-            <div className="mt-5 space-y-3">
-              {[0, 1, 2].map((i) => (
-                <div key={i} className="h-20 animate-pulse rounded-2xl bg-slate-100" />
-              ))}
-            </div>
-          ) : lineas.length === 0 ? (
-            <div className="mt-5 rounded-2xl border border-dashed border-slate-200 bg-slate-50/40 p-6 text-center">
-              <Clock size={20} className="mx-auto text-slate-400" />
-              <p className="mt-2 text-sm font-semibold text-brand-ink">Todavía no hay avances</p>
-              <p className="mt-1 text-xs text-brand-muted">
-                Cuando el equipo registre una novedad visible para vos, aparecerá acá.
-              </p>
-            </div>
-          ) : (
-            <ol className="mt-5 space-y-0">
-              {lineas.map((linea, idx) => (
-                <TimelineItem
-                  key={linea.id}
-                  linea={linea}
-                  isLast={idx === lineas.length - 1}
-                  isFirst={idx === 0}
-                />
-              ))}
-            </ol>
-          )}
-        </div>
-
-        {/* Footer con contacto */}
-        <div className="border-t border-slate-100 bg-slate-50/40 px-6 py-4 sm:px-7">
-          <p className="text-xs text-brand-muted">
-            ¿Necesitás aclarar algo? Escribinos a{' '}
-            <a href="mailto:contacto@gestionglobal.ar" className="font-semibold text-brand-cyan">
-              contacto@gestionglobal.ar
-            </a>{' '}
-            citando el código <span className="font-mono">{tramite.codigo}</span>.
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 // =========================================================================
 // Componentes del timeline visual de avances
 // =========================================================================
-
-function DataChip({ icon: Icon, label, value }: { icon: typeof FileText; label: string; value: string }) {
-  return (
-    <div className="rounded-xl border border-slate-200 bg-slate-50/50 px-2.5 py-2">
-      <div className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-brand-muted">
-        <Icon size={10} />
-        {label}
-      </div>
-      <p className="mt-0.5 truncate text-xs font-semibold text-brand-ink" title={value}>
-        {value}
-      </p>
-    </div>
-  );
-}
-
-const CATEGORIA_TONE: Record<string, { bg: string; text: string; line: string }> = {
-  emerald: { bg: 'bg-emerald-100', text: 'text-emerald-700', line: 'bg-emerald-200' },
-  amber:   { bg: 'bg-amber-100',   text: 'text-amber-700',   line: 'bg-amber-200' },
-  cyan:    { bg: 'bg-cyan-100',    text: 'text-cyan-700',    line: 'bg-cyan-200' },
-  red:     { bg: 'bg-rose-100',    text: 'text-rose-700',    line: 'bg-rose-200' },
-  slate:   { bg: 'bg-slate-100',   text: 'text-slate-700',   line: 'bg-slate-200' },
-};
-
-function TimelineItem({ linea, isLast, isFirst }: { linea: ClienteTrackingLinea; isLast: boolean; isFirst: boolean }) {
-  const tone = CATEGORIA_TONE[linea.categoria_color] ?? CATEGORIA_TONE.slate!;
-  return (
-    <li className="relative flex gap-4 pb-6 last:pb-0">
-      {/* Línea vertical conectora */}
-      {!isLast && (
-        <span
-          aria-hidden
-          className={`absolute left-[15px] top-8 h-full w-0.5 ${tone.line}`}
-        />
-      )}
-
-      {/* Dot de la categoría */}
-      <span
-        className={`relative z-10 grid h-8 w-8 flex-shrink-0 place-items-center rounded-full ring-4 ring-white ${tone.bg} ${tone.text}`}
-      >
-        <CircleDot size={14} />
-      </span>
-
-      {/* Card del avance */}
-      <div className={`flex-1 rounded-2xl border p-4 transition ${isFirst ? 'border-brand-cyan/40 bg-brand-cyan-pale/15 shadow-sm ring-1 ring-brand-cyan/20' : 'border-slate-200 bg-white'}`}>
-        <div className="flex flex-wrap items-baseline gap-2">
-          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${tone.bg} ${tone.text}`}>
-            {linea.categoria_label}
-          </span>
-          {isFirst && (
-            <span className="inline-flex items-center rounded-full bg-brand-cyan px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
-              ÚLTIMO
-            </span>
-          )}
-          <time className="ml-auto text-[11px] text-brand-muted">
-            {formatTimeAgo(linea.created_at)}
-          </time>
-        </div>
-
-        <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-brand-ink">
-          {linea.descripcion}
-        </p>
-
-        {linea.archivos_urls.length > 0 && (
-          <div className="mt-3 flex flex-wrap gap-2">
-            {linea.archivos_urls.map((url, i) => (
-              <a
-                key={i}
-                href={url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-brand-cyan transition hover:border-brand-cyan/40 hover:bg-brand-cyan-pale/20"
-              >
-                📎 Adjunto {i + 1}
-              </a>
-            ))}
-          </div>
-        )}
-
-        <p className="mt-3 text-[10px] text-brand-muted">
-          Por {linea.autor_nombre} · {formatFechaCorta(linea.created_at)}
-        </p>
-      </div>
-    </li>
-  );
-}
-
-function formatTimeAgo(iso: string): string {
-  const now = Date.now();
-  const t = new Date(iso).getTime();
-  const mins = Math.floor((now - t) / 60000);
-  if (mins < 1) return 'recién';
-  if (mins < 60) return `hace ${mins} min`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `hace ${hours} h`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `hace ${days} d`;
-  return new Date(iso).toLocaleDateString('es-AR', { day: '2-digit', month: 'short' });
-}
-
-function formatFechaCorta(iso: string): string {
-  return new Date(iso).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
-}
-
-function capitalize(s: string): string { return s.charAt(0).toUpperCase() + s.slice(1); }
 
 // =========================================================================
 
@@ -400,14 +168,16 @@ function StatBox({ label, value, tone, icon: Icon }: {
   );
 }
 
-function TramiteCard({ t, onOpen }: { t: ClienteTramite; onOpen: (t: ClienteTramite) => void }) {
+function TramiteCard({ t }: { t: ClienteTramite; onOpen?: (t: ClienteTramite) => void }) {
   const estadoInfo = ESTADOS[t.estado] ?? { label: t.estado, tone: 'slate' as const, icon: FileText };
   const isReadOnly = ['resuelto','cerrado','cancelado'].includes(t.estado);
+  // Bloque H / obs 12: navegamos a pantalla propia en lugar de abrir modal.
+  // Pasamos el tramite via state para evitar refetch (mejor UX, sin spinner).
   return (
-    <button
-      type="button"
-      onClick={() => onOpen(t)}
-      className={`group w-full text-left rounded-2xl border bg-white p-4 transition hover:border-brand-cyan hover:shadow-md ${isReadOnly ? 'border-slate-200 opacity-90' : 'border-slate-200'}`}
+    <Link
+      to={`/portal/gestiones/${t.id}`}
+      state={{ tramite: t }}
+      className={`group block w-full text-left rounded-2xl border bg-white p-4 transition hover:border-brand-cyan hover:shadow-md ${isReadOnly ? 'border-slate-200 opacity-90' : 'border-slate-200'}`}
     >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="flex items-start gap-3 sm:flex-1">
@@ -437,7 +207,7 @@ function TramiteCard({ t, onOpen }: { t: ClienteTramite; onOpen: (t: ClienteTram
           <ChevronRight size={14} />
         </div>
       </div>
-    </button>
+    </Link>
   );
 }
 

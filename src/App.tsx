@@ -55,6 +55,7 @@ const PortalComprobanteDetailPage = lazy(() => import('@/modules/portal/pages/Po
 const PortalCtaCtePage = lazy(() => import('@/modules/portal/pages/PortalCtaCtePage').then(m => ({ default: m.PortalCtaCtePage })));
 const PortalConsorciosPage = lazy(() => import('@/modules/portal/pages/PortalConsorciosPage').then(m => ({ default: m.PortalConsorciosPage })));
 const PortalGestionesPage = lazy(() => import('@/modules/portal/pages/PortalGestionesPage').then(m => ({ default: m.PortalGestionesPage })));
+const PortalGestionDetailPage = lazy(() => import('@/modules/portal/pages/PortalGestionDetailPage').then(m => ({ default: m.PortalGestionDetailPage })));
 const PortalWebinarsPage = lazy(() => import('@/modules/portal/pages/PortalWebinarsPage').then(m => ({ default: m.PortalWebinarsPage })));
 const PortalNuevoServicioPage = lazy(() => import('@/modules/portal/pages/PortalNuevoServicioPage').then(m => ({ default: m.PortalNuevoServicioPage })));
 const PortalMiCuentaPage = lazy(() => import('@/modules/portal/pages/PortalMiCuentaPage').then(m => ({ default: m.PortalMiCuentaPage })));
@@ -334,6 +335,7 @@ export function App() {
         >
           <Route index element={<PortalHome />} />
           <Route path="gestiones" element={<PortalGestionesPage />} />
+          <Route path="gestiones/:id" element={<PortalGestionDetailPage />} />
           <Route path="webinars" element={<PortalWebinarsPage />} />
           <Route path="nuevo" element={<PortalNuevoServicioPage />} />
           <Route path="comprobantes" element={<PortalComprobantesPage />} />
