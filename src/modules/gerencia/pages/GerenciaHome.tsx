@@ -19,6 +19,7 @@ import { ProximosVencimientosWidget } from '@/modules/vencimientos';
 import { MorososWidget } from '@/modules/cta_cte';
 import { ProximosSeguimientosWidget } from '@/modules/gerencia/components/ProximosSeguimientosWidget';
 import { NuevasSolicitudesWidget } from '@/modules/gerencia/components/NuevasSolicitudesWidget';
+import { AlarmasHoyWidget } from '@/modules/gerencia/components/AlarmasHoyWidget';
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
 import { getDashboardGlobal, type DashboardKpis } from '@/services/api/dashboard';
 import { DashboardKpiStrip } from '@/modules/gerencia/components/DashboardKpiStrip';
@@ -89,6 +90,10 @@ export function GerenciaHome() {
 
       {/* Bloque B / obs 1: alerta de solicitudes nuevas esperando atención */}
       <NuevasSolicitudesWidget />
+
+      {/* Bloque A / obs 5: alarmas que vencen hoy o están vencidas (con
+          botones de postergación rápida +3/+5/+10 días hábiles) */}
+      <AlarmasHoyWidget />
 
       <DashboardKpiStrip data={kpis} loading={loadingKpis} />
       <SparklineFacturado
