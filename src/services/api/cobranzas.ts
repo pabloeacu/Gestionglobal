@@ -155,9 +155,18 @@ export interface CtaCteEntry {
  * se ignora (queda por compat) — la RPC usa current_administracion_id().
  */
 export async function listCtaCteAdministracion(
-  _administracion_id?: string,
+  administracion_id?: string,
 ): Promise<ApiResponse<CtaCteEntry[]>> {
-  const { data, error } = await supabase.rpc('cliente_ctacte_extracto' as never);
+  // Mig 0109: cliente_ctacte_extracto acepta p_admin_id (staff puede pedir
+  // CC de cualquier admin; cliente usa current_administracion_id si no se
+  // pasa). Pasamos siempre cuando lo conocemos.
+  const args = administracion_id
+    ? ({ p_admin_id: administracion_id } as unknown as Record<string, unknown>)
+    : ({} as Record<string, unknown>);
+  const { data, error } = await supabase.rpc(
+    'cliente_ctacte_extracto' as never,
+    args as never,
+  );
   if (error) return fail('CTACTE_EXTRACTO', error.message, error);
 
   type ExtractoRow = {
