@@ -43,6 +43,9 @@ interface Props {
   administracionId: string | null;
   comprobanteId: string | null;
   servicioNombre: string | null;
+  // #161/obs 2: precio referencial del servicio para pre-fill el comprobante.
+  // Es solo orientativo — el operador puede editarlo + aplicar bonificación.
+  servicioPrecioBase?: number | null;
   receptorNombre: string;
   receptorDocumento?: string | null;
   onComprobanteCreado: (id: string) => void;
@@ -53,6 +56,7 @@ export function PanelComprobanteCobranza({
   administracionId,
   comprobanteId,
   servicioNombre,
+  servicioPrecioBase,
   receptorNombre,
   receptorDocumento,
   onComprobanteCreado,
@@ -162,6 +166,7 @@ export function PanelComprobanteCobranza({
           solicitudId={solicitudId}
           administracionId={administracionId}
           servicioNombre={servicioNombre}
+          servicioPrecioBase={servicioPrecioBase ?? null}
           receptorNombre={receptorNombre}
           receptorDocumento={receptorDocumento}
           onClose={() => setOpenGen(false)}
@@ -195,6 +200,7 @@ function ModalGenerarComprobante({
   solicitudId,
   administracionId,
   servicioNombre,
+  servicioPrecioBase,
   receptorNombre,
   receptorDocumento,
   onClose,
@@ -203,6 +209,7 @@ function ModalGenerarComprobante({
   solicitudId: string;
   administracionId: string;
   servicioNombre: string | null;
+  servicioPrecioBase: number | null;
   receptorNombre: string;
   receptorDocumento?: string | null;
   onClose: () => void;
@@ -216,7 +223,13 @@ function ModalGenerarComprobante({
   const [descripcion, setDescripcion] = useState(
     servicioNombre ?? 'Servicio profesional',
   );
-  const [precio, setPrecio] = useState<string>('');
+  // #161/obs 2: pre-fill precio desde el precio_base del servicio. Es
+  // referencial — el operador puede editarlo y aplicar bonificación.
+  const [precio, setPrecio] = useState<string>(
+    servicioPrecioBase && servicioPrecioBase > 0
+      ? String(servicioPrecioBase)
+      : '',
+  );
   const [bonif, setBonif] = useState<string>('0');
   const [fecha, setFecha] = useState(hoy);
   const [vencimiento, setVencimiento] = useState(venceDefault);

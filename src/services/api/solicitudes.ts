@@ -21,6 +21,9 @@ export interface SolicitudListItem extends SolicitudRow {
   formulario_categoria: string | null;
   cliente_nombre: string | null;
   servicio_nombre: string | null;
+  // #161/obs 2: precio del servicio para pre-fill comprobante desde solicitud
+  servicio_precio_base?: number | null;
+  servicio_precio_modo?: string | null;
 }
 
 export interface ListSolicitudesFilters {
@@ -149,7 +152,7 @@ export async function getSolicitud(
              formularios:formulario_id(titulo,categoria,schema)
            ),
            administraciones:cliente_id(nombre),
-           servicios:servicio_solicitado_id(nombre)`,
+           servicios:servicio_solicitado_id(nombre, precio_base, precio_modo)`,
         )
         .eq('id', id)
         .single(),
@@ -174,7 +177,11 @@ export async function getSolicitud(
       } | null;
     } | null;
     administraciones: { nombre: string } | null;
-    servicios: { nombre: string } | null;
+    servicios: {
+      nombre: string;
+      precio_base: number | null;
+      precio_modo: string | null;
+    } | null;
   };
   const s = solRaw as Joined;
   const {
@@ -217,6 +224,9 @@ export async function getSolicitud(
       formulario_submissions?.formularios?.categoria ?? null,
     cliente_nombre: administraciones?.nombre ?? null,
     servicio_nombre: servicios?.nombre ?? null,
+    // #161/obs 2: precio_base del servicio para pre-fill el comprobante
+    servicio_precio_base: servicios?.precio_base ?? null,
+    servicio_precio_modo: servicios?.precio_modo ?? null,
     submission_payload:
       (formulario_submissions?.datos as Record<string, unknown>) ?? null,
     submission_adjuntos: adjuntos,

@@ -18,6 +18,7 @@ import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import { ProximosVencimientosWidget } from '@/modules/vencimientos';
 import { MorososWidget } from '@/modules/cta_cte';
 import { ProximosSeguimientosWidget } from '@/modules/gerencia/components/ProximosSeguimientosWidget';
+import { NuevasSolicitudesWidget } from '@/modules/gerencia/components/NuevasSolicitudesWidget';
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
 import { getDashboardGlobal, type DashboardKpis } from '@/services/api/dashboard';
 import { DashboardKpiStrip } from '@/modules/gerencia/components/DashboardKpiStrip';
@@ -85,6 +86,9 @@ export function GerenciaHome() {
 
       {/* P2-#25 · Banner inteligente que invita a cerrar el mes anterior */}
       <ReporteMensualBanner />
+
+      {/* Bloque B / obs 1: alerta de solicitudes nuevas esperando atención */}
+      <NuevasSolicitudesWidget />
 
       <DashboardKpiStrip data={kpis} loading={loadingKpis} />
       <SparklineFacturado

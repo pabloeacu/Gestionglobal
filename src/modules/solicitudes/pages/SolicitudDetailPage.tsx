@@ -426,6 +426,7 @@ export function SolicitudDetailPage() {
         administracionId={data.cliente_id ?? null}
         comprobanteId={(data as { comprobante_id?: string | null }).comprobante_id ?? null}
         servicioNombre={data.servicio_nombre}
+        servicioPrecioBase={data.servicio_precio_base ?? null}
         receptorNombre={data.cliente_nombre ?? data.solicitante_nombre ?? '—'}
         onComprobanteCreado={() => void load()}
       />
