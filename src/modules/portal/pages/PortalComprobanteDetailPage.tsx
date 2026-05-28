@@ -112,16 +112,37 @@ export function PortalComprobanteDetailPage() {
 
   async function onDescargarPdf() {
     if (!comp) return;
+    const compExt = comp as unknown as {
+      partner_facturado_at: string | null;
+      partner_numero_externo: string | null;
+      partner_factura_pdf_url: string | null;
+    };
+    // Bloque G / obs 11: si el partner subió el PDF de su factura, descargamos
+    // ese archivo real en vez de generar el prototipo desde el comprobante
+    // simple. El cliente recibe LA FACTURA, no una réplica.
+    if (compExt.partner_factura_pdf_url) {
+      try {
+        const res = await fetch(compExt.partner_factura_pdf_url);
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        const safeNum = (compExt.partner_numero_externo ?? 'factura').replace(
+          /[^A-Za-z0-9-]/g,
+          '-',
+        );
+        a.href = url;
+        a.download = `factura-${safeNum}.pdf`;
+        a.click();
+        URL.revokeObjectURL(url);
+      } catch (e) {
+        toast.error('No pudimos descargar la factura', {
+          description: (e as Error).message,
+        });
+      }
+      return;
+    }
     try {
       const doc = await generateComprobantePdf({ comprobante: comp, items });
-      // Cuando hay facturación externa del partner usamos el nº de la factura
-      // como nombre del archivo para que el cliente reciba "factura-XXXX.pdf".
-      // El cliente no debe ver mención al partner — sólo a "Gestión Global"
-      // como emisor de la factura (regla UX del usuario, mig 0107).
-      const compExt = comp as unknown as {
-        partner_facturado_at: string | null;
-        partner_numero_externo: string | null;
-      };
       let fileName: string;
       if (compExt.partner_facturado_at && compExt.partner_numero_externo) {
         const safeNum = compExt.partner_numero_externo.replace(/[^A-Za-z0-9-]/g, '-');

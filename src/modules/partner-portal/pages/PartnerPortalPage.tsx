@@ -380,26 +380,64 @@ function ModalFacturar({
   const [numero, setNumero] = useState('');
   const [observacion, setObservacion] = useState('');
   const [enviando, setEnviando] = useState(false);
+  // Bloque G / obs 11: PDF de la factura del partner. Si se sube, queda
+  // adjunto al comprobante y disponible para cliente/gerencia/partner.
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [subiendoPdf, setSubiendoPdf] = useState(false);
 
-  async function confirmar() {
+  async function subirPdfYConfirmar(): Promise<void> {
     if (numero.trim().length < 1) {
       toast.error('Ingresá el número de factura externa');
       return;
+    }
+    let pdfUrl: string | undefined;
+    if (pdfFile) {
+      setSubiendoPdf(true);
+      try {
+        const ts = Date.now();
+        const rand = Math.random().toString(36).slice(2, 8);
+        const safeName = pdfFile.name.replace(/[^\w.\-]/g, '_');
+        const path = `${comprobante.id}/${ts}-${rand}-${safeName}`;
+        const { supabase } = await import('@/lib/supabase');
+        const { error } = await supabase.storage
+          .from('partner-facturas')
+          .upload(path, pdfFile, {
+            upsert: false,
+            contentType: pdfFile.type || 'application/pdf',
+          });
+        if (error) throw error;
+        const pub = supabase.storage.from('partner-facturas').getPublicUrl(path);
+        pdfUrl = pub.data.publicUrl;
+      } catch (e) {
+        setSubiendoPdf(false);
+        toast.error('No pudimos subir el PDF', {
+          description: (e as Error).message,
+        });
+        return;
+      }
+      setSubiendoPdf(false);
     }
     setEnviando(true);
     const res = await partnerMarcarFacturado(
       comprobante.id,
       numero.trim(),
       observacion.trim() || undefined,
+      pdfUrl,
     );
     setEnviando(false);
     if (!res.ok) {
       toast.error(res.error.message);
       return;
     }
-    toast.success('Comprobante marcado como facturado');
+    toast.success(
+      pdfUrl
+        ? 'Comprobante facturado con PDF adjunto'
+        : 'Comprobante marcado como facturado',
+    );
     await onDone();
   }
+
+  const confirmar = subirPdfYConfirmar;
 
   return (
     <div
@@ -473,6 +511,27 @@ function ModalFacturar({
               placeholder="Notas internas para la gerencia…"
             />
           </label>
+          <label className="block">
+            <span className="kicker text-brand-muted">
+              PDF de la factura (opcional pero recomendado)
+            </span>
+            <input
+              type="file"
+              accept="application/pdf"
+              onChange={(e) => setPdfFile(e.target.files?.[0] ?? null)}
+              className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-1.5 text-sm file:mr-2 file:rounded file:border-0 file:bg-brand-cyan-pale/40 file:px-2 file:py-1 file:text-xs file:font-medium file:text-brand-cyan"
+            />
+            {pdfFile && (
+              <p className="mt-1 text-[11px] text-emerald-700">
+                ✓ {pdfFile.name} ({Math.round(pdfFile.size / 1024)} KB)
+              </p>
+            )}
+            <p className="mt-1 text-[11px] text-brand-muted">
+              Si subís el PDF, queda asociado al comprobante. El cliente lo
+              descarga desde su portal, la gerencia desde la ficha. Si no lo
+              subís ahora, podés hacerlo más tarde.
+            </p>
+          </label>
           <p className="text-xs text-brand-muted">
             Al confirmar, la gerencia recibirá una notificación con tu número
             de factura. Esta acción no se puede deshacer.
@@ -490,11 +549,15 @@ function ModalFacturar({
           </button>
           <button
             type="button"
-            onClick={confirmar}
-            disabled={enviando || numero.trim().length < 1}
+            onClick={() => void confirmar()}
+            disabled={enviando || subiendoPdf || numero.trim().length < 1}
             className="inline-flex items-center gap-1.5 rounded-lg bg-brand-cyan px-3 py-1.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-teal disabled:cursor-not-allowed disabled:bg-slate-300"
           >
-            {enviando ? (
+            {subiendoPdf ? (
+              <>
+                <Loader2 size={13} className="animate-spin" /> Subiendo PDF…
+              </>
+            ) : enviando ? (
               <>
                 <Loader2 size={13} className="animate-spin" /> Confirmando…
               </>

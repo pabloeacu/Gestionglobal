@@ -123,21 +123,22 @@ export async function fetchPartnerMisComprobantes(): Promise<
   return ok((data ?? []) as unknown as PartnerComprobanteRow[]);
 }
 
-// #153 · Partner marca un comprobante como facturado (sistema externo)
+// #153 · Partner marca un comprobante como facturado (sistema externo).
+// Bloque G / obs 11: ahora acepta opcionalmente el PDF de la factura (URL en
+// bucket partner-facturas) para que quede asociado al comprobante y descargable
+// desde cliente, gerencia y partner.
 export async function partnerMarcarFacturado(
   comprobanteId: string,
   numeroExterno: string,
   observacion?: string,
+  pdfUrl?: string,
 ): Promise<ApiResponse<string>> {
   const args = {
     p_comprobante_id: comprobanteId,
     p_numero_externo: numeroExterno,
     p_observacion: observacion ?? null,
-  } as unknown as {
-    p_comprobante_id: string;
-    p_numero_externo: string;
-    p_observacion: string;
-  };
+    p_pdf_url: pdfUrl ?? null,
+  } as unknown as Record<string, unknown>;
   const { data, error } = await supabase.rpc(
     'partner_marcar_facturado' as never,
     args as never,
