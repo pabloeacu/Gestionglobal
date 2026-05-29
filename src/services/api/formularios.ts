@@ -20,6 +20,7 @@ export interface FormularioFieldDef {
     | 'radio'
     | 'checkbox'
     | 'file'
+    | 'file_download'
     | 'heading'
     | 'separator'
     | 'html';
@@ -32,6 +33,11 @@ export interface FormularioFieldDef {
   accept?: string[];
   validation?: { min?: number; max?: number; pattern?: string };
   condition?: { field: string; equals: string };
+  // file_download: el archivo que la gerencia provee para que el usuario
+  // del formulario lo descargue. URL pública del bucket.
+  download_url?: string;
+  download_filename?: string;
+  download_size_bytes?: number;
 }
 
 export interface FormularioSectionDef {

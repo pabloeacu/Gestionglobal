@@ -317,9 +317,11 @@ function DropZone({
       }}
       onDragLeave={onDragLeave}
       onDrop={onDrop}
+      // h-3 base (12px) en vez de h-2 (8px) → más fácil de acertar. En hover,
+      // h-9 con fondo cyan + ring. La zona invisible se vuelve clickable-friendly.
       className={cn(
-        'h-2 rounded transition-all',
-        isHover ? 'h-7 bg-brand-cyan/20 ring-2 ring-brand-cyan' : 'bg-transparent',
+        'rounded transition-all',
+        isHover ? 'my-1 h-9 bg-brand-cyan/20 ring-2 ring-brand-cyan' : 'h-3 bg-transparent',
       )}
     />
   );
@@ -423,7 +425,7 @@ function FieldRow({
   );
 }
 
-function makeFieldFromType(
+export function makeFieldFromType(
   type: FormularioFieldDef['type'],
   section: FormularioSectionDef,
 ): FormularioFieldDef {
@@ -445,6 +447,11 @@ function makeFieldFromType(
   if (type === 'file') {
     base.max_files = 1;
     base.accept = ['.pdf', '.jpg', '.jpeg', '.png'];
+  }
+  if (type === 'file_download') {
+    // El usuario debe luego subir el archivo desde el panel de propiedades.
+    base.label = 'Archivo para descargar';
+    base.hint = 'Descargá el archivo antes de continuar.';
   }
   return base;
 }
@@ -473,6 +480,8 @@ function defaultLabel(type: FormularioFieldDef['type']): string {
       return 'Acepto…';
     case 'file':
       return 'Adjuntar archivo';
+    case 'file_download':
+      return 'Archivo para descargar';
     case 'heading':
       return 'Encabezado';
     case 'separator':

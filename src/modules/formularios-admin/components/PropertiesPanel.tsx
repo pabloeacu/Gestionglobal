@@ -1,7 +1,10 @@
 // Panel derecho: edita propiedades del campo o sección seleccionados.
 // Edición reactiva en memoria, el padre persiste con "Guardar".
 
-import { Plus, Trash2 } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { Plus, Trash2, Upload, FileText, Loader2, X } from 'lucide-react';
+import { toast } from '@/lib/toast';
+import { supabase } from '@/lib/supabase';
 import { Button, Field, Input, Select, Textarea } from '@/components/common';
 import type {
   FormularioFieldDef,
@@ -14,6 +17,7 @@ import type { Selection } from '../types';
 interface PropertiesPanelProps {
   schema: FormularioSchemaDef;
   selection: Selection;
+  formularioId: string;
   onUpdateField: (
     sectionIdx: number,
     fieldIdx: number,
@@ -28,6 +32,7 @@ interface PropertiesPanelProps {
 export function PropertiesPanel({
   schema,
   selection,
+  formularioId,
   onUpdateField,
   onUpdateSection,
 }: PropertiesPanelProps) {
@@ -61,6 +66,7 @@ export function PropertiesPanel({
             schema={schema}
             sectionIdx={selection.value.sectionIdx}
             fieldIdx={selection.value.fieldIdx}
+            formularioId={formularioId}
             field={
               schema.sections[selection.value.sectionIdx]?.fields[
                 selection.value.fieldIdx
@@ -106,22 +112,27 @@ function FieldEditor({
   sectionIdx,
   fieldIdx,
   field,
+  formularioId,
   onPatch,
 }: {
   schema: FormularioSchemaDef;
   sectionIdx: number;
   fieldIdx: number;
   field: FormularioFieldDef;
+  formularioId: string;
   onPatch: (patch: Partial<FormularioFieldDef>) => void;
 }) {
   const hasOptions = ['select', 'multiselect', 'radio'].includes(field.type);
   const noLabelTypes = ['separator'];
+  // file_download es presentacional: no se envía con la submission, así que NO
+  // expone "Obligatorio" ni puede ser objetivo de lógica condicional.
+  const noRequiredTypes = ['separator', 'heading', 'file_download'];
 
   const otrosCampos = schema.sections.flatMap((s, sI) =>
     s.fields.filter(
       (f, fI) =>
         !(sI === sectionIdx && fI === fieldIdx) &&
-        !['separator', 'heading', 'html'].includes(f.type),
+        !['separator', 'heading', 'html', 'file_download'].includes(f.type),
     ),
   );
 
@@ -168,7 +179,7 @@ function FieldEditor({
         </Field>
       )}
 
-      {!['separator', 'heading'].includes(field.type) && (
+      {!noRequiredTypes.includes(field.type) && (
         <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white p-2.5 text-sm">
           <input
             type="checkbox"
@@ -297,6 +308,14 @@ function FieldEditor({
         </div>
       )}
 
+      {field.type === 'file_download' && (
+        <FileDownloadEditor
+          field={field}
+          formularioId={formularioId}
+          onPatch={onPatch}
+        />
+      )}
+
       <Field label="Mostrar sólo si…" hint="Lógica condicional opcional.">
         <div className="space-y-2">
           <Select
@@ -352,6 +371,142 @@ function FieldEditor({
       )}
     </div>
   );
+}
+
+/**
+ * Editor para campos file_download: la gerencia sube un archivo al bucket
+ * `formulario-descargas` y el usuario público del formulario lo descarga.
+ * Guarda url pública + filename + size en el field def.
+ */
+function FileDownloadEditor({
+  field,
+  formularioId,
+  onPatch,
+}: {
+  field: FormularioFieldDef;
+  formularioId: string;
+  onPatch: (patch: Partial<FormularioFieldDef>) => void;
+}) {
+  const [uploading, setUploading] = useState(false);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
+  async function onPick(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0];
+    e.target.value = ''; // reset para permitir re-pick mismo archivo
+    if (!f) return;
+    if (f.size > 25 * 1024 * 1024) {
+      toast.error('El archivo supera los 25 MB.');
+      return;
+    }
+    setUploading(true);
+    try {
+      // Path único por field para evitar colisiones cuando hay varios
+      // file_download en el mismo formulario. timestamp para invalidar caché.
+      const safeName = f.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const path = `${formularioId}/${field.name}-${Date.now()}-${safeName}`;
+      const upRes = await supabase.storage
+        .from('formulario-descargas')
+        .upload(path, f, { upsert: true, contentType: f.type || undefined });
+      if (upRes.error) {
+        toast.error('No pudimos subir el archivo', {
+          description: upRes.error.message,
+        });
+        return;
+      }
+      const { data: pub } = supabase.storage
+        .from('formulario-descargas')
+        .getPublicUrl(path);
+      onPatch({
+        download_url: pub.publicUrl,
+        download_filename: f.name,
+        download_size_bytes: f.size,
+      });
+      toast.success('Archivo subido');
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  function onRemove() {
+    onPatch({
+      download_url: undefined,
+      download_filename: undefined,
+      download_size_bytes: undefined,
+    });
+  }
+
+  const hasFile = Boolean(field.download_url);
+
+  return (
+    <Field
+      label="Archivo a descargar"
+      hint="Subí el archivo que el usuario podrá descargar desde el formulario."
+    >
+      <div className="space-y-2">
+        {hasFile && (
+          <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">
+            <div className="flex min-w-0 items-center gap-2">
+              <FileText size={14} className="shrink-0 text-brand-cyan" />
+              <div className="min-w-0">
+                <p className="truncate font-medium text-brand-ink">
+                  {field.download_filename ?? 'archivo'}
+                </p>
+                {typeof field.download_size_bytes === 'number' && (
+                  <p className="text-[11px] text-brand-muted">
+                    {formatBytes(field.download_size_bytes)}
+                  </p>
+                )}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={onRemove}
+              className="text-brand-muted hover:text-red-600"
+              title="Quitar archivo"
+              aria-label="Quitar archivo"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        )}
+        <input
+          ref={inputRef}
+          type="file"
+          className="hidden"
+          onChange={onPick}
+          disabled={uploading}
+        />
+        <Button
+          variant="secondary"
+          onClick={() => inputRef.current?.click()}
+          disabled={uploading}
+        >
+          {uploading ? (
+            <>
+              <Loader2 size={12} className="animate-spin" /> Subiendo…
+            </>
+          ) : hasFile ? (
+            <>
+              <Upload size={12} /> Reemplazar archivo
+            </>
+          ) : (
+            <>
+              <Upload size={12} /> Subir archivo
+            </>
+          )}
+        </Button>
+        <p className="text-[11px] text-brand-muted">
+          Hasta 25 MB. Cualquier formato (PDF, DOC, XLS, ZIP, imagen, etc.).
+        </p>
+      </div>
+    </Field>
+  );
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 function OptionsEditor({

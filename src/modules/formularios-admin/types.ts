@@ -26,7 +26,8 @@ export const FIELD_TYPES: ReadonlyArray<{
   { type: 'multiselect', label: 'Lista (varias)', hint: 'Multiselección' },
   { type: 'radio', label: 'Radio', hint: 'Una entre varias' },
   { type: 'checkbox', label: 'Checkbox', hint: 'Sí/No' },
-  { type: 'file', label: 'Archivo', hint: 'Adjunto' },
+  { type: 'file', label: 'Archivo (subir)', hint: 'Usuario adjunta' },
+  { type: 'file_download', label: 'Archivo (descargar)', hint: 'Vos subís un archivo y el usuario lo descarga' },
   { type: 'heading', label: 'Título', hint: 'Encabezado decorativo' },
   { type: 'separator', label: 'Separador', hint: 'Línea horizontal' },
 ];

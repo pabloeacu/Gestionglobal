@@ -44,7 +44,7 @@ import type {
   FormularioSectionDef,
 } from '@/services/api/formularios';
 import { FieldPalette } from '../components/FieldPalette';
-import { CanvasFormulario } from '../components/CanvasFormulario';
+import { CanvasFormulario, makeFieldFromType } from '../components/CanvasFormulario';
 import { PropertiesPanel } from '../components/PropertiesPanel';
 import { PreviewModal } from '../components/PreviewModal';
 import { EmbedCodeModal } from '../components/EmbedCodeModal';
@@ -612,7 +612,21 @@ export function FormularioBuilderPage() {
       </header>
 
       <div className="flex min-h-0 flex-1 gap-4">
-        <FieldPalette />
+        <FieldPalette
+          onClickAdd={(type) => {
+            // Fallback confiable a DnD: insertamos al final de la sección
+            // seleccionada o, si no hay selección, de la primera sección.
+            const targetSection =
+              selection?.kind === 'section'
+                ? selection.value.sectionIdx
+                : selection?.kind === 'field'
+                  ? selection.value.sectionIdx
+                  : 0;
+            const section = schema.sections[targetSection];
+            if (!section) return;
+            onInsertField(targetSection, section.fields.length, makeFieldFromType(type, section));
+          }}
+        />
         <CanvasFormulario
           schema={schema}
           selection={selection}
@@ -628,6 +642,7 @@ export function FormularioBuilderPage() {
         <PropertiesPanel
           schema={schema}
           selection={selection}
+          formularioId={formulario.id}
           onUpdateField={onUpdateField}
           onUpdateSection={onUpdateSection}
         />

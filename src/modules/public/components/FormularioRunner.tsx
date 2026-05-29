@@ -7,6 +7,8 @@ import {
   Upload,
   X as XIcon,
   AlertCircle,
+  Download,
+  FileText,
 } from 'lucide-react';
 import { Button, Field, Input, Select, Textarea } from '@/components/common';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
@@ -75,7 +77,7 @@ export function FormularioRunner({ formulario, prefillValues }: FormularioRunner
     let count = 0;
     for (const section of schema.sections) {
       for (const field of section.fields) {
-        if (['heading', 'separator', 'html', 'file'].includes(field.type)) continue;
+        if (['heading', 'separator', 'html', 'file', 'file_download'].includes(field.type)) continue;
         const normalizedName = normalizeKey(field.name);
         const match = lookup[normalizedName];
         if (match !== undefined) {
@@ -111,7 +113,7 @@ export function FormularioRunner({ formulario, prefillValues }: FormularioRunner
     const errors: string[] = [];
     for (const section of schema.sections) {
       for (const field of section.fields) {
-        if (['heading', 'separator', 'html'].includes(field.type)) continue;
+        if (['heading', 'separator', 'html', 'file_download'].includes(field.type)) continue;
         if (!isFieldVisible(field)) continue;
 
         if (field.type === 'file') {
@@ -426,6 +428,9 @@ function FieldRenderer({ field, value, prefilled = false, onChange, files, onFil
         />
       );
 
+    case 'file_download':
+      return <FileDownloadCard field={field} />;
+
     default:
       // text / email / tel / number / date
       return (
@@ -440,6 +445,67 @@ function FieldRenderer({ field, value, prefilled = false, onChange, files, onFil
         </Field>
       );
   }
+}
+
+/**
+ * Tarjeta de descarga: muestra un archivo provisto por la gerencia (plantillas,
+ * instructivos, etc.) que el usuario público del formulario puede descargar.
+ * No es un campo de entrada: no se valida ni se envía.
+ */
+function FileDownloadCard({ field }: { field: FormularioFieldDef }) {
+  if (!field.download_url) {
+    // Si no hay archivo cargado todavía, mostramos un placeholder discreto
+    // (sólo se ve en preview del builder antes de subir el archivo).
+    return (
+      <div className="rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-brand-muted">
+        <div className="flex items-center gap-3">
+          <FileText size={18} className="shrink-0 text-slate-400" />
+          <p>{field.label || 'Archivo a descargar'} (sin archivo cargado)</p>
+        </div>
+      </div>
+    );
+  }
+
+  const sizeLabel =
+    typeof field.download_size_bytes === 'number'
+      ? field.download_size_bytes < 1024
+        ? `${field.download_size_bytes} B`
+        : field.download_size_bytes < 1024 * 1024
+          ? `${(field.download_size_bytes / 1024).toFixed(1)} KB`
+          : `${(field.download_size_bytes / (1024 * 1024)).toFixed(1)} MB`
+      : null;
+
+  return (
+    <div className="rounded-xl border border-brand-cyan/30 bg-brand-cyan-pale/30 p-4">
+      <div className="flex items-start gap-3">
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-white text-brand-cyan shadow-sm">
+          <FileText size={18} />
+        </span>
+        <div className="min-w-0 flex-1">
+          {field.label && (
+            <p className="font-semibold text-brand-ink">{field.label}</p>
+          )}
+          {field.hint && (
+            <p className="mt-0.5 text-xs text-brand-muted">{field.hint}</p>
+          )}
+          <p className="mt-1 truncate text-xs text-brand-ink/70">
+            {field.download_filename ?? 'archivo'}
+            {sizeLabel ? ` · ${sizeLabel}` : ''}
+          </p>
+        </div>
+        <a
+          href={field.download_url}
+          download={field.download_filename}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-brand-cyan px-3 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-brand-cyan/90"
+        >
+          <Download size={14} />
+          Descargar
+        </a>
+      </div>
+    </div>
+  );
 }
 
 function FileUploader({

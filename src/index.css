@@ -18,8 +18,10 @@
   }
   body {
     @apply bg-white text-brand-ink antialiased;
-    /* iOS: solo permitir pan vertical, evita swipe lateral accidental. */
-    touch-action: pan-y;
+    /* (Removido touch-action:pan-y del body porque rompía el DnD HTML5
+        del constructor de formularios y otros draggables. El swipe
+        horizontal accidental ya se neutraliza con overflow-x:hidden +
+        max-width:100vw en html/body/#root.) */
   }
 }
 
