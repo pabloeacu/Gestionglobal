@@ -245,10 +245,10 @@ export function AgendaPage({ initialTab }: AgendaPageProps = {}) {
         navigate(`/gerencia/solicitudes/${item.origenId}`);
         return;
       case 'tracking_alarma':
-        // Bloque A · Fase 2: origenId = tracking_lineas.id. Necesitamos el
-        // tramite_id para abrir el tracking — el modal lo recibe via item
-        // serializado por backend. Hasta tenerlo, listamos trámites.
-        navigate(`/gerencia/tramites`);
+        // Bloque A · Fase 2 (mig 0122): origenId = tramite_id (vw_agenda_unificada
+        // ahora expone t.id en vez de tl.id), por lo que la alarma navega
+        // directo al tracking del trámite específico que la disparó.
+        navigate(`/gerencia/trackings/${item.origenId}`);
         return;
       default:
         // eslint-disable-next-line no-console
