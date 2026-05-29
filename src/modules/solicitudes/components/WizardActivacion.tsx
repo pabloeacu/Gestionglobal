@@ -108,6 +108,12 @@ export function WizardActivacion({
   // Default 14 — el gerente puede acortar si es trámite urgente o extender
   // si el gestor está de viaje, etc. Se respeta caso por caso.
   const [diasValidez, setDiasValidez] = useState<number>(14);
+  // N3 · monto que la empresa paga a la gestoría (INTERNO, no visible al cliente)
+  const [montoGestoria, setMontoGestoria] = useState<string>('');
+  // N3 · adjuntos al correo de gestoría (privados — solo gerencia + gestoría)
+  type AdjuntoGestoria = { path: string; filename: string; mime: string; size: number };
+  const [adjuntosGestoria, setAdjuntosGestoria] = useState<AdjuntoGestoria[]>([]);
+  const [subiendoAdj, setSubiendoAdj] = useState(false);
   const [busy1, setBusy1] = useState(false);
   const [paso1Hecho, setPaso1Hecho] = useState(
     draftInicial?.paso1Hecho ?? false,
@@ -277,11 +283,14 @@ export function WizardActivacion({
       return;
     }
     setBusy1(true);
+    const montoNum = parseFloat(montoGestoria.replace(',', '.'));
     const res = await derivar(solicitud.id, {
       destinatario_email: destinatarioEmail.trim(),
       destinatario_nombre: destinatarioNombre.trim() || undefined,
       observaciones: observDerivacion.trim() || undefined,
       dias_validez: diasValidez,
+      monto_pago_gestoria: !isNaN(montoNum) && montoNum > 0 ? montoNum : null,
+      adjuntos: adjuntosGestoria.length > 0 ? adjuntosGestoria : undefined,
     });
     setBusy1(false);
     if (!res.ok) {
@@ -392,6 +401,68 @@ export function WizardActivacion({
                   rows={3}
                 />
               </Field>
+
+              {/* N3 · Monto interno + adjuntos privados */}
+              <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-3 space-y-3">
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-amber-700">
+                  Interno · no visible al cliente
+                </p>
+                <Field label="Monto que paga la empresa a la gestoría">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-brand-muted">$</span>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min={0}
+                      value={montoGestoria}
+                      onChange={(e) => setMontoGestoria(e.target.value)}
+                      placeholder="0.00"
+                      className="w-40"
+                    />
+                    <span className="text-[11px] text-brand-muted">
+                      Queda registrado en la derivación. Vacío = no se factura un pago a la gestoría.
+                    </span>
+                  </div>
+                </Field>
+                <Field label="Adjuntos para la gestoría">
+                  <input
+                    type="file"
+                    multiple
+                    disabled={subiendoAdj}
+                    onChange={async (e) => {
+                      const files = Array.from(e.target.files ?? []);
+                      e.target.value = '';
+                      if (files.length === 0) return;
+                      setSubiendoAdj(true);
+                      const { uploadAdjuntoGestoria } = await import('@/services/api/solicitudes');
+                      const subidos: AdjuntoGestoria[] = [];
+                      for (const f of files) {
+                        const r = await uploadAdjuntoGestoria(solicitud.id, f);
+                        if (r.ok) subidos.push(r.data);
+                        else toast.error(`No pudimos subir ${f.name}`, { description: r.error.message });
+                      }
+                      setAdjuntosGestoria([...adjuntosGestoria, ...subidos]);
+                      setSubiendoAdj(false);
+                    }}
+                    className="text-xs"
+                  />
+                  {adjuntosGestoria.length > 0 && (
+                    <ul className="mt-2 space-y-1">
+                      {adjuntosGestoria.map((a, i) => (
+                        <li key={i} className="flex items-center justify-between rounded border border-amber-200 bg-white px-2 py-1 text-[11px]">
+                          <span className="truncate">📎 {a.filename}</span>
+                          <button
+                            type="button"
+                            onClick={() => setAdjuntosGestoria(adjuntosGestoria.filter((_, j) => j !== i))}
+                            className="ml-2 text-brand-muted hover:text-red-600"
+                            title="Quitar"
+                          >×</button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </Field>
+              </div>
 
               {/* Bloque K (obs nueva): TTL del enlace seguro al gestor.
                   Default 14 días, editable caso por caso. */}

@@ -257,15 +257,55 @@ export interface DerivarInput {
   destinatario_nombre?: string;
   plantilla_slug?: string;
   observaciones?: string;
-  // Bloque K (obs nueva): TTL del enlace seguro del gestor.
-  // Default 14 días. Rango 1..365. Configurable por caso desde el wizard.
+  // Bloque K: TTL del enlace seguro del gestor.
   dias_validez?: number;
+  // N3 · monto interno que la empresa paga a la gestoría. NO visible al cliente.
+  monto_pago_gestoria?: number | null;
+  // N3 · adjuntos enviados a la gestoría. NO visibles al cliente.
+  adjuntos?: Array<{ path: string; filename: string; mime: string; size: number }>;
+}
+
+const BUCKET_GESTORIA = 'gestoria-adjuntos';
+
+// N3 · sube un archivo al bucket privado gestoria-adjuntos. Devuelve el path.
+// Path: <solicitud_id>/<timestamp-filename>
+export async function uploadAdjuntoGestoria(
+  solicitudId: string,
+  file: File,
+): Promise<ApiResponse<{ path: string; filename: string; mime: string; size: number }>> {
+  const path = `${solicitudId}/${Date.now()}-${file.name.replace(/\s+/g, '_')}`;
+  const { error } = await supabase.storage
+    .from(BUCKET_GESTORIA)
+    .upload(path, file, { upsert: false, contentType: file.type });
+  if (error) return fail('GESTORIA_UPLOAD', error.message, error);
+  return ok({
+    path,
+    filename: file.name,
+    mime: file.type || 'application/octet-stream',
+    size: file.size,
+  });
 }
 
 export async function derivar(
   id: string,
   input: DerivarInput,
 ): Promise<ApiResponse<{ derivacionId: string }>> {
+  // N3 · si trae monto o adjuntos, usa la v2 del RPC.
+  const useV2 = input.monto_pago_gestoria != null || (input.adjuntos && input.adjuntos.length > 0);
+  if (useV2) {
+    const { data, error } = await rpc('solicitud_derivar_v2', {
+      p_solicitud_id: id,
+      p_destinatario_email: input.destinatario_email,
+      p_destinatario_nombre: input.destinatario_nombre ?? null,
+      p_plantilla_slug: input.plantilla_slug ?? 'solicitud-derivada-gestoria',
+      p_observaciones: input.observaciones ?? null,
+      p_dias_validez: input.dias_validez ?? 14,
+      p_monto_pago: input.monto_pago_gestoria ?? null,
+      p_adjuntos: (input.adjuntos ?? []) as unknown as Parameters<typeof rpc>[1]['p_adjuntos'],
+    } as unknown as Parameters<typeof rpc>[1]);
+    if (error) return fail('SOL_DERIVAR_V2', error.message, error);
+    return ok({ derivacionId: data as string });
+  }
   const { data, error } = await rpc('solicitud_derivar', {
     p_solicitud_id: id,
     p_destinatario_email: input.destinatario_email,

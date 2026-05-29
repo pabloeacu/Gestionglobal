@@ -5102,12 +5102,14 @@ export type Database = {
         Row: {
           acceso_externo_token: string | null
           acceso_externo_url: string | null
+          adjuntos_jsonb: Json
           creada_por: string | null
           destinatario_email: string
           destinatario_nombre: string | null
           email_queue_id: string | null
           enviada_at: string
           id: string
+          monto_pago_gestoria: number | null
           observaciones: string | null
           plantilla_email_slug: string | null
           solicitud_id: string
@@ -5115,12 +5117,14 @@ export type Database = {
         Insert: {
           acceso_externo_token?: string | null
           acceso_externo_url?: string | null
+          adjuntos_jsonb?: Json
           creada_por?: string | null
           destinatario_email: string
           destinatario_nombre?: string | null
           email_queue_id?: string | null
           enviada_at?: string
           id?: string
+          monto_pago_gestoria?: number | null
           observaciones?: string | null
           plantilla_email_slug?: string | null
           solicitud_id: string
@@ -5128,12 +5132,14 @@ export type Database = {
         Update: {
           acceso_externo_token?: string | null
           acceso_externo_url?: string | null
+          adjuntos_jsonb?: Json
           creada_por?: string | null
           destinatario_email?: string
           destinatario_nombre?: string | null
           email_queue_id?: string | null
           enviada_at?: string
           id?: string
+          monto_pago_gestoria?: number | null
           observaciones?: string | null
           plantilla_email_slug?: string | null
           solicitud_id?: string
@@ -8060,6 +8066,19 @@ export type Database = {
             }
             Returns: string
           }
+      solicitud_derivar_v2: {
+        Args: {
+          p_adjuntos?: Json
+          p_destinatario_email: string
+          p_destinatario_nombre: string
+          p_dias_validez?: number
+          p_monto_pago?: number
+          p_observaciones?: string
+          p_plantilla_slug?: string
+          p_solicitud_id: string
+        }
+        Returns: string
+      }
       solicitud_descartar: {
         Args: { p_motivo: string; p_solicitud_id: string }
         Returns: undefined
