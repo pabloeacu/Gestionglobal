@@ -21,6 +21,7 @@ import {
   Tag,
 } from 'lucide-react';
 import { toast } from '@/lib/toast';
+import { PedidosDocPanel } from '@/components/common/PedidosDocPanel';
 import {
   fetchClienteTramites,
   fetchClienteTrackingLineas,
@@ -158,6 +159,13 @@ export function PortalGestionDetailPage() {
           <DataChip icon={Clock} label="Actividad" value={formatActividad(tramite.horas_desde_actividad)} />
         </div>
       </section>
+
+      {/* N2 · Pedidos de documentación al cliente (banner amber con upload por item) */}
+      <PedidosDocPanel
+        tramiteId={tramite.id}
+        variant="cliente"
+        tramiteLabel={tramite.codigo ?? undefined}
+      />
 
       {/* Timeline de avances */}
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">

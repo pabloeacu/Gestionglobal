@@ -80,6 +80,7 @@ import { RecurrenciaList } from '../components/RecurrenciaList';
 import { EstadosConfigManager } from '../components/EstadosConfigManager';
 import { CategoriasConfigManager } from '../components/CategoriasConfigManager';
 import { ProgramarVencimientoModal } from '../components/ProgramarVencimientoModal';
+import { PedidosDocPanel } from '@/components/common/PedidosDocPanel';
 
 type TabKey = 'resumen' | 'lineas' | 'documentacion' | 'recurrencia' | 'config';
 
@@ -554,6 +555,15 @@ export function TrackingDetailPage() {
               <p className="whitespace-pre-wrap text-sm text-slate-700">{data.descripcion}</p>
             </Panel>
           )}
+          {/* N2 · Panel de pedidos de documentación al cliente. Gerencia puede
+              crear pedidos en cualquier momento; el cliente los ve en su portal. */}
+          <div className="md:col-span-2">
+            <PedidosDocPanel
+              tramiteId={data.id}
+              variant="gerente"
+              tramiteLabel={data.codigo ?? undefined}
+            />
+          </div>
         </section>
       )}
 
