@@ -88,7 +88,21 @@ Deno.serve(async (req) => {
 
   const schema = formulario.schema as SchemaDef;
 
-  // 2. Validar datos contra el schema
+  // 2a. Validar identidad obligatoria (DGG 2026-05-29): los 6 campos clave
+  // los pedimos SIEMPRE — defensa en server por si el schema en BD aún no
+  // los tiene declarados (mig 0133). El cross-match con administraciones
+  // depende de email/cuit/dni; UX depende de apellido/nombre/celular.
+  const identityErrors = validarIdentidadObligatoria(payload.datos);
+  if (identityErrors.length > 0) {
+    return jsonError(
+      422,
+      `Faltan datos para identificarte como cliente: ${identityErrors.join(
+        ', ',
+      )}. Si ya tenés cuenta, ingresá desde tu portal en gestionglobal.ar.`,
+    );
+  }
+
+  // 2b. Validar datos contra el schema
   const validationErrors: string[] = [];
   const visibleFields = new Set<string>();
   for (const section of schema.sections) {
@@ -269,4 +283,55 @@ function pickByKeys(obj: Record<string, unknown>, keys: string[]): string | null
     if (typeof v === 'string' && v.trim()) return v.trim();
   }
   return null;
+}
+
+/**
+ * Validación dura de identidad obligatoria (DGG 2026-05-29). Estos 6 campos
+ * deben venir SIEMPRE — no importa lo que diga el schema del formulario en
+ * BD. Tolerante a aliases legacy (apellido_nombre junto cuenta para los dos,
+ * telefono cuenta como celular, etc.). Devuelve labels en español de lo que
+ * falta. Lista vacía = todo OK.
+ */
+function validarIdentidadObligatoria(
+  datos: Record<string, unknown>,
+): string[] {
+  const faltantes: string[] = [];
+
+  const apellido = pickByKeys(datos, ['apellido']);
+  const nombre = pickByKeys(datos, ['nombre', 'nombres']);
+  const apellidoNombre = pickByKeys(datos, [
+    'apellido_nombre',
+    'nombre_completo',
+    'razon_social',
+  ]);
+  // Si vino apellido_nombre con al menos 2 palabras, lo aceptamos como
+  // apellido + nombre juntos (compatibilidad legacy). Si vino sólo una palabra
+  // o vacío, exigimos los dos separados.
+  if (!apellidoNombre || apellidoNombre.split(/\s+/).filter(Boolean).length < 2) {
+    if (!apellido) faltantes.push('Apellido');
+    if (!nombre) faltantes.push('Nombre');
+  }
+
+  const dniRaw = String(
+    pickByKeys(datos, ['dni', 'documento', 'numero_documento']) ?? '',
+  ).replace(/\D/g, '');
+  if (dniRaw.length < 7) faltantes.push('DNI');
+
+  const cuitRaw = String(
+    pickByKeys(datos, ['cuit', 'cuit_cuil', 'cuil', 'cuit_persona_juridica']) ??
+      '',
+  ).replace(/\D/g, '');
+  if (cuitRaw.length !== 11) faltantes.push('CUIT/CUIL');
+
+  const emailRaw = pickByKeys(datos, ['email', 'correo', 'correo_electronico']);
+  if (!emailRaw || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailRaw)) {
+    faltantes.push('Correo electrónico');
+  }
+
+  const celRaw = String(
+    pickByKeys(datos, ['celular', 'telefono', 'tel', 'movil']) ?? '',
+  ).replace(/\D/g, '');
+  if (celRaw.length < 8) faltantes.push('Celular');
+
+  return faltantes;
 }

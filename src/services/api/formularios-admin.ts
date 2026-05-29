@@ -10,6 +10,7 @@ import { supabase } from '@/lib/supabase';
 import { ok, fail, type ApiResponse } from '@/lib/errors';
 import type { Database } from '@/types/database';
 import type {
+  FormularioFieldDef,
   FormularioRow,
   FormularioSchemaDef,
 } from '@/services/api/formularios';
@@ -25,21 +26,36 @@ export interface CrearFormularioInput {
   schema?: FormularioSchemaDef;
 }
 
-// Bloque J / obs 14: todo formulario arranca con identificación estándar
-// (Apellido, Nombre, DNI, CUIT, Email). Cross-match contra administraciones
-// usa email/cuit/dni — no nombre (homónimos). El operador puede editarlos en
-// el builder.
+// Bloque J / obs 14 (ampliado 2026-05-29): TODO formulario arranca con la
+// identidad estándar de 6 campos OBLIGATORIOS. Son los keys que la plataforma
+// usa para identificar clientes, hacer cross-match con administraciones y
+// poblar el perfil. Apellido y Nombre van por separado para poder normalizar
+// y comparar correctamente. El operador puede agregar más campos arriba o
+// abajo, pero estos seis son inmutables (el builder los marca como protegidos
+// y la migración 0133 los garantiza en todos los formularios existentes).
+//
+// El edge function `submit-formulario` los re-valida en el server (defensa
+// en profundidad). Cross-match usa email > cuit > dni (RPC
+// `solicitud_match_cliente`, mig 0115).
+export const IDENTIDAD_FIELD_NAMES = [
+  'apellido', 'nombre', 'dni', 'cuit', 'email', 'celular',
+] as const;
+
+export const IDENTIDAD_FIELDS: FormularioFieldDef[] = [
+  { name: 'apellido', type: 'text',  label: 'Apellido',           required: true, placeholder: 'García' },
+  { name: 'nombre',   type: 'text',  label: 'Nombre',             required: true, placeholder: 'Diego' },
+  { name: 'dni',      type: 'text',  label: 'DNI',                required: true, placeholder: 'Sin puntos' },
+  { name: 'cuit',     type: 'text',  label: 'CUIT/CUIL',          required: true, placeholder: '11 dígitos sin guiones' },
+  { name: 'email',    type: 'email', label: 'Correo electrónico', required: true, placeholder: 'tu@correo.com' },
+  { name: 'celular',  type: 'tel',   label: 'Celular',            required: true, placeholder: '+54 11 5555-1234' },
+];
+
 const SCHEMA_VACIO: FormularioSchemaDef = {
   sections: [
     {
       title: 'Identificación',
-      fields: [
-        { name: 'apellido', type: 'text', label: 'Apellido', required: true } as unknown as never,
-        { name: 'nombre',   type: 'text', label: 'Nombre',   required: true } as unknown as never,
-        { name: 'dni',      type: 'text', label: 'DNI',      required: true } as unknown as never,
-        { name: 'cuit',     type: 'text', label: 'CUIT/CUIL', required: false } as unknown as never,
-        { name: 'email',    type: 'email', label: 'Correo electrónico', required: true } as unknown as never,
-      ],
+      subtitle: 'Datos obligatorios para identificarte como cliente.',
+      fields: IDENTIDAD_FIELDS.map((f) => ({ ...f })),
     },
   ],
   submit_label: 'Enviar',
