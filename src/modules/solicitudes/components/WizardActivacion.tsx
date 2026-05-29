@@ -318,6 +318,63 @@ export function WizardActivacion({
       toast.error('No pudimos activar', { description: res.error.message });
       return;
     }
+
+    // Fix CRÍTICO: cuando se crea un cliente NUEVO, hay que invocar la edge
+    // function alta-cliente-portal para crear el user en auth.users y enviar
+    // el email de bienvenida con credenciales. Sin esto, el cliente nunca
+    // recibe sus accesos y todos los avisos posteriores son inútiles.
+    if (modoCliente === 'nuevo') {
+      try {
+        const { data: tramiteRow } = await supabase
+          .from('tramites')
+          .select('administracion_id')
+          .eq('id', res.data.trackingId)
+          .maybeSingle();
+        const administracionId = tramiteRow?.administracion_id;
+        const emailCliente =
+          (nuevoCliente.email && nuevoCliente.email.trim()) ||
+          solicitud.solicitante_email ||
+          '';
+        const nombreCliente =
+          (nuevoCliente.nombre && nuevoCliente.nombre.trim()) ||
+          solicitud.solicitante_nombre ||
+          'Cliente';
+        if (administracionId && emailCliente) {
+          const { data: altaResp, error: altaErr } = await supabase.functions.invoke(
+            'alta-cliente-portal',
+            {
+              body: {
+                administracion_id: administracionId,
+                email: emailCliente,
+                nombre: nombreCliente,
+              },
+            },
+          );
+          if (altaErr) {
+            // No bloqueamos la activación si esto falla, pero avisamos a
+            // gerencia para reenviar manualmente desde el panel del cliente.
+            // eslint-disable-next-line no-console
+            console.warn('[alta-cliente-portal] falló:', altaErr);
+            toast.error('Cliente creado pero no pudimos enviar el email de bienvenida', {
+              description: 'Reenviá manualmente desde la ficha del cliente. Error: ' + altaErr.message,
+              duration: 10000,
+            });
+          } else if (altaResp && typeof altaResp === 'object' && 'password_set' in altaResp) {
+            const resp = altaResp as { password_set: boolean };
+            toast.success(
+              resp.password_set
+                ? '¡Cliente creado! Email de bienvenida enviado con credenciales.'
+                : 'Cliente vinculado a usuario existente.',
+              { duration: 6000 },
+            );
+          }
+        }
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.warn('[alta-cliente-portal] excepción:', e);
+      }
+    }
+
     toast.success('¡Solicitud activada!', {
       description:
         modoCliente === 'nuevo'
