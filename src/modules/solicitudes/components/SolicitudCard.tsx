@@ -20,6 +20,7 @@ const ESTADO_BADGE: Record<SolicitudEstado, string> = {
   en_revision: 'bg-amber-50 text-amber-700 border-amber-200',
   derivada: 'bg-violet-50 text-violet-700 border-violet-200',
   activada: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  rechazada: 'bg-red-50 text-red-700 border-red-200',
   descartada: 'bg-slate-100 text-slate-500 border-slate-200',
 };
 
@@ -28,6 +29,7 @@ const ESTADO_LABEL: Record<SolicitudEstado, string> = {
   en_revision: 'En revisión',
   derivada: 'Derivada',
   activada: 'Activada',
+  rechazada: 'Rechazada',
   descartada: 'Descartada',
 };
 

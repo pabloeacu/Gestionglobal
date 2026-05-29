@@ -14,6 +14,7 @@ export type SolicitudEstado =
   | 'en_revision'
   | 'derivada'
   | 'activada'
+  | 'rechazada'
   | 'descartada';
 
 export interface SolicitudListItem extends SolicitudRow {
@@ -325,6 +326,20 @@ export async function descartar(
     p_motivo: motivo,
   });
   if (error) return fail('SOL_DESCARTAR', error.message, error);
+  return ok(true);
+}
+
+// N2 · rechazo formal con notificación: email al solicitante + portal notif si
+// es cliente. Distinto de 'descartar' (interno, sin email).
+export async function rechazarSolicitud(
+  id: string,
+  motivo: string,
+): Promise<ApiResponse<true>> {
+  const { error } = await rpc('solicitud_rechazar', {
+    p_solicitud_id: id,
+    p_motivo: motivo,
+  });
+  if (error) return fail('SOL_RECHAZAR', error.message, error);
   return ok(true);
 }
 

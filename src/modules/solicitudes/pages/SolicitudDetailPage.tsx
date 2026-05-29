@@ -12,6 +12,7 @@ import {
   Reply,
   Sparkles,
   Trash2,
+  Ban,
   User,
   Loader2,
   Send,
@@ -31,6 +32,7 @@ import { BrandLoader } from '@/components/brand/BrandLoader';
 import { toast } from '@/lib/toast';
 import {
   descartar,
+  rechazarSolicitud,
   getSolicitud,
   marcarEnRevision,
   responderSolicitud,
@@ -58,6 +60,7 @@ const ESTADO_BADGE: Record<SolicitudEstado, string> = {
   en_revision: 'bg-amber-50 text-amber-700 border-amber-200',
   derivada: 'bg-violet-50 text-violet-700 border-violet-200',
   activada: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  rechazada: 'bg-red-50 text-red-700 border-red-200',
   descartada: 'bg-slate-100 text-slate-500 border-slate-200',
 };
 
@@ -66,6 +69,7 @@ const ESTADO_LABEL: Record<SolicitudEstado, string> = {
   en_revision: 'En revisión',
   derivada: 'Derivada',
   activada: 'Activada',
+  rechazada: 'Rechazada',
   descartada: 'Descartada',
 };
 
@@ -128,6 +132,29 @@ export function SolicitudDetailPage() {
     }
     toast.success('Marcada en revisión');
     await load();
+  }
+
+  // N2 · Rechazo formal: envía email al solicitante + push al cliente si tiene
+  // cuenta. Es DISTINTO del descarte (interno, sin notificar). Usado cuando la
+  // solicitud no cumple criterios mínimos para activarse y no se quiere pedir
+  // documentación faltante (ej. servicio fuera de alcance, pago no realizado).
+  async function handleRechazar() {
+    if (!data) return;
+    const motivo = await prompt({
+      title: 'Rechazar solicitud con observaciones',
+      message:
+        'El solicitante recibe un email con el motivo de rechazo. Si era cliente, también ve la notificación en su portal y la solicitud queda cerrada — debe iniciar una nueva para volver a intentar.',
+      placeholder: 'Ej: el comprobante de pago no se adjuntó, el servicio solicitado no está disponible en tu zona, falta firma del titular…',
+      confirmLabel: 'Rechazar y notificar',
+    });
+    if (!motivo) return;
+    const res = await rechazarSolicitud(data.id, motivo);
+    if (!res.ok) {
+      toast.error(res.error.message);
+      return;
+    }
+    toast.success('Solicitud rechazada · email enviado al solicitante');
+    navigate('/gerencia/solicitudes');
   }
 
   async function handleDescartar() {
@@ -194,6 +221,7 @@ export function SolicitudDetailPage() {
   const estado = (data.estado ?? 'recibida') as SolicitudEstado;
   const yaActivada = estado === 'activada';
   const yaDescartada = estado === 'descartada';
+  const yaRechazada = estado === 'rechazada';
 
   return (
     <div className="relative mx-auto max-w-5xl space-y-6">
@@ -283,7 +311,7 @@ export function SolicitudDetailPage() {
         </div>
 
         {/* Acciones principales */}
-        {!yaActivada && !yaDescartada && (
+        {!yaActivada && !yaDescartada && !yaRechazada && (
           <div className="relative mt-6 flex flex-wrap gap-2">
             <Button onClick={() => setWizardOpen(true)}>
               <Sparkles size={15} />
@@ -299,6 +327,12 @@ export function SolicitudDetailPage() {
             <Button variant="ghost" onClick={handleEnRevision} loading={savingObserv}>
               <Eye size={15} />
               Marcar en revisión
+            </Button>
+            {/* N2 · Rechazo formal (con email al solicitante). Distinto de Descartar
+                que es interno (sin notificación). */}
+            <Button variant="ghost" onClick={handleRechazar}>
+              <Ban size={15} />
+              Rechazar
             </Button>
             <Button variant="ghost" onClick={handleDescartar}>
               <Trash2 size={15} />

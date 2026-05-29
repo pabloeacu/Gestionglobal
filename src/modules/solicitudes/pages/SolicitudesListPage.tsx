@@ -136,6 +136,7 @@ export function SolicitudesListPage() {
       en_revision: 'En revisión',
       derivada: 'Derivadas',
       activada: 'Activadas',
+      rechazada: 'Rechazadas',
       descartada: 'Descartadas',
       todos: 'Todas',
     };

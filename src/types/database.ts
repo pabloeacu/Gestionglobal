@@ -167,6 +167,7 @@ export type Database = {
           origen: string | null
           provincia: string | null
           responsable_apellido: string | null
+          responsable_dni: string | null
           responsable_nombre: string | null
           telefono: string | null
           updated_at: string
@@ -203,6 +204,7 @@ export type Database = {
           origen?: string | null
           provincia?: string | null
           responsable_apellido?: string | null
+          responsable_dni?: string | null
           responsable_nombre?: string | null
           telefono?: string | null
           updated_at?: string
@@ -239,6 +241,7 @@ export type Database = {
           origen?: string | null
           provincia?: string | null
           responsable_apellido?: string | null
+          responsable_dni?: string | null
           responsable_nombre?: string | null
           telefono?: string | null
           updated_at?: string
@@ -729,6 +732,57 @@ export type Database = {
             referencedColumns: ["comprobante_id"]
           },
         ]
+      }
+      arca_emisores: {
+        Row: {
+          activo: boolean
+          ambiente: string
+          cert_p12_b64: string | null
+          cert_password: string | null
+          condicion_iva: string
+          created_at: string
+          cuit: string
+          domicilio_fiscal: string | null
+          es_default: boolean
+          id: string
+          logo_url: string | null
+          nombre: string
+          razon_social: string
+          updated_at: string
+        }
+        Insert: {
+          activo?: boolean
+          ambiente?: string
+          cert_p12_b64?: string | null
+          cert_password?: string | null
+          condicion_iva?: string
+          created_at?: string
+          cuit: string
+          domicilio_fiscal?: string | null
+          es_default?: boolean
+          id?: string
+          logo_url?: string | null
+          nombre: string
+          razon_social: string
+          updated_at?: string
+        }
+        Update: {
+          activo?: boolean
+          ambiente?: string
+          cert_p12_b64?: string | null
+          cert_password?: string | null
+          condicion_iva?: string
+          created_at?: string
+          cuit?: string
+          domicilio_fiscal?: string | null
+          es_default?: boolean
+          id?: string
+          logo_url?: string | null
+          nombre?: string
+          razon_social?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       arca_tokens: {
         Row: {
@@ -1305,6 +1359,7 @@ export type Database = {
           created_by: string | null
           email_enviado_at: string | null
           email_envios_count: number
+          emisor_id: string | null
           emitido_arca: boolean
           estado: string
           estado_cobranza: string
@@ -1324,6 +1379,10 @@ export type Database = {
           numero: number | null
           observaciones: string | null
           origen: string
+          partner_factura_pdf_url: string | null
+          partner_facturado_at: string | null
+          partner_numero_externo: string | null
+          partner_observacion: string | null
           pdf_url: string | null
           periodo: string
           punto_venta: number
@@ -1356,6 +1415,7 @@ export type Database = {
           created_by?: string | null
           email_enviado_at?: string | null
           email_envios_count?: number
+          emisor_id?: string | null
           emitido_arca?: boolean
           estado?: string
           estado_cobranza?: string
@@ -1375,6 +1435,10 @@ export type Database = {
           numero?: number | null
           observaciones?: string | null
           origen?: string
+          partner_factura_pdf_url?: string | null
+          partner_facturado_at?: string | null
+          partner_numero_externo?: string | null
+          partner_observacion?: string | null
           pdf_url?: string | null
           periodo?: string
           punto_venta: number
@@ -1407,6 +1471,7 @@ export type Database = {
           created_by?: string | null
           email_enviado_at?: string | null
           email_envios_count?: number
+          emisor_id?: string | null
           emitido_arca?: boolean
           estado?: string
           estado_cobranza?: string
@@ -1426,6 +1491,10 @@ export type Database = {
           numero?: number | null
           observaciones?: string | null
           origen?: string
+          partner_factura_pdf_url?: string | null
+          partner_facturado_at?: string | null
+          partner_numero_externo?: string | null
+          partner_observacion?: string | null
           pdf_url?: string | null
           periodo?: string
           punto_venta?: number
@@ -1477,6 +1546,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comprobantes_emisor_id_fkey"
+            columns: ["emisor_id"]
+            isOneToOne: false
+            referencedRelation: "arca_emisores"
             referencedColumns: ["id"]
           },
           {
@@ -3202,6 +3278,45 @@ export type Database = {
           },
         ]
       }
+      frases_diarias: {
+        Row: {
+          autor: string | null
+          frase: string
+          mes_dia: string
+        }
+        Insert: {
+          autor?: string | null
+          frase: string
+          mes_dia: string
+        }
+        Update: {
+          autor?: string | null
+          frase?: string
+          mes_dia?: string
+        }
+        Relationships: []
+      }
+      frases_dispatch_log: {
+        Row: {
+          dispatched_at: string
+          fecha: string
+          mes_dia: string
+          total_users: number
+        }
+        Insert: {
+          dispatched_at?: string
+          fecha: string
+          mes_dia: string
+          total_users: number
+        }
+        Update: {
+          dispatched_at?: string
+          fecha?: string
+          mes_dia?: string
+          total_users?: number
+        }
+        Relationships: []
+      }
       historico_banco: {
         Row: {
           caja_id: string
@@ -4191,6 +4306,7 @@ export type Database = {
           cuit: string | null
           domicilio: string | null
           email: string | null
+          emisor_id: string | null
           id: string
           nombre_legal: string
           observaciones: string | null
@@ -4206,6 +4322,7 @@ export type Database = {
           cuit?: string | null
           domicilio?: string | null
           email?: string | null
+          emisor_id?: string | null
           id?: string
           nombre_legal: string
           observaciones?: string | null
@@ -4221,6 +4338,7 @@ export type Database = {
           cuit?: string | null
           domicilio?: string | null
           email?: string | null
+          emisor_id?: string | null
           id?: string
           nombre_legal?: string
           observaciones?: string | null
@@ -4234,6 +4352,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partners_emisor_id_fkey"
+            columns: ["emisor_id"]
+            isOneToOne: false
+            referencedRelation: "arca_emisores"
             referencedColumns: ["id"]
           },
         ]
@@ -4362,6 +4487,7 @@ export type Database = {
           created_at: string
           full_name: string | null
           id: string
+          partner_id: string | null
           phone: string | null
           pwa_installed_at: string | null
           pwa_last_seen_at: string | null
@@ -4375,6 +4501,7 @@ export type Database = {
           created_at?: string
           full_name?: string | null
           id: string
+          partner_id?: string | null
           phone?: string | null
           pwa_installed_at?: string | null
           pwa_last_seen_at?: string | null
@@ -4388,6 +4515,7 @@ export type Database = {
           created_at?: string
           full_name?: string | null
           id?: string
+          partner_id?: string | null
           phone?: string | null
           pwa_installed_at?: string | null
           pwa_last_seen_at?: string | null
@@ -4400,6 +4528,13 @@ export type Database = {
             columns: ["administracion_id"]
             isOneToOne: false
             referencedRelation: "administraciones"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profiles_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "partners"
             referencedColumns: ["id"]
           },
         ]
@@ -5025,13 +5160,17 @@ export type Database = {
           activada_at: string | null
           asignada_a: string | null
           cliente_id: string | null
+          comprobante_id: string | null
           created_at: string
           derivada_at: string | null
           estado: string
           formulario_submission_id: string | null
           id: string
           motivo_descarte: string | null
+          motivo_rechazo: string | null
           observaciones: string | null
+          rechazada_at: string | null
+          rechazada_por: string | null
           servicio_slug: string | null
           servicio_solicitado_id: string | null
           solicitante_email: string | null
@@ -5044,13 +5183,17 @@ export type Database = {
           activada_at?: string | null
           asignada_a?: string | null
           cliente_id?: string | null
+          comprobante_id?: string | null
           created_at?: string
           derivada_at?: string | null
           estado?: string
           formulario_submission_id?: string | null
           id?: string
           motivo_descarte?: string | null
+          motivo_rechazo?: string | null
           observaciones?: string | null
+          rechazada_at?: string | null
+          rechazada_por?: string | null
           servicio_slug?: string | null
           servicio_solicitado_id?: string | null
           solicitante_email?: string | null
@@ -5063,13 +5206,17 @@ export type Database = {
           activada_at?: string | null
           asignada_a?: string | null
           cliente_id?: string | null
+          comprobante_id?: string | null
           created_at?: string
           derivada_at?: string | null
           estado?: string
           formulario_submission_id?: string | null
           id?: string
           motivo_descarte?: string | null
+          motivo_rechazo?: string | null
           observaciones?: string | null
+          rechazada_at?: string | null
+          rechazada_por?: string | null
           servicio_slug?: string | null
           servicio_solicitado_id?: string | null
           solicitante_email?: string | null
@@ -5087,10 +5234,31 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "solicitudes_comprobante_id_fkey"
+            columns: ["comprobante_id"]
+            isOneToOne: false
+            referencedRelation: "comprobantes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solicitudes_comprobante_id_fkey"
+            columns: ["comprobante_id"]
+            isOneToOne: false
+            referencedRelation: "vw_comprobantes_para_avisar"
+            referencedColumns: ["comprobante_id"]
+          },
+          {
             foreignKeyName: "solicitudes_formulario_submission_id_fkey"
             columns: ["formulario_submission_id"]
             isOneToOne: false
             referencedRelation: "formulario_submissions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solicitudes_rechazada_por_fkey"
+            columns: ["rechazada_por"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
@@ -5279,6 +5447,7 @@ export type Database = {
       }
       tracking_lineas: {
         Row: {
+          alarma_dispatched_at: string | null
           alerta_en: string | null
           archivos_urls: string[]
           autor_id: string | null
@@ -5287,9 +5456,13 @@ export type Database = {
           descripcion: string
           estado_asociado: string | null
           id: string
+          postergada_motivo: string | null
+          postergada_veces: number
           tramite_id: string
+          visible_cliente: boolean
         }
         Insert: {
+          alarma_dispatched_at?: string | null
           alerta_en?: string | null
           archivos_urls?: string[]
           autor_id?: string | null
@@ -5298,9 +5471,13 @@ export type Database = {
           descripcion: string
           estado_asociado?: string | null
           id?: string
+          postergada_motivo?: string | null
+          postergada_veces?: number
           tramite_id: string
+          visible_cliente?: boolean
         }
         Update: {
+          alarma_dispatched_at?: string | null
           alerta_en?: string | null
           archivos_urls?: string[]
           autor_id?: string | null
@@ -5309,7 +5486,10 @@ export type Database = {
           descripcion?: string
           estado_asociado?: string | null
           id?: string
+          postergada_motivo?: string | null
+          postergada_veces?: number
           tramite_id?: string
+          visible_cliente?: boolean
         }
         Relationships: [
           {
@@ -5462,6 +5642,134 @@ export type Database = {
           },
         ]
       }
+      tramite_pedidos_doc: {
+        Row: {
+          cerrado_at: string | null
+          cerrado_por: string | null
+          creado_at: string
+          creado_por: string | null
+          descripcion: string
+          estado: string
+          id: string
+          tramite_id: string
+        }
+        Insert: {
+          cerrado_at?: string | null
+          cerrado_por?: string | null
+          creado_at?: string
+          creado_por?: string | null
+          descripcion: string
+          estado?: string
+          id?: string
+          tramite_id: string
+        }
+        Update: {
+          cerrado_at?: string | null
+          cerrado_por?: string | null
+          creado_at?: string
+          creado_por?: string | null
+          descripcion?: string
+          estado?: string
+          id?: string
+          tramite_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tramite_pedidos_doc_cerrado_por_fkey"
+            columns: ["cerrado_por"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tramite_pedidos_doc_creado_por_fkey"
+            columns: ["creado_por"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tramite_pedidos_doc_tramite_id_fkey"
+            columns: ["tramite_id"]
+            isOneToOne: false
+            referencedRelation: "tramites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tramite_pedidos_doc_items: {
+        Row: {
+          archivo_mime: string | null
+          archivo_nombre: string | null
+          archivo_path: string | null
+          archivo_size_bytes: number | null
+          descripcion: string
+          estado: string
+          id: string
+          observaciones_rev: string | null
+          orden: number
+          pedido_id: string
+          revisado_at: string | null
+          revisado_por: string | null
+          subido_at: string | null
+          subido_por: string | null
+        }
+        Insert: {
+          archivo_mime?: string | null
+          archivo_nombre?: string | null
+          archivo_path?: string | null
+          archivo_size_bytes?: number | null
+          descripcion: string
+          estado?: string
+          id?: string
+          observaciones_rev?: string | null
+          orden?: number
+          pedido_id: string
+          revisado_at?: string | null
+          revisado_por?: string | null
+          subido_at?: string | null
+          subido_por?: string | null
+        }
+        Update: {
+          archivo_mime?: string | null
+          archivo_nombre?: string | null
+          archivo_path?: string | null
+          archivo_size_bytes?: number | null
+          descripcion?: string
+          estado?: string
+          id?: string
+          observaciones_rev?: string | null
+          orden?: number
+          pedido_id?: string
+          revisado_at?: string | null
+          revisado_por?: string | null
+          subido_at?: string | null
+          subido_por?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tramite_pedidos_doc_items_pedido_id_fkey"
+            columns: ["pedido_id"]
+            isOneToOne: false
+            referencedRelation: "tramite_pedidos_doc"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tramite_pedidos_doc_items_revisado_por_fkey"
+            columns: ["revisado_por"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tramite_pedidos_doc_items_subido_por_fkey"
+            columns: ["subido_por"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tramites: {
         Row: {
           administracion_id: string | null
@@ -5483,6 +5791,7 @@ export type Database = {
           parent_tracking_id: string | null
           periodo: string | null
           prioridad: string
+          requiere_docs_cliente: boolean
           responsable_id: string | null
           resuelto_at: string | null
           resuelto_por: string | null
@@ -5518,6 +5827,7 @@ export type Database = {
           parent_tracking_id?: string | null
           periodo?: string | null
           prioridad?: string
+          requiere_docs_cliente?: boolean
           responsable_id?: string | null
           resuelto_at?: string | null
           resuelto_por?: string | null
@@ -5553,6 +5863,7 @@ export type Database = {
           parent_tracking_id?: string | null
           periodo?: string | null
           prioridad?: string
+          requiere_docs_cliente?: boolean
           responsable_id?: string | null
           resuelto_at?: string | null
           resuelto_por?: string | null
@@ -6517,6 +6828,21 @@ export type Database = {
           titulo: string
         }[]
       }
+      cliente_ctacte_extracto: {
+        Args: { p_admin_id?: string; p_desde?: string; p_hasta?: string }
+        Returns: {
+          comprobante_id: string
+          consorcio_nombre: string
+          debe: number
+          descripcion: string
+          fecha: string
+          haber: number
+          imputacion_id: string
+          movimiento_id: string
+          saldo: number
+          tipo: string
+        }[]
+      }
       cliente_deuda_neta: {
         Args: { p_administracion_id: string }
         Returns: {
@@ -6526,7 +6852,39 @@ export type Database = {
           vencidos_count: number
         }[]
       }
+      cliente_listar_pagos_comprobante: {
+        Args: { p_comprobante_id: string }
+        Returns: {
+          caja_nombre: string
+          created_at: string
+          fecha: string
+          imputacion_id: string
+          monto_imputado: number
+          movimiento_id: string
+          referencia: string
+        }[]
+      }
+      cliente_marcar_tracking_leido: {
+        Args: { p_tramite_id: string }
+        Returns: number
+      }
+      cliente_perfil_datos_formulario: { Args: never; Returns: Json }
       cliente_portal_dashboard: { Args: never; Returns: Json }
+      cliente_tracking_avances_nuevos_count: { Args: never; Returns: number }
+      cliente_tracking_lineas: {
+        Args: { p_tramite_id: string }
+        Returns: {
+          archivos_urls: string[]
+          autor_nombre: string
+          categoria_color: string
+          categoria_icono: string
+          categoria_label: string
+          categoria_slug: string
+          created_at: string
+          descripcion: string
+          id: string
+        }[]
+      }
       cliente_tramites_listar: {
         Args: { p_solo_abiertos?: boolean }
         Returns: {
@@ -6551,6 +6909,10 @@ export type Database = {
         Returns: string
       }
       cliente_webinars_listar: { Args: never; Returns: Json }
+      comprobante_transformar_a_fiscal: {
+        Args: { p_comprobante_id: string; p_nuevo_tipo: string }
+        Returns: string
+      }
       comprobantes_morosos: {
         Args: { p_administracion_id?: string }
         Returns: {
@@ -6967,21 +7329,38 @@ export type Database = {
         }
         Returns: string
       }
-      fz_crear_movimiento_manual: {
-        Args: {
-          p_administracion_id?: string
-          p_caja_id: string
-          p_categoria_id?: string
-          p_comprobante_imputar_a_id?: string
-          p_consorcio_id?: string
-          p_descripcion?: string
-          p_fecha: string
-          p_monto: number
-          p_referencia?: string
-          p_tipo: string
-        }
-        Returns: string
-      }
+      fz_crear_movimiento_manual:
+        | {
+            Args: {
+              p_administracion_id?: string
+              p_caja_id: string
+              p_categoria_id?: string
+              p_comprobante_imputar_a_id?: string
+              p_consorcio_id?: string
+              p_descripcion?: string
+              p_fecha: string
+              p_monto: number
+              p_referencia?: string
+              p_tipo: string
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_administracion_id?: string
+              p_caja_id: string
+              p_categoria_id?: string
+              p_comprobante_imputar_a_id?: string
+              p_consorcio_id?: string
+              p_descripcion?: string
+              p_fecha: string
+              p_monto: number
+              p_partner_id_atribucion?: string
+              p_referencia?: string
+              p_tipo: string
+            }
+            Returns: string
+          }
       fz_crear_transferencia: {
         Args: {
           p_caja_destino_id: string
@@ -7208,6 +7587,38 @@ export type Database = {
         }
         Returns: string
       }
+      gerencia_alarmas_hoy: {
+        Args: never
+        Returns: {
+          alerta_en: string
+          categoria: string
+          descripcion: string
+          linea_id: string
+          postergada_veces: number
+          tramite_codigo: string
+          tramite_id: string
+          tramite_titulo: string
+          vencida: boolean
+        }[]
+      }
+      gerencia_proximos_seguimientos: {
+        Args: { p_dias?: number }
+        Returns: {
+          administracion_nombre: string
+          alerta_en: string
+          categoria: string
+          descripcion: string
+          dias_restantes: number
+          linea_id: string
+          tramite_codigo: string
+          tramite_id: string
+          tramite_titulo: string
+        }[]
+      }
+      gerente_editar_avance_tracking: {
+        Args: { p_descripcion: string; p_linea_id: string }
+        Returns: string
+      }
       gestion_gerente_eliminar: {
         Args: { p_user_id: string }
         Returns: undefined
@@ -7230,6 +7641,32 @@ export type Database = {
           role: string
           user_id: string
         }[]
+      }
+      gestor_cargar_avance: {
+        Args: {
+          p_archivos_urls?: string[]
+          p_descripcion: string
+          p_token: string
+        }
+        Returns: string
+      }
+      gestor_listar_avances: {
+        Args: { p_token: string }
+        Returns: {
+          archivos_urls: string[]
+          autor_nombre: string
+          categoria_color: string
+          categoria_icono: string
+          categoria_label: string
+          categoria_slug: string
+          created_at: string
+          descripcion: string
+          id: string
+        }[]
+      }
+      gestor_obtener_info_solicitud: {
+        Args: { p_token: string }
+        Returns: Json
       }
       get_landing_cover_status: { Args: never; Returns: boolean }
       gg_agenda_listar_unificada: {
@@ -7429,9 +7866,77 @@ export type Database = {
         Args: { p_desde: string; p_hasta: string; p_partner_id: string }
         Returns: string
       }
+      partner_marcar_facturado:
+        | {
+            Args: {
+              p_comprobante_id: string
+              p_numero_externo: string
+              p_observacion?: string
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_comprobante_id: string
+              p_numero_externo: string
+              p_observacion?: string
+              p_pdf_url?: string
+            }
+            Returns: string
+          }
+      partner_mis_comprobantes: {
+        Args: never
+        Returns: {
+          emitido_arca: boolean
+          estado: string
+          estado_cobranza: string
+          fecha: string
+          id: string
+          numero: number
+          partner_facturado_at: string
+          partner_numero_externo: string
+          punto_venta: number
+          receptor_razon_social: string
+          tipo: string
+          total: number
+          vencimiento: string
+        }[]
+      }
+      partner_mis_rendiciones: {
+        Args: never
+        Returns: {
+          estado: string
+          id: string
+          periodo_desde: string
+          periodo_hasta: string
+          total_costos_atribuidos: number
+          total_costos_brutos: number
+          total_ingresos_atribuidos: number
+          total_ingresos_brutos: number
+        }[]
+      }
+      partner_rendicion_movimientos: {
+        Args: { p_desde?: string; p_hasta?: string }
+        Returns: {
+          atribucion_id: string
+          cliente_nombre: string
+          comprobante_label: string
+          fecha: string
+          monto_atribuido: number
+          monto_base: number
+          porcentaje: number
+          saldo_running: number
+          servicio_nombre: string
+          tipo: string
+        }[]
+      }
       peek_proximo_numero: {
         Args: { p_punto_venta: number; p_tipo: string }
         Returns: number
+      }
+      postergar_alarma_tracking: {
+        Args: { p_dias: number; p_linea_id: string; p_motivo?: string }
+        Returns: string
       }
       proximos_vencimientos: {
         Args: { p_administracion_id?: string; p_dias?: number }
@@ -7460,18 +7965,32 @@ export type Database = {
         Args: { p_ip?: string; p_token: string; p_user_agent?: string }
         Returns: undefined
       }
-      registrar_cobranza_comprobante: {
-        Args: {
-          p_caja_id: string
-          p_categoria_id: string
-          p_comprobante_id: string
-          p_descripcion: string
-          p_fecha: string
-          p_monto: number
-          p_referencia: string
-        }
-        Returns: string
-      }
+      registrar_cobranza_comprobante:
+        | {
+            Args: {
+              p_caja_id: string
+              p_categoria_id: string
+              p_comprobante_id: string
+              p_descripcion: string
+              p_fecha: string
+              p_monto: number
+              p_referencia: string
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_caja_id: string
+              p_categoria_id: string
+              p_comprobante_id: string
+              p_descripcion: string
+              p_fecha: string
+              p_monto: number
+              p_partner_id_atribucion?: string
+              p_referencia: string
+            }
+            Returns: string
+          }
       reintentar_arca_job: { Args: { p_job_id: string }; Returns: string }
       reset_arca_jobs_colgados: {
         Args: { p_max_age_min?: number }
@@ -7519,22 +8038,48 @@ export type Database = {
         }
         Returns: string
       }
-      solicitud_derivar: {
-        Args: {
-          p_destinatario_email: string
-          p_destinatario_nombre: string
-          p_observaciones?: string
-          p_plantilla_slug?: string
-          p_solicitud_id: string
-        }
-        Returns: string
-      }
+      solicitud_derivar:
+        | {
+            Args: {
+              p_destinatario_email: string
+              p_destinatario_nombre: string
+              p_observaciones?: string
+              p_plantilla_slug?: string
+              p_solicitud_id: string
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_destinatario_email: string
+              p_destinatario_nombre: string
+              p_dias_validez?: number
+              p_observaciones?: string
+              p_plantilla_slug?: string
+              p_solicitud_id: string
+            }
+            Returns: string
+          }
       solicitud_descartar: {
         Args: { p_motivo: string; p_solicitud_id: string }
         Returns: undefined
       }
       solicitud_marcar_en_revision: {
         Args: { p_observaciones?: string; p_solicitud_id: string }
+        Returns: undefined
+      }
+      solicitud_match_cliente: {
+        Args: { p_submission_id: string }
+        Returns: {
+          administracion_id: string
+          administracion_nombre: string
+          cuit: string
+          email: string
+          match_por: string
+        }[]
+      }
+      solicitud_rechazar: {
+        Args: { p_motivo: string; p_solicitud_id: string }
         Returns: undefined
       }
       solicitud_responder: {
@@ -7554,6 +8099,7 @@ export type Database = {
           p_descripcion: string
           p_estado_asociado?: string
           p_tramite_id: string
+          p_visible_cliente?: boolean
         }
         Returns: string
       }
@@ -7595,6 +8141,7 @@ export type Database = {
           parent_tracking_id: string | null
           periodo: string | null
           prioridad: string
+          requiere_docs_cliente: boolean
           responsable_id: string | null
           resuelto_at: string | null
           resuelto_por: string | null
@@ -7619,6 +8166,28 @@ export type Database = {
       }
       tramite_incrementar_vistas: {
         Args: { p_tramite_id: string }
+        Returns: undefined
+      }
+      tramite_pedido_doc_aprobar_item: {
+        Args: { p_item_id: string }
+        Returns: undefined
+      }
+      tramite_pedido_doc_crear: {
+        Args: { p_descripcion: string; p_items: string[]; p_tramite_id: string }
+        Returns: string
+      }
+      tramite_pedido_doc_rechazar_item: {
+        Args: { p_item_id: string; p_motivo: string }
+        Returns: undefined
+      }
+      tramite_pedido_doc_subir_item: {
+        Args: {
+          p_archivo_mime: string
+          p_archivo_nombre: string
+          p_archivo_path: string
+          p_archivo_size: number
+          p_item_id: string
+        }
         Returns: undefined
       }
       verificar_certificado: { Args: { p_codigo: string }; Returns: Json }
