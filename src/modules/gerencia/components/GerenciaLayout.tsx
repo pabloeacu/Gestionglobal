@@ -254,7 +254,9 @@ export function GerenciaLayout() {
 
       {/* Main */}
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-slate-200 bg-white/85 px-5 backdrop-blur md:px-8">
+        {/* iOS safe area: pt-[env(safe-area-inset-top)] evita que botones queden
+            debajo del notch/dynamic island del iPhone. */}
+        <header className="sticky top-0 z-30 flex min-h-16 items-center justify-between border-b border-slate-200 bg-white/85 px-5 pt-[env(safe-area-inset-top)] backdrop-blur md:px-8">
           <button
             type="button"
             onClick={() => setMobileOpen(true)}

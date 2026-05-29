@@ -27,6 +27,7 @@ interface BeforeInstallPromptEvent extends Event {
 export function PortalPwaAssistant() {
   const [installEvent, setInstallEvent] = useState<BeforeInstallPromptEvent | null>(null);
   const [showIosCard, setShowIosCard] = useState(false);
+  const [showOpenInSafariCard, setShowOpenInSafariCard] = useState(false);
   const [installed, setInstalled] = useState(false);
   const [dismissedUntil, setDismissedUntil] = useState<Date | null>(loadDismissed());
 
@@ -37,9 +38,15 @@ export function PortalPwaAssistant() {
       return;
     }
 
-    const isIos = isIosSafari();
-    if (isIos) {
-      // iOS no soporta beforeinstallprompt — mostramos instrucciones manuales
+    if (isIosNonSafari()) {
+      // Chrome/Edge/Firefox en iOS: NO permiten instalar la PWA. Hay que abrir
+      // en Safari. Mostramos card con instrucciones específicas.
+      setShowOpenInSafariCard(true);
+      return;
+    }
+
+    if (isIosSafari()) {
+      // iOS Safari: no soporta beforeinstallprompt — instrucciones manuales.
       setShowIosCard(true);
       return;
     }
@@ -61,7 +68,9 @@ export function PortalPwaAssistant() {
   }, []);
 
   // Decidir si mostrar
-  const shouldShow = !installed && (installEvent !== null || showIosCard) && (!dismissedUntil || dismissedUntil < new Date());
+  const shouldShow = !installed
+    && (installEvent !== null || showIosCard || showOpenInSafariCard)
+    && (!dismissedUntil || dismissedUntil < new Date());
   if (!shouldShow) return null;
 
   function dismiss() {
@@ -101,16 +110,20 @@ export function PortalPwaAssistant() {
         <div className="min-w-0 flex-1">
           <p className="kicker text-emerald-700 opacity-80">EXPERIENCIA APP</p>
           <h3 className="font-display text-lg font-bold text-brand-ink">
-            Instalá Gestión Global en tu pantalla
+            {showOpenInSafariCard
+              ? 'Abrí esta página en Safari'
+              : 'Instalá Gestión Global en tu pantalla'}
           </h3>
           <p className="mt-0.5 text-xs text-brand-muted">
-            {showIosCard
-              ? 'Acceso directo desde el escritorio + notificaciones · sin app store.'
-              : 'Un toque y tenés Gestión Global como app en tu teléfono o desktop.'}
+            {showOpenInSafariCard
+              ? 'En iPhone, las notificaciones y la app instalada SÓLO funcionan desde Safari (no desde Chrome).'
+              : showIosCard
+                ? 'Acceso directo desde el escritorio + notificaciones · sin app store.'
+                : 'Un toque y tenés Gestión Global como app en tu teléfono o desktop.'}
           </p>
         </div>
 
-        {installEvent && !showIosCard && (
+        {installEvent && !showIosCard && !showOpenInSafariCard && (
           <button
             type="button"
             onClick={() => void handleInstall()}
@@ -121,7 +134,35 @@ export function PortalPwaAssistant() {
         )}
       </div>
 
-      {/* Instrucciones iOS */}
+      {/* Chrome/Edge/Firefox iOS: instrucciones para cambiar a Safari */}
+      {showOpenInSafariCard && (
+        <div className="mt-3 rounded-xl bg-white/80 p-3 text-sm text-brand-ink ring-1 ring-emerald-200">
+          <p className="mb-2 font-semibold text-brand-ink">Cómo abrir en Safari:</p>
+          <ol className="space-y-1.5 text-xs">
+            <li className="flex items-start gap-2">
+              <span className="grid h-5 w-5 flex-shrink-0 place-items-center rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold">1</span>
+              <span>Mantené presionada la dirección <strong>gestionglobal.ar</strong> arriba</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="grid h-5 w-5 flex-shrink-0 place-items-center rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold">2</span>
+              <span>Elegí <strong>Copiar</strong> el enlace</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="grid h-5 w-5 flex-shrink-0 place-items-center rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold">3</span>
+              <span>Abrí <strong>Safari</strong> desde la pantalla de inicio, pegá la URL y entrá</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="grid h-5 w-5 flex-shrink-0 place-items-center rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold">4</span>
+              <span>Una vez en Safari, vas a poder instalar la app y activar notificaciones <Sparkles size={11} className="inline mb-0.5" /></span>
+            </li>
+          </ol>
+          <p className="mt-2 text-[10px] text-brand-muted">
+            Es una limitación de iOS: todos los navegadores menos Safari corren sobre WebKit con notificaciones deshabilitadas por Apple.
+          </p>
+        </div>
+      )}
+
+      {/* Instrucciones iOS Safari */}
       {showIosCard && (
         <div className="mt-3 rounded-xl bg-white/80 p-3 text-sm text-brand-ink ring-1 ring-emerald-200">
           <p className="mb-2 font-semibold text-brand-ink">3 pasos en Safari (iPhone/iPad):</p>
@@ -161,6 +202,20 @@ function isIosSafari(): boolean {
   const isIos = /iPad|iPhone|iPod/.test(ua) && !(window as Window & { MSStream?: unknown }).MSStream;
   const isSafari = /^((?!chrome|android).)*safari/i.test(ua);
   return isIos && isSafari;
+}
+
+// En iOS TODOS los navegadores usan WebKit y la única forma de instalar PWA es
+// vía Safari → Compartir → Agregar a pantalla de inicio. Si el usuario está en
+// Chrome iOS / Edge iOS / Firefox iOS, el flujo es igual pero hay que decirles
+// que cambien a Safari primero (los otros browsers en iOS NO permiten
+// "Agregar a inicio" desde su menú compartir).
+function isIosNonSafari(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent;
+  const isIos = /iPad|iPhone|iPod/.test(ua) && !(window as Window & { MSStream?: unknown }).MSStream;
+  if (!isIos) return false;
+  // Chrome iOS = CriOS, Edge iOS = EdgiOS, Firefox iOS = FxiOS
+  return /(CriOS|EdgiOS|FxiOS)/.test(ua);
 }
 
 function loadDismissed(): Date | null {

@@ -584,9 +584,39 @@ function PerfilNotificacionesPush({
             Recibí avisos en tiempo real de vencimientos, trámites y recordatorios — incluso con la pestaña cerrada.
           </p>
           {!soportado && (
-            <p className="mt-2 text-xs text-amber-700">
-              Este browser no soporta notificaciones push.
-            </p>
+            <div className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+              <p className="font-semibold">Este browser no soporta notificaciones push.</p>
+              {(() => {
+                const ua = typeof navigator !== 'undefined' ? navigator.userAgent : '';
+                const isIos = /iPad|iPhone|iPod/.test(ua);
+                const isIosNonSafari = isIos && /(CriOS|EdgiOS|FxiOS)/.test(ua);
+                if (isIosNonSafari) {
+                  return (
+                    <p className="mt-1">
+                      <strong>En iPhone, solo funcionan desde Safari.</strong>
+                      {' '}Abrí <strong>gestionglobal.ar</strong> en Safari, instalá la app
+                      desde <strong>Compartir → Agregar a inicio</strong>, y desde la app
+                      instalada vas a poder activar las notificaciones.
+                    </p>
+                  );
+                }
+                if (isIos) {
+                  return (
+                    <p className="mt-1">
+                      <strong>En iPhone, primero instalá la app</strong> desde
+                      {' '}<strong>Compartir → Agregar a inicio</strong>. Una vez instalada,
+                      abrila desde el ícono del escritorio y vas a poder activar las
+                      notificaciones desde acá.
+                    </p>
+                  );
+                }
+                return (
+                  <p className="mt-1">
+                    Probá desde Chrome, Edge, Firefox o Safari moderno (actualizado).
+                  </p>
+                );
+              })()}
+            </div>
           )}
         </div>
         <div className="flex flex-wrap gap-2">

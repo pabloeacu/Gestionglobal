@@ -25,6 +25,10 @@ import { getDashboardGlobal, type DashboardKpis } from '@/services/api/dashboard
 import { DashboardKpiStrip } from '@/modules/gerencia/components/DashboardKpiStrip';
 import { SparklineFacturado } from '@/modules/gerencia/components/SparklineFacturado';
 import { ReporteMensualBanner } from '@/components/common/ReporteMensualBanner';
+// Re-uso del asistente de instalación PWA del portal: detecta browser y
+// muestra instrucciones tanto en Chrome desktop/Android como en iOS Safari /
+// iOS Chrome (con copy específico para abrir en Safari).
+import { PortalPwaAssistant } from '@/modules/portal/components/PortalPwaAssistant';
 
 interface QuickItem {
   to: string;
@@ -84,6 +88,11 @@ export function GerenciaHome() {
           Todo el ecosistema en un solo panel. Elegí por dónde arrancar.
         </p>
       </header>
+
+      {/* Asistente de instalación PWA: detecta browser y muestra cómo
+          instalar en Chrome (1 click), iOS Safari (3 pasos manuales) o
+          iOS Chrome/Edge (instrucciones para cambiar a Safari). */}
+      <PortalPwaAssistant />
 
       {/* P2-#25 · Banner inteligente que invita a cerrar el mes anterior */}
       <ReporteMensualBanner />
