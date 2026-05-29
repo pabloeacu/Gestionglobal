@@ -105,6 +105,20 @@ export async function aprobarItem(
   return ok(true);
 }
 
+// M2 · Cliente confirma y envía el batch de docs a gerencia. Recién aquí
+// gerencia recibe notif (push + bell + email) y cliente recibe email
+// "Recibimos tu documentación · pronto tendremos novedades".
+export async function enviarRevisionPedido(
+  pedidoId: string,
+): Promise<ApiResponse<{ itemsEnviados: number }>> {
+  const { data, error } = await rpc('tramite_pedido_doc_enviar_revision', {
+    p_pedido_id: pedidoId,
+  });
+  if (error) return fail('PEDIDO_ENVIAR_REV', error.message, error);
+  const result = data as { ok?: boolean; items_enviados?: number } | null;
+  return ok({ itemsEnviados: result?.items_enviados ?? 0 });
+}
+
 // Gerencia rechaza un item subido (cliente debe subirlo de nuevo).
 export async function rechazarItem(
   itemId: string,
@@ -116,6 +130,67 @@ export async function rechazarItem(
   });
   if (error) return fail('ITEM_RECHAZAR', error.message, error);
   return ok(true);
+}
+
+// M1 · Para el cliente: lista pedidos abiertos en sus tramites (donde aún hay
+// items pendientes O hay items rechazados a corregir). Si esto devuelve > 0,
+// mostramos banner urgente en PortalHome.
+export interface PedidoAbiertoResumen {
+  pedido_id: string;
+  tramite_id: string;
+  tramite_codigo: string | null;
+  tramite_titulo: string | null;
+  descripcion: string;
+  items_pendientes: number;
+  items_rechazados: number;
+  enviado_para_revision_at: string | null;
+}
+export async function listPedidosAbiertosCliente(): Promise<ApiResponse<PedidoAbiertoResumen[]>> {
+  // RLS ya filtra por administración del cliente. Sólo pedidos abiertos.
+  const { data: pedidos, error } = await supabase
+    .from('tramite_pedidos_doc')
+    .select('id, tramite_id, descripcion, enviado_para_revision_at')
+    .eq('estado', 'abierto')
+    .order('creado_at', { ascending: false });
+  if (error) return fail('PEDIDOS_ABIERTOS_LIST', error.message, error);
+  if (!pedidos || pedidos.length === 0) return ok([]);
+
+  const tramiteIds = Array.from(new Set(pedidos.map(p => p.tramite_id)));
+  const { data: tramites } = await supabase
+    .from('tramites')
+    .select('id, codigo, titulo')
+    .in('id', tramiteIds);
+  const tmap = new Map<string, { codigo: string | null; titulo: string | null }>();
+  for (const t of tramites ?? []) tmap.set(t.id, { codigo: t.codigo, titulo: t.titulo });
+
+  const { data: items } = await supabase
+    .from('tramite_pedidos_doc_items')
+    .select('pedido_id, estado')
+    .in('pedido_id', pedidos.map(p => p.id));
+
+  const stats = new Map<string, { pen: number; rej: number }>();
+  for (const it of items ?? []) {
+    const s = stats.get(it.pedido_id) ?? { pen: 0, rej: 0 };
+    if (it.estado === 'pendiente') s.pen++;
+    else if (it.estado === 'rechazado') s.rej++;
+    stats.set(it.pedido_id, s);
+  }
+
+  const resumen: PedidoAbiertoResumen[] = pedidos.map(p => {
+    const t = tmap.get(p.tramite_id);
+    const st = stats.get(p.id) ?? { pen: 0, rej: 0 };
+    return {
+      pedido_id: p.id,
+      tramite_id: p.tramite_id,
+      tramite_codigo: t?.codigo ?? null,
+      tramite_titulo: t?.titulo ?? null,
+      descripcion: p.descripcion,
+      items_pendientes: st.pen,
+      items_rechazados: st.rej,
+      enviado_para_revision_at: p.enviado_para_revision_at,
+    };
+  });
+  return ok(resumen);
 }
 
 // Devuelve URL firmada (válida 1h) para descargar el archivo de un item.

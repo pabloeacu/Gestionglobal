@@ -5655,6 +5655,7 @@ export type Database = {
           creado_at: string
           creado_por: string | null
           descripcion: string
+          enviado_para_revision_at: string | null
           estado: string
           id: string
           tramite_id: string
@@ -5665,6 +5666,7 @@ export type Database = {
           creado_at?: string
           creado_por?: string | null
           descripcion: string
+          enviado_para_revision_at?: string | null
           estado?: string
           id?: string
           tramite_id: string
@@ -5675,6 +5677,7 @@ export type Database = {
           creado_at?: string
           creado_por?: string | null
           descripcion?: string
+          enviado_para_revision_at?: string | null
           estado?: string
           id?: string
           tramite_id?: string
@@ -8194,6 +8197,10 @@ export type Database = {
       tramite_pedido_doc_crear: {
         Args: { p_descripcion: string; p_items: string[]; p_tramite_id: string }
         Returns: string
+      }
+      tramite_pedido_doc_enviar_revision: {
+        Args: { p_pedido_id: string }
+        Returns: Json
       }
       tramite_pedido_doc_rechazar_item: {
         Args: { p_item_id: string; p_motivo: string }

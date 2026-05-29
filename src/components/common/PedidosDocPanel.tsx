@@ -20,6 +20,7 @@ import {
   AlertCircle,
   CheckCircle2,
   Eye,
+  Send,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { toast } from '@/lib/toast';
@@ -31,6 +32,7 @@ import {
   listPedidosPorTramite,
   crearPedidoDoc,
   subirArchivoItem,
+  enviarRevisionPedido,
   aprobarItem,
   rechazarItem,
   getArchivoUrl,
@@ -171,6 +173,7 @@ function PedidoCard({
   onChange: () => Promise<void>;
   closed?: boolean;
 }) {
+  const [enviando, setEnviando] = useState(false);
   const totales = useMemo(() => {
     let aprobados = 0, subidos = 0, pendientes = 0, rechazados = 0;
     for (const it of pedido.items) {
@@ -181,6 +184,29 @@ function PedidoCard({
     }
     return { aprobados, subidos, pendientes, rechazados, total: pedido.items.length };
   }, [pedido.items]);
+
+  // M2 · Cliente puede enviar a revisión cuando todos los items tienen archivo
+  // y aún no se envió este batch (o gerencia rechazó un item y vuelve a estar
+  // disponible). enviado_para_revision_at = NULL → todavía no enviado.
+  const yaEnviadoParaRevision = pedido.enviado_para_revision_at != null;
+  const todosConArchivo = totales.pendientes === 0 && totales.total > 0;
+  const puedeEnviarRevision =
+    variant === 'cliente'
+    && !closed
+    && todosConArchivo
+    && !yaEnviadoParaRevision;
+
+  async function handleEnviarRevision() {
+    setEnviando(true);
+    const res = await enviarRevisionPedido(pedido.id);
+    setEnviando(false);
+    if (!res.ok) { toast.error(res.error.message); return; }
+    toast.success('¡Listo! Recibimos tu documentación.', {
+      description: 'Pronto tendremos novedades. Estate atento a tu portal. ¡Gracias!',
+      duration: 6000,
+    });
+    void onChange();
+  }
 
   return (
     <article className={cn(
@@ -224,6 +250,44 @@ function PedidoCard({
           />
         ))}
       </ul>
+
+      {/* M2 · Footer cliente: estado y CTA Enviar a gerencia */}
+      {variant === 'cliente' && !closed && (
+        <footer className={cn(
+          'flex flex-wrap items-center justify-between gap-2 border-t px-4 py-3',
+          puedeEnviarRevision ? 'border-amber-200 bg-amber-50/50' :
+          yaEnviadoParaRevision ? 'border-emerald-100 bg-emerald-50/50' :
+          'border-slate-100 bg-slate-50/50',
+        )}>
+          {yaEnviadoParaRevision ? (
+            <p className="text-xs text-emerald-700 flex items-center gap-1.5">
+              <CheckCircle2 size={13} />
+              <span>
+                <strong>Documentación enviada.</strong> El equipo está revisando los archivos. Te avisamos por email + portal cuando esté listo.
+              </span>
+            </p>
+          ) : todosConArchivo ? (
+            <p className="text-xs text-amber-800">
+              Ya subiste todos los archivos. Hacé click en <strong>Enviar a gerencia</strong> para que el equipo los revise.
+            </p>
+          ) : (
+            <p className="text-xs text-brand-muted">
+              Faltan <strong>{totales.pendientes}</strong> archivo(s) por subir. Cuando los tengas todos, podrás enviar el lote para revisión.
+            </p>
+          )}
+          {puedeEnviarRevision && (
+            <button
+              type="button"
+              onClick={() => void handleEnviarRevision()}
+              disabled={enviando}
+              className="inline-flex items-center gap-1.5 rounded-md bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-amber-700 disabled:opacity-60"
+            >
+              {enviando ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
+              Enviar a gerencia
+            </button>
+          )}
+        </footer>
+      )}
     </article>
   );
 }

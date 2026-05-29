@@ -25,6 +25,7 @@ import {
   Wallet,
   ArrowRight,
   AlertTriangle,
+  AlertCircle,
   ChevronRight,
   PlayCircle,
   BellRing,
@@ -39,6 +40,10 @@ import {
   type ClientePortalDashboard,
   type ClienteOportunidad,
 } from '@/services/api/portal-dashboard';
+import {
+  listPedidosAbiertosCliente,
+  type PedidoAbiertoResumen,
+} from '@/services/api/tramitePedidosDoc';
 import { PortalOnboardingTour, tourCompletado } from '../components/PortalOnboardingTour';
 import { PortalPwaAssistant } from '../components/PortalPwaAssistant';
 import { PortalPushAssistant } from '../components/PortalPushAssistant';
@@ -48,17 +53,20 @@ export function PortalHome() {
   const { user } = useAuth();
   const [data, setData] = useState<ClientePortalDashboard | null>(null);
   const [avancesNuevos, setAvancesNuevos] = useState(0);
+  const [pedidosAbiertos, setPedidosAbiertos] = useState<PedidoAbiertoResumen[]>([]);
   const [loading, setLoading] = useState(true);
   const [showTour, setShowTour] = useState(false);
 
   async function load() {
-    const [res, count] = await Promise.all([
+    const [res, count, pedidos] = await Promise.all([
       fetchClientePortalDashboard(),
       fetchTrackingAvancesNuevosCount(),
+      listPedidosAbiertosCliente(),
     ]);
     setLoading(false);
     if (res.ok && !res.data.error) setData(res.data);
     setAvancesNuevos(count);
+    if (pedidos.ok) setPedidosAbiertos(pedidos.data);
   }
 
   useEffect(() => { void load(); }, []);
@@ -112,6 +120,10 @@ export function PortalHome() {
       />
 
       {avancesNuevos > 0 && <AvancesNuevosBanner count={avancesNuevos} />}
+
+      {/* M1 · Banner urgente cuando hay pedidos de documentación abiertos.
+          Va arriba para que el cliente lo vea apenas entra. */}
+      {pedidosAbiertos.length > 0 && <DocsPendientesBanner items={pedidosAbiertos} />}
 
       <HotCards
         claseHoy={data.clase_hoy}
@@ -590,6 +602,67 @@ function formatDateShort(iso: string): string {
 // HotCards cuando hay tracking_avances no leídos. Click → Mis gestiones.
 // Tono cyan (info positivo, no urgente como deuda).
 // =========================================================================
+// M1 · Banner urgente cuando hay pedidos de documentación abiertos.
+// Tono amber (atención requerida) + lista los tramites afectados con
+// link directo a cada uno.
+function DocsPendientesBanner({ items }: { items: PedidoAbiertoResumen[] }) {
+  const total = items.length;
+  const totalItemsPendientes = items.reduce((s, p) => s + p.items_pendientes + p.items_rechazados, 0);
+  const tramiteUnico = total === 1 ? items[0] : null;
+  return (
+    <section className="relative overflow-hidden rounded-2xl border-2 border-amber-300 bg-gradient-to-br from-amber-50 via-white to-orange-50 p-4 shadow-sm ring-1 ring-amber-100 sm:p-5">
+      <div className="flex items-start gap-3">
+        <span className="grid h-12 w-12 flex-shrink-0 place-items-center rounded-2xl bg-amber-500 text-white shadow-sm">
+          <AlertCircle size={22} className="motion-safe:animate-[wiggle_1.2s_ease-in-out_infinite]" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="kicker text-amber-700">Acción requerida</p>
+          <p className="font-display text-base font-bold leading-tight text-brand-ink sm:text-lg">
+            {tramiteUnico
+              ? 'Necesitamos documentación para tu trámite'
+              : `Necesitamos documentación en ${total} de tus trámites`}
+          </p>
+          <p className="mt-0.5 line-clamp-2 text-xs text-amber-900 sm:text-sm">
+            {totalItemsPendientes > 0
+              ? `Hay ${totalItemsPendientes} archivo(s) por subir. Cuando los tengas todos, enviá el lote a gerencia.`
+              : 'Ya enviaste los archivos — el equipo está revisando.'}
+          </p>
+          <ul className="mt-2 space-y-1">
+            {items.slice(0, 3).map(p => (
+              <li key={p.pedido_id} className="flex items-center gap-2 text-xs">
+                <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 font-mono text-[10px] text-amber-700">
+                  {p.tramite_codigo ?? '—'}
+                </span>
+                <Link
+                  to={`/portal/gestiones/${p.tramite_id}`}
+                  className="truncate text-amber-900 hover:underline"
+                >
+                  {p.tramite_titulo ?? p.descripcion}
+                </Link>
+                {p.items_rechazados > 0 && (
+                  <span className="text-[10px] font-semibold text-red-600">· {p.items_rechazados} observado(s)</span>
+                )}
+              </li>
+            ))}
+            {items.length > 3 && (
+              <li className="text-[11px] text-amber-700">…y {items.length - 3} trámite(s) más</li>
+            )}
+          </ul>
+        </div>
+        {tramiteUnico && (
+          <Link
+            to={`/portal/gestiones/${tramiteUnico.tramite_id}`}
+            className="shrink-0 self-center inline-flex items-center gap-1.5 rounded-md bg-amber-600 px-3 py-2 text-xs font-semibold text-white shadow-sm hover:bg-amber-700"
+          >
+            Subir docs
+            <ArrowRight size={13} />
+          </Link>
+        )}
+      </div>
+    </section>
+  );
+}
+
 function AvancesNuevosBanner({ count }: { count: number }) {
   const plural = count > 1;
   return (
