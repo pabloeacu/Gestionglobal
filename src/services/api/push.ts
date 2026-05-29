@@ -59,7 +59,12 @@ export async function suscribirPush(): Promise<
     }
     const pubKey = getVapidPublicKey();
     if (!pubKey) {
-      return fail('NO_VAPID', 'Las notificaciones push aún no fueron habilitadas.');
+      // VAPID public key no está configurada en el environment (VITE_VAPID_PUBLIC_KEY).
+      // Esto es un setup pendiente de gerencia, no un problema del usuario.
+      return fail(
+        'NO_VAPID',
+        'Las notificaciones push aún no fueron configuradas en el servidor. Avisanos a contacto@gestionglobal.ar y lo resolvemos. Mientras tanto, vas a recibir todos los avisos por email y en la campanita del portal.',
+      );
     }
     const reg = await navigator.serviceWorker.ready;
     let sub = await reg.pushManager.getSubscription();

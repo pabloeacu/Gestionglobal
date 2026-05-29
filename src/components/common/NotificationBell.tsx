@@ -231,11 +231,22 @@ export function NotificationBell() {
             ref={panelRef}
             role="dialog"
             aria-label="Centro de notificaciones"
-            className="fixed z-[80] w-[380px] max-w-[calc(100vw-1rem)] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_20px_60px_-15px_rgba(18,34,48,0.35)] motion-safe:animate-spring-in"
-            style={{
-              top: anchorRect.bottom + 8,
-              right: Math.max(8, window.innerWidth - anchorRect.right),
-            }}
+            // Mobile (<640px): full-width con margen 8px a ambos lados para no
+            // salirse de pantalla. Desktop: 380px anclado al borde del botón.
+            className="fixed z-[80] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_20px_60px_-15px_rgba(18,34,48,0.35)] motion-safe:animate-spring-in"
+            style={
+              window.innerWidth < 640
+                ? {
+                    top: anchorRect.bottom + 8,
+                    left: 8,
+                    right: 8,
+                  }
+                : {
+                    top: anchorRect.bottom + 8,
+                    right: Math.max(8, window.innerWidth - anchorRect.right),
+                    width: 380,
+                  }
+            }
           >
             <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
               <div>

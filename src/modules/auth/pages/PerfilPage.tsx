@@ -612,7 +612,8 @@ function PerfilNotificacionesPush({
                 }
                 return (
                   <p className="mt-1">
-                    Probá desde Chrome, Edge, Firefox o Safari moderno (actualizado).
+                    Probá desde Chrome o Edge en computadora, o desde Chrome/Edge/Firefox en Android.
+                    Si estás en una computadora vieja, actualizá el navegador a la versión más reciente.
                   </p>
                 );
               })()}
