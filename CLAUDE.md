@@ -31,8 +31,18 @@ gerentes, portal de administradores clientes, formularios públicos sin login.
    `src/services/api/`. Si lo ves en un componente, refactor antes de seguir.
 5. **Operaciones multi-tabla → RPC.** 2+ tablas → `plpgsql` con
    `SECURITY DEFINER` y `SET search_path = public, pg_temp`.
-6. **Migraciones versionadas.** Todo cambio de schema en
-   `supabase/migrations/`. DDL a mano sin migración = deuda inmediata.
+6. **Migraciones versionadas con GRANTs explícitos.** Todo cambio de
+   schema en `supabase/migrations/`. DDL a mano sin migración = deuda
+   inmediata. **A partir de mig 0130 (post 30/10/2026 Supabase cambia
+   default)**: toda `CREATE TABLE public.*` requiere `GRANT … TO
+   authenticated` explícito en la misma migración. Patrón estándar:
+   ```sql
+   CREATE TABLE public.X (...);
+   ALTER TABLE public.X ENABLE ROW LEVEL SECURITY;
+   GRANT SELECT, INSERT, UPDATE, DELETE ON public.X TO authenticated;
+   -- (anon sólo si el flujo público lo necesita)
+   CREATE POLICY ...
+   ```
 7. **Edge functions versionadas.** Toda edge function en prod existe como
    archivo en el repo. Drift → bajar y commitear.
 8. **Español para dominio, inglés para tecnología.** Inglés en schema/BD/APIs,
