@@ -68,3 +68,11 @@ export async function notifArchivar(id: string): Promise<ApiResponse<boolean>> {
   if (error) return fail('NOTIF_ARCHIVAR', error.message, error);
   return ok(Boolean(data));
 }
+
+// "Limpiar campanita" · archiva todas las notificaciones del user. Después
+// de esto, la lista queda vacía y el contador en 0.
+export async function notifArchivarTodas(): Promise<ApiResponse<number>> {
+  const { data, error } = await rpc('notif_archivar_todas', {});
+  if (error) return fail('NOTIF_ARCHIVAR_TODAS', error.message, error);
+  return ok(Number(data ?? 0));
+}

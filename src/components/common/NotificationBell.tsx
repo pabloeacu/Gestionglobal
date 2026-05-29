@@ -21,7 +21,6 @@ import {
   Bell,
   BellRing,
   Check,
-  CheckCheck,
   Inbox,
   Loader2,
   Sparkles,
@@ -30,6 +29,7 @@ import {
   FileText,
   Info,
   NotebookPen,
+  Trash2,
   X,
   type LucideIcon,
 } from 'lucide-react';
@@ -39,7 +39,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import {
   notifListar,
   notifMarcarLeida,
-  notifMarcarTodasLeidas,
+  notifArchivar,
+  notifArchivarTodas,
   notifNoLeidasCount,
   type NotifItem,
 } from '@/services/api/notificaciones';
@@ -182,17 +183,33 @@ export function NotificationBell() {
     }
   }
 
-  async function handleMarcarTodas() {
-    const r = await notifMarcarTodasLeidas();
+  async function handleLimpiarTodas() {
+    const r = await notifArchivarTodas();
     if (!r.ok) {
-      toast.error('No pudimos marcar como leídas', { description: r.error.message });
+      toast.error('No pudimos limpiar', { description: r.error.message });
       return;
     }
-    setItems((prev) =>
-      prev.map((x) => ({ ...x, leido_at: x.leido_at ?? new Date().toISOString() })),
-    );
+    // Optimistic UI: vaciamos el panel localmente.
+    setItems([]);
     setCount(0);
-    toast.success(`${r.data} ${r.data === 1 ? 'notificación' : 'notificaciones'} marcada${r.data === 1 ? '' : 's'} como leída${r.data === 1 ? '' : 's'}`);
+    toast.success(
+      r.data > 0
+        ? `Campanita limpiada · ${r.data} notificación${r.data === 1 ? '' : 'es'} archivada${r.data === 1 ? '' : 's'}`
+        : 'No había nada que limpiar',
+    );
+  }
+
+  async function handleArchivarUna(id: string, evt: React.MouseEvent) {
+    evt.stopPropagation();
+    const item = items.find((x) => x.id === id);
+    setItems((prev) => prev.filter((x) => x.id !== id));
+    if (item && !item.leido_at) setCount((c) => Math.max(0, c - 1));
+    const r = await notifArchivar(id);
+    if (!r.ok) {
+      toast.error('No pudimos archivar', { description: r.error.message });
+      // Rollback en caso de error
+      void refresh();
+    }
   }
 
   const hasUnread = count > 0;
@@ -254,18 +271,21 @@ export function NotificationBell() {
                   Notificaciones
                 </p>
                 <p className="text-[11px] text-brand-muted">
-                  {hasUnread
-                    ? `${count} sin leer · últimas 20`
-                    : 'Todo al día · últimas 20'}
+                  {items.length === 0
+                    ? 'Sin novedades'
+                    : hasUnread
+                      ? `${count} sin leer · ${items.length} en total`
+                      : `Todas leídas · ${items.length} en la lista`}
                 </p>
               </div>
-              {hasUnread && (
+              {items.length > 0 && (
                 <button
                   type="button"
-                  onClick={() => void handleMarcarTodas()}
-                  className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-2.5 py-1 text-[11px] font-medium text-brand-muted transition hover:border-brand-cyan/40 hover:text-brand-cyan"
+                  onClick={() => void handleLimpiarTodas()}
+                  title="Archiva todas las notificaciones — la campanita queda vacía"
+                  className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-2.5 py-1 text-[11px] font-medium text-brand-muted transition hover:border-red-300 hover:bg-red-50 hover:text-red-600"
                 >
-                  <CheckCheck size={11} /> Marcar todas
+                  <Trash2 size={11} /> Limpiar
                 </button>
               )}
             </div>
@@ -331,19 +351,37 @@ export function NotificationBell() {
                         {relativeTime(it.created_at)}
                       </p>
                     </div>
-                    {unread ? (
+                    <div className="ml-1 flex shrink-0 flex-col items-end gap-1">
+                      {unread ? (
+                        <span
+                          className="mt-1 h-2 w-2 rounded-full bg-brand-cyan"
+                          title="Sin leer"
+                        />
+                      ) : (
+                        <span
+                          className="mt-1 hidden h-5 w-5 place-items-center text-emerald-500 opacity-60 group-hover:hidden sm:grid"
+                          title="Leída"
+                        >
+                          <Check size={11} />
+                        </span>
+                      )}
+                      {/* Botón X para archivar — visible en hover (desktop) y
+                          siempre en mobile (donde no hay hover). */}
                       <span
-                        className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-brand-cyan"
-                        title="Sin leer"
-                      />
-                    ) : (
-                      <span
-                        className="mt-1 grid h-5 w-5 shrink-0 place-items-center text-emerald-500 opacity-0 transition group-hover:opacity-60"
-                        title="Leída"
+                        role="button"
+                        tabIndex={0}
+                        onClick={(e) => void handleArchivarUna(it.id, e)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            void handleArchivarUna(it.id, e as unknown as React.MouseEvent);
+                          }
+                        }}
+                        title="Quitar de la campanita"
+                        className="grid h-5 w-5 place-items-center rounded text-brand-muted/60 transition hover:bg-red-50 hover:text-red-600 sm:opacity-0 sm:group-hover:opacity-100"
                       >
-                        <Check size={11} />
+                        <X size={11} />
                       </span>
-                    )}
+                    </div>
                   </button>
                 );
               })}
