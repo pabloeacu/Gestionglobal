@@ -281,6 +281,64 @@ export async function listEnvios(
   return ok({ rows, total: safeTotal });
 }
 
+// --- preview ------------------------------------------------------------
+// Devuelve el HTML real encolado/enviado para mostrar en modal preview.
+export interface EnvioPreview {
+  id: string;
+  subject: string | null;
+  to_email: string;
+  to_nombre: string | null;
+  html_body: string | null;
+  enviado_at: string | null;
+  template_slug: string | null;
+  variables: Record<string, unknown> | null;
+  attachments_filenames: string[] | null;
+}
+export async function getEnvioPreview(
+  envioId: string,
+): Promise<ApiResponse<EnvioPreview>> {
+  const { data, error } = await supabase
+    .from('email_queue')
+    .select('id, subject, to_email, to_nombre, html_body, enviado_at, template_slug, variables, attachments_jsonb')
+    .eq('id', envioId)
+    .maybeSingle();
+  if (error) return fail('ENVIO_PREVIEW', error.message, error);
+  if (!data) return fail('ENVIO_NOT_FOUND', 'Email no encontrado');
+  // Si el queue.html_body está vacío, intentamos traer el HTML real desde sent_emails
+  // matcheando por template_slug + to_email + ventana de tiempo cercana al enviado_at.
+  let htmlFinal: string | null = data.html_body ?? null;
+  if (!htmlFinal && data.enviado_at) {
+    const { data: sent } = await supabase
+      .from('sent_emails')
+      .select('html')
+      .eq('to_email', data.to_email)
+      .eq('template_slug', data.template_slug ?? '')
+      .gte('enviado_at', new Date(new Date(data.enviado_at).getTime() - 60_000).toISOString())
+      .lte('enviado_at', new Date(new Date(data.enviado_at).getTime() + 60_000).toISOString())
+      .order('enviado_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    htmlFinal = (sent?.html as string | undefined) ?? null;
+  }
+  // Adjuntos: pueden venir como attachments_jsonb [{filename,...}, ...]
+  let filenames: string[] | null = null;
+  try {
+    const arr = data.attachments_jsonb as Array<{ filename?: string }> | null | undefined;
+    if (Array.isArray(arr)) filenames = arr.map(a => a.filename ?? '(sin nombre)');
+  } catch { /* noop */ }
+  return ok({
+    id: data.id,
+    subject: data.subject,
+    to_email: data.to_email,
+    to_nombre: data.to_nombre,
+    html_body: htmlFinal,
+    enviado_at: data.enviado_at,
+    template_slug: data.template_slug,
+    variables: (data.variables as Record<string, unknown> | null) ?? null,
+    attachments_filenames: filenames,
+  });
+}
+
 // --- test send ----------------------------------------------------------
 // Encola un email con el template indicado hacia un destinatario de prueba y
 // dispara el dispatcher para que el envío sea inmediato (no espera al cron).

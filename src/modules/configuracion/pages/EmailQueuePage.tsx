@@ -5,9 +5,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   Mail, Clock, CheckCircle2, AlertCircle, Loader2,
-  RotateCcw, X, Layers, Send,
+  RotateCcw, X, Layers, Send, Eye,
 } from 'lucide-react';
 import { AnimatedNumber, useConfirm } from '@/components/common';
+import { EmailPreviewModal } from '@/components/common/EmailPreviewModal';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import { supabase } from '@/lib/supabase';
 import { toast } from '@/lib/toast';
@@ -31,6 +32,7 @@ export function EmailQueuePage() {
   const [estado, setEstado] = useState<EstadoFilter>('todos');
   const [casilla, setCasilla] = useState<CasillaFilter>('todas');
   const [search, setSearch] = useState('');
+  const [previewId, setPreviewId] = useState<string | null>(null);
   const confirm = useConfirm();
 
   async function refresh() {
@@ -135,6 +137,12 @@ export function EmailQueuePage() {
         </button>
       </div>
 
+      <EmailPreviewModal
+        open={previewId !== null}
+        envioId={previewId}
+        onClose={() => setPreviewId(null)}
+      />
+
       <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
         <table className="w-full text-sm">
           <thead className="bg-brand-zebra/40 text-left text-xs uppercase tracking-wider text-brand-muted">
@@ -191,6 +199,14 @@ export function EmailQueuePage() {
                 </td>
                 <td className="px-4 py-2 text-right">
                   <div className="flex items-center justify-end gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setPreviewId(r.id)}
+                      title="Ver lo que se envió"
+                      className="inline-flex items-center gap-1 rounded-md border border-slate-200 px-2 py-1 text-xs font-medium text-brand-ink hover:border-brand-cyan hover:text-brand-cyan"
+                    >
+                      <Eye size={11} /> Ver
+                    </button>
                     {r.estado !== 'enviado' && (
                       <button
                         type="button"
