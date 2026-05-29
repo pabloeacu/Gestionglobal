@@ -29,6 +29,7 @@ import { ReporteMensualBanner } from '@/components/common/ReporteMensualBanner';
 // muestra instrucciones tanto en Chrome desktop/Android como en iOS Safari /
 // iOS Chrome (con copy específico para abrir en Safari).
 import { PortalPwaAssistant } from '@/modules/portal/components/PortalPwaAssistant';
+import { ActivarPushAssistant } from '@/components/common/ActivarPushAssistant';
 
 interface QuickItem {
   to: string;
@@ -88,6 +89,10 @@ export function GerenciaHome() {
           Todo el ecosistema en un solo panel. Elegí por dónde arrancar.
         </p>
       </header>
+
+      {/* CTA universal: pide permiso de push con 1 click — solo aparece
+          cuando el browser lo soporta y el user aún no activó. */}
+      <ActivarPushAssistant />
 
       {/* Asistente de instalación PWA: detecta browser y muestra cómo
           instalar en Chrome (1 click), iOS Safari (3 pasos manuales) o

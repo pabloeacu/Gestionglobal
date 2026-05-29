@@ -44,6 +44,7 @@ import {
   listPedidosAbiertosCliente,
   type PedidoAbiertoResumen,
 } from '@/services/api/tramitePedidosDoc';
+import { ActivarPushAssistant } from '@/components/common/ActivarPushAssistant';
 import { PortalOnboardingTour, tourCompletado } from '../components/PortalOnboardingTour';
 import { PortalPwaAssistant } from '../components/PortalPwaAssistant';
 import { PortalPushAssistant } from '../components/PortalPushAssistant';
@@ -120,6 +121,9 @@ export function PortalHome() {
       />
 
       {avancesNuevos > 0 && <AvancesNuevosBanner count={avancesNuevos} />}
+
+      {/* CTA universal: pide permiso de push con 1 click (no entra a config). */}
+      <ActivarPushAssistant />
 
       {/* M1 · Banner urgente cuando hay pedidos de documentación abiertos.
           Va arriba para que el cliente lo vea apenas entra. */}

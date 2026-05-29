@@ -49,7 +49,7 @@ Deno.serve(async (req) => {
 
   let importedKey: CryptoKey;
   try {
-    importedKey = await importVapidPrivateKey(privB64);
+    importedKey = await importVapidPrivateKeyJwk(privB64, pubB64);
   } catch (e) {
     return json({ ok: false, error: 'VAPID private key inválida: ' + (e as Error).message }, 500);
   }
@@ -149,8 +149,38 @@ Deno.serve(async (req) => {
 });
 
 // ---------------------------------------------------------------------------
-// VAPID JWT (ES256)
+// VAPID JWT (ES256) — import via JWK derivando x,y desde la pub key.
+// Esto es más confiable que construir PKCS8 manualmente con campos opcionales.
 // ---------------------------------------------------------------------------
+async function importVapidPrivateKeyJwk(privB64: string, pubB64: string): Promise<CryptoKey> {
+  const pubRaw = b64urlDecode(pubB64); // 65 bytes: 0x04 || X(32) || Y(32)
+  if (pubRaw.length !== 65 || pubRaw[0] !== 0x04) {
+    throw new Error('VAPID_PUBLIC_KEY debe ser uncompressed P-256 (65 bytes con prefijo 0x04)');
+  }
+  const x = pubRaw.slice(1, 33);
+  const y = pubRaw.slice(33, 65);
+  const dRaw = b64urlDecode(privB64);
+  if (dRaw.length !== 32) {
+    throw new Error('VAPID_PRIVATE_KEY debe ser 32 bytes (P-256 scalar)');
+  }
+  const jwk: JsonWebKey = {
+    kty: 'EC',
+    crv: 'P-256',
+    d: privB64,
+    x: b64urlEncode(x),
+    y: b64urlEncode(y),
+    ext: true,
+  };
+  return await crypto.subtle.importKey(
+    'jwk',
+    jwk,
+    { name: 'ECDSA', namedCurve: 'P-256' },
+    false,
+    ['sign'],
+  );
+}
+
+// Legacy PKCS8 import — mantenido por compatibilidad, no usado.
 async function importVapidPrivateKey(b64url: string): Promise<CryptoKey> {
   const raw = b64urlDecode(b64url); // 32 bytes
   // El private key VAPID es un escalar P-256. Lo importamos como JWK.
