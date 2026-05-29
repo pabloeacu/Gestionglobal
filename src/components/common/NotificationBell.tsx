@@ -29,6 +29,7 @@ import {
   CalendarClock,
   FileText,
   Info,
+  NotebookPen,
   X,
   type LucideIcon,
 } from 'lucide-react';
@@ -52,6 +53,7 @@ const TIPO_META: Record<string, TipoMeta> = {
   tracking_cerrado:    { icon: Briefcase,     chip: 'bg-violet-50 text-violet-700'  },
   vencimiento_proximo: { icon: CalendarClock, chip: 'bg-rose-50 text-rose-700'      },
   comprobante_pagado:  { icon: FileText,      chip: 'bg-amber-50 text-amber-700'    },
+  frase_dia:           { icon: NotebookPen,   chip: 'bg-amber-50 text-amber-700'    },
   sistema:             { icon: Info,          chip: 'bg-slate-100 text-slate-700'   },
 };
 
