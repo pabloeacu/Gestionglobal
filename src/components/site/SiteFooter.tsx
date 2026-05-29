@@ -1,7 +1,15 @@
+import { useLocation } from 'react-router-dom';
 import { BrandMark } from '@/components/brand/BrandMark';
 import { Mail, Phone, Instagram, Facebook } from 'lucide-react';
 
 export function SiteFooter() {
+  // Anchors a secciones (#servicios, #plataforma, etc.) sólo funcionan en
+  // home. Cuando el footer se renderiza en una página interna (formulario
+  // público, webinar, etc.), los links deben prependerse con `/` para
+  // navegar primero a home y ahí scrollear (bug reportado 2026-05-29).
+  const isHome = useLocation().pathname === '/';
+  const linkTo = (hash: string) => (isHome ? hash : `/${hash}`);
+
   return (
     <footer className="border-t border-slate-200 bg-white">
       <div className="mx-auto grid max-w-7xl gap-12 px-6 py-16 md:grid-cols-4">
@@ -17,10 +25,10 @@ export function SiteFooter() {
         <div>
           <p className="kicker">Navegación</p>
           <ul className="mt-4 space-y-2 text-sm text-brand-ink/80">
-            <li><a href="#servicios" className="hover:text-brand-cyan">Servicios</a></li>
-            <li><a href="#plataforma" className="hover:text-brand-cyan">Plataforma</a></li>
-            <li><a href="#cursos" className="hover:text-brand-cyan">Cursos</a></li>
-            <li><a href="#nosotros" className="hover:text-brand-cyan">Nosotros</a></li>
+            <li><a href={linkTo('#servicios')} className="hover:text-brand-cyan">Servicios</a></li>
+            <li><a href={linkTo('#plataforma')} className="hover:text-brand-cyan">Plataforma</a></li>
+            <li><a href={linkTo('#cursos')} className="hover:text-brand-cyan">Cursos</a></li>
+            <li><a href={linkTo('#nosotros')} className="hover:text-brand-cyan">Nosotros</a></li>
             <li><a href="/ingresar" className="hover:text-brand-cyan">Ingresar</a></li>
           </ul>
         </div>
