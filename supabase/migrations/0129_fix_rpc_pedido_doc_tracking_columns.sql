@@ -1,0 +1,9 @@
+-- ============================================================================
+-- Migration: 0129_fix_rpc_pedido_doc_tracking_columns
+-- Fecha: 2026-05-28
+-- Fix E-GG-N2-02: las RPCs tramite_pedido_doc_crear y _aprobar_item
+-- insertaban en tracking_lineas con columnas 'titulo' y 'estado' que no
+-- existen. Las columnas reales son: categoria, descripcion, estado_asociado.
+-- Recreación con columnas correctas.
+-- (Definición completa aplicada vía Supabase MCP.)
+-- ============================================================================
