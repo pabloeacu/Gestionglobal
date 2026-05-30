@@ -310,6 +310,22 @@ export function SolicitudDetailPage() {
           />
         </div>
 
+        {/* Bloque Precio + Voucher (mig 0134/0135) — sólo si hay info de
+            precio_aplicado o voucher (origen_canal siempre está pero por sí
+            mismo no amerita destacar). */}
+        {(data.precio_aplicado != null ||
+          data.voucher_codigo ||
+          data.precio_final != null) && (
+          <PrecioVoucherBlock
+            origen_canal={data.origen_canal}
+            precio_aplicado={data.precio_aplicado}
+            precio_final={data.precio_final}
+            voucher_codigo={data.voucher_codigo}
+            voucher_descuento_pct={data.voucher_descuento_pct}
+            bonificacion_100={data.bonificacion_100}
+          />
+        )}
+
         {/* Acciones principales */}
         {!yaActivada && !yaDescartada && !yaRechazada && (
           <div className="relative mt-6 flex flex-wrap gap-2">
@@ -818,8 +834,13 @@ function payloadEnOrden(
     return String(v);
   };
 
+  // Filtra meta-keys con prefijo `_` (ej. _voucher_codigo, _origen_canal).
+  // Esos los inyecta el edge function `submit-formulario` para que el trigger
+  // DB los procese; no son campos del formulario que el solicitante completó
+  // y se renderizan aparte en la card "Pago / Voucher".
   const entries = Object.entries(payload).filter(
-    ([, v]) => v !== null && v !== undefined && v !== '',
+    ([k, v]) =>
+      v !== null && v !== undefined && v !== '' && !k.startsWith('_'),
   );
   entries.sort(([a], [b]) => {
     const ai = indexByName.get(a) ?? 999;
@@ -835,4 +856,108 @@ function payloadEnOrden(
       valor: renderValue(v),
     };
   });
+}
+
+/**
+ * Bloque destacado de precio + voucher en el detalle de la solicitud.
+ * Visible apenas se abre la solicitud para que la gerencia sepa de un vistazo:
+ *   - desde qué canal llegó (público = landing, cliente = portal),
+ *   - precio total que aplicaba al servicio en ese momento,
+ *   - voucher usado (si hay),
+ *   - bonificación 100% (chip emerald destacado),
+ *   - precio final a cobrar.
+ * Cubre la regla del catálogo (precio = TOTAL siempre) y la trazabilidad de
+ * vouchers (mig 0134/0135).
+ */
+function PrecioVoucherBlock({
+  origen_canal,
+  precio_aplicado,
+  precio_final,
+  voucher_codigo,
+  voucher_descuento_pct,
+  bonificacion_100,
+}: {
+  origen_canal?: string | null;
+  precio_aplicado?: number | string | null;
+  precio_final?: number | string | null;
+  voucher_codigo?: string | null;
+  voucher_descuento_pct?: number | string | null;
+  bonificacion_100?: boolean | null;
+}) {
+  const aplicado =
+    precio_aplicado != null ? Number(precio_aplicado) : null;
+  const final = precio_final != null ? Number(precio_final) : null;
+  const fmt = (n: number) =>
+    n.toLocaleString('es-AR', {
+      style: 'currency',
+      currency: 'ARS',
+      maximumFractionDigits: 0,
+    });
+  return (
+    <div
+      className={`relative mt-5 rounded-xl border p-4 ${
+        bonificacion_100
+          ? 'border-emerald-300 bg-emerald-50/70'
+          : 'border-slate-200 bg-white/70'
+      }`}
+    >
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2">
+          {origen_canal && (
+            <span
+              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
+                origen_canal === 'cliente'
+                  ? 'bg-violet-50 text-violet-700 ring-1 ring-violet-200'
+                  : 'bg-sky-50 text-sky-700 ring-1 ring-sky-200'
+              }`}
+            >
+              {origen_canal === 'cliente'
+                ? 'Desde portal cliente'
+                : 'Desde landing pública'}
+            </span>
+          )}
+          {bonificacion_100 ? (
+            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-600 px-2.5 py-0.5 text-xs font-semibold text-white">
+              ★ Bonificación 100% · Servicio gratuito
+            </span>
+          ) : voucher_codigo ? (
+            <span className="inline-flex items-center gap-1 rounded-full bg-brand-cyan-pale/60 px-2 py-0.5 text-xs font-medium text-brand-cyan">
+              Voucher <span className="font-mono">{voucher_codigo}</span>
+              {voucher_descuento_pct != null && (
+                <> · {Number(voucher_descuento_pct)}%</>
+              )}
+            </span>
+          ) : null}
+        </div>
+        <div className="text-right text-sm">
+          {aplicado != null && (
+            <div className="text-brand-muted">
+              Precio del catálogo:{' '}
+              <span
+                className={
+                  voucher_codigo
+                    ? 'line-through text-brand-muted/80'
+                    : 'font-semibold text-brand-ink'
+                }
+              >
+                {fmt(aplicado)}
+              </span>
+            </div>
+          )}
+          {final != null && voucher_codigo && (
+            <div className="text-base font-semibold text-brand-ink">
+              Total a cobrar:{' '}
+              <span
+                className={
+                  bonificacion_100 ? 'text-emerald-700' : 'text-brand-ink'
+                }
+              >
+                {fmt(final)}
+              </span>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }
