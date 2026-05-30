@@ -293,7 +293,6 @@ export interface ListMatriculasParams {
 export interface MatriculaListItem extends CursoMatriculaRow {
   curso: Pick<CursoRow, 'id' | 'slug' | 'titulo' | 'modalidad'> | null;
   alumno_nombre: string | null;
-  alumno_email: string | null;
   administracion_nombre: string | null;
 }
 
@@ -326,7 +325,6 @@ export async function listMatriculas(
       ...(r as CursoMatriculaRow),
       curso: r.cursos,
       alumno_nombre: r.profiles?.full_name ?? null,
-      alumno_email: null,
       administracion_nombre: r.administraciones?.nombre ?? null,
     }),
   );
