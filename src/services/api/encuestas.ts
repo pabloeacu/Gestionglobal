@@ -186,15 +186,15 @@ export async function uploadFotoTestimonio(
 // ----------------------------------------------------------------------------
 export interface RespuestaJoinProfile extends CursoEncuestaRespuestaRow {
   alumno_nombre: string | null;
-  alumno_email: string | null;
 }
 
 export async function listarRespuestasCurso(
   encuesta_id: string,
 ): Promise<ApiResponse<RespuestaJoinProfile[]>> {
   // Una sola query con join a profiles via matricula. `profiles` expone
-  // `full_name` (no `nombre_completo`); el email vive en auth.users y no
-  // es accesible vía PostgREST público.
+  // `full_name` (no `nombre_completo`). El email no se incluye porque vive
+  // en auth.users y no es accesible vía PostgREST público (no lo necesita
+  // la UI de gerencia para este reporte).
   const { data, error } = await supabase
     .from('curso_encuesta_respuestas')
     .select(
@@ -214,7 +214,6 @@ export async function listarRespuestasCurso(
     rows.map((r) => ({
       ...(r as CursoEncuestaRespuestaRow),
       alumno_nombre: r.curso_matriculas?.profiles?.full_name ?? null,
-      alumno_email: null,
     })),
   );
 }

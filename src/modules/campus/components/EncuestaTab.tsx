@@ -1,7 +1,7 @@
 // Solapa "Encuesta de satisfacción" del editor del curso (gerencia).
 // Mig 0136. Sub-tabs internos: Configuración (builder + flags) | Respuestas (reportes).
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Trash2,
   Copy,
@@ -129,11 +129,33 @@ function EncuestaConfig({
   const [saving, setSaving] = useState(false);
   const [emularOpen, setEmularOpen] = useState(false);
 
+  // Sync con backend SÓLO si el draft local está limpio (== último valor remoto
+  // sincronizado). Esto evita pisar cambios pendientes cuando otra acción
+  // (toggleActiva / toggleRequerida / emular) refresca el objeto `encuesta`.
+  const lastRemoteSchemaRef = useRef<EncuestaSchema>(schema);
+  const lastRemoteTituloRef = useRef<string>(encuesta.titulo);
+  const lastRemoteDescRef = useRef<string>(encuesta.descripcion ?? '');
+
   useEffect(() => {
-    setDraft(schema);
-    setTitulo(encuesta.titulo);
-    setDescripcion(encuesta.descripcion ?? '');
-  }, [schema, encuesta]);
+    const draftClean =
+      JSON.stringify(draft) === JSON.stringify(lastRemoteSchemaRef.current);
+    if (draftClean) setDraft(schema);
+    lastRemoteSchemaRef.current = schema;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [schema]);
+
+  useEffect(() => {
+    if (titulo === lastRemoteTituloRef.current) setTitulo(encuesta.titulo);
+    lastRemoteTituloRef.current = encuesta.titulo;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [encuesta.titulo]);
+
+  useEffect(() => {
+    const nextDesc = encuesta.descripcion ?? '';
+    if (descripcion === lastRemoteDescRef.current) setDescripcion(nextDesc);
+    lastRemoteDescRef.current = nextDesc;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [encuesta.descripcion]);
 
   const dirty =
     JSON.stringify(draft) !== JSON.stringify(schema) ||
@@ -231,11 +253,11 @@ function EncuestaConfig({
               <ClipboardList size={12} /> Encuesta de satisfacción
             </p>
             <p className="mt-1 text-xs text-brand-muted">
-              {schema.preguntas.length === 0
+              {draft.preguntas.length === 0
                 ? 'Todavía no agregaste preguntas. Usá la paleta de abajo o emulá una existente.'
-                : `${schema.preguntas.length} pregunta(s) · ${
+                : `${draft.preguntas.length} pregunta(s) · ${
                     encuesta.activa ? 'visible para los alumnos' : 'oculta a los alumnos'
-                  }${encuesta.requerida_para_cert ? ' · requerida para emitir certificado' : ''}.`}
+                  }${encuesta.requerida_para_cert ? ' · requerida para emitir certificado' : ''}${dirty ? ' · cambios sin guardar' : ''}.`}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -739,7 +761,7 @@ function EncuestaRespuestas({ encuesta }: { encuesta: CursoEncuestaRow }) {
                     </p>
                   )}
                   <p className="mt-1 text-xs text-brand-muted">
-                    {r.alumno_email ?? '—'} · enviado {formatDateShort(r.created_at)}
+                    {r.alumno_nombre ?? '—'} · enviado {formatDateShort(r.created_at)}
                   </p>
                 </div>
                 <label className="ml-2 inline-flex shrink-0 items-center gap-2 text-sm">
@@ -770,7 +792,7 @@ function EncuestaRespuestas({ encuesta }: { encuesta: CursoEncuestaRow }) {
                   {r.alumno_nombre ?? 'Alumno'}
                 </p>
                 <span className="text-xs text-brand-muted">
-                  {r.alumno_email ?? ''} · {formatDateShort(r.created_at)}
+                  {formatDateShort(r.created_at)}
                 </span>
                 {r.permite_publicar && (
                   <span className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-semibold text-violet-700">
