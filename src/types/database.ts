@@ -5008,6 +5008,62 @@ export type Database = {
           },
         ]
       }
+      servicio_vouchers: {
+        Row: {
+          activo: boolean
+          alcance: string
+          codigo: string
+          created_at: string
+          created_by: string | null
+          descuento_pct: number
+          expira_at: string | null
+          id: string
+          max_usos: number | null
+          observaciones: string | null
+          servicio_id: string
+          updated_at: string
+          usos_count: number
+        }
+        Insert: {
+          activo?: boolean
+          alcance?: string
+          codigo: string
+          created_at?: string
+          created_by?: string | null
+          descuento_pct: number
+          expira_at?: string | null
+          id?: string
+          max_usos?: number | null
+          observaciones?: string | null
+          servicio_id: string
+          updated_at?: string
+          usos_count?: number
+        }
+        Update: {
+          activo?: boolean
+          alcance?: string
+          codigo?: string
+          created_at?: string
+          created_by?: string | null
+          descuento_pct?: number
+          expira_at?: string | null
+          id?: string
+          max_usos?: number | null
+          observaciones?: string | null
+          servicio_id?: string
+          updated_at?: string
+          usos_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "servicio_vouchers_servicio_id_fkey"
+            columns: ["servicio_id"]
+            isOneToOne: false
+            referencedRelation: "servicios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       servicios: {
         Row: {
           activo: boolean
@@ -5027,7 +5083,9 @@ export type Database = {
           orden: number
           permite_multiples_consorcios: boolean
           precio_base: number
+          precio_cliente: number | null
           precio_modo: string
+          precio_publico: number | null
           requiere_administracion: boolean
           requiere_consorcio: boolean
           sla_dias: number | null
@@ -5051,7 +5109,9 @@ export type Database = {
           orden?: number
           permite_multiples_consorcios?: boolean
           precio_base?: number
+          precio_cliente?: number | null
           precio_modo: string
+          precio_publico?: number | null
           requiere_administracion?: boolean
           requiere_consorcio?: boolean
           sla_dias?: number | null
@@ -5075,7 +5135,9 @@ export type Database = {
           orden?: number
           permite_multiples_consorcios?: boolean
           precio_base?: number
+          precio_cliente?: number | null
           precio_modo?: string
+          precio_publico?: number | null
           requiere_administracion?: boolean
           requiere_consorcio?: boolean
           sla_dias?: number | null
@@ -5165,6 +5227,7 @@ export type Database = {
         Row: {
           activada_at: string | null
           asignada_a: string | null
+          bonificacion_100: boolean | null
           cliente_id: string | null
           comprobante_id: string | null
           created_at: string
@@ -5175,6 +5238,9 @@ export type Database = {
           motivo_descarte: string | null
           motivo_rechazo: string | null
           observaciones: string | null
+          origen_canal: string
+          precio_aplicado: number | null
+          precio_final: number | null
           rechazada_at: string | null
           rechazada_por: string | null
           servicio_slug: string | null
@@ -5184,10 +5250,14 @@ export type Database = {
           solicitante_telefono: string | null
           tramite_id: string | null
           updated_at: string
+          voucher_codigo: string | null
+          voucher_descuento_pct: number | null
+          voucher_id: string | null
         }
         Insert: {
           activada_at?: string | null
           asignada_a?: string | null
+          bonificacion_100?: boolean | null
           cliente_id?: string | null
           comprobante_id?: string | null
           created_at?: string
@@ -5198,6 +5268,9 @@ export type Database = {
           motivo_descarte?: string | null
           motivo_rechazo?: string | null
           observaciones?: string | null
+          origen_canal?: string
+          precio_aplicado?: number | null
+          precio_final?: number | null
           rechazada_at?: string | null
           rechazada_por?: string | null
           servicio_slug?: string | null
@@ -5207,10 +5280,14 @@ export type Database = {
           solicitante_telefono?: string | null
           tramite_id?: string | null
           updated_at?: string
+          voucher_codigo?: string | null
+          voucher_descuento_pct?: number | null
+          voucher_id?: string | null
         }
         Update: {
           activada_at?: string | null
           asignada_a?: string | null
+          bonificacion_100?: boolean | null
           cliente_id?: string | null
           comprobante_id?: string | null
           created_at?: string
@@ -5221,6 +5298,9 @@ export type Database = {
           motivo_descarte?: string | null
           motivo_rechazo?: string | null
           observaciones?: string | null
+          origen_canal?: string
+          precio_aplicado?: number | null
+          precio_final?: number | null
           rechazada_at?: string | null
           rechazada_por?: string | null
           servicio_slug?: string | null
@@ -5230,6 +5310,9 @@ export type Database = {
           solicitante_telefono?: string | null
           tramite_id?: string | null
           updated_at?: string
+          voucher_codigo?: string | null
+          voucher_descuento_pct?: number | null
+          voucher_id?: string | null
         }
         Relationships: [
           {
@@ -5279,6 +5362,13 @@ export type Database = {
             columns: ["tramite_id"]
             isOneToOne: false
             referencedRelation: "tramites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solicitudes_voucher_id_fkey"
+            columns: ["voucher_id"]
+            isOneToOne: false
+            referencedRelation: "servicio_vouchers"
             referencedColumns: ["id"]
           },
         ]
@@ -7843,6 +7933,7 @@ export type Database = {
       }
       normalizar_nombre: { Args: { p: string }; Returns: string }
       notif_archivar: { Args: { p_id: string }; Returns: boolean }
+      notif_archivar_todas: { Args: never; Returns: number }
       notif_listar: {
         Args: {
           p_limit?: number
@@ -7863,6 +7954,17 @@ export type Database = {
       notif_marcar_leida: { Args: { p_id: string }; Returns: boolean }
       notif_marcar_todas_leidas: { Args: never; Returns: number }
       notif_no_leidas_count: { Args: never; Returns: number }
+      notificar_usuario: {
+        Args: {
+          p_cuerpo: string
+          p_payload?: Json
+          p_tipo: string
+          p_titulo: string
+          p_url?: string
+          p_user_id: string
+        }
+        Returns: string
+      }
       partner_anular_rendicion: {
         Args: { p_motivo: string; p_rendicion_id: string }
         Returns: string
@@ -8238,6 +8340,18 @@ export type Database = {
         }[]
       }
       vistas_set_default: { Args: { p_id: string }; Returns: boolean }
+      voucher_incrementar_uso: {
+        Args: { p_voucher_id: string }
+        Returns: undefined
+      }
+      voucher_validar: {
+        Args: {
+          p_codigo: string
+          p_es_cliente?: boolean
+          p_servicio_id: string
+        }
+        Returns: Json
+      }
       webex_encuentro_ended: {
         Args: { p_ended_at?: string; p_webex_meeting_id: string }
         Returns: string

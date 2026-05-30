@@ -241,7 +241,27 @@ export interface CrearServicioInput {
   nombre: string;
   descripcion?: string | null;
   precio_modo: PrecioModo;
+  /**
+   * @deprecated 2026-05-29 (mig 0134) — usar precio_publico / precio_cliente.
+   * Se mantiene por compat con código viejo. El trigger en BD sincroniza
+   * precio_base = COALESCE(precio_publico, precio_cliente).
+   */
   precio_base?: number;
+  /**
+   * Precio TOTAL para solicitudes desde landing pública. null = el servicio
+   * NO se ofrece por landing.
+   */
+  precio_publico?: number | null;
+  /**
+   * Precio TOTAL para solicitudes desde portal cliente. null = el servicio
+   * NO se ofrece por portal cliente.
+   */
+  precio_cliente?: number | null;
+  /**
+   * @deprecated 2026-05-29 (mig 0134) — el precio es TOTAL siempre. El IVA,
+   * si corresponde, se calcula en la conversión a factura A según condición
+   * fiscal del emisor y receptor.
+   */
   iva_alicuota?: string;
   requiere_administracion?: boolean;
   requiere_consorcio?: boolean;
@@ -259,9 +279,15 @@ export async function crearServicio(
   input: CrearServicioInput,
 ): Promise<ApiResponse<ServicioRow>> {
   const { precio_inicial, ...servicioFields } = input;
+  // Si llegó precio_base (legacy), lo usamos como default para los 2 nuevos.
+  // Si llegan precio_publico/cliente, tienen precedencia. El trigger en BD
+  // sincroniza precio_base automáticamente con el primer no-null.
+  const precioFallback = input.precio_base ?? 0;
   const insert: ServicioInsert = {
     ...servicioFields,
-    precio_base: input.precio_base ?? 0,
+    precio_base: precioFallback,
+    precio_publico: input.precio_publico ?? precioFallback,
+    precio_cliente: input.precio_cliente ?? precioFallback,
     iva_alicuota: input.iva_alicuota ?? '21',
     activo: true,
   };
