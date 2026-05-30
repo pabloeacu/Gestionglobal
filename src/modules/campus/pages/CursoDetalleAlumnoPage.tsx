@@ -44,6 +44,7 @@ import { ClasePlayer } from '../components/ClasePlayer';
 import { ExamenRunner } from '../components/ExamenRunner';
 import { ProgresoBar } from '../components/ProgresoBar';
 import { EncuentrosEnVivoAlumno, ClaseEnVivoFullLayout } from '../components/EncuentrosEnVivoAlumno';
+import { EncuestaAlumnoCard } from '../components/EncuestaAlumnoCard';
 
 // Página del alumno matriculado (portal). Si no está matriculado y el curso es
 // público, muestra CTA de inscripción.
@@ -395,6 +396,9 @@ export function CursoDetalleAlumnoPage() {
               ))}
             </section>
           )}
+
+          {/* Encuesta de Satisfacción (mig 0136) — sólo si está activa */}
+          <EncuestaAlumnoCard curso_id={data.curso.id} matricula_id={matricula.id} />
         </main>
       </div>
     </div>
