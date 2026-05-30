@@ -209,28 +209,34 @@ export async function generateCertificadoPdf(
 
   const root = createRoot(host);
   try {
-    await new Promise<void>((resolve) => {
-      root.render(
-        createElement(CertificadoPremium, {
-          cert,
-          qrDataUrl,
-          verificarUrl: url,
-          esquema: esquemaEmbedded,
-        }),
-      );
-      requestAnimationFrame(() => resolve());
-    });
+    root.render(
+      createElement(CertificadoPremium, {
+        cert,
+        qrDataUrl,
+        verificarUrl: url,
+        esquema: esquemaEmbedded,
+      }),
+    );
 
-    const target = host.firstElementChild as HTMLElement | null;
-    if (!target) throw new Error('No se montó el certificado en el DOM');
-    await esperarRecursos(target);
-    // Guard extra: si el target no tiene dimensiones, html-to-image devuelve
-    // una imagen vacía o tira un error opaco. Mejor detectarlo acá.
+    // React 18 + createRoot commitea de forma asíncrona: un solo
+    // requestAnimationFrame no alcanza para garantizar que el DOM esté.
+    // Hacemos polling por el nodo + dimensiones, con timeout 3s.
+    let target: HTMLElement | null = null;
+    const deadline = performance.now() + 3000;
+    while (performance.now() < deadline) {
+      target = host.firstElementChild as HTMLElement | null;
+      if (target && target.offsetWidth > 0 && target.offsetHeight > 0) break;
+      await new Promise<void>((r) => requestAnimationFrame(() => r()));
+    }
+    if (!target) {
+      throw new Error('El certificado no se renderizó en el DOM. Recargá la página y reintentá.');
+    }
     if (target.offsetWidth === 0 || target.offsetHeight === 0) {
       throw new Error(
         `Certificado sin dimensiones (${target.offsetWidth}×${target.offsetHeight}). Recargá la página y reintentá.`,
       );
     }
+    await esperarRecursos(target);
 
     // html-to-image: serializa DOM dentro de un foreignObject SVG y rasteriza
     // en canvas. Captura fielmente SVGs, conic-gradient, drop-shadow, etc.
