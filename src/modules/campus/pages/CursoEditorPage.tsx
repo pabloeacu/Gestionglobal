@@ -56,6 +56,7 @@ import { ExamenEditor } from '../components/ExamenEditor';
 import { CondicionesTab } from '../components/CondicionesTab';
 import { GestionMatriculasTab } from '../components/GestionMatriculasTab';
 import { EncuentrosTab } from '../components/EncuentrosTab';
+import { EncuestaTab } from '../components/EncuestaTab';
 
 // Editor de un curso (gerencia/operadores). Tabs: datos, contenido, exámenes,
 // matrículas.
@@ -100,6 +101,7 @@ export function CursoEditorPage() {
     { key: 'examenes', label: 'Exámenes' },
     { key: 'condiciones', label: 'Condiciones' },
     { key: 'encuentros', label: 'Encuentros' },
+    { key: 'encuesta', label: 'Encuesta de Satisfacción' },
     { key: 'matriculas', label: 'Alumnos' },
   ];
 
@@ -163,6 +165,9 @@ export function CursoEditorPage() {
         )}
         {activeKey === 'condiciones' && <CondicionesTab data={data} />}
         {activeKey === 'encuentros' && <EncuentrosTab data={data} />}
+        {activeKey === 'encuesta' && (
+          <EncuestaTab curso_id={data.curso.id} curso_titulo={data.curso.titulo} />
+        )}
         {activeKey === 'matriculas' && <GestionMatriculasTab data={data} />}
       </div>
     </div>

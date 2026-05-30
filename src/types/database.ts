@@ -2103,6 +2103,113 @@ export type Database = {
           },
         ]
       }
+      curso_encuesta_respuestas: {
+        Row: {
+          created_at: string
+          encuesta_id: string
+          id: string
+          matricula_id: string
+          permite_publicar: boolean
+          publicado: boolean
+          publicado_at: string | null
+          publicado_por: string | null
+          respuestas: Json
+          testimonio_comentario: string | null
+          testimonio_foto_url: string | null
+          testimonio_nombre: string | null
+        }
+        Insert: {
+          created_at?: string
+          encuesta_id: string
+          id?: string
+          matricula_id: string
+          permite_publicar?: boolean
+          publicado?: boolean
+          publicado_at?: string | null
+          publicado_por?: string | null
+          respuestas?: Json
+          testimonio_comentario?: string | null
+          testimonio_foto_url?: string | null
+          testimonio_nombre?: string | null
+        }
+        Update: {
+          created_at?: string
+          encuesta_id?: string
+          id?: string
+          matricula_id?: string
+          permite_publicar?: boolean
+          publicado?: boolean
+          publicado_at?: string | null
+          publicado_por?: string | null
+          respuestas?: Json
+          testimonio_comentario?: string | null
+          testimonio_foto_url?: string | null
+          testimonio_nombre?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "curso_encuesta_respuestas_encuesta_id_fkey"
+            columns: ["encuesta_id"]
+            isOneToOne: false
+            referencedRelation: "curso_encuestas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "curso_encuesta_respuestas_matricula_id_fkey"
+            columns: ["matricula_id"]
+            isOneToOne: true
+            referencedRelation: "curso_matriculas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      curso_encuestas: {
+        Row: {
+          activa: boolean
+          created_at: string
+          created_by: string | null
+          curso_id: string
+          descripcion: string | null
+          id: string
+          requerida_para_cert: boolean
+          schema: Json
+          titulo: string
+          updated_at: string
+        }
+        Insert: {
+          activa?: boolean
+          created_at?: string
+          created_by?: string | null
+          curso_id: string
+          descripcion?: string | null
+          id?: string
+          requerida_para_cert?: boolean
+          schema?: Json
+          titulo?: string
+          updated_at?: string
+        }
+        Update: {
+          activa?: boolean
+          created_at?: string
+          created_by?: string | null
+          curso_id?: string
+          descripcion?: string | null
+          id?: string
+          requerida_para_cert?: boolean
+          schema?: Json
+          titulo?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "curso_encuestas_curso_id_fkey"
+            columns: ["curso_id"]
+            isOneToOne: true
+            referencedRelation: "cursos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       curso_examenes: {
         Row: {
           created_at: string
@@ -7311,6 +7418,30 @@ export type Database = {
         }
         Returns: string
       }
+      encuesta_emular_de_curso: {
+        Args: { p_curso_destino: string; p_curso_origen: string }
+        Returns: string
+      }
+      encuesta_listar_emulables: {
+        Args: never
+        Returns: {
+          curso_id: string
+          curso_titulo: string
+          n_preguntas: number
+        }[]
+      }
+      encuesta_marcar_publicado: {
+        Args: { p_publicado: boolean; p_respuesta_id: string }
+        Returns: undefined
+      }
+      encuesta_responder: {
+        Args: {
+          p_matricula_id: string
+          p_respuestas: Json
+          p_testimonio?: Json
+        }
+        Returns: string
+      }
       enqueue_emision_comprobante: {
         Args: { p_comprobante_id: string }
         Returns: string
@@ -7905,6 +8036,10 @@ export type Database = {
           nuevo_id: string
           original_id: string
         }[]
+      }
+      matricula_cumple_encuesta: {
+        Args: { p_matricula_id: string }
+        Returns: boolean
       }
       matricula_sync_examen: {
         Args: { p_matricula_id: string }
