@@ -99,11 +99,16 @@ export function ServiciosListPage() {
 
   const kpis = useMemo(() => {
     const activos = rows.filter((r) => r.activo).length;
+    // "Con precio vigente" cuenta servicios con al menos un canal con precio
+    // (público o cliente). Servicios con ambos null son los que no se ofrecen
+    // por ningún canal.
     const con_precio = rows.filter(
-      (r) => typeof r.precio_vigente === 'number',
+      (r) =>
+        typeof r.precio_publico === 'number' ||
+        typeof r.precio_cliente === 'number',
     ).length;
     const total_precios = rows.reduce(
-      (s, r) => s + (r.precio_vigente ?? 0),
+      (s, r) => s + (Number(r.precio_publico ?? r.precio_cliente ?? 0)),
       0,
     );
     return { activos, con_precio, total_precios };
@@ -274,8 +279,8 @@ export function ServiciosListPage() {
                 <tr>
                   <th className="px-4 py-3">Servicio</th>
                   <th className="px-4 py-3">Modalidad</th>
-                  <th className="px-4 py-3 text-right">Precio vigente</th>
-                  <th className="px-4 py-3">IVA</th>
+                  <th className="px-4 py-3 text-right">Precio público</th>
+                  <th className="px-4 py-3 text-right">Precio cliente</th>
                   <th className="px-4 py-3">Estado</th>
                   <th className="px-4 py-3" />
                 </tr>
@@ -342,25 +347,10 @@ export function ServiciosListPage() {
                           r.precio_modo}
                       </td>
                       <td className="px-4 py-3 text-right font-medium tabular-nums text-brand-ink">
-                        {typeof r.precio_vigente === 'number' ? (
-                          <AnimatedNumber
-                            value={r.precio_vigente}
-                            format={(n) =>
-                              n.toLocaleString('es-AR', {
-                                style: 'currency',
-                                currency: 'ARS',
-                                maximumFractionDigits: 0,
-                              })
-                            }
-                          />
-                        ) : (
-                          <span className="text-xs text-amber-600">
-                            sin tabulador
-                          </span>
-                        )}
+                        <PrecioCol value={r.precio_publico} />
                       </td>
-                      <td className="px-4 py-3 text-brand-muted">
-                        {r.iva_alicuota}
+                      <td className="px-4 py-3 text-right font-medium tabular-nums text-brand-ink">
+                        <PrecioCol value={r.precio_cliente} />
                       </td>
                       <td className="px-4 py-3">
                         <button
@@ -460,5 +450,30 @@ function CategoriaItem({
         <span className="text-xs tabular-nums">{count}</span>
       </button>
     </li>
+  );
+}
+
+/**
+ * Muestra un precio TOTAL (público o cliente). Si es null = el servicio NO se
+ * ofrece por ese canal — chip discreto. Si es 0 = gratis. Si tiene valor =
+ * formato ARS animado.
+ */
+function PrecioCol({ value }: { value: number | null | undefined }) {
+  if (value == null) {
+    return (
+      <span className="text-xs italic text-brand-muted/80">no se ofrece</span>
+    );
+  }
+  return (
+    <AnimatedNumber
+      value={Number(value)}
+      format={(n) =>
+        n.toLocaleString('es-AR', {
+          style: 'currency',
+          currency: 'ARS',
+          maximumFractionDigits: 0,
+        })
+      }
+    />
   );
 }
