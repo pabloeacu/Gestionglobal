@@ -82,8 +82,13 @@ export function CertificadoPreviewModal({
     setDescargando(true);
     try {
       await generateCertificadoPdf(cert, esquema);
-    } catch {
-      toast.error('No pudimos generar el PDF.');
+    } catch (err) {
+      console.error('[cert-pdf] preview-modal descarga falló:', err);
+      const detalle =
+        err instanceof Error
+          ? err.message.slice(0, 180)
+          : 'Error desconocido';
+      toast.error('No pudimos generar el PDF.', { description: detalle });
     } finally {
       setDescargando(false);
     }

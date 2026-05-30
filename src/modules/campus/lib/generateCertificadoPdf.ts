@@ -222,8 +222,15 @@ export async function generateCertificadoPdf(
     });
 
     const target = host.firstElementChild as HTMLElement | null;
-    if (!target) throw new Error('No se montó el certificado');
+    if (!target) throw new Error('No se montó el certificado en el DOM');
     await esperarRecursos(target);
+    // Guard extra: si el target no tiene dimensiones, html-to-image devuelve
+    // una imagen vacía o tira un error opaco. Mejor detectarlo acá.
+    if (target.offsetWidth === 0 || target.offsetHeight === 0) {
+      throw new Error(
+        `Certificado sin dimensiones (${target.offsetWidth}×${target.offsetHeight}). Recargá la página y reintentá.`,
+      );
+    }
 
     // html-to-image: serializa DOM dentro de un foreignObject SVG y rasteriza
     // en canvas. Captura fielmente SVGs, conic-gradient, drop-shadow, etc.
@@ -235,16 +242,37 @@ export async function generateCertificadoPdf(
     // cert se renderiza offscreen (esperamos document.fonts.ready), entonces
     // skipFonts:true se salta el inline de CSS pero el browser sigue usando
     // las fuentes correctas en el rasterizado final.
-    const dataUrl = await toPng(target, {
-      width: CERT_W,
-      height: CERT_H,
-      pixelRatio: 3,
-      cacheBust: true,
-      skipFonts: true,
-      // credentials:'include' para pasar el security checkpoint de Vercel
-      // en fetches same-origin (si quedó algún <img> sin pre-embed).
-      fetchRequestInit: { credentials: 'include' },
-    });
+    let dataUrl: string;
+    try {
+      dataUrl = await toPng(target, {
+        width: CERT_W,
+        height: CERT_H,
+        pixelRatio: 3,
+        cacheBust: true,
+        skipFonts: true,
+        // credentials:'include' para pasar el security checkpoint de Vercel
+        // en fetches same-origin (si quedó algún <img> sin pre-embed).
+        fetchRequestInit: { credentials: 'include' },
+      });
+    } catch (e) {
+      // html-to-image puede tirar errores oscuros (SecurityError de canvas
+      // tainted, OOM en mobile, fetch CORS, etc.). Reintento UNA vez tras
+      // 300ms — la primera falla suele ser race con fuentes/imagenes.
+      console.warn('[cert-pdf] toPng falló, reintentando una vez:', e);
+      await new Promise((r) => setTimeout(r, 300));
+      await esperarRecursos(target);
+      dataUrl = await toPng(target, {
+        width: CERT_W,
+        height: CERT_H,
+        pixelRatio: 3,
+        cacheBust: true,
+        skipFonts: true,
+        fetchRequestInit: { credentials: 'include' },
+      });
+    }
+    if (!dataUrl || !dataUrl.startsWith('data:image')) {
+      throw new Error('La captura del certificado salió vacía.');
+    }
 
     const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
     const W = doc.internal.pageSize.getWidth(); // 297

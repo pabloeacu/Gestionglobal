@@ -105,8 +105,16 @@ export function GestionMatriculasTab({ data }: { data: CursoDetalle }) {
         certificadoParaPdf(cert),
         esquema ?? undefined,
       );
-    } catch {
-      toast.error('No pudimos generar el PDF.');
+    } catch (err) {
+      // catch silencioso anterior tragaba la causa raíz. Ahora logueamos
+      // siempre + mostramos al usuario una pista del error para que pueda
+      // reportar (fonts no cargadas, imágenes 4xx, CORS, etc.).
+      console.error('[cert-pdf] descarga falló:', err);
+      const detalle =
+        err instanceof Error
+          ? err.message.slice(0, 180)
+          : 'Error desconocido';
+      toast.error('No pudimos generar el PDF.', { description: detalle });
     }
   }
 

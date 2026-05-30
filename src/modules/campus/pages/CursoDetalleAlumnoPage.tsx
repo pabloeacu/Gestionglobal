@@ -425,8 +425,13 @@ function CondicionesAlumnoPanel({
         certificadoParaPdf(certificado),
         esquema ?? undefined,
       );
-    } catch {
-      toast.error('No pudimos generar el PDF. Probá de nuevo.');
+    } catch (err) {
+      console.error('[cert-pdf] portal alumno descarga falló:', err);
+      const detalle =
+        err instanceof Error
+          ? err.message.slice(0, 180)
+          : 'Error desconocido';
+      toast.error('No pudimos generar el PDF.', { description: detalle });
     } finally {
       setDescargando(false);
     }
