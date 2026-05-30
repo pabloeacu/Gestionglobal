@@ -45,6 +45,10 @@ interface SubmitPayload {
   slug: string;
   datos: Record<string, unknown>;
   files?: Array<{ field: string; base64: string; filename: string; mime?: string }>;
+  /** publico (landing) | cliente (portal logueado). Si viene, condiciona el precio aplicado y el alcance del voucher. */
+  origen_canal?: 'publico' | 'cliente';
+  /** Código de voucher opcional. El trigger DB lo valida y aplica el descuento. */
+  voucher_codigo?: string;
 }
 
 Deno.serve(async (req) => {
@@ -171,7 +175,16 @@ Deno.serve(async (req) => {
   }
 
   // 3. Detectar email/nombre/telefono/cuit en los datos para denormalizar
-  const datos = payload.datos;
+  // 2c. Inyectar meta-campos para el trigger de pipeline (voucher + canal).
+  //     La mig 0135 los lee desde datos._origen_canal y datos._voucher_codigo.
+  const datos: Record<string, unknown> = { ...payload.datos };
+  if (payload.origen_canal === 'cliente' || payload.origen_canal === 'publico') {
+    datos._origen_canal = payload.origen_canal;
+  }
+  if (typeof payload.voucher_codigo === 'string' && payload.voucher_codigo.trim().length > 0) {
+    datos._voucher_codigo = payload.voucher_codigo.trim();
+  }
+
   const email_contacto = pickByKeys(datos, ['email', 'correo', 'correo_electronico']);
   const telefono_contacto = pickByKeys(datos, ['celular', 'telefono', 'tel']);
   const nombre_contacto =

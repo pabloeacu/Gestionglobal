@@ -9,7 +9,10 @@ import {
   AlertCircle,
   Download,
   FileText,
+  Ticket,
+  Sparkles,
 } from 'lucide-react';
+import { validarVoucher, type ValidacionVoucher } from '@/services/api/vouchers';
 import { Button, Field, Input, Select, Textarea } from '@/components/common';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import {
@@ -28,6 +31,12 @@ interface FormularioRunnerProps {
    * por nombre del campo y lo precarga + marca como "auto-rellenado".
    */
   prefillValues?: Record<string, unknown>;
+  /**
+   * Canal de origen de la solicitud. 'publico' = landing (default),
+   * 'cliente' = portal logueado. Determina qué precio se aplica y
+   * qué vouchers son válidos.
+   */
+  origenCanal?: 'publico' | 'cliente';
 }
 
 interface FieldState {
@@ -51,7 +60,11 @@ function normalizeKey(k: string): string {
 // Runner: renderiza un formulario desde su schema jsonb, maneja validaciones
 // reactivas, lógica condicional declarativa, adjuntos múltiples por campo y
 // submit al edge function. Pensado para uso público (URL `/formulario/:slug`).
-export function FormularioRunner({ formulario, prefillValues }: FormularioRunnerProps) {
+export function FormularioRunner({
+  formulario,
+  prefillValues,
+  origenCanal = 'publico',
+}: FormularioRunnerProps) {
   const schema = formulario.schema as unknown as FormularioSchemaDef;
   const [state, setState] = useState<Record<string, FieldState>>({});
   const [files, setFiles] = useState<Record<string, File[]>>({});
@@ -59,6 +72,15 @@ export function FormularioRunner({ formulario, prefillValues }: FormularioRunner
   const [done, setDone] = useState<{ mensaje: string; redirect: string | null } | null>(null);
   const [topError, setTopError] = useState<string | null>(null);
   const [prefilledCount, setPrefilledCount] = useState(0);
+  // Voucher state: sólo aparece si el formulario está asociado a un servicio
+  // (formularios.servicio_id != null). El bloque se expande con el checkbox.
+  const tieneServicio = !!formulario.servicio_id;
+  const [voucherExpanded, setVoucherExpanded] = useState(false);
+  const [voucherCodigo, setVoucherCodigo] = useState('');
+  const [voucherValidado, setVoucherValidado] = useState<ValidacionVoucher | null>(null);
+  const [validandoVoucher, setValidandoVoucher] = useState(false);
+  const [celebrar100, setCelebrar100] = useState(false);
+  const es100 = voucherValidado?.valido === true && voucherValidado.es_100 === true;
 
   // Auto-fill al recibir prefillValues. Hace matching case-insensitive entre
   // el name de cada campo del schema y las keys del dict del perfil del cliente.
@@ -109,8 +131,53 @@ export function FormularioRunner({ formulario, prefillValues }: FormularioRunner
     return String(data[field.condition.field] ?? '') === field.condition.equals;
   }
 
+  async function onValidarVoucher() {
+    const codigo = voucherCodigo.trim();
+    if (!codigo) {
+      toast.error('Ingresá un código.');
+      return;
+    }
+    if (!formulario.servicio_id) {
+      toast.error('Este formulario no acepta vouchers.');
+      return;
+    }
+    setValidandoVoucher(true);
+    const res = await validarVoucher(
+      codigo,
+      formulario.servicio_id,
+      origenCanal === 'cliente',
+    );
+    setValidandoVoucher(false);
+    if (!res.ok) {
+      toast.error('No pudimos validar el código.');
+      return;
+    }
+    setVoucherValidado(res.data);
+    if (res.data.valido) {
+      if (res.data.es_100) {
+        setCelebrar100(true);
+        // Modal felicitaciones 2.5s + auto-cierre
+        window.setTimeout(() => setCelebrar100(false), 2500);
+      } else {
+        toast.success(res.data.mensaje);
+      }
+    } else {
+      toast.error(res.data.mensaje);
+    }
+  }
+
+  function onQuitarVoucher() {
+    setVoucherCodigo('');
+    setVoucherValidado(null);
+  }
+
   function validate(): string[] {
     const errors: string[] = [];
+    // Bonificación 100% = no requiere comprobante de pago. Los campos file
+    // requeridos del formulario quedan "soft-optional" en ese caso (caso de
+    // uso: voucher 100% sobre un servicio que normalmente exige adjuntar el
+    // comprobante de transferencia).
+    const skipFilesRequired = es100;
     for (const section of schema.sections) {
       for (const field of section.fields) {
         if (['heading', 'separator', 'html', 'file_download'].includes(field.type)) continue;
@@ -118,7 +185,7 @@ export function FormularioRunner({ formulario, prefillValues }: FormularioRunner
 
         if (field.type === 'file') {
           const fl = files[field.name] ?? [];
-          if (field.required && fl.length === 0) {
+          if (field.required && fl.length === 0 && !skipFilesRequired) {
             errors.push(`${field.label}: requerido`);
           }
           if (field.max_files && fl.length > field.max_files) {
@@ -174,6 +241,8 @@ export function FormularioRunner({ formulario, prefillValues }: FormularioRunner
       slug: formulario.slug,
       datos: data,
       files: flatFiles,
+      origen_canal: origenCanal,
+      voucher_codigo: voucherValidado?.valido ? voucherValidado.codigo : undefined,
     });
     setSending(false);
 
@@ -262,6 +331,94 @@ export function FormularioRunner({ formulario, prefillValues }: FormularioRunner
         </section>
       ))}
 
+      {tieneServicio && (
+        <section className="card-premium relative overflow-hidden p-5 motion-safe:animate-fade-up">
+          {voucherExpanded || voucherValidado?.valido ? (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 text-brand-ink">
+                <Ticket size={16} className="text-brand-cyan" />
+                <strong className="text-sm">Voucher / promoción</strong>
+              </div>
+              {voucherValidado?.valido ? (
+                <div
+                  className={cn(
+                    'flex items-start gap-3 rounded-xl border p-3 text-sm',
+                    es100
+                      ? 'border-emerald-300 bg-emerald-50 text-emerald-900'
+                      : 'border-brand-cyan/40 bg-brand-cyan-pale/30 text-brand-ink',
+                  )}
+                >
+                  <CheckCircle2
+                    size={18}
+                    className={cn('mt-0.5 shrink-0', es100 ? 'text-emerald-600' : 'text-brand-cyan')}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold">
+                      Código <span className="font-mono">{voucherValidado.codigo}</span> aplicado
+                    </p>
+                    <p className="text-xs leading-relaxed">{voucherValidado.mensaje}</p>
+                    {es100 && (
+                      <p className="mt-1 text-xs">
+                        No necesitás adjuntar comprobante de pago para enviar la solicitud.
+                      </p>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={onQuitarVoucher}
+                    className="rounded-md p-1 text-brand-muted hover:bg-white/60 hover:text-red-600"
+                    aria-label="Quitar voucher"
+                  >
+                    <XIcon size={14} />
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <p className="text-xs text-brand-muted">
+                    Si tenés un código de descuento o promoción, ingresalo acá y validalo
+                    antes de enviar. Si bonifica el 100%, no vas a necesitar adjuntar pago.
+                  </p>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                    <Input
+                      value={voucherCodigo}
+                      onChange={(e) => setVoucherCodigo(e.target.value.toUpperCase())}
+                      placeholder="Ej: WELCOME50"
+                      className="flex-1"
+                    />
+                    <Button
+                      type="button"
+                      onClick={() => void onValidarVoucher()}
+                      disabled={validandoVoucher || !voucherCodigo.trim()}
+                    >
+                      {validandoVoucher ? (
+                        <>
+                          <Loader2 size={14} className="animate-spin" /> Validando…
+                        </>
+                      ) : (
+                        'Validar'
+                      )}
+                    </Button>
+                  </div>
+                  {voucherValidado && !voucherValidado.valido && (
+                    <p className="text-xs text-red-600">{voucherValidado.mensaje}</p>
+                  )}
+                </div>
+              )}
+            </div>
+          ) : (
+            <label className="flex cursor-pointer items-center gap-3 text-sm text-brand-ink">
+              <input
+                type="checkbox"
+                onChange={(e) => setVoucherExpanded(e.target.checked)}
+                className="rounded text-brand-cyan focus:ring-brand-cyan/40"
+              />
+              <Ticket size={14} className="text-brand-cyan" />
+              <span>Tengo un voucher / promoción</span>
+            </label>
+          )}
+        </section>
+      )}
+
       {topError && (
         <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
           <div className="flex items-center gap-2">
@@ -269,6 +426,23 @@ export function FormularioRunner({ formulario, prefillValues }: FormularioRunner
             <strong>Revisá el formulario</strong>
           </div>
           <p className="mt-1 text-xs leading-relaxed">{topError}</p>
+        </div>
+      )}
+
+      {/* Modal Felicitaciones · auto-cierra a los 2.5s */}
+      {celebrar100 && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-emerald-950/40 p-4 backdrop-blur-sm motion-safe:animate-fade-in">
+          <div className="card-premium relative max-w-md overflow-hidden p-8 text-center motion-safe:animate-spring-in">
+            <div className="mx-auto mb-3 grid h-16 w-16 place-items-center rounded-full bg-emerald-100 text-emerald-700">
+              <Sparkles size={32} />
+            </div>
+            <h2 className="font-display text-2xl font-bold text-brand-ink">
+              ¡Felicitaciones!
+            </h2>
+            <p className="mt-2 text-sm leading-relaxed text-brand-ink/80">
+              Este será un servicio gratuito.
+            </p>
+          </div>
         </div>
       )}
 

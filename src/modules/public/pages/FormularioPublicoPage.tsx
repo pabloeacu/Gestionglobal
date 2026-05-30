@@ -124,7 +124,11 @@ export function FormularioPublicoPage() {
           )}
 
           <main className="mx-auto mt-6 max-w-3xl px-6 pb-16 sm:pb-24">
-            <FormularioRunner formulario={formulario} prefillValues={prefillValues} />
+            <FormularioRunner
+              formulario={formulario}
+              prefillValues={prefillValues}
+              origenCanal={desdePortal && user ? 'cliente' : 'publico'}
+            />
 
             {formulario.textos_legales && (
               <div className="mt-6 rounded-xl border border-slate-200 bg-brand-zebra/40 p-4 text-xs leading-relaxed text-brand-muted">

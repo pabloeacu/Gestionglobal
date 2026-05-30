@@ -74,6 +74,10 @@ export interface SubmitFormularioInput {
   slug: string;
   datos: Record<string, unknown>;
   files?: Array<{ field: string; file: File }>;
+  /** Origen de la solicitud: 'publico' (landing) o 'cliente' (portal). Determina qué precio se aplica y qué vouchers son válidos. */
+  origen_canal?: 'publico' | 'cliente';
+  /** Código de voucher opcional. El servidor lo valida y aplica el descuento. */
+  voucher_codigo?: string;
 }
 
 export interface SubmitFormularioResult {
@@ -111,7 +115,13 @@ export async function submitFormulario(
     redirect_url: string | null;
     adjuntos: number;
   }>('submit-formulario', {
-    body: { slug: input.slug, datos: input.datos, files: filesB64 },
+    body: {
+      slug: input.slug,
+      datos: input.datos,
+      files: filesB64,
+      origen_canal: input.origen_canal,
+      voucher_codigo: input.voucher_codigo,
+    },
   });
 
   if (error) return fail('FORM_SUBMIT', error.message, error);
