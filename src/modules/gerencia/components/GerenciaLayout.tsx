@@ -7,6 +7,7 @@ import {
   FileText,
   PiggyBank,
   GraduationCap,
+  BarChart3,
   Settings,
   Inbox,
   CalendarDays,
@@ -72,7 +73,6 @@ const NAV: NavGroup[] = [
   { label: 'Clientes', to: '/gerencia/clientes', icon: Users },
   { label: 'Trámites', to: '/gerencia/tramites', icon: Briefcase },
   { label: 'Agenda', to: '/gerencia/agenda', icon: CalendarDays },
-  { label: 'Analítica', to: '/gerencia/analitica', icon: PiggyBank },
   {
     label: 'Facturación',
     icon: FileText,
@@ -92,6 +92,7 @@ const NAV: NavGroup[] = [
     ],
   },
   { label: 'Campus', to: '/gerencia/campus', icon: GraduationCap },
+  { label: 'Analítica', to: '/gerencia/analitica', icon: BarChart3 },
   {
     label: 'Configuración',
     icon: Settings,
