@@ -5,12 +5,12 @@ import {
   ArrowLeft,
   Plus,
   Briefcase,
-  Coins,
   History,
-  Calendar,
   Building2,
   Pencil,
   X,
+  Globe,
+  Users,
 } from 'lucide-react';
 import {
   Button,
@@ -39,6 +39,7 @@ import {
 } from '@/services/api/servicios';
 import { PrecioDrawer } from '../components/PrecioDrawer';
 import { ServicioFormDrawer } from '../components/ServicioFormDrawer';
+import { VouchersTab } from '../components/VouchersTab';
 import { cn } from '@/lib/cn';
 
 export function ServicioDetailPage() {
@@ -50,7 +51,7 @@ export function ServicioDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [precioOpen, setPrecioOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
-  const [tab, setTab] = useState<'precios' | 'historial'>('precios');
+  const [tab, setTab] = useState<'precios' | 'historial' | 'vouchers'>('precios');
   const confirm = useConfirm();
 
   async function load() {
@@ -101,6 +102,7 @@ export function ServicioDetailPage() {
   const tabs: TabItem[] = [
     { key: 'precios', label: 'Precios' },
     { key: 'historial', label: 'Historial' },
+    { key: 'vouchers', label: 'Vouchers' },
   ];
 
   return (
@@ -162,11 +164,20 @@ export function ServicioDetailPage() {
         {data && (
           <div className="relative z-10 mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
             <MetaPill
-              icon={<Coins size={14} />}
-              label="Precio base actual"
+              icon={<Globe size={14} />}
+              label="Precio público"
               value={
-                <PrecioBase precios={data.precios} />
+                <PrecioTotal value={data.servicio.precio_publico} />
               }
+              hint="Solicitudes desde landing"
+            />
+            <MetaPill
+              icon={<Users size={14} />}
+              label="Precio cliente"
+              value={
+                <PrecioTotal value={data.servicio.precio_cliente} />
+              }
+              hint="Solicitudes desde portal"
             />
             <MetaPill
               icon={<Building2 size={14} />}
@@ -174,20 +185,15 @@ export function ServicioDetailPage() {
               value={countSpeciales(data)}
             />
             <MetaPill
-              icon={<Calendar size={14} />}
-              label="Historial"
-              value={data.precios.length}
-            />
-            <MetaPill
               icon={<History size={14} />}
-              label="Eventos auditados"
+              label="Auditoría"
               value={audit.length}
             />
           </div>
         )}
       </section>
 
-      <Tabs items={tabs} activeKey={tab} onChange={(k) => setTab(k as 'precios' | 'historial')} />
+      <Tabs items={tabs} activeKey={tab} onChange={(k) => setTab(k as 'precios' | 'historial' | 'vouchers')} />
 
       {tab === 'precios' && (
         <section className="card-premium overflow-hidden">
@@ -311,6 +317,10 @@ export function ServicioDetailPage() {
         </section>
       )}
 
+      {tab === 'vouchers' && data && (
+        <VouchersTab servicio_id={data.servicio.id} />
+      )}
+
       {tab === 'historial' && (
         <section className="card-premium overflow-hidden">
           {audit.length === 0 ? (
@@ -395,22 +405,19 @@ function countSpeciales(d: ServicioDetail): number {
   ).length;
 }
 
-function PrecioBase({
-  precios,
-}: {
-  precios: ServicioDetail['precios'];
-}) {
-  const base = precios.find(
-    (p) =>
-      !p.administracion_id &&
-      !p.consorcio_id &&
-      !p.convenio &&
-      !p.vigente_hasta,
-  );
-  if (!base) return <span className="text-amber-600 text-sm">sin tabulador</span>;
+/**
+ * Mostrador del precio TOTAL (público o cliente). Si el valor es null el
+ * servicio NO se ofrece por ese canal — se muestra con un chip discreto.
+ */
+function PrecioTotal({ value }: { value: number | null | undefined }) {
+  if (value == null) {
+    return (
+      <span className="text-sm text-brand-muted/80 italic">no se ofrece</span>
+    );
+  }
   return (
     <AnimatedNumber
-      value={Number(base.precio)}
+      value={Number(value)}
       format={(n) => fmtMoney(n)}
     />
   );
@@ -420,10 +427,12 @@ function MetaPill({
   icon,
   label,
   value,
+  hint,
 }: {
   icon: React.ReactNode;
   label: string;
   value: React.ReactNode;
+  hint?: string;
 }) {
   return (
     <div className="rounded-xl border border-slate-100 bg-white/80 p-3 backdrop-blur">
@@ -433,6 +442,7 @@ function MetaPill({
       <div className="font-display text-xl font-bold text-brand-ink">
         {typeof value === 'number' ? <AnimatedNumber value={value} /> : value}
       </div>
+      {hint && <p className="mt-0.5 text-[10px] text-brand-muted">{hint}</p>}
     </div>
   );
 }

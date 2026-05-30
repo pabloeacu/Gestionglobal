@@ -33,8 +33,9 @@ type Draft = {
   nombre: string;
   descripcion: string;
   precio_modo: PrecioModo;
-  precio_inicial: string;
-  iva_alicuota: string;
+  // Mig 0134: 2 precios TOTAL (vacío = no se ofrece por ese canal)
+  precio_publico: string;
+  precio_cliente: string;
   requiere_administracion: boolean;
   requiere_consorcio: boolean;
   permite_multiples_consorcios: boolean;
@@ -51,8 +52,8 @@ const EMPTY: Draft = {
   nombre: '',
   descripcion: '',
   precio_modo: 'fijo',
-  precio_inicial: '',
-  iva_alicuota: '21',
+  precio_publico: '',
+  precio_cliente: '',
   requiere_administracion: true,
   requiere_consorcio: false,
   permite_multiples_consorcios: false,
@@ -84,8 +85,10 @@ export function ServicioFormDrawer({
         nombre: servicio.nombre,
         descripcion: servicio.descripcion ?? '',
         precio_modo: (servicio.precio_modo as PrecioModo) ?? 'fijo',
-        precio_inicial: '',
-        iva_alicuota: servicio.iva_alicuota,
+        precio_publico:
+          servicio.precio_publico != null ? String(servicio.precio_publico) : '',
+        precio_cliente:
+          servicio.precio_cliente != null ? String(servicio.precio_cliente) : '',
         requiere_administracion: servicio.requiere_administracion,
         requiere_consorcio: servicio.requiere_consorcio,
         permite_multiples_consorcios: servicio.permite_multiples_consorcios,
@@ -109,8 +112,16 @@ export function ServicioFormDrawer({
     if (!draft.categoria_id) e.categoria_id = 'Elegí una categoría';
     if (!draft.codigo.trim()) e.codigo = 'Código requerido';
     if (!draft.nombre.trim()) e.nombre = 'Nombre requerido';
-    if (!isEdit && draft.precio_inicial && Number(draft.precio_inicial) < 0) {
-      e.precio_inicial = 'No puede ser negativo';
+    if (draft.precio_publico && Number(draft.precio_publico) < 0) {
+      e.precio_publico = 'No puede ser negativo';
+    }
+    if (draft.precio_cliente && Number(draft.precio_cliente) < 0) {
+      e.precio_cliente = 'No puede ser negativo';
+    }
+    // Sólo en alta exigimos al menos un canal con precio; en edición se puede
+    // tener ambos vacíos transitoriamente.
+    if (!isEdit && !draft.precio_publico && !draft.precio_cliente) {
+      e.precio_publico = 'Cargá al menos un precio (público o cliente)';
     }
     setErrs(e);
     return Object.keys(e).length === 0;
@@ -121,13 +132,19 @@ export function ServicioFormDrawer({
     if (!validate()) return;
     setSaving(true);
 
+    const precio_publico =
+      draft.precio_publico.trim() === '' ? null : Number(draft.precio_publico);
+    const precio_cliente =
+      draft.precio_cliente.trim() === '' ? null : Number(draft.precio_cliente);
+
     const payload = {
       categoria_id: draft.categoria_id,
       codigo: draft.codigo.trim(),
       nombre: draft.nombre.trim(),
       descripcion: draft.descripcion.trim() || null,
       precio_modo: draft.precio_modo,
-      iva_alicuota: draft.iva_alicuota,
+      precio_publico,
+      precio_cliente,
       requiere_administracion: draft.requiere_administracion,
       requiere_consorcio: draft.requiere_consorcio,
       permite_multiples_consorcios: draft.permite_multiples_consorcios,
@@ -141,13 +158,15 @@ export function ServicioFormDrawer({
       observaciones: draft.observaciones.trim() || null,
     };
 
+    // En alta también seedeamos el tabulador con el precio público (o cliente
+    // si público es null) para mantener compat con queries históricas que
+    // leen tabulador_precios para la regla base.
+    const seed = precio_publico ?? precio_cliente ?? null;
     const res = isEdit
       ? await actualizarServicio(servicio!.id, payload)
       : await crearServicio({
           ...payload,
-          precio_inicial: draft.precio_inicial
-            ? Number(draft.precio_inicial)
-            : undefined,
+          precio_inicial: seed ?? undefined,
         });
     setSaving(false);
 
@@ -256,45 +275,53 @@ export function ServicioFormDrawer({
           />
         </Field>
 
-        {!isEdit && (
-          <div className="rounded-xl border border-brand-cyan/20 bg-brand-cyan-pale/30 p-4">
-            <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-brand-ink">
-              <Sparkles size={16} className="text-brand-cyan" /> Precio inicial
-            </div>
+        <div className="rounded-xl border border-brand-cyan/20 bg-brand-cyan-pale/30 p-4">
+          <div className="mb-1 flex items-center gap-2 text-sm font-semibold text-brand-ink">
+            <Sparkles size={16} className="text-brand-cyan" /> Precios TOTAL
+          </div>
+          <p className="mb-3 text-xs text-brand-muted">
+            El precio es el monto que paga el cliente al final.
+            Si el comprobante se transforma en factura A, el IVA se
+            calcula al desglosar — el TOTAL siempre se respeta.
+            Dejá un precio vacío para que ese canal NO ofrezca este servicio.
+          </p>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Field
-              label="Monto base (ARS)"
-              hint="Crea la regla base del tabulador. Podés dejarlo vacío y cargarlo después."
-              error={errs.precio_inicial}
+              label="Precio público (landing)"
+              hint="Solicitudes desde la landing."
+              error={errs.precio_publico}
             >
               <Input
                 type="number"
                 step="0.01"
                 min="0"
-                value={draft.precio_inicial}
+                value={draft.precio_publico}
                 onChange={(e) =>
-                  setDraft({ ...draft, precio_inicial: e.target.value })
+                  setDraft({ ...draft, precio_publico: e.target.value })
                 }
-                placeholder="0,00"
+                placeholder="Sin precio público"
+              />
+            </Field>
+            <Field
+              label="Precio cliente (portal)"
+              hint="Solicitudes desde el portal del cliente logueado."
+              error={errs.precio_cliente}
+            >
+              <Input
+                type="number"
+                step="0.01"
+                min="0"
+                value={draft.precio_cliente}
+                onChange={(e) =>
+                  setDraft({ ...draft, precio_cliente: e.target.value })
+                }
+                placeholder="Sin precio cliente"
               />
             </Field>
           </div>
-        )}
+        </div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field label="Alícuota IVA">
-            <Select
-              value={draft.iva_alicuota}
-              onChange={(e) =>
-                setDraft({ ...draft, iva_alicuota: e.target.value })
-              }
-            >
-              {['0', '10.5', '21', '27', 'exento', 'no_gravado'].map((a) => (
-                <option key={a} value={a}>
-                  {a}
-                </option>
-              ))}
-            </Select>
-          </Field>
           <Field
             label="Vigencia campus (meses)"
             hint="Sólo si habilita campus"
@@ -313,6 +340,7 @@ export function ServicioFormDrawer({
               placeholder="12"
             />
           </Field>
+          <div />
         </div>
 
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
