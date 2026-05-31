@@ -567,7 +567,18 @@ export async function crearModulo(
 
 export async function actualizarModulo(
   id: string,
-  patch: Partial<Pick<CursoModuloRow, 'titulo' | 'descripcion' | 'orden'>>,
+  patch: Partial<
+    Pick<
+      CursoModuloRow,
+      | 'titulo'
+      | 'descripcion'
+      | 'orden'
+      | 'icono_url'
+      | 'publicado'
+      | 'publicar_at'
+      | 'despublicar_at'
+    >
+  >,
 ): Promise<ApiResponse<CursoModuloRow>> {
   const { data, error } = await supabase
     .from('curso_modulos')
@@ -596,6 +607,10 @@ export interface ClaseInput {
   zoom_fecha_hora?: string | null;
   material_url?: string | null;
   duracion_min?: number | null;
+  instructor_foto_url?: string | null;
+  publicado?: boolean;
+  publicar_at?: string | null;
+  despublicar_at?: string | null;
 }
 
 export async function crearClase(
@@ -621,6 +636,10 @@ export async function crearClase(
       zoom_fecha_hora: input.zoom_fecha_hora ?? null,
       material_url: input.material_url ?? null,
       duracion_min: input.duracion_min ?? null,
+      instructor_foto_url: input.instructor_foto_url ?? null,
+      publicado: input.publicado ?? true,
+      publicar_at: input.publicar_at ?? null,
+      despublicar_at: input.despublicar_at ?? null,
     })
     .select()
     .single();
@@ -657,6 +676,9 @@ export async function crearBibliografia(
     url?: string | null;
     archivo_url?: string | null;
     descripcion?: string | null;
+    publicado?: boolean;
+    publicar_at?: string | null;
+    despublicar_at?: string | null;
   },
 ): Promise<ApiResponse<CursoBibliografiaRow>> {
   const { data, error } = await supabase
@@ -668,10 +690,39 @@ export async function crearBibliografia(
       url: input.url ?? null,
       archivo_url: input.archivo_url ?? null,
       descripcion: input.descripcion ?? null,
+      publicado: input.publicado ?? true,
+      publicar_at: input.publicar_at ?? null,
+      despublicar_at: input.despublicar_at ?? null,
     })
     .select()
     .single();
   if (error) return fail('BIBLIO_CREATE', error.message, error);
+  return ok(data);
+}
+
+export async function actualizarBibliografia(
+  id: string,
+  patch: Partial<
+    Pick<
+      CursoBibliografiaRow,
+      | 'titulo'
+      | 'autor'
+      | 'url'
+      | 'archivo_url'
+      | 'descripcion'
+      | 'publicado'
+      | 'publicar_at'
+      | 'despublicar_at'
+    >
+  >,
+): Promise<ApiResponse<CursoBibliografiaRow>> {
+  const { data, error } = await supabase
+    .from('curso_bibliografia')
+    .update(patch)
+    .eq('id', id)
+    .select()
+    .single();
+  if (error) return fail('BIBLIO_UPDATE', error.message, error);
   return ok(data);
 }
 
@@ -1545,4 +1596,88 @@ export function fmtFechaHora(s: string | null | undefined): string {
   } catch {
     return s;
   }
+}
+
+// ============================================================================
+// L1 (mig 0140) · Imágenes + publicación
+// ============================================================================
+
+/**
+ * ¿El recurso es visible para el alumno ahora mismo?
+ * Mismas reglas que `public.is_visible_for_alumno(...)` en BD:
+ *   - publicado=false ⇒ NO visible.
+ *   - publicar_at en el futuro ⇒ NO visible.
+ *   - despublicar_at en el pasado ⇒ NO visible.
+ */
+export function esVisibleAlumno(
+  obj: {
+    publicado?: boolean | null;
+    publicar_at?: string | null;
+    despublicar_at?: string | null;
+  } | null | undefined,
+): boolean {
+  if (!obj) return false;
+  if (obj.publicado === false) return false;
+  const now = Date.now();
+  if (obj.publicar_at && new Date(obj.publicar_at).getTime() > now) return false;
+  if (obj.despublicar_at && new Date(obj.despublicar_at).getTime() <= now) return false;
+  return true;
+}
+
+/** Etiqueta corta del estado de publicación, útil en chips de gerencia. */
+export function estadoPublicacion(
+  obj: {
+    publicado?: boolean | null;
+    publicar_at?: string | null;
+    despublicar_at?: string | null;
+  } | null | undefined,
+): {
+  tone: 'emerald' | 'slate' | 'amber' | 'rose';
+  label: string;
+} {
+  if (!obj) return { tone: 'slate', label: 'Borrador' };
+  const now = Date.now();
+  if (obj.publicado === false) return { tone: 'slate', label: 'Borrador' };
+  if (obj.publicar_at && new Date(obj.publicar_at).getTime() > now) {
+    return { tone: 'amber', label: 'Programado' };
+  }
+  if (obj.despublicar_at && new Date(obj.despublicar_at).getTime() <= now) {
+    return { tone: 'rose', label: 'Despublicado' };
+  }
+  return { tone: 'emerald', label: 'Publicado' };
+}
+
+export type CampusMediaScope = 'curso-banner' | 'curso-instructor' | 'modulo-icono' | 'clase-instructor';
+
+/**
+ * Sube una imagen al bucket público `campus-media` y devuelve la URL pública.
+ * Path determinístico: `{scope}/{ownerId}/{timestamp}-{filename}`.
+ * Cada subida sobreescribe la anterior si tiene la misma key (upsert=true).
+ */
+export async function uploadCampusMedia(
+  scope: CampusMediaScope,
+  ownerId: string,
+  file: File,
+): Promise<ApiResponse<string>> {
+  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+  const path = `${scope}/${ownerId}/${Date.now()}-${safeName}`;
+  const up = await supabase.storage
+    .from('campus-media')
+    .upload(path, file, { upsert: true, contentType: file.type || undefined });
+  if (up.error) return fail('CAMPUS_MEDIA_UPLOAD', up.error.message, up.error);
+  const { data } = supabase.storage.from('campus-media').getPublicUrl(path);
+  return ok(data.publicUrl);
+}
+
+/**
+ * Borra una URL pública del bucket `campus-media`.
+ * Convierte la URL pública en path interno y borra. Silencioso si no existe.
+ */
+export async function deleteCampusMedia(publicUrl: string | null | undefined): Promise<void> {
+  if (!publicUrl) return;
+  const marker = '/storage/v1/object/public/campus-media/';
+  const idx = publicUrl.indexOf(marker);
+  if (idx < 0) return;
+  const path = publicUrl.slice(idx + marker.length);
+  await supabase.storage.from('campus-media').remove([path]);
 }

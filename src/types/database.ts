@@ -1749,7 +1749,10 @@ export type Database = {
           created_at: string
           curso_id: string
           descripcion: string | null
+          despublicar_at: string | null
           id: string
+          publicado: boolean
+          publicar_at: string | null
           titulo: string
           url: string | null
         }
@@ -1759,7 +1762,10 @@ export type Database = {
           created_at?: string
           curso_id: string
           descripcion?: string | null
+          despublicar_at?: string | null
           id?: string
+          publicado?: boolean
+          publicar_at?: string | null
           titulo: string
           url?: string | null
         }
@@ -1769,7 +1775,10 @@ export type Database = {
           created_at?: string
           curso_id?: string
           descripcion?: string | null
+          despublicar_at?: string | null
           id?: string
+          publicado?: boolean
+          publicar_at?: string | null
           titulo?: string
           url?: string | null
         }
@@ -1787,11 +1796,15 @@ export type Database = {
         Row: {
           created_at: string
           descripcion: string | null
+          despublicar_at: string | null
           duracion_min: number | null
           id: string
+          instructor_foto_url: string | null
           material_url: string | null
           modulo_id: string
           orden: number
+          publicado: boolean
+          publicar_at: string | null
           tipo: string
           titulo: string
           updated_at: string
@@ -1802,11 +1815,15 @@ export type Database = {
         Insert: {
           created_at?: string
           descripcion?: string | null
+          despublicar_at?: string | null
           duracion_min?: number | null
           id?: string
+          instructor_foto_url?: string | null
           material_url?: string | null
           modulo_id: string
           orden?: number
+          publicado?: boolean
+          publicar_at?: string | null
           tipo?: string
           titulo: string
           updated_at?: string
@@ -1817,11 +1834,15 @@ export type Database = {
         Update: {
           created_at?: string
           descripcion?: string | null
+          despublicar_at?: string | null
           duracion_min?: number | null
           id?: string
+          instructor_foto_url?: string | null
           material_url?: string | null
           modulo_id?: string
           orden?: number
+          publicado?: boolean
+          publicar_at?: string | null
           tipo?: string
           titulo?: string
           updated_at?: string
@@ -2349,8 +2370,12 @@ export type Database = {
           created_at: string
           curso_id: string
           descripcion: string | null
+          despublicar_at: string | null
+          icono_url: string | null
           id: string
           orden: number
+          publicado: boolean
+          publicar_at: string | null
           titulo: string
           updated_at: string
         }
@@ -2358,8 +2383,12 @@ export type Database = {
           created_at?: string
           curso_id: string
           descripcion?: string | null
+          despublicar_at?: string | null
+          icono_url?: string | null
           id?: string
           orden?: number
+          publicado?: boolean
+          publicar_at?: string | null
           titulo: string
           updated_at?: string
         }
@@ -2367,8 +2396,12 @@ export type Database = {
           created_at?: string
           curso_id?: string
           descripcion?: string | null
+          despublicar_at?: string | null
+          icono_url?: string | null
           id?: string
           orden?: number
+          publicado?: boolean
+          publicar_at?: string | null
           titulo?: string
           updated_at?: string
         }
@@ -2512,16 +2545,19 @@ export type Database = {
           cupo_max: number | null
           descripcion: string | null
           descripcion_html: string | null
+          despublicar_at: string | null
           duracion_horas: number | null
           fecha_fin: string | null
           fecha_inicio: string | null
           id: string
           instructor_bio: string | null
+          instructor_foto_url: string | null
           instructor_nombre: string | null
           modalidad: string
           observaciones: string | null
           precio_lista: number | null
           presencia_minima_pct: number
+          publicar_at: string | null
           requisitos_html: string | null
           slug: string
           titulo: string
@@ -2539,16 +2575,19 @@ export type Database = {
           cupo_max?: number | null
           descripcion?: string | null
           descripcion_html?: string | null
+          despublicar_at?: string | null
           duracion_horas?: number | null
           fecha_fin?: string | null
           fecha_inicio?: string | null
           id?: string
           instructor_bio?: string | null
+          instructor_foto_url?: string | null
           instructor_nombre?: string | null
           modalidad?: string
           observaciones?: string | null
           precio_lista?: number | null
           presencia_minima_pct?: number
+          publicar_at?: string | null
           requisitos_html?: string | null
           slug: string
           titulo: string
@@ -2566,16 +2605,19 @@ export type Database = {
           cupo_max?: number | null
           descripcion?: string | null
           descripcion_html?: string | null
+          despublicar_at?: string | null
           duracion_horas?: number | null
           fecha_fin?: string | null
           fecha_inicio?: string | null
           id?: string
           instructor_bio?: string | null
+          instructor_foto_url?: string | null
           instructor_nombre?: string | null
           modalidad?: string
           observaciones?: string | null
           precio_lista?: number | null
           presencia_minima_pct?: number
+          publicar_at?: string | null
           requisitos_html?: string | null
           slug?: string
           titulo?: string

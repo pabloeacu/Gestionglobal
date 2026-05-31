@@ -22,6 +22,7 @@ import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
 import { cn } from '@/lib/cn';
 import {
   certificadoParaPdf,
+  esVisibleAlumno,
   getCertificadoMatricula,
   getCurso,
   getProgresoResumen,
@@ -140,12 +141,32 @@ export function CursoDetalleAlumnoPage() {
     [progreso],
   );
 
-  const clases = useMemo(() => {
+  // L1 (sesión 30/05/2026): el alumno sólo ve módulos y clases publicados, y
+  // sólo bibliografía publicada. Los recursos despublicados o programados a
+  // futuro se ocultan por completo de la vista.
+  const modulosVisibles = useMemo(() => {
     if (!data) return [];
-    return data.modulos.flatMap((m) =>
-      m.clases.map((c) => ({ ...c, modulo: m.titulo, moduloOrden: m.orden })),
-    );
+    return data.modulos
+      .filter((m) => esVisibleAlumno(m))
+      .map((m) => ({
+        ...m,
+        clases: m.clases.filter((c) => esVisibleAlumno(c)),
+      }))
+      .filter((m) => m.clases.length > 0);
   }, [data]);
+
+  const bibliografiaVisible = useMemo(() => {
+    if (!data) return [];
+    return data.bibliografia.filter((b) => esVisibleAlumno(b));
+  }, [data]);
+
+  const clases = useMemo(
+    () =>
+      modulosVisibles.flatMap((m) =>
+        m.clases.map((c) => ({ ...c, modulo: m.titulo, moduloOrden: m.orden })),
+      ),
+    [modulosVisibles],
+  );
 
   const claseActiva = useMemo(
     () => clases.find((c) => c.id === claseActivaId) ?? clases[0] ?? null,
@@ -254,10 +275,19 @@ export function CursoDetalleAlumnoPage() {
             className="opacity-15"
           />
           <nav className="relative space-y-3">
-            {data.modulos.map((m) => (
+            {modulosVisibles.map((m) => (
               <section key={m.id}>
-                <h3 className="kicker px-1 text-brand-muted">
-                  Módulo {m.orden} · {m.titulo}
+                <h3 className="kicker flex items-center gap-2 px-1 text-brand-muted">
+                  {m.icono_url && (
+                    <img
+                      src={m.icono_url}
+                      alt=""
+                      className="h-5 w-5 rounded border border-slate-200 object-cover"
+                    />
+                  )}
+                  <span>
+                    Módulo {m.orden} · {m.titulo}
+                  </span>
                 </h3>
                 <ul className="mt-1 space-y-1">
                   {m.clases.map((c) => {
@@ -346,7 +376,7 @@ export function CursoDetalleAlumnoPage() {
           )}
 
           {/* Bibliografía */}
-          {data.bibliografia.length > 0 && (
+          {bibliografiaVisible.length > 0 && (
             <section className="card-premium p-5">
               <header className="mb-2 flex items-center gap-2">
                 <BookOpen size={16} className="text-brand-cyan" />
@@ -355,7 +385,7 @@ export function CursoDetalleAlumnoPage() {
                 </h2>
               </header>
               <ul className="divide-y divide-slate-100">
-                {data.bibliografia.map((b) => (
+                {bibliografiaVisible.map((b) => (
                   <li
                     key={b.id}
                     className="flex items-center justify-between py-2 text-sm"

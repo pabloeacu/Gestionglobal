@@ -52,19 +52,28 @@ export function ClasePlayer({
 
   return (
     <article className="space-y-4 motion-safe:animate-fade-up">
-      <header className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <p className="kicker text-brand-cyan">
-            {CLASE_TIPO_LABEL[clase.tipo as ClaseTipo]}
-          </p>
-          <h2 className="mt-1 font-display text-2xl font-bold text-brand-ink">
-            {clase.titulo}
-          </h2>
-          {clase.descripcion && (
-            <p className="mt-2 max-w-2xl text-sm text-brand-muted">
-              {clase.descripcion}
-            </p>
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex items-start gap-3">
+          {clase.instructor_foto_url && (
+            <img
+              src={clase.instructor_foto_url}
+              alt=""
+              className="h-14 w-14 shrink-0 rounded-full border border-slate-200 object-cover shadow-sm"
+            />
           )}
+          <div>
+            <p className="kicker text-brand-cyan">
+              {CLASE_TIPO_LABEL[clase.tipo as ClaseTipo]}
+            </p>
+            <h2 className="mt-1 font-display text-2xl font-bold text-brand-ink">
+              {clase.titulo}
+            </h2>
+            {clase.descripcion && (
+              <p className="mt-2 max-w-2xl text-sm text-brand-muted">
+                {clase.descripcion}
+              </p>
+            )}
+          </div>
         </div>
         {completada ? (
           <span className="inline-flex items-center gap-1 self-start rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
