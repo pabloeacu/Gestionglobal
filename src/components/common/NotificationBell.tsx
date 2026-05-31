@@ -210,12 +210,13 @@ export function NotificationBell() {
   async function handleClickItem(it: NotifItem) {
     // UX-CAMP-01 · Si el cuerpo está truncado en el listado, abrimos un modal
     // con el contenido completo (independientemente de si hay URL — el modal
-    // tiene un botón "Ir" cuando aplica). Si no está truncado, comportamiento
-    // anterior: marcamos leída, cerramos y navegamos.
+    // tiene un botón "Ir" cuando aplica). El dropdown se cierra para que el
+    // modal quede como única capa visible. Si no está truncado: comportamiento
+    // anterior (marcar leída, cerrar, navegar).
     const isTrunc = truncatedIds.has(it.id);
     if (isTrunc) {
+      setOpen(false);
       setPreviewItem(it);
-      // Marcamos leído pero NO cerramos el panel — el modal queda encima.
       if (!it.leido_at) {
         setItems((prev) =>
           prev.map((x) => (x.id === it.id ? { ...x, leido_at: new Date().toISOString() } : x)),
