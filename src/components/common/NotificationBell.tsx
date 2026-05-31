@@ -99,14 +99,18 @@ export function NotificationBell() {
   const [previewItem, setPreviewItem] = useState<NotifItem | null>(null);
 
   // Recalcular truncados después de que los items rendericen.
+  // Depende también de anchorRect: el dropdown sólo se monta cuando anchorRect
+  // existe (createPortal), y los refs se attachan en ese momento. Sin esta
+  // dep, en el primer open la medición corre antes de tener los refs en el
+  // DOM y el Set queda vacío para siempre.
   useLayoutEffect(() => {
-    if (!open) return;
+    if (!open || !anchorRect) return;
     const truncated = new Set<string>();
     cuerpoRefs.current.forEach((el, id) => {
       if (el && el.scrollWidth > el.clientWidth + 1) truncated.add(id);
     });
     setTruncatedIds(truncated);
-  }, [open, items]);
+  }, [open, items, anchorRect]);
 
   // Refresca count + items.
   const refresh = useCallback(async () => {
