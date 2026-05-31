@@ -155,7 +155,15 @@ export interface TrackingVencimientoLigado {
 
 export interface TrackingDetail extends TrackingRow {
   // 2.D · sla_dias del servicio para el indicador de SLA del header.
-  servicio: { id: string; nombre: string; codigo: string; sla_dias: number | null } | null;
+  // FIX-V4 · vigencia_meses: si != null, al cerrar el tracking ofrecemos
+  // programar el próximo vencimiento (renovación).
+  servicio: {
+    id: string;
+    nombre: string;
+    codigo: string;
+    sla_dias: number | null;
+    vigencia_meses: number | null;
+  } | null;
   administracion: { id: string; nombre: string; email: string | null } | null;
   consorcio: { id: string; nombre: string } | null;
   parent: { id: string; periodo: string | null; estado: string } | null;
@@ -176,7 +184,7 @@ export async function getTracking(id: string): Promise<ApiResponse<TrackingDetai
     .from('tramites')
     .select(
       `*,
-       servicio:servicios(id,nombre,codigo,sla_dias),
+       servicio:servicios(id,nombre,codigo,sla_dias,vigencia_meses),
        administracion:administraciones(id,nombre,email),
        consorcio:consorcios(id,nombre)`,
     )
