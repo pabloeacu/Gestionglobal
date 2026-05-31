@@ -15,7 +15,7 @@
 // Reglas 4 (sin .from() acá) + 13 (sin window.confirm; sólo toasts).
 // ============================================================================
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   Bell,
@@ -31,6 +31,7 @@ import {
   NotebookPen,
   Trash2,
   X,
+  ArrowRight,
   type LucideIcon,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
@@ -45,6 +46,8 @@ import {
   type NotifItem,
 } from '@/services/api/notificaciones';
 import { cn } from '@/lib/cn';
+import { Button } from './Button';
+import { Modal } from './Modal';
 
 // Mapeo tipo → ícono + tinte del avatar.
 interface TipoMeta { icon: LucideIcon; chip: string }
@@ -87,6 +90,23 @@ export function NotificationBell() {
   const buttonRef = useRef<HTMLButtonElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
   const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
+
+  // UX-CAMP-01 · Si el cuerpo está truncado en el listado, al hacer click
+  // abrimos un modal con título + cuerpo completos (en vez de marcarlo leído
+  // y perder la info). Detección via scrollWidth > clientWidth de cada cuerpo.
+  const cuerpoRefs = useRef<Map<string, HTMLParagraphElement | null>>(new Map());
+  const [truncatedIds, setTruncatedIds] = useState<Set<string>>(new Set());
+  const [previewItem, setPreviewItem] = useState<NotifItem | null>(null);
+
+  // Recalcular truncados después de que los items rendericen.
+  useLayoutEffect(() => {
+    if (!open) return;
+    const truncated = new Set<string>();
+    cuerpoRefs.current.forEach((el, id) => {
+      if (el && el.scrollWidth > el.clientWidth + 1) truncated.add(id);
+    });
+    setTruncatedIds(truncated);
+  }, [open, items]);
 
   // Refresca count + items.
   const refresh = useCallback(async () => {
@@ -169,8 +189,8 @@ export function NotificationBell() {
     };
   }, [open]);
 
-  async function handleClickItem(it: NotifItem) {
-    // Optimistic: marcar leída en UI antes de la RPC.
+  // Marca leído + cierra panel + navega si hay url (acción "consumir").
+  function consumirItem(it: NotifItem) {
     setItems((prev) =>
       prev.map((x) => (x.id === it.id ? { ...x, leido_at: x.leido_at ?? new Date().toISOString() } : x)),
     );
@@ -181,6 +201,27 @@ export function NotificationBell() {
       window.history.pushState({}, '', it.url);
       window.dispatchEvent(new PopStateEvent('popstate'));
     }
+  }
+
+  async function handleClickItem(it: NotifItem) {
+    // UX-CAMP-01 · Si el cuerpo no entra y el item no tiene URL de destino,
+    // abrimos un modal con el contenido completo. Si tiene URL, vamos directo
+    // a esa pantalla — ahí el cliente ve todo el contexto, no hace falta
+    // mostrar otra capa.
+    const isTrunc = truncatedIds.has(it.id);
+    if (isTrunc && !it.url) {
+      setPreviewItem(it);
+      // Marcamos leído pero NO cerramos el panel — el modal queda encima.
+      if (!it.leido_at) {
+        setItems((prev) =>
+          prev.map((x) => (x.id === it.id ? { ...x, leido_at: new Date().toISOString() } : x)),
+        );
+        setCount((c) => Math.max(0, c - 1));
+        void notifMarcarLeida(it.id);
+      }
+      return;
+    }
+    consumirItem(it);
   }
 
   async function handleLimpiarTodas() {
@@ -343,7 +384,13 @@ export function NotificationBell() {
                         {it.titulo}
                       </p>
                       {it.cuerpo && (
-                        <p className="mt-0.5 truncate text-[11.5px] text-brand-muted">
+                        <p
+                          ref={(el) => {
+                            if (el) cuerpoRefs.current.set(it.id, el);
+                            else cuerpoRefs.current.delete(it.id);
+                          }}
+                          className="mt-0.5 truncate text-[11.5px] text-brand-muted"
+                        >
                           {it.cuerpo}
                         </p>
                       )}
@@ -402,6 +449,50 @@ export function NotificationBell() {
           </div>,
           document.body,
         )}
+
+      {/* UX-CAMP-01 · Modal con el contenido completo cuando el cuerpo no entra
+          en el listado. */}
+      <Modal
+        open={!!previewItem}
+        onClose={() => setPreviewItem(null)}
+        title={previewItem?.titulo}
+        kicker={previewItem ? relativeTime(previewItem.created_at) : undefined}
+        icon={
+          previewItem ? (() => {
+            const M = metaFor(previewItem.tipo);
+            const I = M.icon;
+            return <I size={18} />;
+          })() : undefined
+        }
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setPreviewItem(null)}>
+              Cerrar
+            </Button>
+            {previewItem?.url && (
+              <Button
+                onClick={() => {
+                  const it = previewItem;
+                  if (!it) return;
+                  setPreviewItem(null);
+                  consumirItem(it);
+                }}
+              >
+                Ir <ArrowRight size={14} className="ml-1" />
+              </Button>
+            )}
+          </>
+        }
+        width={520}
+      >
+        {previewItem?.cuerpo ? (
+          <p className="whitespace-pre-line text-sm leading-relaxed text-brand-ink">
+            {previewItem.cuerpo}
+          </p>
+        ) : (
+          <p className="text-sm text-brand-muted">Sin contenido adicional.</p>
+        )}
+      </Modal>
     </>
   );
 }
