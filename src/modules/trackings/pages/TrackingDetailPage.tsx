@@ -11,7 +11,7 @@
 // recurrencia (trackings hermanos) + configuración custom de estados/categorías.
 // Regla 13: useConfirm en lugar de window.confirm.
 // ============================================================================
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useDropZone } from '@/lib/useDropZone';
 import { supabase } from '@/lib/supabase';
@@ -119,6 +119,54 @@ export function TrackingDetailPage() {
   const [accesos, setAccesos] = useState<AccesoConAperturas[]>([]);
   // Error in-place (no redirigir al listado: enmascara fallos — E-GG-04 bonus).
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // 2.F · Drag&drop sobre el detalle. Cuando soltás archivos, los sube al
+  // bucket `gestor-uploads` y crea una línea "Documentación adjunta"
+  // automáticamente. IMPORTANTE: este hook tiene que ir ANTES del early
+  // return de loading/!data para no violar Rules of Hooks (React #310).
+  const handleFilesDrop = useCallback(async (files: File[]) => {
+    const tid = data?.id;
+    if (!tid || files.length === 0) return;
+    toast.info(`Subiendo ${files.length} archivo${files.length === 1 ? '' : 's'}…`);
+    const urls: string[] = [];
+    for (const f of files) {
+      const safe = f.name.replace(/[^\w.\-]/g, '_');
+      const path = `tracking-${tid}/${Date.now()}-${Math.random()
+        .toString(36)
+        .slice(2, 8)}-${safe}`;
+      const { error } = await supabase.storage
+        .from('gestor-uploads')
+        .upload(path, f, { upsert: false, contentType: f.type || undefined });
+      if (error) {
+        toast.error(`No se pudo subir ${f.name}`, { description: error.message });
+        continue;
+      }
+      const { data: pub } = supabase.storage
+        .from('gestor-uploads')
+        .getPublicUrl(path);
+      urls.push(pub.publicUrl);
+    }
+    if (urls.length === 0) return;
+    const { agregarLinea } = await import('@/services/api/trackings');
+    const res = await agregarLinea(tid, {
+      categoria: 'documentacion',
+      descripcion: `Documentación adjunta (${urls.length} archivo${urls.length === 1 ? '' : 's'} via drag&drop)`,
+      archivos_urls: urls,
+      visible_cliente: false,
+    });
+    if (!res.ok) {
+      toast.error('Archivos subidos pero no pudimos crear la línea', {
+        description: res.error.message,
+      });
+      return;
+    }
+    toast.success(`${urls.length} archivo${urls.length === 1 ? '' : 's'} agregado${urls.length === 1 ? '' : 's'} al tracking`);
+    void load();
+  }, [data?.id]);
+  const { isDragOver, dropProps } = useDropZone({
+    onDrop: handleFilesDrop,
+    disabled: !isStaff || !data,
+  });
 
   async function load() {
     if (!id) return;
@@ -285,19 +333,25 @@ export function TrackingDetailPage() {
     }
   }
 
+  // FIX-V4 · Unificación: si el servicio tiene vigencia_meses != null, al cerrar
+  // el trámite encadenamos al ProgramarVencimientoModal para que el gerente
+  // setee la próxima fecha en el mismo flujo. Si vigencia_meses == null,
+  // sólo cierra el trámite.
   async function handleCerrar() {
     if (!data) return;
+    const tieneRenovacion = (data.servicio?.vigencia_meses ?? null) !== null;
+
     if (data.estado !== 'aprobado' && data.estado !== 'resuelto') {
       const cont = await confirm({
-        title: 'Cerrar tracking',
+        title: tieneRenovacion ? 'Cerrar trámite y programar próximo vencimiento' : 'Cerrar trámite',
         message: `El estado actual es "${data.estado}". ¿Cerrarlo igualmente?`,
-        confirmLabel: 'Cerrar',
+        confirmLabel: 'Continuar',
         danger: true,
       });
       if (!cont) return;
     }
     const url = await prompt({
-      title: 'Cerrar tracking',
+      title: 'Cerrar trámite',
       message: 'URL del documento final (certificado / diploma):',
       placeholder: 'https://…',
     });
@@ -307,8 +361,14 @@ export function TrackingDetailPage() {
       toast.error(res.error.message);
       return;
     }
-    toast.success('Tracking cerrado');
-    void load();
+    if (tieneRenovacion) {
+      await load();
+      toast.success('Trámite cerrado · programá el próximo vencimiento');
+      setProgramarOpen(true);
+    } else {
+      toast.success('Trámite cerrado');
+      void load();
+    }
   }
 
   if (!loading && errorMsg && !data) {
@@ -373,54 +433,6 @@ export function TrackingDetailPage() {
       hidden: !isStaff,
     },
   ];
-
-  // 2.F · Drag&drop sobre el detalle. Cuando soltás archivos, los sube al
-  // bucket `gestor-uploads` y crea una línea "Documentación adjunta"
-  // automáticamente. Convierte tareas que tomaban 4 clics + drawer en un solo
-  // gesto. Sólo staff: el botón normal sigue siendo "+ Agregar línea".
-  const trackingId = data.id;
-  async function handleFilesDrop(files: File[]) {
-    if (files.length === 0) return;
-    toast.info(`Subiendo ${files.length} archivo${files.length === 1 ? '' : 's'}…`);
-    const urls: string[] = [];
-    for (const f of files) {
-      const safe = f.name.replace(/[^\w.\-]/g, '_');
-      const path = `tracking-${trackingId}/${Date.now()}-${Math.random()
-        .toString(36)
-        .slice(2, 8)}-${safe}`;
-      const { error } = await supabase.storage
-        .from('gestor-uploads')
-        .upload(path, f, { upsert: false, contentType: f.type || undefined });
-      if (error) {
-        toast.error(`No se pudo subir ${f.name}`, { description: error.message });
-        continue;
-      }
-      const { data: pub } = supabase.storage
-        .from('gestor-uploads')
-        .getPublicUrl(path);
-      urls.push(pub.publicUrl);
-    }
-    if (urls.length === 0) return;
-    const { agregarLinea } = await import('@/services/api/trackings');
-    const res = await agregarLinea(trackingId, {
-      categoria: 'documentacion',
-      descripcion: `Documentación adjunta (${urls.length} archivo${urls.length === 1 ? '' : 's'} via drag&drop)`,
-      archivos_urls: urls,
-      visible_cliente: false,
-    });
-    if (!res.ok) {
-      toast.error('Archivos subidos pero no pudimos crear la línea', {
-        description: res.error.message,
-      });
-      return;
-    }
-    toast.success(`${urls.length} archivo${urls.length === 1 ? '' : 's'} agregado${urls.length === 1 ? '' : 's'} al tracking`);
-    void load();
-  }
-  const { isDragOver, dropProps } = useDropZone({
-    onDrop: handleFilesDrop,
-    disabled: !isStaff,
-  });
 
   return (
     <div
@@ -527,7 +539,10 @@ export function TrackingDetailPage() {
             )}
             {isStaff && data.estado !== 'cerrado' && (
               <Button variant="secondary" onClick={() => void handleCerrar()}>
-                <CheckCircle2 className="h-4 w-4" /> Cerrar tracking
+                <CheckCircle2 className="h-4 w-4" />{' '}
+                {data.servicio?.vigencia_meses
+                  ? 'Cerrar trámite y programar próximo vencimiento'
+                  : 'Cerrar trámite'}
               </Button>
             )}
             {/* Programar próximo vencimiento — visible cuando el tracking está
@@ -816,6 +831,12 @@ export function TrackingDetailPage() {
         }}
         trackingId={data.id}
         trackingTitulo={data.titulo}
+        // FIX-V4 · precalcular fecha sugerida desde vigencia_meses del servicio.
+        periodoSugeridoDias={
+          data.servicio?.vigencia_meses != null
+            ? Math.round(data.servicio.vigencia_meses * 30.4375)
+            : undefined
+        }
         onProgramado={() => void load()}
         // 2.G · si estamos editando, precargamos el vencimiento ligado.
         vencimientoExistente={
