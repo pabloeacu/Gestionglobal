@@ -339,12 +339,16 @@ function DatosTab({
           <ImageUploader
             value={instructorFoto}
             onChange={setInstructorFoto}
+            onPersist={async (url) => {
+              const r = await actualizarCurso(data.curso.id, { instructor_foto_url: url });
+              if (!r.ok) toast.error(r.error.message);
+              else onChanged();
+            }}
             scope="curso-instructor"
             ownerId={data.curso.id}
             shape="circle"
-            size={96}
             label="Foto del instructor"
-            hint="Circular. ≤ 5 MB."
+            hint="Recortable, con zoom y rotación. ≤ 5 MB."
           />
           <div className="space-y-3">
             <Field label="Instructor">
@@ -370,16 +374,20 @@ function DatosTab({
               Imagen banner / flyer del curso
             </span>
           </div>
-          <div className="grid gap-3 sm:grid-cols-[240px_1fr]">
+          <div className="grid gap-4 sm:grid-cols-[300px_1fr]">
             <ImageUploader
               value={banner || null}
               onChange={(url) => setBanner(url ?? '')}
+              onPersist={async (url) => {
+                const r = await actualizarCurso(data.curso.id, { banner_url: url });
+                if (!r.ok) toast.error(r.error.message);
+                else onChanged();
+              }}
               scope="curso-banner"
               ownerId={data.curso.id}
               shape="wide"
-              size={80}
               label="Banner"
-              hint="Aparece en la landing del curso. Rectangular. ≤ 5 MB."
+              hint="Aparece en la landing del curso. Recortable 3:1. ≤ 5 MB."
             />
             <Field
               label="O pegar URL externa (opcional)"

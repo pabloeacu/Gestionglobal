@@ -294,16 +294,20 @@ function ModuloEditor({
       {expanded && (
         <div className="space-y-4 p-4">
           {/* Edición del módulo */}
-          <div className="grid gap-3 lg:grid-cols-[120px_1fr]">
+          <div className="grid gap-4 sm:grid-cols-[180px_1fr]">
             <ImageUploader
               value={icono}
               onChange={setIcono}
+              onPersist={async (url) => {
+                const r = await actualizarModulo(modulo.id, { icono_url: url });
+                if (!r.ok) toast.error(r.error.message);
+                else onChanged();
+              }}
               scope="modulo-icono"
               ownerId={modulo.id}
               shape="square"
-              size={88}
               label="Ícono"
-              hint="Cuadrada. ≤ 5 MB."
+              hint="Aparece junto al nombre del módulo. Recortable y cuadrada. ≤ 5 MB."
             />
             <div className="space-y-3">
               <Field label="Título del módulo" required>
@@ -551,17 +555,21 @@ function ClaseEditor({
           </div>
 
           {/* Edición */}
-          <div className="grid gap-3 sm:grid-cols-[110px_1fr]">
+          <div className="grid gap-4 sm:grid-cols-[180px_1fr]">
             {tipo === 'asincronica_video' && (
               <ImageUploader
                 value={foto}
                 onChange={setFoto}
+                onPersist={async (url) => {
+                  const r = await actualizarClase(clase.id, { instructor_foto_url: url });
+                  if (!r.ok) toast.error(r.error.message);
+                  else onChanged();
+                }}
                 scope="clase-instructor"
                 ownerId={clase.id}
                 shape="circle"
-                size={88}
                 label="Foto del docente"
-                hint="Circular. ≤ 5 MB."
+                hint="Aparece como avatar circular del docente al lado del título de la clase. Recortable. ≤ 5 MB."
               />
             )}
             <div className={cn('space-y-3', tipo !== 'asincronica_video' && 'sm:col-span-2')}>
