@@ -17,6 +17,8 @@ import { agruparPorDia, type ItemCalendario } from '@/lib/agendaRender';
 import { toast } from '@/lib/toast';
 import { CirculoHecha } from './CirculoHecha';
 import { colorDeFuente } from '../fuenteColor';
+import { MasEventosPopover } from './MasEventosPopover';
+import { HoverPreview } from './HoverPreview';
 
 const MES_HINT_LS_KEY = 'gg.agenda.mesHint';
 
@@ -91,6 +93,13 @@ export function VistaMes({
 
   const [dragOverKey, setDragOverKey] = useState<string | null>(null);
   const [drag, setDrag] = useState<{ ocKey: string; title: string } | null>(null);
+  // 3.H · popover "+N más" anclado a la celda + cantidad oculta.
+  const [popover, setPopover] = useState<{
+    fecha: Date;
+    items: ItemCalendario[];
+    x: number;
+    y: number;
+  } | null>(null);
   const hoy = ymd(new Date());
 
   // Toast one-time como reemplazo del tip pasivo (regla 13: usamos sonner).
@@ -205,44 +214,47 @@ export function VistaMes({
                   }
                   // Proyectada (read-only, Lock, color tenue). 3.D · borde
                   // izquierdo 3px con el color de la fuente para lectura
-                  // instantánea por categoría.
+                  // instantánea por categoría. 3.B · HoverPreview reemplaza
+                  // el `title=` HTML nativo por un tooltip premium con datos.
                   const p = it.proyeccion;
                   const cf = colorDeFuente(p.fuente);
                   return (
-                    <button
+                    <HoverPreview
                       key={`${p.fuente}-${p.origenId}-${idx}`}
-                      type="button"
-                      data-proy
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onAbrirProyectada?.(p);
-                      }}
-                      className="flex w-full items-center gap-1 truncate rounded px-1 py-0.5 text-left text-[10px] text-white"
-                      style={{
-                        background: p.color,
-                        opacity: 0.6,
-                        borderLeft: `3px solid ${cf}`,
-                      }}
-                      title={`${p.title} · sólo lectura`}
+                      proyectada={p}
                     >
-                      <Lock size={9} className="shrink-0 text-white/95" />
-                      <span className="truncate">{p.title}</span>
-                    </button>
+                      <button
+                        type="button"
+                        data-proy
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onAbrirProyectada?.(p);
+                        }}
+                        className="flex w-full items-center gap-1 truncate rounded px-1 py-0.5 text-left text-[10px] text-white"
+                        style={{
+                          background: p.color,
+                          opacity: 0.6,
+                          borderLeft: `3px solid ${cf}`,
+                        }}
+                      >
+                        <Lock size={9} className="shrink-0 text-white/95" />
+                        <span className="truncate">{p.title}</span>
+                      </button>
+                    </HoverPreview>
                   );
                 })}
                 {ocultos > 0 && (
                   <button
                     type="button"
                     onClick={(e) => {
-                      // Abre el primero de los ocultos. Si es proyectado o
-                      // personal, decide en el handler correspondiente.
-                      const it = items[3];
-                      if (!it) return;
-                      if (it.kind === 'personal') {
-                        onAbrirAcciones(it.ocurrencia, e.clientX, e.clientY);
-                      } else {
-                        onAbrirProyectada?.(it.proyeccion);
-                      }
+                      // 3.H · abre popover con TODOS los items del día.
+                      e.stopPropagation();
+                      setPopover({
+                        fecha: d,
+                        items,
+                        x: e.clientX,
+                        y: e.clientY,
+                      });
                     }}
                     className="block text-[10px] text-brand-cyan hover:underline"
                   >
@@ -254,6 +266,28 @@ export function VistaMes({
           );
         })}
       </div>
+
+      {popover && (
+        <MasEventosPopover
+          fecha={popover.fecha}
+          items={popover.items}
+          categorias={categorias}
+          x={popover.x}
+          y={popover.y}
+          onClose={() => setPopover(null)}
+          onAbrirAcciones={(oc, x, y) => {
+            setPopover(null);
+            onAbrirAcciones(oc, x, y);
+          }}
+          onToggleDone={(oc) => {
+            onToggleDone(oc);
+          }}
+          onAbrirProyectada={(p) => {
+            setPopover(null);
+            onAbrirProyectada?.(p);
+          }}
+        />
+      )}
     </div>
   );
 }

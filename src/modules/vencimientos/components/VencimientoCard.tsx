@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import {
   CalendarClock,
   AlertTriangle,
+  Inbox,
   RefreshCcw,
   Ban,
   Sparkles,
@@ -127,6 +128,21 @@ export function VencimientoCard({ venc, onRenovar, onCancelar, compact }: Props)
             </Link>
           </span>
         </div>
+      )}
+
+      {/* 6.F · chip "Desde tracking": linkea al detalle del trámite que
+          generó este vencimiento (DGG-07). */}
+      {venc.tracking_id && (
+        <Link
+          to={`/gerencia/trackings/${venc.tracking_id}`}
+          className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-violet-200 bg-violet-50 px-2 py-0.5 text-[10px] font-medium text-violet-700 transition hover:bg-violet-100"
+          title="Generado desde un tracking · abrir detalle"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <Inbox size={10} />
+          Desde tracking
+          <ChevronRight size={10} />
+        </Link>
       )}
 
       {(onRenovar || onCancelar) && !compact && (

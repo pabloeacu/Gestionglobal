@@ -32,6 +32,9 @@ import { VencimientoFormDrawer } from '../components/VencimientoFormDrawer';
 import { RenovarModal } from '../components/RenovarModal';
 import { BulkRenovarModal } from '../components/BulkRenovarModal';
 import { VencimientoCard } from '../components/VencimientoCard';
+import { MiniMapaVencimientos } from '../components/MiniMapaVencimientos';
+import { useUrlFilters } from '@/lib/useUrlFilters';
+import { usePullToRefresh } from '@/lib/usePullToRefresh';
 import { CheckSquare, RefreshCcw as RefreshIcon, Square, X as CloseIcon } from 'lucide-react';
 import {
   getProximosVencimientos,
@@ -60,10 +63,26 @@ export function VencimientosListPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [search, setSearch] = useState('');
-  const [tipo, setTipo] = useState<TipoFilter>('todos');
-  const [estado, setEstado] = useState<EstadoFilter>('todos');
-  const [horizonte, setHorizonte] = useState<number>(90);
+  // 7.G · filtros persistidos en URL: deep-link, back/forward y compartir
+  // vistas. El hook escribe sólo los no-default para mantener el query limpio.
+  const [urlFilters, setUrlFilter] = useUrlFilters({
+    q: '',
+    tipo: 'todos',
+    estado: 'todos',
+    horizonte: '90',
+    dia: '',
+  });
+  const search = urlFilters.q;
+  const setSearch = (v: string) => setUrlFilter('q', v);
+  const tipo = urlFilters.tipo as TipoFilter;
+  const setTipo = (v: TipoFilter) => setUrlFilter('tipo', v);
+  const estado = urlFilters.estado as EstadoFilter;
+  const setEstado = (v: EstadoFilter) => setUrlFilter('estado', v);
+  const horizonte = parseInt(urlFilters.horizonte, 10) || 90;
+  const setHorizonte = (v: number) => setUrlFilter('horizonte', String(v));
+  // 6.C · día foco del mini-mapa (filtra la lista al click en una celda).
+  const diaFiltro = urlFilters.dia || null;
+  const setDiaFiltro = (v: string | null) => setUrlFilter('dia', v ?? '');
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [renovar, setRenovar] = useState<ProximoVencimiento | null>(null);
@@ -118,6 +137,7 @@ export function VencimientosListPage() {
     return rows.filter((r) => {
       if (tipo !== 'todos' && r.tipo !== tipo) return false;
       if (estado !== 'todos' && r.estado !== estado) return false;
+      if (diaFiltro && r.fecha_vencimiento !== diaFiltro) return false;
       if (search.trim().length > 0) {
         const s = search.trim().toLowerCase();
         const hay = [
@@ -133,7 +153,12 @@ export function VencimientosListPage() {
       }
       return true;
     });
-  }, [rows, tipo, estado, search]);
+  }, [rows, tipo, estado, search, diaFiltro]);
+
+  // 7.E · Pull-to-refresh en mobile. En desktop no afecta (sin touch events).
+  const pullRefresh = usePullToRefresh(async () => {
+    await load();
+  });
 
   // 6.A · agrupar por administración para la vista "Por cliente". Cada grupo
   // trae su resumen de vencimientos críticos (<30d, vigentes).
@@ -347,7 +372,39 @@ export function VencimientosListPage() {
   }
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6">
+    <div
+      className="mx-auto max-w-7xl space-y-6"
+      {...pullRefresh.listeners}
+      style={{
+        transform: pullRefresh.pullPx > 0 ? `translateY(${pullRefresh.pullPx}px)` : undefined,
+        transition: pullRefresh.pullPx === 0 ? 'transform 0.2s' : undefined,
+      }}
+    >
+      {/* 7.E · indicador pull-to-refresh */}
+      {pullRefresh.pullPx > 0 && (
+        <div
+          className="pointer-events-none absolute inset-x-0 top-0 z-10 flex justify-center pt-3"
+          aria-live="polite"
+        >
+          <span
+            className={cn(
+              'inline-flex items-center gap-2 rounded-full bg-brand-cyan/90 px-3 py-1 text-xs font-semibold text-white shadow',
+              pullRefresh.refreshing && 'animate-pulse',
+            )}
+          >
+            <RefreshIcon
+              size={12}
+              className={cn(pullRefresh.refreshing && 'animate-spin')}
+              style={{ transform: `rotate(${pullRefresh.visiblePct * 360}deg)` }}
+            />
+            {pullRefresh.refreshing
+              ? 'Actualizando…'
+              : pullRefresh.visiblePct >= 1
+                ? 'Soltá para actualizar'
+                : 'Bajá para actualizar'}
+          </span>
+        </div>
+      )}
       <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="kicker text-brand-cyan">Datos estratégicos</p>
@@ -572,7 +629,37 @@ export function VencimientosListPage() {
           density="soft"
           className="opacity-20"
         />
-        <div className="relative">
+        <div className="relative space-y-4">
+          {/* 6.C · Mini-mapa heatmap de vencimientos: vista panorámica de
+              los próximos N días. Click en una celda focaliza la lista.
+              Sólo en desktop (en mobile ocupa demasiado). */}
+          {!loading && rows.length > 0 && (
+            <div className="hidden lg:block">
+              <MiniMapaVencimientos
+                vencimientos={rows}
+                dias={horizonte}
+                selectedYmd={diaFiltro}
+                onPickDay={(ymd, _f, count) => {
+                  if (count === 0) return;
+                  setDiaFiltro(diaFiltro === ymd ? null : ymd);
+                }}
+              />
+              {diaFiltro && (
+                <div className="mt-2 flex items-center gap-2 text-xs">
+                  <span className="text-brand-muted">
+                    Filtrando por día: {diaFiltro}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setDiaFiltro(null)}
+                    className="rounded-full bg-brand-cyan-pale/40 px-2 py-0.5 text-brand-cyan hover:bg-brand-cyan-pale"
+                  >
+                    Quitar filtro
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
           {loading ? (
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {Array.from({ length: 6 }).map((_, i) => (

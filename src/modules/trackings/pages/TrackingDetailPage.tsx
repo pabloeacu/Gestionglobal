@@ -13,6 +13,8 @@
 // ============================================================================
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { useDropZone } from '@/lib/useDropZone';
+import { supabase } from '@/lib/supabase';
 import {
   ArrowLeft,
   Briefcase,
@@ -372,8 +374,76 @@ export function TrackingDetailPage() {
     },
   ];
 
+  // 2.F · Drag&drop sobre el detalle. Cuando soltás archivos, los sube al
+  // bucket `gestor-uploads` y crea una línea "Documentación adjunta"
+  // automáticamente. Convierte tareas que tomaban 4 clics + drawer en un solo
+  // gesto. Sólo staff: el botón normal sigue siendo "+ Agregar línea".
+  const trackingId = data.id;
+  async function handleFilesDrop(files: File[]) {
+    if (files.length === 0) return;
+    toast.info(`Subiendo ${files.length} archivo${files.length === 1 ? '' : 's'}…`);
+    const urls: string[] = [];
+    for (const f of files) {
+      const safe = f.name.replace(/[^\w.\-]/g, '_');
+      const path = `tracking-${trackingId}/${Date.now()}-${Math.random()
+        .toString(36)
+        .slice(2, 8)}-${safe}`;
+      const { error } = await supabase.storage
+        .from('gestor-uploads')
+        .upload(path, f, { upsert: false, contentType: f.type || undefined });
+      if (error) {
+        toast.error(`No se pudo subir ${f.name}`, { description: error.message });
+        continue;
+      }
+      const { data: pub } = supabase.storage
+        .from('gestor-uploads')
+        .getPublicUrl(path);
+      urls.push(pub.publicUrl);
+    }
+    if (urls.length === 0) return;
+    const { agregarLinea } = await import('@/services/api/trackings');
+    const res = await agregarLinea(trackingId, {
+      categoria: 'documentacion',
+      descripcion: `Documentación adjunta (${urls.length} archivo${urls.length === 1 ? '' : 's'} via drag&drop)`,
+      archivos_urls: urls,
+      visible_cliente: false,
+    });
+    if (!res.ok) {
+      toast.error('Archivos subidos pero no pudimos crear la línea', {
+        description: res.error.message,
+      });
+      return;
+    }
+    toast.success(`${urls.length} archivo${urls.length === 1 ? '' : 's'} agregado${urls.length === 1 ? '' : 's'} al tracking`);
+    void load();
+  }
+  const { isDragOver, dropProps } = useDropZone({
+    onDrop: handleFilesDrop,
+    disabled: !isStaff,
+  });
+
   return (
-    <div className="space-y-6 motion-safe:animate-fade-up">
+    <div
+      className={cn(
+        'relative space-y-6 motion-safe:animate-fade-up',
+        isDragOver && 'rounded-3xl outline outline-4 outline-brand-cyan/40',
+      )}
+      {...dropProps}
+    >
+      {/* 2.F · overlay de drop visible cuando arrastrás archivos sobre el detalle. */}
+      {isDragOver && (
+        <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-brand-cyan/10 backdrop-blur-[1px]">
+          <div className="rounded-2xl border-2 border-dashed border-brand-cyan bg-white/90 px-6 py-5 text-center shadow-2xl">
+            <Paperclip size={28} className="mx-auto mb-2 text-brand-cyan" />
+            <p className="font-display text-base font-semibold text-brand-ink">
+              Soltá para adjuntar al tracking
+            </p>
+            <p className="mt-1 text-xs text-brand-muted">
+              Se crea una línea "Documentación adjunta" automáticamente
+            </p>
+          </div>
+        </div>
+      )}
       {/* Header premium */}
       <header className="relative overflow-hidden rounded-3xl border border-slate-200 bg-gradient-to-br from-white via-cyan-50/40 to-white p-6">
         <TrianglesAccent position="top-right" />

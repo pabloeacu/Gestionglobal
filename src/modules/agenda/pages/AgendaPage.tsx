@@ -766,8 +766,25 @@ export function AgendaPage({ initialTab }: AgendaPageProps = {}) {
 
       {/* Vista */}
       {loading ? (
-        <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm text-brand-muted">
-          Cargando agenda...
+        // 3.F · Skeleton shimmer en vez de "Cargando agenda..." plano.
+        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+          <div className="space-y-2">
+            {[0, 1, 2, 3, 4].map((i) => (
+              <div
+                key={i}
+                className="flex items-center gap-3 rounded-lg px-3 py-3"
+                role="status"
+                aria-label="Cargando agenda"
+              >
+                <div className="h-4 w-4 shrink-0 animate-pulse rounded-full bg-slate-200" />
+                <div className="h-2 w-2 shrink-0 rounded-full bg-slate-200" />
+                <div className="flex-1 space-y-1.5">
+                  <div className="h-3 w-2/3 animate-pulse rounded bg-slate-200" />
+                  <div className="h-2 w-1/3 animate-pulse rounded bg-slate-100" />
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       ) : !mostrarPersonal ? (
         <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm text-brand-muted">

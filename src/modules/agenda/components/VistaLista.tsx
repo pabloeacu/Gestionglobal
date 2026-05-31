@@ -21,16 +21,19 @@ import {
   Trash2,
 } from 'lucide-react';
 import {
+  actualizarEvento,
   type AgendaCategoria,
   type AgendaEvento,
   type AgendaOverride,
   type OcurrenciaUnificada,
 } from '@/services/api/agenda';
 import { etiquetaRecurrencia, expandirRango, type Ocurrencia } from '@/lib/agendaRecurrencia';
+import { toast } from '@/lib/toast';
 import { labelFuente, type ItemCalendario } from '@/lib/agendaRender';
-import { colorDeFuente } from '../fuenteColor';
+import { colorDeFuente, FUENTE_LABEL } from '../fuenteColor';
 import { CirculoHecha } from './CirculoHecha';
 import { ChipCategoria } from './ChipCategoria';
+import { HoverPreview } from './HoverPreview';
 
 interface Props {
   eventos: AgendaEvento[];
@@ -352,40 +355,43 @@ function ItemProyFila({
     : null;
   // 3.D · borde izquierdo 3px con el color de la fuente para lectura
   // instantánea por categoría (vencimiento ambar, comprobante rojo, …).
+  // 3.B · HoverPreview en lugar de `title=` HTML.
   return (
-    <button
-      type="button"
-      onClick={() => onAbrir?.(p)}
-      className={`group flex w-full items-center gap-3 border-l-[3px] px-4 py-3 text-left transition hover:bg-slate-50 ${
-        dim ? 'opacity-60' : 'opacity-90'
-      }`}
-      style={{ borderLeftColor: colorDeFuente(p.fuente) }}
-      title={`${p.title} · sólo lectura — abre el módulo origen`}
-    >
-      <Lock size={14} className="shrink-0 text-brand-muted" />
-      <span
-        className="inline-block h-2 w-2 shrink-0 rounded-full"
-        style={{ backgroundColor: p.color }}
-        aria-hidden
-      />
-      <div className="min-w-0 flex-1">
-        <div className="truncate text-sm text-brand-ink">{p.title}</div>
-        <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-brand-muted">
-          {fechaLabel && (
-            <span className="inline-flex items-center gap-1">
-              <Clock size={11} />
-              {fechaLabel}
+    <HoverPreview proyectada={p}>
+      <button
+        type="button"
+        onClick={() => onAbrir?.(p)}
+        aria-label={`${p.title} · ${FUENTE_LABEL[p.fuente]} (sólo lectura)`}
+        className={`group flex w-full items-center gap-3 border-l-[3px] px-4 py-3 text-left transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-cyan ${
+          dim ? 'opacity-60' : 'opacity-90'
+        }`}
+        style={{ borderLeftColor: colorDeFuente(p.fuente) }}
+      >
+        <Lock size={14} className="shrink-0 text-brand-muted" />
+        <span
+          className="inline-block h-2 w-2 shrink-0 rounded-full"
+          style={{ backgroundColor: p.color }}
+          aria-hidden
+        />
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-sm text-brand-ink">{p.title}</div>
+          <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-brand-muted">
+            {fechaLabel && (
+              <span className="inline-flex items-center gap-1">
+                <Clock size={11} />
+                {fechaLabel}
+              </span>
+            )}
+            <span
+              className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px]"
+              style={{ background: `${p.color}1A`, color: p.color }}
+            >
+              {labelFuente(p.fuente)}
             </span>
-          )}
-          <span
-            className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px]"
-            style={{ background: `${p.color}1A`, color: p.color }}
-          >
-            {labelFuente(p.fuente)}
-          </span>
+          </div>
         </div>
-      </div>
-    </button>
+      </button>
+    </HoverPreview>
   );
 }
 
@@ -423,14 +429,69 @@ function ItemFila({
     (ev.linkedAdministracionId ? 1 : 0) +
     (ev.linkedComprobanteId ? 1 : 0) +
     (ev.linkedTramiteId ? 1 : 0);
+
+  // 3.G · Quick-edit inline. Doble-click activa input editable; Enter guarda,
+  // Esc cancela, blur también guarda si cambió.
+  const [editing, setEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState(ev.title);
+  const [savingTitle, setSavingTitle] = useState(false);
+  async function saveTitle() {
+    const t = editTitle.trim();
+    if (!t || t === ev.title) {
+      setEditing(false);
+      setEditTitle(ev.title);
+      return;
+    }
+    setSavingTitle(true);
+    const res = await actualizarEvento(ev.id, { title: t });
+    setSavingTitle(false);
+    if (!res.ok) {
+      toast.error('No pudimos cambiar el título');
+      setEditTitle(ev.title);
+    } else {
+      toast.success('Título actualizado');
+      ev.title = t; // optimista, el load() del padre lo refresca real
+    }
+    setEditing(false);
+  }
   return (
     <div className={`group flex items-center gap-3 px-4 py-3 hover:bg-slate-50 ${dim ? 'opacity-65' : ''}`}>
       <CirculoHecha isDone={oc.isDone} onToggle={() => onToggleDone(oc)} size={18} />
       <span className={`h-2 w-2 shrink-0 rounded-full ${prioColor}`} aria-hidden />
       <div className="min-w-0 flex-1">
-        <div className={`truncate text-sm ${oc.isDone ? 'text-brand-muted line-through' : 'text-brand-ink'}`}>
-          {ev.title}
-        </div>
+        {editing ? (
+          <input
+            type="text"
+            autoFocus
+            value={editTitle}
+            disabled={savingTitle}
+            onChange={(e) => setEditTitle(e.target.value)}
+            onBlur={() => void saveTitle()}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                void saveTitle();
+              } else if (e.key === 'Escape') {
+                setEditTitle(ev.title);
+                setEditing(false);
+              }
+            }}
+            className="w-full rounded-md border border-brand-cyan/40 bg-white px-1.5 py-0.5 text-sm text-brand-ink outline-none focus:border-brand-cyan focus:ring-2 focus:ring-brand-cyan/30"
+          />
+        ) : (
+          <div
+            onDoubleClick={() => {
+              setEditTitle(ev.title);
+              setEditing(true);
+            }}
+            title="Doble click para renombrar"
+            className={`cursor-text truncate rounded-md px-1 -mx-1 text-sm hover:bg-slate-100/50 ${
+              oc.isDone ? 'text-brand-muted line-through' : 'text-brand-ink'
+            }`}
+          >
+            {ev.title}
+          </div>
+        )}
         <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-brand-muted">
           {fechaLabel && (
             <span className="inline-flex items-center gap-1">

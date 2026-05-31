@@ -152,6 +152,9 @@ export interface ProximoVencimiento {
   alerta_30d_enviada: string | null;
   alerta_20d_enviada: string | null;
   alerta_10d_enviada: string | null;
+  /** 6.F · si el vencimiento fue generado desde un tracking,
+   * apuntá al id del trámite para linkear el chip. */
+  tracking_id: string | null;
 }
 
 export async function getProximosVencimientos(

@@ -48,7 +48,7 @@ import { CanvasFormulario, makeFieldFromType } from '../components/CanvasFormula
 import { PropertiesPanel } from '../components/PropertiesPanel';
 import { PreviewModal } from '../components/PreviewModal';
 import { EmbedCodeModal } from '../components/EmbedCodeModal';
-import type { Selection } from '../types';
+import { FIELD_TYPES, type Selection } from '../types';
 
 function emptySchema(): FormularioSchemaDef {
   // Bloque J / obs 14: todo formulario nuevo arranca con los 5 campos de
@@ -263,8 +263,10 @@ export function FormularioBuilderPage() {
   }, [formulario?.id]);
 
   // Atajos de teclado: ⌘Z = undo, ⌘⇧Z / ⌘Y = redo.
-  // Sólo si el foco NO está en un input/textarea/contenteditable, para no
-  // pisar el undo nativo del browser dentro de campos de texto.
+  // 4.B · ⌘+1..9 inserta el N-ésimo tipo de FIELD_TYPES en la sección
+  // seleccionada (o la primera). Útil para construir formularios sin levantar
+  // las manos del teclado. Si el foco está en input/textarea, no hace nada
+  // (no pisamos el "ir a posición N" nativo de algunos browsers en text fields).
   useEffect(() => {
     function isEditableTarget(t: EventTarget | null): boolean {
       const el = t as HTMLElement | null;
@@ -286,12 +288,32 @@ export function FormularioBuilderPage() {
         if (isEditableTarget(e.target)) return;
         e.preventDefault();
         redo();
+      } else if (/^[1-9]$/.test(e.key)) {
+        if (isEditableTarget(e.target)) return;
+        const n = parseInt(e.key, 10) - 1;
+        const fieldType = FIELD_TYPES[n];
+        if (!fieldType) return;
+        e.preventDefault();
+        const targetSection =
+          selection?.kind === 'section'
+            ? selection.value.sectionIdx
+            : selection?.kind === 'field'
+              ? selection.value.sectionIdx
+              : 0;
+        const section = schema.sections[targetSection];
+        if (!section) return;
+        onInsertField(
+          targetSection,
+          section.fields.length,
+          makeFieldFromType(fieldType.type, section),
+        );
+        toast.success(`Campo agregado · ${fieldType.label}`, { duration: 1500 });
       }
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [schema, selection]);
 
   function onInsertField(
     sectionIdx: number,

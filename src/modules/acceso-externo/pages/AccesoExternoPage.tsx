@@ -67,20 +67,20 @@ export function AccesoExternoPage() {
   }, [token]);
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      {/* Hero */}
-      <header className="relative overflow-hidden bg-gradient-to-br from-brand-cyan via-brand-cyan to-brand-teal py-10 text-white shadow">
-        <TrianglesAccent position="top-right" size={260} tone="cyan" density="rich" className="opacity-50" />
-        <TrianglesAccent position="bottom-left" size={180} tone="teal" density="soft" className="opacity-40" />
+    <div className="min-h-screen bg-slate-50 print:bg-white">
+      {/* Hero · 5.F print: en papel se vuelve sobrio (sin gradient ni triángulos) */}
+      <header className="relative overflow-hidden bg-gradient-to-br from-brand-cyan via-brand-cyan to-brand-teal py-10 text-white shadow print:bg-white print:bg-none print:py-4 print:text-brand-ink print:shadow-none">
+        <TrianglesAccent position="top-right" size={260} tone="cyan" density="rich" className="opacity-50 print:hidden" />
+        <TrianglesAccent position="bottom-left" size={180} tone="teal" density="soft" className="opacity-40 print:hidden" />
         <div className="relative mx-auto max-w-3xl px-6">
-          <div className="flex items-center gap-2 text-sm text-white/85">
+          <div className="flex items-center gap-2 text-sm text-white/85 print:text-brand-cyan">
             <ShieldCheck size={16} /> Acceso seguro · Gestión Global
           </div>
-          <h1 className="mt-3 font-display text-3xl font-bold sm:text-4xl">
+          <h1 className="mt-3 font-display text-3xl font-bold sm:text-4xl print:text-2xl">
             {loading ? 'Cargando…' : data?.acceso ? tituloPorTipo(data.acceso.tipo) : 'Acceso externo'}
           </h1>
           {data?.acceso && (
-            <p className="mt-2 text-sm text-white/85">
+            <p className="mt-2 text-sm text-white/85 print:text-brand-muted">
               Hola, <span className="font-semibold">{data.acceso.destinatario}</span>.
               Este enlace expira el {new Date(data.acceso.vence_at).toLocaleDateString('es-AR', {
                 day: '2-digit', month: 'long', year: 'numeric',
@@ -106,8 +106,33 @@ export function AccesoExternoPage() {
             </div>
             <p className="mt-1 text-sm">{error}</p>
             <p className="mt-3 text-xs text-rose-700/80">
-              Verificá que el link sea el original o pedí uno nuevo a tu contacto en Gestión Global.
+              Si el enlace venció, podés pedirle uno nuevo al equipo de Gestión Global.
             </p>
+            {/* 5.D · CTA "Pedir link nuevo" — mailto pre-armado con el
+                token original para que el gerente identifique al destinatario
+                rápido. Sin backend nuevo: el email lo manda la app del usuario. */}
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              <a
+                href={`mailto:contacto@gestionglobal.ar?subject=${encodeURIComponent(
+                  'Solicito un nuevo enlace de acceso',
+                )}&body=${encodeURIComponent(
+                  `Hola,\n\nMe gustaría pedir un nuevo enlace para acceder al recurso compartido.\n\nReferencia (no la borres): ${
+                    token ?? '(sin token)'
+                  }\n\nGracias.`,
+                )}`}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-rose-700 px-3 py-2 text-sm font-semibold text-white shadow transition hover:bg-rose-800"
+              >
+                <Mail size={14} /> Pedir un nuevo enlace
+              </a>
+              <a
+                href="https://wa.me/5491100000000?text=Hola%2C%20necesito%20un%20nuevo%20enlace%20de%20acceso%20a%20Gesti%C3%B3n%20Global"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-rose-300 bg-white px-3 py-2 text-sm font-semibold text-rose-700 transition hover:bg-rose-50"
+              >
+                <Phone size={14} /> WhatsApp
+              </a>
+            </div>
           </div>
         )}
 
@@ -119,8 +144,21 @@ export function AccesoExternoPage() {
             <UltimaActualizacion payload={data} />
 
             {/* 5.A · si el recurso tiene fecha estimada/vencimiento,
-                ofrecemos agregar al calendario en .ics descargable. */}
-            <AgregarAlCalendario payload={data} />
+                ofrecemos agregar al calendario en .ics descargable.
+                5.F · print: el botón se oculta en papel (no es accionable). */}
+            <div className="print:hidden">
+              <AgregarAlCalendario payload={data} />
+            </div>
+
+            {/* 5.F · Botón "Imprimir" visible solo en pantalla (en papel
+                sería redundante). Usa window.print() del browser. */}
+            <button
+              type="button"
+              onClick={() => window.print()}
+              className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-brand-ink transition hover:bg-slate-50 print:hidden"
+            >
+              <FileText size={14} /> Imprimir / Guardar PDF
+            </button>
 
             {/* Recurso */}
             <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -129,9 +167,12 @@ export function AccesoExternoPage() {
             </section>
 
             {/* #147 · Perfil Gestor: si el token es de una solicitud, mostramos
-                timeline + formulario de carga de avance. */}
+                timeline + formulario de carga de avance.
+                5.F · print: oculto en papel (es interactivo, no aporta al PDF) */}
             {data.acceso?.tipo === 'solicitud' && token && (
-              <PanelGestor token={token} />
+              <div className="print:hidden">
+                <PanelGestor token={token} />
+              </div>
             )}
 
             {/* 5.B · tarjeta "Tu contacto" — humaniza el acceso. */}
@@ -164,8 +205,9 @@ export function AccesoExternoPage() {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-slate-200 bg-white py-6 text-center text-xs text-brand-muted">
-        Gestión Global · gestionglobal.ar — Acceso temporal y seguro. No compartas este link.
+      <footer className="border-t border-slate-200 bg-white py-6 text-center text-xs text-brand-muted print:border-t-2 print:border-brand-cyan">
+        Gestión Global · gestionglobal.ar — Acceso temporal y seguro.{' '}
+        <span className="print:hidden">No compartas este link.</span>
       </footer>
     </div>
   );

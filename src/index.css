@@ -25,6 +25,27 @@
   }
 }
 
+@layer base {
+  /* 7.F · A11y · focus rings consistentes en todos los controles
+     interactivos. focus-visible solo se dispara cuando el browser detecta
+     navegación por teclado, así que NO molesta a usuarios con mouse pero
+     da feedback claro al tabulear. Override en componentes específicos si
+     necesitás un ring distinto (p. ej. ghost variants en bg oscuro). */
+  button:focus-visible,
+  a:focus-visible,
+  [role='button']:focus-visible,
+  [role='tab']:focus-visible,
+  [role='link']:focus-visible,
+  summary:focus-visible {
+    @apply outline-none ring-2 ring-brand-cyan ring-offset-2 ring-offset-white;
+  }
+  input:focus-visible,
+  textarea:focus-visible,
+  select:focus-visible {
+    @apply outline-none ring-2 ring-brand-cyan/40;
+  }
+}
+
 @layer components {
   .kicker {
     @apply text-[11px] font-semibold uppercase tracking-wider text-brand-muted;
