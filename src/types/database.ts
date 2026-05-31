@@ -343,107 +343,6 @@ export type Database = {
           },
         ]
       }
-      agenda_eventos: {
-        Row: {
-          cancelado_at: string | null
-          categoria: string
-          cliente_id: string | null
-          completado_at: string | null
-          created_at: string
-          created_by: string | null
-          descripcion: string | null
-          fecha_fin: string | null
-          fecha_inicio: string
-          id: string
-          origen: string
-          prioridad: string
-          recordatorio_enviado_at: string | null
-          recordatorio_minutos_antes: number
-          responsable_id: string | null
-          servicio_id: string | null
-          titulo: string
-          todo_el_dia: boolean
-          tramite_id: string | null
-          updated_at: string
-          vencimiento_id: string | null
-        }
-        Insert: {
-          cancelado_at?: string | null
-          categoria?: string
-          cliente_id?: string | null
-          completado_at?: string | null
-          created_at?: string
-          created_by?: string | null
-          descripcion?: string | null
-          fecha_fin?: string | null
-          fecha_inicio: string
-          id?: string
-          origen?: string
-          prioridad?: string
-          recordatorio_enviado_at?: string | null
-          recordatorio_minutos_antes?: number
-          responsable_id?: string | null
-          servicio_id?: string | null
-          titulo: string
-          todo_el_dia?: boolean
-          tramite_id?: string | null
-          updated_at?: string
-          vencimiento_id?: string | null
-        }
-        Update: {
-          cancelado_at?: string | null
-          categoria?: string
-          cliente_id?: string | null
-          completado_at?: string | null
-          created_at?: string
-          created_by?: string | null
-          descripcion?: string | null
-          fecha_fin?: string | null
-          fecha_inicio?: string
-          id?: string
-          origen?: string
-          prioridad?: string
-          recordatorio_enviado_at?: string | null
-          recordatorio_minutos_antes?: number
-          responsable_id?: string | null
-          servicio_id?: string | null
-          titulo?: string
-          todo_el_dia?: boolean
-          tramite_id?: string | null
-          updated_at?: string
-          vencimiento_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "agenda_eventos_cliente_id_fkey"
-            columns: ["cliente_id"]
-            isOneToOne: false
-            referencedRelation: "administraciones"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "agenda_eventos_servicio_id_fkey"
-            columns: ["servicio_id"]
-            isOneToOne: false
-            referencedRelation: "servicios"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "agenda_eventos_tramite_id_fkey"
-            columns: ["tramite_id"]
-            isOneToOne: false
-            referencedRelation: "tramites"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "agenda_eventos_vencimiento_id_fkey"
-            columns: ["vencimiento_id"]
-            isOneToOne: false
-            referencedRelation: "vencimientos"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       agenda_events: {
         Row: {
           all_day: boolean
@@ -1567,6 +1466,126 @@ export type Database = {
             columns: ["servicio_id"]
             isOneToOne: false
             referencedRelation: "servicios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      comunicaciones: {
+        Row: {
+          audiencia: Json
+          banner_estilo: string
+          canal_banner: boolean
+          canal_email: boolean
+          canal_push: boolean
+          created_at: string
+          created_by: string | null
+          cta_label: string | null
+          cta_url: string | null
+          cuerpo_html: string | null
+          cuerpo_md: string
+          enviado_at: string | null
+          enviado_por: string | null
+          estado: string
+          id: string
+          titulo: string
+          total_destinatarios: number
+          updated_at: string
+          visible_desde: string
+          visible_hasta: string | null
+        }
+        Insert: {
+          audiencia?: Json
+          banner_estilo?: string
+          canal_banner?: boolean
+          canal_email?: boolean
+          canal_push?: boolean
+          created_at?: string
+          created_by?: string | null
+          cta_label?: string | null
+          cta_url?: string | null
+          cuerpo_html?: string | null
+          cuerpo_md: string
+          enviado_at?: string | null
+          enviado_por?: string | null
+          estado?: string
+          id?: string
+          titulo: string
+          total_destinatarios?: number
+          updated_at?: string
+          visible_desde?: string
+          visible_hasta?: string | null
+        }
+        Update: {
+          audiencia?: Json
+          banner_estilo?: string
+          canal_banner?: boolean
+          canal_email?: boolean
+          canal_push?: boolean
+          created_at?: string
+          created_by?: string | null
+          cta_label?: string | null
+          cta_url?: string | null
+          cuerpo_html?: string | null
+          cuerpo_md?: string
+          enviado_at?: string | null
+          enviado_por?: string | null
+          estado?: string
+          id?: string
+          titulo?: string
+          total_destinatarios?: number
+          updated_at?: string
+          visible_desde?: string
+          visible_hasta?: string | null
+        }
+        Relationships: []
+      }
+      comunicaciones_destinatarios: {
+        Row: {
+          administracion_id: string
+          comunicacion_id: string
+          created_at: string
+          email_enqueued_at: string | null
+          email_to: string | null
+          id: string
+          push_enqueued_at: string | null
+          user_id: string | null
+          visto_at: string | null
+        }
+        Insert: {
+          administracion_id: string
+          comunicacion_id: string
+          created_at?: string
+          email_enqueued_at?: string | null
+          email_to?: string | null
+          id?: string
+          push_enqueued_at?: string | null
+          user_id?: string | null
+          visto_at?: string | null
+        }
+        Update: {
+          administracion_id?: string
+          comunicacion_id?: string
+          created_at?: string
+          email_enqueued_at?: string | null
+          email_to?: string | null
+          id?: string
+          push_enqueued_at?: string | null
+          user_id?: string | null
+          visto_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comunicaciones_destinatarios_administracion_id_fkey"
+            columns: ["administracion_id"]
+            isOneToOne: false
+            referencedRelation: "administraciones"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comunicaciones_destinatarios_comunicacion_id_fkey"
+            columns: ["comunicacion_id"]
+            isOneToOne: false
+            referencedRelation: "comunicaciones"
             referencedColumns: ["id"]
           },
         ]
@@ -5015,6 +5034,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           delivered_at: string | null
+          dsn_msg_id: string | null
           enviado_at: string
           error_code: string | null
           error_msg: string | null
@@ -5052,6 +5072,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           delivered_at?: string | null
+          dsn_msg_id?: string | null
           enviado_at?: string
           error_code?: string | null
           error_msg?: string | null
@@ -5089,6 +5110,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           delivered_at?: string | null
+          dsn_msg_id?: string | null
           enviado_at?: string
           error_code?: string | null
           error_msg?: string | null
@@ -5239,6 +5261,7 @@ export type Database = {
           requiere_consorcio: boolean
           sla_dias: number | null
           updated_at: string
+          vigencia_meses: number | null
         }
         Insert: {
           activo?: boolean
@@ -5265,6 +5288,7 @@ export type Database = {
           requiere_consorcio?: boolean
           sla_dias?: number | null
           updated_at?: string
+          vigencia_meses?: number | null
         }
         Update: {
           activo?: boolean
@@ -5291,6 +5315,7 @@ export type Database = {
           requiere_consorcio?: boolean
           sla_dias?: number | null
           updated_at?: string
+          vigencia_meses?: number | null
         }
         Relationships: [
           {
@@ -6221,9 +6246,12 @@ export type Database = {
           fecha_emision: string | null
           fecha_vencimiento: string
           id: string
+          motivo_pausa: string | null
           notificar_cliente: boolean
           observaciones: string | null
           origen: string
+          pausado_at: string | null
+          pausado_por: string | null
           renovado_por: string | null
           servicio_sugerido_id: string | null
           sujeto: string
@@ -6245,9 +6273,12 @@ export type Database = {
           fecha_emision?: string | null
           fecha_vencimiento: string
           id?: string
+          motivo_pausa?: string | null
           notificar_cliente?: boolean
           observaciones?: string | null
           origen?: string
+          pausado_at?: string | null
+          pausado_por?: string | null
           renovado_por?: string | null
           servicio_sugerido_id?: string | null
           sujeto: string
@@ -6269,9 +6300,12 @@ export type Database = {
           fecha_emision?: string | null
           fecha_vencimiento?: string
           id?: string
+          motivo_pausa?: string | null
           notificar_cliente?: boolean
           observaciones?: string | null
           origen?: string
+          pausado_at?: string | null
+          pausado_por?: string | null
           renovado_por?: string | null
           servicio_sugerido_id?: string | null
           sujeto?: string
@@ -6798,6 +6832,12 @@ export type Database = {
       }
     }
     Functions: {
+      _comunicacion_resolver_audiencia: {
+        Args: { p_audiencia: Json }
+        Returns: {
+          administracion_id: string
+        }[]
+      }
       ajuste_masivo_precios: {
         Args: {
           p_categoria_codigo?: string
@@ -7181,6 +7221,33 @@ export type Database = {
           ultima_accion_at: string
           ultima_accion_nivel: number
           vencimiento: string
+        }[]
+      }
+      comunicacion_enviar: { Args: { p_id: string }; Returns: Json }
+      comunicacion_marcar_vista: {
+        Args: { p_comunicacion_id: string }
+        Returns: undefined
+      }
+      comunicacion_preview_destinatarios: {
+        Args: { p_audiencia: Json }
+        Returns: {
+          administracion_id: string
+          email: string
+          nombre: string
+          tiene_user: boolean
+        }[]
+      }
+      comunicaciones_vigentes_cliente: {
+        Args: never
+        Returns: {
+          banner_estilo: string
+          cta_label: string
+          cta_url: string
+          cuerpo_md: string
+          enviado_at: string
+          id: string
+          titulo: string
+          visto_at: string
         }[]
       }
       convertir_prospecto_a_cliente: {
@@ -8016,6 +8083,14 @@ export type Database = {
         }
         Returns: Json
       }
+      is_visible_for_alumno: {
+        Args: {
+          p_despublicar_at: string
+          p_publicado: boolean
+          p_publicar_at: string
+        }
+        Returns: boolean
+      }
       kpis_dashboard_global: { Args: { p_desde?: string }; Returns: Json }
       list_webinar_kpis: {
         Args: never
@@ -8242,11 +8317,14 @@ export type Database = {
           fecha_emision: string
           fecha_vencimiento: string
           id: string
+          motivo_pausa: string
           observaciones: string
+          pausado_at: string
           sugerencia_servicio_slug: string
           sujeto: string
           sujeto_id: string
           tipo: string
+          tracking_id: string
         }[]
       }
       registrar_apertura_acceso: {
@@ -8495,6 +8573,12 @@ export type Database = {
         }
         Returns: undefined
       }
+      vencimiento_eliminar: { Args: { p_id: string }; Returns: undefined }
+      vencimiento_pausar: {
+        Args: { p_id: string; p_motivo?: string }
+        Returns: undefined
+      }
+      vencimiento_reanudar: { Args: { p_id: string }; Returns: undefined }
       verificar_certificado: { Args: { p_codigo: string }; Returns: Json }
       vistas_borrar: { Args: { p_id: string }; Returns: boolean }
       vistas_guardar: {

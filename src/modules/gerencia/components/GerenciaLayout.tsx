@@ -17,6 +17,7 @@ import {
   Plus,
   ChevronDown,
   Command as CommandIcon,
+  Megaphone,
 } from 'lucide-react';
 import { BrandMark } from '@/components/brand/BrandMark';
 import { IsoMark } from '@/components/brand/IsoMark';
@@ -98,6 +99,7 @@ const NAV: NavGroup[] = [
     ],
   },
   { label: 'Campus', to: '/gerencia/campus', icon: GraduationCap },
+  { label: 'Comunicaciones', to: '/gerencia/comunicaciones', icon: Megaphone },
   { label: 'Analítica', to: '/gerencia/analitica', icon: BarChart3 },
   {
     label: 'Configuración',

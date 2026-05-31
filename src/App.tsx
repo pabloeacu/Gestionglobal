@@ -83,6 +83,7 @@ const PartnerPortalPage = lazy(() => import('@/modules/partner-portal/pages/Part
 const AuditoriaPage = lazy(() => import('@/modules/auditoria').then(m => ({ default: m.AuditoriaPage })));
 const ErroresRuntimePage = lazy(() => import('@/modules/errores').then(m => ({ default: m.ErroresRuntimePage })));
 const AnaliticaPage = lazy(() => import('@/modules/analitica').then(m => ({ default: m.AnaliticaPage })));
+const ComunicacionesPage = lazy(() => import('@/modules/comunicaciones').then(m => ({ default: m.ComunicacionesPage })));
 
 type Role = 'gerente' | 'operador' | 'administrador' | 'partner';
 
@@ -311,6 +312,7 @@ export function App() {
           <Route path="reportes" element={<ReportesHubPage />} />
           <Route path="reportes/importador" element={<ImportadorPage />} />
           <Route path="analitica" element={<AnaliticaPage />} />
+          <Route path="comunicaciones" element={<ComunicacionesPage />} />
           <Route path="configuracion" element={<ConfiguracionLayout />}>
             <Route index element={<Navigate to="arca" replace />} />
             <Route path="arca" element={<ArcaConfigPage />} />

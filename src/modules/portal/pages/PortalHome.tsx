@@ -45,6 +45,7 @@ import {
   type PedidoAbiertoResumen,
 } from '@/services/api/tramitePedidosDoc';
 import { ActivarPushAssistant } from '@/components/common/ActivarPushAssistant';
+import { NovedadesBanner } from '../components/NovedadesBanner';
 import { PortalOnboardingTour, tourCompletado } from '../components/PortalOnboardingTour';
 import { PortalPwaAssistant } from '../components/PortalPwaAssistant';
 import { PortalPushAssistant } from '../components/PortalPushAssistant';
@@ -121,6 +122,10 @@ export function PortalHome() {
       />
 
       {avancesNuevos > 0 && <AvancesNuevosBanner count={avancesNuevos} />}
+
+      {/* Novedades enviadas por gerencia (panel Comunicaciones).
+          Sólo aparece si hay alguna vigente sin marcar como vista. */}
+      <NovedadesBanner />
 
       {/* CTA universal: pide permiso de push con 1 click (no entra a config). */}
       <ActivarPushAssistant />
