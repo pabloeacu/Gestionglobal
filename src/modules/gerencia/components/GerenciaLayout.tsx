@@ -24,6 +24,12 @@ import { LandingCoverBadge } from './LandingCoverBadge';
 import { NotificationBell } from '@/components/common/NotificationBell';
 import { QuickActionsFAB } from '@/components/common/QuickActionsFAB';
 import {
+  OnboardingTour,
+  STEPS_GERENCIA,
+  shouldShowGerenciaTour,
+  markGerenciaTourSeen,
+} from '@/components/onboarding/OnboardingTour';
+import {
   KeyboardShortcutsModal,
   useShortcutsHotkey,
 } from '@/components/common/KeyboardShortcutsModal';
@@ -128,6 +134,14 @@ export function GerenciaLayout() {
   const { user } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  // D1 · tour primera vez del gerente. Esperamos 800ms tras montar para que
+  // los `data-tour="…"` ya estén en el DOM antes de medir el target.
+  const [tourOpen, setTourOpen] = useState(false);
+  useEffect(() => {
+    if (!shouldShowGerenciaTour()) return;
+    const t = setTimeout(() => setTourOpen(true), 800);
+    return () => clearTimeout(t);
+  }, []);
   // P2-#12 · hotkey "?" abre cheat sheet de atajos.
   useShortcutsHotkey(setShortcutsOpen);
   const location = useLocation();
@@ -276,6 +290,7 @@ export function GerenciaLayout() {
             <button
               type="button"
               onClick={() => palette.open()}
+              data-tour="palette-trigger"
               className="hidden items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs text-brand-muted transition hover:border-brand-cyan hover:text-brand-ink sm:inline-flex"
               title="Buscar en la plataforma (⌘ K)"
             >
@@ -341,6 +356,16 @@ export function GerenciaLayout() {
 
       {/* P2-#9 · FAB con acciones rápidas en mobile */}
       <QuickActionsFAB onShortcuts={() => setShortcutsOpen(true)} />
+
+      {/* D1 · Tour primera vez del gerente */}
+      <OnboardingTour
+        open={tourOpen}
+        steps={STEPS_GERENCIA}
+        onClose={(completed) => {
+          setTourOpen(false);
+          if (completed) markGerenciaTourSeen();
+        }}
+      />
     </div>
   );
 }
@@ -392,6 +417,7 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
                 <button
                   type="button"
                   onClick={() => toggleGroup(item.label)}
+                  data-tour={`sidebar-${item.label.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')}`}
                   className={cn(
                     'flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition',
                     active
@@ -444,6 +470,7 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
                 to={item.to!}
                 end={item.end}
                 onClick={onNavigate}
+                data-tour={`sidebar-${item.label.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')}`}
                 className={({ isActive }) =>
                   cn(
                     'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition',
