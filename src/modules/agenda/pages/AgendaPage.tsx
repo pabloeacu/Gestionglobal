@@ -51,6 +51,7 @@ import {
   OnboardingTour,
   STEPS_AGENDA,
   shouldShowAgendaTour,
+  shouldShowGerenciaTour,
   markAgendaTourSeen,
 } from '@/components/onboarding/OnboardingTour';
 import { VistaLista } from '../components/VistaLista';
@@ -158,9 +159,11 @@ export function AgendaPage({ initialTab }: AgendaPageProps = {}) {
   };
   // 3.E · leyenda colapsable de fuentes (qué significa cada chip).
   const [leyendaOpen, setLeyendaOpen] = useState(false);
-  // J1 · Tour secundario Agenda al primer visit.
+  // J1 · Tour secundario Agenda al primer visit — pero sólo si el tour
+  // principal de gerencia ya fue completado (evita doble overlay).
   const [agendaTourOpen, setAgendaTourOpen] = useState(false);
   useEffect(() => {
+    if (shouldShowGerenciaTour()) return; // esperá a terminar el tour principal
     if (shouldShowAgendaTour()) {
       const t = setTimeout(() => setAgendaTourOpen(true), 700);
       return () => clearTimeout(t);
