@@ -4669,6 +4669,7 @@ export type Database = {
           created_at: string
           full_name: string | null
           id: string
+          onboarding_checklist: Json
           partner_id: string | null
           phone: string | null
           pwa_installed_at: string | null
@@ -4683,6 +4684,7 @@ export type Database = {
           created_at?: string
           full_name?: string | null
           id: string
+          onboarding_checklist?: Json
           partner_id?: string | null
           phone?: string | null
           pwa_installed_at?: string | null
@@ -4697,6 +4699,7 @@ export type Database = {
           created_at?: string
           full_name?: string | null
           id?: string
+          onboarding_checklist?: Json
           partner_id?: string | null
           phone?: string | null
           pwa_installed_at?: string | null
@@ -8301,6 +8304,10 @@ export type Database = {
           p_user_id: string
         }
         Returns: string
+      }
+      onboarding_checklist_set: {
+        Args: { p_key: string; p_value: boolean }
+        Returns: Json
       }
       partner_anular_rendicion: {
         Args: { p_motivo: string; p_rendicion_id: string }

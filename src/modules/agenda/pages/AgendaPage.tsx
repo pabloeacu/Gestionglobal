@@ -47,6 +47,12 @@ import {
 import { VencimientosListPage } from '@/modules/vencimientos';
 import type { Ocurrencia } from '@/lib/agendaRecurrencia';
 import { BarraMagica } from '../components/BarraMagica';
+import {
+  OnboardingTour,
+  STEPS_AGENDA,
+  shouldShowAgendaTour,
+  markAgendaTourSeen,
+} from '@/components/onboarding/OnboardingTour';
 import { VistaLista } from '../components/VistaLista';
 import { VistaMes } from '../components/VistaMes';
 import { VistaSemana } from '../components/VistaSemana';
@@ -152,6 +158,14 @@ export function AgendaPage({ initialTab }: AgendaPageProps = {}) {
   };
   // 3.E · leyenda colapsable de fuentes (qué significa cada chip).
   const [leyendaOpen, setLeyendaOpen] = useState(false);
+  // J1 · Tour secundario Agenda al primer visit.
+  const [agendaTourOpen, setAgendaTourOpen] = useState(false);
+  useEffect(() => {
+    if (shouldShowAgendaTour()) {
+      const t = setTimeout(() => setAgendaTourOpen(true), 700);
+      return () => clearTimeout(t);
+    }
+  }, []);
   const [proyectadas, setProyectadas] = useState<OcurrenciaUnificada[]>([]);
   const [anchor, setAnchor] = useState<Date>(() => new Date());
   const [categorias, setCategorias] = useState<AgendaCategoria[]>([]);
@@ -612,7 +626,7 @@ export function AgendaPage({ initialTab }: AgendaPageProps = {}) {
 
         {/* Toggle vistas */}
         <div className="relative mt-5 flex flex-wrap items-center gap-3">
-          <div className="inline-flex rounded-lg bg-white/15 p-1 backdrop-blur-sm">
+          <div data-tour="agenda-vistas" className="inline-flex rounded-lg bg-white/15 p-1 backdrop-blur-sm">
             {(
               [
                 { v: 'lista', label: 'Lista', icon: List },
@@ -762,7 +776,9 @@ export function AgendaPage({ initialTab }: AgendaPageProps = {}) {
       )}
 
       {/* Barra mágica */}
-      <BarraMagica categorias={categorias} onCreated={() => void load()} />
+      <div data-tour="agenda-barra-magica">
+        <BarraMagica categorias={categorias} onCreated={() => void load()} />
+      </div>
 
       {/* Vista */}
       {loading ? (
@@ -894,6 +910,16 @@ export function AgendaPage({ initialTab }: AgendaPageProps = {}) {
       <ProyectadaEmbebidaModal
         proyectada={proyectadaSelected}
         onClose={() => setProyectadaSelected(null)}
+      />
+
+      {/* J1 · Tour secundario Agenda (3 pasos) — primer visit. */}
+      <OnboardingTour
+        open={agendaTourOpen}
+        steps={STEPS_AGENDA}
+        onClose={() => {
+          setAgendaTourOpen(false);
+          markAgendaTourSeen();
+        }}
       />
     </div>
   );

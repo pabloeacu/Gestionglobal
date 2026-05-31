@@ -89,6 +89,9 @@ export function PerfilPage() {
       {/* P2-#35 · Sesiones activas (multi-device + cerrar otras) */}
       <PerfilSesionesActivas />
 
+      {/* J1 · "Ver el tour otra vez" — sólo gerentes. */}
+      {(user.role === 'gerente' || user.role === 'operador') && <PerfilOnboardingReset />}
+
       <PerfilSesion
         onSignOut={async () => {
           const ok = await confirm({
@@ -658,6 +661,38 @@ function PerfilSesion({ onSignOut }: { onSignOut: () => void | Promise<void> }) 
         </div>
         <Button variant="ghost" onClick={() => void onSignOut()}>
           <LogOut size={14} /> Cerrar sesión
+        </Button>
+      </div>
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// J1 · Botón "Ver el tour otra vez" — resetea localStorage y manda a /gerencia
+// ---------------------------------------------------------------------------
+function PerfilOnboardingReset() {
+  return (
+    <section className="card-premium relative overflow-hidden p-5 motion-safe:animate-fade-up">
+      <div className="relative flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="font-display text-base font-bold text-brand-ink">
+            Onboarding
+          </h2>
+          <p className="mt-1 text-sm text-brand-muted">
+            Revisá el tour de bienvenida en cualquier momento.
+          </p>
+        </div>
+        <Button
+          variant="ghost"
+          onClick={() => {
+            // Import diferido para no romper SSR.
+            void import('@/components/onboarding/OnboardingTour').then((m) => {
+              m.resetGerenciaTour();
+              window.location.assign('/gerencia');
+            });
+          }}
+        >
+          Ver el tour otra vez
         </Button>
       </div>
     </section>

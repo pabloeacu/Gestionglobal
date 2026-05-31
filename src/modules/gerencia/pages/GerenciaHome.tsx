@@ -30,6 +30,7 @@ import { ReporteMensualBanner } from '@/components/common/ReporteMensualBanner';
 // iOS Chrome (con copy específico para abrir en Safari).
 import { PortalPwaAssistant } from '@/modules/portal/components/PortalPwaAssistant';
 import { ActivarPushAssistant } from '@/components/common/ActivarPushAssistant';
+import { PrimerosMinutos } from '@/modules/gerencia/components/PrimerosMinutos';
 
 interface QuickItem {
   to: string;
@@ -89,6 +90,10 @@ export function GerenciaHome() {
           Todo el ecosistema en un solo panel. Elegí por dónde arrancar.
         </p>
       </header>
+
+      {/* J1 · checklist "Primeros 5 minutos" para nuevos gerentes.
+          Auto-oculto cuando se completa o el user lo descarta. */}
+      <PrimerosMinutos />
 
       {/* CTA universal: pide permiso de push con 1 click — solo aparece
           cuando el browser lo soporta y el user aún no activó. */}

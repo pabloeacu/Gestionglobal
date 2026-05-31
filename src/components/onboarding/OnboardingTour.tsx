@@ -313,6 +313,7 @@ export const STEPS_GERENCIA: TourStep[] = [
 ];
 
 const TOUR_KEY = 'gg.gerencia.tourCompleted';
+const AGENDA_TOUR_KEY = 'gg.gerencia.agendaTourCompleted';
 
 export function shouldShowGerenciaTour(): boolean {
   if (typeof window === 'undefined') return false;
@@ -334,6 +335,69 @@ export function markGerenciaTourSeen(): void {
 export function resetGerenciaTour(): void {
   try {
     window.localStorage.removeItem(TOUR_KEY);
+    window.localStorage.removeItem(AGENDA_TOUR_KEY);
+  } catch {
+    /* noop */
+  }
+}
+
+// ============================================================================
+// J1 · Tour secundario Agenda (al primer visit a /gerencia/agenda).
+// Tres pasos: parser NL, vistas y posponer. Pensado para que el parser NL
+// — el feature más diferenciador del módulo — no quede oculto.
+// ============================================================================
+
+export const STEPS_AGENDA: TourStep[] = [
+  {
+    target: '[data-tour="agenda-barra-magica"]',
+    placement: 'bottom',
+    title: 'Tirá lo que tengas en la cabeza',
+    description: (
+      <p>
+        Escribí en lenguaje natural — &ldquo;<em>asamblea consorcio mañana 18hs
+        #asambleas</em>&rdquo; — y la barra crea el evento ya categorizado y con
+        recurrencia si la mencionás. Sin formulario, sin clics extra.
+      </p>
+    ),
+  },
+  {
+    target: '[data-tour="agenda-vistas"]',
+    placement: 'bottom',
+    title: 'Cuatro vistas, la misma Agenda',
+    description: (
+      <p>
+        <strong>Lista</strong> para repasar el día a día, <strong>Mes</strong>{' '}
+        para la foto grande, <strong>Semana</strong> y <strong>Día</strong> para
+        pintar bloques con drag. Cambia la vista, no los datos.
+      </p>
+    ),
+  },
+  {
+    target: '[data-tour="agenda-vistas"]',
+    placement: 'bottom',
+    title: 'Posponer es relativo al evento',
+    description: (
+      <p>
+        Si tocás <strong>Posponer +1 día</strong> en una asamblea recurrente,
+        moveme sólo esa ocurrencia un día, no toda la serie. Las opciones son:
+        mañana, +1 semana, +1 mes o fecha custom.
+      </p>
+    ),
+  },
+];
+
+export function shouldShowAgendaTour(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    return window.localStorage.getItem(AGENDA_TOUR_KEY) !== '1';
+  } catch {
+    return false;
+  }
+}
+
+export function markAgendaTourSeen(): void {
+  try {
+    window.localStorage.setItem(AGENDA_TOUR_KEY, '1');
   } catch {
     /* noop */
   }
