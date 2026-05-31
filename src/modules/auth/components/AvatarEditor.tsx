@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { Modal, Button } from '@/components/common';
 import { cn } from '@/lib/cn';
+import { canvasToOptimizedBlob } from '@/lib/imageWebp';
 
 // Editor de avatar con pan / zoom / rotación. Output siempre JPEG cuadrado
 // 512×512 ~ 80-150 KB — independiente del tamaño/formato del archivo de
@@ -29,20 +30,9 @@ const OUTPUT_SIZE = 512;
 const MIN_SCALE = 0.5;
 const MAX_SCALE = 4;
 // WebP cuando el browser lo soporta (~30 % más liviano que JPEG a la misma
-// calidad percibida). Si no, fallback a JPEG. La pruebamos en runtime.
+// calidad percibida). Si no, fallback a JPEG. La detección y export viven
+// en `src/lib/imageWebp.ts` para no duplicar la lógica con ImageUploader.
 const QUALITY = 0.88;
-
-// Detecta soporte de WebP a partir de un canvas 1×1.
-function supportsWebp(): boolean {
-  try {
-    const c = document.createElement('canvas');
-    c.width = 1;
-    c.height = 1;
-    return c.toDataURL('image/webp').startsWith('data:image/webp');
-  } catch {
-    return false;
-  }
-}
 
 interface AvatarEditorProps {
   file: File | null;
@@ -164,20 +154,16 @@ export function AvatarEditor({ file, onCancel, onConfirm }: AvatarEditorProps) {
     setSaving(true);
     try {
       // Render a canvas oculto 512×512. WebP si el browser lo soporta
-      // (~30% más liviano), sino JPEG.
+      // (~30% más liviano), sino JPEG (vía helper compartido).
       const out = document.createElement('canvas');
       out.width = OUTPUT_SIZE;
       out.height = OUTPUT_SIZE;
       drawToCanvas(out, OUTPUT_SIZE);
-      const mime = supportsWebp() ? 'image/webp' : 'image/jpeg';
-      const blob = await new Promise<Blob | null>((resolve) =>
-        out.toBlob((b) => resolve(b), mime, QUALITY),
-      );
-      if (!blob) {
-        setError('No pudimos generar la imagen final.');
-        return;
-      }
+      const { blob } = await canvasToOptimizedBlob(out, QUALITY);
       await onConfirm(blob);
+    } catch (err) {
+      console.error('[AvatarEditor] export falló:', err);
+      setError('No pudimos generar la imagen final.');
     } finally {
       setSaving(false);
     }

@@ -27,6 +27,7 @@ import {
   uploadCampusMedia,
   type CampusMediaScope,
 } from '@/services/api/campus';
+import { canvasToOptimizedBlob } from '@/lib/imageWebp';
 
 interface ImageUploaderProps {
   /** URL pública actual (o null si no hay imagen). */
@@ -122,14 +123,15 @@ export function ImageUploader({
     reader.readAsDataURL(f);
   }
 
-  async function onCropConfirmed(blob: Blob) {
+  async function onCropConfirmed(blob: Blob, ext: 'webp' | 'jpg' = 'jpg') {
     setUploading(true);
     setPickedDataUrl(null);
     const safeName = originalFileName.replace(/[^a-zA-Z0-9._-]/g, '_') || 'imagen.png';
-    // El blob viene del canvas; le ponemos extensión .jpg porque exportamos
-    // como image/jpeg (menos peso que PNG para fotos).
-    const file = new File([blob], safeName.replace(/\.[^.]+$/, '') + '.jpg', {
-      type: 'image/jpeg',
+    // El blob viene del canvas; la extensión depende del mime óptimo del
+    // browser (WebP cuando se puede ⇒ ~30 % más liviano que JPEG).
+    const mime = ext === 'webp' ? 'image/webp' : 'image/jpeg';
+    const file = new File([blob], safeName.replace(/\.[^.]+$/, '') + '.' + ext, {
+      type: mime,
     });
     const res = await uploadCampusMedia(scope, ownerId, file);
     setUploading(false);
@@ -256,7 +258,7 @@ function CropperModal({
   aspect: number;
   round: boolean;
   onCancel: () => void;
-  onConfirm: (blob: Blob) => void;
+  onConfirm: (blob: Blob, ext: 'webp' | 'jpg') => void;
 }) {
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
@@ -272,8 +274,8 @@ function CropperModal({
     if (!areaPx) return;
     setWorking(true);
     try {
-      const blob = await cropToBlob(src, areaPx, rotation);
-      onConfirm(blob);
+      const { blob, ext } = await cropToBlob(src, areaPx, rotation);
+      onConfirm(blob, ext);
     } catch (err) {
       console.error('[CropperModal] recorte falló:', err);
       toast.error('No pudimos recortar la imagen.');
@@ -357,10 +359,15 @@ function CropperModal({
   );
 }
 
-// Convierte el área seleccionada del cropper en un Blob JPEG.
-// El render usa un canvas con rotación; el área se calcula en píxeles del
-// original (no del display), así que el output mantiene resolución.
-async function cropToBlob(src: string, area: Area, rotation: number): Promise<Blob> {
+// Convierte el área seleccionada del cropper en un Blob con el mime óptimo
+// (WebP si el browser lo soporta, JPEG en fallback). El render usa un canvas
+// con rotación; el área se calcula en píxeles del original (no del display),
+// así que el output mantiene resolución.
+async function cropToBlob(
+  src: string,
+  area: Area,
+  rotation: number,
+): Promise<{ blob: Blob; ext: 'webp' | 'jpg' }> {
   const img = await loadImage(src);
   const rad = (rotation * Math.PI) / 180;
   const sin = Math.abs(Math.sin(rad));
@@ -396,16 +403,8 @@ async function cropToBlob(src: string, area: Area, rotation: number): Promise<Bl
     outCanvas.height,
   );
 
-  return await new Promise<Blob>((resolve, reject) => {
-    outCanvas.toBlob(
-      (blob) => {
-        if (blob) resolve(blob);
-        else reject(new Error('toBlob devolvió null'));
-      },
-      'image/jpeg',
-      0.92,
-    );
-  });
+  const { blob, ext } = await canvasToOptimizedBlob(outCanvas, 0.9);
+  return { blob, ext };
 }
 
 function loadImage(src: string): Promise<HTMLImageElement> {

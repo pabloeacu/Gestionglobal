@@ -15,6 +15,7 @@ import {
   Inbox,
   Sparkles,
   CalendarClock,
+  CalendarPlus,
   Briefcase,
   GraduationCap,
   Handshake,
@@ -29,6 +30,9 @@ import {
   type BusquedaItem,
   type BusquedaKind,
 } from '@/services/api/busqueda';
+import { parseEntradaAgenda } from '@/lib/agendaParse';
+import { crearEvento, listCategorias, type AgendaCategoria } from '@/services/api/agenda';
+import { toast } from '@/lib/toast';
 
 // UI del command palette. Montar una sola vez en el árbol (junto al
 // CommandPaletteProvider).
@@ -94,12 +98,77 @@ function score(needle: string, hay: string): number {
 
 export function CommandPalette() {
   const { isOpen, close, search, setSearch, registered } = useCommandPalette();
-  // Push manual al history del browser. React Router escucha popstate y
-  // re-rendea la ruta. Mejor que window.location.href (no recarga la app).
-  const navigate = useCallback((path: string) => {
+  // B6 · Parser NL · cuando el texto del palette parece descripción de un
+  // evento (mañana 9am, "el 15 a las 14", recurrencias, etc.) ofrecemos un
+  // shortcut "Crear evento" que crea en Agenda sin abrir otra pantalla.
+  // Las categorías se cargan una sola vez al primer open del palette y se
+  // mantienen en cache para parser → categoryId.
+  const [agendaCategorias, setAgendaCategorias] = useState<AgendaCategoria[]>([]);
+  const agendaCatsLoadedRef = useRef(false);
+  const [creandoEvento, setCreandoEvento] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    if (agendaCatsLoadedRef.current) return;
+    agendaCatsLoadedRef.current = true;
+    void listCategorias().then((res) => {
+      if (res.ok) setAgendaCategorias(res.data);
+    });
+  }, [isOpen]);
+
+  const agendaQuickEvent = useMemo(() => {
+    const q = search.trim();
+    if (q.length < 5) return null;
+    try {
+      const parsed = parseEntradaAgenda(q, agendaCategorias);
+      // Sólo ofrecemos crear si el parser sacó al menos una fecha o palabra
+      // temporal — si no, es ruido (búsqueda normal).
+      if (!parsed.startAt) return null;
+      return parsed;
+    } catch {
+      return null;
+    }
+  }, [search, agendaCategorias]);
+
+  const navigateHistory = useCallback((path: string) => {
     window.history.pushState({}, '', path);
     window.dispatchEvent(new PopStateEvent('popstate'));
   }, []);
+
+  async function crearEventoDesdePalette() {
+    if (!agendaQuickEvent) return;
+    setCreandoEvento(true);
+    try {
+      const res = await crearEvento({
+        title: agendaQuickEvent.title,
+        startAt: agendaQuickEvent.startAt,
+        endAt: agendaQuickEvent.endAt,
+        allDay: agendaQuickEvent.allDay,
+        categoryId: agendaQuickEvent.categoryId,
+        priority: agendaQuickEvent.priority,
+        recurrence: agendaQuickEvent.recurrence,
+        recurrenceWeekdays: agendaQuickEvent.recurrenceWeekdays,
+        recurrenceMonthday: agendaQuickEvent.recurrenceMonthday,
+      });
+      if (!res.ok) {
+        toast.error('No pudimos crear el evento', { description: res.error.message });
+        return;
+      }
+      toast.success('Evento creado en tu Agenda', {
+        action: {
+          label: 'Ver',
+          onClick: () => navigateHistory('/gerencia/agenda'),
+        },
+      });
+      setSearch('');
+      close();
+    } finally {
+      setCreandoEvento(false);
+    }
+  }
+  // Push manual al history del browser. React Router escucha popstate y
+  // re-rendea la ruta. Mejor que window.location.href (no recarga la app).
+  const navigate = navigateHistory;
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [active, setActive] = useState(0);
 
@@ -226,9 +295,24 @@ export function CommandPalette() {
   const trimmedSearch = search.trim();
   const hasQuery = trimmedSearch.length >= 2;
   const isEmpty =
-    flat.length === 0 && (!loading || !hasQuery);
+    flat.length === 0 && (!loading || !hasQuery) && !agendaQuickEvent;
 
   let flatIdx = 0;
+
+  function formatQuickEventoFecha(): string {
+    if (!agendaQuickEvent?.startAt) return '';
+    const d = new Date(agendaQuickEvent.startAt);
+    if (agendaQuickEvent.allDay) {
+      return d.toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric', month: 'short' });
+    }
+    return d.toLocaleString('es-AR', {
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  }
 
   return createPortal(
     <div
@@ -262,6 +346,53 @@ export function CommandPalette() {
         </div>
 
         <div className="max-h-[55vh] overflow-y-auto">
+          {/* B6 · Parser NL · sugerencia "Crear evento" cuando el texto
+              tiene una fecha/hora detectable. Sin teclas de navegación
+              (no entra al `flat`) — se confirma con click. */}
+          {agendaQuickEvent && (
+            <div className="border-b border-slate-100 bg-brand-cyan-pale/20 p-1.5">
+              <p className="px-4 py-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-brand-cyan">
+                Anotar en la agenda
+              </p>
+              <button
+                type="button"
+                disabled={creandoEvento}
+                onClick={() => void crearEventoDesdePalette()}
+                className={cn(
+                  'flex w-full items-center gap-3 rounded-md px-4 py-2.5 text-left text-sm transition',
+                  'text-brand-ink/85 hover:bg-brand-cyan-pale/40 disabled:opacity-60',
+                )}
+              >
+                <span className="grid h-7 w-7 place-items-center rounded-md bg-brand-cyan text-white">
+                  {creandoEvento ? (
+                    <Loader2 size={14} className="animate-spin" />
+                  ) : (
+                    <CalendarPlus size={14} />
+                  )}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-medium">
+                    Crear evento: «{agendaQuickEvent.title || trimmedSearch}»
+                  </span>
+                  <span className="block truncate text-xs text-brand-muted">
+                    {formatQuickEventoFecha()}
+                    {agendaQuickEvent.categoryId && (
+                      <> · #{
+                        agendaCategorias.find((c) => c.id === agendaQuickEvent.categoryId)?.name
+                      }</>
+                    )}
+                    {agendaQuickEvent.recurrence !== 'none' && (
+                      <> · repite {agendaQuickEvent.recurrence === 'daily' ? 'diario' : agendaQuickEvent.recurrence === 'weekly' ? 'semanal' : 'mensual'}</>
+                    )}
+                  </span>
+                </span>
+                <kbd className="rounded border border-brand-cyan/30 bg-white px-1.5 py-0.5 text-[10px] font-semibold text-brand-cyan">
+                  +Agenda
+                </kbd>
+              </button>
+            </div>
+          )}
+
           {/* Comandos */}
           {visibleCommands.length > 0 &&
             visibleCommands.map(({ group, items }) => (

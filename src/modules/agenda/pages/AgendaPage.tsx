@@ -6,17 +6,19 @@
 // resolución de overrides en la Lista (E10), modal con panel LATERAL (E8),
 // AccionesMenu con clamp robusto (E7), bloque con HH:MM redondeado (E9).
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
   CalendarDays,
+  CalendarPlus,
   CalendarRange,
   ChevronLeft,
   ChevronRight,
   Clock,
+  Download,
   Focus,
   HelpCircle,
   List,
   Plus,
+  Sun,
 } from 'lucide-react';
 import { FUENTE_DESCRIPCION, FUENTE_LABEL } from '../fuenteColor';
 import type { AgendaFuente as AgendaFuenteTipo } from '@/services/api/agenda';
@@ -51,6 +53,15 @@ import { VistaSemana } from '../components/VistaSemana';
 import { VistaDia } from '../components/VistaDia';
 import { AccionesMenu, type PostergarDest } from '../components/AccionesMenu';
 import { EventoModal, type EventoDraft } from '../components/EventoModal';
+import { ProyectadaEmbebidaModal } from '../components/ProyectadaEmbebidaModal';
+import { useRegisterCommand } from '@/contexts/CommandPaletteContext';
+import {
+  downloadIcs,
+  eventosToIcs,
+  eventoPersonalToIcs,
+  ocurrenciaProyectadaToIcs,
+  type IcsEvento,
+} from '@/lib/icsExport';
 
 type Vista = 'lista' | 'mes' | 'semana' | 'dia';
 type AgendaTab = 'mi-agenda' | 'vencimientos';
@@ -109,7 +120,6 @@ interface AgendaPageProps {
 }
 
 export function AgendaPage({ initialTab }: AgendaPageProps = {}) {
-  const navigate = useNavigate();
   const [tab, setTab] = useState<AgendaTab>(initialTab ?? 'mi-agenda');
   const [vista, setVistaState] = useState<Vista>(getVistaInicial);
   const setVista = (v: Vista) => {
@@ -152,6 +162,8 @@ export function AgendaPage({ initialTab }: AgendaPageProps = {}) {
   const [modalDraft, setModalDraft] = useState<Partial<EventoDraft> | undefined>(undefined);
   const [modalEvento, setModalEvento] = useState<AgendaEvento | null>(null);
   const [menu, setMenu] = useState<{ oc: Ocurrencia; x: number; y: number } | null>(null);
+  // B2 · modal embebido del módulo origen (en vez de navegar fuera al click).
+  const [proyectadaSelected, setProyectadaSelected] = useState<OcurrenciaUnificada | null>(null);
   const confirm = useConfirm();
   const prompt = usePrompt();
 
@@ -225,36 +237,10 @@ export function AgendaPage({ initialTab }: AgendaPageProps = {}) {
   }
 
   function abrirProyectado(item: OcurrenciaUnificada) {
-    // Rutas verificadas contra App.tsx (rev. 2026-05-21). Si alguna ruta
-    // específica no existe, caemos al listado del módulo y dejamos warning.
-    switch (item.fuente) {
-      case 'vencimiento':
-        // Tab dentro de Agenda (DGG-08).
-        navigate(`/gerencia/agenda/vencimientos`);
-        return;
-      case 'tramite':
-        // Ruta verificada: /gerencia/trackings/:id
-        navigate(`/gerencia/trackings/${item.origenId}`);
-        return;
-      case 'comprobante':
-        // Ruta verificada: /gerencia/facturacion/:id
-        navigate(`/gerencia/facturacion/${item.origenId}`);
-        return;
-      case 'solicitud':
-        // Ruta verificada: /gerencia/solicitudes/:id
-        navigate(`/gerencia/solicitudes/${item.origenId}`);
-        return;
-      case 'tracking_alarma':
-        // Bloque A · Fase 2 (mig 0122): origenId = tramite_id (vw_agenda_unificada
-        // ahora expone t.id en vez de tl.id), por lo que la alarma navega
-        // directo al tracking del trámite específico que la disparó.
-        navigate(`/gerencia/trackings/${item.origenId}`);
-        return;
-      default:
-        // eslint-disable-next-line no-console
-        console.warn('[Agenda] Fuente proyectada desconocida:', item);
-        return;
-    }
+    // B2 · En vez de navegar fuera de Agenda, abrimos un modal in-place con
+    // los datos clave del item + un CTA "Abrir el módulo" para entrar al
+    // detalle completo. Cita DGG-06: no perder contexto del calendario.
+    setProyectadaSelected(item);
   }
 
   const tituloPeriodo = useMemo(() => {
@@ -452,6 +438,133 @@ export function AgendaPage({ initialTab }: AgendaPageProps = {}) {
     setModalOpen(true);
   }
 
+  // B4 · Export iCal: descarga un .ics con los eventos personales + los
+  // proyectados visibles según los filtros actuales. Sirve para sincronizar
+  // con Google Calendar / Outlook / Apple Calendar. UID estable por evento
+  // ⇒ subscriptions repetidas no duplican.
+  function exportarIcs(modo: 'personal' | 'todo') {
+    const items: IcsEvento[] = [];
+    if (modo === 'personal' || modo === 'todo') {
+      for (const ev of eventos) {
+        const ics = eventoPersonalToIcs(ev);
+        if (ics) items.push(ics);
+      }
+    }
+    if (modo === 'todo') {
+      for (const oc of proyectadas) items.push(ocurrenciaProyectadaToIcs(oc));
+    }
+    if (items.length === 0) {
+      toast.error('No hay eventos para exportar en este rango.');
+      return;
+    }
+    const ics = eventosToIcs(items);
+    const stamp = new Date().toISOString().slice(0, 10);
+    downloadIcs(
+      ics,
+      `agenda-gestion-global-${modo}-${stamp}.ics`,
+    );
+    toast.success(`Agenda exportada · ${items.length} eventos`, {
+      description: 'Abrí el archivo .ics con Google Calendar / Outlook / Apple Calendar.',
+    });
+  }
+
+  // B5 · Comandos ⌘K scope-aware (solo cuando el usuario está en Agenda).
+  // "Ir a hoy/mañana/próximo lunes" mueven el ancla; "Exportar" dispara el
+  // download de iCal sin clickear en el botón visible.
+  const cmdIrHoy = useMemo(
+    () => ({
+      id: 'agenda.ir-hoy',
+      label: 'Agenda · Ir a hoy',
+      description: 'Saltar el ancla al día de hoy',
+      group: 'acciones' as const,
+      whenPathStartsWith: '/gerencia/agenda',
+      icon: Sun,
+      action: () => setAnchor(new Date()),
+    }),
+    [],
+  );
+  const cmdIrManana = useMemo(
+    () => ({
+      id: 'agenda.ir-manana',
+      label: 'Agenda · Ir a mañana',
+      description: 'Saltar el ancla a mañana',
+      group: 'acciones' as const,
+      whenPathStartsWith: '/gerencia/agenda',
+      icon: CalendarPlus,
+      action: () => {
+        const d = new Date();
+        d.setDate(d.getDate() + 1);
+        setAnchor(d);
+      },
+    }),
+    [],
+  );
+  const cmdIrProxLunes = useMemo(
+    () => ({
+      id: 'agenda.ir-prox-lunes',
+      label: 'Agenda · Ir al próximo lunes',
+      description: 'Saltar al lunes de la semana entrante',
+      group: 'acciones' as const,
+      whenPathStartsWith: '/gerencia/agenda',
+      icon: CalendarRange,
+      action: () => {
+        const d = new Date();
+        d.setHours(0, 0, 0, 0);
+        const dow = d.getDay(); // 0=dom, 1=lun, ...
+        const diff = ((1 - dow + 7) % 7) || 7;
+        d.setDate(d.getDate() + diff);
+        setAnchor(d);
+      },
+    }),
+    [],
+  );
+  const cmdToggleEnfoque = useMemo(
+    () => ({
+      id: 'agenda.toggle-enfoque',
+      label: 'Agenda · Activar/desactivar Modo enfoque',
+      description: 'Oculta proyecciones y deja sólo tus eventos',
+      group: 'acciones' as const,
+      whenPathStartsWith: '/gerencia/agenda',
+      icon: Focus,
+      action: () => setModoEnfoque(!modoEnfoque),
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [modoEnfoque],
+  );
+  const cmdExportarPersonal = useMemo(
+    () => ({
+      id: 'agenda.exportar-ics-personal',
+      label: 'Agenda · Exportar a iCal (sólo mis eventos)',
+      description: 'Descargar .ics personal — Google Cal / Outlook / Apple',
+      group: 'acciones' as const,
+      whenPathStartsWith: '/gerencia/agenda',
+      icon: Download,
+      action: () => exportarIcs('personal'),
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [eventos.length, proyectadas.length],
+  );
+  const cmdExportarTodo = useMemo(
+    () => ({
+      id: 'agenda.exportar-ics-todo',
+      label: 'Agenda · Exportar a iCal (todo)',
+      description: 'Personal + vencimientos + trámites + cobranzas',
+      group: 'acciones' as const,
+      whenPathStartsWith: '/gerencia/agenda',
+      icon: Download,
+      action: () => exportarIcs('todo'),
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [eventos.length, proyectadas.length],
+  );
+
+  useRegisterCommand(cmdIrHoy);
+  useRegisterCommand(cmdIrManana);
+  useRegisterCommand(cmdIrProxLunes);
+  useRegisterCommand(cmdToggleEnfoque);
+  useRegisterCommand(cmdExportarPersonal);
+  useRegisterCommand(cmdExportarTodo);
+
   return (
     <div className="space-y-4">
       {/* Header */}
@@ -475,6 +588,15 @@ export function AgendaPage({ initialTab }: AgendaPageProps = {}) {
             </Button>
             <Button variant="ghost" onClick={() => navegar(1)} aria-label="Siguiente">
               <ChevronRight size={14} />
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={() => exportarIcs('todo')}
+              title="Descargar .ics para sincronizar con Google Calendar / Outlook / Apple"
+              aria-label="Exportar agenda a iCal"
+            >
+              <Download size={14} />
+              <span className="hidden sm:inline">Exportar</span>
             </Button>
             <Button
               onClick={() => {
@@ -749,6 +871,12 @@ export function AgendaPage({ initialTab }: AgendaPageProps = {}) {
         categorias={categorias}
         draft={modalDraft}
         evento={modalEvento}
+      />
+
+      {/* B2 · Modal embebido para eventos proyectados */}
+      <ProyectadaEmbebidaModal
+        proyectada={proyectadaSelected}
+        onClose={() => setProyectadaSelected(null)}
       />
     </div>
   );
