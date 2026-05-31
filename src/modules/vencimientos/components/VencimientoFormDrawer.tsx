@@ -46,7 +46,7 @@ export function VencimientoFormDrawer({
 }: Props) {
   const isEdit = !!editing;
 
-  const [tipo, setTipo] = useState<VencimientoTipo>('matricula_rpac');
+  const [tipo, setTipo] = useState<VencimientoTipo>('renovacion_rpac');
   const [sujeto, setSujeto] = useState<VencimientoSujeto>('administracion');
   const [administracionId, setAdministracionId] = useState<string>('');
   const [consorcioId, setConsorcioId] = useState<string>('');
@@ -72,7 +72,7 @@ export function VencimientoFormDrawer({
       setDescripcion(editing.descripcion ?? '');
       setObservaciones(editing.observaciones ?? '');
     } else {
-      setTipo('matricula_rpac');
+      setTipo('renovacion_rpac');
       setSujeto('administracion');
       setAdministracionId(initialAdministracionId ?? '');
       setConsorcioId('');

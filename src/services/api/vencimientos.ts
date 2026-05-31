@@ -16,29 +16,21 @@ export type VencimientoConfigRow =
 export type VencimientoConfigUpdate =
   Database['public']['Tables']['vencimientos_config']['Update'];
 
+// Mig 0155 · FIX-V3 · SOLO servicios contratados con GG que tienen renovación
+// periódica. Los tipos anteriores (certificado_arca, libro_actas, etc.) NO los
+// presta GG y se eliminaron del catálogo. 'otro' sigue existiendo en el CHECK
+// para backward compat de filas históricas canceladas, pero la UI NO lo ofrece.
 export const VENCIMIENTO_TIPOS = [
-  'matricula_rpac',
+  'renovacion_rpac',
+  'curso_actualizacion',
   'ddjj_anual',
-  'certificado_arca',
-  'seguro_consorcio',
-  'habilitacion_municipal',
-  'libro_actas',
-  'libro_administracion',
-  'revision_ascensor',
-  'otro',
 ] as const;
 export type VencimientoTipo = (typeof VENCIMIENTO_TIPOS)[number];
 
 export const VENCIMIENTO_TIPO_LABEL: Record<VencimientoTipo, string> = {
-  matricula_rpac: 'Matrícula RPAC',
+  renovacion_rpac: 'Renovación de matrícula RPAC',
+  curso_actualizacion: 'Curso de Actualización RPAC',
   ddjj_anual: 'Declaración Jurada anual',
-  certificado_arca: 'Certificado ARCA',
-  seguro_consorcio: 'Seguro del consorcio',
-  habilitacion_municipal: 'Habilitación municipal',
-  libro_actas: 'Libro de actas',
-  libro_administracion: 'Libro de administración',
-  revision_ascensor: 'Revisión de ascensor',
-  otro: 'Otro',
 };
 
 export const VENCIMIENTO_ESTADOS = [

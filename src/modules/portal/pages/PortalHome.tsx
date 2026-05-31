@@ -557,16 +557,14 @@ function ProximosVencimientos({ items }: { items: ClientePortalDashboard['vencim
 // Helpers
 // =========================================================================
 function labelForTipoVencimiento(tipo: string): string {
+  // Mig 0155 · FIX-V3 · sólo 3 tipos vivos. Histórico cancelado fallback al tipo.
   const map: Record<string, string> = {
-    matricula_rpac: 'Matrícula RPAC',
-    ddjj_anual: 'DDJJ anual',
-    certificado_arca: 'Certificado ARCA',
-    seguro_consorcio: 'Seguro consorcio',
-    habilitacion_municipal: 'Habilitación municipal',
-    libro_actas: 'Libro de actas',
-    libro_administracion: 'Libro administración',
-    revision_ascensor: 'Revisión de ascensor',
-    otro: 'Otro vencimiento',
+    renovacion_rpac: 'Renovación de matrícula RPAC',
+    curso_actualizacion: 'Curso de Actualización RPAC',
+    ddjj_anual: 'Declaración Jurada anual',
+    // Backward compat para filas históricas canceladas:
+    matricula_rpac: 'Matrícula RPAC (histórico)',
+    otro: 'Otro',
   };
   return map[tipo] ?? tipo;
 }
