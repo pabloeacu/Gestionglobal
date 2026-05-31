@@ -128,7 +128,9 @@ export function FormularioRunner({
 
   function isFieldVisible(field: FormularioFieldDef): boolean {
     if (!field.condition) return true;
-    return String(data[field.condition.field] ?? '') === field.condition.equals;
+    const actual = String(data[field.condition.field] ?? '');
+    const target = field.condition.equals;
+    return Array.isArray(target) ? target.includes(actual) : actual === target;
   }
 
   async function onValidarVoucher() {

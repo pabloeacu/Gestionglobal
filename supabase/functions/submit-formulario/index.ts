@@ -17,7 +17,7 @@ interface FieldDef {
   required?: boolean;
   options?: string[];
   max_files?: number;
-  condition?: { field: string; equals: string };
+  condition?: { field: string; equals: string | string[] };
   validation?: { min?: number; max?: number; pattern?: string };
 }
 interface SectionDef { title?: string; fields: FieldDef[]; }
@@ -93,8 +93,10 @@ Deno.serve(async (req) => {
     for (const field of section.fields) {
       if (['heading', 'separator', 'html'].includes(field.type)) continue;
       if (field.condition) {
-        const dep = payload.datos[field.condition.field];
-        if (String(dep) !== field.condition.equals) continue;
+        const dep = String(payload.datos[field.condition.field] ?? '');
+        const target = field.condition.equals;
+        const visible = Array.isArray(target) ? target.includes(dep) : dep === target;
+        if (!visible) continue;
       }
       const val = payload.datos[field.name];
       const empty = val === undefined || val === null || val === '' || (Array.isArray(val) && val.length === 0);

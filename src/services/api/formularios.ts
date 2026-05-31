@@ -32,7 +32,14 @@ export interface FormularioFieldDef {
   max_files?: number;
   accept?: string[];
   validation?: { min?: number; max?: number; pattern?: string };
-  condition?: { field: string; equals: string };
+  /**
+   * Si está presente, el campo solo se muestra (y solo se valida) cuando el
+   * valor del campo `field` coincide con `equals`. `equals` acepta un solo
+   * valor o una lista — el campo se muestra si el valor actual está en esa
+   * lista. Cuando el campo no es visible, queda excluido del payload y de
+   * la validación required (en runner y edge function).
+   */
+  condition?: { field: string; equals: string | string[] };
   // file_download: el archivo que la gerencia provee para que el usuario
   // del formulario lo descargue. URL pública del bucket.
   download_url?: string;

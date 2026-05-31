@@ -6,6 +6,7 @@ import { Plus, Trash2, Upload, FileText, Loader2, X } from 'lucide-react';
 import { toast } from '@/lib/toast';
 import { supabase } from '@/lib/supabase';
 import { Button, Field, Input, Select, Textarea } from '@/components/common';
+import { cn } from '@/lib/cn';
 import type {
   FormularioFieldDef,
   FormularioSchemaDef,
@@ -316,7 +317,10 @@ function FieldEditor({
         />
       )}
 
-      <Field label="Mostrar sólo si…" hint="Lógica condicional opcional.">
+      <Field
+        label="Mostrar sólo si…"
+        hint="Lógica condicional opcional. Si el campo dependiente es Select/Radio/Multiselect podés elegir uno o varios valores; con cualquiera de ellos el campo aparece."
+      >
         <div className="space-y-2">
           <Select
             value={field.condition?.field ?? ''}
@@ -343,20 +347,82 @@ function FieldEditor({
               </option>
             ))}
           </Select>
-          {field.condition?.field && (
-            <Input
-              placeholder="Valor exacto que debe tener"
-              value={field.condition.equals}
-              onChange={(e) =>
-                onPatch({
-                  condition: {
-                    field: field.condition!.field,
-                    equals: e.target.value,
-                  },
-                })
+          {field.condition?.field &&
+            (() => {
+              const depField = otrosCampos.find(
+                (c) => c.name === field.condition!.field,
+              );
+              const tieneOpciones =
+                depField &&
+                ['select', 'radio', 'multiselect'].includes(depField.type) &&
+                Array.isArray(depField.options) &&
+                depField.options.length > 0;
+              const raw = field.condition!.equals;
+              const seleccionadas: string[] = Array.isArray(raw)
+                ? raw
+                : raw
+                  ? [raw]
+                  : [];
+              if (tieneOpciones) {
+                return (
+                  <div className="rounded-lg border border-slate-200 bg-white p-2">
+                    <p className="mb-1.5 text-[11px] text-brand-muted">
+                      Tildá los valores con los que querés que aparezca:
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {depField!.options!.map((op) => {
+                        const checked = seleccionadas.includes(op);
+                        return (
+                          <label
+                            key={op}
+                            className={cn(
+                              'inline-flex cursor-pointer items-center gap-1 rounded-full border px-2 py-0.5 text-xs transition',
+                              checked
+                                ? 'border-brand-cyan bg-brand-cyan-pale/40 text-brand-ink'
+                                : 'border-slate-200 bg-white text-brand-muted hover:border-brand-cyan/40',
+                            )}
+                          >
+                            <input
+                              type="checkbox"
+                              className="h-3 w-3"
+                              checked={checked}
+                              onChange={(e) => {
+                                const next = e.target.checked
+                                  ? Array.from(new Set([...seleccionadas, op]))
+                                  : seleccionadas.filter((x) => x !== op);
+                                onPatch({
+                                  condition: {
+                                    field: field.condition!.field,
+                                    // Si hay un solo valor lo guardamos como string
+                                    // para mantener compat con submissions viejas.
+                                    equals: next.length === 1 ? next[0]! : next,
+                                  },
+                                });
+                              }}
+                            />
+                            {op}
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
               }
-            />
-          )}
+              return (
+                <Input
+                  placeholder="Valor exacto que debe tener"
+                  value={Array.isArray(raw) ? raw.join(', ') : raw}
+                  onChange={(e) =>
+                    onPatch({
+                      condition: {
+                        field: field.condition!.field,
+                        equals: e.target.value,
+                      },
+                    })
+                  }
+                />
+              );
+            })()}
         </div>
       </Field>
 
