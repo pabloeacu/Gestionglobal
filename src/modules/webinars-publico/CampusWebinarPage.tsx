@@ -103,7 +103,7 @@ export function CampusWebinarPage() {
       </header>
 
       {/* Hero compacto Campus-style */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-brand-navy via-brand-navy to-brand-cyan px-6 py-10 text-white sm:py-14">
+      <section className="relative overflow-hidden bg-gradient-to-br from-brand-night via-brand-night to-brand-cyan px-6 py-10 text-white sm:py-14">
         <TrianglesAccent position="top-right" tone="cyan" className="opacity-25" />
         <TrianglesAccent position="bottom-left" tone="cyan" className="opacity-15" />
         <div className="relative mx-auto max-w-3xl">

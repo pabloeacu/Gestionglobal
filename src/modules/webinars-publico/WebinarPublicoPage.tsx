@@ -57,7 +57,7 @@ export function WebinarPublicoPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-brand-cyan/5">
-      <div className="relative overflow-hidden bg-gradient-to-br from-brand-navy via-brand-navy to-brand-cyan px-6 py-12 text-white">
+      <div className="relative overflow-hidden bg-gradient-to-br from-brand-night via-brand-night to-brand-cyan px-6 py-12 text-white">
         <TrianglesAccent position="top-right" tone="cyan" className="opacity-20" />
         <div className="mx-auto max-w-3xl">
           <div className="flex items-center gap-2 text-xs uppercase tracking-widest text-brand-cyan/80">
