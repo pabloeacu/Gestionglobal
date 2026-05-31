@@ -291,7 +291,7 @@ export interface ListMatriculasParams {
 }
 
 export interface MatriculaListItem extends CursoMatriculaRow {
-  curso: Pick<CursoRow, 'id' | 'slug' | 'titulo' | 'modalidad'> | null;
+  curso: Pick<CursoRow, 'id' | 'slug' | 'titulo' | 'modalidad' | 'banner_url'> | null;
   alumno_nombre: string | null;
   administracion_nombre: string | null;
 }
@@ -303,7 +303,7 @@ export async function listMatriculas(
     .from('curso_matriculas')
     .select(
       `*,
-       cursos:curso_id(id, slug, titulo, modalidad),
+       cursos:curso_id(id, slug, titulo, modalidad, banner_url),
        profiles!curso_matriculas_profile_id_fkey(id, full_name),
        administraciones(id, nombre)`,
     )
@@ -316,7 +316,7 @@ export async function listMatriculas(
   if (error) return fail('MATRICULAS_LIST', error.message, error);
 
   type RawRow = CursoMatriculaRow & {
-    cursos: Pick<CursoRow, 'id' | 'slug' | 'titulo' | 'modalidad'> | null;
+    cursos: Pick<CursoRow, 'id' | 'slug' | 'titulo' | 'modalidad' | 'banner_url'> | null;
     profiles: { id: string; full_name: string | null } | null;
     administraciones: { id: string; nombre: string } | null;
   };

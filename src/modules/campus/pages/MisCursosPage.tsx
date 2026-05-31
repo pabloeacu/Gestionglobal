@@ -106,35 +106,57 @@ export function MisCursosPage() {
                   <li key={m.id} className="min-w-0">
                     <Link
                       to={`/portal/campus/${m.curso?.slug ?? m.curso_id}`}
-                      className="group flex h-full min-w-0 flex-col gap-3 overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-brand-cyan hover:shadow-md motion-safe:animate-fade-up"
+                      className="group flex h-full min-w-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:border-brand-cyan hover:shadow-md motion-safe:animate-fade-up"
                     >
-                      <header className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <p className="kicker text-brand-cyan">
-                            {m.curso?.modalidad ?? 'curso'}
-                          </p>
-                          <h3 className="mt-1 truncate font-display text-base font-semibold text-brand-ink">
-                            {m.curso?.titulo ?? 'Curso'}
-                          </h3>
+                      {m.curso?.banner_url ? (
+                        <div className="relative aspect-[3/1] w-full overflow-hidden bg-slate-100">
+                          <img
+                            src={m.curso.banner_url}
+                            alt=""
+                            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+                            loading="lazy"
+                          />
+                          <span
+                            className={cn(
+                              'absolute right-2 top-2 rounded-full border bg-white/95 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider shadow-sm backdrop-blur',
+                              MATRICULA_ESTADO_BADGE[m.estado as MatriculaEstado],
+                            )}
+                          >
+                            {MATRICULA_ESTADO_LABEL[m.estado as MatriculaEstado]}
+                          </span>
                         </div>
-                        <span
-                          className={cn(
-                            'rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider',
-                            MATRICULA_ESTADO_BADGE[m.estado as MatriculaEstado],
+                      ) : null}
+                      <div className="flex flex-1 flex-col gap-3 p-4">
+                        <header className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="kicker text-brand-cyan">
+                              {m.curso?.modalidad ?? 'curso'}
+                            </p>
+                            <h3 className="mt-1 truncate font-display text-base font-semibold text-brand-ink">
+                              {m.curso?.titulo ?? 'Curso'}
+                            </h3>
+                          </div>
+                          {!m.curso?.banner_url && (
+                            <span
+                              className={cn(
+                                'rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider',
+                                MATRICULA_ESTADO_BADGE[m.estado as MatriculaEstado],
+                              )}
+                            >
+                              {MATRICULA_ESTADO_LABEL[m.estado as MatriculaEstado]}
+                            </span>
                           )}
-                        >
-                          {MATRICULA_ESTADO_LABEL[m.estado as MatriculaEstado]}
-                        </span>
-                      </header>
-                      {r && <ProgresoBar porcentaje={r.porcentaje} />}
-                      <footer className="flex items-center justify-between text-xs text-brand-muted">
-                        <span>
-                          {r?.completadas ?? 0}/{r?.total_clases ?? 0} clases
-                        </span>
-                        <span className="inline-flex items-center gap-1 font-medium text-brand-cyan group-hover:underline">
-                          <GraduationCap size={13} /> Continuar
-                        </span>
-                      </footer>
+                        </header>
+                        {r && <ProgresoBar porcentaje={r.porcentaje} />}
+                        <footer className="flex items-center justify-between text-xs text-brand-muted">
+                          <span>
+                            {r?.completadas ?? 0}/{r?.total_clases ?? 0} clases
+                          </span>
+                          <span className="inline-flex items-center gap-1 font-medium text-brand-cyan group-hover:underline">
+                            <GraduationCap size={13} /> Continuar
+                          </span>
+                        </footer>
+                      </div>
                     </Link>
                   </li>
                 );

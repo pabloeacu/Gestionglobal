@@ -246,14 +246,49 @@ export function CursoDetalleAlumnoPage() {
         <ArrowLeft size={13} /> Mis cursos
       </Link>
 
+      {data.curso.banner_url ? (
+        <div className="relative mb-4 overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 shadow-sm">
+          <div className="aspect-[3/1] w-full">
+            <img
+              src={data.curso.banner_url}
+              alt=""
+              className="h-full w-full object-cover"
+            />
+          </div>
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-brand-ink/80 via-brand-ink/30 to-transparent" />
+          <div className="absolute inset-x-0 bottom-0 p-5 sm:p-6">
+            <p className="kicker text-brand-cyan-pale">Campus</p>
+            <h1 className="mt-1 font-display text-2xl font-bold text-white drop-shadow-sm sm:text-3xl">
+              {data.curso.titulo}
+            </h1>
+            {data.curso.instructor_nombre && (
+              <p className="mt-1 flex items-center gap-2 text-sm text-white/80">
+                {data.curso.instructor_foto_url && (
+                  <img
+                    src={data.curso.instructor_foto_url}
+                    alt=""
+                    className="h-6 w-6 rounded-full border border-white/40 object-cover"
+                  />
+                )}
+                <span>{data.curso.instructor_nombre}</span>
+              </p>
+            )}
+          </div>
+        </div>
+      ) : null}
+
       <header className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p className="kicker text-brand-cyan">Campus</p>
-          <h1 className="font-display text-2xl font-bold text-brand-ink sm:text-3xl">
-            {data.curso.titulo}
-          </h1>
+          {!data.curso.banner_url && (
+            <>
+              <p className="kicker text-brand-cyan">Campus</p>
+              <h1 className="font-display text-2xl font-bold text-brand-ink sm:text-3xl">
+                {data.curso.titulo}
+              </h1>
+            </>
+          )}
           {resumen && (
-            <div className="mt-3 flex items-center gap-3 text-xs text-brand-muted">
+            <div className={cn('flex items-center gap-3 text-xs text-brand-muted', !data.curso.banner_url && 'mt-3')}>
               <ProgresoBar porcentaje={resumen.porcentaje} className="max-w-xs" />
               <span>
                 {resumen.completadas}/{resumen.total_clases} clases ·{' '}
