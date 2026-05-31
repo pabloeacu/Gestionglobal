@@ -187,7 +187,15 @@ export function EmailQueuePage() {
                     <p className="text-[11px] text-brand-muted">{r.administracion_nombre}</p>
                   )}
                 </td>
-                <td className="px-4 py-2"><EstadoBadge estado={r.estado} /></td>
+                <td className="px-4 py-2">
+                  <div className="flex flex-col gap-1">
+                    <EstadoBadge estado={r.estado} />
+                    {/* D2-bis · delivery status del harvester (bounced/complained/...) */}
+                    {r.delivery_estado && r.delivery_estado !== 'sent' && (
+                      <DeliveryBadge estado={r.delivery_estado} error={r.delivery_error} />
+                    )}
+                  </div>
+                </td>
                 <td className="px-4 py-2 text-xs">
                   {r.casilla ? (CASILLAS.find(c => c.value === r.casilla)?.label ?? r.casilla) : '—'}
                 </td>
@@ -280,6 +288,41 @@ function EstadoBadge({ estado }: { estado: EstadoEmail }) {
   return (
     <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold', m.cls)}>
       <Icon size={10} />
+      {m.label}
+    </span>
+  );
+}
+
+// D2-bis · Badge para el estado post-envío detectado por el bounce harvester.
+// Solo se renderiza si delivery_estado != 'sent' (rebote, queja, retraso).
+function DeliveryBadge({
+  estado,
+  error,
+}: {
+  estado: NonNullable<EnvioListItem['delivery_estado']>;
+  error: string | null;
+}) {
+  const map = {
+    sent: { label: 'Entregado al SMTP', cls: 'bg-slate-100 text-slate-600', icon: CheckCircle2 },
+    delivered: { label: 'Entregado', cls: 'bg-emerald-100 text-emerald-700', icon: CheckCircle2 },
+    delivery_delayed: { label: 'Retrasado', cls: 'bg-amber-100 text-amber-700', icon: Clock },
+    bounced: { label: 'Rebotado', cls: 'bg-red-100 text-red-700', icon: AlertCircle },
+    complained: { label: 'Marcó spam', cls: 'bg-rose-100 text-rose-700', icon: AlertCircle },
+    failed: { label: 'Falló', cls: 'bg-red-100 text-red-700', icon: AlertCircle },
+  } as const;
+  const m = map[estado];
+  if (!m) return null;
+  const Icon = m.icon;
+  const title = error ? `${m.label} · ${error.slice(0, 200)}` : m.label;
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold',
+        m.cls,
+      )}
+      title={title}
+    >
+      <Icon size={9} />
       {m.label}
     </span>
   );

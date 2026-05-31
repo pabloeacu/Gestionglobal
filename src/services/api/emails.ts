@@ -40,6 +40,16 @@ export interface EncolarEmailInput {
 
 export type EstadoEmail = 'pendiente' | 'enviado' | 'fallido';
 
+// D2-bis · Status post-envío que viene de sent_emails (poblado por el
+// harvester de bounces). null = todavía no sabemos (recién enviado).
+export type DeliveryEstado =
+  | 'sent'
+  | 'delivered'
+  | 'delivery_delayed'
+  | 'bounced'
+  | 'complained'
+  | 'failed';
+
 export interface EnvioListItem {
   id: string;
   template_slug: string | null;
@@ -57,6 +67,9 @@ export interface EnvioListItem {
   casilla: FromCasilla | null;
   template_nombre: string | null;
   administracion_nombre: string | null;
+  /** D2-bis: estado post-envío leído del DSN harvester. */
+  delivery_estado: DeliveryEstado | null;
+  delivery_error: string | null;
 }
 
 export interface ListEnviosFilters {
@@ -254,24 +267,52 @@ export async function listEnvios(
   const { data, error, count } = await q;
   if (error) return fail('ENVIOS_LIST', error.message, error);
 
-  let rows: EnvioListItem[] = ((data ?? []) as unknown as RawJoined[]).map((r) => ({
-    id: r.id,
-    template_slug: r.template_slug,
-    to_email: r.to_email,
-    to_nombre: r.to_nombre,
-    subject: r.subject,
-    enviado_at: r.enviado_at,
-    intento: r.intento,
-    max_intentos: r.max_intentos,
-    ultimo_error: r.ultimo_error,
-    programado_para: r.programado_para,
-    prioridad: r.prioridad,
-    administracion_id: r.administracion_id,
-    estado: estadoDe(r),
-    casilla: r.email_templates?.from_casilla ?? null,
-    template_nombre: r.email_templates?.nombre ?? null,
-    administracion_nombre: r.administraciones?.nombre ?? null,
-  }));
+  // D2-bis · join client-side con sent_emails para conocer el delivery
+  // estado real (sent/bounced/complained/...). No hay FK formal, hacemos
+  // un segundo query por email_queue_id IN (lista).
+  const queueIds = (data ?? []).map((r) => (r as { id: string }).id);
+  const deliveryByQueueId = new Map<string, { estado: DeliveryEstado; error_msg: string | null }>();
+  if (queueIds.length > 0) {
+    const { data: sentRows } = await supabase
+      .from('sent_emails')
+      .select('email_queue_id, estado, error_msg')
+      // email_queue_id no está en los types regenerados pero sí en BD (mig 0154 lo confirma)
+      .in('email_queue_id' as never, queueIds);
+    for (const sr of (sentRows ?? []) as unknown as Array<unknown>) {
+      const row = sr as { email_queue_id: string | null; estado: string; error_msg: string | null };
+      if (!row.email_queue_id) continue;
+      if (['sent','delivered','delivery_delayed','bounced','complained','failed'].includes(row.estado)) {
+        deliveryByQueueId.set(row.email_queue_id, {
+          estado: row.estado as DeliveryEstado,
+          error_msg: row.error_msg,
+        });
+      }
+    }
+  }
+
+  let rows: EnvioListItem[] = ((data ?? []) as unknown as RawJoined[]).map((r) => {
+    const delivery = deliveryByQueueId.get(r.id);
+    return {
+      id: r.id,
+      template_slug: r.template_slug,
+      to_email: r.to_email,
+      to_nombre: r.to_nombre,
+      subject: r.subject,
+      enviado_at: r.enviado_at,
+      intento: r.intento,
+      max_intentos: r.max_intentos,
+      ultimo_error: r.ultimo_error,
+      programado_para: r.programado_para,
+      prioridad: r.prioridad,
+      administracion_id: r.administracion_id,
+      estado: estadoDe(r),
+      casilla: r.email_templates?.from_casilla ?? null,
+      template_nombre: r.email_templates?.nombre ?? null,
+      administracion_nombre: r.administraciones?.nombre ?? null,
+      delivery_estado: delivery?.estado ?? null,
+      delivery_error: delivery?.error_msg ?? null,
+    };
+  });
 
   if (filters.estado && filters.estado !== 'todos') {
     rows = rows.filter(r => r.estado === filters.estado);
