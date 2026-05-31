@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { RefreshIndicator } from '@/components/common';
 import { Link, useSearchParams } from 'react-router-dom';
 import { toast } from '@/lib/toast';
 import {
@@ -81,8 +82,12 @@ export function ComprobantesListPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
+  // F4 · primera carga vs refresco (evita flash blanco post-save).
+  const [refreshing, setRefreshing] = useState(false);
+  const firstLoadDoneRef = useRef(false);
   async function load() {
-    setLoading(true);
+    if (firstLoadDoneRef.current) setRefreshing(true);
+    else setLoading(true);
     setError(null);
     const res = await listComprobantes({
       search,
@@ -91,6 +96,8 @@ export function ComprobantesListPage() {
       periodo: periodo || undefined,
     });
     setLoading(false);
+    setRefreshing(false);
+    firstLoadDoneRef.current = true;
     if (!res.ok) {
       setError(res.error.message);
       toast.error(`No pudimos cargar los comprobantes: ${res.error.message}`);
@@ -236,6 +243,7 @@ export function ComprobantesListPage() {
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
+      <RefreshIndicator show={refreshing} />
       <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="kicker text-brand-cyan">Operación</p>

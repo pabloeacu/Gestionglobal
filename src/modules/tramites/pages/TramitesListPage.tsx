@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
+import { RefreshIndicator } from '@/components/common';
 import { toast } from '@/lib/toast';
 import {
   Plus,
@@ -85,16 +86,18 @@ export function TramitesListPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
+  // F4 · separa primera carga (loading=true → skeleton) de refrescos
+  // (refreshing=true → indicador top + data vieja visible, sin flash blanco).
+  const [refreshing, setRefreshing] = useState(false);
+  const firstLoadDoneRef = useRef(false);
   async function load() {
-    setLoading(true);
+    if (firstLoadDoneRef.current) setRefreshing(true);
+    else setLoading(true);
     setError(null);
-    const res = await listTramites({
-      search,
-      estado,
-      categoria,
-      prioridad,
-    });
+    const res = await listTramites({ search, estado, categoria, prioridad });
     setLoading(false);
+    setRefreshing(false);
+    firstLoadDoneRef.current = true;
     if (!res.ok) {
       setError(res.error.message);
       toast.error(`No pudimos cargar los trámites: ${res.error.message}`);
@@ -221,6 +224,7 @@ export function TramitesListPage() {
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
+      <RefreshIndicator show={refreshing} />
       <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="kicker text-brand-cyan">Operación</p>

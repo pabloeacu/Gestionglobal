@@ -14,3 +14,4 @@ export { RichTextEditor } from './RichTextEditor';
 export { ColorPicker } from './ColorPicker';
 export { EmailManaxerPreview, buildManaxerHtml, type ManaxerTemplateData } from './EmailManaxerPreview';
 export { Tooltip } from './Tooltip';
+export { RefreshIndicator } from './RefreshIndicator';

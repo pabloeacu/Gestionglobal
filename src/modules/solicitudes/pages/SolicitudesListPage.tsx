@@ -14,7 +14,9 @@ import {
   Field,
   Input,
   Select,
+  RefreshIndicator,
 } from '@/components/common';
+import { useRefreshableData } from '@/lib/useRefreshableData';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import { IllustratedEmpty } from '@/components/brand/IllustratedEmpty';
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
@@ -23,7 +25,6 @@ import {
   listSolicitudes,
   type SolicitudEstado,
   type SolicitudListItem,
-  type SolicitudesKpis,
 } from '@/services/api/solicitudes';
 import {
   SolicitudCard,
@@ -37,9 +38,6 @@ type EstadoFilter = SolicitudEstado | 'todos' | 'activas';
 
 export function SolicitudesListPage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [rows, setRows] = useState<SolicitudListItem[]>([]);
-  const [kpis, setKpis] = useState<SolicitudesKpis | null>(null);
-  const [loading, setLoading] = useState(true);
   const [estado, setEstado] = useState<EstadoFilter>(
     (searchParams.get('estado') as EstadoFilter) || 'activas',
   );
@@ -49,22 +47,30 @@ export function SolicitudesListPage() {
     searchParams.get('cat') ?? '',
   );
 
-  async function reload() {
-    setLoading(true);
-    const [r1, r2] = await Promise.all([
-      listSolicitudes({ estado, search }),
-      getKpis(),
-    ]);
-    setLoading(false);
-    if (r1.ok) setRows(r1.data.rows);
-    if (r2.ok) setKpis(r2.data);
-  }
+  // F4 · useRefreshableData separa primera carga (loading=true, skeleton) de
+  // refrescos (refreshing=true, indicador top, contenido visible sin flash).
+  const {
+    data,
+    loading,
+    refreshing,
+    reload,
+  } = useRefreshableData(
+    async () => {
+      const [r1, r2] = await Promise.all([
+        listSolicitudes({ estado, search }),
+        getKpis(),
+      ]);
+      return {
+        rows: r1.ok ? r1.data.rows : ([] as SolicitudListItem[]),
+        kpis: r2.ok ? r2.data : null,
+      };
+    },
+    [estado],
+  );
+  const rows = data?.rows ?? [];
+  const kpis = data?.kpis ?? null;
 
-  useEffect(() => {
-    void reload();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [estado]);
-
+  // Búsqueda con debounce → reload sin flash.
   useEffect(() => {
     const t = setTimeout(() => void reload(), 280);
     return () => clearTimeout(t);
@@ -208,6 +214,8 @@ export function SolicitudesListPage() {
 
   return (
     <div className="relative mx-auto max-w-6xl space-y-6">
+      {/* F4 · indicador sutil de refresco — reemplaza el flash blanco. */}
+      <RefreshIndicator show={refreshing} />
       <TrianglesAccent
         position="top-right"
         size={240}

@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { RefreshIndicator } from '@/components/common';
 import { toast } from '@/lib/toast';
 import {
   Plus,
@@ -112,11 +113,17 @@ export function VencimientosListPage() {
     setSelectedIds(new Set());
   }
 
+  // F4 · primera carga vs refresco (evita flash blanco post-save).
+  const [refreshing, setRefreshing] = useState(false);
+  const firstLoadDoneRef = useRef(false);
   async function load() {
-    setLoading(true);
+    if (firstLoadDoneRef.current) setRefreshing(true);
+    else setLoading(true);
     setError(null);
     const res = await getProximosVencimientos(horizonte);
     setLoading(false);
+    setRefreshing(false);
+    firstLoadDoneRef.current = true;
     if (!res.ok) {
       setError(res.error.message);
       toast.error(`No pudimos cargar los vencimientos: ${res.error.message}`);
@@ -411,6 +418,7 @@ export function VencimientosListPage() {
         transition: pullRefresh.pullPx === 0 ? 'transform 0.2s' : undefined,
       }}
     >
+      <RefreshIndicator show={refreshing} />
       {/* 7.E · indicador pull-to-refresh */}
       {pullRefresh.pullPx > 0 && (
         <div
