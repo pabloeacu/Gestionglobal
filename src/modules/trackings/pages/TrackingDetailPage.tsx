@@ -285,25 +285,19 @@ export function TrackingDetailPage() {
     }
   }
 
-  // FIX-V4 · Unificación: si el servicio tiene vigencia_meses != null, al cerrar
-  // el trámite encadenamos al ProgramarVencimientoModal para que el gerente
-  // setee la próxima fecha en el mismo flujo. Si vigencia_meses == null,
-  // sólo cierra el trámite.
   async function handleCerrar() {
     if (!data) return;
-    const tieneRenovacion = (data.servicio?.vigencia_meses ?? null) !== null;
-
     if (data.estado !== 'aprobado' && data.estado !== 'resuelto') {
       const cont = await confirm({
-        title: tieneRenovacion ? 'Cerrar trámite y programar próximo vencimiento' : 'Cerrar trámite',
+        title: 'Cerrar tracking',
         message: `El estado actual es "${data.estado}". ¿Cerrarlo igualmente?`,
-        confirmLabel: 'Continuar',
+        confirmLabel: 'Cerrar',
         danger: true,
       });
       if (!cont) return;
     }
     const url = await prompt({
-      title: 'Cerrar trámite',
+      title: 'Cerrar tracking',
       message: 'URL del documento final (certificado / diploma):',
       placeholder: 'https://…',
     });
@@ -313,16 +307,8 @@ export function TrackingDetailPage() {
       toast.error(res.error.message);
       return;
     }
-    if (tieneRenovacion) {
-      // Recargamos para que data.estado pase a 'cerrado' (la RPC del modal lo
-      // requiere) y abrimos el modal de programación con fecha precalculada.
-      await load();
-      toast.success('Trámite cerrado · programá el próximo vencimiento');
-      setProgramarOpen(true);
-    } else {
-      toast.success('Trámite cerrado');
-      void load();
-    }
+    toast.success('Tracking cerrado');
+    void load();
   }
 
   if (!loading && errorMsg && !data) {
@@ -541,10 +527,7 @@ export function TrackingDetailPage() {
             )}
             {isStaff && data.estado !== 'cerrado' && (
               <Button variant="secondary" onClick={() => void handleCerrar()}>
-                <CheckCircle2 className="h-4 w-4" />{' '}
-                {data.servicio?.vigencia_meses
-                  ? 'Cerrar trámite y programar próximo vencimiento'
-                  : 'Cerrar trámite'}
+                <CheckCircle2 className="h-4 w-4" /> Cerrar tracking
               </Button>
             )}
             {/* Programar próximo vencimiento — visible cuando el tracking está
@@ -833,12 +816,6 @@ export function TrackingDetailPage() {
         }}
         trackingId={data.id}
         trackingTitulo={data.titulo}
-        // FIX-V4 · precalcular fecha sugerida desde vigencia_meses del servicio.
-        periodoSugeridoDias={
-          data.servicio?.vigencia_meses != null
-            ? Math.round(data.servicio.vigencia_meses * 30.4375)
-            : undefined
-        }
         onProgramado={() => void load()}
         // 2.G · si estamos editando, precargamos el vencimiento ligado.
         vencimientoExistente={
