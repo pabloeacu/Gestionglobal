@@ -1134,6 +1134,13 @@ export type Database = {
             foreignKeyName: "certificados_webinar_id_fkey"
             columns: ["webinar_id"]
             isOneToOne: false
+            referencedRelation: "vw_administracion_webinars"
+            referencedColumns: ["webinar_id"]
+          },
+          {
+            foreignKeyName: "certificados_webinar_id_fkey"
+            columns: ["webinar_id"]
+            isOneToOne: false
             referencedRelation: "webinars"
             referencedColumns: ["id"]
           },
@@ -3436,6 +3443,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "servicios"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "formularios_webinar_id_fkey"
+            columns: ["webinar_id"]
+            isOneToOne: false
+            referencedRelation: "vw_administracion_webinars"
+            referencedColumns: ["webinar_id"]
           },
           {
             foreignKeyName: "formularios_webinar_id_fkey"
@@ -6470,6 +6484,13 @@ export type Database = {
             foreignKeyName: "webinar_acceso_tokens_webinar_inscripto_id_fkey"
             columns: ["webinar_inscripto_id"]
             isOneToOne: false
+            referencedRelation: "vw_administracion_webinars"
+            referencedColumns: ["inscripto_id"]
+          },
+          {
+            foreignKeyName: "webinar_acceso_tokens_webinar_inscripto_id_fkey"
+            columns: ["webinar_inscripto_id"]
+            isOneToOne: false
             referencedRelation: "webinar_inscriptos"
             referencedColumns: ["id"]
           },
@@ -6572,6 +6593,13 @@ export type Database = {
             foreignKeyName: "webinar_inscriptos_webinar_id_fkey"
             columns: ["webinar_id"]
             isOneToOne: false
+            referencedRelation: "vw_administracion_webinars"
+            referencedColumns: ["webinar_id"]
+          },
+          {
+            foreignKeyName: "webinar_inscriptos_webinar_id_fkey"
+            columns: ["webinar_id"]
+            isOneToOne: false
             referencedRelation: "webinars"
             referencedColumns: ["id"]
           },
@@ -6610,8 +6638,22 @@ export type Database = {
             foreignKeyName: "webinar_zoom_eventos_webinar_id_fkey"
             columns: ["webinar_id"]
             isOneToOne: false
+            referencedRelation: "vw_administracion_webinars"
+            referencedColumns: ["webinar_id"]
+          },
+          {
+            foreignKeyName: "webinar_zoom_eventos_webinar_id_fkey"
+            columns: ["webinar_id"]
+            isOneToOne: false
             referencedRelation: "webinars"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "webinar_zoom_eventos_webinar_inscripto_id_fkey"
+            columns: ["webinar_inscripto_id"]
+            isOneToOne: false
+            referencedRelation: "vw_administracion_webinars"
+            referencedColumns: ["inscripto_id"]
           },
           {
             foreignKeyName: "webinar_zoom_eventos_webinar_inscripto_id_fkey"
@@ -6749,6 +6791,33 @@ export type Database = {
         }
         Relationships: []
       }
+      vw_administracion_webinars: {
+        Row: {
+          administracion_id: string | null
+          asistio: boolean | null
+          canal: string | null
+          duracion_min: number | null
+          fecha_hora: string | null
+          grabacion_url: string | null
+          inscripto_at: string | null
+          inscripto_id: string | null
+          joined_at: string | null
+          left_at: string | null
+          tiempo_conectado_seg: number | null
+          titulo: string | null
+          webinar_id: string | null
+          webinar_status: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "webinar_inscriptos_administracion_id_fkey"
+            columns: ["administracion_id"]
+            isOneToOne: false
+            referencedRelation: "administraciones"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vw_agenda_unificada: {
         Row: {
           all_day: boolean | null
@@ -6836,6 +6905,22 @@ export type Database = {
         Args: { p_audiencia: Json }
         Returns: {
           administracion_id: string
+        }[]
+      }
+      administracion_webinars: {
+        Args: { p_administracion_id: string }
+        Returns: {
+          asistio: boolean
+          canal: string
+          duracion_min: number
+          fecha_hora: string
+          grabacion_url: string
+          inscripto_at: string
+          inscripto_id: string
+          tiempo_conectado_seg: number
+          titulo: string
+          webinar_id: string
+          webinar_status: string
         }[]
       }
       ajuste_masivo_precios: {

@@ -362,3 +362,31 @@ export async function inscribirManual(
     return fail(err.code, err.message, err.details);
   }
 }
+
+// ============================================================================
+// G1 · Histórico de webinars por administración (vw_administracion_webinars).
+// Usado en la ficha del cliente (gerencia) y en el portal del cliente.
+// ============================================================================
+export interface AdminWebinarHistorial {
+  inscripto_id: string;
+  webinar_id: string;
+  titulo: string;
+  fecha_hora: string;
+  duracion_min: number;
+  webinar_status: string;
+  grabacion_url: string | null;
+  canal: string;
+  asistio: boolean;
+  tiempo_conectado_seg: number | null;
+  inscripto_at: string;
+}
+
+export async function listAdministracionWebinars(
+  administracionId: string,
+): Promise<ApiResponse<AdminWebinarHistorial[]>> {
+  const { data, error } = await supabase.rpc('administracion_webinars', {
+    p_administracion_id: administracionId,
+  });
+  if (error) return fail('ADMIN_WEBINARS', error.message, error);
+  return ok((data ?? []) as unknown as AdminWebinarHistorial[]);
+}

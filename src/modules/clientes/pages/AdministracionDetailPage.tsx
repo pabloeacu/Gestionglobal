@@ -46,8 +46,9 @@ import {
 } from '@/services/api/cobranzas';
 import { formatDateShort } from '@/lib/dates';
 import { cn } from '@/lib/cn';
+import { TabWebinars } from '../components/TabWebinars';
 
-type TabKey = 'general' | 'fiscal' | 'registral' | 'consorcios' | 'ctacte' | 'emails';
+type TabKey = 'general' | 'fiscal' | 'registral' | 'consorcios' | 'ctacte' | 'webinars' | 'emails';
 
 const ESTADO_BADGES: Record<AdministracionEstado, { label: string; cls: string }> = {
   activo: { label: 'Activo', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
@@ -174,6 +175,7 @@ export function AdministracionDetailPage() {
           { key: 'registral', label: 'Registral' },
           { key: 'consorcios', label: 'Consorcios', badge: consorcios.length || undefined },
           { key: 'ctacte', label: 'Cta. corriente' },
+          { key: 'webinars', label: 'Webinars' },
           { key: 'emails', label: 'Emails' },
         ]}
         activeKey={tab}
@@ -219,6 +221,7 @@ export function AdministracionDetailPage() {
             />
           )}
           {tab === 'ctacte' && <TabCtaCte administracionId={admin.id} />}
+          {tab === 'webinars' && <TabWebinars administracionId={admin.id} />}
           {tab === 'emails' && <TabEmailsPlaceholder />}
         </div>
       </div>
