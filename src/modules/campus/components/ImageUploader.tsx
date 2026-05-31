@@ -40,6 +40,9 @@ interface ImageUploaderProps {
   ownerId: string;
   /** circle = avatar, square = ícono, wide = banner (3:1). */
   shape?: 'circle' | 'square' | 'wide';
+  /** Tamaño visual del preview. `sm` para usos densos junto a inputs,
+   *  `md` para cards independientes. Default `md`. */
+  size?: 'sm' | 'md';
   /** Etiqueta corta arriba del preview. */
   label?: string;
   /** Hint debajo del label. */
@@ -49,9 +52,30 @@ interface ImageUploaderProps {
 }
 
 const SHAPE_CFG = {
-  circle: { aspect: 1, classes: 'rounded-full', round: true, w: 144, h: 144 },
-  square: { aspect: 1, classes: 'rounded-2xl', round: false, w: 144, h: 144 },
-  wide: { aspect: 3, classes: 'rounded-xl', round: false, w: 264, h: 88 },
+  // md: tamaños cómodos para cards independientes (módulo, clase, banner).
+  // sm: compactos para colocar junto a inputs (foto del instructor en el form
+  //     del curso, p.ej.), donde un círculo de 144px se come la columna.
+  circle: {
+    aspect: 1,
+    classes: 'rounded-full',
+    round: true,
+    md: { w: 120, h: 120 },
+    sm: { w: 84, h: 84 },
+  },
+  square: {
+    aspect: 1,
+    classes: 'rounded-2xl',
+    round: false,
+    md: { w: 120, h: 120 },
+    sm: { w: 84, h: 84 },
+  },
+  wide: {
+    aspect: 3,
+    classes: 'rounded-xl',
+    round: false,
+    md: { w: 264, h: 88 },
+    sm: { w: 180, h: 60 },
+  },
 } as const;
 
 export function ImageUploader({
@@ -61,6 +85,7 @@ export function ImageUploader({
   scope,
   ownerId,
   shape = 'square',
+  size = 'md',
   label,
   hint,
   maxMb = 5,
@@ -70,7 +95,15 @@ export function ImageUploader({
   const [pickedDataUrl, setPickedDataUrl] = useState<string | null>(null);
   const [originalFileName, setOriginalFileName] = useState<string>('');
 
-  const cfg = SHAPE_CFG[shape];
+  const shapeCfg = SHAPE_CFG[shape];
+  const dims = shapeCfg[size];
+  const cfg = {
+    aspect: shapeCfg.aspect,
+    classes: shapeCfg.classes,
+    round: shapeCfg.round,
+    w: dims.w,
+    h: dims.h,
+  };
 
   function onPick(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];

@@ -335,7 +335,7 @@ function DatosTab({
             />
           </Field>
         </div>
-        <div className="grid gap-3 sm:grid-cols-[120px_1fr]">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
           <ImageUploader
             value={instructorFoto}
             onChange={setInstructorFoto}
@@ -347,10 +347,11 @@ function DatosTab({
             scope="curso-instructor"
             ownerId={data.curso.id}
             shape="circle"
+            size="sm"
             label="Foto del instructor"
             hint="Recortable, con zoom y rotación. ≤ 5 MB."
           />
-          <div className="space-y-3">
+          <div className="flex-1 space-y-3">
             <Field label="Instructor">
               <Input
                 value={instructor}
@@ -361,7 +362,7 @@ function DatosTab({
               <Textarea
                 value={bio}
                 onChange={(e) => setBio(e.target.value)}
-                rows={2}
+                rows={3}
               />
             </Field>
           </div>
