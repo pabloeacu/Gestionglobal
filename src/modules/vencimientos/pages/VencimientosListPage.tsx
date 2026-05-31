@@ -29,8 +29,7 @@ import { IllustratedEmpty } from '@/components/brand/IllustratedEmpty';
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
 import { cn } from '@/lib/cn';
 import { VencimientoFormDrawer } from '../components/VencimientoFormDrawer';
-import { RenovarModal } from '../components/RenovarModal';
-import { BulkRenovarModal } from '../components/BulkRenovarModal';
+// FIX-V2 · RenovarModal y BulkRenovarModal eliminados del flujo.
 import { VencimientoCard } from '../components/VencimientoCard';
 import { MiniMapaVencimientos } from '../components/MiniMapaVencimientos';
 import { useUrlFilters } from '@/lib/useUrlFilters';
@@ -38,7 +37,9 @@ import { usePullToRefresh } from '@/lib/usePullToRefresh';
 import { CheckSquare, RefreshCcw as RefreshIcon, Square, X as CloseIcon } from 'lucide-react';
 import {
   getProximosVencimientos,
-  cancelarVencimiento,
+  pausarVencimiento,
+  reanudarVencimiento,
+  eliminarVencimiento,
   diasHastaFecha,
   VENCIMIENTO_TIPOS,
   VENCIMIENTO_TIPO_LABEL,
@@ -48,6 +49,7 @@ import {
   type VencimientoTipo,
   type VencimientoEstado,
 } from '@/services/api/vencimientos';
+import { usePrompt } from '@/components/common';
 import { ExportButtons } from '@/components/reports/ExportButtons';
 import { SavedViewsMenu } from '@/components/common/SavedViewsMenu';
 import { generateReportPdf } from '@/lib/reportPdf';
@@ -59,6 +61,7 @@ type EstadoFilter = VencimientoEstado | 'todos';
 
 export function VencimientosListPage() {
   const confirm = useConfirm();
+  const prompt = usePrompt();
   const [rows, setRows] = useState<ProximoVencimiento[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -85,15 +88,12 @@ export function VencimientosListPage() {
   const setDiaFiltro = (v: string | null) => setUrlFilter('dia', v ?? '');
 
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [renovar, setRenovar] = useState<ProximoVencimiento | null>(null);
   // 6.A · vista Lista vs Por cliente (agrupada por administración).
   const [vista, setVista] = useState<'lista' | 'cliente'>('lista');
   const [colapsadas, setColapsadas] = useState<Set<string>>(new Set());
-  // 6.B · multi-select para bulk renovar (DGG-34). Sólo vigentes / vencidos
-  // pueden incluirse en la selección. La barra flotante aparece cuando hay
-  // al menos uno.
+  // FIX-V2 · multi-select para bulk PAUSAR (antes era bulk renovar). Sólo
+  // vigentes/vencidos pueden incluirse. Barra flotante aparece con ≥1.
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [bulkRenovarOpen, setBulkRenovarOpen] = useState(false);
 
   function toggleSelected(id: string) {
     setSelectedIds((prev) => {
@@ -351,23 +351,54 @@ export function VencimientosListPage() {
     [rows],
   );
 
-  async function onCancelar(v: ProximoVencimiento) {
+  // FIX-V2 · gestión de alertas — la gerencia NO renueva. Las acciones acá
+  // son: pausar (p. ej. el cliente ya inició el trámite por otro lado) /
+  // reanudar / eliminar (soft delete: estado='cancelado').
+  async function onPausar(v: ProximoVencimiento) {
+    const motivo = await prompt({
+      title: 'Pausar alertas',
+      message: `Las alertas dejan de enviarse al cliente y al staff. ¿Por qué pausás? (opcional)`,
+      defaultValue: 'Trámite en curso por otro canal',
+      placeholder: 'Motivo (visible para staff)',
+      confirmLabel: 'Pausar alertas',
+    });
+    if (motivo === null) return;
+    const res = await pausarVencimiento(v.id, motivo?.trim() || null);
+    if (!res.ok) {
+      toast.error(`No se pudo pausar: ${res.error.message}`);
+      return;
+    }
+    toast.success('Alertas pausadas', {
+      description: 'Volvé a Reanudar cuando corresponda — o eliminá el vencimiento si ya no aplica.',
+    });
+    void load();
+  }
+  async function onReanudar(v: ProximoVencimiento) {
+    const res = await reanudarVencimiento(v.id);
+    if (!res.ok) {
+      toast.error(`No se pudo reanudar: ${res.error.message}`);
+      return;
+    }
+    toast.success('Alertas reanudadas');
+    void load();
+  }
+  async function onEliminar(v: ProximoVencimiento) {
     const okConf = await confirm({
-      title: 'Cancelar vencimiento',
-      message: `¿Cancelar el vencimiento de ${
+      title: 'Eliminar vencimiento',
+      message: `¿Eliminar el vencimiento de ${
         VENCIMIENTO_TIPO_LABEL[v.tipo]
-      } de ${v.administracion_nombre}? El registro queda en el histórico.`,
-      confirmLabel: 'Cancelar vencimiento',
+      } de ${v.administracion_nombre}? Se cancelan las alertas. El registro queda en el histórico.`,
+      confirmLabel: 'Eliminar',
       cancelLabel: 'Volver',
       danger: true,
     });
     if (!okConf) return;
-    const res = await cancelarVencimiento(v.id);
+    const res = await eliminarVencimiento(v.id);
     if (!res.ok) {
-      toast.error(`No se pudo cancelar: ${res.error.message}`);
+      toast.error(`No se pudo eliminar: ${res.error.message}`);
       return;
     }
-    toast.success('Vencimiento cancelado');
+    toast.success('Vencimiento eliminado');
     void load();
   }
 
@@ -416,14 +447,16 @@ export function VencimientosListPage() {
             configurables y sugerencias automáticas de servicios.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        {/* FIX-V1 · header compacto: toggle vista + Mis vistas + Exports +
+            iconos para Config / Nuevo. Wrap responsive sin cortar. */}
+        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:flex-nowrap">
           {/* 6.A · toggle Lista / Por cliente. */}
           <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-1">
             <button
               type="button"
               onClick={() => setVista('lista')}
               className={cn(
-                'inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition',
+                'inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium transition',
                 vista === 'lista'
                   ? 'bg-white text-brand-ink shadow-sm'
                   : 'text-brand-muted hover:text-brand-ink',
@@ -436,7 +469,7 @@ export function VencimientosListPage() {
               type="button"
               onClick={() => setVista('cliente')}
               className={cn(
-                'inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition',
+                'inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium transition',
                 vista === 'cliente'
                   ? 'bg-white text-brand-ink shadow-sm'
                   : 'text-brand-muted hover:text-brand-ink',
@@ -449,13 +482,7 @@ export function VencimientosListPage() {
           {/* P2-#26 · Mis vistas (filtros guardados) */}
           <SavedViewsMenu
             modulo="vencimientos"
-            currentFiltros={{
-              search,
-              tipo,
-              estado,
-              horizonte,
-              vista,
-            }}
+            currentFiltros={{ search, tipo, estado, horizonte, vista }}
             onApply={(f) => {
               if (typeof f.search === 'string') setSearch(f.search);
               if (typeof f.tipo === 'string') setTipo(f.tipo as TipoFilter);
@@ -464,7 +491,10 @@ export function VencimientosListPage() {
               if (f.vista === 'lista' || f.vista === 'cliente') setVista(f.vista);
             }}
           />
-          {/* DGG-26 · export PDF/XLS branded. */}
+          {/* DGG-26 · Exports PDF/XLS/Copy/CSV agrupados en un dropdown
+              (ExportButtons internamente ya unifica los 3). El CSV legacy
+              entra como una opción adicional via Sheet/Menu si se quiere;
+              por ahora lo dejamos como ghost minimalista. */}
           <ExportButtons
             onExportPdf={onExportPdf}
             onExportXls={onExportXls}
@@ -472,18 +502,29 @@ export function VencimientosListPage() {
             disabled={filtered.length === 0}
             hint="Vencimientos"
           />
-          {/* 6.D · export CSV (mantengo para compatibilidad). */}
-          <Button variant="ghost" onClick={exportarCSV} title="Exportar CSV con los filtros aplicados">
-            <Download size={15} /> Export CSV
+          <Button
+            variant="ghost"
+            onClick={exportarCSV}
+            title="Exportar CSV con los filtros aplicados"
+            className="!px-2"
+            aria-label="Exportar CSV"
+          >
+            <Download size={15} />
           </Button>
+          {/* Configuración como icono (texto solo en pantallas grandes). */}
           <Link
             to="/gerencia/vencimientos/configuracion"
-            className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-brand-ink transition hover:border-brand-cyan hover:text-brand-cyan"
+            title="Configuración de vencimientos"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2 py-2 text-sm font-medium text-brand-ink transition hover:border-brand-cyan hover:text-brand-cyan"
+            aria-label="Configuración"
           >
-            <Sliders size={15} /> Configuración
+            <Sliders size={15} />
+            <span className="hidden xl:inline">Configuración</span>
           </Link>
-          <Button onClick={() => setDrawerOpen(true)}>
-            <Plus size={16} /> Nuevo vencimiento
+          {/* "Nuevo" como icono + texto condicional para no comerse el header. */}
+          <Button onClick={() => setDrawerOpen(true)} title="Nuevo vencimiento">
+            <Plus size={16} />
+            <span className="hidden sm:inline">Nuevo</span>
           </Button>
         </div>
       </header>
@@ -701,8 +742,9 @@ export function VencimientosListPage() {
                 >
                   <VencimientoCard
                     venc={v}
-                    onRenovar={isRenovable(v) ? setRenovar : undefined}
-                    onCancelar={isRenovable(v) ? onCancelar : undefined}
+                    onPausar={isRenovable(v) ? onPausar : undefined}
+                    onReanudar={isRenovable(v) ? onReanudar : undefined}
+                    onEliminar={isRenovable(v) ? onEliminar : undefined}
                   />
                 </SelectableCard>
               ))}
@@ -758,8 +800,9 @@ export function VencimientosListPage() {
                           >
                             <VencimientoCard
                               venc={v}
-                              onRenovar={isRenovable(v) ? setRenovar : undefined}
-                              onCancelar={isRenovable(v) ? onCancelar : undefined}
+                              onPausar={isRenovable(v) ? onPausar : undefined}
+                              onReanudar={isRenovable(v) ? onReanudar : undefined}
+                              onEliminar={isRenovable(v) ? onEliminar : undefined}
                             />
                           </SelectableCard>
                         ))}
@@ -779,25 +822,12 @@ export function VencimientosListPage() {
         onSaved={() => void load()}
       />
 
-      <RenovarModal
-        open={!!renovar}
-        venc={renovar}
-        onClose={() => setRenovar(null)}
-        onRenewed={() => void load()}
-      />
+      {/* FIX-V2 · Eliminados RenovarModal y BulkRenovarModal: la renovación
+          siempre viene del cliente (con formulario). La gerencia sólo
+          gestiona alertas: pausar / reanudar / eliminar. */}
 
-      {/* 6.B · Bulk modal: aparece cuando hay selección y el usuario abre. */}
-      <BulkRenovarModal
-        open={bulkRenovarOpen}
-        onClose={() => setBulkRenovarOpen(false)}
-        vencimientos={rows.filter((v) => selectedIds.has(v.id))}
-        onRenewed={() => {
-          clearSelection();
-          void load();
-        }}
-      />
-
-      {/* 6.B · Barra flotante de selección. */}
+      {/* FIX-V2 · Barra flotante de selección — ahora ofrece "Pausar masivo"
+          en lugar de "Renovar masivo" (regla nueva: la gerencia no renueva). */}
       {selectedIds.size > 0 && (
         <div className="fixed inset-x-0 bottom-4 z-40 flex justify-center px-4 motion-safe:animate-fade-up">
           <div className="flex flex-wrap items-center gap-3 rounded-full border border-slate-200 bg-white px-4 py-2.5 shadow-[0_18px_48px_-15px_rgba(18,34,48,0.35)]">
@@ -810,12 +840,36 @@ export function VencimientosListPage() {
               type="button"
               onClick={selectAllVisible}
               className="text-xs text-brand-muted underline-offset-2 hover:underline"
-              title="Marcar todos los renovables visibles"
+              title="Marcar todos los visibles"
             >
               Marcar todos
             </button>
-            <Button onClick={() => setBulkRenovarOpen(true)}>
-              <RefreshIcon size={13} /> Renovar masivo
+            <Button
+              variant="tonal"
+              onClick={async () => {
+                const seleccion = rows.filter((v) => selectedIds.has(v.id));
+                if (seleccion.length === 0) return;
+                const motivo = await prompt({
+                  title: `Pausar alertas (${seleccion.length})`,
+                  message: 'Las alertas dejan de enviarse al cliente y al staff.',
+                  defaultValue: 'Trámite en curso por otro canal',
+                  placeholder: 'Motivo (opcional)',
+                  confirmLabel: 'Pausar',
+                });
+                if (motivo === null) return;
+                let ok = 0;
+                let err = 0;
+                for (const v of seleccion) {
+                  const res = await pausarVencimiento(v.id, motivo?.trim() || null);
+                  if (res.ok) ok++;
+                  else err++;
+                }
+                clearSelection();
+                void load();
+                toast.success(`Pausadas: ${ok}${err ? ` · errores: ${err}` : ''}`);
+              }}
+            >
+              <RefreshIcon size={13} /> Pausar masivo
             </Button>
             <button
               type="button"

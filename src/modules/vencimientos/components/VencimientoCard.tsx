@@ -3,9 +3,10 @@ import {
   CalendarClock,
   AlertTriangle,
   Inbox,
-  RefreshCcw,
-  Ban,
+  PauseCircle,
+  PlayCircle,
   Sparkles,
+  Trash2,
   ChevronRight,
 } from 'lucide-react';
 import { Button } from '@/components/common';
@@ -21,17 +22,27 @@ import {
 
 interface Props {
   venc: ProximoVencimiento;
-  onRenovar?: (v: ProximoVencimiento) => void;
-  onCancelar?: (v: ProximoVencimiento) => void;
+  /** FIX-V2 · gerencia NO renueva — la renovación viene del cliente con
+   * el formulario que corresponda. Sustituido por gestión de alertas. */
+  onPausar?: (v: ProximoVencimiento) => void;
+  onReanudar?: (v: ProximoVencimiento) => void;
+  onEliminar?: (v: ProximoVencimiento) => void;
   compact?: boolean;
 }
 
-export function VencimientoCard({ venc, onRenovar, onCancelar, compact }: Props) {
+export function VencimientoCard({
+  venc,
+  onPausar,
+  onReanudar,
+  onEliminar,
+  compact,
+}: Props) {
   const crit = criticidad(venc.dias_restantes);
   const sujetoNombre =
     venc.sujeto === 'consorcio' && venc.consorcio_nombre
       ? venc.consorcio_nombre
       : venc.administracion_nombre;
+  const pausado = !!venc.pausado_at;
 
   const diasTxt =
     venc.dias_restantes < 0
@@ -145,28 +156,54 @@ export function VencimientoCard({ venc, onRenovar, onCancelar, compact }: Props)
         </Link>
       )}
 
-      {(onRenovar || onCancelar) && !compact && (
-        <footer className="mt-3 flex items-center justify-end gap-2">
-          {onCancelar && (
+      {/* FIX-V2 · estado pausa visible (alertas suspendidas) */}
+      {pausado && (
+        <div className="mt-3 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+          <PauseCircle size={14} className="shrink-0" />
+          <div className="min-w-0 flex-1">
+            <p className="font-semibold">Alertas pausadas</p>
+            {venc.motivo_pausa && (
+              <p className="truncate text-amber-700/80">{venc.motivo_pausa}</p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* FIX-V2 · acciones de management de alertas (no de "renovar") */}
+      {(onPausar || onReanudar || onEliminar) && !compact && (
+        <footer className="mt-3 flex flex-wrap items-center justify-end gap-2">
+          {onEliminar && (
             <Button
               variant="ghost"
-              onClick={() => onCancelar(venc)}
-              title="Cancelar este vencimiento"
-              className="!px-3 !py-1.5 !text-xs"
+              onClick={() => onEliminar(venc)}
+              title="Eliminar este vencimiento"
+              className="!px-2 !py-1.5 !text-xs text-rose-600 hover:!bg-rose-50"
             >
-              <Ban size={13} /> Cancelar
+              <Trash2 size={13} />
+              <span className="hidden sm:inline">Eliminar</span>
             </Button>
           )}
-          {onRenovar && (
-            <Button
-              variant="primary"
-              onClick={() => onRenovar(venc)}
-              title="Registrar la renovación"
-              className="!px-3 !py-1.5 !text-xs"
-            >
-              <RefreshCcw size={13} /> Renovar
-            </Button>
-          )}
+          {pausado
+            ? onReanudar && (
+                <Button
+                  variant="tonal"
+                  onClick={() => onReanudar(venc)}
+                  title="Reanudar las alertas automáticas"
+                  className="!px-3 !py-1.5 !text-xs"
+                >
+                  <PlayCircle size={13} /> Reanudar alertas
+                </Button>
+              )
+            : onPausar && (
+                <Button
+                  variant="tonal"
+                  onClick={() => onPausar(venc)}
+                  title="Pausar alertas (p.ej. cuando el trámite está en curso por otro lado)"
+                  className="!px-3 !py-1.5 !text-xs"
+                >
+                  <PauseCircle size={13} /> Pausar alertas
+                </Button>
+              )}
         </footer>
       )}
 

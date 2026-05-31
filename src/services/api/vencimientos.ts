@@ -155,6 +155,9 @@ export interface ProximoVencimiento {
   /** 6.F · si el vencimiento fue generado desde un tracking,
    * apuntá al id del trámite para linkear el chip. */
   tracking_id: string | null;
+  /** Mig 0153 · gestión de alertas: pausado_at NULL = alertas activas. */
+  pausado_at: string | null;
+  motivo_pausa: string | null;
 }
 
 export async function getProximosVencimientos(
@@ -266,6 +269,45 @@ export async function cancelarVencimiento(
     .update({ estado: 'cancelado' })
     .eq('id', id);
   if (error) return fail('VENC_CANCEL', error.message, error);
+  return ok(true);
+}
+
+// ============================================================================
+// Mig 0153 · Gestión de alertas (Pausar / Reanudar / Eliminar)
+// ============================================================================
+// Cast 'as never' porque las RPCs nuevas (mig 0153) aún no están en
+// database.ts regenerado; el runtime las invoca sin problema.
+export async function pausarVencimiento(
+  id: string,
+  motivo?: string | null,
+): Promise<ApiResponse<true>> {
+  const { error } = await supabase.rpc(
+    'vencimiento_pausar' as never,
+    { p_id: id, p_motivo: motivo ?? null } as never,
+  );
+  if (error) return fail('VENC_PAUSAR', error.message, error);
+  return ok(true);
+}
+
+export async function reanudarVencimiento(
+  id: string,
+): Promise<ApiResponse<true>> {
+  const { error } = await supabase.rpc(
+    'vencimiento_reanudar' as never,
+    { p_id: id } as never,
+  );
+  if (error) return fail('VENC_REANUDAR', error.message, error);
+  return ok(true);
+}
+
+export async function eliminarVencimiento(
+  id: string,
+): Promise<ApiResponse<true>> {
+  const { error } = await supabase.rpc(
+    'vencimiento_eliminar' as never,
+    { p_id: id } as never,
+  );
+  if (error) return fail('VENC_ELIMINAR', error.message, error);
   return ok(true);
 }
 
