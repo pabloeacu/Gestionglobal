@@ -204,12 +204,12 @@ export function NotificationBell() {
   }
 
   async function handleClickItem(it: NotifItem) {
-    // UX-CAMP-01 · Si el cuerpo no entra y el item no tiene URL de destino,
-    // abrimos un modal con el contenido completo. Si tiene URL, vamos directo
-    // a esa pantalla — ahí el cliente ve todo el contexto, no hace falta
-    // mostrar otra capa.
+    // UX-CAMP-01 · Si el cuerpo está truncado en el listado, abrimos un modal
+    // con el contenido completo (independientemente de si hay URL — el modal
+    // tiene un botón "Ir" cuando aplica). Si no está truncado, comportamiento
+    // anterior: marcamos leída, cerramos y navegamos.
     const isTrunc = truncatedIds.has(it.id);
-    if (isTrunc && !it.url) {
+    if (isTrunc) {
       setPreviewItem(it);
       // Marcamos leído pero NO cerramos el panel — el modal queda encima.
       if (!it.leido_at) {
