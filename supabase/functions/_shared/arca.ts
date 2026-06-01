@@ -356,38 +356,70 @@ export interface CsrInput {
   alias?: string; // CN del CSR. Default: gestion-global-{cuit}
 }
 /**
- * Genera par RSA 2048 + CSR PKCS#10. Async porque la versión sync de
- * forge.pki.rsa.generateKeyPair invoca crypto.generateKeyPairSync (de
- * node:crypto) que NO está implementado en Deno. La versión callback
- * es Pure JS y funciona en Deno.
+ * Genera par RSA 2048 + CSR PKCS#10.
+ *
+ * E-GG-25: forge.pki.rsa.generateKeyPair (sync y callback) en Deno termina
+ * invocando crypto.generateKeyPair[Sync] de node:crypto, que NO está
+ * implementado. Solución: usar WebCrypto nativo (crypto.subtle.generateKey)
+ * para el par RSA y dejar forge SÓLO para construir el CSR PKCS#10 (que
+ * es ASN.1 puro JS, no toca node:crypto).
+ *
+ * La privatekey se devuelve como PEM PKCS#8 ("PRIVATE KEY"). forge.pki.
+ * privateKeyFromPem acepta tanto PKCS#1 ("RSA PRIVATE KEY") como PKCS#8
+ * al re-importarla en WSAA, así que las otras edge fns no cambian.
  */
-export function generarCsrPkcs10(input: CsrInput): Promise<{ csrPem: string; keyPem: string }> {
-  return new Promise((resolve, reject) => {
-    // Pure-JS callback flavor: no toca node:crypto.
-    forge.pki.rsa.generateKeyPair(
-      { bits: 2048, e: 0x10001 },
-      (err: Error | null | undefined, keys: { publicKey: any; privateKey: any }) => {
-        if (err) return reject(err);
-        try {
-          const csr = forge.pki.createCertificationRequest();
-          csr.publicKey = keys.publicKey;
-          csr.setSubject([
-            { name: 'commonName', value: input.alias ?? `gestion-global-${input.cuit}` },
-            { name: 'countryName', value: 'AR' },
-            { name: 'organizationName', value: input.razonSocial },
-            { shortName: 'serialName', value: `CUIT ${input.cuit}` },
-          ]);
-          csr.sign(keys.privateKey, forge.md.sha256.create());
-          resolve({
-            csrPem: forge.pki.certificationRequestToPem(csr),
-            keyPem: forge.pki.privateKeyToPem(keys.privateKey),
-          });
-        } catch (e) {
-          reject(e);
-        }
-      },
-    );
-  });
+export async function generarCsrPkcs10(input: CsrInput): Promise<{ csrPem: string; keyPem: string }> {
+  // 1. Generar par RSA 2048 con WebCrypto (nativo Deno).
+  const keyPair = await crypto.subtle.generateKey(
+    {
+      name: 'RSASSA-PKCS1-v1_5',
+      modulusLength: 2048,
+      publicExponent: new Uint8Array([1, 0, 1]),
+      hash: 'SHA-256',
+    },
+    true, // extractable
+    ['sign', 'verify'],
+  ) as CryptoKeyPair;
+
+  // 2. Exportar PKCS#8 (private) y SPKI (public) a DER → PEM.
+  const privDer = await crypto.subtle.exportKey('pkcs8', keyPair.privateKey);
+  const pubDer = await crypto.subtle.exportKey('spki', keyPair.publicKey);
+  const privPem = derToPem(privDer, 'PRIVATE KEY');
+  const pubPem = derToPem(pubDer, 'PUBLIC KEY');
+
+  // 3. Importar a forge (parse ASN.1 puro JS, no usa node:crypto).
+  const privKey = forge.pki.privateKeyFromPem(privPem);
+  const pubKey = forge.pki.publicKeyFromPem(pubPem);
+
+  // 4. Construir CSR PKCS#10 con forge.
+  const csr = forge.pki.createCertificationRequest();
+  csr.publicKey = pubKey;
+  csr.setSubject([
+    { name: 'commonName', value: input.alias ?? `gestion-global-${input.cuit}` },
+    { name: 'countryName', value: 'AR' },
+    { name: 'organizationName', value: input.razonSocial },
+    { shortName: 'serialName', value: `CUIT ${input.cuit}` },
+  ]);
+  // sign() invoca privKey.sign(md.digest()) que en forge es BigInt math
+  // puro JS, no toca node:crypto.
+  csr.sign(privKey, forge.md.sha256.create());
+
+  return {
+    csrPem: forge.pki.certificationRequestToPem(csr),
+    keyPem: privPem, // guardamos PKCS#8 PEM; forge en WSAA lo re-importa.
+  };
+}
+
+function derToPem(der: ArrayBuffer, label: string): string {
+  const bytes = new Uint8Array(der);
+  // String.fromCharCode con spread tiene límite de stack; chunk por 32KB.
+  let bin = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) {
+    bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  }
+  const b64 = btoa(bin);
+  const lines = b64.match(/.{1,64}/g) ?? [];
+  return `-----BEGIN ${label}-----\n${lines.join('\n')}\n-----END ${label}-----\n`;
 }
 
 export interface InspectCertResult {
