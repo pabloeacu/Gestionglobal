@@ -12,6 +12,7 @@ import {
   Download,
   ExternalLink,
   FileText,
+  ImageIcon,
   Loader2,
   Plus,
   PlugZap,
@@ -21,6 +22,7 @@ import {
   Star,
   Trash2,
   Upload,
+  X,
 } from 'lucide-react';
 import {
   Button,
@@ -41,6 +43,7 @@ import {
   actualizarEmisor,
   archivarEmisor,
   arcaWizardStage,
+  clearEmisorLogo,
   crearEmisor,
   generarCsr,
   getEmisor,
@@ -49,6 +52,7 @@ import {
   marcarDefault,
   reactivarEmisor,
   testConexion,
+  uploadEmisorLogo,
   type ArcaAmbiente,
   type ArcaEmisor,
 } from '@/services/api/arca';
@@ -272,21 +276,33 @@ function EmisorCard({
   return (
     <div className={cn('card-premium relative space-y-3 p-5', archivado && 'opacity-60')}>
       <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <h3 className="truncate font-display text-base font-bold text-brand-ink">{emisor.nombre}</h3>
-            {emisor.es_default && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-brand-cyan-pale px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-brand-cyan">
-                <Star size={9} fill="currentColor" /> Default
-              </span>
-            )}
-            {archivado && (
-              <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-600">
-                Archivado
-              </span>
-            )}
+        <div className="flex min-w-0 flex-1 items-start gap-3">
+          {/* Miniatura del logo si lo tiene. */}
+          {emisor.logo_url ? (
+            <div className="h-10 w-10 shrink-0 overflow-hidden rounded-md border border-slate-200 bg-white">
+              <img src={emisor.logo_url} alt="" className="h-full w-full object-contain" />
+            </div>
+          ) : (
+            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-md border border-dashed border-slate-300 bg-slate-50 text-slate-300">
+              <ImageIcon size={16} />
+            </div>
+          )}
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <h3 className="truncate font-display text-base font-bold text-brand-ink">{emisor.nombre}</h3>
+              {emisor.es_default && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-brand-cyan-pale px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-brand-cyan">
+                  <Star size={9} fill="currentColor" /> Default
+                </span>
+              )}
+              {archivado && (
+                <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-600">
+                  Archivado
+                </span>
+              )}
+            </div>
+            <p className="mt-0.5 truncate text-xs text-brand-muted">{emisor.razon_social}</p>
           </div>
-          <p className="mt-0.5 truncate text-xs text-brand-muted">{emisor.razon_social}</p>
         </div>
         <span
           className={cn(
@@ -615,6 +631,46 @@ function DatosFiscalesForm({ emisor, onSaved }: { emisor: ArcaEmisor; onSaved: (
   const [domicilioFiscal, setDomicilioFiscal] = useState(emisor.domicilio_fiscal ?? '');
   const [puntoVenta, setPuntoVenta] = useState(emisor.punto_venta_default);
   const [busy, setBusy] = useState(false);
+  // Logo uploader state.
+  const [logoBusy, setLogoBusy] = useState<null | 'upload' | 'clear'>(null);
+  const logoInputRef = useRef<HTMLInputElement | null>(null);
+  const confirm = useConfirm();
+
+  async function onLogoFile(file: File) {
+    if (!file.type.startsWith('image/')) {
+      toast.error('El archivo debe ser una imagen (PNG, JPG, SVG, etc.)');
+      return;
+    }
+    setLogoBusy('upload');
+    const ext = (file.name.split('.').pop() || 'png').toLowerCase();
+    const res = await uploadEmisorLogo(emisor.id, file, ext);
+    setLogoBusy(null);
+    if (!res.ok) {
+      toast.error('No pudimos subir el logo', { description: res.error.message });
+      return;
+    }
+    toast.success('Logo actualizado');
+    onSaved();
+  }
+
+  async function onLogoClear() {
+    const ok = await confirm({
+      title: 'Quitar logo',
+      message: `¿Quitar el logo de "${emisor.nombre}"? Vas a poder subir otro después.`,
+      confirmLabel: 'Quitar',
+      danger: true,
+    });
+    if (!ok) return;
+    setLogoBusy('clear');
+    const res = await clearEmisorLogo(emisor.id);
+    setLogoBusy(null);
+    if (!res.ok) {
+      toast.error('No pudimos quitar el logo', { description: res.error.message });
+      return;
+    }
+    toast.success('Logo quitado');
+    onSaved();
+  }
 
   async function onSave(e: FormEvent) {
     e.preventDefault();
@@ -642,6 +698,66 @@ function DatosFiscalesForm({ emisor, onSaved }: { emisor: ArcaEmisor; onSaved: (
 
   return (
     <form onSubmit={onSave} className="space-y-3">
+      {/* Logo del emisor (DGG-31 + mig 0160). Aparece en el PDF de las
+          facturas y en la card de la lista de emisores. */}
+      <div className="rounded-xl border border-slate-200 bg-brand-zebra/20 p-3">
+        <div className="flex items-start gap-4">
+          <div className="relative shrink-0">
+            <div className="h-20 w-20 overflow-hidden rounded-lg border border-slate-200 bg-white">
+              {emisor.logo_url ? (
+                <img
+                  src={emisor.logo_url}
+                  alt={`Logo ${emisor.nombre}`}
+                  className="h-full w-full object-contain"
+                />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center text-slate-300">
+                  <ImageIcon size={32} />
+                </div>
+              )}
+            </div>
+            {emisor.logo_url && (
+              <button
+                type="button"
+                onClick={() => void onLogoClear()}
+                disabled={logoBusy !== null}
+                title="Quitar logo"
+                className="absolute -right-2 -top-2 grid h-6 w-6 place-items-center rounded-full border border-red-200 bg-white text-red-600 shadow-sm hover:bg-red-50 disabled:opacity-50"
+              >
+                {logoBusy === 'clear' ? <Loader2 size={11} className="animate-spin" /> : <X size={11} />}
+              </button>
+            )}
+          </div>
+          <div className="min-w-0 flex-1 space-y-1">
+            <p className="kicker text-brand-cyan">Logo del emisor</p>
+            <p className="text-xs text-brand-muted">
+              Se imprime en el PDF de las facturas A/B/C y en la card de este emisor.
+              Recomendado: PNG cuadrado o transparente, máx 4 MB.
+            </p>
+            <input
+              ref={logoInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) void onLogoFile(f);
+                if (logoInputRef.current) logoInputRef.current.value = '';
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => logoInputRef.current?.click()}
+              disabled={logoBusy !== null}
+              className="mt-1 inline-flex items-center gap-1.5 rounded-md border border-brand-cyan/30 bg-brand-cyan-pale/40 px-2.5 py-1 text-xs font-medium text-brand-cyan hover:bg-brand-cyan-pale/70 disabled:opacity-50"
+            >
+              {logoBusy === 'upload' ? <Loader2 size={11} className="animate-spin" /> : <Upload size={11} />}
+              {emisor.logo_url ? 'Cambiar logo' : 'Subir logo'}
+            </button>
+          </div>
+        </div>
+      </div>
+
       <Field label="Nombre interno">
         <Input value={nombre} onChange={(e) => setNombre(e.target.value)} />
       </Field>

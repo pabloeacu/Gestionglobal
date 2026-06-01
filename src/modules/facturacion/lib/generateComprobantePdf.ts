@@ -4,6 +4,7 @@ import type {
   ComprobanteItemRow,
 } from '@/services/api/comprobantes';
 import { getConfigGlobal, type ConfigGlobal } from '@/services/api/configGlobal';
+import { getEmisor } from '@/services/api/arca';
 
 // Paleta brand (RGB)
 const CYAN: [number, number, number] = [0, 158, 202];
@@ -29,14 +30,19 @@ interface LogoAsset {
   dataUrl: string;
   aspect: number; // ancho / alto del contenido visible
 }
-let cachedLogo: LogoAsset | null | undefined;
+// Cache por URL — multi-emisor (DGG-31) requiere distintos logos según
+// el emisor del comprobante.
+const logoCache = new Map<string, LogoAsset | null>();
+const FALLBACK_LOGO_URL = '/brand/logo-white.png';
 
-async function loadLogo(): Promise<LogoAsset | null> {
-  if (cachedLogo !== undefined) return cachedLogo;
+async function loadLogo(url?: string | null): Promise<LogoAsset | null> {
+  const effectiveUrl = url || FALLBACK_LOGO_URL;
+  const cached = logoCache.get(effectiveUrl);
+  if (cached !== undefined) return cached;
   try {
     const img = new Image();
     img.crossOrigin = 'anonymous';
-    img.src = '/brand/logo-white.png';
+    img.src = effectiveUrl;
     await img.decode();
 
     // 1. Dibujar el original en un canvas trabajable (max 600 de lado)
@@ -46,7 +52,7 @@ async function loadLogo(): Promise<LogoAsset | null> {
     tmp.width = sAspect >= 1 ? SCAN : Math.round(SCAN * sAspect);
     tmp.height = sAspect >= 1 ? Math.round(SCAN / sAspect) : SCAN;
     const tctx = tmp.getContext('2d');
-    if (!tctx) { cachedLogo = null; return null; }
+    if (!tctx) { logoCache.set(effectiveUrl, null); return null; }
     tctx.drawImage(img, 0, 0, tmp.width, tmp.height);
 
     // 2. Trim de transparente: encontrar bounding box del contenido visible
@@ -67,8 +73,9 @@ async function loadLogo(): Promise<LogoAsset | null> {
     }
     if (!found) {
       // Logo todo transparente; fallback al original
-      cachedLogo = { dataUrl: tmp.toDataURL('image/png'), aspect: sAspect };
-      return cachedLogo;
+      const asset: LogoAsset = { dataUrl: tmp.toDataURL('image/png'), aspect: sAspect };
+      logoCache.set(effectiveUrl, asset);
+      return asset;
     }
     const cw = maxX - minX + 1;
     const ch = maxY - minY + 1;
@@ -83,24 +90,57 @@ async function loadLogo(): Promise<LogoAsset | null> {
     out.width = outW;
     out.height = outH;
     const octx = out.getContext('2d');
-    if (!octx) { cachedLogo = null; return null; }
+    if (!octx) { logoCache.set(effectiveUrl, null); return null; }
     octx.drawImage(tmp, minX, minY, cw, ch, 0, 0, outW, outH);
 
-    cachedLogo = { dataUrl: out.toDataURL('image/png'), aspect: trimAspect };
-    return cachedLogo;
+    const asset: LogoAsset = { dataUrl: out.toDataURL('image/png'), aspect: trimAspect };
+    logoCache.set(effectiveUrl, asset);
+    return asset;
   } catch {
-    cachedLogo = null;
+    // Si la URL custom falla (CORS, 404, etc.) caemos al fallback global.
+    logoCache.set(effectiveUrl, null);
+    if (url && effectiveUrl !== FALLBACK_LOGO_URL) {
+      return loadLogo(null);
+    }
     return null;
   }
 }
 
-// Config global (emisor) cacheada por sesión.
+// Config global cacheada por sesión (fallback).
 let cachedConfig: ConfigGlobal | null | undefined;
-async function loadEmisor(): Promise<ConfigGlobal | null> {
+async function loadConfigGlobal(): Promise<ConfigGlobal | null> {
   if (cachedConfig !== undefined) return cachedConfig;
   const res = await getConfigGlobal();
   cachedConfig = res.ok ? res.data : null;
   return cachedConfig;
+}
+
+// Cache por emisor_id de arca_emisores. DGG-31 multi-emisor: el PDF tiene
+// que reflejar la identidad fiscal del emisor que firmó el comprobante,
+// no la del default global.
+const emisorCache = new Map<string, ConfigGlobal | null>();
+async function loadEmisor(emisorId?: string | null): Promise<ConfigGlobal | null> {
+  const base = await loadConfigGlobal();
+  if (!emisorId) return base;
+  if (emisorCache.has(emisorId)) return emisorCache.get(emisorId)!;
+  const res = await getEmisor(emisorId);
+  if (!res.ok) {
+    emisorCache.set(emisorId, base);
+    return base;
+  }
+  const em = res.data;
+  // Merge: campos del emisor pisan a config_global. Los que el emisor
+  // no tiene (localidad/provincia/cp/email/teléfono/sitio) caen al global.
+  const merged: ConfigGlobal = {
+    ...(base ?? ({} as ConfigGlobal)),
+    razon_social: em.razon_social,
+    cuit: em.cuit ?? base?.cuit ?? null,
+    condicion_iva: em.condicion_iva,
+    domicilio_fiscal: em.domicilio_fiscal ?? base?.domicilio_fiscal ?? null,
+    logo_url: em.logo_url ?? base?.logo_url ?? null,
+  };
+  emisorCache.set(emisorId, merged);
+  return merged;
 }
 
 // Decide si este comprobante discrimina IVA.
@@ -124,7 +164,10 @@ export async function generateComprobantePdf({
   const margin = 18;
   const innerW = pageW - margin * 2;
 
-  const [logoAsset, emisor] = await Promise.all([loadLogo(), loadEmisor()]);
+  // DGG-31 multi-emisor: resolvemos primero el emisor del comprobante (con
+  // merge sobre config_global), después cargamos su logo específico.
+  const emisor = await loadEmisor((c as { emisor_id?: string | null }).emisor_id ?? null);
+  const logoAsset = await loadLogo(emisor?.logo_url ?? null);
   const discriminaIva = debeDiscriminarIva(c.tipo, emisor?.condicion_iva);
 
   // ============================================================

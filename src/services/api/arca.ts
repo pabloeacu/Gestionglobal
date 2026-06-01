@@ -199,6 +199,62 @@ export async function marcarDefault(emisorId: string): Promise<ApiResponse<void>
 }
 
 // ============================================================================
+// Logo del emisor (storage bucket 'emisor-logos', DGG-31 + mig 0160)
+// ============================================================================
+
+/**
+ * Sube un logo al bucket emisor-logos y actualiza arca_emisores.logo_url.
+ * Path: emisor-logos/<emisor_id>/logo-<timestamp>.<ext>
+ */
+export async function uploadEmisorLogo(
+  emisorId: string,
+  blob: Blob,
+  ext = 'png',
+): Promise<ApiResponse<{ publicUrl: string }>> {
+  if (!blob.type.startsWith('image/')) {
+    return fail('LOGO_INVALID_TYPE', 'El archivo no es una imagen válida.');
+  }
+  const MAX_BYTES = 4 * 1024 * 1024; // 4 MB — un logo razonable.
+  if (blob.size > MAX_BYTES) {
+    return fail('LOGO_TOO_LARGE', 'La imagen supera los 4 MB. Reducila antes de subir.');
+  }
+  const safeExt = ext.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 5) || 'png';
+  const path = `${emisorId}/logo-${Date.now()}.${safeExt}`;
+  const { error: upErr } = await supabase.storage
+    .from('emisor-logos')
+    .upload(path, blob, { cacheControl: '3600', upsert: false, contentType: blob.type });
+  if (upErr) return fail('LOGO_UPLOAD', upErr.message, toApiError(upErr));
+  const { data: pub } = supabase.storage.from('emisor-logos').getPublicUrl(path);
+  const publicUrl = pub.publicUrl;
+  const { error: updErr } = await supabase
+    .from('arca_emisores')
+    .update({ logo_url: publicUrl, updated_at: new Date().toISOString() })
+    .eq('id', emisorId);
+  if (updErr) return fail('LOGO_PERSIST', updErr.message, toApiError(updErr));
+  return ok({ publicUrl });
+}
+
+/** Borra el logo del emisor del bucket y nullea logo_url. */
+export async function clearEmisorLogo(emisorId: string): Promise<ApiResponse<void>> {
+  // Listar los blobs en la carpeta del emisor y borrarlos (1 a N — siempre será chico).
+  const { data: files, error: lsErr } = await supabase.storage
+    .from('emisor-logos')
+    .list(emisorId, { limit: 50 });
+  if (lsErr) return fail('LOGO_LIST', lsErr.message, lsErr);
+  if (files && files.length > 0) {
+    const paths = files.map((f) => `${emisorId}/${f.name}`);
+    const { error: rmErr } = await supabase.storage.from('emisor-logos').remove(paths);
+    if (rmErr) return fail('LOGO_REMOVE', rmErr.message, rmErr);
+  }
+  const { error: updErr } = await supabase
+    .from('arca_emisores')
+    .update({ logo_url: null, updated_at: new Date().toISOString() })
+    .eq('id', emisorId);
+  if (updErr) return fail('LOGO_PERSIST', updErr.message, toApiError(updErr));
+  return ok(undefined);
+}
+
+// ============================================================================
 // Compat: API singleton (legacy) — opera sobre el emisor default.
 // ============================================================================
 
