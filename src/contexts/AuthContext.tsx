@@ -30,6 +30,15 @@ interface AuthState {
   configured: boolean;
   /** El profile aún no apareció en DB después de auth (trigger en vuelo). */
   profileMissing: boolean;
+  /**
+   * La carga del profile falló por error técnico (red/timeout/RLS) tras
+   * agotar los reintentos con backoff. Distinto a `profileMissing` (perfil
+   * no existe en DB). Cuando es `true`, ya se hizo `signOut()` automático
+   * para no operar con sesión auth viva sin profile cargado. Inspirado en
+   * el handoff de MDC (1/6/2026): un fallback "seguro" a rol mínimo
+   * engaña la UX; fallback honesto = sin sesión + mensaje claro.
+   */
+  profileLoadFailed: boolean;
   signOut: () => Promise<void>;
   reloadProfile: () => Promise<void>;
 }
@@ -57,6 +66,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
   const [user, setUser] = useState<CurrentUser | null>(null);
   const [profileMissing, setProfileMissing] = useState(false);
+  const [profileLoadFailed, setProfileLoadFailed] = useState(false);
   // E-GG-07 · timer de refresh manual. Como autoRefreshToken=false (los locks
   // de supabase-js cuelgan bajo StrictMode/HMR), refrescamos el token a mano
   // ~60s antes de que venza, así la sesión no muere cada ~1h.
@@ -92,33 +102,106 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }, delay);
   }, []);
 
+  // Reintentos + backoff + watchdog en la hidratación del profile.
+  // Inspirado en el handoff de MDC (1/6/2026):
+  //   - Tres reglas de oro: no inventes perfil sintético, reintentá con
+  //     backoff, si falla todo signOut y mandá al login con mensaje claro.
+  //   - Antipatrón a evitar: fallback "seguro" a rol de mínimo privilegio
+  //     (engaña la UX y trata mal al usuario real).
+  //
+  // Diseño:
+  //   - 3 intentos con timeouts crecientes [8s, 9s, 12s] (Promise.race contra
+  //     timeout duro, evita "Cargando…" infinito si supabase-js cuelga).
+  //   - Backoff entre intentos: 350ms (primero, cubre el caso "trigger
+  //     handle_new_user en vuelo" post-signup) y 1000ms (segundo).
+  //   - Tres resultados posibles por intento:
+  //       * success: profile cargado, sale.
+  //       * null: respuesta válida sin datos (perfil no existe).
+  //       * error: timeout/red/RLS — error técnico.
+  //   - Si ≥2 intentos consistentemente null y NINGÚN error técnico →
+  //     marca `profileMissing=true` (la UI muestra "Hablá con un gerente").
+  //   - Si hubo ANY error técnico tras agotar reintentos → loguea con
+  //     `console.error`, hace `signOut()`, limpia sesión y marca
+  //     `profileLoadFailed=true` (la UI muestra "No pudimos completar el
+  //     inicio de sesión, reintentá").
   const loadProfile = useCallback(async (s: Session | null) => {
     if (!s) {
       setUser(null);
       setProfileMissing(false);
+      setProfileLoadFailed(false);
       return;
     }
-    const res = await getCurrentProfile(s.user.id);
-    if (!res.ok) {
-      setUser(null);
-      setProfileMissing(true);
-      return;
-    }
-    if (!res.data) {
-      // trigger handle_new_user puede estar en vuelo; reintentamos una vez
-      await new Promise((r) => setTimeout(r, 350));
-      const retry = await getCurrentProfile(s.user.id);
-      if (retry.ok && retry.data) {
-        setUser({ ...retry.data, email: s.user.email ?? '' });
-        setProfileMissing(false);
-        return;
+
+    const TIMEOUTS_MS = [8_000, 9_000, 12_000];
+    const BACKOFFS_MS = [350, 1_000];
+    let lastError: unknown = null;
+    let nullCount = 0;
+
+    for (let i = 0; i < TIMEOUTS_MS.length; i++) {
+      let attempted: 'success' | 'null' | 'error' = 'error';
+      try {
+        const timeoutP = new Promise<never>((_, reject) => {
+          setTimeout(() => reject(new Error(`profile load timeout ${TIMEOUTS_MS[i]}ms`)), TIMEOUTS_MS[i]);
+        });
+        const queryP = getCurrentProfile(s.user.id);
+        const r = await Promise.race([queryP, timeoutP]);
+
+        if (!r.ok) {
+          // r.error existe sólo en esta rama del discriminated union.
+          lastError = r.error;
+          attempted = 'error';
+        } else if (r.data) {
+          setUser({ ...r.data, email: s.user.email ?? '' });
+          setProfileMissing(false);
+          setProfileLoadFailed(false);
+          return;
+        } else {
+          nullCount++;
+          attempted = 'null';
+        }
+      } catch (e) {
+        // Timeout duro del Promise.race o excepción imprevista.
+        lastError = e;
+        attempted = 'error';
       }
+
+      // Backoff sólo si quedan intentos. Caso null: backoff corto (trigger
+      // handle_new_user en vuelo). Caso error: backoff progresivo.
+      if (i < TIMEOUTS_MS.length - 1) {
+        const wait = attempted === 'null' ? BACKOFFS_MS[0] : BACKOFFS_MS[Math.min(i, BACKOFFS_MS.length - 1)];
+        await new Promise((r) => setTimeout(r, wait));
+      }
+    }
+
+    // Acá agotamos los 3 intentos sin éxito.
+    if (nullCount >= 2 && !lastError) {
+      // Múltiples respuestas válidas con perfil null → realmente no existe
+      // (no es un transient de red). UI: "Hablá con un gerente".
       setUser(null);
       setProfileMissing(true);
+      setProfileLoadFailed(false);
       return;
     }
-    setUser({ ...res.data, email: s.user.email ?? '' });
+
+    // Hubo errores técnicos en al menos un intento. NO operamos con sesión
+    // auth viva sin profile cargado → signOut explícito.
+    // eslint-disable-next-line no-console
+    console.error('[Auth] No se pudo cargar el perfil tras reintentos', {
+      userId: s.user.id,
+      lastError: lastError instanceof Error ? lastError.message : String(lastError),
+      nullCount,
+    });
+    try {
+      if (isSupabaseConfigured) await supabase.auth.signOut();
+    } catch {
+      // Si el signOut falla por red, igual limpiamos local — la sesión queda
+      // muerta del lado cliente y el próximo intento la regenera.
+    }
+    persistSession(null);
+    setSession(null);
+    setUser(null);
     setProfileMissing(false);
+    setProfileLoadFailed(true);
   }, []);
 
   useEffect(() => {
@@ -204,6 +287,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSession(null);
     setUser(null);
     setProfileMissing(false);
+    setProfileLoadFailed(false);
   }, []);
 
   const reloadProfile = useCallback(async () => {
@@ -218,6 +302,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         configured: isSupabaseConfigured,
         profileMissing,
+        profileLoadFailed,
         signOut,
         reloadProfile,
       }}

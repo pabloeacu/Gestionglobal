@@ -98,7 +98,7 @@ function TramiteLegacyRedirect() {
 
 // Redirección por rol (P-AUTH-01). Sin sesión → landing pública.
 function RoleHomeOrLanding() {
-  const { loading, user, session, profileMissing } = useAuth();
+  const { loading, user, session, profileMissing, profileLoadFailed } = useAuth();
   // DGG-27 · cortina pre-lanzamiento. Sólo se evalúa cuando el visitante es
   // anónimo (sin sesión). Los usuarios logueados bypassean siempre.
   //
@@ -161,7 +161,32 @@ function RoleHomeOrLanding() {
     // Hay sesión activa pero el profile todavía no resolvió: estamos
     // completando el login. Mostrar el loader, NO la landing (evita el
     // flash de landing post-login). Sólo cae a landing si no hay sesión.
-    if (session && !profileMissing) return <BrandLoaderScreen />;
+    if (session && !profileMissing && !profileLoadFailed) return <BrandLoaderScreen />;
+    if (profileLoadFailed) {
+      // Reintentos+backoff de loadProfile agotados → signOut ya fue ejecutado
+      // por AuthContext. Mostramos mensaje honesto + CTA al login. Inspirado
+      // en handoff MDC (1/6/2026): preferimos "sin sesión + mensaje claro"
+      // antes que UI engañosa con rol falso o pantalla rara.
+      return (
+        <div className="grid min-h-screen place-items-center bg-white px-6 text-center">
+          <div className="max-w-sm space-y-3">
+            <p className="font-display text-xl font-bold text-brand-ink">
+              No pudimos completar el inicio de sesión.
+            </p>
+            <p className="text-sm text-brand-muted">
+              Verificá tu conexión a internet y volvé a ingresar. Si el
+              problema persiste, contactá a soporte.
+            </p>
+            <a
+              href="/ingresar"
+              className="mt-2 inline-block rounded-full bg-gradient-to-r from-brand-cyan to-brand-blue px-5 py-2 text-sm font-medium text-white shadow-[0_8px_24px_-8px_rgba(0,158,202,0.6)] hover:from-brand-blue hover:to-brand-blue"
+            >
+              Volver al inicio de sesión
+            </a>
+          </div>
+        </div>
+      );
+    }
     if (profileMissing) {
       return (
         <div className="grid min-h-screen place-items-center bg-white px-6 text-center">
