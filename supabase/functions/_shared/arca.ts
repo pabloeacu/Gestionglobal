@@ -394,11 +394,15 @@ export async function generarCsrPkcs10(input: CsrInput): Promise<{ csrPem: strin
   // 4. Construir CSR PKCS#10 con forge.
   const csr = forge.pki.createCertificationRequest();
   csr.publicKey = pubKey;
+  // E-GG-25.b: el atributo es `serialNumber` (OID 2.5.4.5), no `serialName`.
+  // El bug venía heredado pero hasta ahora nunca había llegado a ejecutarse
+  // (siempre fallaba antes en la keygen). forge tira "Attribute type not
+  // specified" si no encuentra el OID.
   csr.setSubject([
     { name: 'commonName', value: input.alias ?? `gestion-global-${input.cuit}` },
     { name: 'countryName', value: 'AR' },
     { name: 'organizationName', value: input.razonSocial },
-    { shortName: 'serialName', value: `CUIT ${input.cuit}` },
+    { name: 'serialNumber', value: `CUIT ${input.cuit}` },
   ]);
   // sign() invoca privKey.sign(md.digest()) que en forge es BigInt math
   // puro JS, no toca node:crypto.
