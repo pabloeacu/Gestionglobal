@@ -659,3 +659,62 @@
   encolados. Cron `dispatch-emails` envía los 3 emails en su próximo
   tick.
 - **Fecha / módulo:** 2026-06-01 · captación pública (mig 0161).
+
+## E-GG-27 · Sistema asíncrono 100% caído desde AUDIT-011 (mismatch CRON_SECRET pg_cron ↔ edge fn)
+
+- **Síntoma detectado al investigar E-GG-26:** la cola email_queue tenía
+  `0 sent` en TODA su historia. Los emails que mig 0161 reactivó nunca
+  iban a salir porque el cron `dispatch-emails-1min` estaba 401
+  Unauthorized.
+- **Alcance del bug:** 3 edge fns afectadas — dispatch-emails (ningún email
+  workflow saliendo), dispatch-push (ninguna notif push saliendo),
+  dispatch-arca-emission (ningún comprobante autorizado en ARCA si
+  hubiéramos emitido facturas A/B/C reales). Desde la fecha de AUDIT-011
+  (~3 días).
+- **Causa raíz:** AUDIT-011 (2026-05-28, Fase 5 de auditoría pre-launch)
+  endureció las 3 dispatch fns para exigir `Authorization Bearer` =
+  `CRON_SECRET` o `SUPABASE_SERVICE_ROLE_KEY`. Los pg_cron jobs usaban
+  `current_setting('app.service_role_key', true)` — setting que NUNCA
+  fue seteado (devuelve NULL). El cron mandaba `Authorization: Bearer `
+  (vacío) → 401 silencioso desde la edge fn.
+- **Por qué nadie lo detectó (lección dura):** los logs del cron pg_cron
+  mostraban "ejecución OK" porque `net.http_post` no falla aunque la
+  edge fn devuelva 401. El 401 vivía adentro del log de la edge fn que
+  nadie monitoreaba. El panel "Salud del sistema" (DGG-30) mide DB
+  metrics pero no observa flujos de negocio (emails enviados,
+  notificaciones push entregadas).
+- **Fix aplicado (mig 0162):**
+  1. Generado nuevo `CRON_SECRET`:
+     `gg_cron_c3500aaaf64c4304bd4f775d3b141136`
+  2. Hardcodeado el bearer en cada cron job vía `cron.alter_job()`
+     (Supabase managed no permite `ALTER DATABASE … SET app.*`).
+  3. Usuario lo seteó en Supabase Dashboard → Edge Functions → Secrets
+     → `CRON_SECRET = <valor>`. Al guardarlo, Supabase re-deployó las
+     3 edge fns automáticamente.
+- **Verificación post-fix:** logs muestran las 3 edge fns pasaron de 401
+  a 200 inmediatamente. dispatch-emails respondió
+  `{"ok":true,"throttled":true,"wait_ms":289188}` al primer tick post-fix,
+  confirmando que SÍ procesó algo (throttle de 5min activado por el
+  primer drain real). Los 3 emails encolados de E-GG-26 (acuse Saveriano
+  + 2 avisos a gerentes) saldrán en ~15 min con throttle entre cada uno.
+- **Aprendizajes (críticos):**
+  - **Cron pg_cron success ≠ trabajo completado.** Si la edge fn devuelve
+    401/500, el cron mismo logguea "200 OK" porque la HTTP POST se
+    ejecutó. Para detectar regresiones tenés que mirar los logs de la
+    edge fn, no los del cron job.
+  - **Auditorías estáticas (lint, code review, deploy OK) son insuficientes
+    para flujos asincrónicos.** Necesitamos un health check que
+    ejercite los caminos críticos cada N minutos y reporte si algo no
+    funciona (cola que no avanza, secret rechazado, throttle infinito).
+  - **CRON_SECRET hardcoded en pg_cron** es más confiable que
+    `current_setting` que puede silenciosamente devolver NULL si nunca
+    se setteó. Si el secret cambia, el rotate manual es explícito.
+  - **El panel de Salud del sistema necesita una métrica más:** "emails
+    enviados últimas 24h", "push enviados últimas 24h", "ARCA cola
+    pending > 1h". Estas 3 alarmarían inmediatamente este tipo de bug.
+- **TODO recomendado:** próxima ola → construir health check de flujos
+  críticos (RPC + cron + panel Salud), para que la próxima regresión
+  silenciosa la detecte el sistema en <1h.
+- **Estado:** mig 0162 aplicada, CRON_SECRET seteado en Supabase
+  Dashboard, las 3 edge fns dispatch funcionando (200 OK).
+- **Fecha / módulo:** 2026-06-01 · cron + edge fns dispatch (E-GG-27).
