@@ -336,6 +336,7 @@ export function resetGerenciaTour(): void {
   try {
     window.localStorage.removeItem(TOUR_KEY);
     window.localStorage.removeItem(AGENDA_TOUR_KEY);
+    window.localStorage.removeItem('gg.gerencia.tramitesTourCompleted');
   } catch {
     /* noop */
   }
@@ -350,7 +351,7 @@ export function resetGerenciaTour(): void {
 export const STEPS_AGENDA: TourStep[] = [
   {
     target: '[data-tour="agenda-barra-magica"]',
-    placement: 'bottom',
+    placement: 'top',
     title: 'Tirá lo que tengas en la cabeza',
     description: (
       <p>
@@ -398,6 +399,47 @@ export function shouldShowAgendaTour(): boolean {
 export function markAgendaTourSeen(): void {
   try {
     window.localStorage.setItem(AGENDA_TOUR_KEY, '1');
+  } catch {
+    /* noop */
+  }
+}
+
+// ============================================================================
+// J1 · Tour secundario Trámites (1 paso) — primer visit a un tracking detail.
+// Explica el botón unificado FIX-V4: cerrar trámite + programar próximo
+// vencimiento en un solo flujo cuando el servicio tiene renovación periódica.
+// ============================================================================
+
+const TRAMITES_TOUR_KEY = 'gg.gerencia.tramitesTourCompleted';
+
+export const STEPS_TRAMITES: TourStep[] = [
+  {
+    target: '[data-tour="tracking-cerrar"]',
+    placement: 'left',
+    title: 'Un solo botón cierra el ciclo completo',
+    description: (
+      <p>
+        Si el trámite es <strong>recurrente</strong> (renovación RPAC, DDJJ, curso de
+        actualización), el botón cierra el trámite <em>y</em> abre el modal para
+        programar el próximo vencimiento con la fecha ya precalculada. Si no es
+        recurrente, sólo cierra. Sin paso intermedio.
+      </p>
+    ),
+  },
+];
+
+export function shouldShowTramitesTour(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    return window.localStorage.getItem(TRAMITES_TOUR_KEY) !== '1';
+  } catch {
+    return false;
+  }
+}
+
+export function markTramitesTourSeen(): void {
+  try {
+    window.localStorage.setItem(TRAMITES_TOUR_KEY, '1');
   } catch {
     /* noop */
   }

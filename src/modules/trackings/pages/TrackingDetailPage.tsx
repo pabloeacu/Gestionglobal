@@ -83,6 +83,13 @@ import { EstadosConfigManager } from '../components/EstadosConfigManager';
 import { CategoriasConfigManager } from '../components/CategoriasConfigManager';
 import { ProgramarVencimientoModal } from '../components/ProgramarVencimientoModal';
 import { PedidosDocPanel } from '@/components/common/PedidosDocPanel';
+import {
+  OnboardingTour,
+  STEPS_TRAMITES,
+  shouldShowTramitesTour,
+  shouldShowGerenciaTour,
+  markTramitesTourSeen,
+} from '@/components/onboarding/OnboardingTour';
 
 type TabKey = 'resumen' | 'lineas' | 'documentacion' | 'recurrencia' | 'config';
 
@@ -119,6 +126,18 @@ export function TrackingDetailPage() {
   const [accesos, setAccesos] = useState<AccesoConAperturas[]>([]);
   // Error in-place (no redirigir al listado: enmascara fallos — E-GG-04 bonus).
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // J1 · Tour secundario Trámites — primer visit a un tracking, sólo si el
+  // tour principal de gerencia ya fue completado y el user es staff.
+  const [tramitesTourOpen, setTramitesTourOpen] = useState(false);
+  useEffect(() => {
+    if (shouldShowGerenciaTour()) return;
+    if (!isStaff) return;
+    if (shouldShowTramitesTour()) {
+      const t = setTimeout(() => setTramitesTourOpen(true), 1100);
+      return () => clearTimeout(t);
+    }
+  }, [isStaff]);
 
   // 2.F · Drag&drop sobre el detalle. Cuando soltás archivos, los sube al
   // bucket `gestor-uploads` y crea una línea "Documentación adjunta"
@@ -538,7 +557,11 @@ export function TrackingDetailPage() {
               </Button>
             )}
             {isStaff && data.estado !== 'cerrado' && (
-              <Button variant="secondary" onClick={() => void handleCerrar()}>
+              <Button
+                variant="secondary"
+                onClick={() => void handleCerrar()}
+                data-tour="tracking-cerrar"
+              >
                 <CheckCircle2 className="h-4 w-4" />{' '}
                 {data.servicio?.vigencia_meses
                   ? 'Cerrar trámite y programar próximo vencimiento'
@@ -859,6 +882,16 @@ export function TrackingDetailPage() {
         trackingTitulo={data.titulo}
         emailSugerido={data.administracion?.email ?? data.solicitante_email ?? ''}
         onGenerado={() => void load()}
+      />
+
+      {/* J1 · Tour secundario Trámites (1 paso) — primer visit. */}
+      <OnboardingTour
+        open={tramitesTourOpen}
+        steps={STEPS_TRAMITES}
+        onClose={() => {
+          setTramitesTourOpen(false);
+          markTramitesTourSeen();
+        }}
       />
     </div>
   );
