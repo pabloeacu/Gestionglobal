@@ -457,4 +457,81 @@
   estado del proyecto previo a Bloque A Fase 2 + B5/B6). No queda
   implementación pendiente sobre MDC handoff. Pasamos directo a **E2 ·
   Revisión end-to-end del proyecto**.
+
+## DGG-30 · Auth multi-rol · reintentos+backoff+signOut en loadProfile
+
+- **Origen:** handoff de MDC del 2026-06-01
+  (`docs/handoff-auth-multirole-checklist.md`) sobre un incidente real:
+  una usuaria con rol `gerencia` no podía entrar; cuando logró entrar
+  fue tratada como `empleado` con UI vacía. Causa raíz: el frontend
+  **fabricaba un usuario sintético con rol mínimo** cuando la carga
+  del profile fallaba por timeout/red. RLS del backend funcionaba bien;
+  el bug era 100% del frontend.
+
+- **Diagnóstico aplicado a Gestión Global:** auditamos
+  `src/contexts/AuthContext.tsx::loadProfile` contra las 3 reglas de
+  oro del handoff. Resultado:
+  - **Regla 1 (no fabricar perfil):** PASA — Gestión Global nunca
+    inventó un usuario sintético.
+  - **Regla 2 (reintentar antes de rendirse):** PARCIAL — había UN solo
+    reintento de 350ms, sólo para el caso "trigger handle_new_user en
+    vuelo" post-signup. No había reintentos por red flaky / timeout.
+  - **Regla 3 (signOut si falla todo):** PARCIAL — no se hacía
+    signOut, la sesión auth quedaba viva sin profile cargado (estado
+    inconsistente).
+
+  Además, no se distinguía "perfil no existe" vs "error técnico", y
+  no se logueaba a consola con detalle (diagnóstico ciego en prod).
+
+- **Decisión:** implementar los 3 huecos en `loadProfile`:
+
+  1. **Watchdog + reintentos con backoff.** 3 intentos con timeouts
+     crecientes `[8s, 9s, 12s]` usando `Promise.race` contra un
+     `setTimeout` que rechaza. Backoff entre intentos: `350ms` (cubre
+     el caso trigger-en-vuelo) y `1000ms` (cubre transients de red).
+     Worst case ~31s hasta darse por vencido — mejor que el "Cargando…"
+     infinito de antes si supabase-js cuelga la query.
+
+  2. **Distinción null vs error técnico.** Cada intento clasifica su
+     resultado en `'success' | 'null' | 'error'`. Si ≥2 intentos
+     respondieron `null` y NINGUNO dio error técnico, marcamos
+     `profileMissing=true` (perfil realmente no existe en DB → UI
+     "Hablá con un gerente"). Si hubo CUALQUIER error técnico tras
+     agotar reintentos, marcamos un flag nuevo `profileLoadFailed=true`.
+
+  3. **`signOut()` automático tras N fallos técnicos.** Cuando
+     `profileLoadFailed=true` se setea, el AuthContext llama
+     `supabase.auth.signOut()`, limpia `persistSession(null)` y resetea
+     `session`/`user` a `null`. `App.RoleHomeOrLanding` tiene una rama
+     nueva que muestra "No pudimos completar el inicio de sesión.
+     Verificá tu conexión a internet y volvé a ingresar." + CTA a
+     `/ingresar`. La rama se evalúa **antes** de `profileMissing` y
+     **antes** de cover/landing para evitar flash post-signOut.
+
+  4. **Logging con `console.error`.** Cuando se agotan los reintentos
+     con error técnico, se loguea `userId`, `lastError.message` y
+     `nullCount` para diagnóstico desde DevTools.
+
+- **Por qué NO replicamos otros patrones del handoff:**
+  - Realtime sobre `profiles` del usuario actual (para expulsar al
+    desactivar/cambiar rol en vivo) → al BACKLOG, no urgente: hoy
+    `reloadProfile()` manual cubre los casos.
+  - Página `/403` dedicada en vez de redirect a `/` cuando el rol no
+    calza → al BACKLOG, menor; el dispatcher actual ya redirige bien.
+  - Cache local del último perfil válido (offline-first) → descartado,
+    igual que el handoff lo descarta: agrega complejidad sin caso de uso.
+  - Indicador "reconectando..." durante reintentos → descartado por la
+    misma razón.
+
+- **Backend no cambia:** RLS (regla 2), tenancy guards (regla 12),
+  role server-side (no en JWT claim) y RPCs SECURITY DEFINER siguen
+  siendo la defensa real. Este chunk sólo cierra el agujero UX del
+  frontend para que un transient de red no resulte en pantalla
+  rara/colgada.
+
+- **Archivos tocados:** `src/contexts/AuthContext.tsx` (refactor de
+  `loadProfile` + nuevo flag `profileLoadFailed` en `AuthState`),
+  `src/App.tsx` (nueva rama en `RoleHomeOrLanding`).
+
+- **Fecha:** 2026-06-01 · commit `ffeac79`.
 - **Fecha:** 2026-05-31
