@@ -85,6 +85,7 @@ const AuditoriaPage = lazy(() => import('@/modules/auditoria').then(m => ({ defa
 const ErroresRuntimePage = lazy(() => import('@/modules/errores').then(m => ({ default: m.ErroresRuntimePage })));
 const AnaliticaPage = lazy(() => import('@/modules/analitica').then(m => ({ default: m.AnaliticaPage })));
 const ComunicacionesPage = lazy(() => import('@/modules/comunicaciones').then(m => ({ default: m.ComunicacionesPage })));
+const SaludSistemaPage = lazy(() => import('@/modules/gerencia/pages/SaludSistemaPage').then(m => ({ default: m.SaludSistemaPage })));
 
 type Role = 'gerente' | 'operador' | 'administrador' | 'partner';
 
@@ -326,6 +327,7 @@ export function App() {
             <Route path="emails/cola" element={<EmailQueuePage />} />
             <Route path="auditoria" element={<AuditoriaPage />} />
             <Route path="errores" element={<ErroresRuntimePage />} />
+            <Route path="salud-sistema" element={<SaludSistemaPage />} />
           </Route>
           <Route path="perfil" element={<PerfilPage />} />
         </Route>

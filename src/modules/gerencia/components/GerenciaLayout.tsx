@@ -112,6 +112,7 @@ const NAV: NavGroup[] = [
       { label: 'Usuarios', to: '/gerencia/configuracion/usuarios' },
       { label: 'Bitácora de cambios', to: '/gerencia/configuracion/auditoria' },
       { label: 'Errores en runtime', to: '/gerencia/configuracion/errores' },
+      { label: 'Salud del sistema', to: '/gerencia/configuracion/salud-sistema' },
       // Datos fiscales (config_global) pendiente · DGG futuro
     ],
   },
