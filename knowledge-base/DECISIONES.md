@@ -434,8 +434,27 @@
   4. **A4 · este documento** · decisiones explícitas sobre 10 items
      parqueados.
 
-- **Implementación pendiente como bloque propio:** El item "MDC handoff a
-  Agenda" se trata como sub-proyecto B-MDC con 10 items priorizados según
-  el doc `AGENDA_GERENCIAL_HANDOFF.md`. Plan: ejecutar en bloque después
-  del commit de Track A.
+- **Auditoría B-MDC post-commit Track A (2026-05-31):** Antes de levantar el
+  sub-proyecto, auditamos cada uno de los 10 items del handoff contra el
+  código actual. Resultado: **TODOS YA ESTÁN IMPLEMENTADOS** a través de
+  rondas previas. Inventario:
+
+  | # | Item handoff | Dónde se implementó |
+  |---|---|---|
+  | 1 | Parser NL rioplatense | `src/lib/agendaParse.ts` + BarraMagica + B6/CommandPalette (task #215) |
+  | 2 | Recurrencia virtual + overrides | mig 0038 (`agenda_event_overrides`) + `src/lib/agendaRecurrencia.ts` |
+  | 3 | Gestos drag/resize/paint | `VistaSemana.tsx` líneas 194-560 (paint en col vacía, drag con snap 15min, resize por manija inferior) |
+  | 4 | Círculo tilde Apple Tasks con stopPropagation | `CirculoHecha.tsx` (E12 aplicado) |
+  | 5 | AccionesMenu flotante con clamp robusto | `AccionesMenu.tsx` con `useLayoutEffect` recalculando con `subOpen` (E7) |
+  | 6 | Posponer relativo a fecha del evento | `AgendaPage.tsx` línea 369 + `calcularPosponer()` (E11) |
+  | 7 | Cadencia humana recordatorios (1° + 5h + cierre 20:00 + atrasados 09:00-09:20) | mig 0039 `gg_agenda_procesar_recordatorios()` + cron `agenda-recordatorios` |
+  | 8 | Modal panel lateral animado para vínculos | `EventoModal.tsx` líneas 120/223/407 con `panelOpen` + transición `max-w-md ↔ max-w-3xl` (E8) |
+  | 9 | Command palette ⌘K scope-aware | B5 task #214 + B6 task #215 |
+  | 10 | Copy rioplatense + emojis en notif | mig 0039 con "👀 No te cuelgues" / "⏰ Te marco de nuevo" / "🌙 Última por hoy"; subtítulo "Tirá lo que tengas en la cabeza — yo lo ordeno" en AgendaPage línea 596 |
+
+- **Conclusión:** la decisión "Implementar todo MDC handoff" se cierra como
+  **YA EJECUTADA**. El backlog item original era stale (refería a un
+  estado del proyecto previo a Bloque A Fase 2 + B5/B6). No queda
+  implementación pendiente sobre MDC handoff. Pasamos directo a **E2 ·
+  Revisión end-to-end del proyecto**.
 - **Fecha:** 2026-05-31
