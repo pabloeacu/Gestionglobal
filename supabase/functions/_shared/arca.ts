@@ -355,21 +355,39 @@ export interface CsrInput {
   razonSocial: string;
   alias?: string; // CN del CSR. Default: gestion-global-{cuit}
 }
-export function generarCsrPkcs10(input: CsrInput): { csrPem: string; keyPem: string } {
-  const keys = forge.pki.rsa.generateKeyPair(2048);
-  const csr = forge.pki.createCertificationRequest();
-  csr.publicKey = keys.publicKey;
-  csr.setSubject([
-    { name: 'commonName', value: input.alias ?? `gestion-global-${input.cuit}` },
-    { name: 'countryName', value: 'AR' },
-    { name: 'organizationName', value: input.razonSocial },
-    { shortName: 'serialName', value: `CUIT ${input.cuit}` },
-  ]);
-  csr.sign(keys.privateKey, forge.md.sha256.create());
-  return {
-    csrPem: forge.pki.certificationRequestToPem(csr),
-    keyPem: forge.pki.privateKeyToPem(keys.privateKey),
-  };
+/**
+ * Genera par RSA 2048 + CSR PKCS#10. Async porque la versión sync de
+ * forge.pki.rsa.generateKeyPair invoca crypto.generateKeyPairSync (de
+ * node:crypto) que NO está implementado en Deno. La versión callback
+ * es Pure JS y funciona en Deno.
+ */
+export function generarCsrPkcs10(input: CsrInput): Promise<{ csrPem: string; keyPem: string }> {
+  return new Promise((resolve, reject) => {
+    // Pure-JS callback flavor: no toca node:crypto.
+    forge.pki.rsa.generateKeyPair(
+      { bits: 2048, e: 0x10001 },
+      (err: Error | null | undefined, keys: { publicKey: any; privateKey: any }) => {
+        if (err) return reject(err);
+        try {
+          const csr = forge.pki.createCertificationRequest();
+          csr.publicKey = keys.publicKey;
+          csr.setSubject([
+            { name: 'commonName', value: input.alias ?? `gestion-global-${input.cuit}` },
+            { name: 'countryName', value: 'AR' },
+            { name: 'organizationName', value: input.razonSocial },
+            { shortName: 'serialName', value: `CUIT ${input.cuit}` },
+          ]);
+          csr.sign(keys.privateKey, forge.md.sha256.create());
+          resolve({
+            csrPem: forge.pki.certificationRequestToPem(csr),
+            keyPem: forge.pki.privateKeyToPem(keys.privateKey),
+          });
+        } catch (e) {
+          reject(e);
+        }
+      },
+    );
+  });
 }
 
 export interface InspectCertResult {

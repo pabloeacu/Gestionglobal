@@ -71,7 +71,7 @@ Deno.serve(async (req) => {
   let csrPem: string;
   let keyPem: string;
   try {
-    const out = generarCsrPkcs10({ cuit: emisor.cuit, razonSocial: emisor.razon_social, alias: aliasFinal });
+    const out = await generarCsrPkcs10({ cuit: emisor.cuit, razonSocial: emisor.razon_social, alias: aliasFinal });
     csrPem = out.csrPem;
     keyPem = out.keyPem;
   } catch (e) {
