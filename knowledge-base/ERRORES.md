@@ -585,3 +585,77 @@
 - **Commits:** `25bf2b7` (b), `b2b43c6` (c), `3833945` (d), `425d77f`
   (e); a se mergeó con c9fbaa2 (WebCrypto).
 - **Fecha / módulo:** 2026-06-01 · ARCA wizard (DGG-31 fallout).
+
+## E-GG-26 · Regresión silenciosa · captación por formulario (cursos) sin solicitud ni emails
+
+- **Síntoma reportado por usuario (José Luis):** persona se inscribió al
+  servicio "Curso inicial de formación de administradores" con mail
+  estudio.saveriano@gmail.com. La persona NO recibió email de recepción
+  y la solicitud NO apareció en el panel de gerencia. ADN del circuito
+  de captación silenciosamente roto.
+- **Diagnóstico (2 bugs en cascada):**
+
+  **Bug A · filtro de categoría restrictivo:** el trigger
+  `crear_tramite_desde_submission_auto` tenía:
+  ```sql
+  IF v_form.categoria NOT IN ('tramite','servicio','consulta') THEN
+    RETURN NEW;
+  END IF;
+  ```
+  Los 2 formularios de cursos (`curso-formacion`, `curso-actualizacion`,
+  categoría `'curso'`) cumplían el predicado NOT IN → trigger salía sin
+  crear solicitud. **2 productos públicos perdían clientes silenciosamente
+  desde quién-sabe-cuándo.**
+
+  **Bug B · regresión silenciosa de mig 0135:** la mig 0074 (2026-05-26)
+  había agregado al trigger los `INSERT INTO email_queue` para el acuse
+  al solicitante (template `formulario-submission-recibido`) y el aviso
+  a cada gerente (template `solicitud-nueva-gerencia`). La mig 0135
+  (voucher pipeline) redefinió la función entera con `CREATE OR REPLACE`
+  para sumar campos `precio_*` y `voucher_*` — pero al hacerlo
+  **eliminó los dos bloques de email_queue sin querer**. Nada falló,
+  nada loggeó error, simplemente dejaron de enviarse emails. Tipo de
+  bug imposible de detectar sin testing real de e2e del flujo.
+
+  Esto significa que entre la fecha de mig 0135 y este fix
+  (E-GG-26), TODAS las inscripciones por formulario público a categorías
+  `tramite`/`servicio`/`consulta` (las que sí pasaban el filtro)
+  generaban solicitud OK pero NO mandaban emails.
+
+- **Fix (mig 0161):**
+  1. **Denylist por categoría**: invertimos a `IF v_form.categoria = 'evento'
+     THEN RETURN NEW;`. Sólo `evento` (webinars) queda fuera porque tiene
+     su propio trigger `inscribir_webinar_desde_submission`. Cualquier
+     categoría presente o futura genera solicitud por default. Defensa
+     contra futuras categorías huérfanas.
+  2. **Re-incorporar acuse al solicitante** (`formulario-submission-recibido`).
+  3. **Re-incorporar aviso a gerencia** (`solicitud-nueva-gerencia` a cada
+     gerente/operador activo).
+  4. **Conservar la lógica de voucher/precio de mig 0135.**
+- **Backfill:** ejecutado manualmente para la submission de Saveriano
+  (`36007898-120b-494c-8360-42dae1a1bace`) creando su solicitud
+  (`af95214f-bb69-4458-b101-89ff1ce1d8e8`) y encolando los 3 emails
+  (acuse + 2 gerentes).
+- **Aprendizajes:**
+  - **CREATE OR REPLACE en triggers/funciones largas es peligroso.** Cuando
+    una mig redefine una función completa, hay alto riesgo de perder
+    código de migraciones anteriores si no se lee la versión vigente.
+    Defensa: antes de `CREATE OR REPLACE` de una función con N+ líneas,
+    correr `pg_get_functiondef()` y diff'ear contra la versión local.
+  - **Allowlist por valor es frágil.** Usar denylist o filtro positivo
+    explícito ("evento queda fuera porque X"). Allowlist olvida que existen
+    valores nuevos y deja huérfanos.
+  - **El circuito de captación necesita test e2e periódico.** Una vez por
+    semana al menos: enviar un formulario público real y verificar que
+    (a) aparece en panel, (b) llega email al solicitante, (c) llegan
+    emails a gerentes. La mig 0135 rompió esto hace ~5 días y nadie lo
+    detectó hasta que un gerente humano hizo un test real.
+  - **Subsistemas críticos merecen pruebas snapshot.** Para el flujo
+    captación, idealmente: una RPC de test que simule submission e
+    inspecciona efectos colaterales (solicitudes, email_queue, notifs)
+    devolviendo un veredicto. Conectarla al panel de Salud del sistema.
+
+- **Estado:** mig 0161 aplicada, backfill ejecutado, solicitud y emails
+  encolados. Cron `dispatch-emails` envía los 3 emails en su próximo
+  tick.
+- **Fecha / módulo:** 2026-06-01 · captación pública (mig 0161).
