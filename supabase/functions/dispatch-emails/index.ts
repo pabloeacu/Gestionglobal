@@ -95,9 +95,18 @@ interface QueueRow {
 Deno.serve(async (req) => {
   if (req.method === 'GET') return new Response('dispatch-emails alive', { status: 200 });
 
+  // AUDIT-011: Auth — exigimos CRON_SECRET o service_role en Bearer.
+  // Sin esto, cualquier IP podía triggear el dispatch (DoS/bypass throttle).
+  const cronSecret = Deno.env.get('CRON_SECRET');
+  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  const authHeader = req.headers.get('Authorization')?.replace(/^Bearer\s+/i, '').trim() ?? '';
+  if (authHeader !== serviceKey && (!cronSecret || authHeader !== cronSecret)) {
+    return jsonError(401, 'unauthorized');
+  }
+
   const admin = createClient(
     Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+    serviceKey,
   );
 
   // 1) Throttle global hard 5 min.

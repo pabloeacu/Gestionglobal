@@ -25,9 +25,18 @@ const BATCH_MAX = 25;
 Deno.serve(async (req) => {
   if (req.method === 'GET') return new Response('dispatch-push alive', { status: 200 });
 
+  // AUDIT-011: Auth — exigimos CRON_SECRET o service_role en Bearer.
+  // Sin esto, cualquier IP podía triggear el dispatch desde afuera.
+  const cronSecret = Deno.env.get('CRON_SECRET');
+  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  const authHeader = req.headers.get('Authorization')?.replace(/^Bearer\s+/i, '').trim() ?? '';
+  if (authHeader !== serviceKey && (!cronSecret || authHeader !== cronSecret)) {
+    return json({ ok: false, error: 'unauthorized' }, 401);
+  }
+
   const admin = createClient(
     Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+    serviceKey,
   );
 
   const pubB64 = Deno.env.get('VAPID_PUBLIC_KEY');
