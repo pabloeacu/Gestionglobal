@@ -744,9 +744,11 @@ function WizardArca({ emisor, onRefresh }: { emisor: ArcaEmisor; onRefresh: () =
       return;
     }
     setCsrPem(res.data.csr_pem);
-    toast.success('CSR generado', { description: `Alias: ${res.data.alias_sugerido}` });
+    toast.success('CSR generado · descargalo abajo', { description: `Alias: ${res.data.alias_sugerido}` });
     onRefresh();
-    setActiveStep(1);
+    // No avanzamos automáticamente al paso 2 — el usuario tiene que descargar
+    // o copiar el CSR primero. El botón "Siguiente · subir a AFIP" lo lleva
+    // al paso 2 cuando ya tiene el .csr en mano.
   }
 
   function descargarCsr() {
@@ -913,6 +915,24 @@ function WizardArca({ emisor, onRefresh }: { emisor: ArcaEmisor; onRefresh: () =
       {activeStep === 1 && (
         <StepPanel stepKey="afip" title="Paso 2 · Subir el CSR a AFIP" subtitle="Necesitás clave fiscal nivel 3 y el servicio 'Administración de Certificados Digitales' habilitado.">
           <div className="card-premium space-y-3 p-5">
+            {/* Recordatorio del CSR + botones siempre a mano (E-GG-25.c). */}
+            {(csrPem || emisor.csr_b64) && (
+              <div className="rounded-xl border border-brand-cyan/30 bg-brand-cyan-pale/30 p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-xs font-medium text-brand-cyan">
+                    Tu CSR está listo · alias <code className="rounded bg-white px-1.5 py-0.5 font-mono text-[10px]">{emisor.cert_alias ?? `gestion-global-${emisor.cuit}`}</code>
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <button type="button" onClick={copiarCsr} className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-medium hover:border-brand-cyan hover:text-brand-cyan">
+                      <Copy size={11} /> Copiar
+                    </button>
+                    <button type="button" onClick={descargarCsr} className="inline-flex items-center gap-1 rounded-md bg-brand-cyan px-2 py-1 text-xs font-medium text-white hover:bg-brand-cyan-700">
+                      <Download size={11} /> Descargar .csr
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
             <ol className="ml-5 list-decimal space-y-2 text-sm text-brand-ink">
               <li>
                 <a href="https://auth.afip.gob.ar/contribuyente_/login.xhtml" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 font-medium text-brand-cyan hover:underline">
