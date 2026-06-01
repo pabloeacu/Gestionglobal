@@ -913,7 +913,13 @@ function WizardArca({ emisor, onRefresh }: { emisor: ArcaEmisor; onRefresh: () =
       )}
 
       {activeStep === 1 && (
-        <StepPanel stepKey="afip" title="Paso 2 · Subir el CSR a AFIP" subtitle="Necesitás clave fiscal nivel 3 y el servicio 'Administración de Certificados Digitales' habilitado.">
+        <StepPanel
+          stepKey="afip"
+          title="Paso 2 · Subir el CSR a AFIP"
+          subtitle={emisor.ambiente === 'produccion'
+            ? 'Producción: clave fiscal nivel 3 + servicio Administración de Certificados Digitales habilitado.'
+            : 'Homologación: el portal de certificados de homologación es DISTINTO al de producción.'}
+        >
           <div className="card-premium space-y-3 p-5">
             {/* Recordatorio del CSR + botones siempre a mano (E-GG-25.c). */}
             {(csrPem || emisor.csr_b64) && (
@@ -933,17 +939,53 @@ function WizardArca({ emisor, onRefresh }: { emisor: ArcaEmisor; onRefresh: () =
                 </div>
               </div>
             )}
-            <ol className="ml-5 list-decimal space-y-2 text-sm text-brand-ink">
-              <li>
-                <a href="https://auth.afip.gob.ar/contribuyente_/login.xhtml" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 font-medium text-brand-cyan hover:underline">
-                  Abrí el portal AFIP <ExternalLink size={11} />
-                </a>{' '}con tu clave fiscal nivel 3.
-              </li>
-              <li>Buscá <strong>Administración de Certificados Digitales</strong>.</li>
-              <li>Creá un nuevo certificado con alias <code className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs">{emisor.cert_alias ?? `gestion-global-${emisor.cuit}`}</code> y subí el .csr que descargaste.</li>
-              <li>AFIP te devolverá un <strong>.crt</strong>. Bajalo a tu compu.</li>
-              <li>En <strong>Administrador de Relaciones</strong> autorizá el WS <em>Facturación Electrónica</em> (servicio <code className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs">wsfe</code>) con ese alias.</li>
-            </ol>
+
+            {/* Aviso crítico sobre los dos portales AFIP (E-GG-25.e). */}
+            <div
+              className={cn(
+                'rounded-xl border-2 px-4 py-3 text-sm',
+                emisor.ambiente === 'produccion'
+                  ? 'border-emerald-200 bg-emerald-50/60 text-emerald-900'
+                  : 'border-amber-200 bg-amber-50/60 text-amber-900',
+              )}
+            >
+              <div className="flex items-center gap-2 font-medium">
+                <ShieldCheck size={14} />
+                {emisor.ambiente === 'produccion' ? 'Portal AFIP · Producción' : 'Portal AFIP · Homologación (WSASS)'}
+              </div>
+              <p className="mt-1 text-xs opacity-90">
+                {emisor.ambiente === 'produccion'
+                  ? 'El cert se firma con la AC de Producción. Sirve sólo para emitir CAE reales.'
+                  : 'Homologación tiene su propio portal y AC. Un cert de producción NO funciona acá (AFIP devuelve "cms.cert.untrusted") y viceversa.'}
+              </p>
+            </div>
+
+            {emisor.ambiente === 'produccion' ? (
+              <ol className="ml-5 list-decimal space-y-2 text-sm text-brand-ink">
+                <li>
+                  <a href="https://auth.afip.gob.ar/contribuyente_/login.xhtml" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 font-medium text-brand-cyan hover:underline">
+                    Abrí el portal AFIP <ExternalLink size={11} />
+                  </a>{' '}con tu clave fiscal nivel 3.
+                </li>
+                <li>Buscá <strong>Administración de Certificados Digitales</strong>.</li>
+                <li>Creá un nuevo certificado con alias <code className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs">{emisor.cert_alias ?? `gestion-global-${emisor.cuit}`}</code> y subí el .csr que descargaste.</li>
+                <li>AFIP te devolverá un <strong>.crt</strong>. Bajalo a tu compu.</li>
+                <li>En <strong>Administrador de Relaciones</strong> autorizá el WS <em>Facturación Electrónica</em> (servicio <code className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs">wsfe</code>) con ese alias.</li>
+              </ol>
+            ) : (
+              <ol className="ml-5 list-decimal space-y-2 text-sm text-brand-ink">
+                <li>
+                  <a href="https://wsass-homo.afip.gob.ar/wsass/portal.aspx" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 font-medium text-brand-cyan hover:underline">
+                    Abrí el portal WSASS de homologación <ExternalLink size={11} />
+                  </a>{' '}con tu clave fiscal nivel 3.
+                </li>
+                <li>Entrá a <strong>Autogestión Certificados Homologación</strong>.</li>
+                <li>Creá un nuevo certificado con alias <code className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs">{emisor.cert_alias ?? `gestion-global-${emisor.cuit}`}</code> y pegá/subí el CSR.</li>
+                <li>WSASS te devuelve el <strong>.crt</strong> de homologación. Bajalo.</li>
+                <li>Volvé acá y subilo en el Paso 3.</li>
+              </ol>
+            )}
+
             <div className="flex items-center gap-2 pt-2">
               <Button variant="secondary" onClick={() => setActiveStep(0)}>Atrás</Button>
               <Button onClick={() => setActiveStep(2)}>Ya lo subí · siguiente</Button>
