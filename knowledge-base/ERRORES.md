@@ -500,3 +500,88 @@
     de incógnito. Si pasa esos tres, está sólido.
 - **Fecha / módulo:** 2026-05-25 · App.tsx + index.html (DGG-27 cierre).
 
+## E-GG-25 · Wizard ARCA · cadena de bugs (Deno crypto + UX + AFIP CAs)
+
+- **Síntoma inicial:** usuario gerente clickea "Generar CSR" en
+  `/gerencia/configuracion/emisores` y el toast muestra "Edge Function
+  returned a non-2xx status code" (mensaje genérico).
+- **Cadena de 5 bugs en cascada** (cada uno apareció después de fixear
+  el anterior):
+
+  **E-GG-25.a · `Not implemented: crypto.generateKeyPairSync`**
+  - Causa: `forge.pki.rsa.generateKeyPair(2048)` en modo sync invoca
+    `crypto.generateKeyPairSync` de `node:crypto`. Esa API NO está
+    implementada en Deno → 500.
+  - Intento de fix: pasar a la variante callback (async) de forge.
+    NO funcionó: la callback también usa `crypto.generateKeyPair`
+    (sin Sync) que tampoco está implementada.
+  - Fix definitivo: usar **WebCrypto nativo** (`crypto.subtle.generateKey`
+    + `exportKey('pkcs8' | 'spki')`) para el par RSA. Dejar forge SÓLO
+    para construir el CSR PKCS#10 (parsing ASN.1 puro JS). Helper
+    `derToPem()` para convertir el ArrayBuffer a PEM.
+
+  **E-GG-25.b · `Attribute type not specified`**
+  - Causa: el código heredado usaba `{ shortName: 'serialName' }` en el
+    subject DN del CSR. `serialName` no es un short name reconocido por
+    `forge.pki.oids` → forge tira error.
+  - Bug latente: nunca había salido a la luz porque siempre fallaba
+    antes en la keygen (E-GG-25.a).
+  - Fix: cambiar a `{ name: 'serialNumber' }` (OID 2.5.4.5, correcto
+    para AFIP).
+
+  **E-GG-25.c · CSR generado pero sin botón Descargar**
+  - Causa: tras `handleGenerarCsr`, el wizard hacía `setActiveStep(1)`
+    automáticamente. Eso saltaba al Paso 2 (instrucciones AFIP) sin
+    dejar al usuario ver los botones Descargar/Copiar del Paso 1.
+  - Fix: no auto-avanzar — dejar al usuario en Paso 1 con el CSR
+    visible + botones, y que él clickee "Siguiente · subir a AFIP"
+    cuando esté listo. Bonus: panel pinned en Paso 2 con Descargar/
+    Copiar siempre a mano por si vuelve.
+
+  **E-GG-25.d · Paso 3 sin manera de avanzar a Paso 4**
+  - Causa: cuando el cert ya estaba instalado (`emisor.cert_subido_at`
+    seteado), el botón "Validar e instalar" quedaba disabled (porque
+    el textarea está vacío) y "Atrás" sólo retrocede. Usuario bloqueado
+    sin poder ir a probar.
+  - Fix: agregado botón "Siguiente · probar conexión" en Paso 3 que
+    aparece sólo cuando hay cert instalado.
+
+  **E-GG-25.e · `cms.cert.untrusted` en WSAA**
+  - Causa: AFIP tiene **dos portales separados** para certificados,
+    cada uno con su propia CA:
+    - **Producción**: https://auth.afip.gob.ar → "Administración de
+      Certificados Digitales" → CA Producción.
+    - **Homologación**: https://wsass-homo.afip.gob.ar → "Autogestión
+      Certificados Homologación" → CA Homologación.
+    Un cert emitido por la CA de Producción NO funciona contra WSAA
+    Homologación (devuelve `cms.cert.untrusted`) y viceversa.
+  - El copy original del Paso 2 sólo apuntaba al portal de producción
+    independientemente del ambiente seleccionado. Usuario que probaba
+    homologación con cert de producción se chocaba con error confuso.
+  - Fix: el Paso 2 ahora muestra banner crítico arriba que advierte
+    sobre los dos portales según el ambiente actual del emisor.
+    Instrucciones específicas por ambiente: si producción → link a
+    AFIP regular; si homologación → link a WSASS. Subtítulo del paso
+    también cambia.
+
+- **Aprendizajes:**
+  - **Forge en Deno**: usar SÓLO para parsing/construcción ASN.1.
+    Nunca para keygen. WebCrypto nativo (`crypto.subtle`) para todo
+    lo que toque node:crypto subyacente.
+  - **AFIP dos portales**: nunca olvidar que homologación es un
+    entorno completamente separado de producción, incluyendo CA. El
+    copy en UI debe ser explícito sobre cuál usar.
+  - **Wizards multi-paso**: nunca auto-advance crítico — el usuario
+    pierde contexto y no puede volver fácilmente. Siempre dar opt-in
+    explícito y mantener acciones críticas (Descargar) accesibles en
+    múltiples pasos.
+  - **Status disabled ≠ no hay próximo paso**: si un botón principal
+    está disabled por estado válido (cert ya instalado), hay que
+    proveer ruta alternativa para avanzar.
+
+- **Fix en disco:** `supabase/functions/_shared/arca.ts` + edge fn
+  `arca-generar-csr` deployada v8 + `src/modules/configuracion/pages/
+  EmisoresPage.tsx`.
+- **Commits:** `25bf2b7` (b), `b2b43c6` (c), `3833945` (d), `425d77f`
+  (e); a se mergeó con c9fbaa2 (WebCrypto).
+- **Fecha / módulo:** 2026-06-01 · ARCA wizard (DGG-31 fallout).
