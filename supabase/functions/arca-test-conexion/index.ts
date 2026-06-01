@@ -1,8 +1,11 @@
 // arca-test-conexion · WSAA login + WSFE FEDummy. Cachea TA si OK.
-// Doc 02 §4.8 ítem 3, P-ARCA-01 (cache TA).
+// Doc 02 §4.8 ítem 3, P-ARCA-01 (cache TA) · DGG-31.
+//
+// Body: { emisor_id?: string }  — si no viene, opera sobre es_default.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.46.1';
 import { wsaaLogin, feDummy, b64ToPem } from '../_shared/arca.ts';
+import { resolverEmisor } from '../_shared/emisor.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -29,32 +32,42 @@ Deno.serve(async (req) => {
     return jsonError(403, 'Solo staff');
   }
 
+  let emisorId: string | undefined;
+  try {
+    const body = await req.json().catch(() => ({}));
+    if (typeof body?.emisor_id === 'string' && body.emisor_id.trim()) emisorId = body.emisor_id.trim();
+  } catch { /* ignore */ }
+
   const admin = createClient(
     Deno.env.get('SUPABASE_URL')!,
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
   );
-  const { data: cfg, error: cfgErr } = await admin
-    .from('arca_config')
-    .select('ambiente, cert_b64, key_b64, cert_valido_hasta')
-    .eq('id', 1)
-    .single();
-  if (cfgErr || !cfg) return jsonError(500, 'No pudimos leer arca_config');
-  if (!cfg.cert_b64 || !cfg.key_b64) {
-    return jsonError(400, 'Falta cert o key. Completá los pasos previos.');
+
+  let emisor;
+  try {
+    emisor = await resolverEmisor(admin, emisorId);
+  } catch (e) {
+    return jsonError(400, (e as Error).message);
+  }
+
+  if (!emisor.cert_b64 || !emisor.key_b64) {
+    return jsonError(400, 'Falta cert o key del emisor. Completá los pasos previos del wizard.');
   }
 
   const t0 = Date.now();
   let mensaje: string;
   let ok = false;
   try {
-    const certPem = b64ToPem(cfg.cert_b64);
-    const keyPem = b64ToPem(cfg.key_b64);
-    const ta = await wsaaLogin({ ambiente: cfg.ambiente as 'homologacion' | 'produccion', certPem, keyPem });
-    // Persistir TA cacheado.
+    const certPem = b64ToPem(emisor.cert_b64);
+    const keyPem = b64ToPem(emisor.key_b64);
+    const ta = await wsaaLogin({ ambiente: emisor.ambiente, certPem, keyPem });
+    // Persistir TA cacheado. El TA es por (service, ambiente) — multi-emisor
+    // dentro del mismo ambiente comparte cache; aceptable porque WSFE valida
+    // en runtime contra el cert que firmó el TA (cada emisor tiene el suyo).
     await admin.from('arca_tokens').upsert(
       {
         service: 'wsfe',
-        ambiente: cfg.ambiente,
+        ambiente: emisor.ambiente,
         token: ta.token,
         sign: ta.sign,
         obtained_at: new Date().toISOString(),
@@ -62,7 +75,7 @@ Deno.serve(async (req) => {
       },
       { onConflict: 'service,ambiente' },
     );
-    const ping = await feDummy(cfg.ambiente as 'homologacion' | 'produccion');
+    const ping = await feDummy(emisor.ambiente);
     ok = ping.appServer === 'OK' && ping.dbServer === 'OK' && ping.authServer === 'OK';
     mensaje = ok
       ? `WSAA + WSFE OK (App=${ping.appServer} Db=${ping.dbServer} Auth=${ping.authServer})`
@@ -74,17 +87,18 @@ Deno.serve(async (req) => {
   const latencia = Date.now() - t0;
 
   await admin
-    .from('arca_config')
+    .from('arca_emisores')
     .update({
       ultimo_test_at: new Date().toISOString(),
       ultimo_test_ok: ok,
       ultimo_test_msg: mensaje.slice(0, 500),
       ultimo_test_latencia_ms: latencia,
+      updated_at: new Date().toISOString(),
     })
-    .eq('id', 1);
+    .eq('id', emisor.id);
 
   return new Response(
-    JSON.stringify({ ok, mensaje, latencia_ms: latencia, ambiente: cfg.ambiente }),
+    JSON.stringify({ ok, mensaje, latencia_ms: latencia, ambiente: emisor.ambiente, emisor_id: emisor.id }),
     { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: ok ? 200 : 400 },
   );
 });

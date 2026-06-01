@@ -478,7 +478,7 @@ export function ComprobanteFormDrawer({
       description={
         arcaReady
           ? 'Tipo X = comprobante simple sin AFIP. A/B/C = factura fiscal con CAE (autoriza ARCA en ~1 min).'
-          : 'Comprobante simple (tipo X) sin ARCA. Para facturas A/B/C configurá ARCA en Configuración → ARCA.'
+          : 'Comprobante simple (tipo X) sin ARCA. Para facturas A/B/C configurá un emisor en Configuración → Emisores fiscales.'
       }
       icon={<Receipt size={20} />}
       footer={
@@ -592,7 +592,7 @@ export function ComprobanteFormDrawer({
                   hint={
                     arcaReady
                       ? 'A/B/C requieren ARCA y emiten CAE. X son comprobantes simples (sin AFIP).'
-                      : 'ARCA no está configurado · solo podés emitir tipo X. Configurá ARCA en /gerencia/configuracion/arca.'
+                      : 'ARCA no está configurado · solo podés emitir tipo X. Configurá un emisor en /gerencia/configuracion/emisores.'
                   }
                 >
                   <Select

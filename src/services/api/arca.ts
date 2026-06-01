@@ -1,21 +1,32 @@
-// services/api/arca.ts · ARCA self-service configuration + cola de emisión.
+// services/api/arca.ts · ARCA self-service multi-emisor + cola de emisión.
+// DGG-31 (2026-06-01): unificación arca_config (singleton legacy) → arca_emisores.
 // Cita: regla 4 (no `from()` directo en componentes), P-API-01 (ApiResponse),
-// doc 02 §4.8 (edge fns), P-ARCA-04 (plugin opcional).
+// doc 02 §4.8 (edge fns), P-ARCA-04.
 
 import { supabase } from '@/lib/supabase';
 import { ok, fail, toApiError, type ApiResponse } from '@/lib/errors';
 
 export type ArcaAmbiente = 'homologacion' | 'produccion';
 
-export interface ArcaConfig {
-  id: number;
+// ============================================================================
+// Tipos
+// ============================================================================
+
+export interface ArcaEmisor {
+  id: string;
+  nombre: string;
+  razon_social: string;
+  cuit: string | null;
+  condicion_iva: string;
+  domicilio_fiscal: string | null;
+  logo_url: string | null;
   ambiente: ArcaAmbiente;
-  cert_b64: string | null;
-  key_b64: string | null;
   csr_b64: string | null;
+  key_b64: string | null;
+  cert_b64: string | null;
+  cert_alias: string | null;
   csr_generado_at: string | null;
   cert_subido_at: string | null;
-  cert_alias: string | null;
   cert_valido_desde: string | null;
   cert_valido_hasta: string | null;
   ultimo_test_at: string | null;
@@ -23,9 +34,14 @@ export interface ArcaConfig {
   ultimo_test_msg: string | null;
   ultimo_test_latencia_ms: number | null;
   punto_venta_default: number;
+  es_default: boolean;
+  activo: boolean;
   created_at: string;
   updated_at: string;
 }
+
+// Alias retrocompatible con código viejo que usa ArcaConfig (singleton legacy).
+export type ArcaConfig = ArcaEmisor;
 
 export interface ArcaQueueJob {
   id: string;
@@ -55,50 +71,206 @@ export interface ArcaQueueJobWithComp extends ArcaQueueJob {
   } | null;
 }
 
-// ---------------------------------------------------------------------------
-// Config CRUD.
-// ---------------------------------------------------------------------------
-export async function getArcaConfig(): Promise<ApiResponse<ArcaConfig>> {
+// ============================================================================
+// Normalización de ambiente: la columna acepta múltiples valores por compat
+// con el seed viejo. Normalizamos al vocabulario UX 'homologacion'/'produccion'.
+// ============================================================================
+
+function normAmbiente(a: string | null | undefined): ArcaAmbiente {
+  return a === 'produccion' || a === 'prod' ? 'produccion' : 'homologacion';
+}
+
+function rowToEmisor(row: Record<string, unknown>): ArcaEmisor {
+  return { ...(row as unknown as ArcaEmisor), ambiente: normAmbiente(row.ambiente as string) };
+}
+
+// ============================================================================
+// CRUD de emisores (multi-emisor desde DGG-31)
+// ============================================================================
+
+export async function listEmisores(): Promise<ApiResponse<ArcaEmisor[]>> {
   const { data, error } = await supabase
-    .from('arca_config')
+    .from('arca_emisores')
     .select('*')
-    .eq('id', 1)
+    .order('es_default', { ascending: false })
+    .order('created_at', { ascending: true });
+  if (error) return fail('ARCA_EMISORES_LIST', error.message, error);
+  return ok(((data ?? []) as Record<string, unknown>[]).map(rowToEmisor));
+}
+
+export async function getEmisor(emisorId: string): Promise<ApiResponse<ArcaEmisor>> {
+  const { data, error } = await supabase
+    .from('arca_emisores')
+    .select('*')
+    .eq('id', emisorId)
     .single();
-  if (error) return fail('ARCA_CONFIG_LOAD', error.message, error);
-  return ok(data as unknown as ArcaConfig);
+  if (error) return fail('ARCA_EMISOR_GET', error.message, error);
+  return ok(rowToEmisor(data as Record<string, unknown>));
+}
+
+/** Devuelve el emisor por defecto (es_default=true, activo=true). Si no existe, lo crea con un placeholder. */
+export async function getEmisorDefault(): Promise<ApiResponse<ArcaEmisor>> {
+  const { data, error } = await supabase.rpc('arca_emisor_default' as never);
+  if (error) return fail('ARCA_EMISOR_DEFAULT', error.message, error);
+  if (!data) return fail('ARCA_EMISOR_DEFAULT', 'Sin emisor default');
+  return ok(rowToEmisor(data as Record<string, unknown>));
+}
+
+export interface CrearEmisorInput {
+  nombre: string;
+  razon_social: string;
+  cuit?: string | null;
+  condicion_iva?: string;
+  domicilio_fiscal?: string | null;
+  logo_url?: string | null;
+  ambiente?: ArcaAmbiente;
+  punto_venta_default?: number;
+  es_default?: boolean;
+}
+
+export async function crearEmisor(input: CrearEmisorInput): Promise<ApiResponse<ArcaEmisor>> {
+  const { data, error } = await supabase
+    .from('arca_emisores')
+    .insert({
+      nombre: input.nombre,
+      razon_social: input.razon_social,
+      cuit: input.cuit ?? null,
+      condicion_iva: input.condicion_iva ?? 'responsable_inscripto',
+      domicilio_fiscal: input.domicilio_fiscal ?? null,
+      logo_url: input.logo_url ?? null,
+      ambiente: input.ambiente ?? 'homologacion',
+      punto_venta_default: input.punto_venta_default ?? 1,
+      es_default: input.es_default ?? false,
+      activo: true,
+    })
+    .select('*')
+    .single();
+  if (error) return fail('ARCA_EMISOR_CREATE', error.message, error);
+  return ok(rowToEmisor(data as Record<string, unknown>));
+}
+
+export type ActualizarEmisorInput = Partial<{
+  nombre: string;
+  razon_social: string;
+  cuit: string | null;
+  condicion_iva: string;
+  domicilio_fiscal: string | null;
+  logo_url: string | null;
+  ambiente: ArcaAmbiente;
+  punto_venta_default: number;
+}>;
+
+export async function actualizarEmisor(
+  emisorId: string,
+  patch: ActualizarEmisorInput,
+): Promise<ApiResponse<ArcaEmisor>> {
+  const { data, error } = await supabase
+    .from('arca_emisores')
+    .update({ ...patch, updated_at: new Date().toISOString() })
+    .eq('id', emisorId)
+    .select('*')
+    .single();
+  if (error) return fail('ARCA_EMISOR_UPDATE', error.message, error);
+  return ok(rowToEmisor(data as Record<string, unknown>));
+}
+
+export async function archivarEmisor(emisorId: string): Promise<ApiResponse<void>> {
+  const { error } = await supabase
+    .from('arca_emisores')
+    .update({ activo: false, es_default: false, updated_at: new Date().toISOString() })
+    .eq('id', emisorId);
+  if (error) return fail('ARCA_EMISOR_ARCHIVE', error.message, error);
+  return ok(undefined);
+}
+
+export async function reactivarEmisor(emisorId: string): Promise<ApiResponse<void>> {
+  const { error } = await supabase
+    .from('arca_emisores')
+    .update({ activo: true, updated_at: new Date().toISOString() })
+    .eq('id', emisorId);
+  if (error) return fail('ARCA_EMISOR_REACTIVATE', error.message, error);
+  return ok(undefined);
+}
+
+export async function marcarDefault(emisorId: string): Promise<ApiResponse<void>> {
+  const { error } = await supabase.rpc('arca_emisor_set_default' as never, { p_emisor_id: emisorId } as never);
+  if (error) return fail('ARCA_EMISOR_SET_DEFAULT', error.message, error);
+  return ok(undefined);
+}
+
+// ============================================================================
+// Compat: API singleton (legacy) — opera sobre el emisor default.
+// ============================================================================
+
+export async function getArcaConfig(): Promise<ApiResponse<ArcaEmisor>> {
+  return getEmisorDefault();
 }
 
 export async function updateArcaConfig(
-  patch: Partial<Pick<ArcaConfig, 'ambiente' | 'punto_venta_default'>>,
-): Promise<ApiResponse<ArcaConfig>> {
-  const { data, error } = await supabase
-    .from('arca_config')
-    .update(patch)
-    .eq('id', 1)
-    .select('*')
-    .single();
-  if (error) return fail('ARCA_CONFIG_UPDATE', error.message, error);
-  return ok(data as unknown as ArcaConfig);
+  patch: Partial<Pick<ArcaEmisor, 'ambiente' | 'punto_venta_default'>>,
+): Promise<ApiResponse<ArcaEmisor>> {
+  // Resolver el default y actualizarlo.
+  const def = await getEmisorDefault();
+  if (!def.ok) return def;
+  return actualizarEmisor(def.data.id, patch);
 }
 
-// ---------------------------------------------------------------------------
-// Edge fns wrappers.
-// ---------------------------------------------------------------------------
+// ============================================================================
+// Edge fns wrappers — mejor parsing de errores (DGG-31).
+// Cuando supabase.functions.invoke recibe un status no-2xx, devuelve
+// FunctionsHttpError con .context.response (fetch Response) cuyo body
+// contiene el `error` real del backend. Lo extraemos para no mostrar el
+// genérico "Edge Function returned a non-2xx status code".
+// ============================================================================
+
+async function extractInvokeError(err: unknown): Promise<string> {
+  if (!err || typeof err !== 'object') return String(err);
+  const e = err as { message?: string; context?: { json?: () => Promise<unknown>; text?: () => Promise<string> } };
+  // Intentar leer el body como JSON, después como text.
+  try {
+    if (e.context?.json) {
+      const body = await e.context.json();
+      if (body && typeof body === 'object' && 'error' in body && typeof (body as { error: unknown }).error === 'string') {
+        return (body as { error: string }).error;
+      }
+    }
+  } catch { /* fallthrough */ }
+  try {
+    if (e.context?.text) {
+      const t = await e.context.text();
+      if (t) {
+        try {
+          const j = JSON.parse(t);
+          if (j?.error) return String(j.error);
+        } catch { /* not json */ }
+        return t.slice(0, 300);
+      }
+    }
+  } catch { /* fallthrough */ }
+  return e.message ?? 'Error desconocido';
+}
+
 export interface GenerarCsrResult {
   ok: true;
+  emisor_id: string;
   csr_pem: string;
   alias_sugerido: string;
   instrucciones: string[];
 }
 
 export async function generarCsr(
+  emisorId?: string,
   alias?: string,
 ): Promise<ApiResponse<GenerarCsrResult>> {
   try {
-    const { data, error } = await supabase.functions.invoke('arca-generar-csr', {
-      body: alias ? { alias } : {},
-    });
-    if (error) return fail('ARCA_GENERAR_CSR', error.message, error);
+    const body: { emisor_id?: string; alias?: string } = {};
+    if (emisorId) body.emisor_id = emisorId;
+    if (alias) body.alias = alias;
+    const { data, error } = await supabase.functions.invoke('arca-generar-csr', { body });
+    if (error) {
+      const msg = await extractInvokeError(error);
+      return fail('ARCA_GENERAR_CSR', msg, error);
+    }
     if (!data?.ok) return fail('ARCA_GENERAR_CSR', data?.error ?? 'Error desconocido', data);
     return ok(data as GenerarCsrResult);
   } catch (e) {
@@ -108,6 +280,7 @@ export async function generarCsr(
 
 export interface InspeccionarCertResult {
   ok: true;
+  emisor_id: string;
   valido_desde: string | null;
   valido_hasta: string | null;
   subject_cn: string | null;
@@ -118,13 +291,18 @@ export interface InspeccionarCertResult {
 
 export async function inspeccionarYGuardarCert(
   certB64OrPem: string,
+  emisorId?: string,
 ): Promise<ApiResponse<InspeccionarCertResult>> {
-  const body = certB64OrPem.includes('BEGIN CERTIFICATE')
-    ? { cert_pem: certB64OrPem }
-    : { cert_b64: certB64OrPem };
+  const body: { emisor_id?: string; cert_pem?: string; cert_b64?: string } = {};
+  if (emisorId) body.emisor_id = emisorId;
+  if (certB64OrPem.includes('BEGIN CERTIFICATE')) body.cert_pem = certB64OrPem;
+  else body.cert_b64 = certB64OrPem;
   try {
     const { data, error } = await supabase.functions.invoke('arca-inspeccionar-cert', { body });
-    if (error) return fail('ARCA_INSPECT_CERT', error.message, error);
+    if (error) {
+      const msg = await extractInvokeError(error);
+      return fail('ARCA_INSPECT_CERT', msg, error);
+    }
     if (!data?.ok) return fail('ARCA_INSPECT_CERT', data?.error ?? 'Error desconocido', data);
     return ok(data as InspeccionarCertResult);
   } catch (e) {
@@ -134,30 +312,35 @@ export async function inspeccionarYGuardarCert(
 
 export interface TestConexionResult {
   ok: boolean;
+  emisor_id?: string;
   mensaje: string;
   latencia_ms: number;
   ambiente: ArcaAmbiente;
 }
 
-export async function testConexion(): Promise<ApiResponse<TestConexionResult>> {
+export async function testConexion(emisorId?: string): Promise<ApiResponse<TestConexionResult>> {
   try {
-    const { data, error } = await supabase.functions.invoke('arca-test-conexion', {
-      body: {},
-    });
-    if (error) return fail('ARCA_TEST', error.message, error);
-    // El edge devuelve 200 si OK, 400 si fallo: ambos cuerpos con `ok`.
+    const body: { emisor_id?: string } = {};
+    if (emisorId) body.emisor_id = emisorId;
+    const { data, error } = await supabase.functions.invoke('arca-test-conexion', { body });
+    if (error) {
+      // El edge devuelve 400 cuando el test es OK pero connection failed; igual
+      // tiene cuerpo válido. supabase-js arroja error genérico, intentamos
+      // recuperar el body si lo tiene.
+      const msg = await extractInvokeError(error);
+      return fail('ARCA_TEST', msg, error);
+    }
     return ok(data as TestConexionResult);
   } catch (e) {
     return { ok: false, error: toApiError(e) };
   }
 }
 
-// ---------------------------------------------------------------------------
-// Cola de emisión.
-// ---------------------------------------------------------------------------
-export async function enqueueComprobante(
-  comprobanteId: string,
-): Promise<ApiResponse<string>> {
+// ============================================================================
+// Cola de emisión (no cambia con DGG-31).
+// ============================================================================
+
+export async function enqueueComprobante(comprobanteId: string): Promise<ApiResponse<string>> {
   const { data, error } = await supabase.rpc('enqueue_emision_comprobante', {
     p_comprobante_id: comprobanteId,
   });
@@ -165,12 +348,8 @@ export async function enqueueComprobante(
   return ok(data as string);
 }
 
-export async function reintentarJob(
-  jobId: string,
-): Promise<ApiResponse<string>> {
-  const { data, error } = await supabase.rpc('reintentar_arca_job', {
-    p_job_id: jobId,
-  });
+export async function reintentarJob(jobId: string): Promise<ApiResponse<string>> {
+  const { data, error } = await supabase.rpc('reintentar_arca_job', { p_job_id: jobId });
   if (error) return fail('ARCA_RETRY', error.message, error);
   return ok(data as string);
 }
@@ -203,23 +382,20 @@ export async function listColaJobs(
   });
 }
 
-export async function getJobDetail(
-  jobId: string,
-): Promise<ApiResponse<ArcaQueueJobWithComp>> {
+export async function getJobDetail(jobId: string): Promise<ApiResponse<ArcaQueueJobWithComp>> {
   const { data, error } = await supabase
     .from('arca_emision_queue')
-    .select(
-      `*, comprobante:comprobantes(tipo, punto_venta, numero, total, receptor_razon_social)`,
-    )
+    .select(`*, comprobante:comprobantes(tipo, punto_venta, numero, total, receptor_razon_social)`)
     .eq('id', jobId)
     .single();
   if (error) return fail('ARCA_QUEUE_DETAIL', error.message, error);
   return ok(data as unknown as ArcaQueueJobWithComp);
 }
 
-// ---------------------------------------------------------------------------
+// ============================================================================
 // KPIs cola.
-// ---------------------------------------------------------------------------
+// ============================================================================
+
 export interface ArcaKpis {
   pending: number;
   sending: number;
@@ -228,7 +404,6 @@ export interface ArcaKpis {
 }
 
 export async function getColaKpis(): Promise<ApiResponse<ArcaKpis>> {
-  // Una sola query agrupada para evitar 4 round-trips.
   const { data, error } = await supabase
     .from('arca_emision_queue')
     .select('status')
@@ -244,25 +419,37 @@ export async function getColaKpis(): Promise<ApiResponse<ArcaKpis>> {
   return ok(kpis);
 }
 
-// ---------------------------------------------------------------------------
-// Estado derivado: ¿ARCA listo para emitir?
-// ---------------------------------------------------------------------------
-export function arcaListo(cfg: ArcaConfig | null): boolean {
-  if (!cfg) return false;
-  return !!(cfg.cert_b64 && cfg.key_b64 && cfg.ultimo_test_ok);
+// ============================================================================
+// Estado derivado del wizard ARCA (por emisor).
+// ============================================================================
+
+export function arcaListo(em: ArcaEmisor | null): boolean {
+  if (!em) return false;
+  return !!(em.cuit && em.cert_b64 && em.key_b64 && em.ultimo_test_ok);
 }
 
 export interface ArcaWizardStage {
   step: 1 | 2 | 3 | 4;
+  cuitCargado: boolean;
   csrGenerado: boolean;
   certSubido: boolean;
   testOk: boolean;
 }
 
-export function arcaWizardStage(cfg: ArcaConfig | null): ArcaWizardStage {
-  const csrGenerado = !!cfg?.csr_b64 && !!cfg?.key_b64;
-  const certSubido = !!cfg?.cert_b64;
-  const testOk = !!cfg?.ultimo_test_ok;
-  const step = !csrGenerado ? 1 : !certSubido ? 2 : !testOk ? 3 : 4;
-  return { step: step as 1 | 2 | 3 | 4, csrGenerado, certSubido, testOk };
+export function arcaWizardStage(em: ArcaEmisor | null): ArcaWizardStage {
+  const cuitCargado = !!em?.cuit;
+  const csrGenerado = !!em?.csr_b64 && !!em?.key_b64;
+  const certSubido = !!em?.cert_b64;
+  const testOk = !!em?.ultimo_test_ok;
+  // Sin CUIT no se puede avanzar: forzamos paso 1.
+  const step: 1 | 2 | 3 | 4 = !cuitCargado
+    ? 1
+    : !csrGenerado
+      ? 1
+      : !certSubido
+        ? 2
+        : !testOk
+          ? 3
+          : 4;
+  return { step, cuitCargado, csrGenerado, certSubido, testOk };
 }

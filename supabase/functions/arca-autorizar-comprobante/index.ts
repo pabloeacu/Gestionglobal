@@ -15,8 +15,8 @@ import {
   isTransientArcaError,
   b64ToPem,
   type IvaAlicuotaXml,
-  type Ambiente,
 } from '../_shared/arca.ts';
+import { resolverEmisor } from '../_shared/emisor.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -67,10 +67,12 @@ async function autorizar(admin: ReturnType<typeof createClient>, jobId: string) 
   }).eq('id', jobId);
 
   try {
-    // 2. Leer comprobante + items.
+    // 2. Leer comprobante + items. Incluye emisor_id (DGG-31): cada comprobante
+    //    tiene seteado su emisor (trigger comprobantes_set_emisor_default
+    //    rellena con es_default si vino null).
     const { data: comp, error: cErr } = await admin
       .from('comprobantes')
-      .select('id, tipo, punto_venta, fecha, vencimiento, concepto, moneda, cotizacion, receptor_tipo_documento, receptor_numero_documento, neto, no_gravado, exento, total_iva, iva_21, iva_105, iva_27, total, periodo')
+      .select('id, tipo, punto_venta, fecha, vencimiento, concepto, moneda, cotizacion, receptor_tipo_documento, receptor_numero_documento, neto, no_gravado, exento, total_iva, iva_21, iva_105, iva_27, total, periodo, emisor_id')
       .eq('id', jobRow.comprobante_id)
       .single();
     if (cErr || !comp) throw new Error(`Comprobante no encontrado: ${cErr?.message ?? ''}`);
@@ -80,18 +82,13 @@ async function autorizar(admin: ReturnType<typeof createClient>, jobId: string) 
       .select('subtotal, iva, alicuota_iva')
       .eq('comprobante_id', comp.id);
 
-    // 3. Leer config ARCA.
-    const { data: cfg, error: cfgErr } = await admin
-      .from('arca_config')
-      .select('ambiente, cert_b64, key_b64')
-      .eq('id', 1)
-      .single();
-    if (cfgErr || !cfg) throw new Error('No pudimos leer arca_config');
-    if (!cfg.cert_b64 || !cfg.key_b64) throw new Error('ARCA sin cert/key');
-    const ambiente = cfg.ambiente as Ambiente;
-
-    const { data: cg } = await admin.from('config_global').select('cuit').eq('id', 1).single();
-    if (!cg?.cuit) throw new Error('config_global.cuit no cargado');
+    // 3. Resolver emisor ARCA (DGG-31). El comprobante.emisor_id manda; si
+    //    es null (no debería pasar por el trigger), cae al es_default.
+    const emisor = await resolverEmisor(admin, (comp.emisor_id as string | null) ?? undefined);
+    if (!emisor.cuit) throw new Error(`Emisor "${emisor.nombre}" no tiene CUIT cargado`);
+    if (!emisor.cert_b64 || !emisor.key_b64) throw new Error(`Emisor "${emisor.nombre}" sin cert/key. Completá el wizard ARCA.`);
+    const ambiente = emisor.ambiente;
+    const cuitEmisor = emisor.cuit;
 
     // 4. calcDoc (E41) — defensa en profundidad.
     const { docTipo, docNro } = calcDoc(
@@ -115,8 +112,8 @@ async function autorizar(admin: ReturnType<typeof createClient>, jobId: string) 
     } else {
       const ta = await wsaaLogin({
         ambiente,
-        certPem: b64ToPem(cfg.cert_b64),
-        keyPem: b64ToPem(cfg.key_b64),
+        certPem: b64ToPem(emisor.cert_b64),
+        keyPem: b64ToPem(emisor.key_b64),
       });
       token = ta.token;
       sign = ta.sign;
@@ -136,7 +133,7 @@ async function autorizar(admin: ReturnType<typeof createClient>, jobId: string) 
     // 6. Resolver próximo número.
     const cbteTipo = tipoToCbte(String(comp.tipo));
     const ultimo = await feCompUltimoAutorizado({
-      ambiente, token, sign, cuit: cg.cuit, ptoVta: comp.punto_venta as number, cbteTipo,
+      ambiente, token, sign, cuit: cuitEmisor, ptoVta: comp.punto_venta as number, cbteTipo,
     });
     const cbteNro = ultimo + 1;
 
@@ -173,7 +170,7 @@ async function autorizar(admin: ReturnType<typeof createClient>, jobId: string) 
     const fchVtoPago = isService && comp.vencimiento ? String(comp.vencimiento).replaceAll('-', '') : undefined;
 
     const out = await feCAESolicitar({
-      ambiente, token, sign, cuit: cg.cuit,
+      ambiente, token, sign, cuit: cuitEmisor,
       ptoVta: comp.punto_venta as number,
       cbteTipo,
       concepto,

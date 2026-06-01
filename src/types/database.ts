@@ -636,49 +636,88 @@ export type Database = {
         Row: {
           activo: boolean
           ambiente: string
+          cert_alias: string | null
+          cert_b64: string | null
           cert_p12_b64: string | null
           cert_password: string | null
+          cert_subido_at: string | null
+          cert_valido_desde: string | null
+          cert_valido_hasta: string | null
           condicion_iva: string
           created_at: string
-          cuit: string
+          csr_b64: string | null
+          csr_generado_at: string | null
+          cuit: string | null
           domicilio_fiscal: string | null
           es_default: boolean
           id: string
+          key_b64: string | null
           logo_url: string | null
           nombre: string
+          punto_venta_default: number
           razon_social: string
+          ultimo_test_at: string | null
+          ultimo_test_latencia_ms: number | null
+          ultimo_test_msg: string | null
+          ultimo_test_ok: boolean | null
           updated_at: string
         }
         Insert: {
           activo?: boolean
           ambiente?: string
+          cert_alias?: string | null
+          cert_b64?: string | null
           cert_p12_b64?: string | null
           cert_password?: string | null
+          cert_subido_at?: string | null
+          cert_valido_desde?: string | null
+          cert_valido_hasta?: string | null
           condicion_iva?: string
           created_at?: string
-          cuit: string
+          csr_b64?: string | null
+          csr_generado_at?: string | null
+          cuit?: string | null
           domicilio_fiscal?: string | null
           es_default?: boolean
           id?: string
+          key_b64?: string | null
           logo_url?: string | null
           nombre: string
+          punto_venta_default?: number
           razon_social: string
+          ultimo_test_at?: string | null
+          ultimo_test_latencia_ms?: number | null
+          ultimo_test_msg?: string | null
+          ultimo_test_ok?: boolean | null
           updated_at?: string
         }
         Update: {
           activo?: boolean
           ambiente?: string
+          cert_alias?: string | null
+          cert_b64?: string | null
           cert_p12_b64?: string | null
           cert_password?: string | null
+          cert_subido_at?: string | null
+          cert_valido_desde?: string | null
+          cert_valido_hasta?: string | null
           condicion_iva?: string
           created_at?: string
-          cuit?: string
+          csr_b64?: string | null
+          csr_generado_at?: string | null
+          cuit?: string | null
           domicilio_fiscal?: string | null
           es_default?: boolean
           id?: string
+          key_b64?: string | null
           logo_url?: string | null
           nombre?: string
+          punto_venta_default?: number
           razon_social?: string
+          ultimo_test_at?: string | null
+          ultimo_test_latencia_ms?: number | null
+          ultimo_test_msg?: string | null
+          ultimo_test_ok?: boolean | null
           updated_at?: string
         }
         Relationships: []
@@ -5036,6 +5075,30 @@ export type Database = {
         }
         Relationships: []
       }
+      salud_alertas_log: {
+        Row: {
+          enviado_at: string
+          id: number
+          kind: string
+          message: string
+          severity: string
+        }
+        Insert: {
+          enviado_at?: string
+          id?: number
+          kind: string
+          message: string
+          severity: string
+        }
+        Update: {
+          enviado_at?: string
+          id?: number
+          kind?: string
+          message?: string
+          severity?: string
+        }
+        Relationships: []
+      }
       sent_emails: {
         Row: {
           administracion_id: string | null
@@ -6999,6 +7062,48 @@ export type Database = {
           sent_email_id: string
         }[]
       }
+      arca_emisor_default: {
+        Args: never
+        Returns: {
+          activo: boolean
+          ambiente: string
+          cert_alias: string | null
+          cert_b64: string | null
+          cert_p12_b64: string | null
+          cert_password: string | null
+          cert_subido_at: string | null
+          cert_valido_desde: string | null
+          cert_valido_hasta: string | null
+          condicion_iva: string
+          created_at: string
+          csr_b64: string | null
+          csr_generado_at: string | null
+          cuit: string | null
+          domicilio_fiscal: string | null
+          es_default: boolean
+          id: string
+          key_b64: string | null
+          logo_url: string | null
+          nombre: string
+          punto_venta_default: number
+          razon_social: string
+          ultimo_test_at: string | null
+          ultimo_test_latencia_ms: number | null
+          ultimo_test_msg: string | null
+          ultimo_test_ok: boolean | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "arca_emisores"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      arca_emisor_set_default: {
+        Args: { p_emisor_id: string }
+        Returns: undefined
+      }
       audit_log_listar: {
         Args: {
           p_action_filter?: string
@@ -7505,6 +7610,7 @@ export type Database = {
         Args: { p_intento_id: string; p_respuestas: Json }
         Returns: Json
       }
+      db_health_metrics: { Args: never; Returns: Json }
       desimputar_cobranza: {
         Args: { p_imputacion_id: string }
         Returns: string

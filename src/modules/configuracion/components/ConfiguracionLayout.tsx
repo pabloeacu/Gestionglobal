@@ -6,7 +6,7 @@ import { ShieldCheck, Layers, Mail, Send } from 'lucide-react';
 import { cn } from '@/lib/cn';
 
 const TABS = [
-  { to: '/gerencia/configuracion/arca', label: 'ARCA', icon: ShieldCheck, end: true },
+  { to: '/gerencia/configuracion/emisores', label: 'Emisores fiscales', icon: ShieldCheck, end: true },
   { to: '/gerencia/configuracion/arca/cola', label: 'Cola de emisión', icon: Layers },
   { to: '/gerencia/configuracion/emails/templates', label: 'Plantillas email', icon: Mail },
   { to: '/gerencia/configuracion/emails/cola', label: 'Cola de envíos', icon: Send },

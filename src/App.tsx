@@ -20,7 +20,7 @@ const AdministracionDetailPage = lazy(() => import('@/modules/clientes/pages/Adm
 const ComprobantesListPage = lazy(() => import('@/modules/facturacion/pages/ComprobantesListPage').then(m => ({ default: m.ComprobantesListPage })));
 const ComprobanteDetailPage = lazy(() => import('@/modules/facturacion/pages/ComprobanteDetailPage').then(m => ({ default: m.ComprobanteDetailPage })));
 const ConfiguracionLayout = lazy(() => import('@/modules/configuracion/components/ConfiguracionLayout').then(m => ({ default: m.ConfiguracionLayout })));
-const ArcaConfigPage = lazy(() => import('@/modules/configuracion/pages/ArcaConfigPage').then(m => ({ default: m.ArcaConfigPage })));
+const EmisoresPage = lazy(() => import('@/modules/configuracion/pages/EmisoresPage').then(m => ({ default: m.EmisoresPage })));
 const ArcaQueuePage = lazy(() => import('@/modules/configuracion/pages/ArcaQueuePage').then(m => ({ default: m.ArcaQueuePage })));
 const TramitesListPage = lazy(() => import('@/modules/tramites/pages/TramitesListPage').then(m => ({ default: m.TramitesListPage })));
 const TramitesKanbanPage = lazy(() => import('@/modules/tramites/pages/TramitesKanbanPage').then(m => ({ default: m.TramitesKanbanPage })));
@@ -343,8 +343,10 @@ export function App() {
           <Route path="analitica" element={<AnaliticaPage />} />
           <Route path="comunicaciones" element={<ComunicacionesPage />} />
           <Route path="configuracion" element={<ConfiguracionLayout />}>
-            <Route index element={<Navigate to="arca" replace />} />
-            <Route path="arca" element={<ArcaConfigPage />} />
+            <Route index element={<Navigate to="emisores" replace />} />
+            <Route path="emisores" element={<EmisoresPage />} />
+            {/* DGG-31 · redirect legacy /configuracion/arca → /emisores. */}
+            <Route path="arca" element={<Navigate to="../emisores" replace />} />
             <Route path="arca/cola" element={<ArcaQueuePage />} />
             <Route path="emails/templates" element={<EmailTemplatesPage />} />
             <Route path="usuarios" element={<UsuariosPage />} />

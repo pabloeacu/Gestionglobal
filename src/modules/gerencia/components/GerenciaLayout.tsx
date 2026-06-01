@@ -106,7 +106,7 @@ const NAV: NavGroup[] = [
     icon: Settings,
     children: [
       { label: 'Servicios (catálogo)', to: '/gerencia/servicios' },
-      { label: 'ARCA · facturación', to: '/gerencia/configuracion/arca', end: true },
+      { label: 'Emisores fiscales (ARCA)', to: '/gerencia/configuracion/emisores', end: true },
       { label: 'Plantillas email', to: '/gerencia/configuracion/emails/templates' },
       { label: 'Generación CJ', to: '/gerencia/configuracion/generacion-cj' },
       { label: 'Usuarios', to: '/gerencia/configuracion/usuarios' },
