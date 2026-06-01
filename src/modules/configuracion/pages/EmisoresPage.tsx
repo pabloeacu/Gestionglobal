@@ -981,11 +981,16 @@ function WizardArca({ emisor, onRefresh }: { emisor: ArcaEmisor; onRefresh: () =
                 className="w-full rounded-lg border border-slate-200 bg-white p-3 font-mono text-[10px] leading-relaxed text-brand-ink focus:border-brand-cyan focus:outline-none focus:ring-1 focus:ring-brand-cyan"
               />
             </Field>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <Button variant="secondary" onClick={() => setActiveStep(1)}>Atrás</Button>
               <Button onClick={() => handleSubirCert()} disabled={!certText.trim()} loading={busy === 'cert'}>
                 <CheckCircle2 size={14} /> Validar e instalar
               </Button>
+              {emisor.cert_subido_at && (
+                <Button onClick={() => setActiveStep(3)}>
+                  Siguiente · probar conexión
+                </Button>
+              )}
             </div>
             {emisor.cert_subido_at && (
               <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-3 text-sm text-emerald-900">
