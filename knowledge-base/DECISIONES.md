@@ -535,3 +535,110 @@
 
 - **Fecha:** 2026-06-01 · commit `ffeac79`.
 - **Fecha:** 2026-05-31
+
+## DGG-31 · ARCA multi-emisor · unificar arca_config en arca_emisores
+
+- **Origen:** bug live (2026-06-01) — usuario gerente quiso generar el CSR
+  en `/gerencia/configuracion/arca` y recibió 400. Diagnóstico expuso un
+  gap arquitectónico mayor: el sistema tenía **dos modelos cohabitando**:
+  - **Singleton legacy** (`config_global.cuit/razon_social` +
+    `arca_config` id=1 con csr/key/cert): lo usaban las 4 edge fns ARCA.
+  - **Multi-emisor** (`arca_emisores` UUID, DGG mig 0103 task #149
+    Fundplata): se creó para etiquetar comprobantes con `emisor_id` pero
+    **NO existía UI** para gestionarlo y `config_global.cuit` estaba en
+    NULL, lo que producía el 400.
+
+- **Decisión:** migrar **TODO** al modelo multi-emisor. Una sola fuente
+  de verdad fiscal: `arca_emisores`. `config_global` queda para datos
+  no-fiscales (branding, email, landing, próximos servicios).
+
+- **Migración 0159 (aplicada):**
+  - Extender `arca_emisores` con todas las columnas técnicas de
+    `arca_config`: `csr_b64`, `key_b64`, `cert_b64`, `csr_generado_at`,
+    `cert_subido_at`, `cert_alias`, `cert_valido_desde`,
+    `cert_valido_hasta`, `ultimo_test_*`, `ultimo_test_latencia_ms`,
+    `punto_venta_default`.
+  - Migrar datos de `arca_config (id=1)` al emisor default existente.
+  - Ampliar CHECK de `ambiente` para aceptar `('test','prod',
+    'homologacion','produccion')` por compat con seed viejo.
+  - Permitir CUIT nullable (`DROP NOT NULL`) durante onboarding.
+  - Borrar placeholder `00000000000` → NULL.
+  - Nuevas RPCs SECURITY DEFINER: `arca_emisor_default()` (devuelve o
+    crea el default) y `arca_emisor_set_default(uuid)` (cambio atómico).
+  - **NO se dropea `arca_config` ni `config_global.cuit/razon_social/
+    condicion_iva/domicilio_fiscal`** — backward compat hasta que una
+    migración posterior verifique que nadie los lee.
+
+- **Edge functions refactorizadas (4):** helper `_shared/emisor.ts` con
+  `resolverEmisor(admin, emisorId?)` que lee de `arca_emisores`. Las 4
+  fns aceptan ahora `emisor_id` opcional en el body; si no viene usan
+  el `es_default`.
+  - `arca-generar-csr`: respondió 400 "El emisor X no tiene CUIT cargado"
+    en vez del genérico anterior.
+  - `arca-inspeccionar-cert`: valida CUIT del cert contra el del emisor.
+  - `arca-test-conexion`: actualiza `ultimo_test_*` del emisor.
+  - `arca-autorizar-comprobante`: resuelve por `comprobantes.emisor_id`
+    (el trigger lo setea al default si null) → usa cert/key correctos.
+
+- **Frontend `services/api/arca.ts`:**
+  - CRUD nuevo: `listEmisores`, `getEmisor`, `crearEmisor`,
+    `actualizarEmisor`, `archivarEmisor`, `reactivarEmisor`,
+    `marcarDefault`, `getEmisorDefault`.
+  - `generarCsr/inspeccionarYGuardarCert/testConexion` aceptan
+    `emisor_id` opcional.
+  - **`extractInvokeError(err)`**: parsea el body real del
+    `FunctionsHttpError` cuando supabase-js devuelve error genérico
+    ("Edge Function returned a non-2xx status code"). Esto era parte
+    del bug original — la UX mostraba el genérico en vez del mensaje
+    real del backend.
+  - `getArcaConfig` y `updateArcaConfig` se mantienen como wrappers que
+    actúan sobre el emisor default (backward compat con código viejo).
+
+- **UI nueva `/gerencia/configuracion/emisores` (`EmisoresPage.tsx`):**
+  - Lista en cards con: nombre, CUIT, razón social, ambiente badge,
+    badge default, estado del wizard (paso 1-4), warning si cert
+    próximo a vencer.
+  - Botón "+ Nuevo emisor" → Modal con form (nombre, razón social,
+    CUIT, condición IVA, punto venta, ambiente inicial).
+  - Card "Configurar" → Drawer lateral con tabs:
+    - **Datos fiscales**: form editable (nombre, razón social, CUIT,
+      condición IVA, domicilio, punto venta).
+    - **Wizard ARCA**: los 4 pasos clásicos (Generar CSR → Subir AFIP
+      → Subir cert → Probar) ahora por emisor_id. Bloqueado si no hay
+      CUIT — guía al usuario a la tab "Datos fiscales".
+  - Acciones quick por card: Marcar default, Archivar, Reactivar.
+  - Filtro "Mostrar archivados" en header.
+  - Tutorial PDF descarga (reusa `generateArcaTutorialPdf`).
+
+- **Sidebar + ruteo:**
+  - GerenciaLayout: "ARCA · facturación" → "Emisores fiscales (ARCA)".
+  - ConfiguracionLayout tabs: "ARCA" → "Emisores fiscales".
+  - App.tsx: ruta nueva `/gerencia/configuracion/emisores` con lazy
+    chunk para `EmisoresPage`. `/gerencia/configuracion/arca` queda
+    como redirect legacy (`<Navigate to="../emisores" replace />`).
+  - Borrado `ArcaConfigPage.tsx` (singleton legacy reemplazado).
+  - `ComprobanteFormDrawer` actualizado: mensajes apuntan al nuevo path.
+
+- **Conservamos retrocompat:**
+  - `arca_config` (tabla legacy) y `config_global.cuit/razon_social/
+    condicion_iva/domicilio_fiscal` NO se dropean.
+  - `getArcaConfig`/`updateArcaConfig`/`ArcaConfig` (frontend) siguen
+    funcionando como wrappers sobre el emisor default.
+  - El trigger `comprobantes_set_emisor_default` (mig 0103) garantiza
+    que comprobantes históricos sin `emisor_id` se asignan al default
+    al insertarse.
+
+- **Estado post-deploy:**
+  - Migración aplicada en BD prod. RPCs creadas.
+  - 4 edge fns deployadas (v5 cada una).
+  - Build limpio (tsc --noEmit + vite build OK).
+  - Commit `86cac19` en `origin/main`. Vercel autodeploy.
+
+- **Próximo paso (acción del usuario):** entrar a
+  `/gerencia/configuracion/emisores`, click en el emisor "Gestión Global"
+  default, ir a tab "Datos fiscales", cargar el CUIT real de la empresa
+  + razón social + condición IVA. Después ir al wizard y completar
+  Paso 1 (CSR) → Paso 2 (subir a AFIP) → Paso 3 (subir cert) → Paso 4
+  (probar). El CSR ya no falla con 400.
+
+- **Fecha:** 2026-06-01 · commit `86cac19`.
