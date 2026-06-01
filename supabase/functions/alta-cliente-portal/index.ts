@@ -85,7 +85,13 @@ Deno.serve(async (req) => {
     .select('id, email, nombre, user_id')
     .eq('id', body.administracion_id)
     .single();
-  if (errAdmin || !adminRow) return json(404, { ok: false, error: 'Administración no encontrada' });
+  if (errAdmin || !adminRow) {
+    console.error('alta-cliente-portal: administración no encontrada', {
+      administracion_id: body.administracion_id,
+      err: errAdmin?.message,
+    });
+    return json(404, { ok: false, error: 'Administración no encontrada' });
+  }
 
   // 3) Buscar si ya existe user con ese email
   const { data: existingUsers } = await admin.auth.admin.listUsers({ page: 1, perPage: 200 });
@@ -108,6 +114,11 @@ Deno.serve(async (req) => {
       user_metadata: { full_name: body.nombre, role: 'administrador' },
     });
     if (errCreate || !newUser?.user) {
+      console.error('alta-cliente-portal: createUser falló', {
+        email: body.email,
+        administracion_id: body.administracion_id,
+        err: errCreate?.message,
+      });
       return json(500, { ok: false, error: `Crear user: ${errCreate?.message ?? 'desconocido'}` });
     }
     userId = newUser.user.id;
@@ -140,7 +151,14 @@ Deno.serve(async (req) => {
       .from('administraciones')
       .update({ user_id: userId })
       .eq('id', body.administracion_id);
-    if (errLink) return json(500, { ok: false, error: `Vincular admin↔user: ${errLink.message}` });
+    if (errLink) {
+      console.error('alta-cliente-portal: vincular admin↔user falló', {
+        administracion_id: body.administracion_id,
+        user_id: userId,
+        err: errLink.message,
+      });
+      return json(500, { ok: false, error: `Vincular admin↔user: ${errLink.message}` });
+    }
   }
 
   // 7) Encolar email de bienvenida si recién creamos el user

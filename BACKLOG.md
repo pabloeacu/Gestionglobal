@@ -54,27 +54,25 @@
 - [x] #35 Sesiones activas en Perfil (P2-ola2 / DGG-36 · mig 0068 + PerfilSesionesActivas)
 - [x] #36 DNS gestionglobal.ar → Vercel (DGG-28 · NIC.ar → Cloudflare → Vercel)
 
-### Pendientes (14 / 38) — todos S/M residuales o L "agency-grade"
+### Cerrado (38 / 38) — DGG-29 (2026-05-31)
 
-**Estética & branding · audits visuales menores**
-- [ ] #1 Tipografía de cards homogénea (32px vs 36px) — pasada visual, ajustar Skeleton CSS
-- [ ] #3 IllustratedEmpty consistente en todas las páginas vacías — algunas listas siguen con texto plano
-- [ ] #4 Skeleton loaders con timeout/fallback — Skeleton existe, falta wrapper "si tarda >2s mostrar toast"
-- [ ] #6 Iconografía stroke-width audit — verificar consistencia lucide (1.75 vs 2)
+**Hechos** (audits visuales + features + L items): #1, #3, #4, #6, #10, #13,
+#24, #26, #31, #33 todos cerrados durante Olas P2 1-5 + Track D (2026-05-26
+a 2026-05-30).
 
-**Operación · features con valor**
-- [ ] #13 Selector de período global en header — dropdown 7d/30d/90d/1a/custom
-- [ ] #26 Filtros guardados ("Mis vistas") — tabla `vistas_guardadas` + UI por listado
+**Descartados** (decisión consciente · ver DGG-29):
+- #23 Email tracking pixel — pospuesto post-MVP (sin demanda)
+- #25 Exportes programados — ExportButtons manuales cubren el caso
+- #37 i18n EN/PT — mercado argentino, copy rioplatense es feature
+- #38 OpenAPI/API pública — sin demanda de integradores externos
 
-**Grandes (L) — requieren integración / decisión del usuario**
-- [ ] #10 Tour de bienvenida (Shepherd.js) — primera vez del gerente, tour de 6 pasos
-- [ ] #23 Tracking de aperturas y clicks de emails — pixel + redirect proxy + tabla logs
-- [ ] #24 Dashboard analítico con gráficos avanzados (recharts/nivo) — distinto al sparkline actual
-- [ ] #25 Exportes programados (cron mensual + email PDF/XLS)
-- [ ] #31 Sentry / error tracking — requiere DSN del usuario
-- [ ] #33 2FA TOTP opcional — Supabase Auth MFA + UI enroll
-- [ ] #37 Multi-idioma EN/PT (i18n) — refactor masivo con i18next
-- [ ] #38 API pública con OpenAPI — Supabase REST + docs Swagger
+Track D parqueados también decididos en DGG-29:
+- Webex como proveedor → scaffold latente (DGG-19)
+- Multi-moneda USD → descartar (mercado local)
+- Gmail Pub/Sub real-time → descartar (cron 30 min suficiente)
+- 2FA hardware keys → descartar (TOTP cubre el caso)
+- Campus L2 → descartar (L1 cubre administradores)
+- **MDC handoff Agenda → implementar todo** (sub-proyecto B-MDC)
 
 ---
 

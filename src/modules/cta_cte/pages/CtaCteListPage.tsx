@@ -5,7 +5,6 @@ import {
   AlertCircle,
   TrendingUp,
   TrendingDown,
-  Filter,
   Eye,
   FileDown,
   Search,
@@ -18,6 +17,7 @@ import {
 } from '@/components/common';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import { BrandLoader } from '@/components/brand/BrandLoader';
+import { IllustratedEmpty } from '@/components/brand/IllustratedEmpty';
 import {
   getResumenGlobal,
   type ResumenGlobalRow,
@@ -326,17 +326,33 @@ export function CtaCteListPage() {
           {error ? (
             <div className="p-8 text-center text-sm text-red-600">{error}</div>
           ) : filtered.length === 0 ? (
-            <div className="flex flex-col items-center gap-3 py-12 text-center">
-              <span className="grid h-12 w-12 place-items-center rounded-xl bg-brand-cyan-pale/40 text-brand-cyan">
-                <Filter size={20} />
-              </span>
-              <h3 className="font-display text-lg font-bold">
-                Sin resultados
-              </h3>
-              <p className="max-w-sm text-sm text-brand-muted">
-                Ajustá los filtros o cambiá el rango de fechas.
-              </p>
-            </div>
+            rows.length === 0 ? (
+              <IllustratedEmpty
+                illustration="edificio"
+                title="Aún no hay movimientos de cuenta corriente"
+                description={
+                  <>
+                    Cuando emitas comprobantes o registres cobros, los saldos
+                    consolidados por administración van a aparecer acá. También
+                    podés importar el histórico desde Excel.
+                  </>
+                }
+                action={
+                  <Link
+                    to="/gerencia/finanzas/importar"
+                    className="inline-flex items-center gap-2 rounded-xl bg-brand-cyan px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-cyan/90"
+                  >
+                    <FileDown size={16} /> Importar histórico
+                  </Link>
+                }
+              />
+            ) : (
+              <IllustratedEmpty
+                illustration="busqueda"
+                title="Sin resultados para los filtros actuales"
+                description="Ajustá el rango de fechas, el estado o la búsqueda para ver más administraciones."
+              />
+            )
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">

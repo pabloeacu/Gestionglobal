@@ -398,3 +398,44 @@
 - **Razón:** Los webinars son la fuente principal de captación de potenciales
   clientes; el subsistema debe ser un motor comercial, no un buzón pasivo.
 - **Fecha:** 2026-05-22
+
+## DGG-29 · Cierre Track A · decisiones sobre items parqueados (pre-E2)
+- **Contexto:** Antes de la revisión end-to-end (E2) y el manual oficial (K),
+  se revisaron todos los items parqueados del Punto 2 (P2) y del backlog
+  general para tomar decisiones explícitas de descarte, posposición o
+  ejecución. El objetivo es que no quede nada "en el tintero" al cerrar el
+  ciclo del producto MVP.
+- **Decisiones tomadas (2026-05-31):**
+
+  | Item | Decisión | Racional |
+  |---|---|---|
+  | **Webex como proveedor de video** (DGG-19) | **Dejar scaffold latente** | Edge fns webex-* y secrets WEBEX_* se mantienen; UI selector queda deshabilitada. Permite reactivar a futuro sin re-build si Zoom presenta problemas o un cliente lo solicita. |
+  | **Multi-moneda (USD)** | **Descartar** | Mercado argentino. Si surgen casos puntuales, se anota el monto en notas del comprobante. No justifica columna `moneda` ni cuenta corriente segmentada. |
+  | **#37 Multi-idioma EN/PT (i18next)** | **Descartar** | Plataforma diseñada para administradores argentinos; el copy rioplatense es feature, no bug. Refactor masivo sin demanda. |
+  | **#38 API pública OpenAPI/Swagger** | **Descartar** | Sin demanda de integradores externos. PostgREST de Supabase está disponible si surge un caso, documentable on-demand. |
+  | **#23 Email tracking pixel** (open/click) | **Posponer** | Los emails ya funcionan; tracking no es bloqueante para el manual. Considerar para fase de optimización de marketing. |
+  | **#25 Exportes programados (cron)** | **Descartar** | ExportButtons manuales cubren el caso. Los administradores pueden agendarse manualmente cuando lo necesiten. |
+  | **Gmail Pub/Sub (real-time vs cron)** | **Descartar** | El cron de 30 min para bounce/reply harvester es robusto, simple y suficiente. <1 respuesta/día de clientes; bounces raros porque validamos email al alta. La complejidad de GCP Pub/Sub + renovación 7d del watch() no se justifica. |
+  | **2FA con hardware keys (WebAuthn)** | **Descartar** | Supabase Auth no soporta WebAuthn nativo (requiere AAL2 custom). TOTP (D6) ya cubre 99% de la necesidad. Reconsiderar cuando Supabase lo añada oficialmente. |
+  | **Campus L2** (foros, badges, learning paths, SCORM) | **Descartar** | Campus L1 cubre el caso real (cursos+webinars para administradores). L2 sería producto educativo separado, no roadmap MVP. |
+  | **Mejoras MDC handoff a Agenda** (10 items del doc `AGENDA_GERENCIAL_HANDOFF.md`) | **Implementar todo** | Segunda pasada premium sobre la Agenda. Incluye gestos drag/resize/paint, cadencia humana de recordatorios, modal panel lateral animado, copy rioplatense, círculo tilde Apple Tasks, AccionesMenu flotante con clamp, posponer relativo a evento. (Parser NL ya hecho en B6). |
+
+- **Acciones de cleanup ejecutadas en este chunk:**
+  1. **A1 · alta-cliente-portal** · agregados `console.error` estructurados
+     en las 3 rutas de error (administración no encontrada, createUser
+     falló, vincular admin↔user falló) para observabilidad en deploy.
+  2. **A2 · CtaCteListPage** · empty state plano reemplazado por
+     `<IllustratedEmpty>` (variant 'edificio' si rows=0 con CTA Importar
+     histórico, 'busqueda' si filtros sin match).
+  3. **A3 · .env.example** · documentación completa de TODAS las variables
+     del proyecto agrupadas por área (Supabase core, Cron auth, Email
+     Workspace + OAuth, Web Push VAPID, Zoom, Webex). Comentarios sobre
+     origen y dónde setearlas (Supabase secrets vs Vercel env vars).
+  4. **A4 · este documento** · decisiones explícitas sobre 10 items
+     parqueados.
+
+- **Implementación pendiente como bloque propio:** El item "MDC handoff a
+  Agenda" se trata como sub-proyecto B-MDC con 10 items priorizados según
+  el doc `AGENDA_GERENCIAL_HANDOFF.md`. Plan: ejecutar en bloque después
+  del commit de Track A.
+- **Fecha:** 2026-05-31
