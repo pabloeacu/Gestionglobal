@@ -1,312 +1,301 @@
 # Manual oficial · Gestión Global
 
-> Plataforma integral para administradores de consorcios y su equipo.
-> Última actualización: **2026-05-31** · ciclo K post-E2.
->
-> Este manual es el documento operativo para quien usa la plataforma día a día.
-> Para detalles técnicos (esquema de BD, edge functions, migraciones), ver
-> `knowledge-base/` en este repo.
+> Versión 1.1 · 2026-06-01.
+> Una guía pensada para entrar y salir, leer un capítulo y cerrar; nada
+> de jerga innecesaria, mucho de "esto es lo que ves, así se usa, esto
+> es por qué existe."
 
 ---
 
 ## Índice
 
-1. [Filosofía y alcance](#1-filosofía-y-alcance)
-2. [Cómo entrar a la plataforma](#2-cómo-entrar-a-la-plataforma)
-3. [Panel de gerencia](#3-panel-de-gerencia)
-   - 3.1 [Inicio · Hola, …](#31-inicio--hola-)
-   - 3.2 [Captación · Solicitudes](#32-captación--solicitudes)
-   - 3.3 [Clientes · Administraciones](#33-clientes--administraciones)
-   - 3.4 [Trámites · Operación](#34-trámites--operación)
-   - 3.5 [Agenda · organizador ejecutivo](#35-agenda--organizador-ejecutivo)
-   - 3.6 [Facturación · Comprobantes, CC, Recupero](#36-facturación--comprobantes-cc-recupero)
-   - 3.7 [Finanzas · Cajas, Conciliación, Partners](#37-finanzas--cajas-conciliación-partners)
-   - 3.8 [Campus virtual](#38-campus-virtual)
-   - 3.9 [Comunicaciones · Noticias y novedades](#39-comunicaciones--noticias-y-novedades)
-   - 3.10 [Analítica avanzada](#310-analítica-avanzada)
-   - 3.11 [Configuración](#311-configuración)
-4. [Portal del administrador (cliente)](#4-portal-del-administrador-cliente)
-5. [Portal del partner](#5-portal-del-partner)
-6. [Portal del gestor externo](#6-portal-del-gestor-externo)
-7. [Campus público · cursos abiertos y webinars](#7-campus-público--cursos-abiertos-y-webinars)
-8. [Flujos cotidianos paso a paso](#8-flujos-cotidianos-paso-a-paso)
-9. [Notificaciones · push, email, in-app](#9-notificaciones--push-email-in-app)
-10. [Administración técnica](#10-administración-técnica)
-11. [Troubleshooting](#11-troubleshooting)
+1. [La promesa](#1-la-promesa)
+2. [Los protagonistas](#2-los-protagonistas)
+3. [Un día en la gerencia](#3-un-día-en-la-gerencia)
+4. [El portal del administrador · la mirada de María](#4-el-portal-del-administrador--la-mirada-de-maría)
+5. [El aliado partner](#5-el-aliado-partner)
+6. [El gestor externo · el aliado sin cuenta](#6-el-gestor-externo--el-aliado-sin-cuenta)
+7. [Campus, webinars y comunicaciones](#7-campus-webinars-y-comunicaciones)
+8. [Cómo conversa el sistema](#8-cómo-conversa-el-sistema)
+9. [Configuración](#9-configuración)
+10. [Bajo el capó](#10-bajo-el-capó)
+11. [Cuando algo no anda](#11-cuando-algo-no-anda)
 12. [Glosario](#12-glosario)
-13. [Anexo · atajos de teclado](#13-anexo--atajos-de-teclado)
+13. [Atajos de teclado](#13-atajos-de-teclado)
 
 ---
 
-## 1. Filosofía y alcance
+## 1. La promesa
 
-### 1.1 Qué es Gestión Global
+### 1.1 De qué va este manual
 
-Gestión Global es el **ecosistema digital único** que sostiene a la empresa
-*Gestión Global* (servicios profesionales a administradores de consorcios). El
-dominio es **gestionglobal.ar** y la plataforma centraliza:
+Gestión Global es la plataforma que sostiene a la empresa del mismo nombre,
+dedicada a la administración de consorcios y a todos los servicios que la
+rodean: matriculación, asesoría jurídica, capacitación y formación.
 
-- La operación interna del equipo (gerencia).
-- El portal de cada cliente administrador.
-- El campus virtual con cursos y webinars.
-- La captación pública (formularios + landing).
-- La rendición a partners externos.
-- El acceso de gestores tercerizados a cada trámite.
+Lo que vas a encontrar en estas páginas es la **guía operativa** de la
+plataforma. No es la documentación técnica (esa vive en `knowledge-base/`),
+sino el manual que necesitás para mirar una pantalla y saber qué hacer en
+ella. Está escrito pensando en tres tipos de lectores: la persona que opera
+desde la gerencia, la administradora cliente que entra a su portal, y el
+partner o gestor externo que aterriza por un email.
 
-El sistema es **single-tenant**: hay una sola "Gestión Global" como dueña.
-Cada cliente es una *administración* (una persona o estudio que administra
-consorcios). Los consorcios cuelgan de las administraciones.
+> *"El mejor manual es el que dejás de necesitar después de leerlo una vez."*
 
-### 1.2 Principios de diseño
+### 1.2 Para quién es Gestión Global
 
-- **Premium-grade UX**. Microinteracciones, animaciones suaves, copy
-  rioplatense en el portal interno; tono formal en el portal cliente.
-- **Mobile-first**. Toda pantalla pasa por audit de 360 px (ver §11.5).
-- **Persistencia ante todo**. Cualquier acción de negocio queda en la base
-  de datos. Nada de estado volátil que se pierda al recargar.
-- **Sin secretos en el front**. Tokens, claves de ARCA, refresh tokens de
-  Gmail, VAPID privadas: todo va a edge functions o Supabase secrets.
-- **Tres canales de comunicación con el cliente**: dashboard (banner /
-  cards), email transaccional (Workspace), push (Web Push VAPID). Cuando
-  una alarma importa, se dispara en los tres.
-- **Recordatorios humanos, no spam**. La agenda usa cadencia 1ª alerta a la
-  hora + re-alerta cada 5 h + cierre a las 20:00. No hay alarmas
-  configurables tipo Google.
+Hay un equipo interno que la usa todos los días. Y hay tres tipos de
+"afuera" que también la usan: los **clientes administradores** (cada uno
+con su propio portal), los **partners comerciales** (con su portal de
+rendiciones) y los **gestores externos**, que ni siquiera tienen cuenta y
+entran por un link mágico cuando hace falta.
 
-### 1.3 Roles
+Es **single-tenant**: una sola Gestión Global como dueña, sin tabla
+`empresas` ni `empresa_id`. Cada cliente es una *administración*, y los
+edificios que administra son *consorcios* que cuelgan de ella.
 
-| Rol | Acceso | Dónde aterriza |
-|---|---|---|
-| `gerente` | Equipo interno de Gestión Global. Ve todo. | `/gerencia` |
-| `administrador` | El cliente — la administración. | `/portal` |
-| `partner` | Aliado comercial / proveedor con rendición de cuentas. | `/partner` |
-| Gestor externo | Sin cuenta. Accede a un trámite por **token mágico**. | `/acceso/:token` |
+### 1.3 Los principios que ordenan todo
 
----
+Antes de entrar a las pantallas, conviene tener presentes seis decisiones
+que se sienten en cada rincón:
 
-## 2. Cómo entrar a la plataforma
+**Primero, todo se persiste.** Cualquier acción que importe queda en la
+base de datos. Nada de estado volátil que se pierda al recargar.
 
-### 2.1 Página de login
+**Segundo, mobile-first.** Cada pantalla pasa por un audit a 360 px de
+ancho. Si algo se rompe en el celular, se rompió antes de ir a
+producción.
 
-URL: **<https://www.gestionglobal.ar/ingresar>**
+**Tercero, tres canales coherentes.** Cuando algo es importante (un avance
+de un trámite, un vencimiento, una alarma), el sistema se comunica por
+los tres medios al mismo tiempo: dashboard, email y push. Nunca por uno
+solo.
 
-El login es único para los 3 perfiles con cuenta. El sistema detecta el rol
-de cada usuario y redirige al panel correspondiente:
+**Cuarto, recordatorios humanos.** La agenda no te bombardea: te avisa
+una vez a la hora del evento, te re-marca cada cinco horas si no lo
+cerraste, y a las ocho de la noche cierra el día. Los pendientes de
+ayer aparecen una sola vez a la mañana, entre las nueve y nueve y
+veinte.
 
-- `gerente` → `/gerencia`
-- `administrador` → `/portal`
-- `partner` → `/partner`
+**Quinto, lenguaje rioplatense en lo interno.** El equipo lee "no te
+cuelgues", "te marco de nuevo", "última por hoy". Es como una buena
+mano derecha. El portal del cliente, en cambio, usa un tono más formal:
+ahí estamos representando a la empresa.
 
-> **Importante:** la columna de la izquierda muestra la promesa de marca
-> ("Todo fluye cuando todo está conectado") + isologo. En mobile la columna
-> se colapsa y queda sólo el formulario.
-
-### 2.2 Recuperación de contraseña
-
-(Documentar acá el flujo cuando se implemente el reset por email. Hoy se
-hace por DB.)
-
-### 2.3 Primer ingreso — "Primeros 5 minutos"
-
-La primera vez que un gerente entra al panel ve la card de onboarding
-**"Bienvenida, dejame ayudarte a arrancar"** con 5 pasos clickables:
-
-1. **Crear tu primer cliente** → Clientes › Nueva administración.
-2. **Registrar un trámite** → Trámites › Nuevo trámite.
-3. **Mirar tu agenda de hoy** → Agenda.
-4. **Configurar la casilla de email** → Configuración › Plantillas email.
-5. **Instalar la plataforma en tu dispositivo** → Wizard PWA.
-
-La card recuerda el progreso (`0/5`, `1/5` …) por gerente vía la columna
-`profiles.onboarding_checklist`. Al cerrar cada paso se marca. Quien quiera
-puede dismiss-ear con la X y volverlo a ver desde **Perfil › "Ver el tour
-otra vez"**.
-
-### 2.4 Tour guiado de gerencia
-
-Al primer ingreso se dispara también un tour de 6 pasos con tooltips que
-recorren el sidebar y resaltan funcionalidades clave (Comunicaciones,
-campanita, ⌘K, agenda…). Persistido en `localStorage.gerenciaTourCompleted`.
-
-Existen tours independientes para:
-- **Agenda** (3 pasos): barra mágica + selector de vistas + filtros.
-- **Trámite individual** (1 paso): botón "Cerrar trámite" cuando hay
-  renovación automática.
-
-Se resetean desde **Perfil › Ver el tour otra vez** (borra los 3 flags).
+**Sexto, premium en cada detalle.** Microinteracciones, animaciones que
+respiran, ilustraciones cuando hay vacíos. La idea es que abrir Gestión
+Global se sienta como un buen producto, no como una hoja de cálculo
+disfrazada.
 
 ---
 
-## 3. Panel de gerencia
+## 2. Los protagonistas
 
-URL: **<https://www.gestionglobal.ar/gerencia>**
+Toda historia tiene personajes. En Gestión Global son cuatro:
 
-El sidebar tiene **9 secciones** (post DGG-25, originalmente eran 15):
+**La gerencia.** El equipo interno. Una persona o varias, todas con rol
+`gerente`. Ven todo, hacen todo, son las dueñas operativas del sistema.
+Aterrizan en `/gerencia`.
 
-| # | Sección | Sub-rutas |
-|---|---|---|
-| 1 | Inicio | — |
-| 2 | Captación | Solicitudes, Formularios |
-| 3 | Clientes | — |
-| 4 | Trámites | — |
-| 5 | Agenda | — |
-| 6 | Facturación | Comprobantes, Cuenta corriente, Recupero |
-| 7 | Finanzas | Cajas y movimientos, Conciliación, Partners |
-| 8 | Campus | — |
-| 9 | Comunicaciones | — |
-| 10 | Analítica | — |
-| 11 | Configuración | Servicios, ARCA, Plantillas email, Generación CJ, Usuarios, Bitácora, Errores |
+**El administrador.** El cliente. La persona o estudio que administra los
+consorcios. María, por ejemplo. Entra a `/portal` y ahí ve su propia
+vida: sus trámites en curso, su cuenta corriente, sus cursos, sus
+vencimientos.
 
-En el header superior: buscador global (⌘K), botón de notificaciones
-campana 🔔 (badge cuando hay no leídas), avatar.
+**El partner.** Un aliado comercial o proveedor que comparte un convenio
+con Gestión Global. Tiene su panel propio en `/partner` con sus
+rendiciones, su saldo evolutivo y los comprobantes donde participa.
 
-### 3.1 Inicio · Hola, …
+**El gestor externo.** El más interesante: no tiene cuenta. Es alguien
+tercerizado que recibe un trámite específico para resolver. Le llega un
+email con un link mágico y entra a `/acceso/:token` a hacer su trabajo,
+sin más login que ese token.
 
-Pantalla de bienvenida con:
-- Saludo personalizado ("Buenas noches, Paul").
-- Card **Primeros 5 minutos** (descrita en §2.3).
-- **Tarjeta de seguimientos hoy / vencidos** ("Tenés N seguimientos para hoy").
-- **Resumen últimos 30 días** (Facturado, Cobrado, Deuda total, Trámites
-  abiertos).
-- Mini-chart **Facturación diaria** (último mes).
-- **Atajos** a Clientes, Servicios, Facturación, Trámites, Agenda, Finanzas.
+---
 
-### 3.2 Captación · Solicitudes
+## 3. Un día en la gerencia
 
-URL: `/gerencia/solicitudes`
+Imaginate la mañana. Abrís el navegador, vas a *gestionglobal.ar*, te
+logueás con tu mail y tu contraseña, y aterrizás en **Inicio**.
 
-Cada formulario público crea una **solicitud**. La lista muestra:
-- Búsqueda + filtros por estado (Nueva, En análisis, Derivada, Activada,
-  Descartada).
-- Tarjeta de cada solicitud con tipo de servicio + datos del solicitante +
-  fecha de creación + estado.
-- Acciones por solicitud:
-  - **Análisis** rápido (notas internas).
-  - **Derivar a sector de gestoría** → al hacerlo agrega
-    automáticamente una línea "Envío a sector de gestoría" al trámite
-    (regla N3).
-  - **Activar como cliente** (wizard de 3 pasos: validar datos, crear
-    administración, generar credenciales + email de bienvenida).
-  - **Descartar** con motivo.
+Lo primero que ves es un saludo: *"Buenas noches, Paul."* (o buenos días,
+según la hora). Abajo aparece la card de **Primeros 5 minutos**, que solo
+existe si todavía no la cerraste: una checklist de cinco pasos que te
+guían en el primer ingreso (crear tu primer cliente, registrar un trámite,
+mirar la agenda, configurar la casilla, instalar la PWA).
 
-En el dashboard de gerencia, las solicitudes nuevas también aparecen como
-card "Nuevas solicitudes" (obs 1, Bloque B) y disparan push al gerente.
+Más abajo está el panorama del último mes: cuánto facturaste, cuánto
+cobraste, qué deuda hay en pie, cuántos trámites están abiertos. Un
+mini-gráfico de la facturación diaria te muestra los picos, y una grilla
+de atajos te ofrece saltar directo a Clientes, Servicios, Facturación,
+Trámites, Agenda o Finanzas.
 
-#### 3.2.1 Formularios públicos
+### 3.1 El recorrido natural
 
-URL pública: `/formularios/:slug`
+El sidebar de la izquierda tiene nueve secciones. No tres, no quince:
+nueve. Cada una corresponde a una zona del negocio:
 
-Cada formulario público se construye desde **Captación › Formularios**.
-Features clave:
-- **Builder visual** con paleta de bloques (texto, número, fecha, archivo,
-  select, identidad, etc.).
-- **Cross-match cliente existente**: si el solicitante tiene CUIT igual a
-  una administración activa, se sugiere asociar la solicitud en lugar de
-  duplicar.
-- **Visible-if condicional declarativo**: cada campo puede esconderse
-  según el valor de otro.
-- **Undo/Redo** con ⌘Z / ⇧⌘Z y atajos ⌘+1..9 para insertar bloques.
-- **Diff visual** entre versiones del mismo formulario.
-- **File download**: subir un PDF (ej. checklist) que el usuario público
-  descargue antes del envío.
+- **Inicio** es el dashboard.
+- **Captación** agrupa solicitudes y formularios públicos.
+- **Clientes** lista a tus administraciones.
+- **Trámites** muestra todos los expedientes en curso.
+- **Agenda** es tu organizador ejecutivo personal.
+- **Facturación** despliega Comprobantes, Cuenta corriente y Recupero.
+- **Finanzas** abre Cajas, Conciliación y Partners.
+- **Campus** muestra los cursos y los webinars.
+- **Comunicaciones** es el panel para mandar novedades a tus clientes.
+- **Analítica** te da inteligencia de negocio.
+- Y abajo del todo, **Configuración**, con todo lo que necesitás dejar
+  ajustado una vez (servicios, ARCA, plantillas de email, plantilla de
+  consultoría jurídica, usuarios, bitácora, errores en runtime).
 
-### 3.3 Clientes · Administraciones
+> El sidebar arrancó en 15 ítems. Lo reordenamos en nueve agrupando por
+> flujo: Captación, Facturación y Finanzas se transformaron en grupos
+> con sub-rutas en lugar de items sueltos. La diferencia se siente.
 
-URL: `/gerencia/clientes`
+### 3.2 La pantalla de inicio
 
-Cada cliente es una **administración**. Ver:
-- KPIs: En la vista / Activos / Total de consorcios.
-- Búsqueda + filtro Estado (Activos / Todos).
-- Tabla: Administración, Código, CUIT, Consorcios, Estado.
-- Botones: **PDF**, **XLS**, **+ Nueva administración**.
+{{shot:gerencia-inicio|El panel de inicio recibe con un saludo personalizado, la card de "Primeros 5 minutos" si todavía no la cerraste, y el resumen de los últimos 30 días.}}
 
-#### 3.3.1 Detalle de administración
+La card *Primeros 5 minutos* es deliberadamente persistente: hasta que no
+marcás los cinco pasos (o la dismiss-eás con la X), te acompaña en cada
+visita. Si la cerrás y querés volver a verla, está esperándote en
+**Perfil → Ver el tour otra vez**.
 
-Click en una fila → `/gerencia/clientes/:id`. Tabs internas:
-- **Datos**: razón social, CUIT, domicilio, email, teléfono, consorcios.
-- **Trámites**: listado de trámites del cliente.
-- **Cuenta corriente**: comprobantes + cobranzas + saldo evolutivo.
-- **Webinars**: KPIs + listado de webinars donde se inscribió.
-- **Convenio**: % de bonificación que aplica a sus comprobantes.
+Debajo del saludo aparece la **tarjeta de seguimientos del día**: te dice
+en una frase si tenés trámites que cierran hoy o que ya están vencidos.
+Y más abajo, los cuatro KPIs del último mes (Facturado, Cobrado, Deuda
+total, Trámites abiertos) con un sparkline de la facturación diaria.
 
-### 3.4 Trámites · Operación
+{{callout:tip|Pequeño truco del oficio: la card de seguimientos cambia el color del icono según el urgencia. Si la ves naranja, andá derecho a la agenda.}}
 
-URL: `/gerencia/tramites`
+### 3.3 Captación — donde empieza todo
 
-Cada *trámite* es la versión interna de un **tracking**: un expediente
-con avances, documentación, vencimiento y eventualmente alarmas
-recurrentes. Categorías típicas: Matriculación, Renovación RPAC, DDJJ,
-Consulta jurídica, Reclamos.
+Cualquier persona en internet puede entrar a `gestionglobal.ar`, llenar
+un formulario público, y eso crea una **solicitud** en tu panel. La
+sección Captación es donde las atendés.
 
-Lista:
-- KPIs: Abiertos, Resueltos, Sin asignar, Vencidos.
-- Búsqueda + filtros (Estado, Categoría, Prioridad).
-- Tabla con: TRM-#### + título + cliente + asignado + SLA + prioridad +
-  estado + última actualización.
-- Toggle **Lista ↔ Kanban**.
+{{flowdiagram:captacion}}
 
-#### 3.4.1 Detalle de trámite
+Cada solicitud nueva trae un chip de estado: *Nueva*, *En análisis*,
+*Derivada*, *Activada*, *Descartada*. Las nuevas te avisan también con
+un push y aparecen como tarjeta destacada en el dashboard de inicio.
 
-URL: `/gerencia/trackings/:id`
+Sobre cada una podés:
 
-Estructura del detalle:
+**Analizar.** Agregar notas internas, ver los datos cargados, decidir
+qué hacer.
 
-- **Header**: TRM-#### + título + chips (estado, categoría, prioridad,
-  cliente, asignado).
-- **Timeline visual** de la línea de avances (creado, derivado, docs
-  enviados, factura emitida, cobrado, cerrado).
-- **Toggle Lista ↔ Timeline** para los avances.
-- **Drag&drop de archivos** sobre el detalle → adjunta documentación.
-- **Pedidos de documentación** (cuando faltan papeles): genera email al
-  cliente con botón "Subir docs" + flag en el portal.
-- **Botón "Cerrar trámite"** (o **"Cerrar trámite y programar próximo
-  vencimiento"** si el servicio tiene `vigencia_meses` configurada).
+**Derivar a sector de gestoría.** El sistema agrega automáticamente una
+línea "Envío a sector de gestoría" al trámite cuando lo hacés. Te
+ahorrás escribirla.
 
-#### 3.4.2 Sistema de avances y documentación
+**Activar como cliente.** Un wizard de tres pasos que valida los datos,
+crea la administración (con sus consorcios) y genera el email de
+bienvenida con las credenciales reales para que el cliente pueda
+loguearse. Si el CUIT ya existe, te ofrece asociar la solicitud a la
+administración existente en lugar de duplicarla — ese cruce viene de la
+regla del "Bloque J", y es uno de esos detalles que se sienten cuando
+los usás.
 
-Al agregar un avance:
-1. Tipear título + descripción.
-2. Adjuntar archivos opcionales.
-3. Toggle **"Visible para el cliente"** (si está ON, se manda email +
-   push al cliente con la línea).
+**Descartar.** Con motivo. Queda para auditoría.
 
-Cuando una línea es marcada visible:
-- Se encola el email `tracking-avance-cliente` (plantilla MANAXER).
-- Se inserta en la campanita del portal del cliente.
-- Se manda push si tiene push activado.
+### 3.4 Clientes — las administraciones
 
-### 3.5 Agenda · organizador ejecutivo
+{{shot:gerencia-clientes|Listado de administraciones con KPIs, búsqueda, filtro de estado y exports a PDF/XLS. Click en una fila te lleva al detalle del cliente.}}
 
-URL: `/gerencia/agenda`
+Cada cliente es una **administración**. La pantalla los lista con tres
+KPIs arriba (En la vista, Activos, Total de consorcios) y una tabla con
+nombre, código, CUIT, cantidad de consorcios y estado.
 
-La agenda es **el organizador ejecutivo personal** de cada gerente. No es
-CRM, no es colaborativa. Inspirada en el handoff MDC adaptado a Gestión
-Global.
+Clickeando una fila entrás al **detalle de la administración**, con
+tabs internas:
 
-#### Subtítulo permanente
+- *Datos*: razón social, CUIT, domicilio, contacto, consorcios
+  asociados.
+- *Trámites*: el historial completo de los expedientes del cliente.
+- *Cuenta corriente*: comprobantes y cobranzas con saldo evolutivo.
+- *Webinars*: en qué eventos se inscribió, asistencia, conversiones.
+- *Convenio*: el porcentaje de bonificación que aplica a sus
+  comprobantes.
 
-> *"Tirá lo que tengas en la cabeza — yo lo ordeno."*
+{{callout:why|¿Por qué la administración tiene tantos lados? Porque en la práctica un cliente no es solo "alguien que paga". Es alguien que tiene trámites abiertos, deuda pendiente, capacitaciones a las que asistió, condiciones comerciales propias. Verlo todo en un solo lugar evita ir saltando entre módulos.}}
 
-#### Vistas
+### 3.5 Trámites — el corazón de la operación
 
-Cuatro vistas, toggle arriba: **Lista**, **Día**, **Semana** (default),
-**Mes**.
+{{shot:gerencia-tramites|Listado de trámites con KPIs por estado, búsqueda y filtros. Toggle Lista ↔ Kanban en el header.}}
 
-#### Tabs
+Cada trámite es un expediente con su categoría (Matriculación,
+Renovación RPAC, DDJJ, Consulta jurídica, Reclamo), un asignado, un SLA
+y un código tipo `TRM-2026-#####`.
 
-- **Mi agenda**: eventos propios del gerente.
-- **Vencimientos**: todos los vencimientos proyectados de servicios con
-  `tipo_vencimiento` GG (solo tipos del catálogo de servicios — FIX-V3).
+La lista te da cuatro KPIs arriba (Abiertos, Resueltos, Sin asignar,
+Vencidos) y un toggle **Lista ↔ Kanban**: cuando preferís ver el flujo
+visual por columnas de estado, la vista Kanban te lo da.
 
-#### Filtros (chips multi-select)
+**El detalle de un trámite** es una página completa, no un modal. Eso fue
+una decisión consciente (la observación 12 de los relevamientos): los
+avances necesitan espacio. Arriba tenés el header con código + título +
+chips. Después un **timeline visual** de cada movimiento, ordenado
+cronológicamente. Podés alternar entre vista lineal y vista timeline.
 
-`Todo` · `Personal` · `Vencimientos` · `Trámites` · `Cobranzas` ·
-`Solicitudes` · `Alarmas tracking` · "Qué es cada uno" (ayuda) ·
-"Solo lo mío".
+{{flowdiagram:tramite}}
 
-#### Barra mágica (BarraMagica)
+Para agregar un avance, hay un formulario en la parte de abajo. Cargás
+título, descripción y archivos opcionales. Acá viene el detalle clave:
+un toggle **"Visible para el cliente"**.
 
-Input con sparkle ✨ que **acepta lenguaje natural rioplatense**:
+Cuando lo activás, el sistema:
+
+1. Encola el email `tracking-avance-cliente` con la plantilla MANAXER.
+2. Inserta una notificación en la campanita del portal del cliente.
+3. Manda un push (si el cliente lo tiene activado).
+
+Es decir: tres canales, sincronizados, sin que tengas que pensar.
+
+**Drag & drop de archivos.** Si soltás un PDF, una imagen o un Excel
+sobre la pantalla del trámite, queda adjuntado directo, sin pasar por
+botones de upload. Es el detalle ese que te ahorra clicks.
+
+**Pedidos de documentación.** Si te faltan papeles, hay una sección
+específica para pedirlos: el cliente recibe un email con el listado y un
+botón directo a la subida.
+
+**Cerrar el trámite.** Cuando está listo, el botón abajo dice **"Cerrar
+trámite"** — y si el servicio asociado tiene `vigencia_meses` definida,
+dice **"Cerrar trámite y programar próximo vencimiento"**. En ese caso
+se abre un modal que pre-rellena la fecha sugerida del próximo
+vencimiento (hoy + vigencia × 30.4375 días), y al confirmar deja el
+vencimiento agendado para que aparezca en la Agenda y dispare alertas
+cuando se acerque.
+
+### 3.6 Agenda — tu organizador personal
+
+{{shot:gerencia-agenda|La Agenda es tu organizador ejecutivo personal: tirá lo que tengas en la cabeza, el sistema lo ordena.}}
+
+Si hay una pantalla que vale la pena que conozcas bien, es esta. La
+Agenda fue diseñada como un *organizador ejecutivo personal*, no como
+un CRM ni una herramienta colaborativa. Es tuya, sólo tuya. Es donde
+"tirás lo que tenés en la cabeza" y el sistema se encarga de ordenarlo.
+
+El subtítulo permanente lo dice así: *"Tirá lo que tengas en la cabeza —
+yo lo ordeno."* No es una frase decorativa: es un contrato.
+
+**Cuatro vistas, dos tabs.** Arriba podés elegir Lista, Día, Semana
+(default) o Mes. Y al costado tenés dos tabs: *Mi agenda* (eventos
+propios) y *Vencimientos* (todos los vencimientos proyectados de
+servicios renovables del negocio).
+
+**Filtros con chips.** Activás o desactivás categorías clickeando: Todo,
+Personal, Vencimientos, Trámites, Cobranzas, Solicitudes, Alarmas
+tracking. Hay un chip *"Qué es cada uno"* que te explica con un popover
+qué incluye cada categoría. Y un *"Solo lo mío"* que filtra solo los
+eventos donde sos el responsable.
+
+#### La barra mágica
+
+Es probablemente la feature más característica. Un input con un sparkle
+arriba de todo, que entiende lenguaje natural rioplatense. Tipeás:
 
 ```
 Llamar a la administración mañana 9am #cobranzas
@@ -314,766 +303,660 @@ Pagar AFIP 15/06 !alta
 Revisar expediente lunes próximo 14h !urgente #tramites
 ```
 
-El parser reconoce:
-- **Fechas relativas**: hoy, mañana, próximo lunes, en 3 días, 15/06, etc.
+…y al apretar Enter te crea el evento. El parser entiende:
+
+- **Fechas relativas**: hoy, mañana, próximo lunes, en 3 días, 15/06,
+  etc.
 - **Horas**: 9am, 9:00, 14h, 14:30.
 - **Categoría** con `#nombre`.
 - **Prioridad** con `!alta`, `!media`, `!baja`, `!urgente`.
 
-Enter crea el evento directo. Nada se persiste hasta el Enter (regla E1).
+Hasta que no apretás Enter, nada se persiste. Si te equivocás y
+escribís de más, simplemente borrás el input.
 
-#### Gestos premium (vista Semana / Día)
+#### Gestos premium
 
-- **Pintar** una franja en columna vacía → abre modal con draft (no
-  persiste hasta Guardar).
-- **Drag** de un bloque → mueve el evento (snap 15 min, distingue tap de
-  drag con E5).
-- **Resize** desde la manija inferior → cambia hora de fin.
-- **Tap rápido** sobre el bloque → abre detalle.
-- **Click derecho** (o long-press en mobile) → **AccionesMenu** flotante
-  con clamp robusto (E7).
+Sobre las vistas de Día y Semana podés interactuar con los bloques
+como si fueran físicos:
 
-#### AccionesMenu
-
-Menú contextual sobre cada ocurrencia con:
-- ✓ Marcar como hecha / pendiente.
-- ✏ Editar.
-- 📅 Posponer (1 día / 1 semana / 1 mes / personalizado).
-- 🗑 Eliminar (o "Saltear esta ocurrencia" si es recurrente).
-
-Posponer es **relativo a la fecha del evento**, no a hoy (E11).
+- **Pintar** una franja en una columna vacía abre el modal con un
+  borrador del evento (no persiste hasta que confirmás).
+- **Drag** sobre un bloque lo mueve, con snap de 15 minutos. El sistema
+  distingue tap de drag para que un click rápido no termine moviendo el
+  evento por accidente.
+- **Resize** desde la manija inferior cambia la hora de fin.
+- **Click derecho** (o long-press en mobile) abre el **menú de
+  acciones** flotante con: marcar como hecha, editar, posponer
+  (1 día / 1 semana / 1 mes / personalizado), eliminar (o saltear la
+  ocurrencia si es recurrente). Posponer es siempre relativo a la
+  **fecha del evento**, no a hoy.
 
 #### Recurrencia virtual
 
-Los eventos recurrentes guardan la regla en la fila madre; las ocurrencias
-se calculan en runtime para el rango visible. Las excepciones
-(`moved`, `skipped`, `done`) viven en `agenda_event_overrides`.
+Cuando creás un evento recurrente, la regla queda guardada en una sola
+fila. Las ocurrencias no se materializan: se calculan en runtime para
+el rango que estás mirando. Si movés una ocurrencia específica, se
+guarda solo esa excepción. El sistema es eficiente y mantenible.
 
 #### Modal con panel lateral
 
-El modal de crear/editar evento tiene **dos capas**:
-- **Capa 1** (siempre visible): título, fecha, hora, categoría, prioridad,
-  notas, recurrencia.
-- **Capa 2** (colapsable, panel lateral animado): vínculos a entidades
-  del negocio (consorcio, administración, comprobante, trámite). El panel
-  abre hacia la derecha, **el modal NO crece hacia abajo** (E8).
+Cuando creás o editás un evento, el modal tiene dos capas. Lo básico
+(título, fecha, hora, categoría, prioridad, notas) está siempre visible.
+Si querés vincular el evento a una entidad del negocio (un consorcio,
+una administración, un comprobante, un trámite), tocás "Agregar
+vínculos" y se despliega un panel lateral animado hacia la derecha.
+**El modal nunca crece hacia abajo** — esa era una regla de oro para
+mobile.
 
 #### Modo enfoque
 
-Toggle que **oculta proyecciones** (vencimientos, trámites, cobranzas) y
-deja **sólo los eventos propios** del gerente. Útil para concentrarse.
+Hay un toggle que dice *Modo enfoque*. Cuando lo activás, la Agenda
+oculta todas las proyecciones (vencimientos, trámites, cobranzas) y te
+deja solo con tus eventos propios. Para los momentos en que necesitás
+concentrarte.
 
-#### Recordatorios humanos
+#### Recordatorios con cadencia humana
 
-El cron `gg_agenda_procesar_recordatorios` corre cada 15 min y aplica
-cadencia:
-- **1° aviso** a la hora exacta del evento (09:00 si `all_day`).
-- **Re-alerta** cada **5 h** mientras siga pendiente y siga siendo hoy.
-- A las **20:00**: aviso de **cierre** (una sola vez por evento por día).
-- Pendientes de **días anteriores**: un solo push suave a la mañana
-  (09:00–09:20).
+Esto es importante. El sistema **no te bombardea**. La cadencia es:
 
-Copys en tono rioplatense:
-- "👀 No te cuelgues: «…»"
-- "⏰ Te marco de nuevo: «…»"
-- "🌙 Última por hoy. Si ya no llegás…"
+- **A la hora del evento**, primer aviso (09:00 si el evento es de
+  día completo).
+- **Cada 5 horas**, re-alerta mientras el evento siga pendiente y
+  siga siendo hoy.
+- **A las 20:00**, aviso de cierre — una sola vez por evento por día.
+- **Pendientes de días anteriores**: un solo push suave a la mañana,
+  entre 09:00 y 09:20.
 
-Idempotente vía `agenda_reminders_log` (event_id + occurrence_date + kind).
+Los textos del backend están escritos en el tono que el sistema usa con
+vos: *"👀 No te cuelgues: «…»"*, *"⏰ Te marco de nuevo: «…»"*,
+*"🌙 Última por hoy. Si ya no llegás…"*.
+
+Las alarmas configurables tipo Google (2 días antes, 1 día antes, 1
+hora antes) están **descartadas a propósito**. Se evaluó y se concluyó
+que generan ruido sin valor real.
 
 #### Exportar a iCal
 
-Dos botones en el header de la agenda:
-- **Exportar mis eventos** (sólo personales del gerente).
-- **Exportar todo** (con vencimientos + trámites + cobranzas
-  proyectados).
+Dos botones en el header te dejan bajar el `.ics`: *Exportar mis
+eventos* (solo personales) o *Exportar todo* (con vencimientos,
+trámites y cobranzas proyectados incluidos). Lo importás a Google
+Calendar, Outlook o Apple Calendar y queda sincronizado.
 
-El `.ics` se descarga y puede importarse a Google Calendar / Outlook /
-Apple Calendar.
+#### Atajos de teclado
 
-#### Atajos de teclado (Agenda)
+| Tecla       | Acción                          |
+|-------------|---------------------------------|
+| `J` o `←`   | Período anterior                |
+| `K` o `→`   | Período siguiente               |
+| `T`         | Saltar a hoy                    |
+| `1..4`      | Lista / Día / Semana / Mes      |
+| `N`         | Nuevo evento                    |
+| `⌘K`        | Command palette scope-aware     |
 
-| Tecla | Acción |
-|---|---|
-| `J` / flecha izq | Período anterior |
-| `K` / flecha der | Período siguiente |
-| `T` | Saltar a hoy |
-| `1..4` | Cambiar vista (Lista / Día / Semana / Mes) |
-| `N` | Nuevo evento |
-| `⌘K` | Command palette (acciones scope-aware) |
+Cuando abrís `⌘K` dentro de la agenda, las acciones disponibles son
+específicas: *Ir a hoy*, *Ir a mañana*, *Ir al próximo lunes*,
+*Activar/desactivar Modo enfoque*, *Exportar a iCal*.
 
-#### Command palette scope-aware
+### 3.7 Facturación
 
-Al abrir ⌘K dentro de la Agenda aparecen acciones específicas:
-- **Ir a hoy / mañana / próximo lunes** (parser NL).
-- **Activar / desactivar Modo enfoque**.
-- **Exportar a iCal (mis / todo)**.
-- **Nueva administración**, **Nuevo trámite**, etc. (atajos cross-módulo).
+{{shot:gerencia-facturacion|Comprobantes simples (X) y fiscales (A/B/C con autorización ARCA). KPIs por mes, filtros, exports, y botón + Nuevo comprobante.}}
 
-### 3.6 Facturación · Comprobantes, CC, Recupero
+Tres sub-secciones cuelgan de Facturación: Comprobantes, Cuenta corriente
+y Recupero.
 
-#### 3.6.1 Comprobantes
+#### Comprobantes
 
-URL: `/gerencia/facturacion`
+La premisa que ordena todo este módulo es *"simple primero, fiscal
+opcional"*. Podés emitir un **comprobante X** (no fiscal) en segundos:
+sirve para registrar cobros, mandar al cliente y trackear el saldo. Y si
+después necesitás que sea factura A, B o C, hay un botón **"Realizar
+factura"** que dispara la autorización ARCA con CAE — sin tener que
+recrear el comprobante.
 
-Tipos disponibles:
-- **X** (no fiscal, "simple primero").
-- **A / B / C** (fiscales, vía ARCA).
+Para crear uno nuevo, un wizard te guía en tres pasos:
 
-KPIs en el header: Emitidos / Total emitido / Pendiente cobro / Vencido.
+1. **Receptor**: elegís cliente y consorcio. El sistema autocompleta
+   razón social, CUIT, condición IVA.
+2. **Líneas**: agregás servicios del catálogo. Cada uno trae su
+   precio de referencia. Si lo cambiás, el sistema te ofrece tres
+   opciones: solo para este comprobante, para todo este cliente, o
+   como regla general del servicio. Y queda registrado en bitácora,
+   por si después querés revisar la decisión.
+3. **Cobranza opcional**: si el comprobante ya está cobrado, registrás
+   el movimiento de caja directo, sin pasos extra.
 
-Filtros: período (mes), estado, cobranza.
+Al guardar, el sistema persiste el comprobante, genera el PDF, encola
+el email al cliente, y si es A/B/C dispara el job ARCA que devuelve el
+CAE en segundos. Si la cobranza venía incluida, el movimiento queda
+imputado contra ese comprobante.
 
-Tabla por comprobante: nº punto-de-venta + número, cliente, fecha y
-vencimiento, total, cobranza (Pagado / Parcial / Pendiente), estado
-(Borrador / Autorizado / Anulado).
+**Para cobrar un comprobante después**, entrás al detalle y tocás
+"+ Cobranza". Modal con caja, fecha y monto. Permite cobranza parcial.
+El saldo del comprobante se recalcula derivado (no se guarda, se
+infiere) — eso evita inconsistencias.
 
-Botones: PDF / XLS / **Copiar** / **+ Nuevo comprobante**.
+#### Cuenta corriente global
 
-##### Crear un comprobante
+{{shot:gerencia-cuenta-corriente|Cuenta corriente consolidada por administración. Cuando no hay match con los filtros, una ilustración te lo dice con calma.}}
 
-Wizard de 3 pasos:
-1. **Receptor**: elegir cliente / consorcio (auto-completa razón social,
-   CUIT, condición IVA).
-2. **Líneas**: agregar servicios desde el catálogo (auto-completa precio
-   referencia). Cada línea editable inline: cantidad, precio unitario,
-   bonificación. El tabulador "al editar precio en factura" recalcula
-   bonificación y deja trazada la decisión en bitácora (DGG-24).
-3. **Cobranza opcional**: si el comprobante ya está cobrado, se
-   registra el movimiento de caja al guardar.
+Es el resumen consolidado por administración. Cuatro KPIs arriba
+(Facturado, Cobrado, Pendiente, Vencidos) y una tabla con cada cliente,
+su saldo y la cantidad de comprobantes pendientes o vencidos.
 
-Al guardar se ejecuta el flujo:
-- INSERT en `comprobantes`.
-- INSERT en `comprobante_lineas`.
-- (si A/B/C) → encola job ARCA → autoriza CAE → actualiza estado.
-- (si cobranza) → INSERT en `movimientos` + imputación.
-- Encola email `comprobante-emitido` al cliente.
+Si no hay datos, te aparece una ilustración con triángulos cyan/teal y
+un símbolo que cambia según el caso: un edificio si no hay clientes
+todavía (con CTA "Importar histórico"), una lupa si hay clientes pero
+los filtros no devolvieron nada.
 
-##### Realizar factura desde "simple"
+**Importar histórico.** Si arrancás Gestión Global con un Excel viejo
+de movimientos, hay un wizard que te guía: descargás la plantilla,
+completás los movimientos, la subís, el sistema te muestra preview y
+matches sugeridos, confirmás. El parser es tolerante: acepta separadores
+`,` o `;`, fechas en cualquier formato y montos AR (`1.234,56`) o US
+(`1,234.56`).
 
-Premisa: un comprobante X puede pasar a A/B/C cuando se necesite. Botón
-"Realizar factura" abre selector de emisor fiscal (Gestión Global o
-**Fundplata**, segundo emisor habilitado DGG-? · #149) y autoriza CAE.
+#### Recupero
 
-##### Cobrar un comprobante
+Tres niveles de recupero, R1, R2 y R3, con plantillas de email y SLA
+distintos. La pantalla agrupa las administraciones con deuda y te deja
+disparar la campaña por nivel.
 
-Desde el detalle de un comprobante:
-- Botón **+ Cobranza**: abre modal con caja, fecha, monto. Permite cobro
-  parcial.
-- El movimiento queda asociado vía `movimiento_imputaciones`.
-- El saldo del comprobante se recalcula en runtime (D09: saldo derivado).
+### 3.8 Finanzas
 
-#### 3.6.2 Cuenta corriente global
+{{shot:gerencia-finanzas|Finanzas con saldos de cajas activas, movimientos recientes y action bar con todas las operaciones disponibles.}}
 
-URL: `/gerencia/cuenta-corriente`
+Tres sub-secciones: Cajas y movimientos, Conciliación, Partners.
 
-Resumen consolidado por administración con KPIs Facturado / Cobrado /
-Pendiente / Vencidos.
+#### Cajas y movimientos
 
-Filtros: Desde, Hasta, Estado (Con deuda / Con vencidos / Al día / Todos),
-Búsqueda.
+Cuatro cajas por defecto: Banco principal, Billetera virtual, Plazo
+fijo, Efectivo. Y podés crear cajas custom desde el panel de admin.
 
-Tabla por administración con sort por columna (nombre, facturado,
-cobrado, deuda, vencidos). Click en fila → detalle del cliente.
+En el header tenés un botón para cada operación: PDF/XLS/Reportes (con
+flujo de caja, balance mensual, P&G por categoría, comparativo año vs
+año), Conciliar, Importar histórico, Admin (CRUD de cajas y categorías),
+Transferir y + Nuevo movimiento.
 
-Cuando no hay datos:
-- Sin filas pero hay clientes → **IllustratedEmpty 'busqueda'**: "Sin
-  resultados para los filtros actuales".
-- Sin clientes en absoluto → **IllustratedEmpty 'edificio'** con CTA
-  "Importar histórico".
+**Transferir** abre un modal con caja origen, caja destino, monto y
+fecha. Genera **dos movimientos linkeados** atómicamente (egreso en
+origen, ingreso en destino).
 
-##### Importar histórico
+**Anular o revertir un movimiento.** Anular lo marca como inválido
+(queda visible pero excluido de balances). Revertir crea un movimiento
+espejo. Las correcciones quedan auditables.
 
-Botón **Importar histórico** en el header → wizard CSV.
-- Plantilla descargable con columnas: fecha, administración (código),
-  tipo (cargo / abono), descripción, monto, comprobante asociado opcional.
-- Parser tolerante (separadores `,`/`;`, fechas DD/MM/YYYY o YYYY-MM-DD,
-  montos AR `1.234,56` o US `1,234.56`).
-- Preview de matches antes de confirmar.
+#### Conciliación bancaria
 
-#### 3.6.3 Recupero
+Cuando importás un extracto bancario en CSV, el motor sugiere matches
+con tus movimientos del sistema (mismo monto, misma caja, mismo tipo,
+ventana de ±5 días). Por cada línea del extracto decidís: vincular con
+un movimiento existente (eligiendo entre los sugeridos), crear uno
+nuevo, o ignorar (saldo inicial, error del banco, línea informativa).
 
-URL: `/gerencia/recupero`
+Hay una funcionalidad de "aprender patrón": si la descripción de la
+línea matchea con algo que ya conciliaste antes, el sistema te
+sugiere la misma categoría y administración. Va aprendiendo.
 
-Tres niveles de recupero (R1 / R2 / R3) con templates de email y SLA
-distintos. La pantalla lista las administraciones con deuda agrupadas
-por nivel y permite disparar la campaña.
+#### Partners
 
-### 3.7 Finanzas · Cajas, Conciliación, Partners
+Lista los partners con convenio. Para cada uno ves su porcentaje, su
+saldo evolutivo y los comprobantes asignados. Acá es donde marcás los
+comprobantes con flag "participa partner" — los que cuando llegue el
+fin de mes van a aparecer en la rendición del partner.
 
-#### 3.7.1 Cajas y movimientos
+### 3.9 Campus
 
-URL: `/gerencia/finanzas`
+{{shot:gerencia-campus|Campus virtual con cursos asincrónicos y encuentros sincrónicos. Vinculá inscripciones a tus formularios.}}
 
-Header:
-- KPIs: Saldo total, Ingresos del mes, Egresos del mes, Balance neto.
-- Action bar: PDF / XLS / **Reportes** / **Conciliar** / **Importar
-  histórico** / **Admin** / **Transferir** / **+ Nuevo movimiento**.
+El Campus es el subsistema #7 del documento maestro y tiene su propia
+mecánica. Cada curso tiene tabs: Datos generales, Módulos y clases
+(editor L1 con drag-and-drop, cropper de imágenes, publicación con
+fecha), Inscripciones, Encuentros sincrónicos (Zoom), Exámenes
+(múltiple choice y verdadero/falso con autocorrección), Certificado
+(con esquema visual editable, snapshot al emitir), Encuesta de
+satisfacción.
 
-**Cajas activas** (cards):
-- Banco principal (ARS).
-- Billetera virtual (ARS).
-- Plazo fijo (ARS).
-- Efectivo (ARS).
-- + cajas custom (DGG-23 Bloque 3.A) con CRUD propio + categorías.
+Los encuentros en vivo usan **Zoom simplificado**: un link grande,
+asistencia automática vía webhooks. Webex quedó como scaffold latente
+por si en algún momento se reactiva.
 
-**Movimientos recientes** (tabla): fecha, tipo (Ingreso / Egreso /
-Transferencia), descripción, caja, monto, acciones.
+### 3.10 Comunicaciones
 
-##### Transferir
+{{shot:gerencia-comunicaciones|Panel de comunicaciones multi-canal: dashboard + email + push, a una audiencia segmentada por servicio o convenio.}}
 
-Modal con caja origen / destino + monto + fecha. Crea **dos movimientos
-linkeados** (egreso en origen, ingreso en destino).
+Es el subsistema más reciente. Un panel que te deja mandar una misma
+comunicación por **dashboard banner + email + push** (o cualquier
+combinación) a un subconjunto de administraciones.
 
-##### Anular y revertir
+Para crear una, abrís el drawer lateral, ponés título y cuerpo
+(markdown). Elegís audiencia:
 
-Cada movimiento tiene menú con:
-- **Anular**: marca `anulado_at`. El movimiento queda visible pero
-  excluido de balances.
-- **Revertir**: crea un movimiento espejo en sentido contrario. Útil
-  para correcciones que deben quedar auditables.
+- *Todos los clientes*.
+- *Manual*: seleccionás administraciones a mano.
+- *Por servicios*: todas las que tienen tal servicio activo.
+- *Por convenio*: todas las que tienen tal convenio.
 
-#### 3.7.2 Conciliación bancaria
+Marcás los canales (mínimo uno). El sistema te muestra preview de
+destinatarios con la cantidad y la lista. Apretás *Enviar ahora* o
+*Guardar borrador*.
 
-URL: `/gerencia/finanzas/conciliacion`
+Al enviar: si marcaste email, encola en la cola con la plantilla
+`comunicacion-novedad`. Si marcaste push, encola en la cola de Web
+Push. Si marcaste dashboard, el portal del cliente lo muestra como
+banner hasta que el cliente lo marca como visto.
 
-Importar extracto bancario CSV → motor de sugerencias →
-vincular / crear nuevo / ignorar línea por línea. Detalles en
-`knowledge-base/03_CONCILIACION_CAJAS_MOTOR.md`.
+### 3.11 Analítica
 
-#### 3.7.3 Partners
+{{shot:gerencia-analitica|Analítica avanzada: facturación mensual, cobranzas, top clientes, mix de servicios, funnel de conversión.}}
 
-URL: `/gerencia/finanzas/partners`
+Inteligencia de negocio con selector de período. KPIs (Facturación 12M,
+Cobranzas 12M, Top clientes, Conversión solicitudes → activadas),
+gráficos de facturación y cobranzas mensuales, top clientes por
+facturación, mix de servicios y funnel de conversión.
 
-Lista de partners con convenio. Por cada partner:
-- % de convenio (atribución).
-- Saldo evolutivo.
-- Listado de comprobantes asignados (flag "participa partner").
-- Rendición por período con detalle de cada movimiento atribuido
-  (ingresos / egresos / saldo evolutivo).
+---
 
-Cada comprobante con flag muestra **botón "Realizar factura"** del partner
-(él lo verá en su portal).
+## 4. El portal del administrador · la mirada de María
 
-### 3.8 Campus virtual
+Cambiemos de protagonista. Soy María, administradora de consorcios. Hace
+un mes activé mi cuenta en Gestión Global y desde entonces uso el portal
+varias veces por semana.
 
-URL: `/gerencia/campus`
+Esta es mi experiencia.
 
-Header: "Subsistema 7 · Campus virtual".
+### 4.1 La puerta de entrada
 
-KPIs: Cursos activos, Matrículas activas, Cursadas completadas.
+Recibo un email de bienvenida cuando me dan de alta. Tiene mis
+credenciales reales, no un magic link de un solo uso, y un botón que me
+manda directo al portal. Entro a `gestionglobal.ar`, me logueo con mi
+mail y mi clave, y como soy `administrador`, el sistema me lleva
+automáticamente a `/portal`.
 
-Listado de cursos con cover image, modalidad (Asincrónica / Sincrónica /
-Mixta), categoría, estado.
+{{shot:portal-home|El portal del administrador me recibe con un saludo personalizado, mis KPIs (cursos activos, gestiones abiertas), las acciones requeridas y las oportunidades del mes.}}
 
-#### Estructura de un curso
+Lo primero que veo es mi nombre en el saludo: *"Buenas noches, María,
+bienvenido."* Abajo, mi razón social y un chip verde con mi número de
+matrícula. A la derecha, dos KPIs: cuántos cursos tengo activos, cuántas
+gestiones abiertas.
 
-Tabs internas:
-- **Datos generales**: título, descripción, banner, modalidad, modalidad
-  geográfica, instructor (con foto), categoría.
-- **Módulos y clases** (editor L1): drag-and-drop, cropper de imagen,
-  publicación con fecha programada.
-- **Inscripciones**: alumnos matriculados + estado.
-- **Encuentros sincrónicos** (Zoom): crear meeting + adjuntar link.
-- **Exámenes**: MC + V/F + retroalimentación.
-- **Certificado**: link al esquema custom (editor de certificados DGG-13),
-  toggle emisión auto, motor de emisión, certificados emitidos.
-- **Encuesta de satisfacción** (al finalizar el curso).
+### 4.2 El banner que me cuida
 
-#### Webinars
+Si todavía no activé las notificaciones push, me aparece un banner cyan
+que se llama *"Activá las notificaciones · No te pierdas ninguna
+novedad."* Es el `ActivarPushAssistant` y es universal: detecta mi
+navegador y mi sistema operativo, y me guía con instrucciones específicas
+para iOS Safari (instalar la PWA primero), Chrome iOS PWA, Android,
+Chrome o Safari de escritorio.
 
-URL gerencia: `/gerencia/webinars`
+### 4.3 Las cards que importan ahora
 
-Webinars son **eventos de captación + capacitación** abiertos a
-inscriptos (clientes y prospectos). Lista con KPIs (inscriptos,
-asistencia, próximo evento).
+Después aparecen cards contextuales. Algunas son **alertas**:
 
-Detalle del webinar:
-- Datos generales + Zoom link.
-- Inscriptos (clientes + prospectos).
-- Centro de prospectos (convertir prospecto en cliente con un click).
-- Recordatorios automáticos (cron diario).
-- Métricas de conversión.
+- *"Acción requerida — Necesitamos documentación para tu trámite."*
+  Con el código del trámite, el servicio asociado y un botón "Subir
+  docs →" que me lleva al detalle. La gerencia me pidió papeles, yo
+  los subo y avanzamos.
 
-### 3.9 Comunicaciones · Noticias y novedades
+- *"Oportunidad — Renová tu matrícula RPAC."* Si mi matrícula vence en
+  los próximos 30 días, me aparece esta tarjeta con un CTA "Iniciar
+  renovación" que arranca el trámite.
 
-URL: `/gerencia/comunicaciones`
+Otras son **sugerencias** ("Sugerido para vos"):
 
-Sistema multi-canal para enviar **una misma comunicación** a un
-subconjunto de administraciones por **dashboard banner + email + push**
-(o cualquier combinación).
+- *"Tu DDJJ vence pronto."* Con los días que faltan y el botón
+  "Iniciar DDJJ →".
+- *"Cumplí con tu actualización del año."* Recordatorio de la
+  capacitación anual obligatoria.
+- *"Webinar gratuito — Liquidación de expensas avanzada."* El próximo
+  webinar abierto al que puedo inscribirme.
 
-Pantalla:
-- Header: "Noticias y novedades a tus clientes".
-- Botón **+ Nueva comunicación**.
-- Lista de comunicaciones con badge de estado (Borrador / Enviado).
+{{callout:why|¿Por qué las cards son contextuales y no un listado fijo? Porque cada cliente vive un momento distinto. Si tu matrícula está al día, no tiene sentido que veas la card de renovación. Las cards aparecen y desaparecen según lo que está pasando con vos.}}
 
-#### Crear una comunicación
+### 4.4 Mis cursos activos
 
-Drawer lateral con:
-- **Título** + **cuerpo** (markdown).
-- **Audiencia**:
-  - `Todos los clientes`.
-  - `Manual` (multi-select de administraciones).
-  - `Por servicios` (todas las que tengan tal servicio activo).
-  - `Por convenio` (todas las que tengan tal convenio).
-- **Canales**: ✅ Dashboard banner / ✅ Email / ✅ Push (cualquier
-  combinación, mínimo uno).
-- Preview destinatarios (N administraciones, lista).
-- Botón **Enviar ahora** (o Guardar borrador).
+Más abajo veo los cursos en los que estoy matriculada con badge de
+modalidad (Mixta, Asincrónica, Sincrónica) y vigencia. Click en uno y
+entro al detalle: módulos, clases, exámenes, encuentros sincrónicos
+si los hay, certificado cuando lo termine.
 
-Al enviar:
-- Inserta en `comunicaciones_destinatarios` una fila por administración.
-- Si Email → encola en `email_queue` con template
-  `comunicacion-novedad`.
-- Si Push → encola en `push_notifications_queue`.
-- Si Dashboard → el portal del cliente muestra el banner hasta que
-  marca "Vista".
+### 4.5 Próximos vencimientos
 
-### 3.10 Analítica avanzada
+Y al pie, una lista de mis próximos vencimientos ordenados por fecha.
+Cada item dice el título, una descripción corta y "en N días". Si me
+pierdo, sé adónde mirar.
 
-URL: `/gerencia/analitica`
+### 4.6 Mi cuenta corriente
 
-Inteligencia de negocio con período seleccionable (Últimos 7d / 30d /
-90d / 1 año / custom).
+{{shot:portal-cuenta-corriente|La cuenta corriente del cliente con saldo evolutivo: cargos, cobranzas y saldo acumulado al final de cada línea.}}
 
-Secciones:
-- **KPIs**: Facturación 12M, Cobranzas 12M, Top clientes, Conversión
-  (solicitudes → activadas %).
-- **Charts**: Facturación mensual, Cobranzas mensuales (recharts).
-- **Top clientes por facturación**.
-- **Mix de servicios** (qué servicios facturan más).
-- **Funnel de conversión** (solicitudes → análisis → activadas →
-  facturadas).
+Cuando voy a `/portal/cuenta-corriente` veo mi saldo. Una tarjeta hero
+me dice si tengo deuda o estoy al día. Tres mini-KPIs (Cargos,
+Cobranzas, Total de movimientos) y una tabla con orden cronológico
+FIFO: cada línea muestra fecha, descripción, cargo o cobranza, y el
+saldo acumulado al final.
 
-### 3.11 Configuración
+Si un comprobante tiene factura PDF disponible, hay un link "Descargar
+factura" para bajármela.
 
-Sub-rutas:
+### 4.7 Mis gestiones
 
-#### Servicios (catálogo)
+En `/portal/gestiones` veo el listado de mis trámites en curso. Cada
+uno con su estado, su asignado y un timeline visual de los avances que
+la gerencia me hizo visibles. Si hay docs pendientes que tengo que
+subir, hay un botón directo.
 
-URL: `/gerencia/servicios`
+### 4.8 Mis webinars
 
-Catálogo extensible con precios fijos, por consorcio, por unidad funcional,
-convenios y preferenciales. Cada cambio queda en bitácora.
+En `/portal/webinars`, los webinars donde me inscribí. Cada uno con
+badge (Próximo, En curso, Pasado). Si está activo, hay botón
+"Acceder" que me lleva al embed o al link externo de Zoom.
 
-KPIs: Servicios visibles / Activos / Con precio vigente.
+### 4.9 Pedir un servicio nuevo
 
-Categorías (filtro lateral):
-- RPAC · Buenos Aires
-- RPA · CABA
-- Capacitación
-- Plataforma SaaS
-- Asesoría jurídica
-- Comunidad
+Desde `/portal/nuevo-servicio` puedo generar yo misma una nueva
+solicitud, sin tener que escribir un email. Elijo el servicio del
+catálogo público, completo los datos del consorcio, y la solicitud
+queda en el panel de la gerencia para que la analicen.
 
-Cada servicio tiene:
-- Slug, nombre, descripción, categoría.
-- Precio público + precio cliente (diferencia = bonificación).
-- `vigencia_meses` (para servicios renovables → al cerrar trámite,
-  proyecta próximo vencimiento).
-- `precio_referencia` (para pre-fill al crear comprobante).
-- Voucher PDF (si aplica).
+### 4.10 Mi perfil
 
-#### ARCA · facturación
+En `/portal/mi-cuenta` veo mis datos personales y los de la
+administración (algunos editables, otros no). Desde ahí también activo
+o desactivo el push, y cierro sesión.
 
-URL: `/gerencia/configuracion/emails/arca` (tabs: ARCA / Cola de emisión)
+---
 
-- Subida del certificado + CSR + alias.
-- Test del certificado con padron.
-- Cola de emisión en tiempo real (estado de cada job).
-- Configuración del intervalo entre emisiones
-  (`config_global.arca_intervalo_emision_seg`).
-- Segundo emisor fiscal (Fundplata) — toggle (#149).
+## 5. El aliado partner
 
-#### Plantillas email
+Funplata es uno de los partners de Gestión Global. Es un emisor fiscal
+alternativo y participa de algunos comprobantes con un porcentaje de
+convenio.
 
-URL: `/gerencia/configuracion/emails/templates`
+{{shot:partner-rendiciones|El portal del partner muestra movimientos detallados con saldo evolutivo, resumen por período y comprobantes asignados con su estado de facturación.}}
 
-Lista de **32 plantillas** del sistema con editor en vivo.
+Cuando el partner entra a `gestionglobal.ar/partner`, ve una sola
+pantalla: *"Mis rendiciones y comprobantes."*
 
-Cada plantilla:
-- Slug (`vencimiento_alerta_cliente`, `bienvenida-administracion`, etc.).
-- Casilla (General / Cursos / Jurídico / Webinar).
-- Header (kicker, título, asunto, color de acento).
-- Cuerpo HTML visual + variables Mustache `{{nombre}}`, `{{link}}`.
-- Botón "Enviar prueba a [tu email]".
-- Botón "Guardar plantilla".
-- **Preview en vivo con datos de ejemplo** (panel derecho).
+### 5.1 Mi caja, mis movimientos
+
+Una tarjeta arriba lista los movimientos atribuidos al partner con su
+porcentaje aplicado. Tres KPIs (Ingresos atribuidos, Egresos
+atribuidos, Saldo evolutivo) y la tabla detalle por movimiento. Si no
+hay movimientos en el período, lo dice con calma.
+
+### 5.2 Resumen por período
+
+Una tabla resumen donde cada fila es un período (mes típicamente):
+fechas, estado (Borrador o Cerrado), ingresos base y atribuidos,
+costos base y atribuidos. Es lo que el partner ve mes a mes para
+verificar lo que le corresponde.
+
+### 5.3 Comprobantes asignados
+
+Y al final, los comprobantes donde el partner participa: tipo, punto
+de venta, número, receptor, fecha, total, estado y estado de
+facturación. Si un comprobante necesita que el partner emita la
+factura, hay un botón **"Realizar factura"** que dispara el wizard de
+emisión con el emisor fiscal del partner pre-seleccionado.
+
+Cuando hace la factura, el sistema:
+
+1. Genera el CAE vía ARCA con el certificado del partner.
+2. Adjunta el PDF al comprobante original.
+3. Cambia el estado a "Facturado" con el número fiscal.
+
+El comprobante original sigue siendo el mismo, pero ahora tiene su
+contraparte fiscal hecha por el partner correspondiente.
+
+---
+
+## 6. El gestor externo · el aliado sin cuenta
+
+Esta es la historia más particular. El gestor externo no tiene cuenta.
+Nunca se loguea. Aparece y desaparece según el trámite.
+
+### 6.1 Cómo llega
+
+Cuando la gerencia decide tercerizar un trámite, lo deriva a un gestor
+externo. El sistema genera un **token mágico** con vencimiento
+configurable (default 30 días, ajustable desde Configuración) y se lo
+manda al gestor por email con un enlace tipo
+`gestionglobal.ar/acceso/A1B2C3D4E5...`.
+
+### 6.2 Qué ve
+
+Al clickear el enlace, el gestor aterriza en un panel limpio, sin
+sidebar. Solo ve **el trámite que le corresponde**. No puede navegar
+a ningún otro: el token está vinculado a un único trámite.
+
+Lo que tiene disponible:
+
+- Los datos del trámite: tipo de servicio, cliente, consorcio, breve
+  descripción.
+- La documentación adjunta (descargable).
+- Un campo para **subir nuevos avances** con texto, archivos
+  ilimitados (no hay límite arbitrario), y un selector de estado
+  actual.
+- Un botón **"Descargar info del trámite"** que genera un PDF con
+  todo lo del expediente, para tener en papel.
+
+### 6.3 El print stylesheet
+
+Si el gestor aprieta `⌘P` o `Ctrl+P`, el CSS de impresión oculta
+el header, los botones y el scroll, y deja solo el contenido del
+trámite. Sale impreso como un expediente limpio, listo para archivar.
+
+### 6.4 Cuando el token vence
+
+Si el token expira, el gestor ve una pantalla que dice "Link expirado"
+con un CTA **"Pedir link nuevo"** que envía un email a la gerencia.
+Desde el panel, la gerencia regenera el token y el gestor recibe un
+nuevo email.
+
+### 6.5 La traza interna
+
+Cada vez que el gestor sube algo, queda registrado: cuándo entró, qué
+archivos subió, qué texto escribió, desde qué IP. La gerencia ve toda
+esa actividad en el detalle interno del trámite, marcada con badge
+"gestor externo".
+
+---
+
+## 7. Campus, webinars y comunicaciones
+
+### 7.1 El Campus visto desde la alumna
+
+María se inscribió al *Curso Integral de Formación de Administrador de
+Consorcios 2026*. Desde su portal, en *Mis cursos activos*, ve la card
+y le hace click.
+
+Entra al curso, ve los módulos publicados, las clases (cada una con su
+video embed, descripción y bibliografía descargable), los encuentros
+sincrónicos agendados (con link de Zoom o YouTube Live según el
+caso), los exámenes que tiene que rendir y el certificado pendiente.
+
+Cuando termine las condiciones (cursar todo + aprobar exámenes), el
+motor le emite el certificado automáticamente. El PDF tiene QR de
+verificación: cualquier persona puede ir a
+`gestionglobal.ar/verificar/<código>` y confirmar que es auténtico.
+
+### 7.2 Webinars
+
+Los webinars son eventos abiertos: cualquiera puede inscribirse
+llenando el formulario público. Al hacerlo, queda como **prospecto** si
+no es cliente, o se asocia a la administración si lo es.
+
+Cada inscripto recibe un magic-link único hacia
+`gestionglobal.ar/campus/webinar/:token`. Esa página le muestra los
+datos del evento, el link de acceso (Zoom o YouTube Live, depende del
+canal elegido para ese webinar), y se diferencia según el caso:
+
+- Si es **cliente**, ve solo el contenido del webinar.
+- Si es **prospecto**, ve además una CTA al pie ("Conocé el campus de
+  Gestión Global") que lo invita a convertirse.
+
+La gerencia ve los inscriptos en
+`gestionglobal.ar/gerencia/webinars`, con métricas de asistencia,
+conversión prospecto → cliente, y panel de prospectos donde convierte
+con un click.
+
+### 7.3 Comunicaciones
+
+Ya las contamos en el capítulo 3. Acá nos enfocamos en para qué sirven.
+
+Las comunicaciones son la forma de hablar con todos los clientes (o un
+subconjunto) sin tener que mandar correos a mano. Casos típicos:
+
+- *Aviso de nueva resolución de CUCICBA*: a todas las administraciones
+  con servicios RPAC activos.
+- *Recordatorio de feriado largo*: a todos los clientes.
+- *Lanzamiento de capacitación nueva*: a los que tienen convenio
+  con descuento en capacitaciones.
+
+Cada comunicación queda registrada con su audiencia y los destinatarios
+que la marcaron como vista. Es trazable.
+
+---
+
+## 8. Cómo conversa el sistema
+
+Gestión Global se comunica con vos y con los clientes por tres canales
+sincronizados. Conviene entender la lógica de cada uno.
+
+### 8.1 La campanita (in-app)
+
+Es el botón con icono de campana arriba a la derecha. Tiene un badge
+rojo con el número de no leídas. Click → dropdown con las últimas
+notificaciones: icono + título + cuerpo + tiempo relativo.
+
+Si el cuerpo de una notificación es largo (más de lo que cabe en la
+fila), click sobre el ítem **abre un modal con el contenido completo**
+y cierra el dropdown automáticamente. Ese detalle vino de un pedido
+real: las notas internas a veces son párrafos enteros y no se podían
+leer.
+
+Hay tres acciones en el footer: *Marcar todas como leídas*, *Limpiar*
+(borra el historial), *Ir al recurso* (que es el click sobre la
+notificación misma).
+
+### 8.2 El push
+
+Notificación que llega al teléfono o al desktop. Web Push estándar con
+VAPID + Service Worker. La PWA debe estar instalada para que funcione
+en iOS Safari (en iOS, las web push sólo funcionan sobre PWAs
+instaladas en el home).
+
+El asistente `ActivarPushAssistant` te guía paso por paso según tu
+combinación de navegador y sistema operativo. No te asume nada.
+
+### 8.3 El email
+
+Templates en *Configuración → Plantillas email*. Hay 32 plantillas
+activas, agrupadas por casilla: General (contacto@), Cursos
+(cursos@), Jurídico (juridico@), Webinar (webinar@). Cada casilla
+manda con su OAuth token específico.
+
+El sistema soporta multi-casilla con refresh tokens almacenados
+encriptados. DKIM está activo en el dominio para máxima entregabilidad.
+
+### 8.4 La regla de los tres canales
+
+Cuando algo es importante (un avance visible para el cliente, una
+alarma, un vencimiento), el sistema dispara **los tres canales al
+mismo tiempo**. Eso garantiza que el cliente reciba la información por
+el canal que más use:
+
+- Si entra al portal, lo ve en la campanita.
+- Si abre el mail, lo lee ahí.
+- Si tiene la app en el teléfono, le suena.
+
+Y si tiene los tres activos, los tres se sincronizan: marcar leída en
+uno marca leída en el otro.
+
+### 8.5 La frase del día
+
+Una vez al día, a las 08:00 ART, el sistema te manda una frase
+motivacional al portal y al push. Con icono de libro. Pequeña pero
+linda.
+
+### 8.6 Bounce y reply harvester
+
+Cada 30 minutos, un cron consulta las casillas Gmail vía OAuth. Si
+hay un bounce (dirección inválida), marca al destinatario para que la
+gerencia lo vea. Si hay una respuesta de un cliente a un email
+automático, queda en el panel de comunicaciones de gerencia para que
+alguien la atienda.
+
+Evaluamos pasar a Gmail Pub/Sub para tiempo real, pero el cron de 30
+minutos cubre el caso de uso: el volumen de respuestas es bajo y la
+latencia no es crítica.
+
+---
+
+## 9. Configuración
+
+Es la sección que más se toca al principio y menos después de los
+primeros días. Pero conviene saber qué hay.
+
+### 9.1 Servicios (catálogo)
+
+El catálogo de servicios. Cada uno con: slug, nombre, descripción,
+categoría, precio público, precio cliente, `vigencia_meses` (para
+servicios renovables), precio de referencia (para pre-fill al crear
+comprobante), voucher PDF si aplica.
+
+Las categorías son: RPAC · Buenos Aires, RPA · CABA, Capacitación,
+Plataforma SaaS, Asesoría jurídica, Comunidad. Cada cambio queda en
+bitácora con el motivo.
+
+### 9.2 ARCA · facturación
+
+Configuración de ARCA: subida del certificado, CSR, alias, test con
+el padrón. La cola de emisión en tiempo real (cada job tiene su
+estado). Y la configuración del intervalo entre emisiones
+(`arca_intervalo_emision_seg` en `config_global`).
+
+Soporta segundo emisor fiscal (Fundplata), que se activa con un toggle.
+
+### 9.3 Plantillas email
+
+{{shot:gerencia-plantillas|Editor de plantillas de email con preview en vivo. 32 plantillas activas con datos de ejemplo poblando el render.}}
+
+Las 32 plantillas con editor en vivo. Por cada una: slug, casilla,
+header (kicker, título, asunto, color de acento), cuerpo HTML visual con
+variables Mustache, botón "Enviar prueba a mi mail", "Guardar
+plantilla", y panel derecho con **preview en vivo** que se actualiza a
+medida que tipeás, usando datos de ejemplo.
 
 Layout MANAXER v1 con tipografía premium.
 
-#### Generación CJ
+### 9.4 Generación CJ
 
-URL: `/gerencia/generacion-cj`
+Generador de Consultoría Jurídica PDF. Cargás los datos del cliente,
+el texto custom, la firma del abogado. El PDF queda en el historial.
+Útil para los servicios de asesoría jurídica.
 
-Generador de **Consultoría Jurídica** PDF con datos del cliente + texto
-custom + firma del abogado. Historial de PDFs generados.
+### 9.5 Usuarios
 
-#### Usuarios
+Alta de gerentes, partners, gestores fijos. Roles disponibles:
+`gerente`, `administrador`, `partner`. Email + password inicial.
 
-URL: `/gerencia/usuarios`
+### 9.6 Bitácora de cambios
 
-Gerencia interna: alta de gerentes, partners, gestores fijos. Roles
-disponibles: `gerente`, `administrador`, `partner`. Email + password
-inicial (genera reset).
+Auditoría de cambios sensibles: ediciones de precio en comprobantes,
+anulaciones, reversiones, cambios en convenios, cambios en config
+global.
 
-#### Bitácora de cambios
+### 9.7 Errores en runtime
 
-URL: `/gerencia/bitacora`
-
-Auditoría de cambios sensibles:
-- Edición de precios en comprobantes (tabulador).
-- Anulaciones / reversiones de movimientos.
-- Cambios en convenios.
-- Cambios en configuración global.
-
-#### Errores en runtime
-
-URL: `/gerencia/errores`
-
-Si está integrado Sentry (D5 / #234), agregado de errores con stack
-trace + cantidad de ocurrencias + última vez visto. Útil para detectar
-regresiones.
+Agregado de errores con stack trace, cantidad de ocurrencias, última
+vez visto. Integrado con Sentry.
 
 ---
 
-## 4. Portal del administrador (cliente)
+## 10. Bajo el capó
 
-URL: **<https://www.gestionglobal.ar/portal>**
-
-El cliente (rol `administrador`) entra a su propio panel. Diseño limpio,
-tono más formal, sin sidebar extendido (sólo iconos).
-
-### 4.1 Dashboard (home)
-
-#### Hero card
-
-Saludo dinámico ("Buenas noches, María"), nombre de la administración,
-chip de matrícula (CUCICBA-12345 / RPA-PBA-…). KPIs: cursos activos +
-gestiones abiertas.
-
-#### Banner ActivarPushAssistant
-
-Si no tiene push activado: banner "Activá las notificaciones · No te
-pierdas ninguna novedad" con botón "Activar". Acciona el flujo VAPID
-+ Service Worker (universal: detecta iOS Safari, Chrome iOS PWA,
-Android, desktop).
-
-#### Banner Novedades
-
-Si hay una comunicación de gerencia con canal `dashboard` activo y
-todavía no la marcó vista: banner con título + cuerpo + X dismiss.
-
-#### Banner Acción requerida
-
-Si hay un trámite con documentación pendiente: card amarilla "Acción
-requerida · Necesitamos documentación para tu trámite". Chip con
-TRM-#### y servicio. Botón "Subir docs →" lleva al detalle.
-
-#### Cards Sugerido para vos
-
-- **Obligación anual** (DDJJ): si la matrícula tiene DDJJ próxima.
-- **Capacitación anual**: actualización RPAC (CABA o PBA).
-- **Webinar gratuito**: próximo webinar abierto.
-- **Oportunidad** (Renovación matrícula): si vence en ≤ 30 días.
-
-#### Mis cursos activos
-
-Listado compacto con modalidad + vigencia. Click → detalle del curso
-(módulos, clases, examen, certificado).
-
-#### Próximos vencimientos
-
-Lista de vencimientos proyectados (renovación matrícula, DDJJ, etc.)
-ordenados por fecha. Cada item: título, descripción corta, "en N días".
-
-### 4.2 Mis gestiones (trámites del cliente)
-
-URL: `/portal/gestiones`
-
-Vista cliente de sus trámites con timeline visual (NO modal genérico).
-Cada estado tiene icono + color. Avances marcados visibles aparecen como
-nodos en la línea.
-
-Botón "Adjuntar documento" en cada trámite con docs pendientes.
-
-### 4.3 Cuenta corriente (cliente)
-
-URL: `/portal/cuenta-corriente`
-
-Header: "Tu saldo".
-
-Hero card: **Saldo actual** + status ("cuenta saldada" si $0).
-
-KPIs: Cargos / Cobranzas / N movimientos.
-
-Filtros: Desde, Hasta.
-
-Tabla con orden cronológico (FIFO, fix #157): Fecha, Movimiento, Cargo,
-Cobranza, **Saldo acumulado** al final de cada línea.
-
-Cada comprobante linkea a su detalle PDF (factura descargable, #195).
-
-### 4.4 Mis webinars
-
-URL: `/portal/webinars`
-
-Lista de webinars donde se inscribió. Cada uno con badge (Próximo /
-En curso / Pasado) + botón "Acceder" si aplica.
-
-### 4.5 Nuevo servicio
-
-URL: `/portal/nuevo-servicio`
-
-Cliente puede pedir un nuevo servicio (genera una solicitud). Formulario
-con catálogo público + voucher si aplica + datos del consorcio.
-
-### 4.6 Mi cuenta (perfil)
-
-URL: `/portal/mi-cuenta`
-
-- Datos personales + contacto.
-- Datos de la administración (read-only excepto teléfono y email).
-- Activar / desactivar push.
-- Cerrar sesión.
-
----
-
-## 5. Portal del partner
-
-URL: **<https://www.gestionglobal.ar/partner>**
-
-### 5.1 Mis rendiciones y comprobantes
-
-Hero: "Portal partner · Gestión Global · Mis rendiciones y comprobantes".
-
-#### Mi caja · Movimientos detallados
-
-Cada operación atribuida al partner con su % de convenio y saldo
-evolutivo. Filtros Desde / Hasta. KPIs Ingresos atribuidos / Egresos
-atribuidos / Saldo evolutivo.
-
-#### Resumen por período
-
-Tabla con: Período (Desde → Hasta), Estado (Borrador / Cerrado),
-Ingresos base, Ingresos atribuidos, Costos base, Costos atribuidos.
-
-#### Comprobantes asignados
-
-Tabla con cada comprobante donde participa el partner: Tipo + PV +
-número, Receptor, Fecha, Total, Estado, **Facturación**, Acción.
-
-##### Realizar factura desde el partner
-
-Si el comprobante está marcado para que el partner emita factura, el
-botón **"Realizar factura"** abre el wizard de facturación con el emisor
-fiscal del partner pre-seleccionado. Resultado: número fiscal asociado
-al comprobante original, PDF adjunto.
-
----
-
-## 6. Portal del gestor externo
-
-URL: **<https://www.gestionglobal.ar/acceso/:token>**
-
-Los **gestores externos** son terceros (gestoría tercerizada) que no
-tienen cuenta. Acceden por **token mágico** generado al derivar un
-trámite.
-
-### 6.1 Acceso
-
-El gestor recibe un email con:
-- Datos del trámite.
-- Botón **"Acceder al panel"**.
-- Vencimiento del link (configurable en
-  `acceso_externo.ttl_dias`, default 30, ajustable en Bloque K #169).
-
-### 6.2 Panel del gestor
-
-Sin sidebar. Card central con:
-- Datos del trámite + cliente + consorcio.
-- Documentación adjunta (descargable).
-- **Subir avances** (texto + archivos ilimitados).
-- **Marcar progreso** con campo "Estado actual".
-- **Botón "Descargar info del trámite"** (PDF con todo, Bloque K).
-
-### 6.3 Print stylesheet
-
-El gestor puede imprimir el panel (⌘P). El CSS de print oculta header,
-botones, scroll y deja sólo el contenido para tener el expediente en
-papel.
-
-### 6.4 Link expirado
-
-Si el token vence: pantalla "Link expirado" con CTA **"Pedir link
-nuevo"** (envía email a gerencia que regenera el token, C7).
-
----
-
-## 7. Campus público · cursos abiertos y webinars
-
-### 7.1 Campus público
-
-URL: `/campus`
-
-Catálogo público de cursos abiertos (cuando la cortina está apagada).
-Cada curso muestra:
-- Cover, título, instructor, modalidad.
-- Precio (con voucher si aplica).
-- Botón "Inscribirme" → formulario público.
-
-### 7.2 Webinar público por token
-
-URL: `/campus/webinar/:token`
-
-Página de **landing del webinar** para un inscripto específico (cliente
-o prospecto). Token único por inscripto.
-
-Contenido:
-- Sticky top bar con BrandMark.
-- Hero gradient cyan→night con título + fecha + hora.
-- Datos del orador.
-- Link de Zoom (revelado cerca del horario).
-- Si es prospecto: CTA "Conocé el campus de Gestión Global" (G2 #238).
-- Si es cliente: contenido sin CTA de captación.
-
----
-
-## 8. Flujos cotidianos paso a paso
-
-### 8.1 Crear un cliente desde cero
-
-1. **Sidebar › Clientes › + Nueva administración**.
-2. Wizard de 2 pasos:
-   - Datos: razón social, CUIT, condición IVA, domicilio.
-   - Acceso: email del administrador + checkbox "Generar credenciales y
-     mandar email de bienvenida".
-3. Guardar.
-4. El sistema:
-   - INSERT en `administraciones`.
-   - Llama edge function `alta-cliente-portal` que crea el user en
-     `auth.users` + vincula `administracion.user_id` + encola email
-     `bienvenida-administracion` con credenciales reales.
-
-### 8.2 Registrar un trámite
-
-1. **Sidebar › Trámites › + Nuevo trámite**.
-2. Wizard:
-   - Cliente (autocomplete de administraciones).
-   - Servicio (autocomplete del catálogo).
-   - Título + descripción.
-   - Asignar a (gerente).
-   - SLA / prioridad.
-3. Guardar → genera TRM-####.
-
-### 8.3 Emitir comprobante + cobrar
-
-1. **Sidebar › Facturación › Comprobantes › + Nuevo comprobante**.
-2. Receptor → líneas → cobranza (opcional).
-3. Si A/B/C → ARCA autoriza CAE en segundos.
-4. Email `comprobante-emitido` al cliente.
-
-### 8.4 Cerrar un trámite con renovación
-
-1. Entrar al detalle del trámite.
-2. Botón **"Cerrar trámite y programar próximo vencimiento"** (visible
-   sólo si el servicio tiene `vigencia_meses`).
-3. Modal pre-rellena fecha próxima vencimiento (hoy + `vigencia_meses *
-   30.4375` días).
-4. Confirmar → INSERT en `vencimientos_proyectados` + cierra el trámite.
-
-### 8.5 Enviar comunicación masiva
-
-1. **Sidebar › Comunicaciones › + Nueva comunicación**.
-2. Audiencia: elegir "Por servicios" → seleccionar "Renovación matrícula".
-3. Canales: ✅ Dashboard + ✅ Email + ✅ Push.
-4. Preview destinatarios (N administraciones).
-5. Enviar ahora.
-
-### 8.6 Conciliar extracto bancario
-
-1. **Sidebar › Finanzas › Conciliación**.
-2. Importar CSV del banco.
-3. Por cada línea: vincular con movimiento existente / crear nuevo /
-   ignorar.
-4. Confirmar.
-
-### 8.7 Tour onboarding completo gerente
-
-Disparado automático en primer ingreso. 6 pasos + 3 tours secundarios
-(Agenda, Trámite individual). Resetear desde Perfil.
-
----
-
-## 9. Notificaciones · push, email, in-app
-
-### 9.1 Tres canales coherentes
-
-Cuando algo importante pasa (ej. alarma de tracking, vencimiento, avance
-visible para cliente), el sistema dispara **los tres canales** (regla
-3 canales, fix M4):
-- **In-app**: aparece en la campanita 🔔 con badge.
-- **Push**: notificación a teléfono / desktop (si activado).
-- **Email**: transaccional vía Workspace.
-
-### 9.2 Campanita
-
-Botón 🔔 en header de gerencia y portal cliente. Dropdown con últimas
-notificaciones. Cada item: icono + título + cuerpo + tiempo relativo.
-
-Si el cuerpo es largo: click abre **modal con contenido completo**
-(UX-CAMP-01) y cierra el dropdown automáticamente.
-
-Acciones:
-- Marcar todas como leídas.
-- **Limpiar** (borra historial).
-- Click en un item → marca como leída + navega al recurso (ej. trámite).
-
-### 9.3 Activar push
-
-**Gerente** (header): icono notificación → "Activar notificaciones push".
-
-**Cliente** (portal home): banner "ActivarPushAssistant" universal:
-detecta navegador + sistema operativo y guía:
-- iOS Safari: "Agregar a inicio" → entrar a la PWA → activar.
-- Chrome iOS PWA: similar.
-- Android: prompt nativo.
-- Desktop Chrome / Edge: prompt nativo.
-- Desktop Safari: instrucciones manuales.
-
-### 9.4 Email
-
-Templates en Configuración › Plantillas email (32 plantillas).
-
-Casillas Gmail Workspace por área:
-- `contacto@gestionglobal.ar` (general).
-- `cursos@gestionglobal.ar`.
-- `juridico@gestionglobal.ar`.
-- `webinar@gestionglobal.ar`.
-
-Multi-casilla con OAuth refresh tokens (DGG-22). Send via SMTP TLS.
-
-DKIM activado (EGG-QA-05). Filtro "Promociones" mitigado vía headers
-correctos (EGG-QA-07).
-
-#### Frase del día
-
-Push + campanita diario a las 08:00 ART con una frase motivacional
-+ icono libro (N1).
-
-### 9.5 Bounce / Reply harvester
-
-Cron cada 30 min consulta Gmail vía OAuth → detecta:
-- **Bounces** (direcciones inválidas) → marca el destinatario.
-- **Respuestas** de clientes → inserta en `email_replies` para que
-  gerencia las vea en el panel.
-
-(Pub/Sub real-time fue descartado en DGG-29: el cron de 30 min cubre
-el caso de uso.)
-
----
-
-## 10. Administración técnica
+Una visión técnica breve, para quien necesite mantener el sistema.
 
 ### 10.1 Stack
 
@@ -1082,64 +965,47 @@ el caso de uso.)
   Deno).
 - **Scheduler**: pg_cron + pg_net.
 - **Push**: Web Push VAPID + Service Worker.
-- **ARCA**: SOAP nativo con node-forge (sin SDK).
+- **ARCA**: SOAP nativo con node-forge.
 - **Email**: Workspace SMTP + OAuth tokens por casilla.
 - **CI/CD**: GitHub → Vercel (auto-deploy).
 
 ### 10.2 Variables de entorno
 
-Ver `.env.example` para la lista completa con comentarios:
-- Cliente Vite: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`,
-  `VITE_VAPID_PUBLIC_KEY`, etc.
-- Edge functions (Supabase secrets): `CRON_SECRET`,
-  `SUPABASE_SERVICE_ROLE_KEY`, `WORKSPACE_SMTP_*`, `GOOGLE_OAUTH_*`,
-  `VAPID_*`, `ZOOM_*`, `WEBEX_*` (latente).
+Ver `.env.example`. Cliente Vite tiene `VITE_*`. Edge functions tienen
+secrets de Supabase: `CRON_SECRET`, `SUPABASE_SERVICE_ROLE_KEY`,
+`WORKSPACE_SMTP_*`, `GOOGLE_OAUTH_*`, `VAPID_*`, `ZOOM_*`.
 
 ### 10.3 Migraciones
 
-Toda mutación de schema en `supabase/migrations/` numerado (0001, 0002,
-…). Todo `CREATE TABLE public.*` post-mig 0130 incluye GRANTs
-explícitos a `authenticated` (regla 6).
+Toda mutación de schema vive en `supabase/migrations/`. Numeradas
+correlativamente. Todo `CREATE TABLE public.*` post-mig 0130 incluye
+GRANTs explícitos. Aplicación:
 
-Aplicar migraciones nuevas:
 ```bash
-supabase db push  # local
-# o vía CI con service role
+supabase db push
+bash scripts/generate-types.sh   # regenerar TS types
 ```
 
-Regenerar types tras toda migración:
-```bash
-bash scripts/generate-types.sh
-```
-
-### 10.4 Edge functions versionadas
+### 10.4 Edge functions
 
 Todas las edge functions de producción tienen archivo en
-`supabase/functions/`. Drift entre prod y repo = bug. Deploy:
+`supabase/functions/`. Drift entre prod y repo es un bug. Deploy:
+
 ```bash
 supabase functions deploy <name>
 ```
 
 ### 10.5 Cortina de mantenimiento
 
-Toggle en `config_global.landing_cover_enabled`:
-- `true` → todas las rutas públicas muestran "Proyectando mejoras
-  extraordinarias".
-- `false` → landing institucional + formularios públicos activos.
+Toggle `config_global.landing_cover_enabled`. Si está `true`, todas
+las rutas públicas muestran "Proyectando mejoras extraordinarias". Se
+puede cambiar con UPDATE o con el toggle en la footer del sidebar de
+gerencia.
 
-Cambiar con un UPDATE en config_global o desde Settings de gerencia
-(DGG-28).
+### 10.6 Reset de password
 
-### 10.6 Backup
+Sin flujo de UI todavía. Por DB:
 
-Supabase hace daily backups automáticos. Para downloads manuales:
-```bash
-supabase db dump > backup-YYYYMMDD.sql
-```
-
-### 10.7 Reset de password (admin)
-
-Sin flujo de UI todavía. Reset por DB:
 ```sql
 UPDATE auth.users
 SET encrypted_password = crypt('NuevaPass2026!', gen_salt('bf'))
@@ -1148,77 +1014,69 @@ WHERE email = 'user@ejemplo.com';
 
 ---
 
-## 11. Troubleshooting
+## 11. Cuando algo no anda
 
-### 11.1 No me llega el email
+### 11.1 No llega el email
 
-1. Chequear **Configuración › Plantillas email › Cola de envíos**:
-   ¿está el mail con estado `enviado` o `error`?
-2. Si está en `error`: ver `error_message` (probable bounce, dirección
-   inválida, OAuth token expirado).
-3. Si está `enviado` pero no llega: ver bandeja de Promociones / Spam.
-   DKIM está activo, pero la primera vez puede caer ahí.
-4. Pedirle al destinatario que marque como "No es spam".
+Mirá *Configuración → Plantillas email → Cola de envíos*. Si el job
+está en `enviado`, ya salió: revisá Promociones o Spam del
+destinatario. Si está en `error`, ahí tenés el motivo (token vencido,
+bounce, dirección inválida). DKIM está activo pero la primera vez puede
+caer en Promociones; pedile al destinatario que lo marque como "No es
+spam".
 
-### 11.2 No me llega el push
+### 11.2 No llega el push
 
-1. Verificar que el navegador soporta Web Push (Safari iOS solo en PWA
-   instalada).
-2. **Portal cliente**: usar banner ActivarPushAssistant.
-3. Verificar `push_subscriptions` table: ¿hay fila para ese usuario?
-4. Verificar `push_notifications_queue`: ¿hay job con `status='error'`?
-5. Si VAPID keys cambiaron, todas las subscripciones quedan inválidas
-   → re-subscribirse.
+Primero verificá que el navegador lo soporte (en iOS, solo PWA
+instalada). Luego revisá `push_subscriptions` (tiene que haber fila
+para ese usuario) y `push_notifications_queue` (no debería haber jobs
+en `error`). Si rotaste las VAPID keys, todas las suscripciones
+quedaron inválidas — hay que re-subscribirse.
 
-### 11.3 Comprobante no autoriza en ARCA
+### 11.3 ARCA no autoriza
 
-1. Verificar `comprobante.estado`: si es `error_arca`, ver
-   `arca_error_message`.
-2. Errores comunes:
-   - Certificado vencido → renovar en Configuración › ARCA.
-   - CUIT del receptor inválido → corregir y reintentar.
-   - Rate limit ARCA → esperar intervalo
-     (`config_global.arca_intervalo_emision_seg`).
-3. Botón **Reintentar** en el detalle del comprobante.
+El comprobante tiene estado `error_arca` con un mensaje específico.
+Errores comunes: certificado vencido (renovar en Configuración → ARCA),
+CUIT del receptor inválido (corregir y reintentar), rate limit ARCA
+(esperar el intervalo configurado). Hay botón "Reintentar" en el
+detalle del comprobante.
 
-### 11.4 Agenda no muestra mis eventos
+### 11.4 La Agenda no muestra mis eventos
 
-1. Verificar filtros chips en el header (¿está activado `Todo`?).
-2. Verificar toggle "Solo lo mío".
-3. Verificar Modo enfoque (si está ON oculta proyecciones, no eventos
-   propios).
-4. Si nada se muestra: chequear `agenda_events.owner_id = auth.uid()`.
+Verificá los chips (¿está activado *Todo* o solo algunos?), el toggle
+*Solo lo mío*, y el modo enfoque (que oculta proyecciones, no
+eventos propios). Si nada se muestra: chequear que
+`agenda_events.owner_id = auth.uid()`.
 
 ### 11.5 Pantalla rota en mobile
 
-1. Confirmar viewport 360 px.
-2. Buscar regla 13: ¿se está usando `window.confirm/alert/prompt`? Eso
-   rompe layout en mobile, debe ser `useConfirm/useAlert/usePrompt`.
-3. Verificar safe-area-inset-bottom en barra inferior (PWA iOS).
+Reproducir a 360 px. Si algo usa `window.confirm/alert/prompt`, eso
+rompe (regla 13). Debe ser `useConfirm/useAlert/usePrompt` del
+`DialogProvider`. Verificar también `safe-area-inset-bottom` en barras
+inferiores cuando es PWA en iOS.
 
-### 11.6 Login funciona pero redirige a otra área
+### 11.6 Login va pero redirige a otra área
 
 El sistema usa `profiles.role` para enrutar. Verificar:
+
 ```sql
 SELECT id, full_name, role FROM profiles WHERE id = 'USER_ID';
 ```
 
-Si está mal el rol → UPDATE manual.
+Si está mal, UPDATE manual.
 
 ### 11.7 Trámite no permite agregar avance visible
 
-Verificar que el cliente tenga `administracion.user_id` poblado (creado
-correctamente). Sin user_id no se le puede mandar email/push.
+El cliente tiene que tener `administracion.user_id` poblado. Sin eso,
+no se le puede mandar email o push.
 
-### 11.8 Generación de tipos rompe el build
+### 11.8 Build TS roto tras migración
 
-Tras una migración:
+Regenerar tipos:
+
 ```bash
 bash scripts/generate-types.sh
-```
-
-Si tira error: regenerar manualmente con la CLI de Supabase:
-```bash
+# o manual:
 npx supabase gen types typescript --project-id <ID> > src/types/database.types.ts
 ```
 
@@ -1228,81 +1086,82 @@ npx supabase gen types typescript --project-id <ID> > src/types/database.types.t
 
 | Término | Significado |
 |---|---|
-| **Administración** | Cliente de Gestión Global. Persona o estudio que administra consorcios. |
+| **Administración** | Cliente. Persona o estudio que administra consorcios. |
 | **Consorcio** | Edificio bajo gestión de una administración. |
-| **Trámite / Tracking** | Expediente que se le abre a un cliente para un servicio. Internamente "trámite" para cliente y "tracking" para gerencia. |
-| **Servicio** | Item del catálogo (RPAC matriculación, DDJJ, consultoría). |
+| **Trámite / Tracking** | Expediente que se le abre a un cliente para un servicio. *Trámite* para el cliente, *Tracking* para la gerencia. |
+| **Servicio** | Item del catálogo (RPAC, DDJJ, consultoría). |
 | **Comprobante** | Factura (X / A / B / C) emitida al cliente. |
 | **Movimiento** | Línea de caja (ingreso, egreso, transferencia). |
 | **Imputación** | Vínculo entre un movimiento (cobranza) y un comprobante (deuda). |
-| **Vencimiento** | Fecha próxima donde hay que renovar / pagar / actuar (matrícula, DDJJ, etc.). |
+| **Vencimiento** | Fecha próxima donde hay que renovar / pagar / actuar. |
 | **Solicitud** | Lead de captación: alguien llenó un formulario público. |
-| **Prospecto** | Inscripto a webinar que no es cliente todavía. Separado de la tabla `administraciones`. |
+| **Prospecto** | Inscripto a webinar que no es cliente todavía. |
 | **Partner** | Aliado comercial con rendición de cuentas. |
-| **Gestor** | Tercero que gestiona un trámite específico (acceso por token). |
+| **Gestor externo** | Tercero que gestiona un trámite específico (acceso por token). |
 | **Campus** | Subsistema de cursos y webinars. |
-| **MDC** | Plataforma gemela (Manaxer / Documento Centralizado / etc.) usada como referencia de patrones. |
-| **MANAXER** | Plataforma original que inspira layout de emails (templates v1). |
+| **MDC / MANAXER** | Plataformas hermanas que sirvieron como referencia de patrones. |
 | **VAPID** | Voluntary Application Server Identification. Claves para Web Push. |
-| **ARCA** | Administración Recaudadora de la Ciudad de Buenos Aires (factura electrónica). |
+| **ARCA** | Administración Recaudadora. Autoridad fiscal local. Factura electrónica. |
 | **CAE** | Código de Autorización Electrónico de ARCA. |
 | **CSR** | Certificate Signing Request para ARCA. |
-| **RLS** | Row-Level Security (Postgres). |
+| **RLS** | Row-Level Security de Postgres. |
 | **DGG-##** | Decisión documentada en `knowledge-base/DECISIONES.md`. |
-| **E##** | Error/lección documentada en `knowledge-base/ERRORES.md`. |
+| **E##** | Error / lección documentada en `knowledge-base/ERRORES.md`. |
 
 ---
 
-## 13. Anexo · atajos de teclado
+## 13. Atajos de teclado
 
-### Globales (gerencia)
+### Globales
 
 | Tecla | Acción |
 |---|---|
-| `⌘K` | Abrir command palette (Buscar pantallas, clientes, comprobantes…). |
-| `⌘P` (próximamente) | Imprimir vista actual. |
-| `Esc` | Cerrar modal / palette. |
+| `⌘K` | Command palette |
+| `Esc` | Cerrar modal o palette |
 
 ### En la Agenda
 
 | Tecla | Acción |
 |---|---|
-| `J` / ← | Período anterior. |
-| `K` / → | Período siguiente. |
-| `T` | Saltar a hoy. |
-| `1` / `2` / `3` / `4` | Lista / Día / Semana / Mes. |
-| `N` | Nuevo evento. |
-| `⌘K` | Acciones scope-aware (ir a fecha, Modo enfoque, exportar). |
+| `J` o `←` | Período anterior |
+| `K` o `→` | Período siguiente |
+| `T` | Saltar a hoy |
+| `1..4` | Lista / Día / Semana / Mes |
+| `N` | Nuevo evento |
+| `⌘K` | Acciones scope-aware |
 
 ### En el FormularioBuilder
 
 | Tecla | Acción |
 |---|---|
-| `⌘Z` | Deshacer. |
-| `⇧⌘Z` | Rehacer. |
-| `⌘1..9` | Insertar bloque (texto, número, fecha, archivo, select…). |
-| `Delete` | Eliminar bloque seleccionado. |
+| `⌘Z` | Deshacer |
+| `⇧⌘Z` | Rehacer |
+| `⌘1..9` | Insertar bloque |
+| `Delete` | Eliminar bloque |
 
 ---
 
-## Apéndice A · Referencias cruzadas
+## Apéndice · Referencias cruzadas
 
-- **Reglas no negociables** (13): `CLAUDE.md` §2.
-- **Decisiones DGG-##**: `knowledge-base/DECISIONES.md`.
-- **Errores E##**: `knowledge-base/ERRORES.md`.
-- **Modelo de datos**: `knowledge-base/01_MODELO_DE_DATOS.md`.
-- **Facturación / ARCA / Emails**: `knowledge-base/02_FACTURACION_ARCA_EMAILS.md`.
-- **Conciliación / Cajas / Motor**: `knowledge-base/03_CONCILIACION_CAJAS_MOTOR.md`.
-- **Móvil / Push / Reportes**: `knowledge-base/04_MOVIL_PUSH_REPORTES.md`.
-- **Status actual**: `PROJECT_STATUS.md`.
+Las decisiones tomadas durante el desarrollo están documentadas en
+`knowledge-base/DECISIONES.md` con código `DGG-##`. Los errores que
+descubrimos y resolvimos están en `knowledge-base/ERRORES.md` con
+código `E##`. El estado vivo del proyecto vive en `PROJECT_STATUS.md`.
+
+Para detalle técnico del modelo de datos, ver
+`knowledge-base/01_MODELO_DE_DATOS.md`. Para todo lo de facturación,
+ARCA y emails: `knowledge-base/02_FACTURACION_ARCA_EMAILS.md`. Para
+finanzas y conciliación: `knowledge-base/03_CONCILIACION_CAJAS_MOTOR.md`.
+Para móvil, push y reportes: `knowledge-base/04_MOVIL_PUSH_REPORTES.md`.
 
 ---
 
-## Apéndice B · Versionado de este manual
+## Versionado
 
 | Versión | Fecha | Cambios |
 |---|---|---|
-| 1.0 | 2026-05-31 | Versión inicial. Cubre todo el alcance MVP post-E2. |
+| 1.0 | 2026-05-31 | Versión inicial. Cobertura completa post-E2. |
+| 1.1 | 2026-06-01 | Reescritura narrativa. Tres miradas (gerencia, cliente, partner, gestor) como capítulos. Diagramas de flujo, callouts, screenshots sin overlay de tour, isologo y triángulos de marca. |
 
 ---
 
