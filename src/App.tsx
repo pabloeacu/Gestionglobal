@@ -8,6 +8,7 @@ import { LandingPage } from '@/modules/public/pages/LandingPage';
 import { ComingSoonCoverPage } from '@/modules/public/pages/ComingSoonCoverPage';
 import { PlataformaMuyProntoPage } from '@/modules/public/pages/PlataformaMuyProntoPage';
 import { ScrollToTopOnRouteChange } from '@/components/common/ScrollToTopOnRouteChange';
+import { ChunkErrorBoundary } from '@/components/common/ChunkErrorBoundary';
 import { LoginPage } from '@/modules/auth/pages/LoginPage';
 import { HealthPage } from '@/modules/public/pages/HealthPage';
 import { GerenciaLayout } from '@/modules/gerencia/components/GerenciaLayout';
@@ -265,6 +266,11 @@ export function App() {
           de una página larga (landing, listado) a un destino nuevo deja al
           usuario en la mitad del nuevo route — el header queda oculto. */}
       <ScrollToTopOnRouteChange />
+      {/* Boundary que captura "Failed to fetch dynamically imported module"
+          (típico tras un deploy nuevo cuando el bundle viejo aún está abierto
+          en el browser) y fuerza un reload duro automático en vez de dejar
+          la pantalla en blanco. Reportado por el usuario 2026-06-02. */}
+      <ChunkErrorBoundary>
       <Suspense fallback={<BrandLoaderScreen />}>
       <Routes>
         <Route path="/" element={<RoleHomeOrLanding />} />
@@ -398,6 +404,7 @@ export function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       </Suspense>
+      </ChunkErrorBoundary>
     </BrowserRouter>
   );
 }

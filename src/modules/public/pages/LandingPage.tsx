@@ -1,6 +1,5 @@
 import { Link } from 'react-router-dom';
 import {
-  ArrowRight,
   ArrowUpRight,
   ShieldCheck,
   RefreshCcw,
@@ -247,23 +246,17 @@ function Hero() {
           fricción, más respaldo y una gestión profesional libre de errores.
         </p>
 
+        {/* Cambios usuario 2026-06-02: solo queda el CTA hacia "Servicios".
+            Los 2 CTAs hero/finalCTA hacia /plataforma fueron removidos para
+            no duplicar el acceso del card "Plataforma de gestión" + sección
+            "Tu gestión en una sola pantalla", que ya cubren ese destino. */}
         <div
-          className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row animate-fade-up"
+          className="mt-10 flex animate-fade-up items-center justify-center"
           style={{ animationDelay: '240ms' }}
         >
-          {/* AJL #8: este CTA dice "plataforma" → va a la página de presentación
-              de la plataforma (Muy pronto), no al login. El "Ingresar" sigue en
-              el SiteNav para quien tiene credenciales del panel interno. */}
-          <Link
-            to="/plataforma"
-            className="group inline-flex items-center gap-2 rounded-full bg-brand-ink px-7 py-3.5 font-semibold text-white shadow-[0_10px_30px_-12px_rgba(18,34,48,0.5)] transition hover:bg-brand-cyan hover:shadow-[0_14px_40px_-12px_rgba(0,158,202,0.55)]"
-          >
-            Conocer la plataforma
-            <ArrowRight size={17} className="transition group-hover:translate-x-1" />
-          </Link>
           <a
             href="#servicios"
-            className="rounded-full border border-slate-200 bg-white px-6 py-3.5 text-sm font-medium text-brand-ink transition hover:border-brand-cyan hover:text-brand-cyan"
+            className="rounded-full border border-slate-200 bg-white px-7 py-3.5 text-sm font-semibold text-brand-ink transition hover:border-brand-cyan hover:text-brand-cyan"
           >
             Conocer los servicios
           </a>
@@ -949,22 +942,13 @@ function FinalCTA() {
               Sumate a la comunidad de administradores que ya trabajan con
               Gestión Global.
             </p>
-            <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-              {/* AJL #8: igual que el hero, este CTA dice "plataforma" → va a
-                  la página de presentación, no al login. */}
-              <Link
-                to="/plataforma"
-                className="group inline-flex items-center gap-2 rounded-full bg-brand-ink px-7 py-3.5 font-semibold text-white transition hover:bg-brand-cyan"
-              >
-                Conocer la plataforma
-                <ArrowRight
-                  size={17}
-                  className="transition group-hover:translate-x-1"
-                />
-              </Link>
+            {/* Cambios usuario 2026-06-02: el CTA gigante "Conocer la plataforma"
+                de este bloque también se removió. Queda solo el contacto por
+                mail centrado. */}
+            <div className="mt-8 flex items-center justify-center">
               <a
                 href="mailto:contacto@gestionglobal.ar"
-                className="rounded-full border border-slate-300 bg-white/70 px-6 py-3.5 text-sm font-medium text-brand-ink transition hover:border-brand-cyan hover:text-brand-cyan"
+                className="rounded-full border border-slate-300 bg-white/70 px-7 py-3.5 text-sm font-semibold text-brand-ink transition hover:border-brand-cyan hover:text-brand-cyan"
               >
                 Escribinos a contacto@gestionglobal.ar
               </a>
