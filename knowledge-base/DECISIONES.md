@@ -13,6 +13,83 @@
 - **Fecha:**
 -->
 
+## DGG-34 · Capitalización auditoría DEEP — 3 drawers + reglas R14/R15 + sweep BD
+- **Decisión:** después del cierre de DGG-33, hacer un chunk completo
+  ("auditoría profunda") que (a) cierre TODOS los GAPs UI-coverage que
+  quedaron en el reporte ASIG-A; (b) agregue reglas no negociables R14 y
+  R15 para que este tipo de gap no se repita; (c) ejecute dos auditorías
+  transversales en paralelo (BD profunda + superficie de código) y
+  capitalice los hallazgos prioritarios; (d) corra smoke tests e2e en BD
+  de los flujos críticos antes de cerrar el chunk.
+- **Razón:** mandato explícito del dueño 2026-06-02: "Necesitamos que
+  quede todo impecable. Como política general, tenemos que tener el
+  sistema más estable, sólido y premium. Así que con esa filosofía no se
+  pueden escatimar recursos en las auditorías ni tampoco dejar nada
+  postergado. Cuando se encuentra algo, por más pequeño que sea, se
+  resuelve A FONDO y, luego, se prueba y testea."
+- **Implementación:**
+  - **UI (3 drawers nuevos)**:
+    - `TrackingMetadataDrawer` integrado en `TrackingDetailPage` con
+      botón "Editar metadata" → edita titulo, categoria, prioridad,
+      vence_at, descripcion, admin/consorcio, solicitante_*. Cierra GAPs
+      #1 + #2 del reporte ASIG-A.
+    - `ProspectoEditDrawer` en `ProspectosListPage` con botón "Editar"
+      por fila → edita nombre/email/teléfono. Cierra GAP #3 (email mal
+      escrito desde formulario quedaba enterrado).
+    - `UsuarioEditDrawer` en `UsuariosPage` con botón "Editar" por fila
+      → edita full_name + role (gerente/operador). Cierra GAP #4.
+  - **SQL (migs 0171 + 0172)**:
+    - 0171 · RPC `actualizar_gerente` con guards (actor gerente/superadmin,
+      role target IN gerente/operador, no muta clientes/partners).
+    - 0172 · capitalización DEEP-AUDIT-D:
+      - DROP overload viejo `fz_crear_movimiento_manual` (10 args,
+        deprecado; el frontend usa 11 args).
+      - `assert_administracion_access` en `curso_asignar_alumno` (R12).
+      - RLS lockdown explícito de `arca_tokens` (`FOR ALL USING(false)`,
+        sólo service_role accede via edge functions).
+      - Comentarios justificatorios en las 5 policies `USING(true)`
+        (R2 cumplida en docs).
+      - Índice `idx_health_flow_alerts_origen_run_id` (R11 — única FK
+        formal sin índice del repo).
+    - Hotfix en mig 0170 del trigger `_notif_cobranza_recibida_trg`
+      (E-GG-36): record sin asignar → escalares con default NULL.
+  - **Reglas (CLAUDE.md, 13 → 15)**:
+    - **R14** Paridad columna-grilla ↔ control de edición. Toda columna
+      persistida visible en grilla debe tener al menos una de: editor en
+      detail ruteado, control en form drawer, quick-edit inline, o tag
+      AUTO documentado. Si ninguna aplica → deuda y GAP en ERRORES.md.
+    - **R15** Diff legacy ↔ nueva al redirigir rutas SPA. Cuando una mig
+      de UI redirige una ruta legacy a una página nueva, antes del
+      merge correr diff de campos editables entre las dos páginas;
+      cualquier control de mutación presente en la legacy y ausente en
+      la nueva es un E## obligatorio.
+  - **Code quality**:
+    - Sweep `humanizeError` en 12 sitios que pasaban `error.message`
+      crudo al toast (auditoría DEEP-AUDIT-E Frente 4).
+    - `humanizeError()` firma extendida para aceptar `unknown` (sin
+      cast en catch blocks). Maneja Error / PostgrestError /
+      StorageError / FunctionsHttpError uniformemente.
+  - **Smoke e2e en BD**:
+    - SMOKE 1 · solicitud nueva → trigger `_notif_solicitud_nueva_trg`
+      dispara 2 notif in-app (1 por gerente activo). ✓
+    - SMOKE 2 · movimiento ingreso/facturacion → trigger
+      `_notif_cobranza_recibida_trg` → `notify_all_gerentes` → 2 in-app
+      + 2 emails + 1 push. ✓ (descubrió E-GG-36 en el primer intento.)
+- **Parqueado a BACKLOG** (DEEP-AUDIT-E Frente 1 — R4):
+  - 15 violaciones de "supabase.from/rpc/functions/storage en componentes"
+    (top: WizardActivacion functions.invoke, LineaTrackingCard +
+    AlarmasHoyWidget RPCs, PortalWebinarsPage RPC, 4 storage ops en
+    PartnerPortal/TrackingDetail/PropertiesPanel/AccesoExterno). Es un
+    sweep por sí mismo (extender 5+ services existentes + crear
+    `accesoExterno.ts`). Próximo chunk.
+- **Verificación e2e en producción**:
+  - Build limpio (tsc + vite).
+  - SMOKE 1 + SMOKE 2 con side-effects observados.
+  - Mig 0172 aplicada con verificación de policies, índice, drop overload.
+  - `notify_all_gerentes` retorna 2 (gerentes activos correctos).
+- **Fecha:** 2026-06-02 · ref DEEP-1 a DEEP-7, AUDIT-D/E, E-GG-36, migs
+  0171/0172.
+
 ## DGG-33 · Sin asignación individual — fan-out a TODOS los gerentes en 3 canales
 - **Decisión:** Gestión Global NO tiene asignaciones individuales de
   trabajo. Todos los usuarios con rol `gerente` (y `operador`) ven todo y

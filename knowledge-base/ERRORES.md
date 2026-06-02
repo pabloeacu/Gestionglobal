@@ -14,6 +14,41 @@
 - **Fecha / módulo:**
 -->
 
+## E-GG-36 · Trigger `_notif_cobranza_recibida_trg` fallaba cuando comprobante_id IS NULL
+- **Síntoma:** SMOKE 2 e2e (insertar movimiento ingreso/facturacion sin
+  comprobante_id) falló con:
+  ```
+  ERROR: 55000: record "v_comp" is not assigned yet
+  CONTEXT: PL/pgSQL function _notif_cobranza_recibida_trg() line 22
+  ```
+  Sin el smoke test, el bug habría llegado a producción y roto la PRIMERA
+  cobranza registrada sin comprobante vinculado.
+- **Causa raíz:** mig 0170 (DGG-33) introdujo el trigger declarando
+  `v_comp record` y populando vía `SELECT INTO v_comp ... WHERE c.id =
+  NEW.comprobante_id`. Si NEW.comprobante_id IS NULL, el SELECT no se
+  ejecuta y v_comp queda sin asignar. Después referenciar `v_comp.numero`
+  hace que plpgsql tire 55000 porque el tipo de tupla no está determinado
+  para un `record` no asignado.
+- **Fix (`apply_migration audit_d_fix_cobranza_trigger`):** reemplazar la
+  variable `v_comp record` por tres escalares (`v_comp_tipo text`,
+  `v_comp_numero bigint`, `v_comp_punto int`) que arrancan en NULL por
+  default y se populan condicionalmente. Postgres trata NULL como valor
+  válido, no tira 55000.
+- **Verificación:** SMOKE 2 retry inmediato post-hotfix: insert sin
+  comprobante_id → trigger dispara `notify_all_gerentes('cobranza_recibida',
+  ...)` → 2 in-app + 2 emails + 1 push (los 2 gerentes, push sólo en quien
+  tiene subs). ✓
+- **Prevención:**
+  - Para variables que se populan dentro de un `IF`, **siempre** usar
+    escalares con default NULL en vez de `record` sin asignar. El `record`
+    funciona sólo si SIEMPRE se asigna ANTES del primer uso.
+  - **Regla operativa nueva**: todo trigger introducido en un chunk debe
+    pasar smoke test e2e CON Y SIN parámetros opcionales (NULL en cada
+    FK opcional) antes de cerrar el chunk. Habría detectado este bug en
+    el chunk DGG-33 antes de pushear, no en el DEEP siguiente.
+- **Fecha / módulo:** 2026-06-02 · trigger cobranza · mig 0170 (fix
+  in-place vía apply_migration).
+
 ## E-GG-35 · Columna "Asignado" sin UI accesible + anti-patrón fan-out por `asignado_a`
 - **Síntoma:** en `/gerencia/tramites` la columna "Asignado" mostraba
   "Sin asignar" casi siempre. El usuario preguntó "¿dónde se asigna?" y al
