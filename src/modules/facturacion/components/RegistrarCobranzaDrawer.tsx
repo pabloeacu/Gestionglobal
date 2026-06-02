@@ -15,6 +15,7 @@ import {
   type CajaRow,
   type CategoriaFinanzaRow,
 } from '@/services/api/cobranzas';
+import { listPartnersActivos, type PartnerOpcion } from '@/services/api/partners';
 import type { ComprobanteRow } from '@/services/api/comprobantes';
 import { humanizeError } from '@/lib/errors';
 
@@ -52,9 +53,14 @@ export function RegistrarCobranzaDrawer({
   const [monto, setMonto] = useState<number>(Number(comprobante.saldo_pendiente ?? 0));
   const [referencia, setReferencia] = useState('');
   const [descripcion, setDescripcion] = useState('');
+  // DGG-39 (2026-06-02 · José Luis): emparejar con ModalRegistrarPago simple
+  // que ya tenía Participa Partner. El partner_id_atribucion entra en la
+  // rendición del partner (#145).
+  const [partnerId, setPartnerId] = useState('');
 
   const [cajas, setCajas] = useState<CajaRow[]>([]);
   const [categorias, setCategorias] = useState<CategoriaFinanzaRow[]>([]);
+  const [partners, setPartners] = useState<PartnerOpcion[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const saldo = Number(comprobante.saldo_pendiente ?? 0);
@@ -68,12 +74,15 @@ export function RegistrarCobranzaDrawer({
     setMonto(saldo);
     setReferencia('');
     setDescripcion('');
+    setPartnerId('');
     setErrors({});
     void (async () => {
-      const [cR, gR] = await Promise.all([
+      const [cR, gR, pR] = await Promise.all([
         listCajasActivas(),
         listCategoriasIngreso(),
+        listPartnersActivos(),
       ]);
+      if (pR.ok) setPartners(pR.data);
       if (cR.ok) {
         setCajas(cR.data);
         // JL-CAJA #3 (mig 0174) · pre-seleccionar la caja favorita
@@ -138,6 +147,7 @@ export function RegistrarCobranzaDrawer({
       descripcion,
       referencia,
       categoria_id: categoriaId || null,
+      partner_id_atribucion: partnerId || null, // DGG-39 (JL emparejamiento)
     });
     setSaving(false);
     if (!res.ok) {
@@ -311,6 +321,28 @@ export function RegistrarCobranzaDrawer({
                 />
               </Field>
 
+              {/* DGG-39 (2026-06-02 · José Luis): Participa Partner. Antes
+                  solo aparecía en el modal simple de Solicitudes; emparejado
+                  acá para que el wizard de CC ofrezca lo mismo. */}
+              {partners.length > 0 && (
+                <Field
+                  label="Participa partner"
+                  hint="Si lo marcás, este pago entra en la rendición del partner (#145)."
+                >
+                  <Select
+                    value={partnerId}
+                    onChange={(e) => setPartnerId(e.target.value)}
+                  >
+                    <option value="">— No participa —</option>
+                    {partners.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.nombre}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+              )}
+
               {/* Preview live de cómo queda el saldo */}
               <div className="grid gap-3 sm:grid-cols-3">
                 <PreviewBox label="Saldo actual" value={saldo} tone="muted" />
@@ -341,6 +373,11 @@ export function RegistrarCobranzaDrawer({
                       v={categorias.find((c) => c.id === categoriaId)?.nombre ?? '(sin categoría)'}
                     />
                     <KV k="Referencia" v={referencia || '(sin referencia)'} />
+                    {/* DGG-39 · Mostrar partner si fue elegido */}
+                    <KV
+                      k="Participa partner"
+                      v={partners.find((p) => p.id === partnerId)?.nombre ?? '(no participa)'}
+                    />
                   </div>
                 </div>
                 <div className="flex items-center justify-between rounded-xl border-2 border-brand-cyan/40 bg-gradient-to-br from-brand-cyan-pale/40 to-brand-teal/10 p-4">

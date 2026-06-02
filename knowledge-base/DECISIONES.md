@@ -13,6 +13,58 @@
 - **Fecha:**
 -->
 
+## DGG-39 · Cobranza · emparejamiento de campos entre las dos vías de registro
+- **Decisión:** las dos formas de registrar una cobranza (modal simple
+  desde el panel de Solicitud recibida y wizard de 3 pasos desde Cuenta
+  Corriente / Facturación) deben ofrecer **el mismo conjunto de campos**.
+  No se achica ninguna — se les agregan los faltantes a cada una para
+  emparejarlas al máximo.
+- **Razón:** José Luis (2026-06-02): "la carga de una cobranza debe ser
+  igual de completa en cuanto a sus características por cualquiera de
+  las vías. Faltaba `Referencia` en la del panel y `Participa Partner`
+  en el wizard. Revisar ambas e igualar al máximo".
+- **Mapa de campos antes vs. después:**
+  | Campo | Modal simple (solicitudes) | Wizard 3 pasos (CC) |
+  |---|---|---|
+  | Caja | ✓ | ✓ |
+  | Fecha | ✓ | ✓ |
+  | Monto | ✓ | ✓ |
+  | Descripción | ✓ | ✓ |
+  | Participa partner | ✓ | **❌ → ✓** ← agregado |
+  | Referencia | **❌ → ✓** ← agregado | ✓ |
+  | Categoría caja | **❌ → ✓** ← agregado | ✓ |
+  | Botón "Cobrar todo" | **❌ → ✓** ← agregado | ✓ |
+  | Caja favorita pre-seleccionada | **❌ → ✓** ← agregado | ✓ |
+- **Implementación:**
+  - **Modal simple** (`PanelComprobanteCobranza.tsx · ModalRegistrarPago`):
+    - Carga `listCategoriasIngreso()` además de cajas y partners,
+      pre-selecciona la categoría que match "cobranza/honorario/servicio".
+    - Pre-selecciona la caja con `es_default=true` (consistencia con
+      JL-CAJA mig 0174 / DGG-35).
+    - Agregado `Field Categoría` antes de Fecha/Monto.
+    - Agregado botón "Total" al lado del input Monto (clamp a saldo).
+    - Agregado `Field Referencia` entre Monto y Descripción.
+    - El payload de `registrarCobranza()` ahora incluye `referencia`
+      y `categoria_id` además del ya existente `partner_id_atribucion`.
+  - **Wizard 3 pasos** (`RegistrarCobranzaDrawer.tsx`):
+    - Imports `listPartnersActivos` + `PartnerOpcion`.
+    - Carga partners en paralelo con cajas y categorías.
+    - Step 2 (Monto e identificación) gana un `Field Participa Partner`
+      después de "Descripción interna" (solo si `partners.length > 0`,
+      mismo gating que el modal simple para no mostrar el dropdown si
+      no hay partners registrados).
+    - Step 3 (Confirmar) suma `KV Participa partner` al resumen.
+    - El payload de `registrarCobranza()` ahora incluye
+      `partner_id_atribucion`.
+- **Backend sin cambios:** el service `registrarCobranza()` y la RPC
+  `registrar_cobranza_comprobante` ya aceptaban los 3 args opcionales
+  (`p_referencia`, `p_categoria_id`, `p_partner_id_atribucion`) desde
+  #145 / DGG-23. El emparejamiento es 100% UI.
+- **Auditoría transversal:** `grep -rn registrarCobranza` en src/modules
+  devuelve solo 2 callsites (PanelComprobanteCobranza + RegistrarCobranzaDrawer)
+  — ambos quedan emparejados al cierre del chunk.
+- **Fecha:** 2026-06-02 · ref COB-EQ-1/2/3.
+
 ## DGG-38 EXT · Cierre de trámite con motivo + observaciones + adjunto condicional
 - **Decisión:** el cierre de cualquier trámite (no sólo cursos) ofrece
   un **catálogo de motivos predeterminados por categoría** + un campo de

@@ -32,8 +32,10 @@ import {
 } from '@/services/api/comprobantes';
 import {
   listCajasActivas,
+  listCategoriasIngreso,
   registrarCobranza,
   type CajaRow,
+  type CategoriaFinanzaRow,
 } from '@/services/api/cobranzas';
 import { listPartnersActivos, type PartnerOpcion } from '@/services/api/partners';
 import { setSolicitudComprobante } from '@/services/api/solicitudes';
@@ -406,16 +408,34 @@ function ModalRegistrarPago({
   const [descripcion, setDescripcion] = useState('');
   const [partners, setPartners] = useState<PartnerOpcion[]>([]);
   const [partnerId, setPartnerId] = useState('');
+  // DGG-39 (2026-06-02 · José Luis): emparejar con el wizard de CC que ya
+  // tenía Referencia + Categoría. Acá quedaban afuera y el dueño marcó la
+  // asimetría entre ambas vías de cobranza.
+  const [referencia, setReferencia] = useState('');
+  const [categorias, setCategorias] = useState<CategoriaFinanzaRow[]>([]);
+  const [categoriaId, setCategoriaId] = useState('');
   const [enviando, setEnviando] = useState(false);
 
   useEffect(() => {
     void listCajasActivas().then((r) => {
       if (r.ok) {
         setCajas(r.data);
-        if (r.data[0]?.id) setCajaId(r.data[0].id);
+        // JL-CAJA #3 (mig 0174) · pre-seleccionar caja favorita
+        const favorita = r.data.find(
+          (c) => (c as unknown as { es_default?: boolean }).es_default === true,
+        );
+        if (favorita) setCajaId(favorita.id);
+        else if (r.data[0]?.id) setCajaId(r.data[0].id);
       }
     });
     void listPartnersActivos().then((r) => r.ok && setPartners(r.data));
+    void listCategoriasIngreso().then((r) => {
+      if (r.ok) {
+        setCategorias(r.data);
+        const cob = r.data.find((c) => /cobranza|honorario|servicio/i.test(c.nombre));
+        if (cob) setCategoriaId(cob.id);
+      }
+    });
   }, []);
 
   async function registrar() {
@@ -435,6 +455,8 @@ function ModalRegistrarPago({
       fecha,
       monto: m,
       descripcion: descripcion.trim() || 'Cobranza desde solicitud',
+      referencia: referencia.trim() || undefined,         // DGG-39 (JL)
+      categoria_id: categoriaId || null,                  // DGG-39 (JL)
       partner_id_atribucion: partnerId || null,
     });
     setEnviando(false);
@@ -459,6 +481,20 @@ function ModalRegistrarPago({
             ))}
           </Select>
         </Field>
+        {/* DGG-39: categoría opcional (caja financiera) — emparejado con wizard CC */}
+        {categorias.length > 0 && (
+          <Field label="Categoría" hint="Opcional. Útil para agrupar en reportes financieros.">
+            <Select
+              value={categoriaId}
+              onChange={(e) => setCategoriaId(e.target.value)}
+            >
+              <option value="">— Sin categoría —</option>
+              {categorias.map((c) => (
+                <option key={c.id} value={c.id}>{c.nombre}</option>
+              ))}
+            </Select>
+          </Field>
+        )}
         <div className="grid grid-cols-2 gap-3">
           <Field label="Fecha">
             <Input
@@ -468,15 +504,35 @@ function ModalRegistrarPago({
             />
           </Field>
           <Field label="Monto">
-            <Input
-              type="number"
-              value={monto}
-              onChange={(e) => setMonto(e.target.value)}
-              min={0}
-              step={0.01}
-            />
+            <div className="flex gap-2">
+              <Input
+                type="number"
+                value={monto}
+                onChange={(e) => setMonto(e.target.value)}
+                min={0}
+                step={0.01}
+                className="flex-1"
+              />
+              {/* DGG-39: botón "Cobrar todo" — emparejado con wizard CC */}
+              <button
+                type="button"
+                onClick={() => setMonto(saldoSugerido.toFixed(2))}
+                className="shrink-0 rounded-lg border border-brand-cyan/40 bg-brand-cyan-pale/30 px-2 text-xs font-medium text-brand-cyan transition hover:bg-brand-cyan hover:text-white"
+                title={`Cobrar todo: ${fmtMoney(saldoSugerido)}`}
+              >
+                Total
+              </button>
+            </div>
           </Field>
         </div>
+        {/* DGG-39: referencia — emparejado con wizard CC */}
+        <Field label="Referencia" hint="Ej: nº de transferencia, ID de Mercado Pago, cheque…">
+          <Input
+            value={referencia}
+            onChange={(e) => setReferencia(e.target.value)}
+            placeholder="Sin referencia"
+          />
+        </Field>
         <Field label="Descripción (opcional)">
           <Input
             value={descripcion}
