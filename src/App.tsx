@@ -6,6 +6,7 @@ import { BrandLoaderScreen } from '@/components/brand/BrandLoader';
 // Críticos en el árbol inicial (landing/login/layouts) → import directo.
 import { LandingPage } from '@/modules/public/pages/LandingPage';
 import { ComingSoonCoverPage } from '@/modules/public/pages/ComingSoonCoverPage';
+import { PlataformaMuyProntoPage } from '@/modules/public/pages/PlataformaMuyProntoPage';
 import { LoginPage } from '@/modules/auth/pages/LoginPage';
 import { HealthPage } from '@/modules/public/pages/HealthPage';
 import { GerenciaLayout } from '@/modules/gerencia/components/GerenciaLayout';
@@ -267,6 +268,10 @@ export function App() {
         <Route path="/ingresar" element={<LoginPage />} />
         <Route path="/health" element={<HealthPage />} />
         <Route path="/formulario/:slug" element={<FormularioPublicoPage />} />
+        {/* E-GG-32 (Jose Luis): CTAs "Conocer/Probar la plataforma" del landing
+            apuntan acá hasta que se lance la plataforma SaaS para administradores
+            externos. La página NO revela el nombre interno (que cambiará). */}
+        <Route path="/plataforma" element={<PlataformaMuyProntoPage />} />
         <Route path="/externo/:token" element={<AccesoExternoPage />} />
         <Route
           path="/partner"

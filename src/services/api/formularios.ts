@@ -23,7 +23,8 @@ export interface FormularioFieldDef {
     | 'file_download'
     | 'heading'
     | 'separator'
-    | 'html';
+    | 'html'
+    | 'costos_info';
   label: string;
   placeholder?: string;
   required?: boolean;
@@ -45,6 +46,24 @@ export interface FormularioFieldDef {
   download_url?: string;
   download_filename?: string;
   download_size_bytes?: number;
+  // costos_info (E-GG-32, pedido Jose Luis 2026-06-02): bloque informativo
+  // con tarifas + datos de cuenta MP para transferencia. NO se envía en el
+  // payload, NO se valida.
+  costos?: {
+    items: Array<{
+      label: string;
+      precio: string;
+      nota?: string;
+    }>;
+    nota_total?: string;
+    cuenta?: {
+      titular: string;
+      cvu: string;
+      alias: string;
+      cuit_cuil: string;
+    };
+    nota_extra?: string;
+  };
 }
 
 export interface FormularioSectionDef {

@@ -30,6 +30,7 @@ export const FIELD_TYPES: ReadonlyArray<{
   { type: 'file_download', label: 'Archivo (descargar)', hint: 'Vos subís un archivo y el usuario lo descarga' },
   { type: 'heading', label: 'Título', hint: 'Encabezado decorativo' },
   { type: 'separator', label: 'Separador', hint: 'Línea horizontal' },
+  { type: 'costos_info', label: 'Costos del trámite', hint: 'Tarifas + cuenta de pago (informativo)' },
 ];
 
 export interface SelectedField {

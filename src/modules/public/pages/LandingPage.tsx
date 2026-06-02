@@ -114,7 +114,7 @@ const SERVICIOS: ServicioGrupo[] = [
         titulo: 'Plataforma de gestión',
         descripcion:
           'Plataforma web integral para consorcios: ingresos, gastos, comunicaciones y acceso a propietarios.',
-        cta: { href: '/ingresar', label: 'Conocer la plataforma' },
+        cta: { href: '/plataforma', label: 'Conocer la plataforma' },
       },
       {
         icon: Scale,
@@ -567,7 +567,7 @@ function Plataforma() {
           </ul>
 
           <Link
-            to="/ingresar"
+            to="/plataforma"
             className="mt-10 inline-flex items-center gap-2 rounded-full bg-white px-6 py-3 font-semibold text-brand-ink transition hover:bg-brand-cyan hover:text-white"
           >
             Probar la plataforma <ArrowUpRight size={16} />

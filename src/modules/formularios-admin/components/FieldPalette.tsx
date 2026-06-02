@@ -18,6 +18,7 @@ import {
   Download,
   Heading,
   Minus,
+  Wallet,
   type LucideIcon,
 } from 'lucide-react';
 import { FIELD_TYPES, type FieldType } from '../types';
@@ -38,6 +39,7 @@ const ICONS: Record<FieldType, LucideIcon> = {
   heading: Heading,
   separator: Minus,
   html: Type,
+  costos_info: Wallet,
 };
 
 interface PaletteProps {

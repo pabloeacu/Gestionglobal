@@ -903,3 +903,62 @@
   - **El sidebar es la SSOT de navegación.** Cualquier sección "atajos" /
     "menú rápido" / "tarjetas grandes" duplica esa SSOT y queda desincronizada.
 - **Fecha / módulo:** 2026-06-02 · dashboard + auth + onboarding.
+
+## E-GG-32 · Detalles de Jose Luis sobre los 4 formularios RPAC + CTAs plataforma SaaS
+- **Pedido del usuario (2026-06-02, PDF de Jose Luis Saveriano):**
+  - Matriculación-RPAC, Renovación-RPAC, Certificado-RPAC, DDJJ-anual:
+    agregar padre/madre, clave fiscal ARCA, legajo RPAC; renombrar
+    AFIP→ARCA + Código de Actividad 682010; planilla Excel de consorcios;
+    bloque "Costos del trámite" + cuenta MP; para Certificado simplificar
+    urgencia a "5 días hábiles"; para DDJJ deshabilitar 2026 y quitar
+    comprobante de pago DGR.
+  - Ícono WhatsApp universal en TODOS los formularios.
+  - Los 2 CTAs "Conocer/Probar la plataforma" del landing redirigen a
+    `/ingresar` (panel propio); deben llevar a una página "Muy pronto"
+    que NO revele el nombre interno (que va a cambiar).
+- **Causa raíz #1 (formularios):** los schemas legacy traían terminología
+  AFIP, no preveían padre/madre, legajo ni clave fiscal, y mostraban opciones
+  de urgencia 24h/48h que ya no aplican. La info de costos vivía sólo en el
+  catálogo de servicios pero no se rendereaba al cliente que llena el form.
+- **Causa raíz #2 (CTAs):** ambos apuntaban a `/ingresar`, que es el login
+  del panel interno. El cliente externo no debería ver eso aún.
+- **Fix:**
+  1. **Mig 0167**: agrega 4 columnas a `administraciones`
+     (`padre_apellido_nombre`, `madre_apellido_nombre`, `legajo_rpac`,
+     `clave_fiscal_arca`) + 4 a `config_global` (cuenta MP). RPC
+     `cliente_perfil_datos_formulario` extendida para exponer todo eso al
+     autofill cuando el cliente entra logueado.
+  2. **Mig 0168**: actualiza el JSON schema de los 4 formularios con
+     todos los cambios. Se introduce un nuevo tipo de campo `costos_info`
+     que renderea tarifas + datos cuenta MP + nota_total / nota_extra.
+  3. **`FormularioRunner`**: agrega el case `costos_info` → renderiza
+     `CostosInfoCard` con copy-to-clipboard de cada dato de la cuenta.
+     El campo NO se valida ni se envía en el payload (es informativo).
+  4. **`FieldPalette`** del builder: agrega el tipo a la paleta así
+     gerencia puede insertarlo en otros formularios.
+  5. **`WhatsAppFloatingButton`**: componente sticky bottom-right
+     reutilizable. Levanta el número de `config_global.whatsapp` (con
+     fallback `+5492214317914`) y abre `wa.me` con mensaje pre-rellenado.
+     Inyectado en `FormularioPublicoPage` + `PlataformaMuyProntoPage`.
+  6. **`PlataformaMuyProntoPage`** (ruta `/plataforma`): página simple
+     "Muy pronto" + CTA volver + WhatsApp. NO menciona "Administración
+     Global" porque el nombre va a cambiar (decisión del usuario).
+  7. Los 2 CTAs del landing apuntan a `/plataforma`.
+- **AFIP→ARCA en otros lugares del sistema:** el usuario eligió
+  "solo lo visible al cliente". Las menciones en pantallas de gerencia
+  (`EmisoresPage`, `ComprobanteFormDrawer`, `AdministracionFormDrawer`,
+  `generateArcaTutorialPdf`) son contextuales y se dejan en backlog.
+- **Aprendizajes:**
+  - **Los formularios son la cara externa más sensible** — un cliente
+    que llena 7 campos y se pierde el contexto del costo se va sin pagar.
+    El bloque `costos_info` con copy-to-clipboard del CVU es lujo barato.
+  - **Tratamiento simétrico público-portal** se mantiene gracias al
+    autofill: los campos nuevos (padre/madre/legajo/clave) se persisten
+    en `administraciones`, así un cliente logueado completa una vez y
+    nunca más los re-tipea.
+  - **Una página "Muy pronto" buena vale por sí sola.** Hasta que la
+    plataforma SaaS para externos esté lista, ese único placeholder
+    construye expectativa sin comprometer naming. WhatsApp universal
+    funciona como captura de prospectos sin pedir email.
+- **Fecha / módulo:** 2026-06-02 · formularios + landing + WhatsApp +
+  página plataforma + administraciones.

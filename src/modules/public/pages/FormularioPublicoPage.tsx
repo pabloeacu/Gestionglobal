@@ -6,6 +6,7 @@ import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import { SiteNav } from '@/components/site/SiteNav';
 import { SiteFooter } from '@/components/site/SiteFooter';
 import { FormularioRunner } from '@/modules/public/components/FormularioRunner';
+import { WhatsAppFloatingButton } from '@/components/common/WhatsAppFloatingButton';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   getFormularioPorSlug,
@@ -129,6 +130,9 @@ export function FormularioPublicoPage() {
               formulario={formulario}
               prefillValues={prefillValues}
               origenCanal={desdePortal && user ? 'cliente' : 'publico'}
+            />
+            <WhatsAppFloatingButton
+              mensaje={`Hola! Tengo una consulta sobre el trámite "${formulario.titulo}".`}
             />
 
             {formulario.textos_legales && (
