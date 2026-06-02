@@ -718,3 +718,38 @@
 - **Estado:** mig 0162 aplicada, CRON_SECRET seteado en Supabase
   Dashboard, las 3 edge fns dispatch funcionando (200 OK).
 - **Fecha / módulo:** 2026-06-01 · cron + edge fns dispatch (E-GG-27).
+
+## E-GG-28 · notif_emitir no escalaba a push web (gap arquitectónico)
+
+- **Síntoma detectado en AUDIT-2:** la tabla `push_notifications_queue`
+  solo tenía 1 fila histórica: la "Frase del día" del cron dedicado.
+  TODOS los demás eventos críticos (solicitud nueva, tracking avance,
+  derivar, factura partner, rechazo) generaban campanita 🔔 in-app
+  vía `notif_emitir`/`notif_emitir_staff` pero **JAMÁS push web**
+  aunque los gerentes tuvieran VAPID activado.
+- **Causa raíz:** `private.notif_emitir(user_id, ...)` insertaba SÓLO
+  a `public.notificaciones_internas`. La cadena
+  `notif → push_notifications_queue` nunca se cableó. No es una
+  regresión silenciosa: es una funcionalidad NUNCA TERMINADA. Las
+  tasks #160 (push solicitudes), #188 (VAPID keys), #189 (push real)
+  cerraron como completed porque la infraestructura push web
+  funciona (lo demuestra "Frase del día") pero el escalado desde
+  notif staff/cliente nunca se conectó.
+- **Fix (mig 0163):** modificar `notif_emitir` para que, además del
+  insert a notificaciones_internas, haga insert a
+  `push_notifications_queue` SI el user tiene al menos una entrada
+  en `push_subscriptions`. El insert va en BEGIN..EXCEPTION para no
+  bloquear la notif principal si el push falla.
+- **Impacto del fix:** UN cambio propaga push a TODOS los eventos
+  que pasan por `notif_emitir` (que es la mayoría). Sin tocar 13
+  llamadores distintos uno por uno.
+- **Aprendizajes:**
+  - **"Push activado" ≠ "push funcionando".** Las VAPID keys y
+    suscripciones estaban OK desde mayo, pero nadie verificó que
+    el escalado existía en el código. Test e2e real lo habría
+    detectado en minutos.
+  - **Funciones compartidas (`notif_emitir`) son punto de
+    palanca.** Cambiarlas propaga a todos los callers, lo cual es
+    bueno cuando agregás funcionalidad transversal pero peligroso
+    cuando hacés `CREATE OR REPLACE` sin diff (cf. E-GG-26).
+- **Fecha / módulo:** 2026-06-01 · notificaciones (mig 0163).
