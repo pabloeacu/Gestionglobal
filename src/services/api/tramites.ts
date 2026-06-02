@@ -455,6 +455,29 @@ export async function urlFirmadaAdjunto(
   return ok(data.signedUrl);
 }
 
+// DGG-38 (2026-06-02) · Sube el documento final que cierra el trámite
+// (certificado, diploma, PDF de aprobación, etc.). Bucket público con URL
+// estable porque la URL se comparte con el cliente en su tracking.
+export async function subirDocumentoFinalTramite(
+  tramite_id: string,
+  file: File,
+): Promise<ApiResponse<string>> {
+  const safe = file.name.replace(/[^\w.\-]/g, '_');
+  const path = `${tramite_id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${safe}`;
+  const { error } = await supabase.storage
+    .from('tramite-documento-final')
+    .upload(path, file, {
+      cacheControl: '3600',
+      upsert: false,
+      contentType: file.type || undefined,
+    });
+  if (error) return fail('UPLOAD_DOC_FINAL', error.message, error);
+  const { data } = supabase.storage
+    .from('tramite-documento-final')
+    .getPublicUrl(path);
+  return ok(data.publicUrl);
+}
+
 export async function eliminarAdjunto(
   adjunto: TramiteAdjuntoRow,
 ): Promise<ApiResponse<true>> {

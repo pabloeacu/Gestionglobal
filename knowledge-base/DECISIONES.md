@@ -13,6 +13,66 @@
 - **Fecha:**
 -->
 
+## DGG-38 · Cierre de trámite: subir archivo o pegar URL + auto-cierre por cert Campus
+- **Decisión:** el modal "Cerrar trámite" deja de ser un `usePrompt()` que
+  sólo aceptaba URL. Ahora abre `CerrarTramiteDialog` con dos tabs:
+    - **Subir archivo** (PDF, imagen, Office, hasta 20 MB).
+    - **Pegar URL** (link externo, Drive, etc.).
+  Y además: cuando un alumno aprueba un curso del Campus y se le emite el
+  certificado automáticamente, el trámite se cierra **solo** con una línea
+  de sistema "Aprobación exitosa del curso con emisión de certificado".
+- **Razón:** José Luis (2026-06-02) reportó que el modal sólo aceptaba
+  URL, lo que obligaba a subir el documento en otro lado (Drive, etc.) y
+  pegar el link — fricción evitable. Y además observó que cuando la
+  plataforma misma emite el certificado, el cierre manual es redundante:
+  el último eslabón ya ocurrió, el trámite tiene que cerrar solo.
+- **Implementación:**
+  - **Bucket** (mig 0181): `tramite-documento-final` PÚBLICO, 20 MB,
+    permite PDF + JPG/PNG/WebP + Word + Excel. Public porque la URL se
+    comparte con el cliente y queremos links estables (no signed
+    expirables). Write solo staff (`private.is_staff()`).
+  - **Service** (`src/services/api/tramites.ts`):
+    `subirDocumentoFinalTramite(tramite_id, file)` → URL pública.
+  - **Componente** (`src/modules/trackings/components/CerrarTramiteDialog.tsx`):
+    Modal con tabs "Subir archivo" / "Pegar URL". El botón Aceptar
+    sube el archivo (si aplica), llama `cerrarTracking(id, url)` y
+    cierra. Conserva el chaining a `ProgramarVencimientoModal` cuando
+    el servicio tiene `vigencia_meses`.
+  - **TrackingDetailPage**: `handleCerrar` ahora abre el dialog en
+    vez de hacer `prompt()`. El estado del flag de renovación se
+    pasa al callback `handleCerradoOk`.
+  - **Trigger auto-cierre** (mig 0181, R17 SECURITY DEFINER):
+    `trg_certificado_cierra_tramite_curso` AFTER INSERT en
+    `certificados`. Si `matricula.submission_origen` NOT NULL, busca
+    el trámite (categoria='curso', formulario_submission_id =
+    submission_origen, estado ≠ cerrado/cancelado) y lo cierra con
+    `documento_final_url = https://gestionglobal.ar/verificar/{codigo}`.
+    Inserta línea con `autor_id=NULL` (sistema), descripcion =
+    "Aprobación exitosa del curso con emisión de certificado.",
+    estado_asociado='finalizado', visible_cliente=true.
+    Idempotente: si el trámite ya está cerrado, NO inserta nada.
+    `EXCEPTION WHEN OTHERS` traga errores para no abortar la emisión
+    del cert por un fallo de side-effect.
+- **Smoke e2e** (BEGIN/ROLLBACK):
+    - Positivo: cert con `submission_origen` → trámite queda cerrado
+      con la URL pública correcta y línea automática del sistema.
+    - Negativo: cert SIN `submission_origen` (alumno manual) → no
+      altera ningún trámite.
+    - Idempotencia: trámite YA cerrado → trigger no inserta línea
+      duplicada.
+- **Modelo de vínculo** elegido: `tramites.formulario_submission_id ↔
+  curso_matriculas.submission_origen`. Es 1-1 cuando el alumno se
+  inscribió por formulario público (caso de uso esperado). Para
+  inscripciones manuales se pierde el vínculo automático y el gerente
+  cierra a mano con el dialog nuevo — coherente con la naturaleza
+  manual del flujo.
+- **Por qué URL pública de verificación y no PDF directo:** el bucket
+  `certificados` es privado (los PDFs requieren signed URL con
+  expiración). La página `/verificar/:codigo` muestra el certificado
+  completo + datos verificables y es pública y estable. Mejor experiencia
+  para el cliente (también puede compartir el link como prueba).
+- **Fecha:** 2026-06-02 · ref CIERRE-1 a 4, mig 0181.
+
 ## DGG-37 · Previsualización de documentos en campos file ("ojito")
 - **Decisión:** los campos `file` del formulario público pueden mostrar un
   ícono ojo al lado del label; al click, un popover muestra una imagen

@@ -51,7 +51,6 @@ import {
   Select,
   Tabs,
   useConfirm,
-  usePrompt,
   type TabItem,
 } from '@/components/common';
 import {
@@ -67,7 +66,6 @@ import { formatDateShort, formatDateTime } from '@/lib/dates';
 import { cn } from '@/lib/cn';
 import {
   getTracking,
-  cerrarTracking,
   colorBadge,
   agregarLinea,
   subirAdjuntoTracking,
@@ -84,6 +82,7 @@ import { RecurrenciaList } from '../components/RecurrenciaList';
 import { EstadosConfigManager } from '../components/EstadosConfigManager';
 import { CategoriasConfigManager } from '../components/CategoriasConfigManager';
 import { ProgramarVencimientoModal } from '../components/ProgramarVencimientoModal';
+import { CerrarTramiteDialog } from '../components/CerrarTramiteDialog';
 import { PedidosDocPanel } from '@/components/common/PedidosDocPanel';
 import {
   OnboardingTour,
@@ -100,7 +99,6 @@ export function TrackingDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
   const confirm = useConfirm();
-  const prompt = usePrompt();
 
   const isStaff = user?.role === 'gerente' || user?.role === 'operador';
 
@@ -120,6 +118,13 @@ export function TrackingDetailPage() {
   const [pdfBusy, setPdfBusy] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [programarOpen, setProgramarOpen] = useState(false);
+  // DGG-38 · Modal de cierre con tabs "Subir archivo" / "Pegar URL".
+  // Reemplaza el `usePrompt()` simple que sólo aceptaba URL.
+  const [cerrarOpen, setCerrarOpen] = useState(false);
+  // Después de cerrar, si el servicio tiene vigencia_meses, encadenamos al
+  // ProgramarVencimientoModal (FIX-V4). Memorizamos el flag al abrir el
+  // cerrar dialog para usarlo en el callback.
+  const [cerrarTieneRenovacion, setCerrarTieneRenovacion] = useState(false);
   // DEEP-1 · drawer para editar metadata del trámite post-alta. Antes los
   // campos titulo/categoria/prioridad/vence_at/admin/consorcio/solicitante
   // sólo se podían setear durante el alta.
@@ -353,6 +358,8 @@ export function TrackingDetailPage() {
   // el trámite encadenamos al ProgramarVencimientoModal para que el gerente
   // setee la próxima fecha en el mismo flujo. Si vigencia_meses == null,
   // sólo cierra el trámite.
+  // DGG-38 (2026-06-02 · José Luis): el modal de cierre ahora admite subir
+  // archivo además de URL externa. Abre `CerrarTramiteDialog`.
   async function handleCerrar() {
     if (!data) return;
     const tieneRenovacion = (data.servicio?.vigencia_meses ?? null) !== null;
@@ -366,19 +373,15 @@ export function TrackingDetailPage() {
       });
       if (!cont) return;
     }
-    const url = await prompt({
-      title: 'Cerrar trámite',
-      message: 'URL del documento final (certificado / diploma):',
-      placeholder: 'https://…',
-    });
-    if (!url) return;
-    const res = await cerrarTracking(data.id, url);
-    if (!res.ok) {
-      toast.error(humanizeError(res.error));
-      return;
-    }
-    if (tieneRenovacion) {
-      await load();
+    setCerrarTieneRenovacion(tieneRenovacion);
+    setCerrarOpen(true);
+  }
+
+  // Callback del CerrarTramiteDialog tras un cierre exitoso (subió archivo o
+  // pegó URL). Encadena al ProgramarVencimientoModal si corresponde.
+  function handleCerradoOk() {
+    if (cerrarTieneRenovacion) {
+      void load();
       toast.success('Trámite cerrado · programá el próximo vencimiento');
       setProgramarOpen(true);
     } else {
@@ -866,6 +869,13 @@ export function TrackingDetailPage() {
           setEditMetaOpen(false);
           void load();
         }}
+      />
+
+      <CerrarTramiteDialog
+        open={cerrarOpen}
+        onClose={() => setCerrarOpen(false)}
+        tramiteId={data.id}
+        onCerrado={handleCerradoOk}
       />
 
       <ProgramarVencimientoModal
