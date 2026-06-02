@@ -98,3 +98,41 @@ desktop + mobile 360px, casos borde** (método obligatorio 2026-05-21) →
 `ERRORES.md`/`DECISIONES.md`/`PROJECT_STATUS.md` actualizados desde el día 1 (D10).
 Operaciones destructivas: flujo de 8 pasos (doc 05 §5). Regenerar types tras
 toda migración (`bash scripts/generate-types.sh`).
+
+## 6. Atajos del usuario (lenguaje compartido)
+
+### "auditar a fondo X" — doble auditoría (revisar + ejercitar)
+
+Cuando el usuario pide **"auditar a fondo"** un chunk, decisión, módulo o
+flujo (con o sin ID — ej. "auditar a fondo DGG-31" / "auditar a fondo el
+chunk recién terminado" / "auditar a fondo formularios"), aplicar el
+método doble:
+
+1. **REVISAR LO QUE ESTÁ** — lectura estática del código y schema:
+   - 3 agentes en paralelo (`Agent` tool, no Workflow salvo opt-in) con
+     scopes complementarios, ej:
+     - Agente A: persistencia + UI gerencia
+     - Agente B: naming + downstream + seguridad
+     - Agente C: integraciones laterales (WhatsApp, push, emails…)
+   - Cada agente devuelve tabla `# / ángulo / status (OK/GAP/DUDA) / archivo+línea / propuesta de fix`.
+
+2. **EJERCITAR LO QUE HACE** — test e2e en BD con `BEGIN; … ROLLBACK;`:
+   - INSERT sintético del estado normal (admin/user/submission).
+   - Disparar el flujo (trigger, RPC, edge fn).
+   - Verificar el side-effect esperado en otras tablas (no solo "pasó").
+   - Esto descubre bugs que la lectura estática no ve (ej. trigger que
+     no actualiza la admin, RLS que devuelve >1 row con `.single()`).
+
+3. **REPORTE CONSOLIDADO** al usuario con tabla
+   `# / severidad (crítica/menor) / bug / fix`, separando lo que SÍ funciona
+   (verificado en e2e) de lo que tiene huecos.
+
+4. **Después del reporte:** preguntar prioridad o, si el usuario ya pidió
+   "no dejar huecos", fixear todo en mismo chunk con migración + frontend
+   + commit + push + entrada en `ERRORES.md` con causa raíz por hallazgo.
+
+Origen: lección aprendida del health check periódico (DGG-32 / E-GG-30)
+aplicada al chunk Jose Luis (E-GG-33). El sesgo "revisar lo que está"
+sin ejercitar dejó pasar el trigger faltante de sync submission→admin
+durante todo el chunk E-GG-32; la doble auditoría lo encontró en 30s
+con `BEGIN; INSERT; verificar; ROLLBACK;`.
