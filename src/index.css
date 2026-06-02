@@ -7,8 +7,7 @@
     color-scheme: light;
   }
   html,
-  body,
-  #root {
+  body {
     height: 100%;
     /* Fix iOS PWA: evita scroll horizontal accidental que muestra el fondo
        oscuro lateral y pierde foco de la pantalla principal. */
@@ -16,12 +15,23 @@
     max-width: 100vw;
     overscroll-behavior-x: none;
   }
+  /* AJL · 2026-06-02: importante. NO le damos `height: 100%` ni `overflow-x:
+     hidden` a #root porque eso lo convierte implícitamente en scroll
+     container (browser deriva overflow-y: auto cuando hay overflow-x: hidden
+     + height fijo). Con #root como scroll container, `window.scrollTo(0)`
+     deja de funcionar y al navegar entre rutas la nueva página "se abre
+     desde abajo". Lo dejamos con min-height para mantener el background
+     ocupando el viewport, pero permitiendo que el scroll viva en window. */
+  #root {
+    min-height: 100%;
+    max-width: 100vw;
+  }
   body {
     @apply bg-white text-brand-ink antialiased;
     /* (Removido touch-action:pan-y del body porque rompía el DnD HTML5
         del constructor de formularios y otros draggables. El swipe
         horizontal accidental ya se neutraliza con overflow-x:hidden +
-        max-width:100vw en html/body/#root.) */
+        max-width:100vw en html/body.) */
   }
 }
 
