@@ -256,7 +256,7 @@ function Hero() {
         >
           <a
             href="#servicios"
-            className="rounded-full border border-slate-200 bg-white px-7 py-3.5 text-sm font-semibold text-brand-ink transition hover:border-brand-cyan hover:text-brand-cyan"
+            className="rounded-full bg-brand-ink px-7 py-3.5 text-sm font-semibold text-white shadow-[0_10px_30px_-12px_rgba(18,34,48,0.5)] transition hover:bg-brand-cyan hover:shadow-[0_14px_40px_-12px_rgba(0,158,202,0.55)]"
           >
             Conocer los servicios
           </a>
