@@ -14,6 +14,87 @@
 - **Fecha / módulo:**
 -->
 
+## E-GG-38 · Mover trámite en kanban niega permisos al gerente (RLS bloquea trigger INVOKER que escribe en `tramite_eventos`)
+- **Síntoma:** José Luis (gerente, máxima autoridad) intenta mover un trámite
+  en `/gerencia/tramites/kanban` (TRM-2026-00014, Abiertos → En progreso)
+  y aparece toast: **"No pudimos mover el trámite: No tenés permisos para
+  realizar esta acción"**. El error 42501 sale en el UPDATE de `tramites`,
+  pero el rol del usuario sí es `gerente` y la policy `tramites_staff_all`
+  (ALL) sobre `tramites` está pasada (`private.is_staff()` = true).
+- **Causa raíz:** el bug NO está en la policy de `tramites` — está dentro
+  del trigger BEFORE UPDATE `tramite_on_update()` que, al cambiar
+  `estado/prioridad/asignado_a`, inserta una fila en `public.tramite_eventos`
+  para dejar bitácora. Esa tabla tiene RLS habilitada y SOLO tiene 2
+  policies, ambas de **SELECT** (`eventos_staff_select` y `eventos_admin_select`).
+  No hay policy de INSERT. El trigger NO era `SECURITY DEFINER`, así que
+  el INSERT corría con los permisos del invoker (gerente), y RLS lo
+  rechazaba con 42501. El error de PostgREST refleja el último statement
+  fallido — el UPDATE — pero la causa está adentro del CONTEXT del trigger.
+  Reproducción exacta en BD (`BEGIN; SET LOCAL role authenticated; UPDATE …; ROLLBACK;`):
+  ```
+  ERROR:  42501: new row violates row-level security policy for table "tramite_eventos"
+  CONTEXT: PL/pgSQL function tramite_on_update() line 8 at SQL statement
+  ```
+  Confirmado: aplica a **TODO usuario authenticated** (no solo JL). 4
+  triggers afectados, todos NO-DEFINER, todos escribiendo en
+  `tramite_eventos`:
+    - `tramite_on_insert` (al crear trámite manual)
+    - `tramite_on_update` (estado/prioridad/asignado_a)
+    - `tramite_on_adjunto_insert` (al subir adjunto)
+    - `tramite_on_comentario_insert` (al comentar)
+  El bug estuvo **latente** desde la creación de `tramite_eventos`. No se
+  detectó antes porque (a) en QA siempre se reasignaba o se trabajaba
+  desde el detail, no del kanban; (b) cuando el trámite venía con
+  `formulario_submission_id`, el primer evento "creado" se insertaba
+  desde otro trigger (`crear_tramite_desde_submission_auto` que SÍ es
+  SECURITY DEFINER) y enmascaraba el problema en el INSERT inicial.
+- **Fix (mig 0179):** convertir las 4 funciones a `SECURITY DEFINER` con
+  `SET search_path = 'public', 'pg_temp'`. Es lo correcto:
+    - Los logs de eventos son automáticos del sistema, no acción del
+      usuario — naturalmente quieren ejecutar con privilegios elevados.
+    - `auth.uid()` sigue retornando el usuario original (queremos el
+      actor real para `actor_id` / `actor_nombre`).
+    - No requiere abrir policy INSERT en `tramite_eventos` (mantiene
+      cero superficie de escritura directa cliente).
+- **Smoke e2e** (BEGIN; SET LOCAL role authenticated; ... ROLLBACK; con
+  uid de JL): UPDATE estado ✓ + UPDATE prioridad+asignado_a ✓ + INSERT
+  comentario ✓. En los 3 casos el evento aparece en `tramite_eventos`
+  con `actor_id = JL` y `actor_nombre = 'José Luis Saveriano'`.
+- **Auditoría transversal** (para no dejar bombas como ésta): query que
+  cruza TODAS las tablas RLS con policies SOLO-SELECT contra TODAS las
+  funciones públicas que las escriben. Resultado: las **14 tablas
+  restantes** con patrón SOLO-SELECT (audit_log, push_notifications_queue,
+  arca_emision_queue, health_flow_*, etc.) ya tienen TODAS sus funciones
+  escritoras como `SECURITY DEFINER`. Solo `tramite_eventos` estaba
+  expuesta. Tablas escritas por edge fns con service_role (email_throttle,
+  frases_*, salud_alertas_log) no aparecen en la query porque no tienen
+  función public — están cubiertas por service_role bypass.
+- **Prevención:** patrón canónico. **Todo trigger que escriba en una
+  tabla con RLS habilitada DEBE ser `SECURITY DEFINER` con `SET
+  search_path = 'public', 'pg_temp'`**, salvo que la tabla destino tenga
+  policy de INSERT explícita para los roles esperados del invoker. Este
+  patrón ya estaba implícito en el resto del schema (todas las _audit /
+  _notif son DEFINER), pero `tramite_*` lo violaba. Agregar el query
+  transversal como smoke check al cierre de chunks que toquen triggers:
+  ```sql
+  -- "Triggers no-DEFINER que escriben en tablas RLS sin policy de write"
+  WITH rls_tables AS (
+    SELECT c.oid, c.relname FROM pg_class c
+    JOIN pg_namespace n ON n.oid=c.relnamespace
+    WHERE n.nspname='public' AND c.relkind='r' AND c.relrowsecurity
+      AND NOT EXISTS (
+        SELECT 1 FROM pg_policy p WHERE p.polrelid=c.oid
+          AND p.polcmd IN ('a','w','d','*')
+      )
+  )
+  SELECT t.relname, p.proname
+  FROM rls_tables t
+  JOIN pg_proc p ON pg_get_functiondef(p.oid) ~* ('insert\s+into\s+(public\.)?'||t.relname)
+  WHERE NOT p.prosecdef;
+  -- Debe devolver 0 filas.
+  ```
+- **Fecha / módulo:** 2026-06-02 · Trámites · mig 0179.
+
 ## E-GG-37 · Overloads ambiguos de RPC rompen el frontend ("Could not choose the best candidate function")
 - **Síntoma:** José Luis (2026-06-02) intenta confirmar el paso 3 de la
   cobranza de la matrícula del curso (X 00001-00000017, $125.000) y el

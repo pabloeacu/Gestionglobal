@@ -1,9 +1,11 @@
 # CLAUDE.md — Plataforma Gestión Global
 
-> Las reglas eran 13 originales. **A partir de 2026-06-02 son 16** —
+> Las reglas eran 13 originales. **A partir de 2026-06-02 son 17** —
 > sumamos R14 (paridad columna-grilla ↔ control), R15 (diff legacy ↔
-> nueva al redirigir) capitalizadas del incidente E-GG-35, y R16 (overloads
-> de RPC ambiguos) capitalizada del bug de cobranza de José Luis (E-GG-37).
+> nueva al redirigir) capitalizadas del incidente E-GG-35, R16 (overloads
+> de RPC ambiguos) capitalizada del bug de cobranza de José Luis (E-GG-37),
+> y R17 (triggers SECURITY DEFINER cuando escriben en tablas RLS sin
+> policy de write) capitalizada del bug del kanban (E-GG-38).
 
 > **Si arrancás una sesión nueva, leé en este orden:**
 >   1. `PROJECT_STATUS.md` (raíz) — snapshot vivo de dónde quedó el proyecto,
@@ -102,6 +104,36 @@ gerentes, portal de administradores clientes, formularios públicos sin login.
     ```
     Debe devolver 0 filas. Si devuelve algo, dropear el overload viejo
     antes de cerrar.
+17. **Triggers que escriben en tablas RLS sin policy de write → SECURITY
+    DEFINER obligatorio** (E-GG-38, 2026-06-02). Si una tabla tiene RLS
+    habilitada y SOLO policies `SELECT` (patrón típico de logs/auditoría/
+    queues), cualquier trigger que escriba en ella DEBE declararse
+    `SECURITY DEFINER` con `SET search_path = 'public', 'pg_temp'`. Si no,
+    el INSERT corre con permisos del invoker y RLS lo bloquea con 42501
+    — el error sale como "no tenés permisos" en el statement de la tabla
+    padre, sin pista de que el bug está adentro del trigger. Caso real:
+    `tramite_on_update()` BEFORE UPDATE bloqueado al insertar en
+    `tramite_eventos`, manifestándose como "el gerente no puede mover el
+    trámite en el kanban". Smoke check de cierre cuando un chunk toca
+    triggers:
+    ```sql
+    WITH rls_tables_no_write AS (
+      SELECT c.oid, c.relname FROM pg_class c
+      JOIN pg_namespace n ON n.oid=c.relnamespace
+      WHERE n.nspname='public' AND c.relkind='r' AND c.relrowsecurity
+        AND NOT EXISTS (
+          SELECT 1 FROM pg_policy p WHERE p.polrelid=c.oid
+            AND p.polcmd IN ('a','w','d','*')
+        )
+    )
+    SELECT t.relname AS tabla, p.proname AS funcion
+    FROM rls_tables_no_write t
+    JOIN pg_proc p ON pg_get_functiondef(p.oid)
+                       ~* ('insert\s+into\s+(public\.)?'||t.relname)
+    WHERE NOT p.prosecdef;
+    ```
+    Debe devolver 0 filas. Si devuelve algo, convertir esa función a
+    `SECURITY DEFINER` antes de cerrar.
 
 ## 3. Decisiones de arranque (2026-05-19)
 
