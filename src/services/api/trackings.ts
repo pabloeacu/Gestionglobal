@@ -274,15 +274,28 @@ export async function agregarLinea(
 
 // ----------------------------------------------------------------------------
 // CERRAR TRACKING (RPC, staff only)
+// DGG-38 EXT (2026-06-02 · José Luis): firma extendida con motivo,
+// satisfactorio, observaciones y documento opcional. El motivo es
+// obligatorio y se vuelve parte de la última línea de tracking
+// ("Trámite cerrado: <motivo>. <observaciones>"). El documento es
+// opcional — sólo se exige para motivos como "Concluyó el curso" o
+// "Matrícula otorgada" (donde el catálogo `MOTIVOS_CIERRE_POR_CATEGORIA`
+// marca requiere_documento=true).
 // ----------------------------------------------------------------------------
 export async function cerrarTracking(
   trackingId: string,
-  documentoUrl: string,
+  motivoCierre: string,
+  satisfactorio: boolean,
+  observaciones?: string | null,
+  documentoUrl?: string | null,
 ): Promise<ApiResponse<true>> {
   const { error } = await supabase.rpc('tracking_cerrar', {
     p_tramite_id: trackingId,
-    p_documento_final_url: documentoUrl,
-  });
+    p_motivo_cierre: motivoCierre,
+    p_satisfactorio: satisfactorio,
+    p_observaciones: observaciones ?? null,
+    p_documento_final_url: documentoUrl ?? null,
+  } as never);
   if (error) return fail('TRACKING_CERRAR', error.message, error);
   return ok(true);
 }

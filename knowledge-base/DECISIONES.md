@@ -13,6 +13,76 @@
 - **Fecha:**
 -->
 
+## DGG-38 EXT · Cierre de trámite con motivo + observaciones + adjunto condicional
+- **Decisión:** el cierre de cualquier trámite (no sólo cursos) ofrece
+  un **catálogo de motivos predeterminados por categoría** + un campo de
+  **observaciones libres** + un **documento opcional** que sólo se
+  requiere si el motivo lo justifica. El motivo + observaciones se
+  vuelven la **última línea del tracking** ("Trámite cerrado: <motivo>.
+  <observaciones>") con `estado_asociado` = `finalizado` (satisfactorio)
+  o `frustrado` (no satisfactorio). El cierre **no exige certificado**:
+  un trámite puede cerrarse por abandono, rechazo o cualquier otro motivo.
+- **Razón:** José Luis (2026-06-02): "el cierre del trámite debe poder
+  ocurrir en cualquier instancia, aunque no se tenga el certificado.
+  En esos casos, debería aparecer una serie de opciones, por ejemplo:
+  Abandonó el curso, Se arrepintió, Desaprobó, Concluyó el curso. Esta
+  última es la única que debería subirse el certificado. Cada cierre
+  podría acompañarse con observaciones y deberían ser parte del último
+  tracking, para dejar constancia." Y extendido: "es importante prever
+  el cierre de cualquier trámite — no sólo los cursos — y permitir
+  resultados satisfactorios como frustrados".
+- **Catálogo** (`MOTIVOS_CIERRE_POR_CATEGORIA` en `src/services/api/tramites.ts`):
+  | Categoría | Motivos (✓ satisfactorio / ✗ frustrado / 📎 requiere doc) |
+  |---|---|
+  | curso | Concluyó el curso ✓📎 · Abandonó el curso ✗ · Desaprobó ✗ · Se arrepintió o se equivocó en la solicitud ✗ |
+  | matricula / renovacion | Matrícula otorgada ✓📎 · Matrícula rechazada ✗ · Abandono del trámite ✗ |
+  | dj / consulta_juridica / reclamo / otro | Satisfactorio ✓ · Sin éxito ✗ · Abandono del trámite ✗ |
+  El motivo final persiste en `tramites.motivo_cierre text` (libre).
+- **Implementación:**
+  - **Schema** (mig 0182): `ALTER tramites ADD motivo_cierre text +
+    cierre_satisfactorio boolean` (NULL hasta cierre).
+  - **RPC** (R16: DROP firma vieja + CREATE nueva):
+    `public.tracking_cerrar(p_tramite_id uuid, p_motivo_cierre text,
+    p_satisfactorio boolean, p_observaciones text DEFAULT NULL,
+    p_documento_final_url text DEFAULT NULL)` SECURITY DEFINER.
+    Valida motivo no vacío + satisfactorio NOT NULL. Update tramites
+    con los 5 campos. Inserta línea con
+    `categoria = certificado_emitido | cierre_frustrado`,
+    `estado_asociado = finalizado | frustrado`,
+    `descripcion = 'Trámite cerrado: <motivo>. <observaciones>'`,
+    `archivos_urls = [url]` solo si vino, `visible_cliente=true`.
+  - **Service** (`trackings.ts`): firma extendida
+    `cerrarTracking(id, motivo, satisfactorio, obs?, url?)`.
+  - **Tipo** (`tramites.ts`): `MotivoCierreOpcion` con
+    `{ value, label, satisfactorio, requiere_documento, descripcion? }`.
+  - **Componente** (`CerrarTramiteDialog.tsx`): refactor completo con
+    3 secciones — motivo (radio cards con ícono verde/rojo + badge
+    "Adjunto" si requiere), observaciones (textarea opcional, máx
+    2000 char), documento condicional (solo si motivo.requiere_documento;
+    tabs "Subir archivo" / "Pegar URL", obligatorio con badge rosa).
+  - **Trigger auto-cierre cert Campus** (DGG-38 base): se actualizó
+    para insertar `motivo_cierre='Concluyó el curso'` +
+    `cierre_satisfactorio=true` (consistente con el catálogo).
+- **Smoke e2e** (BEGIN/ROLLBACK):
+    - 1 · Sat + doc + obs (matricula otorgada con URL + observación
+      de la comisión) → finalizado ✓
+    - 2 · Frustrado sin doc + obs (curso abandonado vía WhatsApp) →
+      frustrado ✓ con archivos_urls vacío + descripcion correcta
+    - 3 · Sat sin doc ni obs (consulta jurídica satisfactoria) →
+      finalizado ✓ con descripcion mínima
+    - 4 · Motivo vacío → rechazado con 23502 ✓
+    - R16 · `tracking_cerrar` con 1 sola firma ✓
+- **Por qué motivo libre y no enum:** la lista evoluciona (cada tipo de
+  servicio nuevo puede traer su propio vocabulario). Mantener `text`
+  permite seed/data evolutiva sin tocar el schema. El frontend ofrece
+  el catálogo como guía pero no obliga.
+- **Por qué satisfactorio bool y no enum 'estado':** los estados del
+  trámite ya cubren el ciclo de vida (`cerrado` es el estado final).
+  Lo que el cierre necesita marcar es el **resultado del cierre**
+  (success/fail), no un nuevo estado — y un boolean basta. Refleja en
+  la UI con badge verde/rojo en el detalle del trámite.
+- **Fecha:** 2026-06-02 · ref CIERRE-EXT-1 a 4, mig 0182.
+
 ## DGG-38 · Cierre de trámite: subir archivo o pegar URL + auto-cierre por cert Campus
 - **Decisión:** el modal "Cerrar trámite" deja de ser un `usePrompt()` que
   sólo aceptaba URL. Ahora abre `CerrarTramiteDialog` con dos tabs:

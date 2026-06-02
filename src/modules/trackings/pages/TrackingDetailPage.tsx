@@ -875,6 +875,7 @@ export function TrackingDetailPage() {
         open={cerrarOpen}
         onClose={() => setCerrarOpen(false)}
         tramiteId={data.id}
+        categoria={data.categoria as import('@/services/api/tramites').TramiteCategoria}
         onCerrado={handleCerradoOk}
       />
 

@@ -63,6 +63,107 @@ export const TRAMITE_CATEGORIA_LABEL: Record<TramiteCategoria, string> = {
   otro: 'Otro',
 };
 
+// ============================================================================
+// DGG-38 EXT (2026-06-02 · José Luis) · Catálogo de motivos de cierre por
+// categoría de trámite. La RPC `tracking_cerrar` admite motivo libre (text)
+// pero el frontend ofrece estos predeterminados como guía. Cada motivo tiene
+// `satisfactorio` (resultado positivo o frustrado) y `requiere_documento`
+// (true para "Concluyó el curso", "Matrícula otorgada", "Trámite resuelto"
+// — donde el adjunto es importante para constancia).
+// ============================================================================
+export interface MotivoCierreOpcion {
+  value: string;          // texto persistido en tramites.motivo_cierre
+  label: string;          // copy mostrado en UI
+  satisfactorio: boolean; // true = resuelto OK; false = frustrado
+  requiere_documento: boolean;  // true → mostrar/forzar paso de adjunto
+  descripcion?: string;   // tooltip / hint en UI
+}
+
+const MOTIVOS_CURSO: MotivoCierreOpcion[] = [
+  {
+    value: 'Concluyó el curso',
+    label: 'Concluyó el curso',
+    satisfactorio: true,
+    requiere_documento: true,
+    descripcion: 'El alumno aprobó. Adjuntá el certificado o diploma.',
+  },
+  {
+    value: 'Abandonó el curso',
+    label: 'Abandonó el curso',
+    satisfactorio: false,
+    requiere_documento: false,
+    descripcion: 'El alumno dejó de cursar antes de finalizar.',
+  },
+  {
+    value: 'Desaprobó',
+    label: 'Desaprobó',
+    satisfactorio: false,
+    requiere_documento: false,
+    descripcion: 'El alumno no alcanzó las condiciones para aprobar.',
+  },
+  {
+    value: 'Se arrepintió o se equivocó en la solicitud',
+    label: 'Se arrepintió o se equivocó en la solicitud',
+    satisfactorio: false,
+    requiere_documento: false,
+  },
+];
+
+const MOTIVOS_MATRICULA: MotivoCierreOpcion[] = [
+  {
+    value: 'Matrícula otorgada',
+    label: 'Matrícula otorgada',
+    satisfactorio: true,
+    requiere_documento: true,
+    descripcion: 'Trámite resuelto. Adjuntá la resolución o constancia.',
+  },
+  {
+    value: 'Matrícula rechazada',
+    label: 'Matrícula rechazada',
+    satisfactorio: false,
+    requiere_documento: false,
+  },
+  {
+    value: 'Abandono del trámite',
+    label: 'Abandono del trámite',
+    satisfactorio: false,
+    requiere_documento: false,
+  },
+];
+
+const MOTIVOS_GENERICOS: MotivoCierreOpcion[] = [
+  {
+    value: 'Satisfactorio',
+    label: 'Satisfactorio',
+    satisfactorio: true,
+    requiere_documento: false,
+    descripcion: 'Trámite resuelto con el resultado esperado.',
+  },
+  {
+    value: 'Sin éxito',
+    label: 'Sin éxito',
+    satisfactorio: false,
+    requiere_documento: false,
+    descripcion: 'No se obtuvo el resultado esperado.',
+  },
+  {
+    value: 'Abandono del trámite',
+    label: 'Abandono del trámite',
+    satisfactorio: false,
+    requiere_documento: false,
+  },
+];
+
+export const MOTIVOS_CIERRE_POR_CATEGORIA: Record<TramiteCategoria, MotivoCierreOpcion[]> = {
+  curso: MOTIVOS_CURSO,
+  matricula: MOTIVOS_MATRICULA,
+  renovacion: MOTIVOS_MATRICULA,           // misma lógica que matricula
+  dj: MOTIVOS_GENERICOS,
+  consulta_juridica: MOTIVOS_GENERICOS,
+  reclamo: MOTIVOS_GENERICOS,
+  otro: MOTIVOS_GENERICOS,
+};
+
 // El siguiente estado natural cuando hacés "Avanzar" desde la kanban / la card.
 export const NEXT_ESTADO: Record<TramiteEstado, TramiteEstado | null> = {
   abierto: 'en_progreso',
