@@ -7,6 +7,7 @@ import { BrandLoaderScreen } from '@/components/brand/BrandLoader';
 import { LandingPage } from '@/modules/public/pages/LandingPage';
 import { ComingSoonCoverPage } from '@/modules/public/pages/ComingSoonCoverPage';
 import { PlataformaMuyProntoPage } from '@/modules/public/pages/PlataformaMuyProntoPage';
+import { ScrollToTopOnRouteChange } from '@/components/common/ScrollToTopOnRouteChange';
 import { LoginPage } from '@/modules/auth/pages/LoginPage';
 import { HealthPage } from '@/modules/public/pages/HealthPage';
 import { GerenciaLayout } from '@/modules/gerencia/components/GerenciaLayout';
@@ -260,6 +261,10 @@ export function App() {
 
   return (
     <BrowserRouter>
+      {/* Reset de scroll al cambio de ruta. Sin esto, navegar desde la mitad
+          de una página larga (landing, listado) a un destino nuevo deja al
+          usuario en la mitad del nuevo route — el header queda oculto. */}
+      <ScrollToTopOnRouteChange />
       <Suspense fallback={<BrandLoaderScreen />}>
       <Routes>
         <Route path="/" element={<RoleHomeOrLanding />} />
