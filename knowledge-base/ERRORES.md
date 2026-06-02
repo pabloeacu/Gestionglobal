@@ -852,3 +852,54 @@
   - **El propio health check confirma E-GG-26/27/28 fixes**: los
     7 checks devuelven OK en producción al 2026-06-01.
 - **Fecha / módulo:** 2026-06-01 · health-flows-check (DGG-32).
+
+## E-GG-31 · Tres reportes simultáneos de José Luis Saveriano (PRimerosMinutos vuelve, Atajos redundantes, Contraseña en inglés)
+- **Síntomas (3):**
+  1. **PrimerosMinutos vuelve al refresh** aunque el usuario cierra con la X.
+  2. **Bloque "Atajos" del dashboard duplica el sidebar** y agranda la pantalla sin valor.
+  3. **Cambio de contraseña falla** con mensaje en inglés "Current password
+     required when setting new password.", aunque el usuario puso la correcta.
+- **Causa raíz #1:** `getChecklist()` (services/api/onboardingChecklist.ts) hacía
+  `.from('profiles').select(...).single()` sin filtrar por `auth.uid()`. La
+  RLS de `profiles` permite a staff ver TODOS los profiles, así que `.single()`
+  rompía con "more than one row" → componente caía a `setState({})` → el
+  asistente reaparecía al refresh. Confirmado en BD: Pablo tenía
+  `{"dismissed":true}` guardado y aun así veía el asistente.
+- **Causa raíz #2:** UX legacy — la grilla "Atajos" se diseñó cuando el
+  sidebar tenía menos hubs. Tras DGG-25 (15→9 grupos) el sidebar ya cubre
+  toda esa navegación. Es ruido visual neto.
+- **Causa raíz #3:** AUDIT bonus #272 activó "Secure password change" y
+  "Require current password" en Supabase Auth. En ese modo,
+  `supabase.auth.updateUser({password})` desde el cliente RECHAZA porque
+  supabase-js v2 NO expone `password_current` en el body — la API REST
+  espera ese campo y no hay forma estándar de mandarlo. El `signInWithPassword`
+  previo NO satisface la verificación (Supabase requiere `password_current`
+  en el mismo request, no un re-auth previo).
+- **Fix #1:** `getChecklist()` ahora hace
+  `getUser()` → `.eq('id', user.id).maybeSingle()`. Si no hay sesión,
+  devuelve `NO_SESSION`. tolerante a 0 rows.
+- **Fix #2:** removido el `<section>Atajos</section>` de
+  `src/modules/gerencia/pages/GerenciaHome.tsx` + limpieza de imports.
+  Comment para el próximo que abra el archivo: "si reintroducís Atajos,
+  considerá mostrar SOLO los destinos personalizados al rol".
+- **Fix #3:** edge fn `cambiar-mi-password` (verify_jwt=true):
+  - identifica al user a partir del JWT del caller (anon + Authorization)
+  - en un cliente aislado, `signInWithPassword(email, current)` para verificar
+  - si OK, `admin.updateUserById(userId, {password: new})` con service_role
+    → bypassea la restricción "Secure password change" que aplica solo al
+    self-update desde el cliente.
+  - `changeMyPassword()` (services/api/perfil.ts) ahora invoca esta edge fn
+    en vez de hacer signInWithPassword + updateUser. Mantiene el código
+    semántico `CONTRASEÑA_ACTUAL_INVALIDA` para que el toast muestre el
+    mensaje específico.
+- **Aprendizajes:**
+  - **Las queries a tabla sin filtro explícito son frágiles ante cambios de
+    RLS.** Aunque el patrón "RLS te devuelve solo lo tuyo" suena suficiente,
+    `.single()` con N>1 rows rompe. Siempre `.eq('id', auth.uid())` cuando
+    se busca SU registro.
+  - **Settings de Supabase Auth no testeados en QA real.** AUDIT bonus #272
+    cerró como "completed" sin verificar UX del cambio de contraseña post-
+    activación. El primer usuario externo que lo intentó lo descubrió.
+  - **El sidebar es la SSOT de navegación.** Cualquier sección "atajos" /
+    "menú rápido" / "tarjetas grandes" duplica esa SSOT y queda desincronizada.
+- **Fecha / módulo:** 2026-06-02 · dashboard + auth + onboarding.

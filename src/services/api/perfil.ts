@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase';
-import { ok, fail, toApiError, type ApiResponse } from '@/lib/errors';
+import { ok, fail, toApiError, extractEdgeFnError, type ApiResponse } from '@/lib/errors';
 import type { Database } from '@/types/database';
 
 // Endpoints específicos de "Mi perfil" — separados de profiles.ts porque
@@ -90,36 +90,45 @@ export async function deleteAvatar(): Promise<ApiResponse<ProfileRow>> {
   return updateMyProfile({ avatar_url: null });
 }
 
-// Cambia la contraseña: primero re-auth con la actual (defensa contra sesión
-// secuestrada / pantalla desbloqueada por terceros), después updateUser.
+// Cambia la contraseña vía edge function `cambiar-mi-password`.
+// Por qué la edge fn y no `supabase.auth.updateUser` directo: Supabase Auth
+// tiene "Secure password change" + "Require current password" ENABLED
+// (AUDIT bonus #272). En ese modo, `updateUser({password})` desde el cliente
+// rechaza con "Current password required when setting new password" porque
+// supabase-js v2 NO expone `password_current` en el body. La edge fn hace:
+//   (1) signInWithPassword en un cliente aislado → verifica current
+//   (2) admin.updateUserById con service_role → bypassa la restricción
+// Bug reportado: José Luis Saveriano (2026-06-02). Documentado como E-GG-31.
 export async function changeMyPassword(
   currentPassword: string,
   newPassword: string,
 ): Promise<ApiResponse<true>> {
-  const { data: authData } = await supabase.auth.getUser();
-  const email = authData.user?.email;
-  if (!email) return fail('NO_SESSION', 'Sin sesión activa.');
-
   if (newPassword.length < 8) {
     return fail('PASSWORD_TOO_SHORT', 'La contraseña nueva debe tener al menos 8 caracteres.');
   }
 
-  // Re-auth: signInWithPassword vuelve a emitir tokens (no rompe la sesión).
-  const { error: reauthErr } = await supabase.auth.signInWithPassword({
-    email,
-    password: currentPassword,
+  const { data, error } = await supabase.functions.invoke<{
+    ok: boolean;
+    error?: string;
+  }>('cambiar-mi-password', {
+    body: { current: currentPassword, new: newPassword },
   });
-  if (reauthErr) {
-    return fail(
-      'CONTRASEÑA_ACTUAL_INVALIDA',
-      'La contraseña actual no es correcta.',
-      toApiError(reauthErr),
-    );
-  }
 
-  const { error: updErr } = await supabase.auth.updateUser({ password: newPassword });
-  if (updErr) {
-    return fail('PASSWORD_UPDATE', updErr.message, toApiError(updErr));
+  if (error) {
+    const msg = await extractEdgeFnError(error);
+    // Mantenemos el código semántico para que la UI muestre el mensaje
+    // específico cuando aplica.
+    const code = msg.toLowerCase().includes('actual no es correcta')
+      ? 'CONTRASEÑA_ACTUAL_INVALIDA'
+      : 'PASSWORD_UPDATE';
+    return fail(code, msg, error);
+  }
+  if (!data?.ok) {
+    const msg = data?.error ?? 'No pudimos actualizar la contraseña.';
+    const code = msg.toLowerCase().includes('actual no es correcta')
+      ? 'CONTRASEÑA_ACTUAL_INVALIDA'
+      : 'PASSWORD_UPDATE';
+    return fail(code, msg, data);
   }
 
   return ok(true);

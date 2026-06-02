@@ -15,10 +15,17 @@ export type ChecklistKey =
 export type ChecklistState = Partial<Record<ChecklistKey, boolean>>;
 
 export async function getChecklist(): Promise<ApiResponse<ChecklistState>> {
+  // Hay que filtrar por auth.uid() porque la RLS de profiles permite a staff
+  // ver TODOS los profiles → .single() rompía con "more than one row".
+  // Resultado del bug: para cualquier gerente, la query fallaba y el componente
+  // volvía a mostrar el asistente al refrescar el dashboard.
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return fail('NO_SESSION', 'Sin sesión activa.');
   const { data, error } = await supabase
     .from('profiles')
     .select('onboarding_checklist')
-    .single();
+    .eq('id', user.id)
+    .maybeSingle();
   if (error) return fail('CHECKLIST_GET', error.message, error);
   return ok((data?.onboarding_checklist ?? {}) as ChecklistState);
 }
