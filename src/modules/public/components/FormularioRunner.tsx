@@ -565,7 +565,11 @@ function FieldPreviewEye({
 
   return (
     <span className="inline-flex items-center gap-1.5">
-      <span className="text-xs text-brand-muted">
+      {/* Override de los estilos del kicker padre (uppercase, font-semibold,
+          tracking-wider) para que la leyenda luzca igual que el hint
+          "Debe tener declarado el Código de Actividad 682010." (text-xs,
+          minúscula natural, peso normal, tracking normal). */}
+      <span className="!text-xs !font-normal !normal-case !tracking-normal text-brand-muted">
         Presioná acá para ver el modelo del documento →
       </span>
       <button
