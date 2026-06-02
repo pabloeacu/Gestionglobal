@@ -13,6 +13,49 @@
 - **Fecha:**
 -->
 
+## DGG-37 · Previsualización de documentos en campos file ("ojito")
+- **Decisión:** los campos `file` del formulario público pueden mostrar un
+  ícono ojo al lado del label; al click, un popover muestra una imagen
+  de ejemplo del documento esperado + el nombre del archivo bajo la
+  imagen. Mecánica genérica reusable para cualquier campo a futuro.
+- **Razón:** José Luis (2026-06-02): "muchas personas no entienden bien
+  de qué archivos se trata". El copy + hint no alcanza para documentos
+  específicos como constancias fiscales — una imagen vale mil palabras.
+- **Implementación:**
+  - **Tipo** (`src/services/api/formularios.ts`): `FormularioFieldDef`
+    extendido con `preview?: { url: string; filename: string; alt?: string }`.
+  - **Runner** (`src/modules/public/components/FormularioRunner.tsx`):
+    componente `FieldPreviewEye` con popover (cierra con click afuera,
+    ESC, botón X). El helper `fieldLabel(field, prefilled)` lo integra
+    al lado del label cuando `field.preview` existe. `FileUploader` pasa
+    `fieldLabel(field, false)` al `Field` para que el ojito aparezca
+    en fields tipo `file`.
+  - **Builder** (`src/modules/formularios-admin/components/PropertiesPanel.tsx`):
+    nuevo `FilePreviewEditor` que aparece para campos `type='file'`.
+    Sube la imagen al bucket `formulario-previews` (vía
+    `subirImagenPreview` en `formularios-admin.ts`), permite editar
+    `filename` y `alt`. Validación: PNG/JPG/WebP hasta 5 MB.
+  - **Bucket** (mig 0177): `formulario-previews` público, write solo
+    gerente/operador. Mismo patrón que `formulario-descargas`.
+- **Aplicación inmediata** (mig 0178 + complemento):
+  | Slug | Campo | Preview |
+  |---|---|---|
+  | matriculacion-rpac | constancia_inscripcion_arca | ARCA ejemplo |
+  | matriculacion-rpac | constancia_arba_iibb | ARBA ejemplo |
+  | renovacion-rpac | constancia_arca_actualizada | ARCA ejemplo |
+  | renovacion-rpac | constancia_arba_iibb | ARBA ejemplo |
+- **Imágenes**: subidas como assets del repo en
+  `public/form-previews/constancia-{inscripcion-arca,arba-iibb}-ejemplo.png`,
+  servidas como `/form-previews/*.png` por Vercel. Las próximas las puede
+  cargar el dueño desde el panel del builder (van al bucket).
+- **Auditoría transversal**: ambos formularios RPAC fueron mapeados;
+  `renovacion-rpac` usa `constancia_arca_actualizada` en vez de
+  `constancia_inscripcion_arca` (es de actualización, no inicial) —
+  fix complementario aplicado en la misma mig.
+- **Verificación e2e:** query post-mig confirma 4 hits con `preview`
+  configurado correctamente. Build TS + vite OK.
+- **Fecha:** 2026-06-02 · ref JL-PREVIEW-1 a 6, migs 0177 + 0178.
+
 ## DGG-36 · RPAC matrícula · consolidar 2 campos del título
 - **Decisión:** en el formulario `matriculacion-rpac`, los 2 campos
   `titulo_secundario_o_superior` ("Título emitido por entidad habilitada

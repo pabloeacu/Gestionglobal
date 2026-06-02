@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { toast } from '@/lib/toast';
 import {
   Send,
@@ -13,6 +13,7 @@ import {
   Sparkles,
   Wallet,
   Copy,
+  Eye,
 } from 'lucide-react';
 import { validarVoucher, type ValidacionVoucher } from '@/services/api/vouchers';
 import { Button, Field, Input, PasswordRevealInput, Select, Textarea } from '@/components/common';
@@ -495,13 +496,99 @@ function PrefilledBadge() {
   );
 }
 
-/** Compose label con badge si está pre-rellenado. */
-function fieldLabel(field: FormularioFieldDef, prefilled: boolean): React.ReactNode {
-  if (!prefilled) return field.label;
+/**
+ * DGG-37 (JL-PREVIEW · 2026-06-02) · Ojo con popover que muestra una imagen
+ * de ejemplo del documento que el usuario tiene que adjuntar. Pensado para
+ * fields tipo `file` donde el copy + hint no alcanza (constancias ARCA,
+ * ARBA IIBB, etc.). El nombre del archivo aparece debajo de la imagen
+ * para que el usuario tenga referencia exacta.
+ *
+ * Cierra con: click afuera, botón "Cerrar", o tecla ESC.
+ */
+function FieldPreviewEye({
+  preview,
+}: {
+  preview: NonNullable<FormularioFieldDef['preview']>;
+}) {
+  const [open, setOpen] = useState(false);
+  const wrapperRef = useRef<HTMLSpanElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onPointerDown(e: MouseEvent) {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') setOpen(false);
+    }
+    document.addEventListener('mousedown', onPointerDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
   return (
-    <span className="inline-flex items-center gap-2">
-      {field.label}
-      <PrefilledBadge />
+    <span ref={wrapperRef} className="relative inline-flex">
+      <button
+        type="button"
+        onClick={(e) => { e.preventDefault(); setOpen((o) => !o); }}
+        title="Ver ejemplo del documento"
+        aria-label="Ver ejemplo del documento"
+        aria-expanded={open}
+        className="inline-flex h-6 w-6 items-center justify-center rounded-full text-brand-muted transition hover:bg-brand-cyan-pale/40 hover:text-brand-cyan focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-cyan/40"
+      >
+        <Eye size={14} />
+      </button>
+      {open && (
+        <div
+          role="dialog"
+          aria-label={`Ejemplo: ${preview.filename}`}
+          className="absolute left-1/2 top-full z-30 mt-2 w-[min(20rem,90vw)] -translate-x-1/2 rounded-2xl border border-slate-200 bg-white p-3 shadow-2xl sm:left-0 sm:translate-x-0"
+        >
+          <div className="mb-2 flex items-center justify-between">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-brand-muted">
+              Ejemplo del documento
+            </p>
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              aria-label="Cerrar ejemplo"
+              className="rounded-md p-0.5 text-brand-muted transition hover:bg-slate-100 hover:text-brand-ink"
+            >
+              <XIcon size={14} />
+            </button>
+          </div>
+          <img
+            src={preview.url}
+            alt={preview.alt ?? preview.filename}
+            loading="lazy"
+            className="w-full rounded-lg border border-slate-200 bg-slate-50 object-contain"
+          />
+          <p
+            className="mt-2 break-words text-xs font-medium text-brand-ink"
+            title={preview.filename}
+          >
+            {preview.filename}
+          </p>
+        </div>
+      )}
+    </span>
+  );
+}
+
+/** Compose label con badge si está pre-rellenado + ojito si hay preview. */
+function fieldLabel(field: FormularioFieldDef, prefilled: boolean): React.ReactNode {
+  const hasExtras = prefilled || !!field.preview;
+  if (!hasExtras) return field.label;
+  return (
+    <span className="inline-flex flex-wrap items-center gap-2">
+      <span>{field.label}</span>
+      {prefilled && <PrefilledBadge />}
+      {field.preview && <FieldPreviewEye preview={field.preview} />}
     </span>
   );
 }
@@ -840,8 +927,9 @@ function FileUploader({
     onFilesChange(files.filter((_, idx) => idx !== i));
   }
 
+  // DGG-37 · sumar el ojito (si hay preview) al label del file uploader.
   return (
-    <Field label={field.label} required={field.required} hint={field.hint}>
+    <Field label={fieldLabel(field, false)} required={field.required} hint={field.hint}>
       <div className="space-y-2">
         {files.length > 0 && (
           <ul className="space-y-1">

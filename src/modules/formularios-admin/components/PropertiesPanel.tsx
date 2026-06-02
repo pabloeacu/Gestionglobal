@@ -12,7 +12,7 @@ import type {
   FormularioSchemaDef,
   FormularioSectionDef,
 } from '@/services/api/formularios';
-import { ensureUniqueFieldName, subirArchivoDescarga } from '@/services/api/formularios-admin';
+import { ensureUniqueFieldName, subirArchivoDescarga, subirImagenPreview } from '@/services/api/formularios-admin';
 import type { Selection } from '../types';
 
 interface PropertiesPanelProps {
@@ -318,6 +318,15 @@ function FieldEditor({
         />
       )}
 
+      {/* JL-PREVIEW · imagen de ejemplo (ojito en runner) — solo para fields file */}
+      {field.type === 'file' && (
+        <FilePreviewEditor
+          field={field}
+          formularioId={formularioId}
+          onPatch={onPatch}
+        />
+      )}
+
       {/* AJL-4 · Editor del bloque "Costos del trámite" */}
       {field.type === 'costos_info' && (
         <CostosInfoEditor field={field} onPatch={onPatch} />
@@ -580,6 +589,167 @@ function FileDownloadEditor({
         <p className="text-[11px] text-brand-muted">
           Hasta 25 MB. Cualquier formato (PDF, DOC, XLS, ZIP, imagen, etc.).
         </p>
+      </div>
+    </Field>
+  );
+}
+
+/**
+ * JL-PREVIEW (DGG-37 · 2026-06-02) · Editor para configurar la imagen de
+ * ejemplo de un campo file. Aparece en el panel cuando el field es type=file.
+ * Sube la imagen al bucket público `formulario-previews` y persiste
+ * `field.preview = { url, filename, alt? }` que el runner usa para mostrar
+ * el ojito con popover.
+ */
+function FilePreviewEditor({
+  field,
+  formularioId,
+  onPatch,
+}: {
+  field: FormularioFieldDef;
+  formularioId: string;
+  onPatch: (patch: Partial<FormularioFieldDef>) => void;
+}) {
+  const [uploading, setUploading] = useState(false);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
+  async function onPick(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0];
+    e.target.value = '';
+    if (!f) return;
+    if (f.size > 5 * 1024 * 1024) {
+      toast.error('La imagen supera los 5 MB.');
+      return;
+    }
+    if (!/^image\/(png|jpe?g|webp)$/.test(f.type)) {
+      toast.error('Formato no permitido. Usá PNG, JPG o WebP.');
+      return;
+    }
+    setUploading(true);
+    try {
+      const upRes = await subirImagenPreview(formularioId, field.name, f);
+      if (!upRes.ok) {
+        toast.error('No pudimos subir la imagen', {
+          description: humanizeError(upRes.error),
+        });
+        return;
+      }
+      onPatch({
+        preview: {
+          url: upRes.data,
+          filename: field.preview?.filename ?? f.name,
+          alt: field.preview?.alt,
+        },
+      });
+      toast.success('Imagen subida');
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  function onRemove() {
+    onPatch({ preview: undefined });
+  }
+
+  const hasPreview = Boolean(field.preview?.url);
+
+  return (
+    <Field
+      label="Imagen de ejemplo (ojito en el formulario)"
+      hint="Opcional. Si la cargás, el usuario verá un ícono ojo al lado del campo y al clickearlo se abre la imagen para que entienda qué documento adjuntar."
+    >
+      <div className="space-y-2">
+        {hasPreview && field.preview && (
+          <div className="rounded-lg border border-slate-200 bg-white p-2">
+            <img
+              src={field.preview.url}
+              alt={field.preview.alt ?? field.preview.filename}
+              className="mx-auto max-h-40 w-auto rounded border border-slate-100 bg-slate-50 object-contain"
+            />
+            <div className="mt-2 flex items-center justify-between gap-2 text-xs">
+              <span className="truncate text-brand-muted" title={field.preview.url}>
+                {field.preview.url.replace(/^.*\/storage\//, '…/storage/')}
+              </span>
+              <button
+                type="button"
+                onClick={onRemove}
+                className="text-brand-muted hover:text-red-600"
+                title="Quitar imagen"
+                aria-label="Quitar imagen"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          </div>
+        )}
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/png,image/jpeg,image/webp"
+          className="hidden"
+          onChange={onPick}
+          disabled={uploading}
+        />
+        <Button
+          variant="secondary"
+          onClick={() => inputRef.current?.click()}
+          disabled={uploading}
+        >
+          {uploading ? (
+            <>
+              <Loader2 size={12} className="animate-spin" /> Subiendo…
+            </>
+          ) : hasPreview ? (
+            <>
+              <Upload size={12} /> Reemplazar imagen
+            </>
+          ) : (
+            <>
+              <Upload size={12} /> Subir imagen
+            </>
+          )}
+        </Button>
+        <p className="text-[11px] text-brand-muted">
+          Hasta 5 MB. PNG, JPG o WebP. Tamaño ideal: 600–900 px de ancho.
+        </p>
+        {hasPreview && (
+          <>
+            <Field label="Nombre del archivo a mostrar bajo la imagen">
+              <input
+                type="text"
+                value={field.preview?.filename ?? ''}
+                onChange={(e) =>
+                  onPatch({
+                    preview: {
+                      url: field.preview?.url ?? '',
+                      filename: e.target.value,
+                      alt: field.preview?.alt,
+                    },
+                  })
+                }
+                placeholder="Ej: Constancia ARBA Ingresos Brutos.pdf"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-cyan focus:outline-none focus:ring-2 focus:ring-brand-cyan/30"
+              />
+            </Field>
+            <Field label="Texto alternativo (accesibilidad, opcional)">
+              <input
+                type="text"
+                value={field.preview?.alt ?? ''}
+                onChange={(e) =>
+                  onPatch({
+                    preview: {
+                      url: field.preview?.url ?? '',
+                      filename: field.preview?.filename ?? '',
+                      alt: e.target.value || undefined,
+                    },
+                  })
+                }
+                placeholder="Describe la imagen para lectores de pantalla"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-cyan focus:outline-none focus:ring-2 focus:ring-brand-cyan/30"
+              />
+            </Field>
+          </>
+        )}
       </div>
     </Field>
   );

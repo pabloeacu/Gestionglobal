@@ -68,6 +68,20 @@ export interface FormularioFieldDef {
     };
     nota_extra?: string;
   };
+  // preview (DGG-37, pedido José Luis 2026-06-02): "ojito" al lado del
+  // label con un popover que muestra una imagen de ejemplo del documento
+  // que el usuario tiene que adjuntar. Sirve para campos tipo `file`
+  // donde el copy + hint no alcanza (ej. constancia ARCA, ARBA IIBB).
+  // - url: ruta del asset (puede ser `/form-previews/...` para assets del
+  //   repo o URL pública de bucket `formulario-previews`).
+  // - filename: cómo se llama el documento real (visible debajo de la
+  //   imagen para que el usuario lo identifique).
+  // - alt: texto alternativo para a11y.
+  preview?: {
+    url: string;
+    filename: string;
+    alt?: string;
+  };
 }
 
 export interface FormularioSectionDef {

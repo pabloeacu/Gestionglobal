@@ -61,6 +61,25 @@ const SCHEMA_VACIO: FormularioSchemaDef = {
   submit_label: 'Enviar',
 };
 
+// DGG-37 (JL-PREVIEW · 2026-06-02) · sube una imagen de ejemplo para un
+// campo type=file (el "ojito" del runner). Devuelve la URL pública.
+export async function subirImagenPreview(
+  formularioId: string,
+  fieldKey: string,
+  file: File,
+): Promise<ApiResponse<string>> {
+  const safe = file.name.replace(/[^\w.\-]/g, '_');
+  const path = `${formularioId}/${fieldKey}/${Date.now()}-${Math.random()
+    .toString(36)
+    .slice(2, 8)}-${safe}`;
+  const { error } = await supabase.storage
+    .from('formulario-previews')
+    .upload(path, file, { upsert: false, contentType: file.type || undefined });
+  if (error) return fail('FORM_PREVIEW_UPLOAD', error.message, error);
+  const { data } = supabase.storage.from('formulario-previews').getPublicUrl(path);
+  return ok(data.publicUrl);
+}
+
 // DGG-34 R4 sweep · sube un archivo de "descarga" para un campo de tipo
 // `file_download` en el builder (PropertiesPanel.tsx). Devuelve la URL pública.
 export async function subirArchivoDescarga(
