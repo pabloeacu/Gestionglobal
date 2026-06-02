@@ -453,6 +453,22 @@ export function makeFieldFromType(
     base.label = 'Archivo para descargar';
     base.hint = 'Descargá el archivo antes de continuar.';
   }
+  if (type === 'costos_info') {
+    // AJL-4 · Default razonable cuando se inserta desde la paleta.
+    // Sin esto, el runner devuelve null porque field.costos es undefined.
+    base.label = 'Costos del trámite';
+    base.hint = 'Honorarios + Gastos del trámite (certificados y tasas).';
+    base.costos = {
+      items: [{ label: 'Trámite estándar', precio: '$0,00' }],
+      nota_total: 'La transferencia debe ser por el total informado.',
+      cuenta: {
+        titular: 'Mercado Pago',
+        cvu: '0000003100053534352305',
+        alias: 'GestionGlobal.ar',
+        cuit_cuil: '27225982746',
+      },
+    };
+  }
   return base;
 }
 
@@ -482,6 +498,8 @@ function defaultLabel(type: FormularioFieldDef['type']): string {
       return 'Adjuntar archivo';
     case 'file_download':
       return 'Archivo para descargar';
+    case 'costos_info':
+      return 'Costos del trámite';
     case 'heading':
       return 'Encabezado';
     case 'separator':

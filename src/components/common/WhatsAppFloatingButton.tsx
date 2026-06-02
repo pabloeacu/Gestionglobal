@@ -26,12 +26,10 @@ export function WhatsAppFloatingButton({ mensaje, numero }: Props) {
     if (numero) return; // override explícito
     let active = true;
     (async () => {
-      const { data } = await supabase
-        .from('config_global')
-        .select('whatsapp')
-        .eq('id', 1)
-        .maybeSingle();
-      if (active && data?.whatsapp) setResolvedNumero(data.whatsapp);
+      // AJL #9: usamos la RPC pública para que también funcione desde anon
+      // (la RLS de config_global solo permite SELECT a authenticated).
+      const { data } = await supabase.rpc('get_public_whatsapp' as never);
+      if (active && typeof data === 'string' && data) setResolvedNumero(data);
     })();
     return () => {
       active = false;

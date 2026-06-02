@@ -6,7 +6,6 @@ import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import { SiteNav } from '@/components/site/SiteNav';
 import { SiteFooter } from '@/components/site/SiteFooter';
 import { FormularioRunner } from '@/modules/public/components/FormularioRunner';
-import { WhatsAppFloatingButton } from '@/components/common/WhatsAppFloatingButton';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   getFormularioPorSlug,
@@ -126,13 +125,11 @@ export function FormularioPublicoPage() {
           )}
 
           <main className="mx-auto mt-6 max-w-3xl px-6 pb-16 sm:pb-24">
+            {/* AJL #7: el WhatsAppFloatingButton ahora vive dentro del runner */}
             <FormularioRunner
               formulario={formulario}
               prefillValues={prefillValues}
               origenCanal={desdePortal && user ? 'cliente' : 'publico'}
-            />
-            <WhatsAppFloatingButton
-              mensaje={`Hola! Tengo una consulta sobre el trámite "${formulario.titulo}".`}
             />
 
             {formulario.textos_legales && (

@@ -46,6 +46,10 @@ export interface FormularioFieldDef {
   download_url?: string;
   download_filename?: string;
   download_size_bytes?: number;
+  // sensitive (E-GG-32 / AJL): si true, el runner renderiza el input
+  // como password (con dots) + un botón ojito para mostrar/ocultar. Pensado
+  // para claves fiscales y similares. Solo aplica a tipos `text` / `textarea`.
+  sensitive?: boolean;
   // costos_info (E-GG-32, pedido Jose Luis 2026-06-02): bloque informativo
   // con tarifas + datos de cuenta MP para transferencia. NO se envía en el
   // payload, NO se valida.

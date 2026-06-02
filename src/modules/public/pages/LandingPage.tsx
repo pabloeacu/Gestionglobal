@@ -251,11 +251,14 @@ function Hero() {
           className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row animate-fade-up"
           style={{ animationDelay: '240ms' }}
         >
+          {/* AJL #8: este CTA dice "plataforma" → va a la página de presentación
+              de la plataforma (Muy pronto), no al login. El "Ingresar" sigue en
+              el SiteNav para quien tiene credenciales del panel interno. */}
           <Link
-            to="/ingresar"
+            to="/plataforma"
             className="group inline-flex items-center gap-2 rounded-full bg-brand-ink px-7 py-3.5 font-semibold text-white shadow-[0_10px_30px_-12px_rgba(18,34,48,0.5)] transition hover:bg-brand-cyan hover:shadow-[0_14px_40px_-12px_rgba(0,158,202,0.55)]"
           >
-            Ingresar a la plataforma
+            Conocer la plataforma
             <ArrowRight size={17} className="transition group-hover:translate-x-1" />
           </Link>
           <a
@@ -947,11 +950,13 @@ function FinalCTA() {
               Gestión Global.
             </p>
             <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+              {/* AJL #8: igual que el hero, este CTA dice "plataforma" → va a
+                  la página de presentación, no al login. */}
               <Link
-                to="/ingresar"
+                to="/plataforma"
                 className="group inline-flex items-center gap-2 rounded-full bg-brand-ink px-7 py-3.5 font-semibold text-white transition hover:bg-brand-cyan"
               >
-                Ingresar a la plataforma
+                Conocer la plataforma
                 <ArrowRight
                   size={17}
                   className="transition group-hover:translate-x-1"

@@ -15,6 +15,8 @@ import {
   Wallet,
   CalendarClock,
   Layers,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import {
   Button,
@@ -544,6 +546,21 @@ function TabGeneral({
           onSave={(v) => onPatch('responsable_apellido', v)}
         />
       </DataRow>
+      {/* AJL-3 · Datos del padre y la madre (RPAC los pide) */}
+      <DataRow label="Padre (apellido y nombres)">
+        <InlineEdit
+          value={(admin as { padre_apellido_nombre?: string | null }).padre_apellido_nombre ?? null}
+          placeholder="Sin cargar"
+          onSave={(v) => onPatch('padre_apellido_nombre' as keyof AdministracionRow, v)}
+        />
+      </DataRow>
+      <DataRow label="Madre (apellido y nombres)">
+        <InlineEdit
+          value={(admin as { madre_apellido_nombre?: string | null }).madre_apellido_nombre ?? null}
+          placeholder="Sin cargar"
+          onSave={(v) => onPatch('madre_apellido_nombre' as keyof AdministracionRow, v)}
+        />
+      </DataRow>
       <DataRow label="Email">
         {admin.email ? (
           <CopyButton value={admin.email} label="Email" />
@@ -685,6 +702,17 @@ function TabRegistral({ admin }: { admin: AdministracionRow }) {
         <dl>
           <DataRow label="Matrícula">
             <span>{admin.matricula_rpac ?? <span className="text-brand-muted">—</span>}</span>
+          </DataRow>
+          {/* AJL-3 · Legajo RPAC + Clave Fiscal ARCA (con dots+ojito) */}
+          <DataRow label="Legajo">
+            <span>
+              {(admin as { legajo_rpac?: string | null }).legajo_rpac ?? (
+                <span className="text-brand-muted">—</span>
+              )}
+            </span>
+          </DataRow>
+          <DataRow label="Clave Fiscal ARCA">
+            <ClaveFiscalReveal valor={(admin as { clave_fiscal_arca?: string | null }).clave_fiscal_arca ?? null} />
           </DataRow>
           <DataRow label="Fecha de matriculación">
             <span>{admin.matricula_rpac_fecha ?? <span className="text-brand-muted">—</span>}</span>
@@ -1021,4 +1049,26 @@ function formatMoney(n: number): string {
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   }).format(n);
+}
+
+// AJL-3 · Componente helper para mostrar la clave fiscal ARCA con dots + ojito.
+// Reutiliza la lógica de PasswordRevealInput pero sin form input (es solo display).
+function ClaveFiscalReveal({ valor }: { valor: string | null }) {
+  const [visible, setVisible] = useState(false);
+  if (!valor) return <span className="text-brand-muted">—</span>;
+  return (
+    <span className="inline-flex items-center gap-2 font-mono text-sm">
+      <span>{visible ? valor : '•'.repeat(Math.min(valor.length, 12))}</span>
+      <button
+        type="button"
+        onClick={() => setVisible((v) => !v)}
+        className="rounded p-1 text-brand-muted transition hover:bg-slate-100 hover:text-brand-cyan"
+        aria-label={visible ? 'Ocultar' : 'Mostrar'}
+        title={visible ? 'Ocultar' : 'Mostrar'}
+      >
+        {visible ? <EyeOff size={12} /> : <Eye size={12} />}
+      </button>
+      <CopyButton value={valor} label="Clave" />
+    </span>
+  );
 }

@@ -15,7 +15,8 @@ import {
   Copy,
 } from 'lucide-react';
 import { validarVoucher, type ValidacionVoucher } from '@/services/api/vouchers';
-import { Button, Field, Input, Select, Textarea } from '@/components/common';
+import { Button, Field, Input, PasswordRevealInput, Select, Textarea } from '@/components/common';
+import { WhatsAppFloatingButton } from '@/components/common/WhatsAppFloatingButton';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import {
   submitFormulario,
@@ -281,6 +282,11 @@ export function FormularioRunner({
 
   return (
     <form onSubmit={onSubmit} className="space-y-6">
+      {/* AJL #7: el botón flotante vive acá para que aparezca en TODOS los call
+          sites del FormularioRunner (público, portal, futuros embeds). */}
+      <WhatsAppFloatingButton
+        mensaje={`Hola! Tengo una consulta sobre el trámite "${formulario.titulo}".`}
+      />
       {prefilledCount > 0 && (
         <div className="flex items-start gap-3 rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4 text-sm text-emerald-900 shadow-sm">
           <CheckCircle2 className="mt-0.5 shrink-0 text-emerald-600" size={18} />
@@ -615,6 +621,19 @@ function FieldRenderer({ field, value, prefilled = false, onChange, files, onFil
 
     default:
       // text / email / tel / number / date
+      // sensitive (AJL #5): si está en true, renderizar como password con ojito.
+      if (field.sensitive && (field.type === 'text' || !field.type)) {
+        return (
+          <Field label={fieldLabel(field, prefilled)} required={field.required} hint={field.hint}>
+            <PasswordRevealInput
+              value={String(value ?? '')}
+              onChange={(e) => onChange(e.target.value)}
+              placeholder={field.placeholder}
+              required={field.required}
+            />
+          </Field>
+        );
+      }
       return (
         <Field label={fieldLabel(field, prefilled)} required={field.required} hint={field.hint}>
           <Input

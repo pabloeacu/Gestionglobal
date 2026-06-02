@@ -6,6 +6,7 @@ import {
   Button,
   Field,
   Input,
+  PasswordRevealInput,
   Select,
   Textarea,
   Stepper,
@@ -47,6 +48,11 @@ type FormState = {
   matricula_rpac_fecha: string;
   matricula_rpac_vencimiento: string;
   matricula_rpa: string;
+  // AJL-3 · Datos personales del administrador titular (RPAC los pide)
+  padre_apellido_nombre: string;
+  madre_apellido_nombre: string;
+  legajo_rpac: string;
+  clave_fiscal_arca: string;
   origen: string;
   convenio: string;
   observaciones: string;
@@ -72,6 +78,10 @@ const EMPTY: FormState = {
   matricula_rpac_fecha: '',
   matricula_rpac_vencimiento: '',
   matricula_rpa: '',
+  padre_apellido_nombre: '',
+  madre_apellido_nombre: '',
+  legajo_rpac: '',
+  clave_fiscal_arca: '',
   origen: '',
   convenio: '',
   observaciones: '',
@@ -98,6 +108,10 @@ function rowToForm(r: AdministracionRow): FormState {
     matricula_rpac_fecha: r.matricula_rpac_fecha ?? '',
     matricula_rpac_vencimiento: r.matricula_rpac_vencimiento ?? '',
     matricula_rpa: r.matricula_rpa ?? '',
+    padre_apellido_nombre: (r as { padre_apellido_nombre?: string | null }).padre_apellido_nombre ?? '',
+    madre_apellido_nombre: (r as { madre_apellido_nombre?: string | null }).madre_apellido_nombre ?? '',
+    legajo_rpac: (r as { legajo_rpac?: string | null }).legajo_rpac ?? '',
+    clave_fiscal_arca: (r as { clave_fiscal_arca?: string | null }).clave_fiscal_arca ?? '',
     origen: r.origen ?? '',
     convenio: r.convenio ?? '',
     observaciones: r.observaciones ?? '',
@@ -188,6 +202,10 @@ export function AdministracionFormDrawer({
       matricula_rpac_fecha: form.matricula_rpac_fecha || null,
       matricula_rpac_vencimiento: form.matricula_rpac_vencimiento || null,
       matricula_rpa: form.matricula_rpa.trim() || null,
+      padre_apellido_nombre: form.padre_apellido_nombre.trim() || null,
+      madre_apellido_nombre: form.madre_apellido_nombre.trim() || null,
+      legajo_rpac: form.legajo_rpac.trim() || null,
+      clave_fiscal_arca: form.clave_fiscal_arca.trim() || null,
       origen: form.origen.trim() || null,
       convenio: form.convenio.trim() || null,
       estado: form.estado,
@@ -480,6 +498,39 @@ export function AdministracionFormDrawer({
                   <Input
                     value={form.matricula_rpa}
                     onChange={(e) => setField('matricula_rpa', e.target.value)}
+                  />
+                </Field>
+              </div>
+              {/* AJL-3: datos personales + identidad fiscal del titular RPAC */}
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="Apellido y nombres del padre" hint="RPAC lo pide al matricularse.">
+                  <Input
+                    value={form.padre_apellido_nombre}
+                    onChange={(e) => setField('padre_apellido_nombre', e.target.value)}
+                  />
+                </Field>
+                <Field label="Apellido y nombres de la madre">
+                  <Input
+                    value={form.madre_apellido_nombre}
+                    onChange={(e) => setField('madre_apellido_nombre', e.target.value)}
+                  />
+                </Field>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="Legajo RPAC" hint="Número de legajo asignado por el Registro al matricularse.">
+                  <Input
+                    value={form.legajo_rpac}
+                    onChange={(e) => setField('legajo_rpac', e.target.value)}
+                  />
+                </Field>
+                <Field
+                  label="Clave Fiscal ARCA"
+                  hint="Texto común; se oculta automáticamente con ✦ y se revela con el botón."
+                >
+                  <PasswordRevealInput
+                    value={form.clave_fiscal_arca}
+                    onChange={(e) => setField('clave_fiscal_arca', e.target.value)}
+                    placeholder="Clave fiscal nivel 3"
                   />
                 </Field>
               </div>

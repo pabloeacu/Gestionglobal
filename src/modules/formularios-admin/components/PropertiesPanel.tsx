@@ -125,15 +125,16 @@ function FieldEditor({
 }) {
   const hasOptions = ['select', 'multiselect', 'radio'].includes(field.type);
   const noLabelTypes = ['separator'];
-  // file_download es presentacional: no se envía con la submission, así que NO
-  // expone "Obligatorio" ni puede ser objetivo de lógica condicional.
-  const noRequiredTypes = ['separator', 'heading', 'file_download'];
+  // file_download y costos_info son presentacionales: no se envían con la
+  // submission, así que NO exponen "Obligatorio" ni pueden ser objetivo de
+  // lógica condicional.
+  const noRequiredTypes = ['separator', 'heading', 'file_download', 'costos_info'];
 
   const otrosCampos = schema.sections.flatMap((s, sI) =>
     s.fields.filter(
       (f, fI) =>
         !(sI === sectionIdx && fI === fieldIdx) &&
-        !['separator', 'heading', 'html', 'file_download'].includes(f.type),
+        !['separator', 'heading', 'html', 'file_download', 'costos_info'].includes(f.type),
     ),
   );
 
@@ -315,6 +316,29 @@ function FieldEditor({
           formularioId={formularioId}
           onPatch={onPatch}
         />
+      )}
+
+      {/* AJL-4 · Editor del bloque "Costos del trámite" */}
+      {field.type === 'costos_info' && (
+        <CostosInfoEditor field={field} onPatch={onPatch} />
+      )}
+
+      {/* AJL-2 · Flag "Tratar como dato sensible" (clave fiscal, etc.) */}
+      {(field.type === 'text' || field.type === 'textarea') && (
+        <label className="flex items-start gap-2 rounded-lg border border-slate-200 bg-white p-3 text-sm">
+          <input
+            type="checkbox"
+            checked={field.sensitive === true}
+            onChange={(e) => onPatch({ sensitive: e.target.checked || undefined })}
+            className="mt-0.5 h-4 w-4 rounded border-slate-300"
+          />
+          <div>
+            <p className="font-semibold text-brand-ink">Tratar como dato sensible</p>
+            <p className="text-xs text-brand-muted">
+              El campo se ve con "•" y un botón ojito para revelar. Pensado para claves fiscales y similares.
+            </p>
+          </div>
+        </label>
       )}
 
       <Field
@@ -613,6 +637,144 @@ function OptionsEditor({
       >
         <Plus size={12} /> Agregar opción
       </Button>
+    </div>
+  );
+}
+
+/**
+ * AJL-4 · Editor del bloque "Costos del trámite" (tipo `costos_info`).
+ * Permite a la gerencia editar items (label/precio/nota), la nota_total,
+ * los 4 campos de la cuenta MP y la nota_extra. No es validable.
+ */
+function CostosInfoEditor({
+  field,
+  onPatch,
+}: {
+  field: FormularioFieldDef;
+  onPatch: (patch: Partial<FormularioFieldDef>) => void;
+}) {
+  const costos = field.costos ?? {
+    items: [],
+    cuenta: { titular: '', cvu: '', alias: '', cuit_cuil: '' },
+  };
+
+  function patchCostos(p: Partial<NonNullable<FormularioFieldDef['costos']>>) {
+    onPatch({ costos: { ...costos, ...p } });
+  }
+
+  return (
+    <div className="space-y-3 rounded-lg border border-amber-200 bg-amber-50/40 p-3">
+      <p className="kicker text-amber-700">Bloque de costos</p>
+
+      {/* Items */}
+      <div>
+        <p className="mb-1 text-xs font-semibold text-brand-ink">Tarifas</p>
+        <ul className="space-y-2">
+          {(costos.items ?? []).map((item, i) => (
+            <li key={i} className="grid grid-cols-1 gap-1.5 rounded border border-slate-200 bg-white p-2 sm:grid-cols-[1fr_auto_auto]">
+              <Input
+                value={item.label}
+                placeholder="Concepto"
+                onChange={(e) => {
+                  const next = [...(costos.items ?? [])];
+                  next[i] = { ...next[i]!, label: e.target.value };
+                  patchCostos({ items: next });
+                }}
+              />
+              <Input
+                value={item.precio}
+                placeholder="$0,00"
+                className="w-32"
+                onChange={(e) => {
+                  const next = [...(costos.items ?? [])];
+                  next[i] = { ...next[i]!, precio: e.target.value };
+                  patchCostos({ items: next });
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => patchCostos({ items: (costos.items ?? []).filter((_, idx) => idx !== i) })}
+                className="rounded p-1 text-red-600 hover:bg-red-50"
+                aria-label="Quitar tarifa"
+              >
+                <Trash2 size={14} />
+              </button>
+              <Input
+                value={item.nota ?? ''}
+                placeholder="Nota (sujeto a modificación, etc.)"
+                className="sm:col-span-3"
+                onChange={(e) => {
+                  const next = [...(costos.items ?? [])];
+                  next[i] = { ...next[i]!, nota: e.target.value };
+                  patchCostos({ items: next });
+                }}
+              />
+            </li>
+          ))}
+        </ul>
+        <Button
+          variant="secondary"
+          onClick={() => patchCostos({ items: [...(costos.items ?? []), { label: '', precio: '' }] })}
+          className="mt-2"
+        >
+          <Plus size={12} /> Agregar tarifa
+        </Button>
+      </div>
+
+      <Field label="Nota destacada (debajo de las tarifas)">
+        <Input
+          value={costos.nota_total ?? ''}
+          placeholder="La transferencia debe ser por el total informado."
+          onChange={(e) => patchCostos({ nota_total: e.target.value || undefined })}
+        />
+      </Field>
+
+      <div className="space-y-2 rounded border border-slate-200 bg-white p-2">
+        <p className="text-xs font-semibold text-brand-ink">Cuenta para transferencia</p>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <Field label="Titular">
+            <Input
+              value={costos.cuenta?.titular ?? ''}
+              onChange={(e) =>
+                patchCostos({ cuenta: { ...(costos.cuenta ?? { titular: '', cvu: '', alias: '', cuit_cuil: '' }), titular: e.target.value } })
+              }
+            />
+          </Field>
+          <Field label="CVU">
+            <Input
+              value={costos.cuenta?.cvu ?? ''}
+              onChange={(e) =>
+                patchCostos({ cuenta: { ...(costos.cuenta ?? { titular: '', cvu: '', alias: '', cuit_cuil: '' }), cvu: e.target.value } })
+              }
+            />
+          </Field>
+          <Field label="Alias">
+            <Input
+              value={costos.cuenta?.alias ?? ''}
+              onChange={(e) =>
+                patchCostos({ cuenta: { ...(costos.cuenta ?? { titular: '', cvu: '', alias: '', cuit_cuil: '' }), alias: e.target.value } })
+              }
+            />
+          </Field>
+          <Field label="CUIT/CUIL">
+            <Input
+              value={costos.cuenta?.cuit_cuil ?? ''}
+              onChange={(e) =>
+                patchCostos({ cuenta: { ...(costos.cuenta ?? { titular: '', cvu: '', alias: '', cuit_cuil: '' }), cuit_cuil: e.target.value } })
+              }
+            />
+          </Field>
+        </div>
+      </div>
+
+      <Field label="Nota adicional (al pie del bloque)">
+        <Textarea
+          rows={2}
+          value={costos.nota_extra ?? ''}
+          placeholder="Aclaraciones extra, descuentos, etc."
+          onChange={(e) => patchCostos({ nota_extra: e.target.value || undefined })}
+        />
+      </Field>
     </div>
   );
 }

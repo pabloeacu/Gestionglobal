@@ -3,6 +3,7 @@ export { Drawer } from './Drawer';
 export { Button } from './Button';
 export { DialogProvider, useConfirm, usePrompt, useAlert } from './DialogProvider';
 export { Field, Input, Select, Textarea } from './Field';
+export { PasswordRevealInput } from './PasswordRevealInput';
 export { Tabs, type TabItem } from './Tabs';
 export { Skeleton, SkeletonText, SkeletonRow } from './Skeleton';
 export { SkeletonWithTimeout } from './SkeletonWithTimeout';

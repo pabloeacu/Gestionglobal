@@ -962,3 +962,96 @@
     funciona como captura de prospectos sin pedir email.
 - **Fecha / módulo:** 2026-06-02 · formularios + landing + WhatsApp +
   página plataforma + administraciones.
+
+## E-GG-33 · Auditoría exhaustiva E-GG-32: 9 hallazgos (5 críticos + 4 menores)
+- **Trigger del pedido:** el usuario citó la lección "auditorías con sesgo
+  de revisar vs ejercitar" del health check (DGG-32) y la aplicó al chunk
+  Jose Luis recién cerrado. La consigna: "que los campos queden todos bien
+  guardados y consolidados en todos los aspectos".
+- **Metodología:** 3 agentes en paralelo (gerencia+builder · naming+downstream
+  · WhatsApp+plataforma) + test e2e en BD con ROLLBACK simulando una
+  submission completa de matriculación-rpac y verificando persistencia,
+  trigger, y disponibilidad para autofill.
+- **Hallazgos críticos (5):**
+  1. **Sync submission → administración roto.** El cliente declaraba
+     `clave_fiscal_arca`/`legajo_rpac`/padre/madre en un formulario,
+     pero nada de eso volvía a su ficha. La próxima vez retipeaba.
+     Rompía la promesa "lo declarás una vez". Confirmado por test e2e
+     en BD (UPDATE de administraciones se quedaba NULL post-submission).
+  2. **Gerencia no podía editar los 4 campos nuevos** en el
+     `AdministracionFormDrawer`: el `FormState`, `EMPTY`, `rowToForm` y
+     payload del PATCH ni los conocían. La única forma de cargarlos era
+     una submission pública del propio cliente (que tampoco persistía,
+     por hallazgo #1).
+  3. **Builder no editaba `costos_info`.** El `PropertiesPanel` no tenía
+     editor del subobjeto `costos` (items/cuenta/nota_total/nota_extra).
+     Si cambiaba el precio del trámite, la única forma era SQL directo
+     contra `formularios.schema`.
+  4. **Click-add insertaba `costos_info` sin defaults.** `makeFieldFromType`
+     no contemplaba el tipo. El campo se insertaba con `costos = undefined`
+     y `CostosInfoCard` devolvía `null` silencioso. El gerente clickeaba
+     "Agregar costos" y no veía nada.
+  5. **Clave fiscal en plano.** La directiva del usuario era "***" + ojito,
+     pero todos los schemas usaban `type:"text"` sin flag. La clave se veía
+     mientras se tipeaba, quedaba en el DOM y se exponía en screen-share.
+- **Hallazgos menores (4):**
+  6. `AdministracionDetailPage` no mostraba los 4 campos.
+  7. WhatsApp button vivía en el wrapper `FormularioPublicoPage` en
+     lugar del runner → si mañana se embebe el runner desde otro flujo
+     (modal, webinar), el botón se omite.
+  8. 2 CTAs grandes del landing decían "Ingresar a la plataforma" pero
+     apuntaban a `/ingresar` (login interno), inconsistente con los otros
+     CTAs que ya iban a `/plataforma`.
+  9. RLS de `config_global` solo permite SELECT a `authenticated`. El
+     `WhatsAppFloatingButton` para visitantes anónimos caía al fallback
+     hardcoded; el número no era editable desde la UI sin redeploy.
+- **Fixes (todos en mismo chunk):**
+  - **Mig 0169**: (a) trigger `trg_subm_sync_admin` con COALESCE para
+    cada uno de los 7 campos importantes que viajan en `datos`; (b)
+    `UPDATE formularios SET schema = jsonb_set(...)` marcando
+    `clave_fiscal_arca.sensitive = true` en los 3 schemas; (c) RPC
+    `get_public_whatsapp()` con `GRANT EXECUTE TO anon, authenticated`.
+  - `FormularioFieldDef.sensitive?: boolean` + `PasswordRevealInput`
+    reusable (input password + botón ojito) + render del runner cuando
+    `field.sensitive && type==='text'`.
+  - `AdministracionFormDrawer`: 4 inputs nuevos (con `PasswordRevealInput`
+    para la clave fiscal) en el step "Matrículas y notas". Update completo
+    de `FormState`, `EMPTY`, `rowToForm` y payload.
+  - `AdministracionDetailPage`: 2 DataRows nuevas en TabGeneral
+    (padre/madre con `InlineEdit`) + 2 en TabRegistral (legajo + clave
+    fiscal con componente `ClaveFiscalReveal` con dots+ojito+copy).
+  - `CanvasFormulario.makeFieldFromType`: default razonable cuando se
+    inserta `costos_info` desde la paleta (1 tarifa vacía + cuenta MP
+    pre-completada con la de Gestión Global). `defaultLabel` actualizado.
+  - `PropertiesPanel`: `CostosInfoEditor` con repeatable de items
+    (label/precio/nota) + 4 inputs de cuenta + nota_total + nota_extra.
+    También flag `sensitive` con checkbox visible para campos text/textarea.
+  - `FormularioRunner`: WhatsApp ahora vive adentro del propio runner.
+    `FormularioPublicoPage` deja de inyectarlo (evita doble botón).
+  - `WhatsAppFloatingButton`: usa `supabase.rpc('get_public_whatsapp')`
+    en vez de query directa a `config_global`.
+  - `LandingPage`: los 2 CTAs cambian texto a "Conocer la plataforma" y
+    apuntan a `/plataforma`. El "Ingresar" del SiteNav sigue vivo para
+    quien tiene credenciales del panel interno.
+- **Verificación post-fix:**
+  - Segundo test e2e en BD: misma submission ahora SÍ poblaba
+    `administraciones.padre_apellido_nombre = 'PADRE AJL'`,
+    `madre = 'MADRE AJL'`, `clave_fiscal_arca = 'CLAVE_AJL_xyz'`,
+    `telefono = '+5491100000000'`. Trigger working.
+  - Schemas confirmados con `sensitive=true` en los 3 formularios.
+  - `SELECT public.get_public_whatsapp()` devuelve `+5492214317914`.
+  - `tsc --noEmit` + `vite build` limpios.
+- **Aprendizaje:**
+  - **Auditar = ejercitar.** El test e2e en BD (con ROLLBACK) descubrió
+    el GAP crítico #1 antes que ningún ojo humano lo viera en prod.
+    Esto debería ser parte del flujo estándar post-mig: insertar un
+    row sintético, dispararlo, observar el side-effect esperado.
+  - **El builder es tan importante como el runner.** Un tipo de campo
+    sin editor en `PropertiesPanel` es código zombie: nadie lo modifica,
+    pero todos lo ven en el runner. Mismo con `makeFieldFromType` sin
+    default: lo inserta vacío, renderiza null, no hay error.
+  - **Persistencia en la ficha = palanca de UX.** Tener triggers de
+    sync submission→admin es la diferencia entre "lo declarás una vez"
+    y "lo declarás cada vez". Vale más que cualquier optimización del
+    formulario.
+- **Fecha / módulo:** 2026-06-02 · auditoría E-GG-32 cierre.
