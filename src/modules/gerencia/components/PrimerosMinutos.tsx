@@ -26,6 +26,7 @@ import {
   type ChecklistKey,
   type ChecklistState,
 } from '@/services/api/onboardingChecklist';
+import { humanizeError } from '@/lib/errors';
 
 interface Item {
   key: ChecklistKey;
@@ -98,7 +99,7 @@ export function PrimerosMinutos() {
       setState((prev) => ({ ...(prev ?? {}), [key]: value }));
       const r = await setChecklistItem(key, value);
       if (!r.ok) {
-        toast.error(`No se pudo guardar: ${r.error.message}`);
+        toast.error(`No se pudo guardar: ${humanizeError(r.error)}`);
       }
     },
     [],

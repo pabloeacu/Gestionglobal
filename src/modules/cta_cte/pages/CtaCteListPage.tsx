@@ -29,6 +29,7 @@ import { formatMoney, defaultDesde, defaultHasta } from '../lib/format';
 import { ExportButtons } from '@/components/reports/ExportButtons';
 import { generateReportPdf } from '@/lib/reportPdf';
 import { generateReportXls } from '@/lib/reportXls';
+import { humanizeError } from '@/lib/errors';
 
 type SortKey = 'deuda' | 'facturado' | 'cobrado' | 'nombre';
 type SortDir = 'asc' | 'desc';
@@ -55,7 +56,7 @@ export function CtaCteListPage() {
     const res = await getResumenGlobal(desde || undefined, hasta || undefined);
     setLoading(false);
     if (!res.ok) {
-      setError(res.error.message);
+      setError(humanizeError(res.error));
       return;
     }
     setRows(res.data);

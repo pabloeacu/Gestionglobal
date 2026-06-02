@@ -56,6 +56,7 @@ import { SavedViewsMenu } from '@/components/common/SavedViewsMenu';
 import { generateReportPdf } from '@/lib/reportPdf';
 import { generateReportXls } from '@/lib/reportXls';
 import { copyAsCsv } from '@/lib/csvCopy';
+import { humanizeError } from '@/lib/errors';
 
 type TipoFilter = VencimientoTipo | 'todos';
 type EstadoFilter = VencimientoEstado | 'todos';
@@ -125,8 +126,8 @@ export function VencimientosListPage() {
     setRefreshing(false);
     firstLoadDoneRef.current = true;
     if (!res.ok) {
-      setError(res.error.message);
-      toast.error(`No pudimos cargar los vencimientos: ${res.error.message}`);
+      setError(humanizeError(res.error));
+      toast.error(`No pudimos cargar los vencimientos: ${humanizeError(res.error)}`);
       return;
     }
     setRows(res.data);
@@ -372,7 +373,7 @@ export function VencimientosListPage() {
     if (motivo === null) return;
     const res = await pausarVencimiento(v.id, motivo?.trim() || null);
     if (!res.ok) {
-      toast.error(`No se pudo pausar: ${res.error.message}`);
+      toast.error(`No se pudo pausar: ${humanizeError(res.error)}`);
       return;
     }
     toast.success('Alertas pausadas', {
@@ -383,7 +384,7 @@ export function VencimientosListPage() {
   async function onReanudar(v: ProximoVencimiento) {
     const res = await reanudarVencimiento(v.id);
     if (!res.ok) {
-      toast.error(`No se pudo reanudar: ${res.error.message}`);
+      toast.error(`No se pudo reanudar: ${humanizeError(res.error)}`);
       return;
     }
     toast.success('Alertas reanudadas');
@@ -402,7 +403,7 @@ export function VencimientosListPage() {
     if (!okConf) return;
     const res = await eliminarVencimiento(v.id);
     if (!res.ok) {
-      toast.error(`No se pudo eliminar: ${res.error.message}`);
+      toast.error(`No se pudo eliminar: ${humanizeError(res.error)}`);
       return;
     }
     toast.success('Vencimiento eliminado');

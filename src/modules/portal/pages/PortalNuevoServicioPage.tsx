@@ -24,6 +24,7 @@ import {
   fetchClienteCatalogo,
   type ClienteFormularioCatalogItem,
 } from '@/services/api/portal-dashboard';
+import { humanizeError } from '@/lib/errors';
 
 export function PortalNuevoServicioPage() {
   const [params] = useSearchParams();
@@ -37,7 +38,7 @@ export function PortalNuevoServicioPage() {
     const res = await fetchClienteCatalogo();
     setLoading(false);
     if (!res.ok) {
-      toast.error('No pudimos cargar el catálogo', { description: res.error.message });
+      toast.error('No pudimos cargar el catálogo', { description: humanizeError(res.error) });
       return;
     }
     setItems(res.data);

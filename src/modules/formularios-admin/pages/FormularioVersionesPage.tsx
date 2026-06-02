@@ -20,6 +20,7 @@ import {
 } from '@/services/api/formularios-admin';
 import type { FormularioRow, FormularioSchemaDef } from '@/services/api/formularios';
 import { VersionDiffModal } from '../components/VersionDiffModal';
+import { humanizeError } from '@/lib/errors';
 
 function fmtFecha(d: string) {
   try {
@@ -80,11 +81,11 @@ export function FormularioVersionesPage() {
     ]);
     setLoading(false);
     if (!fr.ok) {
-      toast.error('No pudimos cargar el formulario', { description: fr.error.message });
+      toast.error('No pudimos cargar el formulario', { description: humanizeError(fr.error) });
       return;
     }
     if (!vr.ok) {
-      toast.error('No pudimos listar versiones', { description: vr.error.message });
+      toast.error('No pudimos listar versiones', { description: humanizeError(vr.error) });
       return;
     }
     setFormulario(fr.data);
@@ -105,7 +106,7 @@ export function FormularioVersionesPage() {
     if (!ok) return;
     const res = await restaurarVersion(formulario.id, v.version_num);
     if (!res.ok) {
-      toast.error('No pudimos restaurar', { description: res.error.message });
+      toast.error('No pudimos restaurar', { description: humanizeError(res.error) });
       return;
     }
     toast.success(`Versión ${v.version_num} restaurada`);

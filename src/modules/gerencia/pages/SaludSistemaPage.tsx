@@ -24,6 +24,7 @@ import {
   type DbHealthPayload,
   type AlertSeverity,
 } from '@/services/api/dbHealth';
+import { humanizeError } from '@/lib/errors';
 
 function formatBytes(b: number): string {
   if (b < 1024) return `${b} B`;
@@ -51,7 +52,7 @@ export function SaludSistemaPage() {
     const res = await getDbHealthMetrics();
     setLoading(false);
     if (!res.ok) {
-      setError(res.error.message);
+      setError(humanizeError(res.error));
       return;
     }
     setData(res.data);

@@ -27,6 +27,7 @@ import {
   type InscriptoConCanal,
 } from '@/services/api/webinars';
 import { cn } from '@/lib/cn';
+import { humanizeError } from '@/lib/errors';
 
 type Tab = 'config' | 'inscriptos' | 'asistencia';
 
@@ -79,7 +80,7 @@ export function WebinarDetailPage() {
     const res = await crearReunionZoom({ webinarId: webinar.id });
     setCreatingZoom(false);
     if (!res.ok) {
-      toast.error('No pudimos crear la reunión Zoom', { description: res.error.message });
+      toast.error('No pudimos crear la reunión Zoom', { description: humanizeError(res.error) });
       return;
     }
     toast.success('Reunión Zoom creada · webhooks activos');
@@ -189,7 +190,7 @@ function ConfigTab({ webinar, onCrearZoom, creatingZoom, onRecargar }: {
     const res = await actualizarWebinar(webinar.id, { youtubeLiveUrl: youtubeUrl.trim() || null });
     setSavingYoutube(false);
     if (!res.ok) {
-      toast.error('No pudimos guardar', { description: res.error.message });
+      toast.error('No pudimos guardar', { description: humanizeError(res.error) });
       return;
     }
     toast.success('YouTube Live URL guardada');
@@ -317,7 +318,7 @@ function CertificadoWebinarSection({
     });
     setSaving(false);
     if (!res.ok) {
-      toast.error('No pudimos guardar', { description: res.error.message });
+      toast.error('No pudimos guardar', { description: humanizeError(res.error) });
       return;
     }
     toast.success('Certificado del webinar actualizado');
@@ -378,7 +379,7 @@ function CertificadoWebinarSection({
             onClick={async () => {
               const r = await emitirCertificadosWebinarLote(webinar.id);
               if (!r.ok) {
-                toast.error('No pudimos emitir', { description: r.error.message });
+                toast.error('No pudimos emitir', { description: humanizeError(r.error) });
                 return;
               }
               toast.success(
@@ -599,7 +600,7 @@ function InscribirManualModal({ webinarId, onClose, onCreated }: {
     });
     setLoading(false);
     if (!res.ok) {
-      toast.error('No pudimos inscribir', { description: res.error.message });
+      toast.error('No pudimos inscribir', { description: humanizeError(res.error) });
       return;
     }
     toast.success(`Inscripto al canal ${res.data.canal}`);

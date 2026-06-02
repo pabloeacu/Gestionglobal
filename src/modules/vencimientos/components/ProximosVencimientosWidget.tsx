@@ -18,6 +18,7 @@ import {
   CRITICIDAD_LABEL,
   type ProximoVencimiento,
 } from '@/services/api/vencimientos';
+import { humanizeError } from '@/lib/errors';
 
 interface Props {
   /** Horizonte de días a mostrar (default 45). */
@@ -51,7 +52,7 @@ export function ProximosVencimientosWidget({
     const res = await getProximosVencimientos(dias);
     setLoading(false);
     if (!res.ok) {
-      setError(res.error.message);
+      setError(humanizeError(res.error));
       return;
     }
     setRows(res.data);

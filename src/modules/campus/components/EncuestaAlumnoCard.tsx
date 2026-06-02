@@ -25,6 +25,7 @@ import {
   type PreguntaDef,
 } from '@/services/api/encuestas';
 import { cn } from '@/lib/cn';
+import { humanizeError } from '@/lib/errors';
 
 interface EncuestaAlumnoCardProps {
   curso_id: string;
@@ -162,7 +163,7 @@ function EncuestaForm({
       const up = await uploadFotoTestimonio(curso_id, matricula_id, foto);
       if (!up.ok) {
         setSending(false);
-        toast.error('No pudimos subir la foto', { description: up.error.message });
+        toast.error('No pudimos subir la foto', { description: humanizeError(up.error) });
         return;
       }
       fotoFinalUrl = up.data;
@@ -177,8 +178,8 @@ function EncuestaForm({
     const r = await responderEncuesta(matricula_id, respuestas, testimonio);
     setSending(false);
     if (!r.ok) {
-      setTopError(r.error.message);
-      toast.error('No pudimos enviar la encuesta', { description: r.error.message });
+      setTopError(humanizeError(r.error));
+      toast.error('No pudimos enviar la encuesta', { description: humanizeError(r.error) });
       return;
     }
     toast.success('Encuesta enviada · ¡gracias!');

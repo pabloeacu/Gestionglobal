@@ -63,6 +63,7 @@ import {
   Link2, Paintbrush, Eraser, Undo2, Redo2,
 } from 'lucide-react';
 import { usePrompt } from '@/components/common/DialogProvider';
+import { humanizeError } from '@/lib/errors';
 
 // =========================================================================
 export function GeneracionCjPage() {
@@ -77,7 +78,7 @@ export function GeneracionCjPage() {
     const res = await listarCjDocumentos();
     setLoading(false);
     if (!res.ok) {
-      toast.error('No pudimos cargar el historial', { description: res.error.message });
+      toast.error('No pudimos cargar el historial', { description: humanizeError(res.error) });
       return;
     }
     setRows(res.data);
@@ -90,7 +91,7 @@ export function GeneracionCjPage() {
     const res = await getCjDocumento(id);
     setBusyId(null);
     if (!res.ok) {
-      toast.error('No pudimos abrir el documento', { description: res.error.message });
+      toast.error('No pudimos abrir el documento', { description: humanizeError(res.error) });
       return;
     }
     setEditing(res.data);
@@ -105,7 +106,7 @@ export function GeneracionCjPage() {
       try {
         const blob = await generarPdfBlob(full.data);
         const upload = await subirPdfYMarcar(row.id, blob);
-        if (!upload.ok) { toast.error('No pudimos guardar el PDF', { description: upload.error.message }); return; }
+        if (!upload.ok) { toast.error('No pudimos guardar el PDF', { description: humanizeError(upload.error) }); return; }
         descargarBlob(blob, `CJ-${row.titulo.replace(/[^a-zA-Z0-9]+/g, '-')}.pdf`);
         toast.success('PDF generado y descargado');
         await load();
@@ -117,7 +118,7 @@ export function GeneracionCjPage() {
     setBusyId(row.id);
     const dl = await descargarPdf(row.pdf_storage_path);
     setBusyId(null);
-    if (!dl.ok) { toast.error('No pudimos descargar el PDF', { description: dl.error.message }); return; }
+    if (!dl.ok) { toast.error('No pudimos descargar el PDF', { description: humanizeError(dl.error) }); return; }
     descargarBlob(dl.data, `CJ-${row.titulo.replace(/[^a-zA-Z0-9]+/g, '-')}.pdf`);
   }
 
@@ -134,11 +135,11 @@ export function GeneracionCjPage() {
         if (!full.ok) { toast.error('No pudimos cargar el documento'); return; }
         const blob = await generarPdfBlob(full.data);
         const upload = await subirPdfYMarcar(row.id, blob);
-        if (!upload.ok) { toast.error('No pudimos guardar el PDF', { description: upload.error.message }); return; }
+        if (!upload.ok) { toast.error('No pudimos guardar el PDF', { description: humanizeError(upload.error) }); return; }
       }
       const send = await enviarPdfPorEmail(row.id);
       if (!send.ok) {
-        toast.error('No pudimos enviar el email', { description: send.error.message });
+        toast.error('No pudimos enviar el email', { description: humanizeError(send.error) });
         return;
       }
       toast.success('Enviado', { description: `PDF enviado a ${row.destinatario_email}` });
@@ -159,7 +160,7 @@ export function GeneracionCjPage() {
     setBusyId(row.id);
     const res = await eliminarCjDocumento(row.id);
     setBusyId(null);
-    if (!res.ok) { toast.error('No pudimos eliminar', { description: res.error.message }); return; }
+    if (!res.ok) { toast.error('No pudimos eliminar', { description: humanizeError(res.error) }); return; }
     toast.success('Documento eliminado');
     await load();
   }
@@ -390,7 +391,7 @@ function CjEditorDrawer({ initial, onClose, onSaved }: DrawerProps) {
       ? await actualizarCjDocumento(initial!.id, input)
       : await crearCjDocumento(input);
     setSaving(false);
-    if (!res.ok) { toast.error('No pudimos guardar', { description: res.error.message }); return null; }
+    if (!res.ok) { toast.error('No pudimos guardar', { description: humanizeError(res.error) }); return null; }
     toast.success(isEdit ? 'Documento actualizado' : 'Documento creado');
     return res.data;
   }
@@ -411,7 +412,7 @@ function CjEditorDrawer({ initial, onClose, onSaved }: DrawerProps) {
         destinatario_email: saved.destinatario_email,
       });
       const upload = await subirPdfYMarcar(saved.id, blob);
-      if (!upload.ok) { toast.error('PDF generado pero no se pudo guardar', { description: upload.error.message }); return; }
+      if (!upload.ok) { toast.error('PDF generado pero no se pudo guardar', { description: humanizeError(upload.error) }); return; }
       descargarBlob(blob, `CJ-${saved.titulo.replace(/[^a-zA-Z0-9]+/g, '-')}.pdf`);
       toast.success('PDF generado y descargado');
       onSaved(saved);

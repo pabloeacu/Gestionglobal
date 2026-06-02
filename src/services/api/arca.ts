@@ -4,7 +4,7 @@
 // doc 02 §4.8 (edge fns), P-ARCA-04.
 
 import { supabase } from '@/lib/supabase';
-import { ok, fail, toApiError, type ApiResponse } from '@/lib/errors';
+import { ok, fail, toApiError, extractEdgeFnError, type ApiResponse } from '@/lib/errors';
 
 export type ArcaAmbiente = 'homologacion' | 'produccion';
 
@@ -279,32 +279,9 @@ export async function updateArcaConfig(
 // genérico "Edge Function returned a non-2xx status code".
 // ============================================================================
 
-async function extractInvokeError(err: unknown): Promise<string> {
-  if (!err || typeof err !== 'object') return String(err);
-  const e = err as { message?: string; context?: { json?: () => Promise<unknown>; text?: () => Promise<string> } };
-  // Intentar leer el body como JSON, después como text.
-  try {
-    if (e.context?.json) {
-      const body = await e.context.json();
-      if (body && typeof body === 'object' && 'error' in body && typeof (body as { error: unknown }).error === 'string') {
-        return (body as { error: string }).error;
-      }
-    }
-  } catch { /* fallthrough */ }
-  try {
-    if (e.context?.text) {
-      const t = await e.context.text();
-      if (t) {
-        try {
-          const j = JSON.parse(t);
-          if (j?.error) return String(j.error);
-        } catch { /* not json */ }
-        return t.slice(0, 300);
-      }
-    }
-  } catch { /* fallthrough */ }
-  return e.message ?? 'Error desconocido';
-}
+// extractInvokeError fue movido a @/lib/errors como extractEdgeFnError (CHUNK1-A).
+// Mantenemos el nombre para no romper callers internos.
+const extractInvokeError = extractEdgeFnError;
 
 export interface GenerarCsrResult {
   ok: true;

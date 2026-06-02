@@ -30,6 +30,7 @@ import {
   type CrearClienteInput,
   type SolicitudDetalle,
 } from '@/services/api/solicitudes';
+import { humanizeError, extractEdgeFnError } from '@/lib/errors';
 
 interface Props {
   open: boolean;
@@ -294,7 +295,7 @@ export function WizardActivacion({
     });
     setBusy1(false);
     if (!res.ok) {
-      toast.error('No pudimos derivar', { description: res.error.message });
+      toast.error('No pudimos derivar', { description: humanizeError(res.error) });
       return;
     }
     toast.success('Solicitud derivada a la gestoría', {
@@ -315,7 +316,7 @@ export function WizardActivacion({
     });
     setBusyActivar(false);
     if (!res.ok) {
-      toast.error('No pudimos activar', { description: res.error.message });
+      toast.error('No pudimos activar', { description: humanizeError(res.error) });
       return;
     }
 
@@ -355,8 +356,9 @@ export function WizardActivacion({
             // gerencia para reenviar manualmente desde el panel del cliente.
             // eslint-disable-next-line no-console
             console.warn('[alta-cliente-portal] falló:', altaErr);
+            const altaMsg = await extractEdgeFnError(altaErr);
             toast.error('Cliente creado pero no pudimos enviar el email de bienvenida', {
-              description: 'Reenviá manualmente desde la ficha del cliente. Error: ' + altaErr.message,
+              description: 'Reenviá manualmente desde la ficha del cliente. ' + humanizeError(altaMsg),
               duration: 10000,
             });
           } else if (altaResp && typeof altaResp === 'object' && 'password_set' in altaResp) {
@@ -496,7 +498,7 @@ export function WizardActivacion({
                       for (const f of files) {
                         const r = await uploadAdjuntoGestoria(solicitud.id, f);
                         if (r.ok) subidos.push(r.data);
-                        else toast.error(`No pudimos subir ${f.name}`, { description: r.error.message });
+                        else toast.error(`No pudimos subir ${f.name}`, { description: humanizeError(r.error) });
                       }
                       setAdjuntosGestoria([...adjuntosGestoria, ...subidos]);
                       setSubiendoAdj(false);

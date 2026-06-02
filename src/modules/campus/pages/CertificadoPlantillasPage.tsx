@@ -36,6 +36,7 @@ import {
   type EsquemaCert,
 } from '../components/CertificadoPremium';
 import type { CertificadoParaPdf } from '@/services/api/campus';
+import { humanizeError } from '@/lib/errors';
 
 // Cert demo para el preview (datos del alumno hardcoded, lo que cambia es el esquema)
 const CERT_DEMO: CertificadoParaPdf = {
@@ -99,7 +100,7 @@ export function CertificadoPlantillasPage() {
     const res = await listarEsquemas();
     setLoading(false);
     if (!res.ok) {
-      toast.error(res.error.message);
+      toast.error(humanizeError(res.error));
       return;
     }
     setRows(res.data);
@@ -131,7 +132,7 @@ export function CertificadoPlantillasPage() {
     if (!nombre) return;
     const res = await crearEsquema({ nombre });
     if (!res.ok) {
-      toast.error(res.error.message);
+      toast.error(humanizeError(res.error));
       return;
     }
     toast.success('Plantilla creada');
@@ -149,7 +150,7 @@ export function CertificadoPlantillasPage() {
     if (!nombre) return;
     const res = await duplicarEsquema(active.id, nombre);
     if (!res.ok) {
-      toast.error(res.error.message);
+      toast.error(humanizeError(res.error));
       return;
     }
     toast.success('Plantilla duplicada');
@@ -167,7 +168,7 @@ export function CertificadoPlantillasPage() {
     if (!ok) return;
     const res = await eliminarEsquema(active.id);
     if (!res.ok) {
-      toast.error(res.error.message);
+      toast.error(humanizeError(res.error));
       return;
     }
     toast.success('Plantilla eliminada');
@@ -179,7 +180,7 @@ export function CertificadoPlantillasPage() {
     if (!active || active.es_default) return;
     const res = await setEsquemaDefault(active.id);
     if (!res.ok) {
-      toast.error(res.error.message);
+      toast.error(humanizeError(res.error));
       return;
     }
     toast.success('Marcada como predeterminada');
@@ -193,7 +194,7 @@ export function CertificadoPlantillasPage() {
     const res = await actualizarEsquema(id, patch);
     setSaving(false);
     if (!res.ok) {
-      toast.error(res.error.message);
+      toast.error(humanizeError(res.error));
       return;
     }
     toast.success('Cambios guardados');
@@ -672,7 +673,7 @@ function AssetField({
     const res = await subirAssetEsquema(esquemaId, slot, file);
     setUploading(false);
     if (!res.ok) {
-      toast.error(res.error.message);
+      toast.error(humanizeError(res.error));
       return;
     }
     onUploaded(res.data);

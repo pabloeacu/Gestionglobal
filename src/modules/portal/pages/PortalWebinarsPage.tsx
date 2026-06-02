@@ -24,6 +24,7 @@ import {
   fetchClienteWebinars,
   type ClienteWebinarItem,
 } from '@/services/api/portal-dashboard';
+import { humanizeError } from '@/lib/errors';
 
 export function PortalWebinarsPage() {
   const { user } = useAuth();
@@ -38,7 +39,7 @@ export function PortalWebinarsPage() {
     const res = await fetchClienteWebinars();
     setLoading(false);
     if (!res.ok) {
-      toast.error('No pudimos cargar webinars', { description: res.error.message });
+      toast.error('No pudimos cargar webinars', { description: humanizeError(res.error) });
       return;
     }
     setMis(res.data.mis_webinars ?? []);

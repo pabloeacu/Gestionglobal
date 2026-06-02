@@ -56,6 +56,7 @@ import {
 } from '@/services/api/comprobantes';
 import { cn } from '@/lib/cn';
 import { FileCheck2 } from 'lucide-react';
+import { humanizeError } from '@/lib/errors';
 
 const ESTADO_BADGES: Record<ComprobanteEstado, { label: string; cls: string }> = {
   borrador:   { label: 'Borrador',   cls: 'bg-slate-100 text-slate-600 border-slate-200' },
@@ -100,7 +101,7 @@ export function ComprobanteDetailPage() {
     ]);
     setLoading(false);
     if (!res.ok) {
-      toast.error(res.error.message);
+      toast.error(humanizeError(res.error));
       return;
     }
     setComp(res.data.comprobante);
@@ -120,7 +121,7 @@ export function ComprobanteDetailPage() {
     if (!ok) return;
     const res = await desimputarCobranza(imputacion_id);
     if (!res.ok) {
-      toast.error(res.error.message);
+      toast.error(humanizeError(res.error));
       return;
     }
     toast.success('Cobranza desimputada');
@@ -167,7 +168,7 @@ export function ComprobanteDetailPage() {
     if (!ok) return;
     const res = await anularComprobante(comp.id, motivo ?? '');
     if (!res.ok) {
-      toast.error(res.error.message);
+      toast.error(humanizeError(res.error));
       return;
     }
     toast.success('Comprobante anulado');
@@ -199,7 +200,7 @@ export function ComprobanteDetailPage() {
     if (!okConfirm) return;
     const res = await transformarComprobanteAFiscal(comp.id, tipoUp as 'A' | 'B' | 'C');
     if (!res.ok) {
-      toast.error('No se pudo transformar', { description: res.error.message });
+      toast.error('No se pudo transformar', { description: humanizeError(res.error) });
       return;
     }
     toast.success(`Transformado a factura ${tipoUp}`, {

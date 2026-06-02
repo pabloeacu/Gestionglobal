@@ -36,6 +36,7 @@ import {
   eliminarGerente,
   type UsuarioRow,
 } from '@/services/api/usuarios';
+import { humanizeError } from '@/lib/errors';
 
 function formatDate(iso: string | null): string {
   if (!iso) return '—';
@@ -81,7 +82,7 @@ export function UsuariosPage() {
     const res = await listarUsuarios();
     setLoading(false);
     if (!res.ok) {
-      toast.error('No se pudo cargar usuarios: ' + res.error.message);
+      toast.error('No se pudo cargar usuarios: ' + humanizeError(res.error));
       return;
     }
     setUsers(res.data);
@@ -100,7 +101,7 @@ export function UsuariosPage() {
     const res = await crearGerente(draft.email.trim(), draft.nombre.trim());
     setSubmitting(false);
     if (!res.ok) {
-      toast.error('No se pudo crear: ' + res.error.message);
+      toast.error('No se pudo crear: ' + humanizeError(res.error));
       return;
     }
     setCreating(false);
@@ -146,7 +147,7 @@ export function UsuariosPage() {
     if (!ok) return;
     const res = await eliminarGerente(u.user_id);
     if (!res.ok) {
-      toast.error('No se pudo eliminar: ' + res.error.message);
+      toast.error('No se pudo eliminar: ' + humanizeError(res.error));
       return;
     }
     toast.success('Gerente eliminado');

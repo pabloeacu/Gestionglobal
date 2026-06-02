@@ -47,6 +47,7 @@ import {
   type CondicionIva,
   type RendicionEstado,
 } from '@/services/api/partners';
+import { humanizeError } from '@/lib/errors';
 
 type TabKey = 'convenios' | 'rendiciones' | 'atribuciones';
 
@@ -76,7 +77,7 @@ export function PartnerDetailPage() {
     ]);
     setLoading(false);
     if (!p.ok) {
-      toast.error(p.error.message);
+      toast.error(humanizeError(p.error));
       return;
     }
     setPartner(p.data);
@@ -131,7 +132,7 @@ export function PartnerDetailPage() {
     const hoy = new Date().toISOString().slice(0, 10);
     const res = await cerrarConvenio(c.id, hoy);
     if (!res.ok) {
-      toast.error(res.error.message);
+      toast.error(humanizeError(res.error));
       return;
     }
     toast.success('Convenio cerrado');
@@ -469,7 +470,7 @@ function ModalCrearUsuarioPartner({
     const res = await crearUsuarioPartner(email.trim(), nombre.trim(), partnerId);
     setEnviando(false);
     if (!res.ok) {
-      toast.error(res.error.message);
+      toast.error(humanizeError(res.error));
       return;
     }
     toast.success('Usuario partner creado');

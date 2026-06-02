@@ -18,6 +18,7 @@ import {
   listAdministracionWebinars,
   type AdminWebinarHistorial,
 } from '@/services/api/webinars';
+import { humanizeError } from '@/lib/errors';
 
 function formatDate(iso: string): string {
   try {
@@ -52,7 +53,7 @@ export function TabWebinars({ administracionId }: Props) {
     setLoading(true);
     const res = await listAdministracionWebinars(administracionId);
     if (!res.ok) {
-      toast.error(`No se pudo cargar: ${res.error.message}`);
+      toast.error(`No se pudo cargar: ${humanizeError(res.error)}`);
       setRows([]);
     } else {
       setRows(res.data);

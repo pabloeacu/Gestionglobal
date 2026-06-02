@@ -6,6 +6,7 @@ import { Skeleton, SkeletonWithTimeout } from '@/components/common';
 import { listMorososResumen, type MorosoRow } from '@/services/api/ctaCte';
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
 import { formatMoney } from '../lib/format';
+import { humanizeError } from '@/lib/errors';
 
 interface Props {
   limit?: number;
@@ -25,7 +26,7 @@ export function MorososWidget({ limit = 5 }: Props) {
     const res = await listMorososResumen(limit);
     setLoading(false);
     if (!res.ok) {
-      setError(res.error.message);
+      setError(humanizeError(res.error));
       return;
     }
     setRows(res.data);

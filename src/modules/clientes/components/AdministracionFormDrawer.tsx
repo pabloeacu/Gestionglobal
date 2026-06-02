@@ -18,6 +18,7 @@ import {
   updateAdministracion,
   type AdministracionRow,
 } from '@/services/api/administraciones';
+import { humanizeError } from '@/lib/errors';
 
 interface AdministracionFormDrawerProps {
   open: boolean;
@@ -203,7 +204,7 @@ export function AdministracionFormDrawer({
         editing
           ? 'No pudimos actualizar la administración'
           : 'No pudimos crear la administración',
-        { description: res.error.message },
+        { description: humanizeError(res.error) },
       );
       return;
     }

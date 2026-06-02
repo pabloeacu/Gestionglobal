@@ -3,6 +3,7 @@ import { FileBarChart } from 'lucide-react';
 import { toast } from '@/lib/toast';
 import { Modal, Button, Field, Input } from '@/components/common';
 import { crearRendicion } from '@/services/api/partners';
+import { humanizeError } from '@/lib/errors';
 
 interface Props {
   open: boolean;
@@ -54,7 +55,7 @@ export function NuevaRendicionModal({
     const res = await crearRendicion(partnerId, desde, hasta);
     setSaving(false);
     if (!res.ok) {
-      toast.error(`No se pudo crear la rendición: ${res.error.message}`);
+      toast.error(`No se pudo crear la rendición: ${humanizeError(res.error)}`);
       return;
     }
     toast.success('Rendición creada en borrador');

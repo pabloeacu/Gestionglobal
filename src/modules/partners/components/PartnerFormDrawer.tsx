@@ -17,6 +17,7 @@ import {
   type CondicionIva,
   type PartnerRow,
 } from '@/services/api/partners';
+import { humanizeError } from '@/lib/errors';
 
 interface Props {
   open: boolean;
@@ -104,7 +105,7 @@ export function PartnerFormDrawer({
       });
       setSaving(false);
       if (!res.ok) {
-        toast.error(`No se pudo actualizar: ${res.error.message}`);
+        toast.error(`No se pudo actualizar: ${humanizeError(res.error)}`);
         return;
       }
       toast.success('Partner actualizado');
@@ -125,7 +126,7 @@ export function PartnerFormDrawer({
     });
     setSaving(false);
     if (!res.ok) {
-      toast.error(`No se pudo crear: ${res.error.message}`);
+      toast.error(`No se pudo crear: ${humanizeError(res.error)}`);
       return;
     }
     toast.success('Partner creado');

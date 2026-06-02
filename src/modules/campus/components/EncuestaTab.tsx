@@ -47,6 +47,7 @@ import {
 } from '@/services/api/encuestas';
 import { cn } from '@/lib/cn';
 import { formatDateShort } from '@/lib/dates';
+import { humanizeError } from '@/lib/errors';
 
 interface EncuestaTabProps {
   curso_id: string;
@@ -63,7 +64,7 @@ export function EncuestaTab({ curso_id, curso_titulo }: EncuestaTabProps) {
     const r = await ensureEncuestaCurso(curso_id);
     setLoading(false);
     if (!r.ok) {
-      toast.error(r.error.message);
+      toast.error(humanizeError(r.error));
       return;
     }
     setEncuesta(r.data);
@@ -171,7 +172,7 @@ function EncuestaConfig({
     });
     setSaving(false);
     if (!r.ok) {
-      toast.error(r.error.message);
+      toast.error(humanizeError(r.error));
       return;
     }
     toast.success('Encuesta guardada.');
@@ -183,7 +184,7 @@ function EncuestaConfig({
       activa: !encuesta.activa,
     });
     if (!r.ok) {
-      toast.error(r.error.message);
+      toast.error(humanizeError(r.error));
       return;
     }
     toast.success(r.data.activa ? 'Encuesta activada.' : 'Encuesta desactivada.');
@@ -195,7 +196,7 @@ function EncuestaConfig({
       requerida_para_cert: !encuesta.requerida_para_cert,
     });
     if (!r.ok) {
-      toast.error(r.error.message);
+      toast.error(humanizeError(r.error));
       return;
     }
     toast.success(
@@ -548,7 +549,7 @@ function EmularModal({
     const r = await emularEncuestaDeCurso(curso_id, pick);
     setEmulating(false);
     if (!r.ok) {
-      toast.error(r.error.message);
+      toast.error(humanizeError(r.error));
       return;
     }
     toast.success('Encuesta emulada · podés editarla a partir de la base.');
@@ -632,7 +633,7 @@ function EncuestaRespuestas({ encuesta }: { encuesta: CursoEncuestaRow }) {
     const r = await listarRespuestasCurso(encuesta.id);
     setLoading(false);
     if (!r.ok) {
-      toast.error(r.error.message);
+      toast.error(humanizeError(r.error));
       return;
     }
     setRows(r.data);
@@ -694,7 +695,7 @@ function EncuestaRespuestas({ encuesta }: { encuesta: CursoEncuestaRow }) {
     }
     const res = await marcarPublicado(r.id, !r.publicado);
     if (!res.ok) {
-      toast.error(res.error.message);
+      toast.error(humanizeError(res.error));
       return;
     }
     toast.success(r.publicado ? 'Desmarcado.' : 'Marcado como publicado.');

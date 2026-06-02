@@ -14,6 +14,7 @@ import {
   type RespuestaPregunta,
   type ResultadoExamen,
 } from '@/services/api/campus';
+import { humanizeError } from '@/lib/errors';
 
 interface ExamenRunnerProps {
   matriculaId: string;
@@ -46,7 +47,7 @@ export function ExamenRunner({ matriculaId, examen }: ExamenRunnerProps) {
     const res = await listIntentos(matriculaId, examen.id);
     setLoading(false);
     if (!res.ok) {
-      toast.error(res.error.message);
+      toast.error(humanizeError(res.error));
       return;
     }
     setPrevios(res.data);
@@ -67,7 +68,7 @@ export function ExamenRunner({ matriculaId, examen }: ExamenRunnerProps) {
     const res = await iniciarIntento(examen.id, matriculaId);
     setLoading(false);
     if (!res.ok) {
-      toast.error(res.error.message);
+      toast.error(humanizeError(res.error));
       return;
     }
     setIntento(res.data);
@@ -100,7 +101,7 @@ export function ExamenRunner({ matriculaId, examen }: ExamenRunnerProps) {
     const res = await responderExamen(intento.id, payload);
     setSubmitting(false);
     if (!res.ok) {
-      toast.error(res.error.message);
+      toast.error(humanizeError(res.error));
       return;
     }
     setResultado(res.data);

@@ -18,6 +18,7 @@ import {
   type VencimientoConfigRow,
   type VencimientoTipo,
 } from '@/services/api/vencimientos';
+import { humanizeError } from '@/lib/errors';
 
 interface RowState {
   dirty: boolean;
@@ -57,7 +58,7 @@ export function VencimientosConfigPage() {
     const res = await listConfig(null);
     setLoading(false);
     if (!res.ok) {
-      setError(res.error.message);
+      setError(humanizeError(res.error));
       return;
     }
     setRows(res.data);
@@ -97,7 +98,7 @@ export function VencimientosConfigPage() {
     });
     if (!res.ok) {
       setEdits((prev) => ({ ...prev, [id]: { ...prev[id]!, saving: false } }));
-      toast.error(`No se pudo guardar: ${res.error.message}`);
+      toast.error(`No se pudo guardar: ${humanizeError(res.error)}`);
       return;
     }
     toast.success('Configuración actualizada');

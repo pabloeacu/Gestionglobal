@@ -39,6 +39,7 @@ import { EncuestaTab } from '../components/EncuestaTab';
 import { ContenidoTab } from '../components/ContenidoTab';
 import { ImageUploader } from '../components/ImageUploader';
 import { PublicacionEditor, type PublicacionState } from '../components/PublicacionEditor';
+import { humanizeError } from '@/lib/errors';
 
 // Editor de un curso (gerencia/operadores). Tabs: datos, contenido, exámenes,
 // matrículas.
@@ -54,7 +55,7 @@ export function CursoEditorPage() {
     const d = await getCurso(id);
     setLoading(false);
     if (!d.ok) {
-      toast.error(d.error.message);
+      toast.error(humanizeError(d.error));
       return;
     }
     setData(d.data);
@@ -118,7 +119,7 @@ export function CursoEditorPage() {
             onClick={async () => {
               const res = await setCursoActivo(data.curso.id, !data.curso.activo);
               if (!res.ok) {
-                toast.error(res.error.message);
+                toast.error(humanizeError(res.error));
                 return;
               }
               toast.success(
@@ -235,7 +236,7 @@ function DatosTab({
     });
     setSaving(false);
     if (!res.ok) {
-      toast.error(res.error.message);
+      toast.error(humanizeError(res.error));
       return;
     }
     toast.success('Curso actualizado');
@@ -341,7 +342,7 @@ function DatosTab({
             onChange={setInstructorFoto}
             onPersist={async (url) => {
               const r = await actualizarCurso(data.curso.id, { instructor_foto_url: url });
-              if (!r.ok) toast.error(r.error.message);
+              if (!r.ok) toast.error(humanizeError(r.error));
               else onChanged();
             }}
             scope="curso-instructor"
@@ -381,7 +382,7 @@ function DatosTab({
               onChange={(url) => setBanner(url ?? '')}
               onPersist={async (url) => {
                 const r = await actualizarCurso(data.curso.id, { banner_url: url });
-                if (!r.ok) toast.error(r.error.message);
+                if (!r.ok) toast.error(humanizeError(r.error));
                 else onChanged();
               }}
               scope="curso-banner"

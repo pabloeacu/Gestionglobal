@@ -5,6 +5,7 @@ import { historialPorCliente, type TrackingRow } from '@/services/api/trackings'
 import { Skeleton } from '@/components/common';
 import { formatDateShort } from '@/lib/dates';
 import { cn } from '@/lib/cn';
+import { humanizeError } from '@/lib/errors';
 
 export interface RecurrenciaListProps {
   administracionId: string;
@@ -26,7 +27,7 @@ export function RecurrenciaList({
       const res = await historialPorCliente(administracionId, servicioCodigo);
       if (cancelled) return;
       if (!res.ok) {
-        setError(res.error.message);
+        setError(humanizeError(res.error));
         setItems([]);
         return;
       }

@@ -33,6 +33,7 @@ import {
   type MatriculaListItem,
 } from '@/services/api/campus';
 import { CursoCard } from '../components/CursoCard';
+import { humanizeError } from '@/lib/errors';
 
 type ModFilter = Modalidad | 'todos';
 
@@ -54,7 +55,7 @@ export function CampusListPage() {
     ]);
     setLoading(false);
     if (!c.ok) {
-      toast.error(`No pudimos cargar cursos: ${c.error.message}`);
+      toast.error(`No pudimos cargar cursos: ${humanizeError(c.error)}`);
       return;
     }
     setCursos(c.data);
@@ -321,7 +322,7 @@ function NuevoCursoDrawer({ open, onClose, onSaved }: NuevoCursoDrawerProps) {
     });
     setSaving(false);
     if (!res.ok) {
-      toast.error(res.error.message);
+      toast.error(humanizeError(res.error));
       return;
     }
     toast.success('Curso creado');

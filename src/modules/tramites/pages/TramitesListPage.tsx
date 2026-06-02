@@ -44,6 +44,7 @@ import {
 import { ExportButtons } from '@/components/reports/ExportButtons';
 import { generateReportPdf } from '@/lib/reportPdf';
 import { generateReportXls } from '@/lib/reportXls';
+import { humanizeError } from '@/lib/errors';
 
 type EstadoFilter = TramiteEstado | 'todos';
 type CategoriaFilter = TramiteCategoria | 'todos';
@@ -99,8 +100,8 @@ export function TramitesListPage() {
     setRefreshing(false);
     firstLoadDoneRef.current = true;
     if (!res.ok) {
-      setError(res.error.message);
-      toast.error(`No pudimos cargar los trámites: ${res.error.message}`);
+      setError(humanizeError(res.error));
+      toast.error(`No pudimos cargar los trámites: ${humanizeError(res.error)}`);
       return;
     }
     setRows(res.data.rows);

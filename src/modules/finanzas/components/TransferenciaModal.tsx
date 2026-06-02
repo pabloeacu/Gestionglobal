@@ -3,6 +3,7 @@ import { ArrowDown } from 'lucide-react';
 import { Button, Field, Input, Modal, Select, Textarea } from '@/components/common';
 import { toast } from '@/lib/toast';
 import { crearTransferencia, type CajaConSaldoRow } from '@/services/api/finanzas';
+import { humanizeError } from '@/lib/errors';
 
 interface Props {
   cajas: CajaConSaldoRow[];
@@ -50,7 +51,7 @@ export function TransferenciaModal({ cajas, onClose, onCreated }: Props) {
     });
     setCreating(false);
     if (!res.ok) {
-      toast.error('No pudimos crear la transferencia', { description: res.error.message });
+      toast.error('No pudimos crear la transferencia', { description: humanizeError(res.error) });
       return;
     }
     toast.success('Transferencia registrada');

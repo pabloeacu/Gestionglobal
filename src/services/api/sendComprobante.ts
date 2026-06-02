@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase';
-import { ok, fail, type ApiResponse } from '@/lib/errors';
+import { ok, fail, extractEdgeFnError, type ApiResponse } from '@/lib/errors';
 import type { Database } from '@/types/database';
 
 export type AdministracionEmailRow = Database['public']['Tables']['administracion_emails']['Row'];
@@ -26,7 +26,10 @@ export async function sendComprobanteEmail(
     subject: string;
   }>('send-comprobante-email', { body: input });
 
-  if (error) return fail('EMAIL_INVOKE', error.message, error);
+  if (error) {
+    const msg = await extractEdgeFnError(error);
+    return fail('EMAIL_INVOKE', msg, error);
+  }
   if (!data?.ok) return fail('EMAIL_SEND', data?.error ?? 'Error al enviar', data);
   return ok({
     sent_email_id: data.sent_email_id,

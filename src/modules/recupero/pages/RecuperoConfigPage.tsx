@@ -10,6 +10,7 @@ import {
   actualizarConfig,
   type RecuperoConfigRow,
 } from '@/services/api/recupero';
+import { humanizeError } from '@/lib/errors';
 
 interface DraftRow {
   id: string;
@@ -50,7 +51,7 @@ export function RecuperoConfigPage() {
     const res = await listConfig();
     setLoading(false);
     if (!res.ok) {
-      toast.error(`No pudimos cargar la configuración: ${res.error.message}`);
+      toast.error(`No pudimos cargar la configuración: ${humanizeError(res.error)}`);
       return;
     }
     setRows(res.data.map(fromRow));
@@ -82,7 +83,7 @@ export function RecuperoConfigPage() {
       email_destinatario_override: row.email_destinatario_override.trim() || null,
     });
     if (!res.ok) {
-      toast.error(`No se pudo guardar: ${res.error.message}`);
+      toast.error(`No se pudo guardar: ${humanizeError(res.error)}`);
       setRows((prev) =>
         prev.map((r) => (r.id === row.id ? { ...r, saving: false } : r)),
       );

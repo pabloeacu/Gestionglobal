@@ -18,6 +18,7 @@ import {
   type ServicioVoucherRow,
   type VoucherAlcance,
 } from '@/services/api/vouchers';
+import { humanizeError } from '@/lib/errors';
 
 interface VoucherDrawerProps {
   servicio_id: string;
@@ -114,7 +115,7 @@ export function VoucherDrawer({
       if (res.error.message.includes('uq_servicio_vouchers_codigo')) {
         toast.error(`Ya existe un voucher con el código “${codigo}” para este servicio.`);
       } else {
-        toast.error(res.error.message);
+        toast.error(humanizeError(res.error));
       }
       return;
     }

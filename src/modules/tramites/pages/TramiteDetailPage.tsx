@@ -56,6 +56,7 @@ import {
   type TramiteCategoria,
   type TramiteAdjuntoRow,
 } from '@/services/api/tramites';
+import { humanizeError } from '@/lib/errors';
 
 type TabKey = 'detalle' | 'comentarios' | 'adjuntos' | 'historial';
 
@@ -85,7 +86,7 @@ export function TramiteDetailPage() {
     const res = await getTramite(id);
     setLoading(false);
     if (!res.ok) {
-      toast.error(res.error.message);
+      toast.error(humanizeError(res.error));
       navigate('/gerencia/tramites');
       return;
     }
@@ -139,7 +140,7 @@ export function TramiteDetailPage() {
     if (!data) return;
     const res = await updateTramite(data.id, { [field]: value } as never);
     if (!res.ok) {
-      toast.error(`No se pudo actualizar: ${res.error.message}`);
+      toast.error(`No se pudo actualizar: ${humanizeError(res.error)}`);
       return;
     }
     void load();
@@ -540,7 +541,7 @@ function ComentariosPane({
     const res = await addComentario(data.id, contenido.trim(), visible);
     setSending(false);
     if (!res.ok) {
-      toast.error(`No se pudo enviar: ${res.error.message}`);
+      toast.error(`No se pudo enviar: ${humanizeError(res.error)}`);
       return;
     }
     setContenido('');
@@ -676,7 +677,7 @@ function AdjuntosPane({
     for (const f of Array.from(files)) {
       const res = await subirAdjunto(data.id, f);
       if (res.ok) ok++;
-      else toast.error(`${f.name}: ${res.error.message}`);
+      else toast.error(`${f.name}: ${humanizeError(res.error)}`);
     }
     setUploading(false);
     if (ok > 0) toast.success(`${ok} archivo(s) subido(s)`);
@@ -687,7 +688,7 @@ function AdjuntosPane({
   async function abrirPreview(a: TramiteAdjuntoRow) {
     const res = await urlFirmadaAdjunto(a.storage_path, 900);
     if (!res.ok) {
-      toast.error(res.error.message);
+      toast.error(humanizeError(res.error));
       return;
     }
     setPreview({
@@ -708,7 +709,7 @@ function AdjuntosPane({
     if (!ok) return;
     const res = await eliminarAdjunto(a);
     if (!res.ok) {
-      toast.error(res.error.message);
+      toast.error(humanizeError(res.error));
       return;
     }
     toast.success('Adjunto eliminado');

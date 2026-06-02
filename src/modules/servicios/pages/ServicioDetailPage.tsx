@@ -41,6 +41,7 @@ import { PrecioDrawer } from '../components/PrecioDrawer';
 import { ServicioFormDrawer } from '../components/ServicioFormDrawer';
 import { VouchersTab } from '../components/VouchersTab';
 import { cn } from '@/lib/cn';
+import { humanizeError } from '@/lib/errors';
 
 export function ServicioDetailPage() {
   const { id = '' } = useParams<{ id: string }>();
@@ -60,7 +61,7 @@ export function ServicioDetailPage() {
     const r = await getServicio(id);
     setLoading(false);
     if (!r.ok) {
-      setError(r.error.message);
+      setError(humanizeError(r.error));
       return;
     }
     setData(r.data);
@@ -92,7 +93,7 @@ export function ServicioDetailPage() {
     if (!ok) return;
     const r = await cerrarPrecio(precioId);
     if (!r.ok) {
-      toast.error(r.error.message);
+      toast.error(humanizeError(r.error));
       return;
     }
     toast.success('Precio cerrado.');

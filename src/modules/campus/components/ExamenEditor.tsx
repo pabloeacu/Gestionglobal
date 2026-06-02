@@ -23,6 +23,7 @@ import {
   type PreguntaTipo,
 } from '@/services/api/campus';
 import { cn } from '@/lib/cn';
+import { humanizeError } from '@/lib/errors';
 
 interface ExamenEditorProps {
   cursoId: string;
@@ -57,7 +58,7 @@ export function ExamenEditor({ cursoId, examenes, onChanged }: ExamenEditorProps
     });
     setCreating(false);
     if (!res.ok) {
-      toast.error(res.error.message);
+      toast.error(humanizeError(res.error));
       return;
     }
     setNuevoTitulo('');
@@ -75,7 +76,7 @@ export function ExamenEditor({ cursoId, examenes, onChanged }: ExamenEditorProps
     if (!ok) return;
     const res = await borrarExamen(examen.id);
     if (!res.ok) {
-      toast.error(res.error.message);
+      toast.error(humanizeError(res.error));
       return;
     }
     toast.success('Examen eliminado');
@@ -188,7 +189,7 @@ function ExamenItem({ examen, onDelete, onChanged }: ExamenItemProps) {
     });
     setSaving(false);
     if (!res.ok) {
-      toast.error(res.error.message);
+      toast.error(humanizeError(res.error));
       return;
     }
     setEnunciado('');
@@ -210,7 +211,7 @@ function ExamenItem({ examen, onDelete, onChanged }: ExamenItemProps) {
     if (!ok) return;
     const res = await borrarPregunta(p.id);
     if (!res.ok) {
-      toast.error(res.error.message);
+      toast.error(humanizeError(res.error));
       return;
     }
     onChanged();
@@ -226,7 +227,7 @@ function ExamenItem({ examen, onDelete, onChanged }: ExamenItemProps) {
     }));
     const res = await reemplazarOpciones(pregunta.id, next);
     if (!res.ok) {
-      toast.error(res.error.message);
+      toast.error(humanizeError(res.error));
       return;
     }
     onChanged();

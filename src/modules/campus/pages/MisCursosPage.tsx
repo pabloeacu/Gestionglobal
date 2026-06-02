@@ -18,6 +18,7 @@ import {
   type ProgresoResumen,
 } from '@/services/api/campus';
 import { ProgresoBar } from '../components/ProgresoBar';
+import { humanizeError } from '@/lib/errors';
 
 // "Mis cursos" para el alumno (portal). DGG-10: sin autoservicio — el alumno
 // solo ve los cursos que la gerencia le asignó (no hay catálogo abierto).
@@ -33,7 +34,7 @@ export function MisCursosPage() {
     const m = await listMatriculas({ profileId: user.id });
     setLoading(false);
     if (!m.ok) {
-      toast.error(`No pudimos cargar tus cursos: ${m.error.message}`);
+      toast.error(`No pudimos cargar tus cursos: ${humanizeError(m.error)}`);
       return;
     }
     setMatriculas(m.data);

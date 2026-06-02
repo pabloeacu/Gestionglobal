@@ -33,6 +33,7 @@ import {
 import { parseEntradaAgenda } from '@/lib/agendaParse';
 import { crearEvento, listCategorias, type AgendaCategoria } from '@/services/api/agenda';
 import { toast } from '@/lib/toast';
+import { humanizeError } from '@/lib/errors';
 
 // UI del command palette. Montar una sola vez en el árbol (junto al
 // CommandPaletteProvider).
@@ -151,7 +152,7 @@ export function CommandPalette() {
         recurrenceMonthday: agendaQuickEvent.recurrenceMonthday,
       });
       if (!res.ok) {
-        toast.error('No pudimos crear el evento', { description: res.error.message });
+        toast.error('No pudimos crear el evento', { description: humanizeError(res.error) });
         return;
       }
       toast.success('Evento creado en tu Agenda', {

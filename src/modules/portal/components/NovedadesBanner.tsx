@@ -12,6 +12,7 @@ import {
   marcarNovedadVista,
   type NovedadCliente,
 } from '@/services/api/comunicaciones';
+import { humanizeError } from '@/lib/errors';
 
 const ICONS = {
   info: Info,
@@ -71,7 +72,7 @@ export function NovedadesBanner() {
     const res = await marcarNovedadVista(id);
     setDismissing(null);
     if (!res.ok) {
-      toast.error(`No se pudo cerrar: ${res.error.message}`);
+      toast.error(`No se pudo cerrar: ${humanizeError(res.error)}`);
       return;
     }
     setItems((prev) => prev.filter((n) => n.id !== id));

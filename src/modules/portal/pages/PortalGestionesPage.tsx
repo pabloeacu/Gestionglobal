@@ -24,6 +24,7 @@ import {
   fetchClienteTramites,
   type ClienteTramite,
 } from '@/services/api/portal-dashboard';
+import { humanizeError } from '@/lib/errors';
 
 export function PortalGestionesPage() {
   const [items, setItems] = useState<ClienteTramite[]>([]);
@@ -37,7 +38,7 @@ export function PortalGestionesPage() {
     const res = await fetchClienteTramites(filter === 'abiertos');
     setLoading(false);
     if (!res.ok) {
-      toast.error('No pudimos cargar tus gestiones', { description: res.error.message });
+      toast.error('No pudimos cargar tus gestiones', { description: humanizeError(res.error) });
       return;
     }
     setItems(res.data);

@@ -50,6 +50,7 @@ import { RegistrarCobranzaDrawer } from '@/modules/facturacion/components/Regist
 import { KpiStripCtaCte } from '../components/KpiStripCtaCte';
 import { ExtractoTable } from '../components/ExtractoTable';
 import { formatMoney, defaultDesde, defaultHasta } from '../lib/format';
+import { humanizeError } from '@/lib/errors';
 
 type TabKey = 'extracto' | 'pendientes' | 'cobranzas';
 
@@ -88,7 +89,7 @@ export function CtaCteDetailPage() {
     ]);
     setLoading(false);
     if (!aR.ok) {
-      setError(aR.error.message);
+      setError(humanizeError(aR.error));
       return;
     }
     setAdmin(aR.data);
@@ -169,7 +170,7 @@ export function CtaCteDetailPage() {
     if (!okConfirm) return;
     const res = await desimputarCobranza(imp.id);
     if (!res.ok) {
-      toast.error('No pudimos desimputar', { description: res.error.message });
+      toast.error('No pudimos desimputar', { description: humanizeError(res.error) });
       return;
     }
     toast.success('Cobranza desimputada');

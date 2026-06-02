@@ -6,6 +6,7 @@ import {
   type TrackingCategoriaConfigRow,
   type TrackingEstadoConfigRow,
 } from '@/services/api/trackings';
+import { humanizeError } from '@/lib/errors';
 
 export interface AgregarLineaDrawerProps {
   open: boolean;
@@ -63,7 +64,7 @@ export function AgregarLineaDrawer({
     });
     setSaving(false);
     if (!res.ok) {
-      toast.error(res.error.message);
+      toast.error(humanizeError(res.error));
       return;
     }
     toast.success('Línea agregada');

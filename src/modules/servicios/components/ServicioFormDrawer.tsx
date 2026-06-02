@@ -18,6 +18,7 @@ import {
   type ServicioRow,
   type CategoriaServicioRow,
 } from '@/services/api/servicios';
+import { humanizeError } from '@/lib/errors';
 
 interface ServicioFormDrawerProps {
   open: boolean;
@@ -171,7 +172,7 @@ export function ServicioFormDrawer({
     setSaving(false);
 
     if (!res.ok) {
-      toast.error(`No pudimos guardar el servicio: ${res.error.message}`);
+      toast.error(`No pudimos guardar el servicio: ${humanizeError(res.error)}`);
       return;
     }
     toast.success(isEdit ? 'Servicio actualizado.' : 'Servicio creado.');

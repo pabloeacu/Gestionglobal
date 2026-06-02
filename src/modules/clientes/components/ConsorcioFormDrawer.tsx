@@ -25,6 +25,7 @@ import {
   updateConsorcio,
   type ConsorcioRow,
 } from '@/services/api/consorcios';
+import { humanizeError } from '@/lib/errors';
 
 interface ConsorcioFormDrawerProps {
   open: boolean;
@@ -198,7 +199,7 @@ export function ConsorcioFormDrawer({
     if (!res.ok) {
       toast.error(
         editing ? 'No pudimos actualizar el consorcio' : 'No pudimos crear el consorcio',
-        { description: res.error.message },
+        { description: humanizeError(res.error) },
       );
       return;
     }

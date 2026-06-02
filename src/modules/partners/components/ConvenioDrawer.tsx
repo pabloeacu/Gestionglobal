@@ -10,6 +10,7 @@ import {
   Textarea,
 } from '@/components/common';
 import { crearConvenio } from '@/services/api/partners';
+import { humanizeError } from '@/lib/errors';
 
 interface Props {
   open: boolean;
@@ -75,7 +76,7 @@ export function ConvenioDrawer({
     });
     setSaving(false);
     if (!res.ok) {
-      toast.error(`No se pudo crear el convenio: ${res.error.message}`);
+      toast.error(`No se pudo crear el convenio: ${humanizeError(res.error)}`);
       return;
     }
     toast.success('Convenio creado');

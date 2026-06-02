@@ -3,7 +3,7 @@
 // Citas: regla 4 (queries en services/), regla 12 (tenancy: panel staff-only).
 
 import { supabase } from '@/lib/supabase';
-import { ok, fail, type ApiResponse } from '@/lib/errors';
+import { ok, fail, extractEdgeFnError, type ApiResponse } from '@/lib/errors';
 
 export interface UsuarioRow {
   user_id: string;
@@ -41,7 +41,10 @@ export async function crearGerente(
   const { data, error } = await supabase.functions.invoke('crear-gerente', {
     body: { email, nombre },
   });
-  if (error) return fail('USERS_CREATE', error.message, error);
+  if (error) {
+    const msg = await extractEdgeFnError(error);
+    return fail('USERS_CREATE', msg, error);
+  }
   if (!data?.ok) return fail('USERS_CREATE', data?.error ?? 'Error desconocido', data);
   return ok({ user_id: data.user_id, password_temporal: data.password_temporal });
 }
@@ -55,7 +58,10 @@ export async function crearUsuarioPartner(
   const { data, error } = await supabase.functions.invoke('crear-gerente', {
     body: { email, nombre, role: 'partner', partner_id: partnerId },
   });
-  if (error) return fail('USERS_CREATE_PARTNER', error.message, error);
+  if (error) {
+    const msg = await extractEdgeFnError(error);
+    return fail('USERS_CREATE_PARTNER', msg, error);
+  }
   if (!data?.ok) return fail('USERS_CREATE_PARTNER', data?.error ?? 'Error desconocido', data);
   return ok({ user_id: data.user_id, password_temporal: data.password_temporal });
 }

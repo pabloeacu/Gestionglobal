@@ -47,6 +47,7 @@ import {
 import { formatDateShort } from '@/lib/dates';
 import { cn } from '@/lib/cn';
 import { TabWebinars } from '../components/TabWebinars';
+import { humanizeError } from '@/lib/errors';
 
 type TabKey = 'general' | 'fiscal' | 'registral' | 'consorcios' | 'ctacte' | 'webinars' | 'emails';
 
@@ -78,7 +79,7 @@ export function AdministracionDetailPage() {
     ]);
     setLoading(false);
     if (!a.ok) {
-      toast.error(a.error.message);
+      toast.error(humanizeError(a.error));
       return;
     }
     setAdmin(a.data);
@@ -102,7 +103,7 @@ export function AdministracionDetailPage() {
     if (!ok) return;
     const res = await archiveAdministracion(admin.id);
     if (!res.ok) {
-      toast.error(res.error.message);
+      toast.error(humanizeError(res.error));
       return;
     }
     toast.success('Administración dada de baja');
@@ -119,7 +120,7 @@ export function AdministracionDetailPage() {
       [field]: value,
     } as Partial<AdministracionRow>);
     if (!res.ok) {
-      toast.error(res.error.message);
+      toast.error(humanizeError(res.error));
       throw new Error(res.error.message);
     }
     setAdmin(res.data);
@@ -214,7 +215,7 @@ export function AdministracionDetailPage() {
               }}
               onToggleActivo={async (c, activo) => {
                 const res = await setConsorcioActivo(c.id, activo);
-                if (!res.ok) return toast.error(res.error.message);
+                if (!res.ok) return toast.error(humanizeError(res.error));
                 toast.success(activo ? 'Consorcio reactivado' : 'Consorcio dado de baja');
                 void load();
               }}
@@ -858,7 +859,7 @@ function TabCtaCte({ administracionId }: { administracionId: string }) {
     void listCtaCteAdministracion(administracionId).then((res) => {
       setLoading(false);
       if (!res.ok) {
-        setError(res.error.message);
+        setError(humanizeError(res.error));
         return;
       }
       setRows(res.data);

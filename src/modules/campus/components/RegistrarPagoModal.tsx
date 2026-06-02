@@ -7,6 +7,7 @@ import {
   registrarPagoCurso,
   type CajaParaPago,
 } from '@/services/api/campus';
+import { humanizeError } from '@/lib/errors';
 
 // Modal para registrar el pago del curso (gerencia). Registra un asiento de
 // ingreso en movimientos + marca la condición 'pago' (DGG-10bis).
@@ -63,7 +64,7 @@ export function RegistrarPagoModal({
     });
     setSaving(false);
     if (!res.ok) {
-      toast.error(res.error.message);
+      toast.error(humanizeError(res.error));
       return;
     }
     toast.success('Pago registrado · asiento de ingreso creado');

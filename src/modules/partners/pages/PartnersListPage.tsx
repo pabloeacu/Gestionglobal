@@ -39,6 +39,7 @@ import {
 import { ExportButtons } from '@/components/reports/ExportButtons';
 import { generateReportPdf } from '@/lib/reportPdf';
 import { generateReportXls } from '@/lib/reportXls';
+import { humanizeError } from '@/lib/errors';
 
 type ActivoFilter = 'todos' | 'activos' | 'inactivos';
 
@@ -59,7 +60,7 @@ export function PartnersListPage() {
     ]);
     setLoading(false);
     if (!p.ok) {
-      toast.error(`No pudimos cargar partners: ${p.error.message}`);
+      toast.error(`No pudimos cargar partners: ${humanizeError(p.error)}`);
       return;
     }
     setRows(p.data.rows);
@@ -202,7 +203,7 @@ export function PartnersListPage() {
     if (!okConf) return;
     const res = await setPartnerActivo(p.id, !p.activo);
     if (!res.ok) {
-      toast.error(res.error.message);
+      toast.error(humanizeError(res.error));
       return;
     }
     toast.success(p.activo ? 'Partner desactivado' : 'Partner activado');

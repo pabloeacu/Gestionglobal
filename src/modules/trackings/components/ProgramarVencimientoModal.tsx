@@ -18,6 +18,7 @@ import {
   actualizarVencimiento,
   cerrarCicloTracking,
 } from '@/services/api/trackings';
+import { humanizeError } from '@/lib/errors';
 
 interface PresetOffset {
   value: number;
@@ -169,7 +170,7 @@ export function ProgramarVencimientoModal({
       });
       setSubmitting(false);
       if (!res.ok) {
-        toast.error(res.error.message);
+        toast.error(humanizeError(res.error));
         return;
       }
       toast.success('Cronograma actualizado');
@@ -185,7 +186,7 @@ export function ProgramarVencimientoModal({
     });
     setSubmitting(false);
     if (!res.ok) {
-      toast.error(res.error.message);
+      toast.error(humanizeError(res.error));
       return;
     }
     toast.success(`Vencimiento programado · ${res.data.alarmasPlanificadas.length} avisos en agenda`);

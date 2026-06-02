@@ -15,6 +15,7 @@ import {
   type CajaAdminRow, type CajaTipo,
   type CategoriaAdminRow, type CategoriaTipo,
 } from '@/services/api/finanzas-admin';
+import { humanizeError } from '@/lib/errors';
 
 function formatMoney(n: number): string {
   return new Intl.NumberFormat('es-AR', {
@@ -134,13 +135,13 @@ function CajasTab() {
     if (!ok) return;
     const r = await archivarCaja(caja.caja_id);
     if (r.ok) { toast.success('Caja archivada'); void recargar(); }
-    else toast.error(r.error.message);
+    else toast.error(humanizeError(r.error));
   }
 
   async function onReactivar(caja: CajaAdminRow) {
     const r = await reactivarCaja(caja.caja_id);
     if (r.ok) { toast.success('Caja reactivada'); void recargar(); }
-    else toast.error(r.error.message);
+    else toast.error(humanizeError(r.error));
   }
 
   const visibles = useMemo(() => {
@@ -330,7 +331,7 @@ function CajaFormModal({ caja, onClose, onSaved }: CajaFormProps) {
       toast.success(isEditing ? 'Caja actualizada' : 'Caja creada');
       onSaved();
     } else {
-      toast.error(r.error.message);
+      toast.error(humanizeError(r.error));
     }
   }
 
@@ -445,13 +446,13 @@ function CategoriasTab() {
     if (!ok) return;
     const r = await archivarCategoria(cat.categoria_id);
     if (r.ok) { toast.success('Categoría archivada'); void recargar(); }
-    else toast.error(r.error.message);
+    else toast.error(humanizeError(r.error));
   }
 
   async function onReactivar(cat: CategoriaAdminRow) {
     const r = await reactivarCategoria(cat.categoria_id);
     if (r.ok) { toast.success('Categoría reactivada'); void recargar(); }
-    else toast.error(r.error.message);
+    else toast.error(humanizeError(r.error));
   }
 
   const visibles = useMemo(() => {
@@ -621,7 +622,7 @@ function CategoriaFormModal({ categoria, onClose, onSaved }: CategoriaFormProps)
       toast.success(isEditing ? 'Categoría actualizada' : 'Categoría creada');
       onSaved();
     } else {
-      toast.error(r.error.message);
+      toast.error(humanizeError(r.error));
     }
   }
 

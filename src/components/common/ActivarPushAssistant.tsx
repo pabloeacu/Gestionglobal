@@ -16,6 +16,7 @@ import {
   estadoSuscripcion,
   pedirPermisoYSuscribir,
 } from '@/services/api/push';
+import { humanizeError } from '@/lib/errors';
 
 const STORAGE_KEY = 'gg.activar_push.dismissed_until';
 const COOLDOWN_DAYS = 14;
@@ -76,7 +77,7 @@ export function ActivarPushAssistant() {
         setPermisoDenegado(true);
         toast.error('Permiso denegado. Habilitalo desde la configuración del browser.');
       } else {
-        toast.error('No pudimos activar las notificaciones', { description: res.error.message });
+        toast.error('No pudimos activar las notificaciones', { description: humanizeError(res.error) });
       }
     }
   }

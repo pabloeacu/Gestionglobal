@@ -11,6 +11,7 @@ import {
 import { listAdministraciones, type AdministracionListItem } from '@/services/api/administraciones';
 import { cn } from '@/lib/cn';
 import { FormulariosWebinarsTabs } from '../components/FormulariosWebinarsTabs';
+import { humanizeError } from '@/lib/errors';
 
 function fmtFecha(iso: string): string {
   try { return new Date(iso).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' }); }
@@ -212,7 +213,7 @@ function ConvertirModal({ prospecto, onClose, onConverted }: {
     const res = await convertirProspecto(prospecto.id, seleccionada);
     setLoading(false);
     if (!res.ok) {
-      toast.error('No pudimos convertir', { description: res.error.message });
+      toast.error('No pudimos convertir', { description: humanizeError(res.error) });
       return;
     }
     toast.success('Prospecto convertido a cliente');

@@ -109,7 +109,7 @@ export function EmailTemplatesPage() {
     const res = await listTemplates();
     setLoading(false);
     if (!res.ok) {
-      toast.error('No pudimos cargar plantillas', { description: res.error.message });
+      toast.error('No pudimos cargar plantillas', { description: humanizeError(res.error) });
       return;
     }
     setRows(res.data);
@@ -303,7 +303,7 @@ function TemplateEditor({ template, userEmail, onSaved }: EditorProps) {
     });
     setSaving(false);
     if (!res.ok) {
-      toast.error('No pudimos guardar', { description: res.error.message });
+      toast.error('No pudimos guardar', { description: humanizeError(res.error) });
       return;
     }
     toast.success('Plantilla guardada');
@@ -319,7 +319,7 @@ function TemplateEditor({ template, userEmail, onSaved }: EditorProps) {
     const res = await sendTestEmail(template.slug, userEmail, SAMPLE_VARS);
     setSendingTest(false);
     if (!res.ok) {
-      toast.error('No pudimos encolar la prueba', { description: res.error.message });
+      toast.error('No pudimos encolar la prueba', { description: humanizeError(res.error) });
       return;
     }
     toast.success('Enviado a tu correo', {
@@ -670,6 +670,7 @@ import {
   Strikethrough,
 } from 'lucide-react';
 import { usePrompt } from '@/components/common/DialogProvider';
+import { humanizeError } from '@/lib/errors';
 
 const COLOR_PRESETS = [
   { hex: '#0f172a', name: 'Tinta' },

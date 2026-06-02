@@ -27,6 +27,7 @@ import {
   type ArcaKpis,
   type ArcaQueueJobWithComp,
 } from '@/services/api/arca';
+import { humanizeError } from '@/lib/errors';
 
 type StatusFilter = 'all' | ArcaQueueJobWithComp['status'];
 
@@ -73,7 +74,7 @@ export function ArcaQueuePage() {
   async function handleRetry(id: string) {
     const res = await reintentarJob(id);
     if (!res.ok) {
-      toast.error('No pudimos reintentar', { description: res.error.message });
+      toast.error('No pudimos reintentar', { description: humanizeError(res.error) });
       return;
     }
     toast.success('Job re-encolado · esperá el próximo dispatcher (~1 min)');

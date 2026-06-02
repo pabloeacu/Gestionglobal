@@ -16,6 +16,7 @@ import {
   crearEvento,
   listVinculosCatalogo,
 } from '@/services/api/agenda';
+import { humanizeError } from '@/lib/errors';
 
 export interface EventoDraft {
   id?: string;
@@ -206,7 +207,7 @@ export function EventoModal({ open, onClose, onSaved, categorias, draft, evento 
     const res = d.id ? await actualizarEvento(d.id, payload) : await crearEvento(payload);
     setSaving(false);
     if (!res.ok) {
-      toast.error(res.error.message);
+      toast.error(humanizeError(res.error));
       return;
     }
     toast.success(d.id ? 'Actualizado' : '¡Anotado! 📌');

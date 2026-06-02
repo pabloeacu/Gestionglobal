@@ -46,6 +46,7 @@ import { ExamenRunner } from '../components/ExamenRunner';
 import { ProgresoBar } from '../components/ProgresoBar';
 import { EncuentrosEnVivoAlumno, ClaseEnVivoFullLayout } from '../components/EncuentrosEnVivoAlumno';
 import { EncuestaAlumnoCard } from '../components/EncuestaAlumnoCard';
+import { humanizeError } from '@/lib/errors';
 
 // Página del alumno matriculado (portal). Si no está matriculado y el curso es
 // público, muestra CTA de inscripción.
@@ -76,7 +77,7 @@ export function CursoDetalleAlumnoPage() {
     const d = await getCurso(slug);
     if (!d.ok) {
       if (!silent) setInitialLoading(false);
-      if (!silent) toast.error(d.error.message);
+      if (!silent) toast.error(humanizeError(d.error));
       return;
     }
     setData(d.data);

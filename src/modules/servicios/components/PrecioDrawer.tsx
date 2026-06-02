@@ -21,6 +21,7 @@ import {
   listConsorciosByAdministracion,
   type ConsorcioRow,
 } from '@/services/api/consorcios';
+import { humanizeError } from '@/lib/errors';
 
 interface PrecioDrawerProps {
   open: boolean;
@@ -141,7 +142,7 @@ export function PrecioDrawer({
     });
     setSaving(false);
     if (!res.ok) {
-      toast.error(`No pudimos guardar el precio: ${res.error.message}`);
+      toast.error(`No pudimos guardar el precio: ${humanizeError(res.error)}`);
       return;
     }
     toast.success('Precio cargado.');

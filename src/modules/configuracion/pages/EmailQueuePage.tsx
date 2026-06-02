@@ -22,6 +22,7 @@ import {
   type EstadoEmail,
   type FromCasilla,
 } from '@/services/api/emails';
+import { humanizeError } from '@/lib/errors';
 
 type EstadoFilter = EstadoEmail | 'todos';
 type CasillaFilter = FromCasilla | 'todas';
@@ -43,7 +44,7 @@ export function EmailQueuePage() {
       limit: 200,
     });
     if (res.ok) setRows(res.data.rows);
-    else toast.error('No pudimos cargar la cola', { description: res.error.message });
+    else toast.error('No pudimos cargar la cola', { description: humanizeError(res.error) });
     setLoading(false);
   }
 
@@ -72,7 +73,7 @@ export function EmailQueuePage() {
 
   async function handleReintentar(id: string) {
     const r = await reintentar(id);
-    if (!r.ok) { toast.error('No pudimos reintentar', { description: r.error.message }); return; }
+    if (!r.ok) { toast.error('No pudimos reintentar', { description: humanizeError(r.error) }); return; }
     toast.success('Re-encolado · el dispatcher lo va a tomar (~1 min)');
     void refresh();
   }
@@ -86,7 +87,7 @@ export function EmailQueuePage() {
     });
     if (!okConfirm) return;
     const r = await cancelar(id);
-    if (!r.ok) { toast.error('No pudimos cancelar', { description: r.error.message }); return; }
+    if (!r.ok) { toast.error('No pudimos cancelar', { description: humanizeError(r.error) }); return; }
     toast.success('Email cancelado');
     void refresh();
   }

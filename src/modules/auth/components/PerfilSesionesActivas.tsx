@@ -22,6 +22,7 @@ import {
   listMisSesiones,
   type SesionActiva,
 } from '@/services/api/sesiones';
+import { humanizeError } from '@/lib/errors';
 
 function tiempoRelativo(iso: string | null): string {
   if (!iso) return '—';
@@ -70,7 +71,7 @@ export function PerfilSesionesActivas() {
     const r = await cerrarMiSesion(s.id);
     setBusy(null);
     if (!r.ok) {
-      toast.error('No pudimos cerrar la sesión', { description: r.error.message });
+      toast.error('No pudimos cerrar la sesión', { description: humanizeError(r.error) });
       return;
     }
     toast.success('Sesión cerrada');

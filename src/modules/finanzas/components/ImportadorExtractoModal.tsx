@@ -5,6 +5,7 @@ import { toast } from '@/lib/toast';
 import { importarHistoricoLote, type CajaConSaldoRow, type HistoricoLineaInput } from '@/services/api/finanzas';
 import { parseCsvExtracto, descargarPlantilla, type ParseResult } from '../lib/csvParser';
 import { cn } from '@/lib/cn';
+import { humanizeError } from '@/lib/errors';
 
 interface Props {
   cajas: CajaConSaldoRow[];
@@ -53,7 +54,7 @@ export function ImportadorExtractoModal({ cajas, onClose, onImported }: Props) {
     const res = await importarHistoricoLote(cajaId, lineas, fileName);
     setImporting(false);
     if (!res.ok) {
-      toast.error('No pudimos importar', { description: res.error.message });
+      toast.error('No pudimos importar', { description: humanizeError(res.error) });
       return;
     }
     toast.success(`Importado: ${res.data.nuevas} nuevas, ${res.data.duplicadas} duplicadas`);

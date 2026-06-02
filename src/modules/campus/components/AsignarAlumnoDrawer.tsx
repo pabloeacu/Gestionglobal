@@ -8,6 +8,7 @@ import {
   listAdministracionesParaAsignar,
   type AdministracionParaAsignar,
 } from '@/services/api/campus';
+import { humanizeError } from '@/lib/errors';
 
 // Drawer de asignación manual de alumnos a un curso (DGG-10: sin autoservicio).
 // Busca administraciones cliente y crea la matrícula vía RPC curso_asignar_alumno.
@@ -67,7 +68,7 @@ export function AsignarAlumnoDrawer({
     });
     setAsignando(false);
     if (!res.ok) {
-      toast.error(res.error.message);
+      toast.error(humanizeError(res.error));
       return;
     }
     toast.success(`Listo · ${selected.nombre} quedó asignado`);

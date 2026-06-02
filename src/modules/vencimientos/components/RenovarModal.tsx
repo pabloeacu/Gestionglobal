@@ -8,6 +8,7 @@ import {
   VENCIMIENTO_TIPO_LABEL,
   type ProximoVencimiento,
 } from '@/services/api/vencimientos';
+import { humanizeError } from '@/lib/errors';
 
 interface Props {
   open: boolean;
@@ -45,7 +46,7 @@ export function RenovarModal({ open, onClose, venc, onRenewed }: Props) {
     const res = await marcarRenovado(venc.id, nuevaFecha);
     setSaving(false);
     if (!res.ok) {
-      toast.error(`No se pudo renovar: ${res.error.message}`);
+      toast.error(`No se pudo renovar: ${humanizeError(res.error)}`);
       return;
     }
     toast.success('Vencimiento renovado');

@@ -3,7 +3,7 @@
 // por acá; los componentes nunca tocan supabase directo.
 
 import { supabase } from '@/lib/supabase';
-import { ok, fail, type ApiResponse } from '@/lib/errors';
+import { ok, fail, extractEdgeFnError, type ApiResponse } from '@/lib/errors';
 import type { Database, Json } from '@/types/database';
 
 // ============================================================================
@@ -1207,7 +1207,10 @@ export async function crearSalaZoom(input: {
       host_email: input.hostEmail,
     },
   });
-  if (error) return fail('ZOOM_CREATE', error.message, error);
+  if (error) {
+    const msg = await extractEdgeFnError(error);
+    return fail('ZOOM_CREATE', msg, error);
+  }
   if (!data?.ok) return fail('ZOOM_CREATE', data?.error ?? 'Falló crear sala', data);
   return ok(data as ZoomMeetingCreated);
 }
@@ -1228,7 +1231,10 @@ export async function firmarSdk(input: {
   const { data, error } = await supabase.functions.invoke('zoom-sdk-signature', {
     body: { encuentro_id: input.encuentroId, role: input.role ?? 0 },
   });
-  if (error) return fail('ZOOM_SIGN', error.message, error);
+  if (error) {
+    const msg = await extractEdgeFnError(error);
+    return fail('ZOOM_SIGN', msg, error);
+  }
   if (!data?.signature) return fail('ZOOM_SIGN', data?.error ?? 'Sin firma', data);
   return ok(data as ZoomSdkSignature);
 }

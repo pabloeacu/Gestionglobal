@@ -14,6 +14,7 @@ import {
 } from '@/services/api/webinars';
 import { cn } from '@/lib/cn';
 import { FormulariosWebinarsTabs } from '../components/FormulariosWebinarsTabs';
+import { humanizeError } from '@/lib/errors';
 
 const STATUS_BADGES: Record<string, { label: string; cls: string }> = {
   programado: { label: 'Programado', cls: 'bg-slate-100 text-slate-700 border-slate-200' },
@@ -222,7 +223,7 @@ function NuevoWebinarModal({ onClose, onCreated }: { onClose: () => void; onCrea
     });
     setCreating(false);
     if (!res.ok) {
-      toast.error('No pudimos crear el webinar', { description: res.error.message });
+      toast.error('No pudimos crear el webinar', { description: humanizeError(res.error) });
       return;
     }
     toast.success('Webinar creado');

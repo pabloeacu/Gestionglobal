@@ -34,6 +34,7 @@ import {
   verifyEnroll,
   type MfaFactor,
 } from '@/services/api/mfa';
+import { humanizeError } from '@/lib/errors';
 
 export function Perfil2FA() {
   const confirm = useConfirm();
@@ -65,7 +66,7 @@ export function Perfil2FA() {
     const r = await enrollTotp('Mi autenticador');
     setEnrolling(false);
     if (!r.ok) {
-      toast.error('No pudimos iniciar la activación', { description: r.error.message });
+      toast.error('No pudimos iniciar la activación', { description: humanizeError(r.error) });
       return;
     }
     setFactorId(r.data.factorId);
@@ -84,7 +85,7 @@ export function Perfil2FA() {
     const r = await verifyEnroll(factorId, code.trim());
     setVerifying(false);
     if (!r.ok) {
-      toast.error('Código incorrecto', { description: r.error.message });
+      toast.error('Código incorrecto', { description: humanizeError(r.error) });
       return;
     }
     toast.success('2FA activado · ¡bien hecho!');
@@ -112,7 +113,7 @@ export function Perfil2FA() {
     const r = await unenroll(f.id);
     setBusy(null);
     if (!r.ok) {
-      toast.error('No pudimos desactivar', { description: r.error.message });
+      toast.error('No pudimos desactivar', { description: humanizeError(r.error) });
       return;
     }
     toast.success('2FA desactivado');

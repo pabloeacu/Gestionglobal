@@ -3,7 +3,7 @@
 // regla 12 (tenancy: staff-only).
 
 import { supabase } from '@/lib/supabase';
-import { ok, fail, type ApiResponse } from '@/lib/errors';
+import { ok, fail, extractEdgeFnError, type ApiResponse } from '@/lib/errors';
 
 const BUCKET = 'cj-documentos';
 
@@ -158,7 +158,10 @@ export async function enviarPdfPorEmail(docId: string): Promise<ApiResponse<{ me
   const { data, error } = await supabase.functions.invoke('cj-enviar-pdf', {
     body: { doc_id: docId },
   });
-  if (error) return fail('CJ_SEND', error.message, error);
+  if (error) {
+    const msg = await extractEdgeFnError(error);
+    return fail('CJ_SEND', msg, error);
+  }
   if (!data?.ok) return fail('CJ_SEND', data?.error ?? 'Error desconocido', data);
   return ok({ message_id: data.message_id ?? null });
 }

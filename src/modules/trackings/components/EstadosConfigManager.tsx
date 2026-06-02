@@ -9,6 +9,7 @@ import {
   type TrackingEstadoConfigRow,
 } from '@/services/api/trackings';
 import { cn } from '@/lib/cn';
+import { humanizeError } from '@/lib/errors';
 
 const COLORS = ['slate', 'cyan', 'teal', 'amber', 'red', 'emerald'] as const;
 
@@ -47,7 +48,7 @@ export function EstadosConfigManager({
       es_final: draft.es_final,
     });
     if (!res.ok) {
-      toast.error(res.error.message);
+      toast.error(humanizeError(res.error));
       return;
     }
     toast.success('Estado agregado');
@@ -70,7 +71,7 @@ export function EstadosConfigManager({
     if (!ok) return;
     const res = await deleteEstadoConfig(estado.id);
     if (!res.ok) {
-      toast.error(res.error.message);
+      toast.error(humanizeError(res.error));
       return;
     }
     toast.success('Estado eliminado');

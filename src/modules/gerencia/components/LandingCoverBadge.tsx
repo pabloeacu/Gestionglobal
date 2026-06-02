@@ -17,6 +17,7 @@ import {
   getLandingCoverStatus,
   setLandingCover,
 } from '@/services/api/configGlobal';
+import { humanizeError } from '@/lib/errors';
 
 export function LandingCoverBadge() {
   const confirm = useConfirm();
@@ -58,7 +59,7 @@ export function LandingCoverBadge() {
       );
     } else {
       toast.error('No pudimos cambiar el estado de la cortina', {
-        description: r.error.message,
+        description: humanizeError(r.error),
       });
     }
   }

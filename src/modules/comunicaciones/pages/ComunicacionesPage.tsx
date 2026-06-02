@@ -32,6 +32,7 @@ import {
   type ComunicacionRow,
 } from '@/services/api/comunicaciones';
 import { ComunicacionFormDrawer } from '../components/ComunicacionFormDrawer';
+import { humanizeError } from '@/lib/errors';
 
 function formatDate(iso: string | null): string {
   if (!iso) return '—';
@@ -59,7 +60,7 @@ export function ComunicacionesPage() {
     setLoading(true);
     const res = await listComunicaciones();
     if (!res.ok) {
-      toast.error(`No se pudo cargar: ${res.error.message}`);
+      toast.error(`No se pudo cargar: ${humanizeError(res.error)}`);
       setRows([]);
     } else {
       setRows(res.data);
@@ -91,7 +92,7 @@ export function ComunicacionesPage() {
     if (!okBtn) return;
     const res = await eliminarComunicacion(row.id);
     if (!res.ok) {
-      toast.error(`No se pudo eliminar: ${res.error.message}`);
+      toast.error(`No se pudo eliminar: ${humanizeError(res.error)}`);
       return;
     }
     toast.success('Comunicación eliminada');

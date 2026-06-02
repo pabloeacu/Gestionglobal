@@ -17,6 +17,7 @@ import {
   type ImportResult,
 } from '@/services/api/importador';
 import { listAdministraciones, type AdministracionListItem } from '@/services/api/administraciones';
+import { humanizeError } from '@/lib/errors';
 
 // ============================================================================
 // ImportadorPage · drag & drop → mapping → validación → confirm → resultado.
@@ -67,7 +68,7 @@ export function ImportadorPage() {
     const res = await parsearArchivoXlsx(f);
     setParsing(false);
     if (!res.ok) {
-      toast.error(res.error.message);
+      toast.error(humanizeError(res.error));
       setParsed(null);
       setMapping(null);
       return;
@@ -120,7 +121,7 @@ export function ImportadorPage() {
     const res = await importarLote(file.name, validadas);
     setImporting(false);
     if (!res.ok) {
-      toast.error(res.error.message);
+      toast.error(humanizeError(res.error));
       return;
     }
     setResult(res.data);

@@ -23,6 +23,7 @@ import {
   type PartnerMovimientoRow,
 } from '@/services/api/partners';
 import { toast } from '@/lib/toast';
+import { humanizeError } from '@/lib/errors';
 
 export function PartnerPortalPage() {
   const [comps, setComps] = useState<PartnerComprobanteRow[] | null>(null);
@@ -426,7 +427,7 @@ function ModalFacturar({
     );
     setEnviando(false);
     if (!res.ok) {
-      toast.error(res.error.message);
+      toast.error(humanizeError(res.error));
       return;
     }
     toast.success(

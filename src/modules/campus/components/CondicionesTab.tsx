@@ -13,6 +13,7 @@ import {
   type CondicionTipo,
   type CursoDetalle,
 } from '@/services/api/campus';
+import { humanizeError } from '@/lib/errors';
 
 type Draft = CondicionConfigInput & { _key: string };
 
@@ -33,7 +34,7 @@ export function CondicionesTab({
     const res = await listCondicionesConfig(data.curso.id);
     setLoading(false);
     if (!res.ok) {
-      toast.error(res.error.message);
+      toast.error(humanizeError(res.error));
       return;
     }
     setItems(
@@ -108,7 +109,7 @@ export function CondicionesTab({
     );
     setSaving(false);
     if (!res.ok) {
-      toast.error(res.error.message);
+      toast.error(humanizeError(res.error));
       return;
     }
     toast.success('Condiciones guardadas');

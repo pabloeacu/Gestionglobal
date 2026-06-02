@@ -69,6 +69,7 @@ import {
   ocurrenciaProyectadaToIcs,
   type IcsEvento,
 } from '@/lib/icsExport';
+import { humanizeError } from '@/lib/errors';
 
 type Vista = 'lista' | 'mes' | 'semana' | 'dia';
 type AgendaTab = 'mi-agenda' | 'vencimientos';
@@ -288,7 +289,7 @@ export function AgendaPage({ initialTab }: AgendaPageProps = {}) {
       occurrenceDate: oc.fechaOriginal || undefined,
     });
     if (!res.ok) {
-      toast.error(res.error.message);
+      toast.error(humanizeError(res.error));
       return;
     }
     // 3.C · red de seguridad: undo de 5 s para revertir el toggle.
@@ -324,7 +325,7 @@ export function AgendaPage({ initialTab }: AgendaPageProps = {}) {
       if (!ok) return;
       const res = await saltearOcurrencia(oc.evento.id, oc.fechaOriginal);
       if (!res.ok) {
-        toast.error(res.error.message);
+        toast.error(humanizeError(res.error));
         return;
       }
       toast.success('Movido (solo esta vez)');
@@ -339,7 +340,7 @@ export function AgendaPage({ initialTab }: AgendaPageProps = {}) {
       if (!ok) return;
       const res = await eliminarEvento(oc.evento.id);
       if (!res.ok) {
-        toast.error(res.error.message);
+        toast.error(humanizeError(res.error));
         return;
       }
       toast.success('Eliminado');
@@ -370,14 +371,14 @@ export function AgendaPage({ initialTab }: AgendaPageProps = {}) {
       const { startAt, endAt } = calcularPosponer(oc.startAt, oc.endAt, delta);
       const res = await moverOcurrencia(oc.evento.id, oc.fechaOriginal, startAt, endAt);
       if (!res.ok) {
-        toast.error(res.error.message);
+        toast.error(humanizeError(res.error));
         return;
       }
       toast.success('Reprogramado');
     } else {
       const res = await posponerEvento(oc.evento.id, delta);
       if (!res.ok) {
-        toast.error(res.error.message);
+        toast.error(humanizeError(res.error));
         return;
       }
       toast.success('Reprogramado');
@@ -394,7 +395,7 @@ export function AgendaPage({ initialTab }: AgendaPageProps = {}) {
         newEnd ? newEnd.toISOString() : null,
       );
       if (!res.ok) {
-        toast.error(res.error.message);
+        toast.error(humanizeError(res.error));
         return;
       }
       toast.success('Movido (solo esta vez)');
@@ -404,7 +405,7 @@ export function AgendaPage({ initialTab }: AgendaPageProps = {}) {
         endAt: newEnd ? newEnd.toISOString() : null,
       });
       if (!res.ok) {
-        toast.error(res.error.message);
+        toast.error(humanizeError(res.error));
         return;
       }
       toast.success('Reprogramado');

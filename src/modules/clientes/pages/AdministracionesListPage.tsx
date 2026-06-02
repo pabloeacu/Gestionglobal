@@ -28,6 +28,7 @@ import {
 import { ExportButtons } from '@/components/reports/ExportButtons';
 import { generateReportPdf } from '@/lib/reportPdf';
 import { generateReportXls } from '@/lib/reportXls';
+import { humanizeError } from '@/lib/errors';
 
 type Estado = AdministracionEstado | 'todos';
 
@@ -64,8 +65,8 @@ export function AdministracionesListPage() {
     const res = await listAdministraciones({ search, estado });
     setLoading(false);
     if (!res.ok) {
-      setError(res.error.message);
-      toast.error(`No pudimos cargar las administraciones: ${res.error.message}`);
+      setError(humanizeError(res.error));
+      toast.error(`No pudimos cargar las administraciones: ${humanizeError(res.error)}`);
       return;
     }
     setRows(res.data.rows);

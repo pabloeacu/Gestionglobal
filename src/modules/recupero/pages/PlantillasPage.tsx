@@ -13,6 +13,7 @@ import {
   type RecuperoNivel,
   type RecuperoPlantillaRow,
 } from '@/services/api/recupero';
+import { humanizeError } from '@/lib/errors';
 
 const TONE_RING: Record<'cyan' | 'amber' | 'red', string> = {
   cyan: 'border-brand-cyan/40 bg-brand-cyan/5',
@@ -55,7 +56,7 @@ export function PlantillasPage() {
     const res = await listPlantillas();
     setLoading(false);
     if (!res.ok) {
-      toast.error(`No pudimos cargar las plantillas: ${res.error.message}`);
+      toast.error(`No pudimos cargar las plantillas: ${humanizeError(res.error)}`);
       return;
     }
     setRows(res.data.map(fromRow));
@@ -81,7 +82,7 @@ export function PlantillasPage() {
       dias_desde_vencimiento_min: d.dias,
     });
     if (!res.ok) {
-      toast.error(`No se pudo guardar: ${res.error.message}`);
+      toast.error(`No se pudo guardar: ${humanizeError(res.error)}`);
       setRows((prev) => prev.map((r) => (r.slug === d.slug ? { ...r, saving: false } : r)));
       return;
     }

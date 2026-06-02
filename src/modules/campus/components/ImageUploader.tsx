@@ -28,6 +28,7 @@ import {
   type CampusMediaScope,
 } from '@/services/api/campus';
 import { canvasToOptimizedBlob } from '@/lib/imageWebp';
+import { humanizeError } from '@/lib/errors';
 
 interface ImageUploaderProps {
   /** URL pública actual (o null si no hay imagen). */
@@ -136,7 +137,7 @@ export function ImageUploader({
     const res = await uploadCampusMedia(scope, ownerId, file);
     setUploading(false);
     if (!res.ok) {
-      toast.error('No pudimos subir la imagen.', { description: res.error.message });
+      toast.error('No pudimos subir la imagen.', { description: humanizeError(res.error) });
       return;
     }
     onChange(res.data);

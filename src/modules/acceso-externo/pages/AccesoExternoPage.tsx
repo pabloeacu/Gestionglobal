@@ -30,6 +30,7 @@ import {
 } from '@/services/api/accesos';
 import { supabase } from '@/lib/supabase';
 import { toast } from '@/lib/toast';
+import { humanizeError } from '@/lib/errors';
 
 // Página pública sin login. Carga el recurso vía edge function `acceso-externo`.
 // Diseño premium: hero cyan, tarjeta de datos, galería de adjuntos, footer
@@ -55,7 +56,7 @@ export function AccesoExternoPage() {
       if (cancelled) return;
       setLoading(false);
       if (!res.ok) {
-        setError(res.error.message);
+        setError(humanizeError(res.error));
         return;
       }
       setData(res.data);
@@ -630,7 +631,7 @@ function PanelGestor({ token }: { token: string }) {
     const res = await gestorCargarAvance(token, descripcion.trim(), urls);
     setEnviando(false);
     if (!res.ok) {
-      toast.error(res.error.message);
+      toast.error(humanizeError(res.error));
       return;
     }
     toast.success('Avance enviado al cliente');

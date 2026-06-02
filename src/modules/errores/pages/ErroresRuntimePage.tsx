@@ -26,6 +26,7 @@ import {
   marcarErrorResuelto,
   type ErrorRuntimeRow,
 } from '@/services/api/errores';
+import { humanizeError } from '@/lib/errors';
 
 function relTime(iso: string): string {
   const diff = Math.max(0, Date.now() - new Date(iso).getTime());
@@ -66,7 +67,7 @@ export function ErroresRuntimePage() {
   async function marcar(id: string) {
     const r = await marcarErrorResuelto(id);
     if (!r.ok) {
-      toast.error('No pudimos marcar como resuelto', { description: r.error.message });
+      toast.error('No pudimos marcar como resuelto', { description: humanizeError(r.error) });
       return;
     }
     toast.success('Error marcado como resuelto');

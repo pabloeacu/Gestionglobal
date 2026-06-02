@@ -13,6 +13,7 @@ import {
   type FlujoCajaRow, type BalanceMensualRow,
   type PygRow, type ComparativoRow,
 } from '@/services/api/finanzas-admin';
+import { humanizeError } from '@/lib/errors';
 
 function formatMoney(n: number, opts?: { compact?: boolean }): string {
   if (opts?.compact && Math.abs(n) >= 1_000_000) {
@@ -117,7 +118,7 @@ function FlujoCajaTab({ anio }: { anio: number }) {
       const r = await getReporteFlujoCaja(anio);
       setLoading(false);
       if (r.ok) setData(r.data);
-      else toast.error(r.error.message);
+      else toast.error(humanizeError(r.error));
     })();
   }, [anio]);
 
@@ -288,7 +289,7 @@ function BalanceTab({ anio }: { anio: number }) {
       const r = await getReporteBalanceMensual(anio, true);
       setLoading(false);
       if (r.ok) setData(r.data);
-      else toast.error(r.error.message);
+      else toast.error(humanizeError(r.error));
     })();
   }, [anio]);
 
@@ -394,7 +395,7 @@ function PyGTab() {
       const r = await getReportePyG(desde, hasta);
       setLoading(false);
       if (r.ok) setData(r.data);
-      else toast.error(r.error.message);
+      else toast.error(humanizeError(r.error));
     })();
   }, [desde, hasta]);
 
@@ -508,7 +509,7 @@ function ComparativoTab({ anio }: { anio: number }) {
       const r = await getReporteComparativo(anio);
       setLoading(false);
       if (r.ok) setData(r.data);
-      else toast.error(r.error.message);
+      else toast.error(humanizeError(r.error));
     })();
   }, [anio]);
 

@@ -26,6 +26,7 @@ import {
   type TramiteCategoria,
   type TramitePrioridad,
 } from '@/services/api/tramites';
+import { humanizeError } from '@/lib/errors';
 
 // Columnas visibles del kanban (excluimos cancelado por defecto).
 const COLUMNS: { key: TramiteEstado; label: string; cls: string }[] = [
@@ -75,7 +76,7 @@ export function TramitesKanbanPage() {
     });
     setLoading(false);
     if (!res.ok) {
-      toast.error(`No pudimos cargar los trámites: ${res.error.message}`);
+      toast.error(`No pudimos cargar los trámites: ${humanizeError(res.error)}`);
       return;
     }
     setRows(res.data.rows);
@@ -112,7 +113,7 @@ export function TramitesKanbanPage() {
     play('click');
     const res = await updateTramite(t.id, { estado: nuevoEstado });
     if (!res.ok) {
-      toast.error(`No pudimos mover el trámite: ${res.error.message}`);
+      toast.error(`No pudimos mover el trámite: ${humanizeError(res.error)}`);
       void load();  // re-sync
       return;
     }

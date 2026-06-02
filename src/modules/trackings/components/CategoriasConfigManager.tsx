@@ -9,6 +9,7 @@ import {
   type TrackingCategoriaConfigRow,
 } from '@/services/api/trackings';
 import { cn } from '@/lib/cn';
+import { humanizeError } from '@/lib/errors';
 
 const COLORS = ['slate', 'cyan', 'teal', 'amber', 'red', 'emerald'] as const;
 
@@ -47,7 +48,7 @@ export function CategoriasConfigManager({
       orden: draft.orden,
     });
     if (!res.ok) {
-      toast.error(res.error.message);
+      toast.error(humanizeError(res.error));
       return;
     }
     toast.success('Categoría agregada');
@@ -70,7 +71,7 @@ export function CategoriasConfigManager({
     if (!ok) return;
     const res = await deleteCategoriaConfig(c.id);
     if (!res.ok) {
-      toast.error(res.error.message);
+      toast.error(humanizeError(res.error));
       return;
     }
     toast.success('Categoría eliminada');

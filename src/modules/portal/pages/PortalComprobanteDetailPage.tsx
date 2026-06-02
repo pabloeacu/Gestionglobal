@@ -33,6 +33,7 @@ import {
   type CobranzaEstado,
 } from '@/services/api/comprobantes';
 import { cn } from '@/lib/cn';
+import { humanizeError } from '@/lib/errors';
 
 // Detalle de comprobante en el portal del administrador. READ-ONLY: el
 // administrador puede ver el comprobante, descargar el PDF y reenviarlo a
@@ -91,7 +92,7 @@ export function PortalComprobanteDetailPage() {
     ]);
     setLoading(false);
     if (!res.ok) {
-      toast.error(res.error.message);
+      toast.error(humanizeError(res.error));
       return;
     }
     setComp(res.data.comprobante);

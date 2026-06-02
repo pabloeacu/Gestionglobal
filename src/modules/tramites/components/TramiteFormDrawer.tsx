@@ -22,6 +22,7 @@ import {
   listAdministraciones,
   type AdministracionRow,
 } from '@/services/api/administraciones';
+import { humanizeError } from '@/lib/errors';
 
 interface Props {
   open: boolean;
@@ -84,7 +85,7 @@ export function TramiteFormDrawer({ open, onClose, onCreated }: Props) {
     });
     setSaving(false);
     if (!res.ok) {
-      toast.error(`No se pudo crear: ${res.error.message}`);
+      toast.error(`No se pudo crear: ${humanizeError(res.error)}`);
       return;
     }
     toast.success(`Trámite ${res.data.codigo} creado`);

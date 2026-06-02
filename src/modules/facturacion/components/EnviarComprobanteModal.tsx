@@ -17,6 +17,7 @@ import type {
   ComprobanteRow,
   ComprobanteItemRow,
 } from '@/services/api/comprobantes';
+import { humanizeError } from '@/lib/errors';
 
 interface EnviarComprobanteModalProps {
   open: boolean;
@@ -136,7 +137,7 @@ export function EnviarComprobanteModal({
     setEnviando(false);
     if (!res.ok) {
       toast.error('No pudimos enviar el comprobante', {
-        description: res.error.message,
+        description: humanizeError(res.error),
       });
       return;
     }

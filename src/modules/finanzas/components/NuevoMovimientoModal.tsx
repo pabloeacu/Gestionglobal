@@ -7,6 +7,7 @@ import {
 } from '@/services/api/finanzas';
 import { listPartnersActivos, type PartnerOpcion } from '@/services/api/partners';
 import { cn } from '@/lib/cn';
+import { humanizeError } from '@/lib/errors';
 
 interface Props {
   cajas: CajaConSaldoRow[];
@@ -73,7 +74,7 @@ export function NuevoMovimientoModal({ cajas, onClose, onCreated }: Props) {
     });
     setCreating(false);
     if (!res.ok) {
-      toast.error('No pudimos crear el movimiento', { description: res.error.message });
+      toast.error('No pudimos crear el movimiento', { description: humanizeError(res.error) });
       return;
     }
     toast.success(`${tipo === 'ingreso' ? 'Ingreso' : 'Egreso'} registrado`);

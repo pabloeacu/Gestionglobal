@@ -26,6 +26,7 @@ import {
 } from '@/services/api/vouchers';
 import { VoucherDrawer } from './VoucherDrawer';
 import { cn } from '@/lib/cn';
+import { humanizeError } from '@/lib/errors';
 
 interface VouchersTabProps {
   servicio_id: string;
@@ -56,7 +57,7 @@ export function VouchersTab({ servicio_id }: VouchersTabProps) {
     const r = await listVouchersDeServicio(servicio_id);
     setLoading(false);
     if (!r.ok) {
-      toast.error(r.error.message);
+      toast.error(humanizeError(r.error));
       return;
     }
     setVouchers(r.data);
@@ -72,7 +73,7 @@ export function VouchersTab({ servicio_id }: VouchersTabProps) {
   async function onToggleActivo(v: ServicioVoucherRow) {
     const r = await actualizarVoucher(v.id, { activo: !v.activo });
     if (!r.ok) {
-      toast.error(r.error.message);
+      toast.error(humanizeError(r.error));
       return;
     }
     toast.success(v.activo ? 'Voucher desactivado.' : 'Voucher activado.');
@@ -93,7 +94,7 @@ export function VouchersTab({ servicio_id }: VouchersTabProps) {
     if (!ok) return;
     const r = await eliminarVoucher(v.id);
     if (!r.ok) {
-      toast.error(r.error.message);
+      toast.error(humanizeError(r.error));
       return;
     }
     toast.success('Voucher eliminado.');

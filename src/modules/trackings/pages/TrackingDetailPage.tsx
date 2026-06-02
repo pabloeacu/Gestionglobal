@@ -90,6 +90,7 @@ import {
   shouldShowGerenciaTour,
   markTramitesTourSeen,
 } from '@/components/onboarding/OnboardingTour';
+import { humanizeError } from '@/lib/errors';
 
 type TabKey = 'resumen' | 'lineas' | 'documentacion' | 'recurrencia' | 'config';
 
@@ -175,7 +176,7 @@ export function TrackingDetailPage() {
     });
     if (!res.ok) {
       toast.error('Archivos subidos pero no pudimos crear la línea', {
-        description: res.error.message,
+        description: humanizeError(res.error),
       });
       return;
     }
@@ -194,7 +195,7 @@ export function TrackingDetailPage() {
     const res = await getTracking(id);
     setLoading(false);
     if (!res.ok) {
-      setErrorMsg(res.error.message);
+      setErrorMsg(humanizeError(res.error));
       return;
     }
     setData(res.data);
@@ -377,7 +378,7 @@ export function TrackingDetailPage() {
     if (!url) return;
     const res = await cerrarTracking(data.id, url);
     if (!res.ok) {
-      toast.error(res.error.message);
+      toast.error(humanizeError(res.error));
       return;
     }
     if (tieneRenovacion) {
@@ -943,7 +944,7 @@ function CompartirExternoModal({
     });
     setBusy(false);
     if (!res.ok) {
-      toast.error('No pudimos generar el acceso', { description: res.error.message });
+      toast.error('No pudimos generar el acceso', { description: humanizeError(res.error) });
       return;
     }
     setLink(res.data.url);

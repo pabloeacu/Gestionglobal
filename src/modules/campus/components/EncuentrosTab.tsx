@@ -26,6 +26,7 @@ import {
   type CursoEncuentroRow,
   type MatriculaListItem,
 } from '@/services/api/campus';
+import { humanizeError } from '@/lib/errors';
 
 // Tab de encuentros sincrónicos: crear encuentros con sala Zoom integrada,
 // asistencia automática (vía webhook) y manual (tilde override) — DGG-14.
@@ -58,7 +59,7 @@ export function EncuentrosTab({ data }: { data: CursoDetalle }) {
     ]);
     if (!e.ok) {
       setLoading(false);
-      toast.error(e.error.message);
+      toast.error(humanizeError(e.error));
       return;
     }
     setEncuentros(e.data);
@@ -98,7 +99,7 @@ export function EncuentrosTab({ data }: { data: CursoDetalle }) {
     });
     if (!res.ok) {
       setCreating(false);
-      toast.error(res.error.message);
+      toast.error(humanizeError(res.error));
       return;
     }
     // Si pidieron duración custom, actualizamos en BD (la columna default es 60).
@@ -123,7 +124,7 @@ export function EncuentrosTab({ data }: { data: CursoDetalle }) {
     if (!ok) return;
     const res = await borrarEncuentro(enc.id);
     if (!res.ok) {
-      toast.error(res.error.message);
+      toast.error(humanizeError(res.error));
       return;
     }
     void load();
@@ -137,7 +138,7 @@ export function EncuentrosTab({ data }: { data: CursoDetalle }) {
     });
     setCreandoSalaId(null);
     if (!res.ok) {
-      toast.error(res.error.message);
+      toast.error(humanizeError(res.error));
       return;
     }
     toast.success('Sala Zoom creada ✓');
@@ -157,7 +158,7 @@ export function EncuentrosTab({ data }: { data: CursoDetalle }) {
     });
     const res = await marcarAsistencia({ encuentroId, matriculaId, presente });
     if (!res.ok) {
-      toast.error(res.error.message);
+      toast.error(humanizeError(res.error));
       void load();
     }
   }
@@ -529,7 +530,7 @@ function WebexSetupModal({
     });
     setSaving(false);
     if (!res.ok) {
-      toast.error(res.error.message);
+      toast.error(humanizeError(res.error));
       return;
     }
     toast.success('Sala Webex configurada ✓');

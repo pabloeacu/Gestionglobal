@@ -54,6 +54,7 @@ import {
   arcaListo,
   type ArcaConfig,
 } from '@/services/api/arca';
+import { humanizeError } from '@/lib/errors';
 
 interface ComprobanteFormDrawerProps {
   open: boolean;
@@ -376,7 +377,7 @@ export function ComprobanteFormDrawer({
       if (!r.ok) {
         setSaving(false);
         toast.error('No pudimos actualizar el tabulador', {
-          description: `${r.error.message} · El comprobante NO se emitió. Volvé al detalle del servicio y revisá las reglas.`,
+          description: `${humanizeError(r.error)} · El comprobante NO se emitió. Volvé al detalle del servicio y revisá las reglas.`,
         });
         return;
       }
@@ -407,7 +408,7 @@ export function ComprobanteFormDrawer({
       });
       if (!res.ok) {
         setSaving(false);
-        toast.error('No pudimos crear el borrador fiscal', { description: res.error.message });
+        toast.error('No pudimos crear el borrador fiscal', { description: humanizeError(res.error) });
         return;
       }
       // Enqueue ARCA.
@@ -415,7 +416,7 @@ export function ComprobanteFormDrawer({
       setSaving(false);
       if (!enq.ok) {
         toast.error('Comprobante creado pero no encolado en ARCA', {
-          description: `${enq.error.message} · Podés reintentar desde la cola.`,
+          description: `${humanizeError(enq.error)} · Podés reintentar desde la cola.`,
         });
         onSaved?.(res.data.id);
         onClose();
@@ -443,7 +444,7 @@ export function ComprobanteFormDrawer({
     });
     setSaving(false);
     if (!res.ok) {
-      toast.error('No pudimos emitir el comprobante', { description: res.error.message });
+      toast.error('No pudimos emitir el comprobante', { description: humanizeError(res.error) });
       return;
     }
     toast.success(`Comprobante #${proxNumero ?? '?'} emitido`);

@@ -10,6 +10,7 @@ import {
   estadoSuscripcion,
   pedirPermisoYSuscribir,
 } from '@/services/api/push';
+import { humanizeError } from '@/lib/errors';
 
 const STORAGE_KEY = 'gg_portal_push_dismissed_until_v1';
 const COOLDOWN_DAYS = 7;
@@ -59,7 +60,7 @@ export function PortalPushAssistant() {
     const res = await pedirPermisoYSuscribir();
     setWorking(false);
     if (!res.ok) {
-      toast.error('No pudimos activar', { description: res.error.message });
+      toast.error('No pudimos activar', { description: humanizeError(res.error) });
       return;
     }
     setSubscribed(true);

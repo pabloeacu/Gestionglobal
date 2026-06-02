@@ -31,6 +31,7 @@ import {
 import { ExportButtons } from '@/components/reports/ExportButtons';
 import { generateReportPdf } from '@/lib/reportPdf';
 import { generateReportXls } from '@/lib/reportXls';
+import { humanizeError } from '@/lib/errors';
 
 type NivelFilter = RecuperoNivel | 'todos';
 
@@ -56,8 +57,8 @@ export function RecuperoListPage() {
     const res = await listAcciones({ nivel: nivel === 'todos' ? 'todos' : nivel });
     setLoading(false);
     if (!res.ok) {
-      setError(res.error.message);
-      toast.error(`No pudimos cargar las acciones: ${res.error.message}`);
+      setError(humanizeError(res.error));
+      toast.error(`No pudimos cargar las acciones: ${humanizeError(res.error)}`);
       return;
     }
     setRows(res.data.rows);

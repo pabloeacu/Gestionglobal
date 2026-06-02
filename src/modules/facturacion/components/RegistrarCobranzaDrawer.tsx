@@ -16,6 +16,7 @@ import {
   type CategoriaFinanzaRow,
 } from '@/services/api/cobranzas';
 import type { ComprobanteRow } from '@/services/api/comprobantes';
+import { humanizeError } from '@/lib/errors';
 
 interface Props {
   open: boolean;
@@ -133,7 +134,7 @@ export function RegistrarCobranzaDrawer({
     });
     setSaving(false);
     if (!res.ok) {
-      toast.error('No pudimos registrar la cobranza', { description: res.error.message });
+      toast.error('No pudimos registrar la cobranza', { description: humanizeError(res.error) });
       return;
     }
     toast.success(`Cobranza registrada: ${formatMoney(monto)}`);

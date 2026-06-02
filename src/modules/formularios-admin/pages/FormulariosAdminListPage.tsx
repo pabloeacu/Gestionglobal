@@ -32,6 +32,7 @@ import {
 import type { FormularioRow } from '@/services/api/formularios';
 import { cn } from '@/lib/cn';
 import { FormulariosWebinarsTabs } from '@/modules/webinars-admin/components/FormulariosWebinarsTabs';
+import { humanizeError } from '@/lib/errors';
 
 const CATEGORIAS = [
   { value: 'captacion', label: 'Captación' },
@@ -59,7 +60,7 @@ export function FormulariosAdminListPage() {
     const res = await listFormulariosAdmin();
     setLoading(false);
     if (!res.ok) {
-      toast.error('No pudimos cargar los formularios', { description: res.error.message });
+      toast.error('No pudimos cargar los formularios', { description: humanizeError(res.error) });
       return;
     }
     setItems(res.data);
@@ -81,7 +82,7 @@ export function FormulariosAdminListPage() {
   async function onToggle(f: FormularioRow) {
     const res = await toggleActivo(f.id, !f.activo);
     if (!res.ok) {
-      toast.error('No pudimos actualizar el estado', { description: res.error.message });
+      toast.error('No pudimos actualizar el estado', { description: humanizeError(res.error) });
       return;
     }
     toast.success(f.activo ? 'Formulario desactivado' : 'Formulario activado');
@@ -98,7 +99,7 @@ export function FormulariosAdminListPage() {
     if (!ok) return;
     const res = await eliminarFormulario(f.id);
     if (!res.ok) {
-      toast.error('No pudimos eliminar', { description: res.error.message });
+      toast.error('No pudimos eliminar', { description: humanizeError(res.error) });
       return;
     }
     toast.success('Formulario eliminado');
@@ -355,7 +356,7 @@ function NuevoFormularioModal({
         });
     setSending(false);
     if (!res.ok) {
-      toast.error('No pudimos crear el formulario', { description: res.error.message });
+      toast.error('No pudimos crear el formulario', { description: humanizeError(res.error) });
       return;
     }
     toast.success(duplicarDe ? 'Formulario duplicado' : 'Formulario creado');

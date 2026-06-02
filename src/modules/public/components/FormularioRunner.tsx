@@ -22,6 +22,7 @@ import {
   type FormularioFieldDef,
 } from '@/services/api/formularios';
 import { cn } from '@/lib/cn';
+import { humanizeError } from '@/lib/errors';
 
 interface FormularioRunnerProps {
   formulario: FormularioRow;
@@ -249,8 +250,8 @@ export function FormularioRunner({
     setSending(false);
 
     if (!res.ok) {
-      setTopError(res.error.message);
-      toast.error('No pudimos enviar el formulario', { description: res.error.message });
+      setTopError(humanizeError(res.error));
+      toast.error('No pudimos enviar el formulario', { description: humanizeError(res.error) });
       return;
     }
     toast.success('Formulario enviado');

@@ -48,6 +48,7 @@ import {
 import { cn } from '@/lib/cn';
 import { Button } from './Button';
 import { Modal } from './Modal';
+import { humanizeError } from '@/lib/errors';
 
 // Mapeo tipo → ícono + tinte del avatar.
 interface TipoMeta { icon: LucideIcon; chip: string }
@@ -232,7 +233,7 @@ export function NotificationBell() {
   async function handleLimpiarTodas() {
     const r = await notifArchivarTodas();
     if (!r.ok) {
-      toast.error('No pudimos limpiar', { description: r.error.message });
+      toast.error('No pudimos limpiar', { description: humanizeError(r.error) });
       return;
     }
     // Optimistic UI: vaciamos el panel localmente.
@@ -252,7 +253,7 @@ export function NotificationBell() {
     if (item && !item.leido_at) setCount((c) => Math.max(0, c - 1));
     const r = await notifArchivar(id);
     if (!r.ok) {
-      toast.error('No pudimos archivar', { description: r.error.message });
+      toast.error('No pudimos archivar', { description: humanizeError(r.error) });
       // Rollback en caso de error
       void refresh();
     }

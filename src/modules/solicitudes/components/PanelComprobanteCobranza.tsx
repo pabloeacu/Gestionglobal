@@ -37,6 +37,7 @@ import {
 } from '@/services/api/cobranzas';
 import { listPartnersActivos, type PartnerOpcion } from '@/services/api/partners';
 import { setSolicitudComprobante } from '@/services/api/solicitudes';
+import { humanizeError } from '@/lib/errors';
 
 interface Props {
   solicitudId: string;
@@ -280,7 +281,7 @@ function ModalGenerarComprobante({
     });
     if (!r.ok) {
       setEnviando(false);
-      toast.error(r.error.message);
+      toast.error(humanizeError(r.error));
       return;
     }
     const compId = r.data.id;
@@ -438,7 +439,7 @@ function ModalRegistrarPago({
     });
     setEnviando(false);
     if (!r.ok) {
-      toast.error(r.error.message);
+      toast.error(humanizeError(r.error));
       return;
     }
     toast.success('Pago registrado');

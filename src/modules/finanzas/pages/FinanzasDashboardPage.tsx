@@ -19,6 +19,7 @@ import { TipoBadge, EstadoBadge, formatMonto, montoColor } from '../components/M
 import { ExportButtons } from '@/components/reports/ExportButtons';
 import { generateReportPdf } from '@/lib/reportPdf';
 import { generateReportXls } from '@/lib/reportXls';
+import { humanizeError } from '@/lib/errors';
 
 function formatMoney(n: number): string {
   return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n);
@@ -158,7 +159,7 @@ export function FinanzasDashboardPage() {
     if (!okConfirm) return;
     const res = await revertirMovimiento(m.id);
     if (!res.ok) {
-      toast.error('No pudimos revertir', { description: res.error.message });
+      toast.error('No pudimos revertir', { description: humanizeError(res.error) });
       return;
     }
     toast.success('Movimiento revertido');
@@ -175,7 +176,7 @@ export function FinanzasDashboardPage() {
     if (!okConfirm) return;
     const res = await anularMovimiento(m.id);
     if (!res.ok) {
-      toast.error('No pudimos anular', { description: res.error.message });
+      toast.error('No pudimos anular', { description: humanizeError(res.error) });
       return;
     }
     toast.success('Movimiento anulado');

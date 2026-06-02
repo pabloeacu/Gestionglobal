@@ -25,6 +25,7 @@ import {
   type RecuperoNivel,
 } from '@/services/api/recupero';
 import { MorososKpiStrip } from '../components/MorososKpiStrip';
+import { humanizeError } from '@/lib/errors';
 
 type NivelFilter = RecuperoNivel | 'todos';
 
@@ -57,7 +58,7 @@ export function MorososPage() {
     const res = await listMorosos({});
     setLoading(false);
     if (!res.ok) {
-      toast.error(`No pudimos cargar morosos: ${res.error.message}`);
+      toast.error(`No pudimos cargar morosos: ${humanizeError(res.error)}`);
       return;
     }
     setRows(res.data);

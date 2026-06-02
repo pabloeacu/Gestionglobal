@@ -49,6 +49,7 @@ import { PropertiesPanel } from '../components/PropertiesPanel';
 import { PreviewModal } from '../components/PreviewModal';
 import { EmbedCodeModal } from '../components/EmbedCodeModal';
 import { FIELD_TYPES, type Selection } from '../types';
+import { humanizeError } from '@/lib/errors';
 
 function emptySchema(): FormularioSchemaDef {
   // Bloque J / obs 14: todo formulario nuevo arranca con los 5 campos de
@@ -103,7 +104,7 @@ export function FormularioBuilderPage() {
     void getFormularioPorId(id).then((res) => {
       setLoading(false);
       if (!res.ok) {
-        toast.error('No pudimos cargar el formulario', { description: res.error.message });
+        toast.error('No pudimos cargar el formulario', { description: humanizeError(res.error) });
         return;
       }
       setFormulario(res.data);
@@ -138,7 +139,7 @@ export function FormularioBuilderPage() {
       const res = await autosaveSchema(formulario.id, schema);
       if (!res.ok) {
         setAutosaveState('idle');
-        toast.error('No pudimos guardar el borrador', { description: res.error.message });
+        toast.error('No pudimos guardar el borrador', { description: humanizeError(res.error) });
         return;
       }
       setLastSavedAt(new Date(res.data.at));
@@ -460,7 +461,7 @@ export function FormularioBuilderPage() {
     const res = await guardarVersion(formulario.id, schema);
     setSaving(false);
     if (!res.ok) {
-      toast.error('No pudimos guardar', { description: res.error.message });
+      toast.error('No pudimos guardar', { description: humanizeError(res.error) });
       return;
     }
     setFormulario(res.data);
@@ -476,7 +477,7 @@ export function FormularioBuilderPage() {
     if (!formulario) return;
     const res = await actualizarFormulario(formulario.id, { activo: !formulario.activo });
     if (!res.ok) {
-      toast.error('No pudimos cambiar el estado', { description: res.error.message });
+      toast.error('No pudimos cambiar el estado', { description: humanizeError(res.error) });
       return;
     }
     setFormulario(res.data);
@@ -820,7 +821,7 @@ function AjustesModal({
     });
     setSaving(false);
     if (!res.ok) {
-      toast.error('No pudimos guardar', { description: res.error.message });
+      toast.error('No pudimos guardar', { description: humanizeError(res.error) });
       return;
     }
     onSaved(res.data);

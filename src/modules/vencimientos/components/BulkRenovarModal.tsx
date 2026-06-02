@@ -25,6 +25,7 @@ import {
   VENCIMIENTO_TIPO_LABEL,
   type ProximoVencimiento,
 } from '@/services/api/vencimientos';
+import { humanizeError } from '@/lib/errors';
 
 interface BulkRenovarModalProps {
   open: boolean;
@@ -97,7 +98,7 @@ export function BulkRenovarModal({
     const res = await marcarRenovadosMasivo(ids, fechas);
     setBusy(false);
     if (!res.ok) {
-      toast.error('No pudimos renovar el lote', { description: res.error.message });
+      toast.error('No pudimos renovar el lote', { description: humanizeError(res.error) });
       return;
     }
     toast.success(

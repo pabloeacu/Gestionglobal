@@ -38,6 +38,7 @@ import {
 } from '@/services/api/servicios';
 import { ServicioFormDrawer } from '../components/ServicioFormDrawer';
 import { AjusteMasivoModal } from '../components/AjusteMasivoModal';
+import { humanizeError } from '@/lib/errors';
 
 type ModalidadFiltro = PrecioModo | 'todas';
 
@@ -70,8 +71,8 @@ export function ServiciosListPage() {
     });
     setLoading(false);
     if (!r.ok) {
-      setError(r.error.message);
-      toast.error(`No pudimos cargar los servicios: ${r.error.message}`);
+      setError(humanizeError(r.error));
+      toast.error(`No pudimos cargar los servicios: ${humanizeError(r.error)}`);
       return;
     }
     setRows(r.data);
@@ -137,14 +138,14 @@ export function ServiciosListPage() {
       if (!ok) return;
       const r = await desactivarServicio(s.id);
       if (!r.ok) {
-        toast.error(r.error.message);
+        toast.error(humanizeError(r.error));
         return;
       }
       toast.success('Servicio desactivado.');
     } else {
       const r = await activarServicio(s.id);
       if (!r.ok) {
-        toast.error(r.error.message);
+        toast.error(humanizeError(r.error));
         return;
       }
       toast.success('Servicio activado.');

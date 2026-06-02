@@ -12,6 +12,7 @@ import {
   importarHistoricoMasivo, listarLotesHistorico,
   type LineaImportacion, type ResultadoImportacion, type LoteHistoricoRow,
 } from '@/services/api/finanzas-admin';
+import { humanizeError } from '@/lib/errors';
 
 // Plantilla CSV con headers oficiales
 const PLANTILLA_HEADERS = [
@@ -139,7 +140,7 @@ export function FinanzasImportarPage() {
       setDryRunResult(r.data);
       toast.success(`Preview: ${r.data.importadas} válidas · ${r.data.duplicadas} dups · ${r.data.errores} errores`);
     } else {
-      toast.error(r.error.message);
+      toast.error(humanizeError(r.error));
     }
   }
 
@@ -157,7 +158,7 @@ export function FinanzasImportarPage() {
       toast.success(`Importadas ${r.data.importadas} líneas`);
       void recargarHistorial();
     } else {
-      toast.error(r.error.message);
+      toast.error(humanizeError(r.error));
     }
   }
 

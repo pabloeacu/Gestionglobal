@@ -19,6 +19,7 @@ import {
   type CursoClaseRow,
 } from '@/services/api/campus';
 import { toast } from '@/lib/toast';
+import { humanizeError } from '@/lib/errors';
 
 interface ClasePlayerProps {
   matriculaId: string;
@@ -43,7 +44,7 @@ export function ClasePlayer({
     const res = await marcarCompletada(matriculaId, clase.id);
     setSaving(false);
     if (!res.ok) {
-      toast.error(res.error.message);
+      toast.error(humanizeError(res.error));
       return;
     }
     toast.success('¡Clase completada!');

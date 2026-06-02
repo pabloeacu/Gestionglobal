@@ -7,6 +7,7 @@ import { Button } from '@/components/common';
 import { toast } from '@/lib/toast';
 import { parseEntradaAgenda, previewLabel } from '@/lib/agendaParse';
 import { crearEvento, type AgendaCategoria } from '@/services/api/agenda';
+import { humanizeError } from '@/lib/errors';
 
 interface Props {
   categorias: AgendaCategoria[];
@@ -40,7 +41,7 @@ export function BarraMagica({ categorias, onCreated }: Props) {
     });
     setEnviando(false);
     if (!res.ok) {
-      toast.error(res.error.message);
+      toast.error(humanizeError(res.error));
       return;
     }
     toast.success('¡Anotado! 📌');

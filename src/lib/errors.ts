@@ -20,3 +20,123 @@ export function toApiError(e: unknown): { code: string; message: string; details
   }
   return { code: 'UNKNOWN', message: 'Ocurrió un error inesperado.', details: e };
 }
+
+// ============================================================================
+// Helpers de mensajes humanos
+//
+// Problema observado en E-GG-26/27/28 y al recolectar feedback de usuarios:
+// los errores que llegaban a la UI eran técnicos ("Edge Function returned a
+// non-2xx status code", "Failed to fetch", "duplicate key value violates
+// unique constraint", etc). Los usuarios no podían actuar sobre eso.
+//
+// Estos helpers consolidan dos patrones que estaban repetidos en arca.ts y
+// formularios.ts:
+//
+//  1. `extractEdgeFnError(err)` lee el body real (4xx/5xx) de
+//     FunctionsHttpError de supabase-js. Sin esto el toast queda con
+//     "non-2xx status code" genérico aunque el backend haya devuelto un
+//     {"error":"Datos inválidos: nombre: requerido"} útil.
+//
+//  2. `humanizeError({code, message})` mapea códigos PG/supabase típicos +
+//     mensajes técnicos comunes a frases en español accionables. Si el
+//     mensaje YA es humano (ej. viene del backend después de
+//     extractEdgeFnError), se devuelve tal cual.
+// ============================================================================
+
+/**
+ * Extrae el mensaje real del body de error de una edge function (4xx/5xx).
+ * `supabase.functions.invoke` devuelve `FunctionsHttpError` cuyo `.message`
+ * es genérico. El body de la respuesta sí trae `{ ok: false, error: "..." }`
+ * con detalle pero hay que parsearlo a mano.
+ *
+ * Uso: `if (error) { const msg = await extractEdgeFnError(error); return fail('CODE', msg, error); }`
+ */
+export async function extractEdgeFnError(err: unknown): Promise<string> {
+  if (!err || typeof err !== 'object') return String(err);
+  const e = err as { message?: string; context?: { json?: () => Promise<unknown>; text?: () => Promise<string> } };
+  try {
+    if (e.context?.json) {
+      const body = await e.context.json();
+      if (body && typeof body === 'object' && 'error' in body && typeof (body as { error: unknown }).error === 'string') {
+        return (body as { error: string }).error;
+      }
+    }
+  } catch { /* fallthrough */ }
+  try {
+    if (e.context?.text) {
+      const t = await e.context.text();
+      if (t) {
+        try {
+          const j = JSON.parse(t);
+          if (j?.error) return String(j.error);
+        } catch { /* no es json */ }
+        return t.slice(0, 300);
+      }
+    }
+  } catch { /* fallthrough */ }
+  return e.message ?? 'Ocurrió un error inesperado.';
+}
+
+/**
+ * Mapeo de códigos técnicos / mensajes técnicos comunes → frases humanas.
+ * Los códigos que empiezan con dígitos son de Postgres / PostgREST.
+ * Los códigos UPPER_SNAKE son convenciones del proyecto (services/api/*).
+ */
+const HUMAN_BY_CODE: Record<string, string> = {
+  // Postgres / Supabase
+  '42501': 'No tenés permisos para realizar esta acción. Si creés que sí deberías, avisá a un gerente.',
+  '23505': 'Ya existe un registro con esos datos. Revisá los campos únicos (email, CUIT, slug, etc).',
+  '23503': 'No se pudo guardar porque falta un dato relacionado (cliente, servicio, etc).',
+  '23502': 'Falta completar un campo obligatorio.',
+  '22023': 'Alguno de los valores está fuera del rango permitido.',
+  'P0002': 'No encontramos lo que buscabas. Puede haber sido borrado.',
+  'P0001': 'La operación fue rechazada por una regla del sistema.',
+  'PGRST116': 'No encontramos lo que buscabas.',
+  'PGRST301': 'Tu sesión expiró. Volvé a ingresar.',
+  // Convenciones del proyecto
+  'NO_SESSION': 'Tu sesión expiró. Volvé a ingresar.',
+  'PROFILE_LOAD': 'No pudimos cargar tu perfil. Verificá tu conexión y reintentá.',
+  'PROFILE_LOAD_FAILED': 'No pudimos completar el inicio de sesión. Verificá tu conexión y reintentá.',
+  'UNKNOWN': 'Ocurrió un error inesperado. Reintentá en unos segundos.',
+};
+
+/**
+ * Reglas regex sobre el mensaje técnico. Más generales que el mapa de
+ * códigos. Se evalúan SOLO si el código no matcheó.
+ */
+const HUMAN_BY_MESSAGE: Array<{ re: RegExp; human: string }> = [
+  { re: /non-2xx status code/i, human: 'El servidor rechazó la operación. Reintentá; si persiste avisá a un gerente.' },
+  { re: /failed to fetch|networkerror|err_network/i, human: 'No pudimos conectar con el servidor. Verificá tu conexión a internet y reintentá.' },
+  { re: /timeout|timed out/i, human: 'El servidor tardó demasiado en responder. Reintentá en unos segundos.' },
+  { re: /jwt expired|invalid jwt|jwt is invalid/i, human: 'Tu sesión expiró. Volvé a ingresar.' },
+  { re: /duplicate key value violates unique constraint/i, human: 'Ya existe un registro con esos datos. Revisá los campos únicos.' },
+  { re: /violates foreign key constraint/i, human: 'No se pudo guardar porque falta un dato relacionado.' },
+  { re: /violates not-null constraint/i, human: 'Falta completar un campo obligatorio.' },
+  { re: /row-level security/i, human: 'No tenés permisos para realizar esta acción.' },
+  { re: /rate limit/i, human: 'Hiciste muchas operaciones seguidas. Esperá unos segundos y reintentá.' },
+  { re: /aborted|abortcontroller/i, human: 'La operación fue cancelada.' },
+];
+
+/**
+ * Convierte un error de ApiResponse `{ code, message }` a una frase humana.
+ *
+ *  - Si el `code` está en el mapa específico → devuelve esa frase.
+ *  - Si no, evalúa reglas regex sobre el `message`.
+ *  - Si nada matchea, devuelve el `message` original (el backend probablemente
+ *    ya lo escribió en español accionable — ej. después de extractEdgeFnError).
+ *
+ * Uso típico en componentes:
+ *   `toast.error('No pudimos guardar', { description: humanizeError(res.error) })`
+ */
+export function humanizeError(err: { code: string; message: string } | string | null | undefined): string {
+  if (!err) return 'Ocurrió un error inesperado.';
+  const code = typeof err === 'string' ? '' : err.code;
+  const message = typeof err === 'string' ? err : err.message;
+  if (code && HUMAN_BY_CODE[code]) return HUMAN_BY_CODE[code];
+  if (message) {
+    for (const rule of HUMAN_BY_MESSAGE) {
+      if (rule.re.test(message)) return rule.human;
+    }
+  }
+  return message || 'Ocurrió un error inesperado.';
+}

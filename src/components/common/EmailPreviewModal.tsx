@@ -7,6 +7,7 @@ import { Eye, Mail, Calendar, Paperclip, Loader2, AlertCircle } from 'lucide-rea
 import { Modal } from './Modal';
 import { getEnvioPreview, type EnvioPreview } from '@/services/api/emails';
 import { cn } from '@/lib/cn';
+import { humanizeError } from '@/lib/errors';
 
 interface EmailPreviewModalProps {
   open: boolean;
@@ -31,7 +32,7 @@ export function EmailPreviewModal({ open, envioId, onClose }: EmailPreviewModalP
     void (async () => {
       const res = await getEnvioPreview(envioId);
       if (res.ok) setData(res.data);
-      else setError(res.error.message);
+      else setError(humanizeError(res.error));
       setLoading(false);
     })();
   }, [open, envioId]);

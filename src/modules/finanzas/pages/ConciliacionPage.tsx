@@ -16,6 +16,7 @@ import {
 } from '@/services/api/finanzas';
 import { ImportadorExtractoModal } from '../components/ImportadorExtractoModal';
 import { cn } from '@/lib/cn';
+import { humanizeError } from '@/lib/errors';
 
 function formatMoney(n: number): string {
   return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 2 }).format(n);
@@ -250,7 +251,7 @@ function ResolverLineaDrawer({
     if (!okConfirm) return;
     const res = await conciliarManual(linea.id, mov.movimiento_id);
     if (!res.ok) {
-      toast.error('No pudimos vincular', { description: res.error.message });
+      toast.error('No pudimos vincular', { description: humanizeError(res.error) });
       return;
     }
     toast.success('Línea conciliada');
@@ -268,7 +269,7 @@ function ResolverLineaDrawer({
     });
     setCreating(false);
     if (!res.ok) {
-      toast.error('No pudimos crear', { description: res.error.message });
+      toast.error('No pudimos crear', { description: humanizeError(res.error) });
       return;
     }
     toast.success('Movimiento creado y conciliado');
@@ -280,7 +281,7 @@ function ResolverLineaDrawer({
     const res = await ignorarLineaHistorico(linea.id, motivoIgnorar.trim() || undefined);
     setIgnoring(false);
     if (!res.ok) {
-      toast.error('No pudimos ignorar', { description: res.error.message });
+      toast.error('No pudimos ignorar', { description: humanizeError(res.error) });
       return;
     }
     toast.success('Línea ignorada');

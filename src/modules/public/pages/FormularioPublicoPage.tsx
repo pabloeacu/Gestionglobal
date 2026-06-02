@@ -12,6 +12,7 @@ import {
   fetchClientePerfilDatosFormulario,
   type FormularioRow,
 } from '@/services/api/formularios';
+import { humanizeError } from '@/lib/errors';
 
 export function FormularioPublicoPage() {
   const { slug } = useParams<{ slug: string }>();
@@ -30,7 +31,7 @@ export function FormularioPublicoPage() {
     void getFormularioPorSlug(slug).then((res) => {
       setLoading(false);
       if (!res.ok) {
-        setError(res.error.message);
+        setError(humanizeError(res.error));
         return;
       }
       setFormulario(res.data);

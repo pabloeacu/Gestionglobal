@@ -9,6 +9,7 @@ import {
 } from '@/services/api/consorcios';
 import { CopyButton } from '@/components/common';
 import { cn } from '@/lib/cn';
+import { humanizeError } from '@/lib/errors';
 
 // Read-only de los consorcios del administrador. El cliente no puede crear,
 // editar ni dar de baja sus consorcios desde el portal — eso lo hace el
@@ -29,7 +30,7 @@ export function PortalConsorciosPage() {
       (res) => {
         setLoading(false);
         if (!res.ok) {
-          setError(res.error.message);
+          setError(humanizeError(res.error));
           return;
         }
         setRows(res.data);

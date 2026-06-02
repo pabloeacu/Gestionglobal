@@ -30,6 +30,7 @@ import {
   type CobranzaEstado,
 } from '@/services/api/comprobantes';
 import { cn } from '@/lib/cn';
+import { humanizeError } from '@/lib/errors';
 
 // Listado de comprobantes del portal del administrador. Misma lógica que
 // gerencia/ComprobantesListPage, pero sin acciones de emisión y filtrando
@@ -83,8 +84,8 @@ export function PortalComprobantesPage() {
     });
     setLoading(false);
     if (!res.ok) {
-      setError(res.error.message);
-      toast.error(`No pudimos cargar los comprobantes: ${res.error.message}`);
+      setError(humanizeError(res.error));
+      toast.error(`No pudimos cargar los comprobantes: ${humanizeError(res.error)}`);
       return;
     }
     setRows(res.data.rows);

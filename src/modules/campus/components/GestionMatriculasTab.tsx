@@ -42,6 +42,7 @@ import type { CertificadoParaPdf } from '@/services/api/campus';
 import { ExportButtons } from '@/components/reports/ExportButtons';
 import { generateReportPdf } from '@/lib/reportPdf';
 import { generateReportXls } from '@/lib/reportXls';
+import { humanizeError } from '@/lib/errors';
 
 // Tab de gestión de matrículas: lista de alumnos asignados al curso con su
 // checklist de condiciones tildable por staff (DGG-10). El examen aparece
@@ -66,7 +67,7 @@ export function GestionMatriculasTab({ data }: { data: CursoDetalle }) {
     const m = await listMatriculas({ cursoId: data.curso.id });
     if (!m.ok) {
       setLoading(false);
-      toast.error(m.error.message);
+      toast.error(humanizeError(m.error));
       return;
     }
     setMatriculas(m.data);
@@ -91,7 +92,7 @@ export function GestionMatriculasTab({ data }: { data: CursoDetalle }) {
     const res = await emitirCertificado(matriculaId);
     setEmitiendo(null);
     if (!res.ok) {
-      toast.error(res.error.message);
+      toast.error(humanizeError(res.error));
       return;
     }
     toast.success('Certificado emitido');
@@ -143,7 +144,7 @@ export function GestionMatriculasTab({ data }: { data: CursoDetalle }) {
       cumplida: !c.cumplida,
     });
     if (!res.ok) {
-      toast.error(res.error.message);
+      toast.error(humanizeError(res.error));
       return;
     }
     toast.success(c.cumplida ? 'Condición destildada' : 'Condición acreditada');

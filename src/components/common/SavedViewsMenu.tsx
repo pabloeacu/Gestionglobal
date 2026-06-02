@@ -31,6 +31,7 @@ import {
   setVistaDefault,
   type VistaGuardada,
 } from '@/services/api/vistas';
+import { humanizeError } from '@/lib/errors';
 
 interface SavedViewsMenuProps {
   /** Identificador único del listado (ej "vencimientos") */
@@ -106,7 +107,7 @@ export function SavedViewsMenu({
     const r = await guardarVista(modulo, nombre.trim(), currentFiltros, esDefault);
     setSaving(false);
     if (!r.ok) {
-      toast.error('No pudimos guardar la vista', { description: r.error.message });
+      toast.error('No pudimos guardar la vista', { description: humanizeError(r.error) });
       return;
     }
     toast.success(`Vista "${nombre}" guardada`);
@@ -127,7 +128,7 @@ export function SavedViewsMenu({
     const r = await setVistaDefault(v.id);
     setBusyId(null);
     if (!r.ok) {
-      toast.error('No pudimos marcar como default', { description: r.error.message });
+      toast.error('No pudimos marcar como default', { description: humanizeError(r.error) });
       return;
     }
     toast.success(`"${v.nombre}" es ahora la vista por defecto`);
@@ -146,7 +147,7 @@ export function SavedViewsMenu({
     const r = await borrarVista(v.id);
     setBusyId(null);
     if (!r.ok) {
-      toast.error('No pudimos borrar la vista', { description: r.error.message });
+      toast.error('No pudimos borrar la vista', { description: humanizeError(r.error) });
       return;
     }
     toast.success('Vista eliminada');

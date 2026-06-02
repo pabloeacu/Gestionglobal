@@ -56,6 +56,7 @@ import {
   type ArcaAmbiente,
   type ArcaEmisor,
 } from '@/services/api/arca';
+import { humanizeError } from '@/lib/errors';
 
 // ============================================================================
 // Page · lista + alta + drawer de configuración
@@ -74,7 +75,7 @@ export function EmisoresPage() {
     const res = await listEmisores();
     setLoading(false);
     if (!res.ok) {
-      toast.error('No pudimos leer los emisores', { description: res.error.message });
+      toast.error('No pudimos leer los emisores', { description: humanizeError(res.error) });
       return;
     }
     setEmisores(res.data);
@@ -95,7 +96,7 @@ export function EmisoresPage() {
     }
     const r = await marcarDefault(em.id);
     if (!r.ok) {
-      toast.error('No pudimos cambiar el default', { description: r.error.message });
+      toast.error('No pudimos cambiar el default', { description: humanizeError(r.error) });
       return;
     }
     toast.success(`"${em.nombre}" es ahora el emisor default`);
@@ -116,7 +117,7 @@ export function EmisoresPage() {
     if (!ok) return;
     const r = await archivarEmisor(em.id);
     if (!r.ok) {
-      toast.error('No pudimos archivar', { description: r.error.message });
+      toast.error('No pudimos archivar', { description: humanizeError(r.error) });
       return;
     }
     toast.success('Emisor archivado');
@@ -126,7 +127,7 @@ export function EmisoresPage() {
   async function onReactivar(em: ArcaEmisor) {
     const r = await reactivarEmisor(em.id);
     if (!r.ok) {
-      toast.error('No pudimos reactivar', { description: r.error.message });
+      toast.error('No pudimos reactivar', { description: humanizeError(r.error) });
       return;
     }
     toast.success('Emisor reactivado');
@@ -448,7 +449,7 @@ function AltaEmisorModal({
     });
     setBusy(false);
     if (!res.ok) {
-      toast.error('No pudimos crear el emisor', { description: res.error.message });
+      toast.error('No pudimos crear el emisor', { description: humanizeError(res.error) });
       return;
     }
     toast.success(`Emisor "${res.data.nombre}" creado`);
@@ -551,7 +552,7 @@ function EmisorEditDrawer({
     const res = await getEmisor(emisorId);
     setLoading(false);
     if (!res.ok) {
-      toast.error('No pudimos leer el emisor', { description: res.error.message });
+      toast.error('No pudimos leer el emisor', { description: humanizeError(res.error) });
       onClose();
       return;
     }
@@ -646,7 +647,7 @@ function DatosFiscalesForm({ emisor, onSaved }: { emisor: ArcaEmisor; onSaved: (
     const res = await uploadEmisorLogo(emisor.id, file, ext);
     setLogoBusy(null);
     if (!res.ok) {
-      toast.error('No pudimos subir el logo', { description: res.error.message });
+      toast.error('No pudimos subir el logo', { description: humanizeError(res.error) });
       return;
     }
     toast.success('Logo actualizado');
@@ -665,7 +666,7 @@ function DatosFiscalesForm({ emisor, onSaved }: { emisor: ArcaEmisor; onSaved: (
     const res = await clearEmisorLogo(emisor.id);
     setLogoBusy(null);
     if (!res.ok) {
-      toast.error('No pudimos quitar el logo', { description: res.error.message });
+      toast.error('No pudimos quitar el logo', { description: humanizeError(res.error) });
       return;
     }
     toast.success('Logo quitado');
@@ -689,7 +690,7 @@ function DatosFiscalesForm({ emisor, onSaved }: { emisor: ArcaEmisor; onSaved: (
     });
     setBusy(false);
     if (!res.ok) {
-      toast.error('No pudimos guardar', { description: res.error.message });
+      toast.error('No pudimos guardar', { description: humanizeError(res.error) });
       return;
     }
     toast.success('Datos fiscales guardados');
@@ -856,7 +857,7 @@ function WizardArca({ emisor, onRefresh }: { emisor: ArcaEmisor; onRefresh: () =
     const res = await generarCsr(emisor.id, aliasOverride.trim() || undefined);
     setBusy(null);
     if (!res.ok) {
-      toast.error('No pudimos generar el CSR', { description: res.error.message });
+      toast.error('No pudimos generar el CSR', { description: humanizeError(res.error) });
       return;
     }
     setCsrPem(res.data.csr_pem);
@@ -909,7 +910,7 @@ function WizardArca({ emisor, onRefresh }: { emisor: ArcaEmisor; onRefresh: () =
     const res = await inspeccionarYGuardarCert(text, emisor.id);
     setBusy(null);
     if (!res.ok) {
-      toast.error('Certificado inválido', { description: res.error.message });
+      toast.error('Certificado inválido', { description: humanizeError(res.error) });
       return;
     }
     toast.success('Certificado instalado', { description: `Válido hasta ${res.data.valido_hasta ?? '?'}` });
@@ -923,7 +924,7 @@ function WizardArca({ emisor, onRefresh }: { emisor: ArcaEmisor; onRefresh: () =
     const res = await testConexion(emisor.id);
     setBusy(null);
     if (!res.ok) {
-      toast.error('No pudimos probar la conexión', { description: res.error.message });
+      toast.error('No pudimos probar la conexión', { description: humanizeError(res.error) });
       onRefresh();
       return;
     }
@@ -950,7 +951,7 @@ function WizardArca({ emisor, onRefresh }: { emisor: ArcaEmisor; onRefresh: () =
     const res = await actualizarEmisor(emisor.id, { ambiente: nuevo });
     setBusy(null);
     if (!res.ok) {
-      toast.error('No pudimos cambiar ambiente', { description: res.error.message });
+      toast.error('No pudimos cambiar ambiente', { description: humanizeError(res.error) });
       return;
     }
     toast.success(`Ambiente: ${nuevo === 'produccion' ? 'Producción' : 'Homologación'}`);

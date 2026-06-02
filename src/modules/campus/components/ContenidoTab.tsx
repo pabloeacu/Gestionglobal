@@ -50,6 +50,7 @@ import {
 } from '@/services/api/campus';
 import { ImageUploader } from './ImageUploader';
 import { PublicacionEditor, type PublicacionState } from './PublicacionEditor';
+import { humanizeError } from '@/lib/errors';
 
 interface ContenidoTabProps {
   data: CursoDetalle;
@@ -69,7 +70,7 @@ export function ContenidoTab({ data, onChanged }: ContenidoTabProps) {
     const res = await crearModulo(data.curso.id, nuevoModulo.trim());
     setCreandoModulo(false);
     if (!res.ok) {
-      toast.error(res.error.message);
+      toast.error(humanizeError(res.error));
       return;
     }
     setNuevoModulo('');
@@ -82,7 +83,7 @@ export function ContenidoTab({ data, onChanged }: ContenidoTabProps) {
     if (orden < 0) return;
     const res = await actualizarModulo(m.id, { orden });
     if (!res.ok) {
-      toast.error(res.error.message);
+      toast.error(humanizeError(res.error));
       return;
     }
     onChanged();
@@ -189,7 +190,7 @@ function ModuloEditor({
     });
     setSaving(false);
     if (!res.ok) {
-      toast.error(res.error.message);
+      toast.error(humanizeError(res.error));
       return;
     }
     toast.success('Módulo actualizado');
@@ -206,7 +207,7 @@ function ModuloEditor({
     if (!ok) return;
     const res = await borrarModulo(modulo.id);
     if (!res.ok) {
-      toast.error(res.error.message);
+      toast.error(humanizeError(res.error));
       return;
     }
     onChanged();
@@ -300,7 +301,7 @@ function ModuloEditor({
               onChange={setIcono}
               onPersist={async (url) => {
                 const r = await actualizarModulo(modulo.id, { icono_url: url });
-                if (!r.ok) toast.error(r.error.message);
+                if (!r.ok) toast.error(humanizeError(r.error));
                 else onChanged();
               }}
               scope="modulo-icono"
@@ -433,7 +434,7 @@ function ClaseEditor({
     });
     setSaving(false);
     if (!res.ok) {
-      toast.error(res.error.message);
+      toast.error(humanizeError(res.error));
       return;
     }
     toast.success('Clase actualizada');
@@ -444,7 +445,7 @@ function ClaseEditor({
     const next = Math.max(1, (clase.orden ?? 1) + dir);
     const res = await actualizarClase(clase.id, { orden: next });
     if (!res.ok) {
-      toast.error(res.error.message);
+      toast.error(humanizeError(res.error));
       return;
     }
     onChanged();
@@ -460,7 +461,7 @@ function ClaseEditor({
     if (!ok) return;
     const res = await borrarClase(clase.id);
     if (!res.ok) {
-      toast.error(res.error.message);
+      toast.error(humanizeError(res.error));
       return;
     }
     onChanged();
@@ -562,7 +563,7 @@ function ClaseEditor({
                 onChange={setFoto}
                 onPersist={async (url) => {
                   const r = await actualizarClase(clase.id, { instructor_foto_url: url });
-                  if (!r.ok) toast.error(r.error.message);
+                  if (!r.ok) toast.error(humanizeError(r.error));
                   else onChanged();
                 }}
                 scope="clase-instructor"
@@ -685,7 +686,7 @@ function NuevaClaseForm({
     });
     setCreando(false);
     if (!res.ok) {
-      toast.error(res.error.message);
+      toast.error(humanizeError(res.error));
       return;
     }
     setTitulo('');
@@ -754,7 +755,7 @@ function BibliografiaSection({
     });
     setCreando(false);
     if (!res.ok) {
-      toast.error(res.error.message);
+      toast.error(humanizeError(res.error));
       return;
     }
     setNuevoTitulo('');
@@ -854,7 +855,7 @@ function BiblioItem({
     });
     setSaving(false);
     if (!res.ok) {
-      toast.error(res.error.message);
+      toast.error(humanizeError(res.error));
       return;
     }
     toast.success('Bibliografía actualizada');
@@ -871,7 +872,7 @@ function BiblioItem({
     if (!ok) return;
     const res = await borrarBibliografia(item.id);
     if (!res.ok) {
-      toast.error(res.error.message);
+      toast.error(humanizeError(res.error));
       return;
     }
     onChanged();

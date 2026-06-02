@@ -48,6 +48,7 @@ import {
   type AdministracionListItem,
 } from '@/services/api/administraciones';
 import { listServiciosActivos } from '@/services/api/servicios';
+import { humanizeError } from '@/lib/errors';
 
 const ESTILOS: BannerEstilo[] = ['info', 'novedad', 'aviso', 'urgente'];
 const TIPOS: { value: AudienciaTipo; label: string; hint: string }[] = [
@@ -242,7 +243,7 @@ export function ComunicacionFormDrawer({ open, onClose, editing, onSaved }: Prop
       : await crearComunicacion(payload);
     setSaving(false);
     if (!res.ok) {
-      toast.error(`No se pudo guardar: ${res.error.message}`);
+      toast.error(`No se pudo guardar: ${humanizeError(res.error)}`);
       return null;
     }
     toast.success(isEdit ? 'Borrador actualizado' : 'Borrador guardado');
@@ -279,7 +280,7 @@ export function ComunicacionFormDrawer({ open, onClose, editing, onSaved }: Prop
     const res = await enviarComunicacion(row.id);
     setSending(false);
     if (!res.ok) {
-      toast.error(`No se pudo enviar: ${res.error.message}`);
+      toast.error(`No se pudo enviar: ${humanizeError(res.error)}`);
       return;
     }
     toast.success(

@@ -37,6 +37,7 @@ import { ExportButtons } from '@/components/reports/ExportButtons';
 import { copyAsCsv } from '@/lib/csvCopy';
 import { generateReportPdf } from '@/lib/reportPdf';
 import { generateReportXls } from '@/lib/reportXls';
+import { humanizeError } from '@/lib/errors';
 
 type EstadoFilter = ComprobanteEstado | 'todos';
 type CobranzaFilter = CobranzaEstado | 'todos';
@@ -99,8 +100,8 @@ export function ComprobantesListPage() {
     setRefreshing(false);
     firstLoadDoneRef.current = true;
     if (!res.ok) {
-      setError(res.error.message);
-      toast.error(`No pudimos cargar los comprobantes: ${res.error.message}`);
+      setError(humanizeError(res.error));
+      toast.error(`No pudimos cargar los comprobantes: ${humanizeError(res.error)}`);
       return;
     }
     setRows(res.data.rows);

@@ -34,6 +34,7 @@ import {
   type RendicionEstado,
   type AtribucionListItem,
 } from '@/services/api/partners';
+import { humanizeError } from '@/lib/errors';
 
 export function RendicionDetailPage() {
   const { id, partnerId } = useParams<{ id: string; partnerId: string }>();
@@ -50,7 +51,7 @@ export function RendicionDetailPage() {
     const res = await getRendicion(id);
     setLoading(false);
     if (!res.ok) {
-      toast.error(res.error.message);
+      toast.error(humanizeError(res.error));
       return;
     }
     setData(res.data);
@@ -89,7 +90,7 @@ export function RendicionDetailPage() {
     const res = await cerrarRendicion(data.rendicion.id);
     setBusy(false);
     if (!res.ok) {
-      toast.error(res.error.message);
+      toast.error(humanizeError(res.error));
       return;
     }
     toast.success('Rendición cerrada');
@@ -110,7 +111,7 @@ export function RendicionDetailPage() {
     const res = await anularRendicion(data.rendicion.id, motivo);
     setBusy(false);
     if (!res.ok) {
-      toast.error(res.error.message);
+      toast.error(humanizeError(res.error));
       return;
     }
     toast.success('Rendición anulada');
@@ -131,7 +132,7 @@ export function RendicionDetailPage() {
     const res = await marcarRendicionPagada(data.rendicion.id, null);
     setBusy(false);
     if (!res.ok) {
-      toast.error(res.error.message);
+      toast.error(humanizeError(res.error));
       return;
     }
     toast.success('Rendición marcada como pagada');

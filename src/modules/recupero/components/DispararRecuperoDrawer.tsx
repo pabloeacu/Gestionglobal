@@ -11,6 +11,7 @@ import {
   type MorosoRow,
   type RecuperoNivel,
 } from '@/services/api/recupero';
+import { humanizeError } from '@/lib/errors';
 
 interface Props {
   open: boolean;
@@ -54,7 +55,7 @@ export function DispararRecuperoDrawer({
     );
     setSaving(false);
     if (!res.ok) {
-      toast.error(`No se pudo disparar el recupero: ${res.error.message}`);
+      toast.error(`No se pudo disparar el recupero: ${humanizeError(res.error)}`);
       return;
     }
     toast.success(`Recupero ${RECUPERO_NIVEL_LABEL[nivel]} disparado`);

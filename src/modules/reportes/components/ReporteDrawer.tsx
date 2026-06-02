@@ -13,6 +13,7 @@ import {
   descargarTabuladorXlsx,
 } from '@/services/api/reportes';
 import { listAdministraciones, type AdministracionListItem } from '@/services/api/administraciones';
+import { humanizeError } from '@/lib/errors';
 
 // ============================================================================
 // ReporteDrawer · drawer con filtros dinámicos + acciones PDF/Excel.
@@ -126,7 +127,7 @@ export function ReporteDrawer({ open, tipo, onClose }: Props) {
           tipo: comprTipo === 'todos' ? undefined : comprTipo,
           estado: estado === 'todos' ? undefined : estado,
         });
-        if (!res.ok) toast.error(res.error.message);
+        if (!res.ok) toast.error(humanizeError(res.error));
         else toast.success(`PDF generado: ${res.data.filename}`);
       } else if (tipo === 'cuenta_corriente') {
         const res = await descargarCtaCtePdf({
@@ -134,7 +135,7 @@ export function ReporteDrawer({ open, tipo, onClose }: Props) {
           desde: desde || undefined,
           hasta: hasta || undefined,
         });
-        if (!res.ok) toast.error(res.error.message);
+        if (!res.ok) toast.error(humanizeError(res.error));
         else toast.success(`PDF generado: ${res.data.filename}`);
       } else if (tipo === 'recupero') {
         const res = await descargarRecuperoPdf({
@@ -142,7 +143,7 @@ export function ReporteDrawer({ open, tipo, onClose }: Props) {
           hasta: hasta || undefined,
           nivel: nivel === 'todos' ? undefined : nivel,
         });
-        if (!res.ok) toast.error(res.error.message);
+        if (!res.ok) toast.error(humanizeError(res.error));
         else toast.success(`PDF generado: ${res.data.filename}`);
       } else {
         toast.info('Este reporte sólo se exporta en Excel.');
@@ -163,7 +164,7 @@ export function ReporteDrawer({ open, tipo, onClose }: Props) {
           tipo: comprTipo === 'todos' ? undefined : comprTipo,
           estado: estado === 'todos' ? undefined : estado,
         });
-        if (!res.ok) toast.error(res.error.message);
+        if (!res.ok) toast.error(humanizeError(res.error));
         else toast.success(`Excel generado: ${res.data.filename}`);
       } else if (tipo === 'cuenta_corriente') {
         const res = await descargarCtaCteXlsx({
@@ -171,11 +172,11 @@ export function ReporteDrawer({ open, tipo, onClose }: Props) {
           desde: desde || undefined,
           hasta: hasta || undefined,
         });
-        if (!res.ok) toast.error(res.error.message);
+        if (!res.ok) toast.error(humanizeError(res.error));
         else toast.success(`Excel generado: ${res.data.filename}`);
       } else if (tipo === 'tabulador') {
         const res = await descargarTabuladorXlsx();
-        if (!res.ok) toast.error(res.error.message);
+        if (!res.ok) toast.error(humanizeError(res.error));
         else toast.success(`Excel generado: ${res.data.filename}`);
       } else {
         toast.info('Este reporte sólo se exporta en PDF.');

@@ -14,6 +14,7 @@ import {
   listCategorias,
   type CategoriaServicioRow,
 } from '@/services/api/servicios';
+import { humanizeError } from '@/lib/errors';
 
 interface AjusteMasivoModalProps {
   open: boolean;
@@ -58,7 +59,7 @@ export function AjusteMasivoModal({
     });
     setSaving(false);
     if (!res.ok) {
-      toast.error(`No pudimos aplicar el ajuste: ${res.error.message}`);
+      toast.error(`No pudimos aplicar el ajuste: ${humanizeError(res.error)}`);
       return;
     }
     toast.success(

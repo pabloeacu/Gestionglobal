@@ -39,6 +39,7 @@ import {
   type PedidoDocConItems,
   type PedidoDocItemRow,
 } from '@/services/api/tramitePedidosDoc';
+import { humanizeError } from '@/lib/errors';
 
 interface PedidosDocPanelProps {
   tramiteId: string;
@@ -200,7 +201,7 @@ function PedidoCard({
     setEnviando(true);
     const res = await enviarRevisionPedido(pedido.id);
     setEnviando(false);
-    if (!res.ok) { toast.error(res.error.message); return; }
+    if (!res.ok) { toast.error(humanizeError(res.error)); return; }
     toast.success('¡Listo! Recibimos tu documentación.', {
       description: 'Pronto tendremos novedades. Estate atento a tu portal. ¡Gracias!',
       duration: 6000,
@@ -315,7 +316,7 @@ function PedidoItem({
   async function handleUpload(file: File) {
     setUploading(true);
     const res = await subirArchivoItem(item.id, tramiteId, pedidoId, file);
-    if (!res.ok) toast.error(res.error.message);
+    if (!res.ok) toast.error(humanizeError(res.error));
     else toast.success('Archivo subido · esperando aprobación');
     setUploading(false);
     void onChange();
@@ -324,14 +325,14 @@ function PedidoItem({
   async function handleVerArchivo() {
     if (!item.archivo_path) return;
     const res = await getArchivoUrl(item.archivo_path);
-    if (!res.ok) { toast.error(res.error.message); return; }
+    if (!res.ok) { toast.error(humanizeError(res.error)); return; }
     window.open(res.data, '_blank', 'noopener,noreferrer');
   }
 
   async function handleAprobar() {
     setBusy(true);
     const res = await aprobarItem(item.id);
-    if (!res.ok) toast.error(res.error.message);
+    if (!res.ok) toast.error(humanizeError(res.error));
     else toast.success('Item aprobado');
     setBusy(false);
     void onChange();
@@ -347,7 +348,7 @@ function PedidoItem({
     if (!motivo) return;
     setBusy(true);
     const res = await rechazarItem(item.id, motivo);
-    if (!res.ok) toast.error(res.error.message);
+    if (!res.ok) toast.error(humanizeError(res.error));
     else toast.success('Archivo rechazado · cliente notificado');
     setBusy(false);
     void onChange();
@@ -484,7 +485,7 @@ function CrearPedidoModal({
     const res = await crearPedidoDoc(tramiteId, descripcion, itemsLimpios);
     setSaving(false);
     if (!res.ok) {
-      toast.error(res.error.message);
+      toast.error(humanizeError(res.error));
       return;
     }
     toast.success('Pedido de documentación creado · cliente notificado');

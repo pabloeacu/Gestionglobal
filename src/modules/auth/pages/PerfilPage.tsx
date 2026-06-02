@@ -41,6 +41,7 @@ import { AvatarEditor } from '@/modules/auth/components/AvatarEditor';
 import { PerfilSesionesActivas } from '@/modules/auth/components/PerfilSesionesActivas';
 import { Perfil2FA } from '@/modules/auth/components/Perfil2FA';
 import { cn } from '@/lib/cn';
+import { humanizeError } from '@/lib/errors';
 
 // "Mi perfil" — único lugar donde el usuario edita su propio nombre/avatar/
 // password. El layout es deliberadamente editorial (cover + 3 tarjetas) para
@@ -159,7 +160,7 @@ function PerfilCover({
     const res = await uploadAvatar(blob, ext);
     setUploading(false);
     if (!res.ok) {
-      toast.error(res.error.message);
+      toast.error(humanizeError(res.error));
       play('error');
       return;
     }
@@ -179,7 +180,7 @@ function PerfilCover({
     if (!ok) return;
     const res = await deleteAvatar();
     if (!res.ok) {
-      toast.error(res.error.message);
+      toast.error(humanizeError(res.error));
       play('error');
       return;
     }
@@ -307,7 +308,7 @@ function PerfilDatos({
   async function patchFullName(v: string | null): Promise<void> {
     const res = await updateMyProfile({ full_name: v });
     if (!res.ok) {
-      toast.error(res.error.message);
+      toast.error(humanizeError(res.error));
       play('error');
       throw new Error(res.error.message);
     }
@@ -319,7 +320,7 @@ function PerfilDatos({
   async function patchPhone(v: string | null): Promise<void> {
     const res = await updateMyProfile({ phone: v });
     if (!res.ok) {
-      toast.error(res.error.message);
+      toast.error(humanizeError(res.error));
       play('error');
       throw new Error(res.error.message);
     }
@@ -425,7 +426,7 @@ function PerfilPassword({
       if (res.error.code === 'CONTRASEÑA_ACTUAL_INVALIDA') {
         toast.error('La contraseña actual no es correcta');
       } else {
-        toast.error(res.error.message);
+        toast.error(humanizeError(res.error));
       }
       play('error');
       return;
@@ -540,7 +541,7 @@ function PerfilNotificacionesPush({
     const res = await pedirPermisoYSuscribir();
     setActuando(false);
     if (!res.ok) {
-      toast.error(res.error.message);
+      toast.error(humanizeError(res.error));
       play('error');
       return;
     }
@@ -554,7 +555,7 @@ function PerfilNotificacionesPush({
     const res = await desuscribirPush();
     setActuando(false);
     if (!res.ok) {
-      toast.error(res.error.message);
+      toast.error(humanizeError(res.error));
       play('error');
       return;
     }
@@ -568,7 +569,7 @@ function PerfilNotificacionesPush({
     const res = await encolarPushDePrueba(userId);
     setActuando(false);
     if (!res.ok) {
-      toast.error(res.error.message);
+      toast.error(humanizeError(res.error));
       play('error');
       return;
     }

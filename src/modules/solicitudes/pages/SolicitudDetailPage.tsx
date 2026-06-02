@@ -44,6 +44,7 @@ import {
 import { WizardActivacion } from '../components/WizardActivacion';
 import { PanelComprobanteCobranza } from '../components/PanelComprobanteCobranza';
 import { cn } from '@/lib/cn';
+import { humanizeError } from '@/lib/errors';
 
 // Categorías de respuesta. Cada una mapea a un alias REAL en Workspace
 // (EGG-QA-06): general→contacto@, cursos→cursos@, webinar→webinar@,
@@ -98,7 +99,7 @@ export function SolicitudDetailPage() {
     const res = await getSolicitud(id);
     setLoading(false);
     if (!res.ok) {
-      toast.error(res.error.message);
+      toast.error(humanizeError(res.error));
       return;
     }
     setData(res.data);
@@ -127,7 +128,7 @@ export function SolicitudDetailPage() {
     const res = await marcarEnRevision(data.id, observ.trim() || undefined);
     setSavingObserv(false);
     if (!res.ok) {
-      toast.error(res.error.message);
+      toast.error(humanizeError(res.error));
       return;
     }
     toast.success('Marcada en revisión');
@@ -150,7 +151,7 @@ export function SolicitudDetailPage() {
     if (!motivo) return;
     const res = await rechazarSolicitud(data.id, motivo);
     if (!res.ok) {
-      toast.error(res.error.message);
+      toast.error(humanizeError(res.error));
       return;
     }
     toast.success('Solicitud rechazada · email enviado al solicitante');
@@ -170,7 +171,7 @@ export function SolicitudDetailPage() {
     const solId = data.id;
     const res = await descartar(solId, motivo);
     if (!res.ok) {
-      toast.error(res.error.message);
+      toast.error(humanizeError(res.error));
       return;
     }
     // 1.F · red de seguridad: 8 s de gracia para deshacer (Gmail "Undo send").
@@ -182,7 +183,7 @@ export function SolicitudDetailPage() {
         onClick: async () => {
           const r = await restaurarSolicitud(solId);
           if (!r.ok) {
-            toast.error('No pudimos restaurar', { description: r.error.message });
+            toast.error('No pudimos restaurar', { description: humanizeError(r.error) });
             return;
           }
           toast.success('Solicitud restaurada');
@@ -673,7 +674,7 @@ function ResponderModal({
     setEnviando(false);
     if (!res.ok) {
       toast.error('No pudimos enviar la respuesta', {
-        description: res.error.message,
+        description: humanizeError(res.error),
       });
       return;
     }
