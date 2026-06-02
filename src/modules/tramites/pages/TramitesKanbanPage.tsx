@@ -250,14 +250,9 @@ export function TramitesKanbanPage() {
                                   <> · {t.administracion_nombre}</>
                                 )}
                               </p>
-                              <div className="mt-2 flex items-center justify-between gap-2 text-[10px]">
-                                <span className="truncate text-brand-muted">
-                                  {t.asignado_nombre ?? (
-                                    <span className="italic text-amber-700">
-                                      Sin asignar
-                                    </span>
-                                  )}
-                                </span>
+                              {/* DGG-33: removida etiqueta "Asignado / Sin asignar".
+                                  Footer ahora muestra sólo el chip de SLA a la derecha. */}
+                              <div className="mt-2 flex items-center justify-end gap-2 text-[10px]">
                                 {sla.vencido ? (
                                   <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-red-50 px-1.5 py-0.5 font-semibold text-red-700">
                                     <AlertTriangle size={10} />

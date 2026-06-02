@@ -9,7 +9,6 @@ import {
   Briefcase,
   Inbox,
   CheckCircle2,
-  Clock,
   ChevronRight,
   KanbanSquare,
   AlertTriangle,
@@ -129,12 +128,8 @@ export function TramitesListPage() {
       ['resuelto', 'cerrado'].includes(r.estado),
     ).length;
     const vencidos = rows.filter((r) => computeSla(r).vencido).length;
-    const sinAsignar = rows.filter(
-      (r) =>
-        !r.asignado_a &&
-        ['abierto', 'en_progreso', 'esperando_cliente'].includes(r.estado),
-    ).length;
-    return { abiertos, resueltos, vencidos, sinAsignar };
+    // DGG-33: removido KPI "Sin asignar" — no hay asignaciones individuales.
+    return { abiertos, resueltos, vencidos };
   }, [rows]);
 
   // DGG-26 · Export a PDF/XLS del filtrado actual.
@@ -174,7 +169,6 @@ export function TramitesListPage() {
       kpis: [
         { label: 'Abiertos', value: String(kpis.abiertos), tone: 'cyan' },
         { label: 'Resueltos', value: String(kpis.resueltos), tone: 'emerald' },
-        { label: 'Sin asignar', value: String(kpis.sinAsignar), tone: 'amber' },
         { label: 'Vencidos', value: String(kpis.vencidos), tone: 'rose' },
       ],
       columns: [
@@ -208,8 +202,6 @@ export function TramitesListPage() {
           value: (r) => r.administracion_nombre ?? r.solicitante_nombre ?? '' },
         { key: 'consorcio_nombre', label: 'Consorcio', width: 20,
           value: (r) => r.consorcio_nombre ?? '' },
-        { key: 'asignado_nombre', label: 'Asignado', width: 20,
-          value: (r) => r.asignado_nombre ?? '' },
         { key: 'estado', label: 'Estado', width: 16,
           value: (r) => TRAMITE_ESTADO_LABEL[r.estado as TramiteEstado] ?? r.estado },
         { key: 'prioridad', label: 'Prioridad', width: 12,
@@ -257,8 +249,8 @@ export function TramitesListPage() {
         </div>
       </header>
 
-      {/* KPIs */}
-      <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      {/* KPIs · DGG-33: 4 → 3 cards (sin "Sin asignar") */}
+      <section className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <KpiCard
           icon={Inbox}
           label="Abiertos"
@@ -276,20 +268,12 @@ export function TramitesListPage() {
           delay={60}
         />
         <KpiCard
-          icon={Clock}
-          label="Sin asignar"
-          value={<AnimatedNumber value={kpis.sinAsignar} />}
-          hint="acción requerida"
-          tone="amber"
-          delay={120}
-        />
-        <KpiCard
           icon={AlertTriangle}
           label="Vencidos"
           value={<AnimatedNumber value={kpis.vencidos} />}
           hint="fuera de SLA"
           tone="amber"
-          delay={180}
+          delay={120}
         />
       </section>
 
@@ -397,7 +381,7 @@ export function TramitesListPage() {
                   <tr className="border-b border-slate-100 bg-brand-zebra/40 text-left text-[11px] font-semibold uppercase tracking-wider text-brand-muted">
                     <th className="px-4 py-3">Trámite</th>
                     <th className="px-4 py-3">Cliente</th>
-                    <th className="px-4 py-3">Asignado</th>
+                    {/* DGG-33: removida columna "Asignado". */}
                     <th className="px-4 py-3">SLA</th>
                     <th className="px-4 py-3">Prioridad</th>
                     <th className="px-4 py-3">Estado</th>
@@ -453,13 +437,7 @@ export function TramitesListPage() {
                             </span>
                           )}
                         </td>
-                        <td className="px-4 py-3 text-brand-muted">
-                          {r.asignado_nombre ?? (
-                            <span className="italic text-amber-700">
-                              Sin asignar
-                            </span>
-                          )}
-                        </td>
+                        {/* DGG-33: removida celda "Asignado". */}
                         <td className="px-4 py-3">
                           {sla.diasRestantes === null ? (
                             <span className="text-xs text-brand-muted">

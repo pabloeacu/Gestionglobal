@@ -89,7 +89,10 @@ export interface ListTramitesParams {
   categoria?: TramiteCategoria | 'todos';
   prioridad?: TramitePrioridad | 'todos';
   administracionId?: string;
-  asignadoA?: string | 'sin_asignar';
+  // DGG-33 (2026-06-02): se eliminó `asignadoA`. Gestión Global no tiene
+  // asignaciones individuales — todos los gerentes ven todo. Mantenemos el
+  // JOIN `asignado` por compatibilidad con trámites históricos importados
+  // pero ningún caller debe filtrar por persona.
   limit?: number;
   offset?: number;
 }
@@ -142,11 +145,7 @@ export async function listTramites(
   if (params.administracionId) {
     q = q.eq('administracion_id', params.administracionId);
   }
-  if (params.asignadoA === 'sin_asignar') {
-    q = q.is('asignado_a', null);
-  } else if (params.asignadoA) {
-    q = q.eq('asignado_a', params.asignadoA);
-  }
+  // DGG-33: removido filtro por asignado_a (ver ListTramitesParams).
   if (params.search && params.search.trim().length > 0) {
     const s = params.search.trim();
     q = q.or(
@@ -274,7 +273,8 @@ export interface CreateTramiteInput {
   administracion_id?: string | null;
   consorcio_id?: string | null;
   comprobante_id?: string | null;
-  asignado_a?: string | null;
+  // DGG-33: removido `asignado_a` (sin asignaciones individuales). Insert
+  // queda con asignado_a NULL por default de Postgres.
   vence_at?: string | null;
   solicitante_nombre?: string | null;
   solicitante_email?: string | null;
@@ -295,7 +295,6 @@ export async function createTramite(
       administracion_id: input.administracion_id ?? null,
       consorcio_id: input.consorcio_id ?? null,
       comprobante_id: input.comprobante_id ?? null,
-      asignado_a: input.asignado_a ?? null,
       vence_at: input.vence_at ?? null,
       solicitante_nombre: input.solicitante_nombre ?? null,
       solicitante_email: input.solicitante_email ?? null,
@@ -320,7 +319,7 @@ export type UpdateTramitePatch = Partial<{
   administracion_id: string | null;
   consorcio_id: string | null;
   comprobante_id: string | null;
-  asignado_a: string | null;
+  // DGG-33: removido asignado_a.
   vence_at: string | null;
 }>;
 

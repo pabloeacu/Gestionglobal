@@ -19,7 +19,6 @@ import {
   X,
   Plus,
 } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
 import {
   Button,
   Tabs,
@@ -76,9 +75,9 @@ export function TramiteDetailPage() {
   const [data, setData] = useState<TramiteDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<TabKey>('detalle');
-  const [staffList, setStaffList] = useState<
-    Array<{ id: string; full_name: string | null }>
-  >([]);
+  // DGG-33 · removido `staffList` (era para el selector "Asignar a"). Esta
+  // página ya no se rutea (la legacy `/gerencia/tramites/:id` redirige a
+  // `/gerencia/trackings/:id`), pero limpiamos el código muerto.
 
   async function load() {
     if (!id) return;
@@ -104,18 +103,8 @@ export function TramiteDetailPage() {
     void incrementarVistas(id);
   }, [id]);
 
-  // Listado de staff para "Asignar a..."
-  useEffect(() => {
-    void (async () => {
-      const { data: rows } = await supabase
-        .from('profiles')
-        .select('id, full_name, role, activo')
-        .in('role', ['gerente', 'operador'])
-        .eq('activo', true)
-        .order('full_name', { ascending: true });
-      setStaffList(rows ?? []);
-    })();
-  }, []);
+  // DGG-33 · removido useEffect que cargaba staffList para el selector
+  // "Asignar a..." (ahora no hay asignaciones individuales).
 
   useRealtimeRefresh(
     ['tramites', 'tramite_comentarios', 'tramite_eventos', 'tramite_adjuntos'],
@@ -328,22 +317,8 @@ export function TramiteDetailPage() {
               ))}
             </Select>
           </div>
-          <div className="card-premium space-y-3 p-4">
-            <h3 className="kicker">Asignado a</h3>
-            <Select
-              value={data.asignado_a ?? ''}
-              onChange={(e) =>
-                void patch('asignado_a', (e.target.value || null) as never)
-              }
-            >
-              <option value="">— Sin asignar —</option>
-              {staffList.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.full_name ?? s.id.slice(0, 6)}
-                </option>
-              ))}
-            </Select>
-          </div>
+          {/* DGG-33: removido sidebar "Asignado a" (no hay asignaciones
+              individuales). */}
           <div className="card-premium space-y-3 p-4">
             <h3 className="kicker">Vencimiento</h3>
             <input
