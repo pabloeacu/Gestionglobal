@@ -753,3 +753,102 @@
     bueno cuando agregás funcionalidad transversal pero peligroso
     cuando hacés `CREATE OR REPLACE` sin diff (cf. E-GG-26).
 - **Fecha / módulo:** 2026-06-01 · notificaciones (mig 0163).
+
+## E-GG-29 · Toasts genéricos "non-2xx status code" / "duplicate key" (mensaje técnico al usuario)
+- **Síntoma:** durante el follow-up de E-GG-26 una persona intentó
+  enviar un formulario y recibió el toast "No pudimos enviar el
+  formulario · Edge Function returned a non-2xx status code".
+  Imposible accionar — el usuario no sabía qué corregir. Una
+  auditoría rápida mostró 280+ lugares en el frontend donde se
+  hacía `description: res.error.message` mostrando texto técnico
+  PG/Supabase crudo ("duplicate key violates unique constraint",
+  "row-level security", "Failed to fetch", etc.).
+- **Causa raíz:** dos huecos en el patrón de errores P-API-01:
+  (1) Cuando una edge function devolvía 4xx con
+  `{"error":"Datos inválidos: nombre: requerido"}` útil en el
+  body, el front mostraba el mensaje genérico HTTP del
+  `FunctionsHttpError` (`.message`) en vez del body.
+  (2) Los services pasaban el `error.message` original al
+  `ApiResponse`, pero los componentes lo renderizaban directo
+  sin traducir códigos comunes a frases en español.
+- **Fix (commit c116697):** dos helpers nuevos en
+  `src/lib/errors.ts`:
+  - `extractEdgeFnError(err)` lee el body real del
+    FunctionsHttpError de supabase-js. Aplicado en todos los
+    `supabase.functions.invoke` de services/api/.
+  - `humanizeError({code, message} | string)` mapea códigos PG
+    (42501, 23505, 23503, PGRST116...) + reglas regex sobre
+    mensajes técnicos ("non-2xx", "Failed to fetch", "jwt
+    expired", "duplicate key", "row-level security"...) a
+    frases en español accionables. Si el mensaje ya es humano
+    (vino del backend tras extractEdgeFnError), pasa intacto.
+  - 119 componentes/páginas modificados: reemplazo masivo de
+    `description: res.error.message` por
+    `description: humanizeError(res.error)`. 305 sustituciones.
+    tsc + vite build limpios.
+- **Aprendizajes:**
+  - **El message del backend vale oro.** Cuando la edge fn
+    devuelve un mensaje accionable, perderlo en el front es
+    desperdicio. El patrón `extractEdgeFnError` debe ser default
+    en todos los `functions.invoke`.
+  - **"Códigos" no son humanos.** El mismo PG code (23505) puede
+    venir de email/CUIT/slug; el mapeo central a "Ya existe un
+    registro con esos datos. Revisá los campos únicos" es
+    suficientemente bueno y mucho mejor que el técnico.
+  - **Excepción a la deuda:** rpc/storage directos en
+    componentes (regla 4) quedaron sin tocar a propósito (sus
+    StorageError/PostgrestError no son ApiResponse).
+- **Fecha / módulo:** 2026-06-01 · lib/errors + frontend global
+  (commit c116697).
+
+## E-GG-30 · Falta de health check ejercitando flujos asíncronos
+- **Síntoma:** las 3 fallas silenciosas de mayo-junio 2026
+  (E-GG-26 captación huérfana, E-GG-27 cron 401, E-GG-28 push web
+  sin escalar) vivieron en producción 3-30 días sin alertas. El
+  panel "Salud del sistema" existente (SALUD-1/2/3) cubre KPIs de
+  BD/storage pero nunca *ejercita* los flujos. Resultado: si un
+  trigger se pisa con CREATE OR REPLACE, si el secret del cron se
+  desalinea, si una fn compartida pierde una rama del INSERT —
+  nada lo detecta hasta que un cliente reporta.
+- **Causa raíz:** ausencia de cobertura "vivencial" de los flujos
+  asíncronos. Las migraciones se firman "build limpio" pero la
+  cadena real (formulario público → trigger → INSERT solicitud →
+  INSERT email_queue → cron POST → Gmail OAuth → DKIM → inbox)
+  nunca se prueba post-deploy.
+- **Fix (DGG-32):** sistema de health check periódico:
+  - **Migración 0164**: tablas `health_flow_runs` (bitácora) +
+    `health_flow_alerts` (vigentes/históricas con auto-resolución
+    >24h) + RPCs `health_flow_record_run/runs_recent/
+    alerts_active/alert_resolve/alerts_garbage_collect`.
+  - **Migración 0165**: helpers de introspección
+    (`health_check_cron_jobs_status`, `_trigger_existe`,
+    `_fn_contains`) llamadas SOLO desde service_role.
+  - **Edge fn `health-flows-check`**: 7 checks que ejercitan
+    email_queue, push_queue, los 3 cron jobs, secret alineado
+    (POST a cada dispatcher), trigger captación, escala
+    notif→push en el body de la fn, y atascos ARCA.
+  - **Migración 0166**: pg_cron `health-flows-check-12h`
+    schedule `0 3,15 * * *` UTC = 00:00 y 12:00 ART.
+  - **UI**: nueva sección "Flujos críticos asíncronos" en
+    /gerencia/configuracion/salud con timeline de 20 corridas,
+    alertas activas con "Marcar resuelta", botón "Correr ahora".
+  - **Banner global**: `HealthFlowsBanner` sticky en
+    GerenciaLayout con poll cada 5min; si hay alerta crítica →
+    fondo rosa con CTA "Revisar Salud", si warning → ámbar.
+  - **Push web**: cuando se crea una alerta nueva, la RPC
+    `health_flow_record_run` llama `private.notif_emitir` (que
+    desde mig 0163 ya escala a push web) → todos los gerentes
+    reciben campanita + push.
+- **Aprendizajes:**
+  - **Validar el primer run en vivo descubrió 3 falsos
+    positivos** (push_notifications_queue usa `intento` no
+    `intentos`, trigger captación se llama `trg_subm_auto_tramite`
+    no `*solicitud*`, arca usa `arca_emision_queue` no
+    `comprobantes.estado_arca`). Si no se hubiera testeado real,
+    el sistema habría disparado alertas falsas todos los días.
+  - **Auto-resolución funciona**: las 2 alertas falsas se
+    cerraron solas en el segundo run con `resolved_by='auto'`.
+    No queda manual cleanup pendiente.
+  - **El propio health check confirma E-GG-26/27/28 fixes**: los
+    7 checks devuelven OK en producción al 2026-06-01.
+- **Fecha / módulo:** 2026-06-01 · health-flows-check (DGG-32).

@@ -25,6 +25,7 @@ import {
   type AlertSeverity,
 } from '@/services/api/dbHealth';
 import { humanizeError } from '@/lib/errors';
+import { FlujosCriticosSection } from '../components/FlujosCriticosSection';
 
 function formatBytes(b: number): string {
   if (b < 1024) return `${b} B`;
@@ -136,6 +137,9 @@ export function SaludSistemaPage() {
           ))}
         </section>
       )}
+
+      {/* FLUJOS CRÍTICOS · DGG-32 (raíz de E-GG-26/27/28) */}
+      <FlujosCriticosSection />
 
       {/* KPIs */}
       <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">

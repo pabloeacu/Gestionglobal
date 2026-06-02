@@ -22,6 +22,7 @@ import {
 import { BrandMark } from '@/components/brand/BrandMark';
 import { IsoMark } from '@/components/brand/IsoMark';
 import { LandingCoverBadge } from './LandingCoverBadge';
+import { HealthFlowsBanner } from './HealthFlowsBanner';
 import { NotificationBell } from '@/components/common/NotificationBell';
 import { QuickActionsFAB } from '@/components/common/QuickActionsFAB';
 import {
@@ -317,6 +318,10 @@ export function GerenciaLayout() {
             <UserMenu perfilHref="/gerencia/perfil" />
           </div>
         </header>
+
+        {/* DGG-32: banner de alerta sobre flujos críticos. Solo renderiza si
+            hay alertas activas vigentes (poll cada 5 min). */}
+        <HealthFlowsBanner />
 
         <main className="flex-1 px-5 py-8 md:px-8">
           {/* Route transition: re-mount con animate-route-in en cada cambio */}

@@ -3538,6 +3538,80 @@ export type Database = {
         }
         Relationships: []
       }
+      health_flow_alerts: {
+        Row: {
+          check_key: string
+          id: string
+          last_error: string | null
+          last_seen_at: string
+          origen_run_id: string | null
+          push_dispatched_at: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          severity: string
+          started_at: string
+        }
+        Insert: {
+          check_key: string
+          id?: string
+          last_error?: string | null
+          last_seen_at?: string
+          origen_run_id?: string | null
+          push_dispatched_at?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity: string
+          started_at?: string
+        }
+        Update: {
+          check_key?: string
+          id?: string
+          last_error?: string | null
+          last_seen_at?: string
+          origen_run_id?: string | null
+          push_dispatched_at?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity?: string
+          started_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "health_flow_alerts_origen_run_id_fkey"
+            columns: ["origen_run_id"]
+            isOneToOne: false
+            referencedRelation: "health_flow_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      health_flow_runs: {
+        Row: {
+          checks: Json
+          duration_ms: number
+          id: string
+          origen: string
+          overall_status: string
+          run_at: string
+        }
+        Insert: {
+          checks?: Json
+          duration_ms?: number
+          id?: string
+          origen?: string
+          overall_status: string
+          run_at?: string
+        }
+        Update: {
+          checks?: Json
+          duration_ms?: number
+          id?: string
+          origen?: string
+          overall_status?: string
+          run_at?: string
+        }
+        Relationships: []
+      }
       historico_banco: {
         Row: {
           caja_id: string
@@ -8263,6 +8337,57 @@ export type Database = {
         }[]
       }
       gg_webinars_disparar_recordatorios: { Args: never; Returns: Json }
+      health_check_cron_jobs_status: {
+        Args: { p_jobnames: string[] }
+        Returns: {
+          active: boolean
+          jobname: string
+        }[]
+      }
+      health_check_fn_contains: {
+        Args: { p_fn_name: string; p_needle: string; p_schema: string }
+        Returns: boolean
+      }
+      health_check_trigger_existe: {
+        Args: { p_table: string; p_trigger_name_like: string }
+        Returns: {
+          trigger_name: string
+        }[]
+      }
+      health_flow_alert_resolve: { Args: { p_id: string }; Returns: boolean }
+      health_flow_alerts_active: {
+        Args: never
+        Returns: {
+          check_key: string
+          id: string
+          last_error: string
+          last_seen_at: string
+          origen_run_id: string
+          severity: string
+          started_at: string
+        }[]
+      }
+      health_flow_alerts_garbage_collect: { Args: never; Returns: number }
+      health_flow_record_run: {
+        Args: {
+          p_checks: Json
+          p_duration_ms: number
+          p_origen?: string
+          p_overall_status: string
+        }
+        Returns: string
+      }
+      health_flow_runs_recent: {
+        Args: { p_limit?: number }
+        Returns: {
+          checks: Json
+          duration_ms: number
+          id: string
+          origen: string
+          overall_status: string
+          run_at: string
+        }[]
+      }
       import_comprobantes_batch: {
         Args: { p_archivo: string; p_filas: Json }
         Returns: Json

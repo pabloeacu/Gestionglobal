@@ -642,3 +642,90 @@
   (probar). El CSR ya no falla con 400.
 
 - **Fecha:** 2026-06-01 · commit `86cac19`.
+
+## DGG-32 · Health check periódico de flujos críticos + humanización de errores
+
+**Contexto:** las 3 fallas silenciosas E-GG-26/27/28 dieron 3 lecciones:
+(1) los toasts del sistema mostraban texto técnico crudo, los usuarios no
+podían accionar; (2) no había un check periódico que ejercitara los flujos
+asíncronos (los KPIs de BD no detectan un trigger pisado ni un cron 401);
+(3) cuando algo se rompía, nadie se enteraba hasta que un cliente reportaba.
+El usuario lo pidió en dos requerimientos simultáneos.
+
+- **CHUNK 1 · `humanizeError` + `extractEdgeFnError`** (commit `c116697`):
+  - Helpers nuevos en `src/lib/errors.ts`.
+    - `extractEdgeFnError(err)` lee el body real (4xx/5xx) del
+      `FunctionsHttpError` de supabase-js. Sin esto el toast queda con
+      "non-2xx status code" aunque el backend devolvió un mensaje útil.
+    - `humanizeError({code,message}|string)` mapea códigos PG/Supabase
+      típicos (42501, 23505, 23503, PGRST116...) + regex sobre mensajes
+      técnicos comunes a frases en español accionables. Si el mensaje ya
+      es humano (vino del backend después de extractEdgeFnError), pasa
+      tal cual.
+  - 7 services en `services/api/` y 119 componentes/páginas modificados.
+    305 sustituciones automáticas de `description: res.error.message` por
+    `description: humanizeError(res.error)`. tsc + vite build limpios.
+  - Excluido a propósito: `supabase.rpc/.storage` directos en componentes
+    (regla 4 deuda separada), `catch(err)` no-ApiResponse, propagación
+    `throw new Error(...)`.
+
+- **CHUNK 2 · health-flows-check** (commit `<DGG-32>`):
+  - **Migración 0164** · tablas `health_flow_runs` + `health_flow_alerts`:
+    runs guarda 1 row cada corrida con jsonb por check; alerts tiene UNIQUE
+    parcial sobre activas (`resolved_at IS NULL`) para garantizar 1 alerta
+    por check_key a la vez. RLS ON. SELECT a gerente/superadmin.
+  - **RPC `health_flow_record_run(overall, duration_ms, checks, origen)`**:
+    SECURITY DEFINER. Inserta el run, crea alertas nuevas cuando un check
+    pasa a warning/critical, cierra alertas con `resolved_by='auto'` cuando
+    vuelve a 'ok'. Cuando crea una alerta nueva, dispatcha
+    `private.notif_emitir` a cada gerente — desde mig 0163 esa fn ya
+    escala a push web automáticamente. Triple canal: banner + campanita +
+    push.
+  - **RPCs auxiliares**: `health_flow_runs_recent(limit)`,
+    `health_flow_alerts_active()`, `health_flow_alert_resolve(id)`,
+    `health_flow_alerts_garbage_collect()` (auto-cierre >24h sin
+    reconfirmación).
+  - **Migración 0165** · helpers de introspección
+    (`health_check_cron_jobs_status`, `_trigger_existe`, `_fn_contains`)
+    con GRANT solo a service_role — la edge fn los usa para verificar
+    cron.job, pg_trigger y pg_get_functiondef.
+  - **Edge fn `health-flows-check`** · 7 checks (cada uno aislado, idempotente):
+    1. `email_queue_atascada` — rows en email_queue >30min sin enviar
+       (intento < max_intentos)
+    2. `push_queue_atascada` — rows en push_notifications_queue >30min sin enviar
+    3. `cron_dispatchers_activos` — los 3 jobs (dispatch-emails-1min,
+       dispatch-push-2min, arca-dispatch-every-min) están active=true
+    4. `cron_secret_alineado` — POST a cada dispatcher con bearer del env;
+       si alguno 401 → critical (detecta exactamente E-GG-27)
+    5. `trigger_captacion` — existe `trg_subm_auto_tramite` en
+       formulario_submissions (detecta E-GG-26)
+    6. `notif_escala_push` — `pg_get_functiondef(private.notif_emitir)`
+       contiene 'push_notifications_queue' (detecta E-GG-28)
+    7. `arca_comprobantes` — arca_emision_queue status='pending' +
+       scheduled_at >2h + finished_at NULL (sin atascos)
+    Cada check tiene 3 status: ok / warning / critical (+ skipped si la
+    consulta no aplica al env). overall = max severity. Auth = mismo
+    patrón que dispatch-emails (CRON_SECRET o SERVICE_ROLE_KEY en Bearer).
+  - **Migración 0166** · pg_cron `health-flows-check-12h` con schedule
+    `0 3,15 * * *` UTC = 00:00 y 12:00 ART (UTC-3). Bearer = mismo
+    CRON_SECRET de mig 0162.
+  - **UI** · `FlujosCriticosSection` dentro de `/gerencia/configuracion/salud`:
+    timeline de 20 corridas (status badge + expandible con detalle por
+    check), bloque de alertas activas con botón "Marcar resuelta"
+    (confirm dialog regla 13), botón "Correr ahora" que invoca la edge
+    fn con `origen='manual'`. `HealthFlowsBanner` sticky en
+    `GerenciaLayout` con poll cada 5min: si hay alerta crítica → fondo
+    rosa con CTA "Revisar Salud", si warning → ámbar.
+
+- **Validación en vivo (2026-06-02 01:55 UTC):**
+  - Primera corrida real expuso 3 falsos positivos por mismatch de
+    schema (push_queue `intento` vs `intentos`, trigger
+    `auto_tramite` vs `solicitud`, arca `arca_emision_queue` vs
+    `comprobantes.estado_arca`). Corregidos en edge fn v2.
+  - Segunda corrida: 7/7 checks OK. Las 2 alertas falsas se cerraron
+    solas con `resolved_by='auto'`.
+  - El propio health check **valida en producción** que E-GG-26/27/28
+    están vigentes (trigger captación presente, secret alineado,
+    notif_emitir escala a push).
+
+- **Fecha:** 2026-06-01 / 2026-06-02 · commit `<DGG-32>`.
