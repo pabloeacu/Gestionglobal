@@ -13,6 +13,38 @@
 - **Fecha:**
 -->
 
+## DGG-36 · RPAC matrícula · consolidar 2 campos del título
+- **Decisión:** en el formulario `matriculacion-rpac`, los 2 campos
+  `titulo_secundario_o_superior` ("Título emitido por entidad habilitada
+  por el RPAC") y `certificado_curso_administradores` ("Certificado del
+  curso de administradores") eran el MISMO documento (lo dijo José Luis
+  2026-06-02). Se consolidan en uno solo:
+  - `name`: `certificado_curso_administradores` (sobrevive — `titulo_
+    secundario_o_superior` era confuso, "título secundario" no es RPAC).
+  - `label`: "Certificado del Curso de formación de Administrador de
+    Consorcios".
+  - `hint`: "Emitido por una entidad habilitada por el RPAC".
+- **Auditoría transversal previa** (lección de E-GG-37):
+  | Slug | Tenía los 2 campos? | Acción |
+  |---|---|---|
+  | `matriculacion-rpac` | sí | consolida |
+  | `matriculacion-rpac-juridica` | no (anexo societario; persona jurídica no rinde el curso, lo rinde el administrador titular) | sin cambios |
+  | `renovacion-rpac` | tiene `certificado_curso_actualizacion_vigente` distinto (curso bianual para mantener matrícula) | sin cambios |
+  | `certificado-rpac` | ninguno (solo emite certificado de matrícula activa) | sin cambios |
+- **Submissions afectadas**: 0 con datos en cualquiera de los 2 campos
+  (verificado con `count(*) FILTER (WHERE datos ? '...')` previo a la
+  mig). Safe refactor sin migrar datos.
+- **Implementación (mig 0176):** DO block plpgsql que recorre
+  `formularios.schema->sections->fields`: skip
+  `titulo_secundario_o_superior`, update label/hint en
+  `certificado_curso_administradores`, conserva todos los demás.
+  El frontend lee `formularios.schema` directo
+  (`getFormularioPorSlug`), la tabla `formulario_versiones` es solo
+  historial → solo se actualiza la fila de `formularios`.
+- **Verificación**: query post-mig confirma 1 solo campo con el copy
+  unificado.
+- **Fecha:** 2026-06-02 · ref JL-RPAC-1/2/3, mig 0176.
+
 ## DGG-35 · Módulo Cajas premium (José Luis · 4 mejoras)
 - **Decisión:** capitalizar los 4 pedidos de José Luis sobre cajas:
   1. Editar tipo post-alta.
