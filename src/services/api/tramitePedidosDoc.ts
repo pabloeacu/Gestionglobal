@@ -119,6 +119,74 @@ export async function enviarRevisionPedido(
   return ok({ itemsEnviados: result?.items_enviados ?? 0 });
 }
 
+// ============================================================================
+// DGG-41 (2026-06-02 · José Luis): inventario unificado de adjuntos del
+// trámite — incluye los archivos de pedidos_doc_items que antes quedaban
+// invisibles en la tab Documentación.
+//
+// La tab leía solo `tracking_lineas.archivos_urls`, perdiendo los archivos
+// que el cliente sube vía el flujo de Pedido de Documentación (bucket
+// privado `pedidos-doc-cliente`, path en `archivo_path`). Esta función
+// devuelve los items que tienen archivo subido con signed URL para que
+// gerencia pueda verlos/descargarlos desde la tab.
+// ============================================================================
+export interface PedidoDocAdjunto {
+  itemId: string;
+  pedidoId: string;
+  descripcion: string;      // descripción del item ("Comprobante de pago", etc)
+  estado: string;            // 'pendiente' | 'subido' | 'aprobado' | 'rechazado'
+  archivoNombre: string;     // nombre original del archivo
+  archivoPath: string;       // path en el bucket privado
+  url: string;               // signed URL (60 min)
+  subidoAt: string | null;
+  size: number | null;
+  mime: string | null;
+}
+
+/**
+ * Lista todos los items con archivo subido para un trámite, ya con
+ * signed URL lista para descarga. Para la tab Documentación.
+ */
+export async function listAdjuntosPedidosDocDeTramite(
+  tramiteId: string,
+): Promise<ApiResponse<PedidoDocAdjunto[]>> {
+  const { data: pedidos, error: ePed } = await supabase
+    .from('tramite_pedidos_doc')
+    .select('id')
+    .eq('tramite_id', tramiteId);
+  if (ePed) return fail('PEDIDOS_LIST', ePed.message, ePed);
+  if (!pedidos || pedidos.length === 0) return ok([]);
+
+  const { data: items, error: eItems } = await supabase
+    .from('tramite_pedidos_doc_items')
+    .select('id, pedido_id, descripcion, estado, archivo_nombre, archivo_path, archivo_mime, archivo_size_bytes, subido_at')
+    .in('pedido_id', pedidos.map(p => p.id))
+    .not('archivo_path', 'is', null);
+  if (eItems) return fail('ITEMS_LIST', eItems.message, eItems);
+  if (!items || items.length === 0) return ok([]);
+
+  const out: PedidoDocAdjunto[] = [];
+  for (const it of items) {
+    if (!it.archivo_path) continue;
+    const { data: signed } = await supabase.storage
+      .from(BUCKET)
+      .createSignedUrl(it.archivo_path, 3600);
+    out.push({
+      itemId: it.id,
+      pedidoId: it.pedido_id,
+      descripcion: it.descripcion,
+      estado: it.estado,
+      archivoNombre: it.archivo_nombre ?? 'archivo',
+      archivoPath: it.archivo_path,
+      url: signed?.signedUrl ?? '',
+      subidoAt: it.subido_at,
+      size: it.archivo_size_bytes,
+      mime: it.archivo_mime,
+    });
+  }
+  return ok(out);
+}
+
 // Gerencia rechaza un item subido (cliente debe subirlo de nuevo).
 export async function rechazarItem(
   itemId: string,

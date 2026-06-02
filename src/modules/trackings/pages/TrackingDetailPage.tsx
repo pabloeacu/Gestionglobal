@@ -84,6 +84,13 @@ import { CategoriasConfigManager } from '../components/CategoriasConfigManager';
 import { ProgramarVencimientoModal } from '../components/ProgramarVencimientoModal';
 import { CerrarTramiteDialog } from '../components/CerrarTramiteDialog';
 import { PedidosDocPanel } from '@/components/common/PedidosDocPanel';
+// DGG-41 (2026-06-02 · José Luis): la tab Documentación debe mostrar
+// también los archivos del flujo PedidoDoc (cliente sube docs por bucket
+// privado pedidos-doc-cliente). Antes solo leía archivos_urls de líneas.
+import {
+  listAdjuntosPedidosDocDeTramite,
+  type PedidoDocAdjunto,
+} from '@/services/api/tramitePedidosDoc';
 import {
   OnboardingTour,
   STEPS_TRAMITES,
@@ -229,16 +236,62 @@ export function TrackingDetailPage() {
     return data.lineas.filter((l) => l.categoria === filtroCategoria);
   }, [data, filtroCategoria]);
 
-  const adjuntosTodos = useMemo<{ url: string; fecha: string; categoria: string }[]>(() => {
+  // DGG-41: además de archivos_urls de líneas, traer los items del flujo
+  // PedidoDoc (cliente sube docs vía bucket privado). Se cargan paralelamente
+  // al detalle, con signed URLs ya resueltas.
+  const [adjuntosPedidoDoc, setAdjuntosPedidoDoc] = useState<PedidoDocAdjunto[]>([]);
+  useEffect(() => {
+    if (!data?.id) {
+      setAdjuntosPedidoDoc([]);
+      return;
+    }
+    let cancel = false;
+    void listAdjuntosPedidosDocDeTramite(data.id).then((r) => {
+      if (!cancel && r.ok) setAdjuntosPedidoDoc(r.data);
+    });
+    return () => { cancel = true; };
+  }, [data?.id]);
+
+  interface AdjuntoUnif {
+    url: string;
+    nombre: string;
+    fecha: string;
+    categoria: string;
+    origen: 'linea' | 'pedido_doc';
+    estado?: string;        // solo para pedido_doc: aprobado / subido / etc
+  }
+  const adjuntosTodos = useMemo<AdjuntoUnif[]>(() => {
     if (!data) return [];
-    const out: { url: string; fecha: string; categoria: string }[] = [];
+    const out: AdjuntoUnif[] = [];
+    // (a) Archivos en archivos_urls de cada línea (drag&drop, cerrar trámite, etc).
     for (const l of data.lineas) {
       for (const u of l.archivos_urls ?? []) {
-        out.push({ url: u, fecha: l.created_at, categoria: l.categoria });
+        const nombre = decodeURIComponent(u.split('/').pop() ?? 'archivo')
+          .replace(/^\d+-[a-z0-9]+-/, '');
+        out.push({
+          url: u,
+          nombre,
+          fecha: l.created_at,
+          categoria: l.categoria,
+          origen: 'linea',
+        });
       }
     }
+    // (b) Archivos subidos por el cliente vía PedidoDoc (DGG-41).
+    for (const a of adjuntosPedidoDoc) {
+      out.push({
+        url: a.url,
+        nombre: a.archivoNombre,
+        fecha: a.subidoAt ?? data.created_at,
+        categoria: `Pedido: ${a.descripcion}`,
+        origen: 'pedido_doc',
+        estado: a.estado,
+      });
+    }
+    // Ordenar más recientes primero
+    out.sort((x, y) => +new Date(y.fecha) - +new Date(x.fecha));
     return out;
-  }, [data]);
+  }, [data, adjuntosPedidoDoc]);
 
   const lineasPendientes = useMemo(
     () => (data?.lineas ?? []).filter((l) => l.alerta_en && new Date(l.alerta_en).getTime() > Date.now()).length,
@@ -805,6 +858,8 @@ export function TrackingDetailPage() {
                     href={a.url}
                     target="_blank"
                     rel="noopener noreferrer"
+                    download={a.nombre}
+                    title={`Descargar ${a.nombre}`}
                     className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-4 transition hover:border-slate-300 hover:shadow-sm"
                   >
                     <span className="grid h-10 w-10 place-items-center rounded-lg bg-slate-100">
@@ -812,12 +867,22 @@ export function TrackingDetailPage() {
                     </span>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium text-slate-800">
-                        {a.url.split('/').pop()}
+                        {a.nombre}
                       </p>
                       <p className="truncate text-xs text-slate-500">
                         {a.categoria} · {formatDateShort(a.fecha)}
                       </p>
                     </div>
+                    {/* DGG-41: badge del origen para que gerencia sepa si el
+                        archivo vino del cliente (PedidoDoc) o de una línea */}
+                    {a.origen === 'pedido_doc' && (
+                      <span
+                        className="shrink-0 rounded-full bg-brand-cyan-pale/40 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-brand-cyan"
+                        title="Subido por el cliente vía pedido de documentación"
+                      >
+                        Cliente
+                      </span>
+                    )}
                   </a>
                 </li>
               ))}

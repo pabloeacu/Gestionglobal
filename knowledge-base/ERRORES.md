@@ -14,6 +14,70 @@
 - **Fecha / módulo:**
 -->
 
+## E-GG-41 · Tab "Documentación" muestra 0 adjuntos cuando el cliente subió archivos vía PedidoDoc
+- **Síntoma:** José Luis (2026-06-02) reporta que en el detalle de un
+  trámite con una línea "Cliente envió 1 archivo(s) de documentación para
+  revisión", la tab **Documentación** muestra "Sin adjuntos · 0 ADJUNTOS"
+  cuando claramente hay al menos 1 archivo.
+- **Causa raíz:** el flujo "Pedido de Documentación" (N2/N3) guarda los
+  archivos del cliente en su propio bucket privado `pedidos-doc-cliente`
+  y referencia el path en la columna
+  `public.tramite_pedidos_doc_items.archivo_path`. La línea
+  "Cliente envió N archivos" (categoría `pendiente_revision`) se inserta
+  con `archivos_urls=[]` VACÍO — la URL pública nunca se materializó en
+  la línea porque el bucket es privado (signed URL expira).
+  El componente `TrackingDetailPage` calculaba `adjuntosTodos` SOLO
+  mirando `data.lineas[].archivos_urls`:
+  ```ts
+  for (const l of data.lineas) {
+    for (const u of l.archivos_urls ?? []) out.push({url: u, ...});
+  }
+  ```
+  → Resultado: archivos invisibles en la tab Documentación. El badge
+  "Adjuntos (0)" en KPIs y en la tab del header igual.
+- **Verificación en BD** (smoke directo sobre el trámite reportado):
+  - `tramite_adjuntos`: 0 filas.
+  - `tracking_lineas.archivos_urls`: TODAS las 3 líneas con `[]` vacío.
+  - `tramite_pedidos_doc_items` con `archivo_path IS NOT NULL`: 1 fila
+    ("Transferencia Renovación de Mariana V. Calanna.pdf").
+  La inconsistencia 100% confirmada antes de tocar código.
+- **Fix:**
+  - **Service nuevo** `listAdjuntosPedidosDocDeTramite(tramiteId)` en
+    `src/services/api/tramitePedidosDoc.ts`. Lista todos los items de
+    pedidos del trámite que tienen `archivo_path NOT NULL`, genera
+    signed URL (60min) para cada uno y devuelve `PedidoDocAdjunto[]`
+    con `archivoNombre`, `descripcion`, `estado` (`aprobado` /
+    `subido` / etc), `subidoAt`.
+  - **TrackingDetailPage** carga `adjuntosPedidoDoc` en `useEffect`
+    paralelamente al detalle. El `useMemo adjuntosTodos` ahora mergea
+    **(a)** archivos de `lineas[].archivos_urls` + **(b)** items con
+    archivo del flujo PedidoDoc, en una única lista ordenada por fecha
+    desc. Tipo `AdjuntoUnif` con `origen: 'linea' | 'pedido_doc'`.
+  - **UI de la tab**: cada card muestra el nombre real del archivo
+    (no más `url.split('/').pop()` que daba paths feos), `download`
+    attribute para descarga limpia, y un **badge "Cliente"** en los
+    items de origen `pedido_doc` para que gerencia sepa el origen.
+- **Auditoría transversal** (R12 / regla 9): la lección es que el
+  inventario unificado de archivos del trámite debe contemplar las 3
+  fuentes: (1) `tramite_adjuntos` (no usado hoy), (2) `tracking_lineas.
+  archivos_urls`, (3) `tramite_pedidos_doc_items.archivo_path`. Si en
+  el futuro aparece un 4to flujo (ej. acceso externo de gestoría que
+  ya guarda en otro bucket), el mismo patrón aplica.
+- **Por qué no se detectó antes:** los chunks anteriores (N2, M1-M4)
+  capitalizaron la UX del PedidoDoc pero solo en el panel
+  `PedidosDocPanel` del Resumen. Nunca se cruzó con la tab Documentación
+  que vivía con su propia query parcial. Mea culpa metodológica: estuve
+  haciendo auditoría estática + BEGIN/ROLLBACK pero no abrí browser
+  para mirar la tab. José Luis llamó la atención sobre esto el mismo
+  día y aceleró el método doble.
+- **Mejora de método:** desde acá, todo fix de UX se valida también
+  visualmente en `https://gestionglobal.ar` (Chrome MCP) o con captura
+  del usuario antes de declarar "completo". El testing en BD detecta
+  inconsistencias de datos; el testing visual detecta gaps de
+  agregación como éste.
+- **Fecha / módulo:** 2026-06-02 · Trámites · `tramitePedidosDoc.ts`
+  + `TrackingDetailPage.tsx`.
+
 ## E-GG-40 · "Invalid key" al subir adjunto con tildes/ñ desde el Wizard de Activación
 - **Síntoma:** José Luis (2026-06-02) intenta subir "Transferencia
   Inscripción de Jorge Adrián Alejandro Prieto.pdf" desde el Wizard de
