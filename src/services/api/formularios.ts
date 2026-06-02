@@ -2,6 +2,39 @@ import { supabase } from '@/lib/supabase';
 import { ok, fail, type ApiResponse } from '@/lib/errors';
 import type { Database } from '@/types/database';
 
+/**
+ * Extrae el mensaje real del body de error de una edge function (4xx/5xx).
+ * supabase.functions.invoke devuelve `FunctionsHttpError` cuyo `.message`
+ * es genérico ("Edge Function returned a non-2xx status code"). El body
+ * de la respuesta sí trae `{ ok: false, error: "..." }` con detalle.
+ * Mismo patrón que extractInvokeError en services/api/arca.ts (commit 86cac19).
+ */
+async function extractEdgeFnError(err: unknown): Promise<string> {
+  if (!err || typeof err !== 'object') return String(err);
+  const e = err as { message?: string; context?: { json?: () => Promise<unknown>; text?: () => Promise<string> } };
+  try {
+    if (e.context?.json) {
+      const body = await e.context.json();
+      if (body && typeof body === 'object' && 'error' in body && typeof (body as { error: unknown }).error === 'string') {
+        return (body as { error: string }).error;
+      }
+    }
+  } catch { /* fallthrough */ }
+  try {
+    if (e.context?.text) {
+      const t = await e.context.text();
+      if (t) {
+        try {
+          const j = JSON.parse(t);
+          if (j?.error) return String(j.error);
+        } catch { /* no es json */ }
+        return t.slice(0, 300);
+      }
+    }
+  } catch { /* fallthrough */ }
+  return e.message ?? 'No pudimos enviar el formulario.';
+}
+
 export type FormularioRow = Database['public']['Tables']['formularios']['Row'];
 export type FormularioSubmissionRow = Database['public']['Tables']['formulario_submissions']['Row'];
 
@@ -131,7 +164,14 @@ export async function submitFormulario(
     },
   });
 
-  if (error) return fail('FORM_SUBMIT', error.message, error);
+  if (error) {
+    // FunctionsHttpError trae .context.response con el body real (4xx/5xx).
+    // Sin esto, el toast muestra "Edge Function returned a non-2xx status
+    // code" y el usuario nunca sabe qué campo le faltó. Mismo patrón que
+    // extractInvokeError de services/api/arca.ts (commit 86cac19).
+    const msg = await extractEdgeFnError(error);
+    return fail('FORM_SUBMIT', msg, error);
+  }
   if (!data?.ok) return fail('FORM_SUBMIT', data?.error ?? 'Error al enviar', data);
   return ok({
     submission_id: data.submission_id,
