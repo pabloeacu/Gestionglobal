@@ -14,6 +14,50 @@
 - **Fecha / módulo:**
 -->
 
+## E-GG-40 · "Invalid key" al subir adjunto con tildes/ñ desde el Wizard de Activación
+- **Síntoma:** José Luis (2026-06-02) intenta subir "Transferencia
+  Inscripción de Jorge Adrián Alejandro Prieto.pdf" desde el Wizard de
+  Activación (acceso externo a la gestoría) → toast:
+  *"No pudimos subir Transferencia Inscripción de Jorge Adrian Alejandro
+  Prieto.pdf · Invalid key: 47c76049-fcad-4125-9e6e-b52d70c17dbb/
+  1780432483789-Transferencia_Inscripción_de_..."*. El nombre tiene una
+  "ó" (Inscripción) y una "á" (Adrián) que Supabase Storage rechaza
+  como caracteres no válidos en la key.
+- **Causa raíz:** `src/services/api/solicitudes.ts:uploadAdjuntoGestoria`
+  construía el path como:
+  ```ts
+  const path = `${solicitudId}/${Date.now()}-${file.name.replace(/\s+/g, '_')}`;
+  ```
+  El sanitizer SOLO reemplazaba espacios con `_`. Los acentos y la `ñ`
+  pasaban tal cual al path. Supabase Storage es estricto con la key:
+  caracteres fuera de `[a-zA-Z0-9._-]` pueden ser rechazados según el
+  runtime con error `Invalid key`. El resto de los services del repo
+  (`tramites`, `trackings`, `partners`, `formularios-admin`,
+  `accesoExterno`, `campus`, `encuestas`) ya usaban regex equivalentes
+  como `[^\w.\-]` que sí remueven los acentos — pero `solicitudes.ts`
+  quedó atrás como deuda inconsistente.
+- **Fix:** creado `src/lib/storageKeys.ts` con dos helpers centralizados:
+  - `safeStorageKey(filename)` → normaliza NFKD + quita diacríticos
+    (combining marks U+0300..U+036F) + reemplaza no-ASCII-safe con `_`
+    + colapsa runs de `_` + recorta a 200 chars + fallback `archivo` si
+    queda vacío.
+  - `buildStorageKey(scope, filename)` → conveniente para el patrón
+    típico `<scope>/<timestamp>-<safe>`.
+  `uploadAdjuntoGestoria` ahora usa `buildStorageKey()`. Ejemplo:
+  `'Transferencia Inscripción Niño.pdf'` → `'Transferencia_Inscripcion_Nino.pdf'`.
+- **Auditoría transversal** (`grep file.name.replace`): 11 lugares con
+  sanitizers. Solo `solicitudes.ts:276` estaba roto. Los otros 10
+  usaban patrones equivalentes. Como acción de fondo se centraliza
+  en `storageKeys.ts` para no volver a tener inconsistencias —
+  los services existentes pueden migrar gradualmente al helper.
+- **Prevención:** patrón canónico al subir archivos a Supabase Storage:
+  **siempre pasar `file.name` por `safeStorageKey()` antes de construir
+  el path**, nunca usar el nombre crudo ni un regex parcial (`/\s+/g`,
+  etc.). El helper hace el `normalize('NFKD')` que descompone los
+  caracteres acentuados y elimina los marks — eso es lo que `\w` no
+  hacía solo.
+- **Fecha / módulo:** 2026-06-02 · Solicitudes / Storage · `src/lib/storageKeys.ts`.
+
 ## E-GG-39 · Cliente no puede cambiar contraseña — mensaje técnico en inglés crudo ("Password is known to be weak and easy to guess")
 - **Síntoma:** un cliente reporta desde su portal (2026-06-02) que no
   puede actualizar su contraseña. Toast: *"No pudimos actualizar la

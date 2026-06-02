@@ -269,11 +269,15 @@ const BUCKET_GESTORIA = 'gestoria-adjuntos';
 
 // N3 · sube un archivo al bucket privado gestoria-adjuntos. Devuelve el path.
 // Path: <solicitud_id>/<timestamp-filename>
+// E-GG-40 (2026-06-02 · JL): el sanitizer viejo solo reemplazaba espacios
+// y dejaba pasar tildes/ñ → "Invalid key" en Supabase Storage. Usamos
+// `buildStorageKey()` que normaliza NFKD + diacríticos.
 export async function uploadAdjuntoGestoria(
   solicitudId: string,
   file: File,
 ): Promise<ApiResponse<{ path: string; filename: string; mime: string; size: number }>> {
-  const path = `${solicitudId}/${Date.now()}-${file.name.replace(/\s+/g, '_')}`;
+  const { buildStorageKey } = await import('@/lib/storageKeys');
+  const path = buildStorageKey(solicitudId, file.name);
   const { error } = await supabase.storage
     .from(BUCKET_GESTORIA)
     .upload(path, file, { upsert: false, contentType: file.type });

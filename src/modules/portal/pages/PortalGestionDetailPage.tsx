@@ -275,19 +275,29 @@ function TimelineItem({
         <p className="mt-1 text-sm text-brand-ink whitespace-pre-wrap">{linea.descripcion}</p>
         {Array.isArray(linea.archivos_urls) && linea.archivos_urls.length > 0 && (
           <ul className="mt-2 flex flex-wrap gap-1.5">
-            {linea.archivos_urls.map((url, i) => (
-              <li key={i}>
-                <a
-                  href={url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-brand-ink hover:bg-slate-200"
-                >
-                  <FileText size={11} />
-                  {nombreArchivo(url)}
-                </a>
-              </li>
-            ))}
+            {linea.archivos_urls.map((url, i) => {
+              const name = nombreArchivo(url);
+              return (
+                <li key={i}>
+                  {/* DGG-40 (José Luis): el cliente debe poder descargar
+                      adjuntos del tracking desde su portal. `download` da
+                      el nombre limpio en el filesystem; target=_blank
+                      mantiene la pestaña abierta si el navegador prefiere
+                      abrir inline (PDF nativo). */}
+                  <a
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    download={name}
+                    title={`Descargar ${name}`}
+                    className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-brand-ink hover:bg-slate-200"
+                  >
+                    <FileText size={11} />
+                    {name}
+                  </a>
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>

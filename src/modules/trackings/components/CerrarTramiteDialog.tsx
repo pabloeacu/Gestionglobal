@@ -31,6 +31,7 @@ import { cn } from '@/lib/cn';
 import {
   subirDocumentoFinalTramite,
   MOTIVOS_CIERRE_POR_CATEGORIA,
+  tipoDocumentoLabel,
   type MotivoCierreOpcion,
   type TramiteCategoria,
 } from '@/services/api/tramites';
@@ -189,7 +190,7 @@ export function CerrarTramiteDialog({
                   </div>
                   {op.requiere_documento && (
                     <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-brand-muted">
-                      Adjunto
+                      {tipoDocumentoLabel(op.tipo_documento)}
                     </span>
                   )}
                 </button>
@@ -213,11 +214,11 @@ export function CerrarTramiteDialog({
         </Field>
 
         {/* (3) Documento — solo si el motivo lo requiere */}
-        {requiereDoc && (
+        {requiereDoc && motivo && (
           <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
             <div className="flex items-center justify-between">
               <p className="text-xs font-semibold uppercase tracking-wider text-brand-muted">
-                Documento final
+                {tipoDocumentoLabel(motivo.tipo_documento)} final
               </p>
               <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-rose-700">
                 Obligatorio
