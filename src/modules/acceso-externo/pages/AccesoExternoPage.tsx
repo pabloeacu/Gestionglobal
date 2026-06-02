@@ -28,7 +28,11 @@ import {
   type AccesoExternoPayload,
   type GestorAvanceLinea,
 } from '@/services/api/accesos';
-import { supabase } from '@/lib/supabase';
+import {
+  obtenerInfoSolicitudPorToken,
+  firmarAdjuntoCliente,
+  subirAdjuntoGestor,
+} from '@/services/api/accesoExterno';
 import { toast } from '@/lib/toast';
 import { humanizeError } from '@/lib/errors';
 
@@ -508,24 +512,17 @@ function PanelGestor({ token }: { token: string }) {
   }
 
   async function cargarInfo() {
-    const res = (await supabase.rpc(
-      'gestor_obtener_info_solicitud' as never,
-      { p_token: token } as never,
-    )) as { data: unknown; error: { message: string } | null };
-    if (!res.error && res.data) {
+    // DGG-34 R4: capitalizado en service `accesoExterno`.
+    const res = await obtenerInfoSolicitudPorToken(token);
+    if (res.ok && res.data) {
       const d = res.data as InfoSolicitud;
       setInfo(d);
       // Firmar URLs de los adjuntos. download:true fuerza Content-Disposition
       // attachment para que el browser baje el archivo en vez de previsualizar.
-      // Así el gestor puede archivar los originales sin esfuerzo extra.
       const signed: Record<string, string> = {};
       for (const a of d.adjuntos) {
-        const { data: s } = await supabase.storage
-          .from('form-adjuntos')
-          .createSignedUrl(a.storage_path, 60 * 60, {
-            download: a.filename_original,
-          });
-        if (s?.signedUrl) signed[a.storage_path] = s.signedUrl;
+        const sr = await firmarAdjuntoCliente(a.storage_path, 3600);
+        if (sr.ok) signed[a.storage_path] = sr.data;
       }
       setAdjuntosUrls(signed);
     }
@@ -587,18 +584,11 @@ function PanelGestor({ token }: { token: string }) {
       Array.from(files).map(async (f, i) => {
         const stagedIdx = adjuntos.length + i;
         try {
-          const safeName = f.name.replace(/[^\w.\-]/g, '_');
-          const path = `${token}/${Date.now()}-${Math.random()
-            .toString(36)
-            .slice(2, 8)}-${safeName}`;
-          const { error } = await supabase.storage
-            .from('gestor-uploads')
-            .upload(path, f, { upsert: false, contentType: f.type || undefined });
-          if (error) throw error;
-          const pub = supabase.storage.from('gestor-uploads').getPublicUrl(path);
+          const up = await subirAdjuntoGestor(token, f);
+          if (!up.ok) throw new Error(up.error.message);
           setAdjuntos((prev) =>
             prev.map((a, k) =>
-              k === stagedIdx ? { ...a, uploading: false, url: pub.data.publicUrl } : a,
+              k === stagedIdx ? { ...a, uploading: false, url: up.data } : a,
             ),
           );
         } catch (e) {

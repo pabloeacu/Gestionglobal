@@ -7,7 +7,7 @@
 // el mouse (desktop). Mobile: solo ícono. El número se lee de config_global.
 
 import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
+import { getPublicWhatsapp } from '@/services/api/configGlobal';
 
 const DEFAULT_NUMERO = '+5492214317914';
 const DEFAULT_MENSAJE = 'Hola! Tengo una consulta sobre los trámites de Gestión Global.';
@@ -25,11 +25,12 @@ export function WhatsAppFloatingButton({ mensaje, numero }: Props) {
   useEffect(() => {
     if (numero) return; // override explícito
     let active = true;
-    (async () => {
-      // AJL #9: usamos la RPC pública para que también funcione desde anon
-      // (la RLS de config_global solo permite SELECT a authenticated).
-      const { data } = await supabase.rpc('get_public_whatsapp' as never);
-      if (active && typeof data === 'string' && data) setResolvedNumero(data);
+    // DGG-34 R4: RPC encapsulada en service. Reduce drift del cliente
+    // supabase en componentes. La RPC sigue siendo `get_public_whatsapp`
+    // (anon-callable, AJL #9).
+    void (async () => {
+      const v = await getPublicWhatsapp();
+      if (active && v) setResolvedNumero(v);
     })();
     return () => {
       active = false;

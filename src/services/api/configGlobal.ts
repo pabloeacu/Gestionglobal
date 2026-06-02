@@ -44,3 +44,13 @@ export async function setLandingCover(enabled: boolean): Promise<ApiResponse<boo
   if (error) return fail('LANDING_COVER_SET', error.message, error);
   return ok(Boolean(data));
 }
+
+// DGG-34 sweep R4 · WhatsApp público para anon (RLS de config_global solo
+// permite SELECT a authenticated). Capitaliza la RPC `get_public_whatsapp`
+// (AJL #9) que antes se llamaba directo desde WhatsAppFloatingButton.
+export async function getPublicWhatsapp(): Promise<string | null> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.rpc as any)('get_public_whatsapp');
+  if (error || typeof data !== 'string' || !data) return null;
+  return data;
+}

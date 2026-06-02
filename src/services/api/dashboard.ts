@@ -21,6 +21,28 @@ type RawRpc = (
   args: Record<string, unknown>,
 ) => Promise<{ data: unknown; error: { message: string } | null }>;
 
+// DGG-34 R4 sweep · capitalización RPC `gerencia_alarmas_hoy`
+// (AlarmasHoyWidget.tsx).
+export interface AlarmaHoyRow {
+  id: string;
+  tramite_id: string;
+  tramite_codigo: string | null;
+  tramite_titulo: string | null;
+  descripcion: string | null;
+  alerta_en: string; // ISO
+  dias_vencido: number;
+  administracion_nombre: string | null;
+  // permitir campos extra sin romper TS si la RPC evoluciona
+  [k: string]: unknown;
+}
+
+export async function listarAlarmasHoy(): Promise<ApiResponse<AlarmaHoyRow[]>> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.rpc as any)('gerencia_alarmas_hoy');
+  if (error) return fail('ALARMAS_HOY', error.message, error);
+  return ok((data ?? []) as unknown as AlarmaHoyRow[]);
+}
+
 export async function getDashboardGlobal(
   diasAtras = 30,
 ): Promise<ApiResponse<DashboardKpis>> {

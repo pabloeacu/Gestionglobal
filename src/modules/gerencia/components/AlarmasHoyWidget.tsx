@@ -11,7 +11,8 @@ import { Bell, Clock, AlertTriangle, ChevronRight, Loader2 } from 'lucide-react'
 import { Skeleton } from '@/components/common';
 import { toast } from '@/lib/toast';
 import { humanizeError } from '@/lib/errors';
-import { supabase } from '@/lib/supabase';
+import { listarAlarmasHoy } from '@/services/api/dashboard';
+import { postergarAlarmaLinea } from '@/services/api/trackings';
 
 interface AlarmaHoy {
   linea_id: string;
@@ -32,16 +33,13 @@ export function AlarmasHoyWidget() {
 
   async function cargar() {
     setLoading(true);
-    const res = (await supabase.rpc(
-      'gerencia_alarmas_hoy' as never,
-      {} as never,
-    )) as { data: AlarmaHoy[] | null; error: { message: string } | null };
+    const res = await listarAlarmasHoy();
     setLoading(false);
-    if (res.error) {
+    if (!res.ok) {
       console.warn('alarmas_hoy', res.error.message);
       return;
     }
-    setItems(res.data ?? []);
+    setItems(res.data as unknown as AlarmaHoy[]);
   }
 
   useEffect(() => {
@@ -50,12 +48,9 @@ export function AlarmasHoyWidget() {
 
   async function postergar(lineaId: string, dias: number) {
     setPostergandoId(lineaId);
-    const res = (await supabase.rpc(
-      'postergar_alarma_tracking' as never,
-      { p_linea_id: lineaId, p_dias: dias } as never,
-    )) as { data: string | null; error: { message: string } | null };
+    const res = await postergarAlarmaLinea(lineaId, dias);
     setPostergandoId(null);
-    if (res.error) {
+    if (!res.ok) {
       toast.error('No pudimos postergar', { description: humanizeError(res.error) });
       return;
     }

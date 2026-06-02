@@ -18,6 +18,28 @@ export interface PortalDashboard {
   proximosVencimientos: ComprobanteListItem[];
 }
 
+// DGG-34 R4 sweep · capitalización RPC cliente
+// (PortalComprobanteDetailPage.tsx).
+export interface PagoComprobanteRow {
+  movimiento_id: string;
+  fecha: string;
+  monto: number;
+  caja_nombre: string | null;
+  descripcion: string | null;
+  referencia: string | null;
+}
+
+export async function listarPagosComprobante(
+  comprobanteId: string,
+): Promise<ApiResponse<PagoComprobanteRow[]>> {
+  const { data, error } = await supabase.rpc(
+    'cliente_listar_pagos_comprobante' as never,
+    { p_comprobante_id: comprobanteId } as never,
+  );
+  if (error) return fail('CLIENTE_PAGOS', error.message, error);
+  return ok((data ?? []) as unknown as PagoComprobanteRow[]);
+}
+
 export async function getPortalDashboard(
   administracionId: string,
 ): Promise<ApiResponse<PortalDashboard>> {

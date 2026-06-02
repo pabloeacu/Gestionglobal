@@ -19,7 +19,7 @@ import { IllustratedEmpty } from '@/components/brand/IllustratedEmpty';
 import { Skeleton, useConfirm, Button } from '@/components/common';
 import { toast } from '@/lib/toast';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/lib/supabase';
+import { inscribirmeAWebinar } from '@/services/api/webinars';
 import {
   fetchClienteWebinars,
   type ClienteWebinarItem,
@@ -58,13 +58,11 @@ export function PortalWebinarsPage() {
     if (!ok) return;
 
     setInscribing(w.webinar_id);
-    const { error } = await supabase.rpc('cliente_webinar_inscribirme', {
-      p_webinar_id: w.webinar_id,
-    });
+    const res = await inscribirmeAWebinar(w.webinar_id);
     setInscribing(null);
 
-    if (error) {
-      toast.error('No pudimos inscribirte', { description: humanizeError(error) });
+    if (!res.ok) {
+      toast.error('No pudimos inscribirte', { description: humanizeError(res.error) });
       return;
     }
     toast.success('¡Inscripto!', { description: 'Te vamos a recordar antes del evento.' });

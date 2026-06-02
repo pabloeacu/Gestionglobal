@@ -4,7 +4,7 @@
 import { useRef, useState } from 'react';
 import { Plus, Trash2, Upload, FileText, Loader2, X } from 'lucide-react';
 import { toast } from '@/lib/toast';
-import { supabase } from '@/lib/supabase';
+import { humanizeError } from '@/lib/errors';
 import { Button, Field, Input, Select, Textarea } from '@/components/common';
 import { cn } from '@/lib/cn';
 import type {
@@ -12,7 +12,7 @@ import type {
   FormularioSchemaDef,
   FormularioSectionDef,
 } from '@/services/api/formularios';
-import { ensureUniqueFieldName } from '@/services/api/formularios-admin';
+import { ensureUniqueFieldName, subirArchivoDescarga } from '@/services/api/formularios-admin';
 import type { Selection } from '../types';
 
 interface PropertiesPanelProps {
@@ -490,24 +490,16 @@ function FileDownloadEditor({
     }
     setUploading(true);
     try {
-      // Path único por field para evitar colisiones cuando hay varios
-      // file_download en el mismo formulario. timestamp para invalidar caché.
-      const safeName = f.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-      const path = `${formularioId}/${field.name}-${Date.now()}-${safeName}`;
-      const upRes = await supabase.storage
-        .from('formulario-descargas')
-        .upload(path, f, { upsert: true, contentType: f.type || undefined });
-      if (upRes.error) {
+      // DGG-34 R4: capitalizado en service.
+      const upRes = await subirArchivoDescarga(formularioId, field.name, f);
+      if (!upRes.ok) {
         toast.error('No pudimos subir el archivo', {
-          description: upRes.error.message,
+          description: humanizeError(upRes.error),
         });
         return;
       }
-      const { data: pub } = supabase.storage
-        .from('formulario-descargas')
-        .getPublicUrl(path);
       onPatch({
-        download_url: pub.publicUrl,
+        download_url: upRes.data,
         download_filename: f.name,
         download_size_bytes: f.size,
       });

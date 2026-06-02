@@ -27,9 +27,9 @@ import {
   colorBadge,
   type TrackingLineaRow,
   type TrackingCategoriaConfigRow,
+  editarAvanceLinea,
 } from '@/services/api/trackings';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/lib/supabase';
 
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   'file-check': FileCheck,
@@ -80,13 +80,10 @@ export function LineaTrackingCard({
       return;
     }
     setSaving(true);
-    const { error } = await supabase.rpc(
-      'gerente_editar_avance_tracking' as never,
-      { p_linea_id: linea.id, p_descripcion: draft } as never,
-    );
+    const res = await editarAvanceLinea(linea.id, draft);
     setSaving(false);
-    if (error) {
-      toast.error('No pudimos guardar', { description: humanizeError(error) });
+    if (!res.ok) {
+      toast.error('No pudimos guardar', { description: humanizeError(res.error) });
       return;
     }
     toast.success('Avance actualizado');

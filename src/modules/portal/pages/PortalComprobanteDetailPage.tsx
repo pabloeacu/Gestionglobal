@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { generateComprobantePdf } from '@/modules/facturacion/lib/generateComprobantePdf';
 import { EnviarComprobanteModal } from '@/modules/facturacion/components/EnviarComprobanteModal';
-import { supabase } from '@/lib/supabase';
+import { listarPagosComprobante } from '@/services/api/portal';
 import { formatDateShort, parseLocalDate } from '@/lib/dates';
 import {
   Button,
@@ -86,9 +86,7 @@ export function PortalComprobanteDetailPage() {
     setLoading(true);
     const [res, pagosRes] = await Promise.all([
       getComprobante(id),
-      supabase.rpc('cliente_listar_pagos_comprobante' as never, {
-        p_comprobante_id: id,
-      } as never),
+      listarPagosComprobante(id),
     ]);
     setLoading(false);
     if (!res.ok) {
@@ -97,12 +95,8 @@ export function PortalComprobanteDetailPage() {
     }
     setComp(res.data.comprobante);
     setItems(res.data.items);
-    const pagosResAny = pagosRes as {
-      data: unknown[] | null;
-      error: { message: string } | null;
-    };
-    if (!pagosResAny.error && pagosResAny.data) {
-      setPagos(pagosResAny.data as unknown as PagoRow[]);
+    if (pagosRes.ok) {
+      setPagos(pagosRes.data as unknown as PagoRow[]);
     }
   }
 

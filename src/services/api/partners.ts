@@ -127,6 +127,25 @@ export async function fetchPartnerMisComprobantes(): Promise<
 // Bloque G / obs 11: ahora acepta opcionalmente el PDF de la factura (URL en
 // bucket partner-facturas) para que quede asociado al comprobante y descargable
 // desde cliente, gerencia y partner.
+// DGG-34 R4 sweep · sube el PDF de la factura del partner al bucket
+// `partner-facturas` y devuelve la URL pública. Antes vivía como import
+// dinámico de supabase en PartnerPortalPage (anti-patrón R4).
+export async function subirFacturaPartner(
+  comprobanteId: string,
+  file: File,
+): Promise<ApiResponse<string>> {
+  const safe = file.name.replace(/[^\w.\-]/g, '_');
+  const path = `${comprobanteId}/${Date.now()}-${Math.random()
+    .toString(36)
+    .slice(2, 8)}-${safe}`;
+  const { error } = await supabase.storage
+    .from('partner-facturas')
+    .upload(path, file, { upsert: false, contentType: file.type || undefined });
+  if (error) return fail('PARTNER_FACTURA_UPLOAD', error.message, error);
+  const { data } = supabase.storage.from('partner-facturas').getPublicUrl(path);
+  return ok(data.publicUrl);
+}
+
 export async function partnerMarcarFacturado(
   comprobanteId: string,
   numeroExterno: string,

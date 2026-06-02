@@ -431,6 +431,57 @@ export interface SolicitudesKpis {
   activadas_hoy: number;
 }
 
+// DGG-34 R4 sweep · capitalizaciones desde WizardActivacion + widgets.
+
+/** Lista las solicitudes pendientes con estado 'nueva' (no derivadas / no
+ * activadas). Usado por `NuevasSolicitudesWidget` en el dashboard. */
+export interface SolicitudPendienteRow {
+  id: string;
+  solicitante_nombre: string | null;
+  solicitante_email: string | null;
+  servicio_slug: string | null;
+  created_at: string;
+}
+
+export async function listSolicitudesPendientes(
+  limit = 5,
+): Promise<ApiResponse<{ rows: SolicitudPendienteRow[]; total: number }>> {
+  const { data, error, count } = await supabase
+    .from('solicitudes')
+    .select('id, solicitante_nombre, solicitante_email, servicio_slug, created_at', {
+      count: 'exact',
+    })
+    .eq('estado', 'nueva')
+    .order('created_at', { ascending: false })
+    .limit(limit);
+  if (error) return fail('SOLICITUDES_PENDIENTES', error.message, error);
+  return ok({
+    rows: (data ?? []) as SolicitudPendienteRow[],
+    total: count ?? (data?.length ?? 0),
+  });
+}
+
+/** RPC `solicitud_match_cliente` · sugiere un cliente existente al activar. */
+export interface MatchClienteRow {
+  administracion_id: string;
+  administracion_nombre: string;
+  match_field: string;
+  match_value: string;
+  cuit: string | null;
+}
+
+export async function matchClienteParaSolicitud(
+  submissionId: string,
+): Promise<ApiResponse<MatchClienteRow | null>> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.rpc as any)('solicitud_match_cliente', {
+    p_submission_id: submissionId,
+  });
+  if (error) return fail('SOLICITUD_MATCH', error.message, error);
+  const rows = (data ?? []) as MatchClienteRow[];
+  return ok(rows.length > 0 ? (rows[0] ?? null) : null);
+}
+
 export async function getKpis(): Promise<ApiResponse<SolicitudesKpis>> {
   const todayIso = new Date().toISOString().slice(0, 10);
   const [r, er, der, act] = await Promise.all([

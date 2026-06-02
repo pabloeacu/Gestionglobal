@@ -18,6 +18,7 @@ import {
   fetchPartnerMisRendiciones,
   fetchPartnerMovimientos,
   partnerMarcarFacturado,
+  subirFacturaPartner,
   type PartnerComprobanteRow,
   type PartnerRendicionResumen,
   type PartnerMovimientoRow,
@@ -394,29 +395,15 @@ function ModalFacturar({
     let pdfUrl: string | undefined;
     if (pdfFile) {
       setSubiendoPdf(true);
-      try {
-        const ts = Date.now();
-        const rand = Math.random().toString(36).slice(2, 8);
-        const safeName = pdfFile.name.replace(/[^\w.\-]/g, '_');
-        const path = `${comprobante.id}/${ts}-${rand}-${safeName}`;
-        const { supabase } = await import('@/lib/supabase');
-        const { error } = await supabase.storage
-          .from('partner-facturas')
-          .upload(path, pdfFile, {
-            upsert: false,
-            contentType: pdfFile.type || 'application/pdf',
-          });
-        if (error) throw error;
-        const pub = supabase.storage.from('partner-facturas').getPublicUrl(path);
-        pdfUrl = pub.data.publicUrl;
-      } catch (e) {
-        setSubiendoPdf(false);
+      const upRes = await subirFacturaPartner(comprobante.id, pdfFile);
+      setSubiendoPdf(false);
+      if (!upRes.ok) {
         toast.error('No pudimos subir el PDF', {
-          description: humanizeError(e),
+          description: humanizeError(upRes.error),
         });
         return;
       }
-      setSubiendoPdf(false);
+      pdfUrl = upRes.data;
     }
     setEnviando(true);
     const res = await partnerMarcarFacturado(

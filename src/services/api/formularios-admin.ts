@@ -61,6 +61,25 @@ const SCHEMA_VACIO: FormularioSchemaDef = {
   submit_label: 'Enviar',
 };
 
+// DGG-34 R4 sweep · sube un archivo de "descarga" para un campo de tipo
+// `file_download` en el builder (PropertiesPanel.tsx). Devuelve la URL pública.
+export async function subirArchivoDescarga(
+  formularioId: string,
+  fieldKey: string,
+  file: File,
+): Promise<ApiResponse<string>> {
+  const safe = file.name.replace(/[^\w.\-]/g, '_');
+  const path = `${formularioId}/${fieldKey}/${Date.now()}-${Math.random()
+    .toString(36)
+    .slice(2, 8)}-${safe}`;
+  const { error } = await supabase.storage
+    .from('formulario-descargas')
+    .upload(path, file, { upsert: false, contentType: file.type || undefined });
+  if (error) return fail('FORM_DESCARGA_UPLOAD', error.message, error);
+  const { data } = supabase.storage.from('formulario-descargas').getPublicUrl(path);
+  return ok(data.publicUrl);
+}
+
 export async function listFormulariosAdmin(): Promise<
   ApiResponse<FormularioRow[]>
 > {

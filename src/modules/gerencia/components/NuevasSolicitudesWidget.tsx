@@ -10,7 +10,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Inbox, ChevronRight, Sparkles } from 'lucide-react';
 import { Skeleton } from '@/components/common';
-import { supabase } from '@/lib/supabase';
+import { listSolicitudesPendientes } from '@/services/api/solicitudes';
 
 interface SolicitudPendiente {
   id: string;
@@ -30,19 +30,12 @@ export function NuevasSolicitudesWidget({ limit = 5 }: { limit?: number }) {
     async function load() {
       // Estado 'nueva' = solicitudes que aún no fueron derivadas a un gestor
       // ni activadas. Son las que requieren atención inmediata de la gerencia.
-      const { data, error, count } = await supabase
-        .from('solicitudes')
-        .select('id, solicitante_nombre, solicitante_email, servicio_slug, created_at', {
-          count: 'exact',
-        })
-        .eq('estado', 'nueva')
-        .order('created_at', { ascending: false })
-        .limit(limit);
+      const res = await listSolicitudesPendientes(limit);
       if (!mounted) return;
       setLoading(false);
-      if (!error && data) {
-        setItems(data as SolicitudPendiente[]);
-        setTotal(count ?? data.length);
+      if (res.ok) {
+        setItems(res.data.rows as unknown as SolicitudPendiente[]);
+        setTotal(res.data.total);
       }
     }
     void load();

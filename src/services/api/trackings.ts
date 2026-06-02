@@ -541,3 +541,51 @@ export async function fetchProximosSeguimientos(
   if (error) return fail('PROXIMOS_SEGUIMIENTOS', error.message, error);
   return ok((data ?? []) as unknown as ProximoSeguimientoRow[]);
 }
+
+// ============================================================================
+// DGG-34 R4 sweep · capitalizaciones desde componentes
+// ============================================================================
+
+/** Edita la descripción de una línea de tracking. (Gerencia.) */
+export async function editarAvanceLinea(
+  lineaId: string,
+  descripcion: string,
+): Promise<ApiResponse<true>> {
+  const { error } = await supabase.rpc(
+    'gerente_editar_avance_tracking' as never,
+    { p_linea_id: lineaId, p_descripcion: descripcion } as never,
+  );
+  if (error) return fail('TRACKING_LINEA_EDIT', error.message, error);
+  return ok(true);
+}
+
+/** Posterga la alarma de una línea de tracking N días hábiles. */
+export async function postergarAlarmaLinea(
+  lineaId: string,
+  dias: number,
+): Promise<ApiResponse<string>> {
+  const { data, error } = await supabase.rpc(
+    'postergar_alarma_tracking' as never,
+    { p_linea_id: lineaId, p_dias: dias } as never,
+  );
+  if (error) return fail('TRACKING_ALARMA_POSTERGAR', error.message, error);
+  return ok((data ?? '') as string);
+}
+
+/** Sube un archivo al bucket `gestor-uploads` para asociarlo a un tracking
+ * (drag&drop o picker desde el detail). Devuelve la URL pública. */
+export async function subirAdjuntoTracking(
+  tramiteId: string,
+  file: File,
+): Promise<ApiResponse<string>> {
+  const safe = file.name.replace(/[^\w.\-]/g, '_');
+  const path = `tracking-${tramiteId}/${Date.now()}-${Math.random()
+    .toString(36)
+    .slice(2, 8)}-${safe}`;
+  const { error } = await supabase.storage
+    .from('gestor-uploads')
+    .upload(path, file, { upsert: false, contentType: file.type || undefined });
+  if (error) return fail('TRACKING_UPLOAD', error.message, error);
+  const { data } = supabase.storage.from('gestor-uploads').getPublicUrl(path);
+  return ok(data.publicUrl);
+}

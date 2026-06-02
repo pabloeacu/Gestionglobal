@@ -23,14 +23,17 @@ import {
   type Step,
 } from '@/components/common';
 import { toast } from '@/lib/toast';
-import { supabase } from '@/lib/supabase';
+import { matchClienteParaSolicitud } from '@/services/api/solicitudes';
+import { quickSearchAdministraciones } from '@/services/api/administraciones';
+import { getTramiteAdministracionId } from '@/services/api/tramites';
 import {
   activar,
   derivar,
   type CrearClienteInput,
   type SolicitudDetalle,
 } from '@/services/api/solicitudes';
-import { humanizeError, extractEdgeFnError } from '@/lib/errors';
+import { humanizeError } from '@/lib/errors';
+import { altaClientePortal } from '@/services/api/usuarios';
 
 interface Props {
   open: boolean;
@@ -215,14 +218,10 @@ export function WizardActivacion({
     if (solicitud.cliente_id) return; // ya está vinculado
     if (!solicitud.formulario_submission_id) return;
     if (matchSugerido !== null) return;
-    void supabase
-      .rpc('solicitud_match_cliente' as never, {
-        p_submission_id: solicitud.formulario_submission_id,
-      } as never)
+    void matchClienteParaSolicitud(solicitud.formulario_submission_id)
       .then((res) => {
-        const data = (res as { data?: Array<Record<string, unknown>> }).data;
-        if (data && data.length > 0) {
-          const row = data[0] as {
+        if (res.ok && res.data) {
+          const row = res.data as unknown as {
             administracion_id: string;
             administracion_nombre: string;
             match_por: string;
@@ -241,24 +240,14 @@ export function WizardActivacion({
     });
   }
 
-  // Búsqueda de clientes existentes
+  // Búsqueda de clientes existentes · DGG-34 R4 capitalizado en service.
   useEffect(() => {
     if (modoCliente !== 'existente') return;
     const t = setTimeout(async () => {
-      const q = supabase
-        .from('administraciones')
-        .select('id, nombre, cuit')
-        .eq('activo', true)
-        .order('nombre')
-        .limit(10);
-      const { data } =
-        clienteSearch.trim().length > 0
-          ? await q.ilike('nombre', `%${clienteSearch.trim()}%`)
-          : await q;
-      setClientesEncontrados(
-        (data as Array<{ id: string; nombre: string; cuit: string | null }>) ??
-          [],
-      );
+      const res = await quickSearchAdministraciones(clienteSearch, 10);
+      if (res.ok) {
+        setClientesEncontrados(res.data);
+      }
     }, 220);
     return () => clearTimeout(t);
   }, [modoCliente, clienteSearch]);
@@ -326,11 +315,8 @@ export function WizardActivacion({
     // recibe sus accesos y todos los avisos posteriores son inútiles.
     if (modoCliente === 'nuevo') {
       try {
-        const { data: tramiteRow } = await supabase
-          .from('tramites')
-          .select('administracion_id')
-          .eq('id', res.data.trackingId)
-          .maybeSingle();
+        const adminRes = await getTramiteAdministracionId(res.data.trackingId);
+        const tramiteRow = adminRes.ok ? { administracion_id: adminRes.data } : null;
         const administracionId = tramiteRow?.administracion_id;
         const emailCliente =
           (nuevoCliente.email && nuevoCliente.email.trim()) ||
@@ -341,28 +327,22 @@ export function WizardActivacion({
           solicitud.solicitante_nombre ||
           'Cliente';
         if (administracionId && emailCliente) {
-          const { data: altaResp, error: altaErr } = await supabase.functions.invoke(
-            'alta-cliente-portal',
-            {
-              body: {
-                administracion_id: administracionId,
-                email: emailCliente,
-                nombre: nombreCliente,
-              },
-            },
-          );
-          if (altaErr) {
-            // No bloqueamos la activación si esto falla, pero avisamos a
-            // gerencia para reenviar manualmente desde el panel del cliente.
+          // DGG-34 R4: invoke encapsulado en `usuarios.altaClientePortal`.
+          const altaRes = await altaClientePortal({
+            administracion_id: administracionId,
+            email: emailCliente,
+            nombre: nombreCliente,
+          });
+          if (!altaRes.ok) {
+            // No bloqueamos la activación si esto falla.
             // eslint-disable-next-line no-console
-            console.warn('[alta-cliente-portal] falló:', altaErr);
-            const altaMsg = await extractEdgeFnError(altaErr);
+            console.warn('[alta-cliente-portal] falló:', altaRes.error);
             toast.error('Cliente creado pero no pudimos enviar el email de bienvenida', {
-              description: 'Reenviá manualmente desde la ficha del cliente. ' + humanizeError(altaMsg),
+              description: 'Reenviá manualmente desde la ficha del cliente. ' + humanizeError(altaRes.error),
               duration: 10000,
             });
-          } else if (altaResp && typeof altaResp === 'object' && 'password_set' in altaResp) {
-            const resp = altaResp as { password_set: boolean };
+          } else if (altaRes.data && typeof altaRes.data === 'object' && 'password_set' in altaRes.data) {
+            const resp = altaRes.data as { password_set: boolean };
             toast.success(
               resp.password_set
                 ? '¡Cliente creado! Email de bienvenida enviado con credenciales.'

@@ -17,6 +17,18 @@ export interface WebinarKpis {
   total_inscriptos: number;
 }
 
+// DGG-34 R4 sweep · capitalización RPC cliente (PortalWebinarsPage.tsx).
+export async function inscribirmeAWebinar(
+  webinarId: string,
+): Promise<ApiResponse<true>> {
+  const { error } = await supabase.rpc(
+    'cliente_webinar_inscribirme' as never,
+    { p_webinar_id: webinarId } as never,
+  );
+  if (error) return fail('WEBINAR_INSCRIBIRME', error.message, error);
+  return ok(true);
+}
+
 export async function listWebinars(): Promise<ApiResponse<WebinarRow[]>> {
   try {
     const { data, error } = await supabase

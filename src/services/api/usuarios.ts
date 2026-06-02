@@ -34,6 +34,33 @@ export async function eliminarGerente(userId: string): Promise<ApiResponse<true>
   return ok(true);
 }
 
+// DGG-34 R4 sweep · capitalización edge fn alta-cliente-portal
+// (WizardActivacion.tsx).
+export interface AltaClientePortalPayload {
+  administracion_id?: string;
+  email: string;
+  nombre: string;
+  apellido?: string;
+  telefono?: string;
+  cuit?: string;
+  enviar_email_bienvenida?: boolean;
+  // permitir extender en el futuro sin romper TS
+  [k: string]: unknown;
+}
+
+export async function altaClientePortal(
+  payload: AltaClientePortalPayload,
+): Promise<ApiResponse<unknown>> {
+  const { data, error } = await supabase.functions.invoke('alta-cliente-portal', {
+    body: payload,
+  });
+  if (error) {
+    const msg = await extractEdgeFnError(error);
+    return fail('ALTA_CLIENTE_PORTAL', msg, error);
+  }
+  return ok(data);
+}
+
 // DGG-34 · Editar nombre + rol de un gerente/operador desde el panel Usuarios
 export async function actualizarGerente(
   user_id: string,

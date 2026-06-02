@@ -14,7 +14,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useDropZone } from '@/lib/useDropZone';
-import { supabase } from '@/lib/supabase';
 import {
   ArrowLeft,
   Briefcase,
@@ -70,6 +69,8 @@ import {
   getTracking,
   cerrarTracking,
   colorBadge,
+  agregarLinea,
+  subirAdjuntoTracking,
   type TrackingDetail,
   type TrackingLineaRow,
   type TrackingVencimientoLigado,
@@ -155,24 +156,14 @@ export function TrackingDetailPage() {
     toast.info(`Subiendo ${files.length} archivo${files.length === 1 ? '' : 's'}…`);
     const urls: string[] = [];
     for (const f of files) {
-      const safe = f.name.replace(/[^\w.\-]/g, '_');
-      const path = `tracking-${tid}/${Date.now()}-${Math.random()
-        .toString(36)
-        .slice(2, 8)}-${safe}`;
-      const { error } = await supabase.storage
-        .from('gestor-uploads')
-        .upload(path, f, { upsert: false, contentType: f.type || undefined });
-      if (error) {
-        toast.error(`No se pudo subir ${f.name}`, { description: humanizeError(error) });
+      const r = await subirAdjuntoTracking(tid, f);
+      if (!r.ok) {
+        toast.error(`No se pudo subir ${f.name}`, { description: humanizeError(r.error) });
         continue;
       }
-      const { data: pub } = supabase.storage
-        .from('gestor-uploads')
-        .getPublicUrl(path);
-      urls.push(pub.publicUrl);
+      urls.push(r.data);
     }
     if (urls.length === 0) return;
-    const { agregarLinea } = await import('@/services/api/trackings');
     const res = await agregarLinea(tid, {
       categoria: 'documentacion',
       descripcion: `Documentación adjunta (${urls.length} archivo${urls.length === 1 ? '' : 's'} via drag&drop)`,

@@ -23,6 +23,31 @@ export interface AdministracionListItem extends AdministracionRow {
   responsable_avatar_url: string | null;
 }
 
+// DGG-34 R4 sweep · búsqueda rápida para combos / autocompletes
+// (WizardActivacion al elegir cliente existente).
+export interface AdministracionQuickRow {
+  id: string;
+  nombre: string;
+  cuit: string | null;
+}
+
+export async function quickSearchAdministraciones(
+  query: string,
+  limit = 10,
+): Promise<ApiResponse<AdministracionQuickRow[]>> {
+  const q = supabase
+    .from('administraciones')
+    .select('id, nombre, cuit')
+    .eq('activo', true)
+    .order('nombre')
+    .limit(limit);
+  const { data, error } = query.trim().length > 0
+    ? await q.ilike('nombre', `%${query.trim()}%`)
+    : await q;
+  if (error) return fail('ADMINS_QUICK', error.message, error);
+  return ok((data ?? []) as AdministracionQuickRow[]);
+}
+
 export async function listAdministraciones(
   params: ListAdministracionesParams = {},
 ): Promise<ApiResponse<{ rows: AdministracionListItem[]; total: number }>> {

@@ -328,6 +328,21 @@ export type UpdateTramitePatch = Partial<{
   solicitante_telefono: string | null;
 }>;
 
+// DGG-34 R4 sweep · lectura puntual del administracion_id de un trámite
+// (WizardActivacion la usa post-alta para decidir si dispara email de
+// bienvenida al cliente). Evita traer el detalle completo.
+export async function getTramiteAdministracionId(
+  id: string,
+): Promise<ApiResponse<string | null>> {
+  const { data, error } = await supabase
+    .from('tramites')
+    .select('administracion_id')
+    .eq('id', id)
+    .maybeSingle();
+  if (error) return fail('TRAMITE_GET_ADMIN_ID', error.message, error);
+  return ok(data?.administracion_id ?? null);
+}
+
 export async function updateTramite(
   id: string,
   patch: UpdateTramitePatch,
