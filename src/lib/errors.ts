@@ -115,6 +115,14 @@ const HUMAN_BY_MESSAGE: Array<{ re: RegExp; human: string }> = [
   { re: /row-level security/i, human: 'No tenés permisos para realizar esta acción.' },
   { re: /rate limit/i, human: 'Hiciste muchas operaciones seguidas. Esperá unos segundos y reintentá.' },
   { re: /aborted|abortcontroller/i, human: 'La operación fue cancelada.' },
+  // Supabase Auth · cambio de contraseña (E-GG-39, 2026-06-02). La edge fn
+  // `cambiar-mi-password` ya humaniza estos casos antes de devolverlos, pero
+  // dejamos los regex acá como defensa en profundidad por si el mensaje
+  // crudo escapa desde otro flujo (reset email, signup, etc.).
+  { re: /password is known to be weak|password.*compromised|known to be (weak|easy)/i, human: 'La contraseña que elegiste aparece en filtraciones públicas conocidas. Por seguridad, elegí una más original.' },
+  { re: /password should be at least|password is too short/i, human: 'La contraseña es muy corta. Probá con una de al menos 8 caracteres.' },
+  { re: /new password should be different|same as the old password/i, human: 'La contraseña nueva tiene que ser distinta a la anterior.' },
+  { re: /password should contain|character types/i, human: 'La contraseña no cumple los requisitos mínimos.' },
 ];
 
 /**

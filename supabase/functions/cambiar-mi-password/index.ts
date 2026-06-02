@@ -97,10 +97,30 @@ Deno.serve(async (req) => {
     password: next,
   });
   if (updErr) {
-    return json(500, {
-      ok: false,
-      error: `No pudimos actualizar la contraseña: ${updErr.message}`,
-    });
+    // Humanizar los mensajes técnicos de Supabase Auth a algo accionable
+    // en español. AUDIT acción 2 #270 activó "Leaked password protection"
+    // (HaveIBeenPwned), por eso aparece "Password is known to be weak".
+    // Reportado por cliente real desde portal el 2026-06-02 (E-GG-39).
+    const raw = (updErr.message ?? '').toLowerCase();
+    let humano = 'No pudimos actualizar la contraseña. Probá con otra distinta.';
+    let status = 500;
+    if (raw.includes('known to be weak') || raw.includes('compromised')) {
+      humano = 'La contraseña que elegiste aparece en filtraciones públicas conocidas. Por seguridad, elegí una más original (combiná mayúsculas, minúsculas, números y un símbolo).';
+      status = 422;
+    } else if (raw.includes('should be at least') || raw.includes('password is too short')) {
+      humano = 'La contraseña es muy corta. Probá con una de al menos 8 caracteres.';
+      status = 422;
+    } else if (raw.includes('should be different') || raw.includes('same as the old')) {
+      humano = 'La contraseña nueva tiene que ser distinta a la anterior.';
+      status = 422;
+    } else if (raw.includes('should contain') || raw.includes('character types')) {
+      humano = 'La contraseña no cumple los requisitos mínimos (al menos 8 caracteres con letras y números).';
+      status = 422;
+    } else if (raw.includes('rate limit') || raw.includes('too many')) {
+      humano = 'Hiciste muchos intentos seguidos. Esperá unos minutos y reintentá.';
+      status = 429;
+    }
+    return json(status, { ok: false, error: humano });
   }
 
   return json(200, { ok: true });

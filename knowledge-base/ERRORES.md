@@ -14,6 +14,72 @@
 - **Fecha / módulo:**
 -->
 
+## E-GG-39 · Cliente no puede cambiar contraseña — mensaje técnico en inglés crudo ("Password is known to be weak and easy to guess")
+- **Síntoma:** un cliente reporta desde su portal (2026-06-02) que no
+  puede actualizar su contraseña. Toast: *"No pudimos actualizar la
+  contraseña: Password is known to be weak and easy to guess, please
+  choose a different one."* El mensaje técnico en inglés viola el
+  estándar premium (todo copy al cliente debe ser en español y accionable),
+  rompe la confianza, y NO le explica al cliente qué hacer para resolverlo.
+- **Causa raíz:** en AUDIT acción 2 #270 activamos "Leaked password
+  protection" en Supabase Auth (chequea HaveIBeenPwned). Cuando el
+  cliente eligió una contraseña que aparece en filtraciones públicas,
+  Supabase rechaza con ese mensaje. La edge fn `cambiar-mi-password`
+  (línea 99-103 v1) hacía:
+  ```ts
+  if (updErr) {
+    return json(500, {
+      ok: false,
+      error: `No pudimos actualizar la contraseña: ${updErr.message}`,
+    });
+  }
+  ```
+  → propagaba el `updErr.message` literal sin traducir. El frontend
+  pasa el error por `humanizeError`, pero `humanizeError` solo conoce
+  los códigos / regex registrados — y este patrón nuevo no estaba.
+- **Fix (edge fn v2 + lib/errors.ts):**
+  1. Edge fn `cambiar-mi-password` ahora humaniza ANTES de devolver
+     (defensa en origen): detecta los patrones conocidos y devuelve
+     mensajes en español con la acción que el usuario tiene que tomar.
+     Status code apropiado (422 unprocessable, 429 rate limit).
+     Patrones mapeados:
+     - `known to be weak` / `compromised` →
+       "La contraseña que elegiste aparece en filtraciones públicas
+        conocidas. Por seguridad, elegí una más original (combiná
+        mayúsculas, minúsculas, números y un símbolo)."
+     - `should be at least` / `is too short` →
+       "La contraseña es muy corta. Probá con una de al menos 8 caracteres."
+     - `should be different` / `same as the old` →
+       "La contraseña nueva tiene que ser distinta a la anterior."
+     - `should contain` / `character types` →
+       "La contraseña no cumple los requisitos mínimos…"
+     - `rate limit` / `too many` →
+       "Hiciste muchos intentos seguidos. Esperá unos minutos…"
+     - fallback genérico humano.
+  2. `lib/errors.ts` (HUMAN_BY_MESSAGE): agregué los mismos patrones
+     como **defensa en profundidad** por si el mensaje crudo escapa
+     desde otro flujo (signup, reset por email nativo de Supabase, etc.)
+     y llega al frontend sin pasar por la edge fn.
+- **Auditoría transversal** (R12 / regla 9): grep de
+  `auth.updateUser | admin.updateUserById | resetPasswordForEmail`
+  en `src/` y `supabase/functions/`. Resultado: el **único** punto donde
+  cambiamos contraseña en código propio es la edge fn `cambiar-mi-password`
+  (línea 96). El reset-por-email usa el flujo nativo de Supabase que
+  controla el copy desde el dashboard. Los `setPassword` que aparecen
+  en `LoginPage`/`EncuentrosTab` son state locales de inputs (no auth).
+  → un único punto de fix cubre el universo. Frontend `PerfilPage:423`
+  ya invoca con `humanizeError`, no requiere cambios.
+- **Prevención:** patrón canónico — **toda edge fn que envuelve un
+  servicio externo (Supabase Auth, ARCA, Resend, Zoom) debe traducir
+  errores técnicos a copy humano en español ANTES de devolver al
+  cliente**. El "fallback al `humanizeError` del frontend" funciona
+  para casos genéricos (RLS, FK violation) pero NO para mensajes
+  proprietarios del servicio. Smoke check al cierre de cualquier
+  chunk que toque edge fns wrappers: ¿devuelve el error tal cual o
+  lo traduce? Si lo devuelve tal cual → bug latente.
+- **Fecha / módulo:** 2026-06-02 · Portal cliente · Auth · edge fn
+  `cambiar-mi-password` v2.
+
 ## E-GG-38 · Mover trámite en kanban niega permisos al gerente (RLS bloquea trigger INVOKER que escribe en `tramite_eventos`)
 - **Síntoma:** José Luis (gerente, máxima autoridad) intenta mover un trámite
   en `/gerencia/tramites/kanban` (TRM-2026-00014, Abiertos → En progreso)
