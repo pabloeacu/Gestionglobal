@@ -6,8 +6,25 @@
   :root {
     color-scheme: light;
   }
-  html,
-  body {
+  /* AJL · 2026-06-02 (revisado): por qué html y body NO comparten height:100%
+     ni overflow-x:hidden simétricamente.
+     - `html { height:100%; overflow-x:hidden }` hace que html (el viewport)
+       clipee a la altura de la ventana y, por CSS Overflow spec, propague su
+       overflow a la viewport → html es el scroll container; window.scrollY
+       funciona. OK.
+     - Si encima ponemos `body { height:100%; overflow-x:hidden }`, body queda
+       fijo a 100% del html (= viewport), pero su CONTENIDO crece más alto.
+       Como body tiene overflow-x explícito, el browser deriva overflow-y:auto
+       en body → body se vuelve SU PROPIO scroll container, encima del html.
+       Visualmente "scrolleás", pero quien scrollea es body — y window.scrollY
+       siempre devuelve 0 porque html nunca se mueve. Resultado: al cambiar
+       de ruta, `window.scrollTo(0)` no hace nada y la página nueva "se abre
+       desde abajo" con el scroll heredado del body anterior (que tampoco
+       resetea porque ScrollToTopOnRouteChange usa window.scrollTo).
+     - El fix: body con `min-height:100%` (no height fijo). Body crece con su
+       contenido, no genera su propio scroll viewport, y todo el scroll vive
+       en html/window. */
+  html {
     height: 100%;
     /* Fix iOS PWA: evita scroll horizontal accidental que muestra el fondo
        oscuro lateral y pierde foco de la pantalla principal. */
@@ -15,23 +32,24 @@
     max-width: 100vw;
     overscroll-behavior-x: none;
   }
-  /* AJL · 2026-06-02: importante. NO le damos `height: 100%` ni `overflow-x:
-     hidden` a #root porque eso lo convierte implícitamente en scroll
-     container (browser deriva overflow-y: auto cuando hay overflow-x: hidden
-     + height fijo). Con #root como scroll container, `window.scrollTo(0)`
-     deja de funcionar y al navegar entre rutas la nueva página "se abre
-     desde abajo". Lo dejamos con min-height para mantener el background
-     ocupando el viewport, pero permitiendo que el scroll viva en window. */
-  #root {
-    min-height: 100%;
-    max-width: 100vw;
-  }
   body {
+    min-height: 100%;
+    overflow-x: hidden;
+    max-width: 100vw;
+    overscroll-behavior-x: none;
     @apply bg-white text-brand-ink antialiased;
     /* (Removido touch-action:pan-y del body porque rompía el DnD HTML5
         del constructor de formularios y otros draggables. El swipe
         horizontal accidental ya se neutraliza con overflow-x:hidden +
         max-width:100vw en html/body.) */
+  }
+  /* #root sigue siendo un contenedor "transparente": min-height para que el
+     background ocupe el viewport en pantallas cortas, pero sin height fijo
+     ni overflow explícito (eso lo convertiría en otro scroll container y
+     volveríamos al bug). */
+  #root {
+    min-height: 100%;
+    max-width: 100vw;
   }
 }
 
