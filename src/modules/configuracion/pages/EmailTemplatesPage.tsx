@@ -67,7 +67,7 @@ const SAMPLE_VARS: Record<string, string> = {
   link_descarga: 'https://gestionglobal.ar/descargar/abc',
   link_portal: 'https://gestionglobal.ar/portal',
   nombre_curso: 'Liquidación de expensas — Nivel 2',
-  webinar_titulo: 'Renovación bianual RPAC',
+  webinar_titulo: 'Renovación anual RPAC',
   formulario_titulo: 'Inscripción al RPAC',
   asunto: 'Solicitud de baja de unidad',
   tipo_label: 'Vencimiento',

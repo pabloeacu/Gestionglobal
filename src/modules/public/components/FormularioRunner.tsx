@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { createPortal } from 'react-dom';
 import { toast } from '@/lib/toast';
 import {
   Send,
@@ -504,6 +505,13 @@ function PrefilledBadge() {
  * para que el usuario tenga referencia exacta.
  *
  * Cierra con: click afuera, botón "Cerrar", o tecla ESC.
+ *
+ * Iteración 2026-06-02 (JL feedback):
+ *   - Popover montado en `document.body` vía createPortal con position fixed
+ *     y z-index 9999 → ya no queda enterrado dentro de la sección por
+ *     overflow/z-index de contenedores padres (caso "renovacion-rpac" cortado).
+ *   - Texto cursiva pequeña a la izquierda del ojito ("Presioná acá para ver
+ *     el modelo del documento →") para guiar al usuario al ícono.
  */
 function FieldPreviewEye({
   preview,
@@ -511,14 +519,38 @@ function FieldPreviewEye({
   preview: NonNullable<FormularioFieldDef['preview']>;
 }) {
   const [open, setOpen] = useState(false);
-  const wrapperRef = useRef<HTMLSpanElement>(null);
+  const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
 
+  // Posicionar el popover (fixed) bajo el botón, clampeado al viewport.
+  useEffect(() => {
+    if (!open || !triggerRef.current) return;
+    function place() {
+      const rect = triggerRef.current!.getBoundingClientRect();
+      const width = Math.min(360, window.innerWidth - 16);
+      let left = rect.left + rect.width / 2 - width / 2;
+      left = Math.max(8, Math.min(window.innerWidth - width - 8, left));
+      const top = rect.bottom + 8;
+      setPos({ top, left, width });
+    }
+    place();
+    window.addEventListener('resize', place);
+    window.addEventListener('scroll', place, true);
+    return () => {
+      window.removeEventListener('resize', place);
+      window.removeEventListener('scroll', place, true);
+    };
+  }, [open]);
+
+  // Click afuera + ESC.
   useEffect(() => {
     if (!open) return;
     function onPointerDown(e: MouseEvent) {
-      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
+      const t = e.target as Node;
+      if (popoverRef.current?.contains(t)) return;
+      if (triggerRef.current?.contains(t)) return;
+      setOpen(false);
     }
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') setOpen(false);
@@ -532,8 +564,12 @@ function FieldPreviewEye({
   }, [open]);
 
   return (
-    <span ref={wrapperRef} className="relative inline-flex">
+    <span className="inline-flex items-center gap-1.5">
+      <span className="text-[11px] italic leading-tight text-brand-muted">
+        Presioná acá para ver el modelo del documento →
+      </span>
       <button
+        ref={triggerRef}
         type="button"
         onClick={(e) => { e.preventDefault(); setOpen((o) => !o); }}
         title="Ver ejemplo del documento"
@@ -543,11 +579,19 @@ function FieldPreviewEye({
       >
         <Eye size={14} />
       </button>
-      {open && (
+      {open && pos && createPortal(
         <div
+          ref={popoverRef}
           role="dialog"
           aria-label={`Ejemplo: ${preview.filename}`}
-          className="absolute left-1/2 top-full z-30 mt-2 w-[min(20rem,90vw)] -translate-x-1/2 rounded-2xl border border-slate-200 bg-white p-3 shadow-2xl sm:left-0 sm:translate-x-0"
+          style={{
+            position: 'fixed',
+            top: pos.top,
+            left: pos.left,
+            width: pos.width,
+            zIndex: 9999,
+          }}
+          className="rounded-2xl border border-slate-200 bg-white p-3 shadow-2xl"
         >
           <div className="mb-2 flex items-center justify-between">
             <p className="text-[10px] font-semibold uppercase tracking-wider text-brand-muted">
@@ -566,7 +610,7 @@ function FieldPreviewEye({
             src={preview.url}
             alt={preview.alt ?? preview.filename}
             loading="lazy"
-            className="w-full rounded-lg border border-slate-200 bg-slate-50 object-contain"
+            className="max-h-[70vh] w-full rounded-lg border border-slate-200 bg-slate-50 object-contain"
           />
           <p
             className="mt-2 break-words text-xs font-medium text-brand-ink"
@@ -574,7 +618,8 @@ function FieldPreviewEye({
           >
             {preview.filename}
           </p>
-        </div>
+        </div>,
+        document.body,
       )}
     </span>
   );
