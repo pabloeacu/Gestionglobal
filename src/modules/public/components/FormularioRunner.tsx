@@ -565,8 +565,8 @@ function FieldPreviewEye({
 
   return (
     <span className="inline-flex items-center gap-1.5">
-      <span className="text-[10px] italic leading-tight text-brand-muted">
-        presioná acá para ver el modelo del documento →
+      <span className="text-xs text-brand-muted">
+        Presioná acá para ver el modelo del documento →
       </span>
       <button
         ref={triggerRef}
