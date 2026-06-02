@@ -1,8 +1,9 @@
 # CLAUDE.md — Plataforma Gestión Global
 
-> Las reglas eran 13 originales. **A partir de 2026-06-02 son 15** —
-> sumamos R14 (paridad columna-grilla ↔ control) y R15 (diff legacy ↔
-> nueva al redirigir), capitalizadas del incidente E-GG-35.
+> Las reglas eran 13 originales. **A partir de 2026-06-02 son 16** —
+> sumamos R14 (paridad columna-grilla ↔ control), R15 (diff legacy ↔
+> nueva al redirigir) capitalizadas del incidente E-GG-35, y R16 (overloads
+> de RPC ambiguos) capitalizada del bug de cobranza de José Luis (E-GG-37).
 
 > **Si arrancás una sesión nueva, leé en este orden:**
 >   1. `PROJECT_STATUS.md` (raíz) — snapshot vivo de dónde quedó el proyecto,
@@ -23,7 +24,7 @@ Ecosistema digital único de **Gestión Global** (servicios a administradores de
 consorcios) bajo el dominio **gestionglobal.ar**. Tres accesos: panel de socios
 gerentes, portal de administradores clientes, formularios públicos sin login.
 
-## 2. Las 15 reglas no negociables
+## 2. Las 16 reglas no negociables
 
 1. **Persistencia en BD siempre.** Toda mutación de negocio pasa por Supabase
    (INSERT/UPDATE/DELETE o RPC). `setState` sin persistir = bug.
@@ -84,6 +85,23 @@ gerentes, portal de administradores clientes, formularios públicos sin login.
     detectado la pérdida del selector "Asignado a" entre
     `TramiteDetailPage` y `TrackingDetailPage` hace 7 meses, evitando
     E-GG-35.
+16. **Nunca dejar overloads de RPC ambiguos al extender firmas** (E-GG-37,
+    2026-06-02). Cuando una migración agrega un parámetro a una RPC pública
+    (aunque sea con `DEFAULT NULL`), **`CREATE OR REPLACE FUNCTION` NO
+    sobrescribe la firma vieja si cambia la cantidad de parámetros** — crea
+    un overload paralelo. PostgREST (el cliente Supabase) pierde la
+    capacidad de elegir entre los dos y devuelve `Could not choose the
+    best candidate function`. Es un bug de producción inmediato. La regla:
+    al EXTENDER una RPC pública, escribir siempre **`DROP FUNCTION IF
+    EXISTS ...(sigs viejas); CREATE FUNCTION ...(sig nueva)`**, no
+    `CREATE OR REPLACE` solo. Smoke check de cierre de chunk SQL:
+    ```
+    SELECT p.proname FROM pg_proc p JOIN pg_namespace n ON
+      n.oid=p.pronamespace
+    WHERE n.nspname='public' GROUP BY p.proname HAVING count(*) > 1;
+    ```
+    Debe devolver 0 filas. Si devuelve algo, dropear el overload viejo
+    antes de cerrar.
 
 ## 3. Decisiones de arranque (2026-05-19)
 

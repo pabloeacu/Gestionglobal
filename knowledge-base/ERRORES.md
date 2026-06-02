@@ -14,6 +14,77 @@
 - **Fecha / módulo:**
 -->
 
+## E-GG-37 · Overloads ambiguos de RPC rompen el frontend ("Could not choose the best candidate function")
+- **Síntoma:** José Luis (2026-06-02) intenta confirmar el paso 3 de la
+  cobranza de la matrícula del curso (X 00001-00000017, $125.000) y el
+  toast tira:
+  ```
+  No pudimos registrar la cobranza
+  Could not choose the best candidate function between:
+    public.registrar_cobranza_comprobante(p_comprobante_id ⇒ uuid, ...,
+      p_categoria_id ⇒ uuid),
+    public.registrar_cobranza_comprobante(p_comprobante_id ⇒ uuid, ...,
+      p_categoria_id ⇒ uuid, p_partner_id_atribucion ⇒ uuid)
+  ```
+  La cobranza queda **bloqueada para toda gerencia**. Es un bug de
+  producción crítico que aparece tan pronto como se intenta cobrar el
+  primer comprobante post-mig.
+- **Causa raíz:** cuando una migración EXTIENDE una RPC agregando un
+  parámetro nuevo con `DEFAULT NULL`, Postgres NO reemplaza la firma vieja
+  — crea **OTRO** overload con la firma extendida. Quedan dos firmas
+  coexistentes:
+    1. `registrar_cobranza_comprobante(... p_categoria_id uuid)` (vieja).
+    2. `registrar_cobranza_comprobante(... p_categoria_id uuid,
+        p_partner_id_atribucion uuid DEFAULT NULL)` (extendida).
+  PostgREST (el cliente HTTP que usa Supabase) no puede decidir cuál
+  invocar cuando recibe exactamente los 7 args originales (matcha ambas),
+  y devuelve este error genérico. El frontend nunca vio el bug en QA
+  porque pruebas pasadas usaban la firma extendida con partner_id_atribucion,
+  pero la cobranza estándar (sin partner) pasa los 7 args base y hace
+  estallar la resolución.
+- **Por qué la auditoría DEEP no lo cazó completo:** DEEP-AUDIT-D (mismo
+  día, antes de este reporte) detectó UN caso exacto del patrón:
+  `fz_crear_movimiento_manual` con 2 overloads (10 vs 11 args). Lo trató
+  como "ambiguity hazard" en el reporte y lo dropeó en mig 0172. Pero
+  **no hizo el query transversal** para detectar TODOS los casos del
+  mismo patrón en el schema. Si lo hubiera hecho, habría encontrado los
+  otros 3 antes de que José Luis tropezara. Lección capturada en R16
+  (abajo).
+- **Auditoría transversal post-incidente** con
+  `SELECT p.proname, count(*) FROM pg_proc p JOIN pg_namespace n ON
+   n.oid=p.pronamespace WHERE n.nspname='public' GROUP BY p.proname
+   HAVING count(*) > 1`:
+  | RPC | overload viejo | overload extendido (DEFAULT) | riesgo |
+  |---|---|---|---|
+  | `registrar_cobranza_comprobante` | 7 args | +`p_partner_id_atribucion uuid` | **rompió la cobranza de José Luis** |
+  | `partner_marcar_facturado` | 3 args | +`p_pdf_url text` | rompía el adjuntar PDF si se llamaba sin él |
+  | `solicitud_derivar` | 5 args | +`p_dias_validez integer` | rompía las derivaciones con TTL |
+- **Fix (mig 0173):** DROP de los 3 overloads viejos. El extendido es
+  retro-compatible porque todos los nuevos params tienen `DEFAULT`. El
+  frontend no necesita cambios — el service ya construía args correctos.
+- **Verificación e2e** (vía DO block en BD con args originales):
+  ```sql
+  PERFORM public.registrar_cobranza_comprobante(<7 args sin partner>);
+  -- Antes: ERROR "Could not choose the best candidate function".
+  -- Después: ERROR "Solo gerencia/operacion puede registrar cobranzas"
+  --   (porque service_role no es staff — esperado; no es de ambigüedad).
+  ```
+  Confirma que el resolver eligió la única firma disponible y entró al
+  cuerpo de la función. ✓
+- **Prevención:**
+  - **R16 (nueva, propuesta para CLAUDE.md)**: "Cuando una migración
+    EXTIENDE una RPC pública agregando un nuevo parámetro (incluso con
+    `DEFAULT`), hacer **`DROP FUNCTION ... ; CREATE FUNCTION ...`** en
+    vez de `CREATE OR REPLACE FUNCTION` solo. `CREATE OR REPLACE` no
+    sobrescribe la firma vieja cuando cambia la cantidad de parámetros
+    — crea un overload paralelo que rompe el resolver de PostgREST. La
+    única forma segura es DROP previo (con `IF EXISTS` para idempotencia)."
+  - **Smoke check de cierre de chunk SQL**: después de cada mig que crea
+    o modifica una RPC pública, correr la query de overloads ambiguos
+    arriba — `HAVING count(*) > 1` debe dar 0. Si da > 0, DROP el viejo
+    antes de cerrar el chunk.
+- **Fecha / módulo:** 2026-06-02 · facturación/cobranza · migración 0173.
+
 ## E-GG-36 · Trigger `_notif_cobranza_recibida_trg` fallaba cuando comprobante_id IS NULL
 - **Síntoma:** SMOKE 2 e2e (insertar movimiento ingreso/facturacion sin
   comprobante_id) falló con:
