@@ -34,6 +34,21 @@ export async function eliminarGerente(userId: string): Promise<ApiResponse<true>
   return ok(true);
 }
 
+// DGG-34 · Editar nombre + rol de un gerente/operador desde el panel Usuarios
+export async function actualizarGerente(
+  user_id: string,
+  full_name: string,
+  role: 'gerente' | 'operador',
+): Promise<ApiResponse<{ ok: true }>> {
+  const { error } = await supabase.rpc('actualizar_gerente', {
+    p_user_id: user_id,
+    p_full_name: full_name,
+    p_role: role,
+  });
+  if (error) return fail('USERS_UPDATE', error.message, error);
+  return ok({ ok: true });
+}
+
 export async function crearGerente(
   email: string,
   nombre: string,

@@ -417,7 +417,7 @@ function CjEditorDrawer({ initial, onClose, onSaved }: DrawerProps) {
       toast.success('PDF generado y descargado');
       onSaved(saved);
     } catch (e) {
-      toast.error('Error generando PDF', { description: (e as Error).message });
+      toast.error('Error generando PDF', { description: humanizeError(e) });
     } finally {
       setGenerating(false);
     }

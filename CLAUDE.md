@@ -1,5 +1,9 @@
 # CLAUDE.md — Plataforma Gestión Global
 
+> Las reglas eran 13 originales. **A partir de 2026-06-02 son 15** —
+> sumamos R14 (paridad columna-grilla ↔ control) y R15 (diff legacy ↔
+> nueva al redirigir), capitalizadas del incidente E-GG-35.
+
 > **Si arrancás una sesión nueva, leé en este orden:**
 >   1. `PROJECT_STATUS.md` (raíz) — snapshot vivo de dónde quedó el proyecto,
 >      qué se hizo, qué falta, qué se pateó. **OBLIGATORIO antes de cualquier
@@ -19,7 +23,7 @@ Ecosistema digital único de **Gestión Global** (servicios a administradores de
 consorcios) bajo el dominio **gestionglobal.ar**. Tres accesos: panel de socios
 gerentes, portal de administradores clientes, formularios públicos sin login.
 
-## 2. Las 13 reglas no negociables
+## 2. Las 15 reglas no negociables
 
 1. **Persistencia en BD siempre.** Toda mutación de negocio pasa por Supabase
    (INSERT/UPDATE/DELETE o RPC). `setState` sin persistir = bug.
@@ -63,6 +67,23 @@ gerentes, portal de administradores clientes, formularios públicos sin login.
     prohibidos. Usar `useConfirm()` / `usePrompt()` / `useAlert()`
     (`src/components/common/DialogProvider.tsx`). Toasts (`sonner`) sólo para
     feedback fugaz.
+14. **Paridad columna-grilla ↔ control de edición** (E-GG-35, 2026-06-02).
+    Toda columna persistida visible en una grilla de gerencia debe tener al
+    menos una de: (a) editor en el detail ruteado, (b) control en el form
+    drawer de alta, (c) quick-edit inline, o (d) tag `AUTO` documentado
+    (trigger/derivada). Si ninguna aplica → deuda y se documenta como GAP
+    en `ERRORES.md`. Al cierre de cada chunk: pasada mental "para cada
+    columna que se muestra, ¿hay UI para setearla?". Sirve para no repetir
+    el caso "Asignado · Sin asignar" sin editor alcanzable.
+15. **Diff legacy ↔ nueva al redirigir rutas** (E-GG-01 → E-GG-35,
+    2026-06-02). Cuando una mig de UI redirige una ruta legacy a una página
+    nueva (`<Navigate to="..." replace />`), antes del merge correr un
+    diff explícito de los campos editables entre las dos páginas. Cualquier
+    control de mutación presente en la legacy y ausente en la nueva es
+    una regresión silenciosa (= E## obligatorio en `ERRORES.md`). Habría
+    detectado la pérdida del selector "Asignado a" entre
+    `TramiteDetailPage` y `TrackingDetailPage` hace 7 meses, evitando
+    E-GG-35.
 
 ## 3. Decisiones de arranque (2026-05-19)
 

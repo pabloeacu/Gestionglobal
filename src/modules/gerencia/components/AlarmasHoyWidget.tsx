@@ -10,6 +10,7 @@ import { Link } from 'react-router-dom';
 import { Bell, Clock, AlertTriangle, ChevronRight, Loader2 } from 'lucide-react';
 import { Skeleton } from '@/components/common';
 import { toast } from '@/lib/toast';
+import { humanizeError } from '@/lib/errors';
 import { supabase } from '@/lib/supabase';
 
 interface AlarmaHoy {
@@ -55,7 +56,7 @@ export function AlarmasHoyWidget() {
     )) as { data: string | null; error: { message: string } | null };
     setPostergandoId(null);
     if (res.error) {
-      toast.error('No pudimos postergar', { description: res.error.message });
+      toast.error('No pudimos postergar', { description: humanizeError(res.error) });
       return;
     }
     toast.success(`Postergada +${dias} días hábiles`);

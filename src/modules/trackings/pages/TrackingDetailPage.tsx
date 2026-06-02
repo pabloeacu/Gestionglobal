@@ -77,6 +77,7 @@ import {
 import { LineaTrackingCard } from '../components/LineaTrackingCard';
 import { LineasTimeline } from '../components/LineasTimeline';
 import { AgregarLineaDrawer } from '../components/AgregarLineaDrawer';
+import { TrackingMetadataDrawer } from '../components/TrackingMetadataDrawer';
 import { generateReportPdf } from '@/lib/reportPdf';
 import { RecurrenciaList } from '../components/RecurrenciaList';
 import { EstadosConfigManager } from '../components/EstadosConfigManager';
@@ -118,6 +119,10 @@ export function TrackingDetailPage() {
   const [pdfBusy, setPdfBusy] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [programarOpen, setProgramarOpen] = useState(false);
+  // DEEP-1 · drawer para editar metadata del trámite post-alta. Antes los
+  // campos titulo/categoria/prioridad/vence_at/admin/consorcio/solicitante
+  // sólo se podían setear durante el alta.
+  const [editMetaOpen, setEditMetaOpen] = useState(false);
   // 2.G · cuando true, el modal de programar abre en modo edición del
   // vencimiento ligado (precarga fecha + offsets + notificar).
   const [editandoCronograma, setEditandoCronograma] = useState(false);
@@ -158,7 +163,7 @@ export function TrackingDetailPage() {
         .from('gestor-uploads')
         .upload(path, f, { upsert: false, contentType: f.type || undefined });
       if (error) {
-        toast.error(`No se pudo subir ${f.name}`, { description: error.message });
+        toast.error(`No se pudo subir ${f.name}`, { description: humanizeError(error) });
         continue;
       }
       const { data: pub } = supabase.storage
@@ -346,7 +351,7 @@ export function TrackingDetailPage() {
       });
     } catch (err) {
       toast.error('No pudimos generar el PDF', {
-        description: err instanceof Error ? err.message : 'Error desconocido',
+        description: humanizeError(err),
       });
     } finally {
       setPdfBusy(false);
@@ -505,6 +510,19 @@ export function TrackingDetailPage() {
                 <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
                 {estadoConfigActual?.label ?? data.estado}
               </span>
+              {/* DEEP-1 · Editar metadata: visible solo para staff. Abrimos
+                  drawer lateral con titulo/categoria/prioridad/vence_at +
+                  admin+consorcio dependiente + solicitante. */}
+              {isStaff && (
+                <button
+                  type="button"
+                  onClick={() => setEditMetaOpen(true)}
+                  title="Editar metadata del trámite"
+                  className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-brand-muted transition hover:border-brand-cyan hover:text-brand-ink"
+                >
+                  <Pencil className="h-3.5 w-3.5" /> Editar metadata
+                </button>
+              )}
             </div>
             <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-brand-muted">
               <span className="font-mono text-xs">{data.codigo}</span>
@@ -845,6 +863,18 @@ export function TrackingDetailPage() {
         estados={data.estados_disponibles}
         permiteCambiarEstado={isStaff}
         onSaved={() => void load()}
+      />
+
+      {/* DEEP-1 · Drawer de edición de metadata del trámite. Recarga el detalle
+          al guardar para que el header refleje el cambio inmediatamente. */}
+      <TrackingMetadataDrawer
+        open={editMetaOpen}
+        tracking={data}
+        onClose={() => setEditMetaOpen(false)}
+        onSaved={() => {
+          setEditMetaOpen(false);
+          void load();
+        }}
       />
 
       <ProgramarVencimientoModal

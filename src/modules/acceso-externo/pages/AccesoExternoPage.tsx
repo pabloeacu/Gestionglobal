@@ -560,7 +560,7 @@ function PanelGestor({ token }: { token: string }) {
       URL.revokeObjectURL(url);
     } catch (e) {
       toast.error('No pudimos generar el PDF', {
-        description: (e as Error).message,
+        description: humanizeError(e),
       });
     }
   }

@@ -321,6 +321,11 @@ export type UpdateTramitePatch = Partial<{
   comprobante_id: string | null;
   // DGG-33: removido asignado_a.
   vence_at: string | null;
+  // DEEP-1: datos del solicitante editables post-alta (drawer
+  // TrackingMetadataDrawer). Antes solo se podían setear en createTramite.
+  solicitante_nombre: string | null;
+  solicitante_email: string | null;
+  solicitante_telefono: string | null;
 }>;
 
 export async function updateTramite(

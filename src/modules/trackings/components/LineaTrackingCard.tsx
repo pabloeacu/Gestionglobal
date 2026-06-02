@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { toast } from '@/lib/toast';
+import { humanizeError } from '@/lib/errors';
 import { formatDateTime } from '@/lib/dates';
 import {
   colorBadge,
@@ -85,7 +86,7 @@ export function LineaTrackingCard({
     );
     setSaving(false);
     if (error) {
-      toast.error('No pudimos guardar', { description: error.message });
+      toast.error('No pudimos guardar', { description: humanizeError(error) });
       return;
     }
     toast.success('Avance actualizado');

@@ -127,12 +127,42 @@ const HUMAN_BY_MESSAGE: Array<{ re: RegExp; human: string }> = [
  *
  * Uso típico en componentes:
  *   `toast.error('No pudimos guardar', { description: humanizeError(res.error) })`
+ *
+ * DGG-34 (2026-06-02): la firma acepta también `unknown` para que los
+ * `catch (e)` puedan pasarlo directo sin cast. Internamente normaliza a la
+ * forma `{ code, message }` o `string`.
  */
-export function humanizeError(err: { code: string; message: string } | string | null | undefined): string {
-  if (!err) return 'Ocurrió un error inesperado.';
-  const code = typeof err === 'string' ? '' : err.code;
-  const message = typeof err === 'string' ? err : err.message;
-  if (code && HUMAN_BY_CODE[code]) return HUMAN_BY_CODE[code];
+type HumanizableErr =
+  | { code?: string; message?: string; name?: string; [k: string]: unknown }
+  | string
+  | null
+  | undefined
+  | unknown;
+
+export function humanizeError(err: HumanizableErr): string {
+  if (err === null || err === undefined) return 'Ocurrió un error inesperado.';
+  let code = '';
+  let message = '';
+  if (typeof err === 'string') {
+    message = err;
+  } else if (err instanceof Error) {
+    message = err.message;
+    // PostgrestError, FunctionsHttpError y StorageError llevan `code`/`name`
+    const anyErr = err as unknown as { code?: string; name?: string };
+    code = anyErr.code ?? '';
+    if (!code && anyErr.name && anyErr.name !== 'Error') code = anyErr.name;
+  } else if (typeof err === 'object') {
+    const obj = err as { code?: unknown; message?: unknown; name?: unknown };
+    code = typeof obj.code === 'string' ? obj.code : '';
+    message = typeof obj.message === 'string' ? obj.message : '';
+    if (!code && typeof obj.name === 'string' && obj.name !== 'Error') code = obj.name;
+  } else {
+    message = String(err);
+  }
+  if (code) {
+    const hit = HUMAN_BY_CODE[code];
+    if (hit) return hit;
+  }
   if (message) {
     for (const rule of HUMAN_BY_MESSAGE) {
       if (rule.re.test(message)) return rule.human;

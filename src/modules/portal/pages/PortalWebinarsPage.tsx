@@ -64,7 +64,7 @@ export function PortalWebinarsPage() {
     setInscribing(null);
 
     if (error) {
-      toast.error('No pudimos inscribirte', { description: error.message });
+      toast.error('No pudimos inscribirte', { description: humanizeError(error) });
       return;
     }
     toast.success('¡Inscripto!', { description: 'Te vamos a recordar antes del evento.' });

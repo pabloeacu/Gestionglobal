@@ -335,6 +335,40 @@ export async function convertirProspecto(
   }
 }
 
+// DEEP-2 · Edición de prospectos (nombre/email/teléfono). Cierra GAP de
+// captación: cuando un prospecto llega desde un formulario público con email
+// mal escrito o nombre incompleto, la gerencia puede corregirlo sin tener
+// que tocar la BD.
+export interface ActualizarProspectoInput {
+  nombre?: string;
+  email?: string;
+  telefono?: string | null;
+}
+
+export async function actualizarProspecto(
+  id: string,
+  input: ActualizarProspectoInput,
+): Promise<ApiResponse<ProspectoRow>> {
+  try {
+    type ProspectoUpdate = Database['public']['Tables']['prospectos']['Update'];
+    const patch: ProspectoUpdate = {};
+    if (input.nombre !== undefined) patch.nombre = input.nombre;
+    if (input.email !== undefined) patch.email = input.email;
+    if (input.telefono !== undefined) patch.telefono = input.telefono;
+    const { data, error } = await supabase
+      .from('prospectos')
+      .update(patch)
+      .eq('id', id)
+      .select()
+      .single();
+    if (error) throw error;
+    return ok(data);
+  } catch (e) {
+    const err = toApiError(e);
+    return fail(err.code, err.message, err.details);
+  }
+}
+
 // Inscripción manual (gerencia agrega un inscripto ad-hoc)
 export interface InscribirManualInput {
   webinarId: string;

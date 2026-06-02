@@ -137,7 +137,7 @@ export function PortalComprobanteDetailPage() {
         URL.revokeObjectURL(url);
       } catch (e) {
         toast.error('No pudimos descargar la factura', {
-          description: (e as Error).message,
+          description: humanizeError(e),
         });
       }
       return;
@@ -157,7 +157,7 @@ export function PortalComprobanteDetailPage() {
       doc.save(fileName);
     } catch (e) {
       toast.error('No pudimos generar el PDF', {
-        description: (e as Error).message,
+        description: humanizeError(e),
       });
     }
   }

@@ -13,6 +13,7 @@ import {
   Mail,
   Clock,
   Trash2,
+  Pencil,
   ShieldCheck,
   CheckCircle2,
 } from 'lucide-react';
@@ -37,6 +38,7 @@ import {
   type UsuarioRow,
 } from '@/services/api/usuarios';
 import { humanizeError } from '@/lib/errors';
+import { UsuarioEditDrawer, type UsuarioEditTarget } from '../components/UsuarioEditDrawer';
 
 function formatDate(iso: string | null): string {
   if (!iso) return '—';
@@ -76,6 +78,7 @@ export function UsuariosPage() {
   const [creating, setCreating] = useState(false);
   const [draft, setDraft] = useState({ email: '', nombre: '' });
   const [submitting, setSubmitting] = useState(false);
+  const [editing, setEditing] = useState<UsuarioEditTarget | null>(null);
 
   async function load() {
     setLoading(true);
@@ -135,6 +138,14 @@ export function UsuariosPage() {
       ),
     });
     await load();
+  }
+
+  function handleEditar(u: UsuarioRow) {
+    setEditing({
+      id: u.user_id,
+      full_name: u.full_name,
+      role: u.role as 'gerente' | 'operador',
+    });
   }
 
   async function handleEliminar(u: UsuarioRow) {
@@ -207,6 +218,7 @@ export function UsuariosPage() {
             users={gerentes}
             currentId={currentId}
             onEliminar={handleEliminar}
+            onEditar={handleEditar}
           />
           <UserSection
             titulo="Administradores (clientes)"
@@ -225,6 +237,16 @@ export function UsuariosPage() {
             />
           )}
         </>
+      )}
+
+      {/* Drawer editar usuario · DGG-34 */}
+      {editing && (
+        <UsuarioEditDrawer
+          open={!!editing}
+          usuario={editing}
+          onClose={() => setEditing(null)}
+          onSaved={() => void load()}
+        />
       )}
 
       {/* Drawer crear gerente */}
@@ -278,12 +300,14 @@ function UserSection({
   users,
   currentId,
   onEliminar,
+  onEditar,
   readOnly,
 }: {
   titulo: string;
   users: UsuarioRow[];
   currentId: string | undefined;
   onEliminar: (u: UsuarioRow) => Promise<void>;
+  onEditar?: (u: UsuarioRow) => void;
   readOnly?: boolean;
 }) {
   if (users.length === 0) return null;
@@ -373,14 +397,28 @@ function UserSection({
                     )}
                   </td>
                   <td className="px-3 py-2.5 text-right">
-                    {!readOnly && u.user_id !== currentId ? (
-                      <button
-                        type="button"
-                        onClick={() => void onEliminar(u)}
-                        className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-rose-600 transition hover:bg-rose-50"
-                      >
-                        <Trash2 size={12} /> Eliminar
-                      </button>
+                    {!readOnly ? (
+                      <div className="inline-flex items-center gap-1">
+                        {onEditar && (
+                          <button
+                            type="button"
+                            onClick={() => onEditar(u)}
+                            className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-brand-ink/70 transition hover:bg-slate-100"
+                            title="Editar nombre y rol"
+                          >
+                            <Pencil size={12} /> Editar
+                          </button>
+                        )}
+                        {u.user_id !== currentId && (
+                          <button
+                            type="button"
+                            onClick={() => void onEliminar(u)}
+                            className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-rose-600 transition hover:bg-rose-50"
+                          >
+                            <Trash2 size={12} /> Eliminar
+                          </button>
+                        )}
+                      </div>
                     ) : (
                       <span className="text-xs text-brand-muted">—</span>
                     )}

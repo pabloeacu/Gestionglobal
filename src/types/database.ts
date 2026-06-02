@@ -139,6 +139,7 @@ export type Database = {
       administraciones: {
         Row: {
           activo: boolean
+          clave_fiscal_arca: string | null
           codigo: string
           codigo_postal: string | null
           condicion_iva: string | null
@@ -154,7 +155,9 @@ export type Database = {
           foto_url: string | null
           horarios: string | null
           id: string
+          legajo_rpac: string | null
           localidad: string | null
+          madre_apellido_nombre: string | null
           matricula_rpa: string | null
           matricula_rpa_fecha: string | null
           matricula_rpa_vencimiento: string | null
@@ -165,6 +168,7 @@ export type Database = {
           nombre_normalizado: string
           observaciones: string | null
           origen: string | null
+          padre_apellido_nombre: string | null
           provincia: string | null
           responsable_apellido: string | null
           responsable_dni: string | null
@@ -176,6 +180,7 @@ export type Database = {
         }
         Insert: {
           activo?: boolean
+          clave_fiscal_arca?: string | null
           codigo: string
           codigo_postal?: string | null
           condicion_iva?: string | null
@@ -191,7 +196,9 @@ export type Database = {
           foto_url?: string | null
           horarios?: string | null
           id?: string
+          legajo_rpac?: string | null
           localidad?: string | null
+          madre_apellido_nombre?: string | null
           matricula_rpa?: string | null
           matricula_rpa_fecha?: string | null
           matricula_rpa_vencimiento?: string | null
@@ -202,6 +209,7 @@ export type Database = {
           nombre_normalizado: string
           observaciones?: string | null
           origen?: string | null
+          padre_apellido_nombre?: string | null
           provincia?: string | null
           responsable_apellido?: string | null
           responsable_dni?: string | null
@@ -213,6 +221,7 @@ export type Database = {
         }
         Update: {
           activo?: boolean
+          clave_fiscal_arca?: string | null
           codigo?: string
           codigo_postal?: string | null
           condicion_iva?: string | null
@@ -228,7 +237,9 @@ export type Database = {
           foto_url?: string | null
           horarios?: string | null
           id?: string
+          legajo_rpac?: string | null
           localidad?: string | null
+          madre_apellido_nombre?: string | null
           matricula_rpa?: string | null
           matricula_rpa_fecha?: string | null
           matricula_rpa_vencimiento?: string | null
@@ -239,6 +250,7 @@ export type Database = {
           nombre_normalizado?: string
           observaciones?: string | null
           origen?: string | null
+          padre_apellido_nombre?: string | null
           provincia?: string | null
           responsable_apellido?: string | null
           responsable_dni?: string | null
@@ -1652,6 +1664,10 @@ export type Database = {
           localidad: string | null
           logo_url: string | null
           nombre_fantasia: string
+          pago_mp_alias: string | null
+          pago_mp_cuit_cuil: string | null
+          pago_mp_cvu: string | null
+          pago_mp_titular: string | null
           provincia: string | null
           proximo_dni_ficticio: number
           razon_social: string
@@ -1675,6 +1691,10 @@ export type Database = {
           localidad?: string | null
           logo_url?: string | null
           nombre_fantasia?: string
+          pago_mp_alias?: string | null
+          pago_mp_cuit_cuil?: string | null
+          pago_mp_cvu?: string | null
+          pago_mp_titular?: string | null
           provincia?: string | null
           proximo_dni_ficticio?: number
           razon_social?: string
@@ -1698,6 +1718,10 @@ export type Database = {
           localidad?: string | null
           logo_url?: string | null
           nombre_fantasia?: string
+          pago_mp_alias?: string | null
+          pago_mp_cuit_cuil?: string | null
+          pago_mp_cvu?: string | null
+          pago_mp_titular?: string | null
           provincia?: string | null
           proximo_dni_ficticio?: number
           razon_social?: string
@@ -7047,6 +7071,10 @@ export type Database = {
           administracion_id: string
         }[]
       }
+      actualizar_gerente: {
+        Args: { p_full_name: string; p_role: string; p_user_id: string }
+        Returns: string
+      }
       administracion_webinars: {
         Args: { p_administracion_id: string }
         Returns: {
@@ -8276,6 +8304,7 @@ export type Database = {
         Returns: Json
       }
       get_landing_cover_status: { Args: never; Returns: boolean }
+      get_public_whatsapp: { Args: never; Returns: string }
       gg_agenda_listar_unificada: {
         Args: { p_from: string; p_fuentes?: string[]; p_to: string }
         Returns: {
@@ -8535,6 +8564,22 @@ export type Database = {
           p_user_id: string
         }
         Returns: string
+      }
+      notify_all_gerentes: {
+        Args: {
+          p_cuerpo?: string
+          p_email_vars?: Json
+          p_evento_codigo: string
+          p_payload?: Json
+          p_prioridad?: number
+          p_related_id?: string
+          p_related_table?: string
+          p_send_email?: boolean
+          p_template_slug?: string
+          p_titulo: string
+          p_url?: string
+        }
+        Returns: number
       }
       onboarding_checklist_set: {
         Args: { p_key: string; p_value: boolean }

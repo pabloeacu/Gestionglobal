@@ -412,7 +412,7 @@ function ModalFacturar({
       } catch (e) {
         setSubiendoPdf(false);
         toast.error('No pudimos subir el PDF', {
-          description: (e as Error).message,
+          description: humanizeError(e),
         });
         return;
       }

@@ -114,7 +114,7 @@ export function EnviarComprobanteModal({
       } catch (e) {
         setEnviando(false);
         toast.error('No pudimos generar el PDF', {
-          description: (e as Error).message,
+          description: humanizeError(e),
         });
         return;
       }

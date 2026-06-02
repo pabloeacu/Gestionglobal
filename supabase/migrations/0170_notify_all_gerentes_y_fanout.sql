@@ -395,9 +395,14 @@ RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
 DECLARE
   v_admin_nombre text;
-  v_comp record;
-  v_titulo text;
-  v_cuerpo text;
+  -- DGG-34 hotfix: usábamos `v_comp record` y referenciar `v_comp.numero`
+  -- cuando comprobante_id IS NULL hacía fallar el trigger con "record
+  -- v_comp is not assigned yet". Variables escalares evitan el problema.
+  v_comp_tipo    text;
+  v_comp_numero  bigint;
+  v_comp_punto   int;
+  v_titulo       text;
+  v_cuerpo       text;
 BEGIN
   -- Sólo cuando es ingreso desde facturación (cobranza).
   IF NEW.tipo <> 'ingreso' OR COALESCE(NEW.origen, '') <> 'facturacion' THEN
@@ -410,8 +415,8 @@ BEGIN
   END IF;
 
   IF NEW.comprobante_id IS NOT NULL THEN
-    SELECT c.tipo, c.numero, c.punto_venta, c.total
-      INTO v_comp
+    SELECT c.tipo, c.numero, c.punto_venta
+      INTO v_comp_tipo, v_comp_numero, v_comp_punto
       FROM public.comprobantes c WHERE c.id = NEW.comprobante_id;
   END IF;
 
@@ -419,10 +424,10 @@ BEGIN
     || COALESCE(' · ' || v_admin_nombre, '');
   v_cuerpo := COALESCE(NULLIF(NEW.descripcion, ''),
                        'Cobranza imputada al comprobante')
-    || CASE WHEN v_comp.numero IS NOT NULL
-            THEN ' (' || COALESCE(v_comp.tipo, '') || ' '
-                 || lpad(COALESCE(v_comp.punto_venta::text, '0001'), 4, '0') || '-'
-                 || lpad(v_comp.numero::text, 8, '0') || ')'
+    || CASE WHEN v_comp_numero IS NOT NULL
+            THEN ' (' || COALESCE(v_comp_tipo, '') || ' '
+                 || lpad(COALESCE(v_comp_punto::text, '0001'), 4, '0') || '-'
+                 || lpad(v_comp_numero::text, 8, '0') || ')'
             ELSE '' END;
 
   PERFORM public.notify_all_gerentes(

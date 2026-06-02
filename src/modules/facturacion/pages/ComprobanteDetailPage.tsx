@@ -143,7 +143,7 @@ export function ComprobanteDetailPage() {
       doc.save(`comprobante-${comp.tipo}-${numStr}.pdf`);
     } catch (e) {
       toast.error('No pudimos generar el PDF', {
-        description: (e as Error).message,
+        description: humanizeError(e),
       });
     }
   }

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CheckCircle2, Mail, Phone, Search, UserPlus, Users } from 'lucide-react';
+import { CheckCircle2, Mail, Pencil, Phone, Search, UserPlus, Users } from 'lucide-react';
 import { Button, Field, Input, Modal, Select } from '@/components/common';
 import { IllustratedEmpty } from '@/components/brand/IllustratedEmpty';
 import { toast } from '@/lib/toast';
@@ -11,6 +11,7 @@ import {
 import { listAdministraciones, type AdministracionListItem } from '@/services/api/administraciones';
 import { cn } from '@/lib/cn';
 import { FormulariosWebinarsTabs } from '../components/FormulariosWebinarsTabs';
+import { ProspectoEditDrawer } from '../components/ProspectoEditDrawer';
 import { humanizeError } from '@/lib/errors';
 
 function fmtFecha(iso: string): string {
@@ -26,6 +27,7 @@ export function ProspectosListPage() {
   const [filtro, setFiltro] = useState<Filtro>('sin_convertir');
   const [search, setSearch] = useState('');
   const [convertirOpen, setConvertirOpen] = useState<ProspectoRow | null>(null);
+  const [editing, setEditing] = useState<ProspectoRow | null>(null);
 
   async function recargar() {
     setLoading(true);
@@ -136,11 +138,16 @@ export function ProspectosListPage() {
                     )}
                   </td>
                   <td className="px-4 py-2 text-right">
-                    {!p.convertido_at && (
-                      <Button variant="tonal" onClick={() => setConvertirOpen(p)}>
-                        <UserPlus size={12} /> Convertir
+                    <div className="flex justify-end gap-2">
+                      <Button variant="ghost" onClick={() => setEditing(p)} title="Editar prospecto">
+                        <Pencil size={12} /> Editar
                       </Button>
-                    )}
+                      {!p.convertido_at && (
+                        <Button variant="tonal" onClick={() => setConvertirOpen(p)}>
+                          <UserPlus size={12} /> Convertir
+                        </Button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -156,6 +163,13 @@ export function ProspectosListPage() {
           onConverted={() => { setConvertirOpen(null); void recargar(); }}
         />
       )}
+
+      <ProspectoEditDrawer
+        open={!!editing}
+        prospecto={editing}
+        onClose={() => setEditing(null)}
+        onSaved={() => { setEditing(null); void recargar(); }}
+      />
     </div>
   );
 }
