@@ -14,6 +14,84 @@
 - **Fecha / módulo:**
 -->
 
+## E-GG-34 · Páginas se abrían "desde abajo" (body como scroll container fantasma)
+- **Síntoma:** José Luis (y luego el dueño) reporta: "entrá a la landing,
+  bajá hasta el medio, clickeá cualquier card (Plataforma, Capacitaciones,
+  DDJJ) — la página de destino se abre desde abajo, con el header fuera
+  de vista". El usuario lo dijo dos veces, la segunda con malestar:
+  "Arreglalo de una puta vez". Un primer intento de fix (commit f030304,
+  removió `height: 100%` de `#root`) NO solucionó el problema y se
+  vió igual al re-testearlo.
+- **Causa raíz:** la CSS base de `src/index.css` tenía un grupo conjunto:
+  ```
+  html, body { height: 100%; overflow-x: hidden; max-width: 100vw; }
+  ```
+  Esa combinación en BODY tiene un efecto que no es obvio: como `overflow-x`
+  está explícitamente seteado, el browser deriva `overflow-y: auto` en body
+  por CSS Overflow spec. Pero body además está clipeado a `height: 100%`
+  del html (= la altura del viewport, ~725px), mientras que su CONTENIDO
+  (toda la landing, ~7800px) es mucho más alto. Resultado: body se vuelve
+  SU PROPIO scroll-viewport, encima del html. El usuario ve y scrollea body,
+  pero `window.scrollY` SIEMPRE devuelve 0 porque el html nunca se mueve.
+  Cuando React Router cambia de ruta, nuestro `ScrollToTopOnRouteChange`
+  llama `window.scrollTo({ top: 0 })` — que opera sobre el html (el
+  scrolling element según el spec) — pero el scroll real vive en body, así
+  que no resetea nada. La página nueva monta con body.scrollTop = el del
+  body anterior (porque body persiste a través de SPA navigations),
+  rindiendo "abierta desde abajo".
+- **Por qué el primer intento (remover height de #root) NO alcanzó:**
+  removí el height:100% de `#root` pensando que #root era el scroll
+  container fantasma. Pero el problema en realidad estaba un nivel más
+  arriba: era body, no #root. #root con `min-height: 100%` ya era inocuo,
+  body seguía siendo el viewport fantasma.
+- **Cómo lo encontré (método):** abrí la URL de Vercel en Chrome MCP y
+  corrí en consola:
+  ```js
+  console.log({
+    canScroll_html: html.scrollHeight > html.clientHeight,  // false
+    canScroll_body: body.scrollHeight > body.clientHeight,  // true ← !
+    windowScrollY: window.scrollY,                          // 0
+    scrollingEl: document.scrollingElement.tagName          // 'HTML'
+  })
+  ```
+  El hecho de que html NO pudiera scrollear y body SÍ fue el smoking gun.
+  El sesgo a confiar en `document.scrollingElement` (que dice "HTML") sin
+  comprobar **qué elemento realmente tiene contenido overflowable** me
+  costó un push intermedio que no resolvía el bug.
+- **Fix:** body ahora usa `min-height: 100%` en vez de `height: 100%`. Body
+  crece con su contenido, no queda clipeado al viewport, no genera su
+  propio scroll-viewport. Html sigue con `height: 100%` (+ `overflow-x:
+  hidden`) — eso lo deja como el viewport scroll container, y
+  `window.scrollY` / `window.scrollTo` operan sobre html, como esperamos.
+  - `index.css`: regla separada para html (height fijo) y body
+    (min-height), con bloque de comentarios explicando por qué la asimetría
+    no es opcional.
+  - `#root` ya estaba con `min-height` (f030304); se mantiene.
+- **Verificación en producción** (Chrome MCP en `gestionglobal.ar`, post
+  commit 966b4af):
+  | Acción del usuario | Antes | Después |
+  |---|---|---|
+  | window.scrollTo(0, 2500) | scrollY=0 | scrollY=2500 ✓ |
+  | Click "Plataforma" en card medio | aterriza scrollY=N | scrollY=0 ✓ |
+  | Click "Capacitaciones" | aterriza scrollY=N | scrollY=0 ✓ |
+  | Click "Declaraciones juradas" | aterriza scrollY=N | scrollY=0 ✓ |
+- **Prevención:**
+  - **Nunca confiar solo en `document.scrollingElement` para diagnosticar
+    bugs de scroll**: medir explícitamente cuál elemento tiene
+    `scrollHeight > clientHeight`. El elemento que tiene overflow es el
+    scroll container real, independientemente de lo que el spec diga sobre
+    cuál es el "scrollingElement".
+  - **Setear `overflow-x: hidden` en body sin pensar en height** convierte
+    al body en un scroll-viewport latente. Si vas a usar overflow-x:hidden
+    en body por iOS PWA u otra razón, body NUNCA debe tener height fijo
+    igual al viewport — siempre `min-height` para que crezca con su
+    contenido.
+  - Comment block en `index.css` con la explicación, para que la próxima
+    persona que toque ese archivo entienda por qué la asimetría html/body
+    importa.
+- **Fecha / módulo:** 2026-06-02 · `src/index.css` (commit 966b4af —
+  fix definitivo) + commit previo f030304 (parcial).
+
 ## E-GG-01 · Wizard de activación lleva al detalle viejo (`tramites/:id` vs `trackings/:id`)
 - **Síntoma:** al activar una solicitud, `WizardActivacion.handleActivar`
   navegaba a `/gerencia/tramites/${trackingId}`. Esa ruta resuelve a
