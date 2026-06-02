@@ -13,6 +13,49 @@
 - **Fecha:**
 -->
 
+## DGG-35 · Módulo Cajas premium (José Luis · 4 mejoras)
+- **Decisión:** capitalizar los 4 pedidos de José Luis sobre cajas:
+  1. Editar tipo post-alta.
+  2. Eliminar (hard delete) con bloqueo si saldo ≠ 0 o si tiene historial.
+  3. Caja favorita / default que se pre-selecciona en cobranza.
+  4. Campo "orden" en el drawer (la columna ya existía pero no se exponía).
+- **Razón:** mandato del dueño de tener el sistema "más estable, sólido y
+  premium". El módulo cajas era de los que mostraban inconsistencias UX
+  ("Tipo" sólo en alta, sin eliminar, sin favorita, orden sólo backend).
+- **Implementación:**
+  - **Mig 0174** · `ALTER TABLE cajas ADD COLUMN es_default boolean
+    DEFAULT false` + unique partial index (max 1 default). DROP + CREATE
+    `fz_caja_actualizar` extendido con `p_tipo` y `p_es_default` (R16
+    compliant — no `CREATE OR REPLACE` solo). Nuevas RPCs:
+    `fz_caja_eliminar` (con check saldo ≠ 0 → "caja_con_saldo" + check
+    n_movs > 0 → "caja_con_historial" sugiere archivar);
+    `fz_caja_marcar_default` (set 1 + unset todos los demás en tx).
+  - **Mig 0175** · DROP + CREATE de `fz_listar_cajas_admin` para extender
+    el `RETURNS TABLE(...)` con la nueva columna `es_default boolean`
+    (R16: cambiar shape de retorno requiere DROP explícito).
+  - **Frontend** (`FinanzasAdminPage.tsx`):
+    - Cards ordenadas por `activa DESC, es_default DESC, orden ASC,
+      nombre ASC`.
+    - Badge ★ "Favorita" cuando `es_default=true`.
+    - Botón estrella (con relleno cuando es default) por card.
+    - Botón papelera (solo si activa y `cantidad_movimientos === 0`)
+      con confirm bloqueante.
+    - Drawer alta/edit: tipo editable en ambos modos, input numérico
+      `Orden`, checkbox `Caja favorita` con copy explicativo.
+  - **Frontend cobranza** (`RegistrarCobranzaDrawer.tsx`):
+    - En `useEffect` post-fetch, pre-seleccionar la caja con
+      `es_default=true`. Fallback al comportamiento anterior (si solo
+      hay 1 caja, esa).
+- **Verificación e2e** (smoke tests BD):
+  - SMOKE A · `fz_caja_eliminar` sobre caja con movs → bloquea con
+    `caja_con_historial` ✓.
+  - SMOKE B · `fz_caja_eliminar` sobre caja test sin movs → DELETE ✓.
+  - SMOKE C · `fz_caja_marcar_default`: setear default en caja A, luego
+    en caja B → solo B queda con `es_default=true` ✓.
+  - R16 query `HAVING count(*) > 1` filtrando `fz_caja*` → 0 hits ✓.
+  - Build TS + vite ✓.
+- **Fecha:** 2026-06-02 · ref JL-CAJA-1 a 7, migs 0174 + 0175.
+
 ## DGG-34 · Capitalización auditoría DEEP — 3 drawers + reglas R14/R15 + sweep BD
 - **Decisión:** después del cierre de DGG-33, hacer un chunk completo
   ("auditoría profunda") que (a) cierre TODOS los GAPs UI-coverage que

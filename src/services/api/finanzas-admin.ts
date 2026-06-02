@@ -38,6 +38,10 @@ export interface CajaAdminRow {
   saldo: number;
   cantidad_movimientos: number;
   created_at: string;
+  // JL-CAJA · agregado por mig 0174. El RPC fz_listar_cajas_admin puede que
+  // no devuelva el campo todavía (depende de su SELECT). El frontend hace
+  // fallback con `?? false`.
+  es_default?: boolean;
 }
 
 export interface CrearCajaInput {
@@ -55,6 +59,7 @@ export interface CrearCajaInput {
 export interface ActualizarCajaInput {
   cajaId: string;
   nombre: string;
+  tipo?: CajaTipo;              // JL-CAJA #1 (mig 0174)
   color?: string | null;
   icono?: string | null;
   orden?: number | null;
@@ -62,6 +67,7 @@ export interface ActualizarCajaInput {
   alias?: string | null;
   numero_cuenta?: string | null;
   banco_entidad?: string | null;
+  es_default?: boolean;         // JL-CAJA #3 (mig 0174)
 }
 
 export async function listarCajasAdmin(
@@ -105,6 +111,7 @@ export async function actualizarCaja(input: ActualizarCajaInput): Promise<ApiRes
     const { error } = await rpc('fz_caja_actualizar', {
       p_caja_id: input.cajaId,
       p_nombre: input.nombre,
+      p_tipo: input.tipo ?? undefined,         // JL-CAJA #1
       p_color: input.color ?? undefined,
       p_icono: input.icono ?? undefined,
       p_orden: input.orden ?? undefined,
@@ -112,7 +119,32 @@ export async function actualizarCaja(input: ActualizarCajaInput): Promise<ApiRes
       p_alias: input.alias ?? undefined,
       p_numero_cuenta: input.numero_cuenta ?? undefined,
       p_banco_entidad: input.banco_entidad ?? undefined,
+      p_es_default: input.es_default ?? undefined,  // JL-CAJA #3
     });
+    if (error) throw error;
+    return ok(true as const);
+  } catch (e) {
+    const err = toApiError(e);
+    return fail(err.code, err.message, err.details);
+  }
+}
+
+// JL-CAJA #2 (mig 0174) · hard delete (con check de saldo y de historial).
+export async function eliminarCaja(cajaId: string): Promise<ApiResponse<true>> {
+  try {
+    const { error } = await rpc('fz_caja_eliminar', { p_caja_id: cajaId });
+    if (error) throw error;
+    return ok(true as const);
+  } catch (e) {
+    const err = toApiError(e);
+    return fail(err.code, err.message, err.details);
+  }
+}
+
+// JL-CAJA #3 (mig 0174) · setea es_default=true y desmarca las demás.
+export async function marcarCajaDefault(cajaId: string): Promise<ApiResponse<true>> {
+  try {
+    const { error } = await rpc('fz_caja_marcar_default', { p_caja_id: cajaId });
     if (error) throw error;
     return ok(true as const);
   } catch (e) {

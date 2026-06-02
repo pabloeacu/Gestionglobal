@@ -76,7 +76,14 @@ export function RegistrarCobranzaDrawer({
       ]);
       if (cR.ok) {
         setCajas(cR.data);
-        if (cR.data.length === 1) setCajaId(cR.data[0]!.id);
+        // JL-CAJA #3 (mig 0174) · pre-seleccionar la caja favorita
+        // (es_default=true). Si no hay favorita, mantener el patrón anterior:
+        // si solo hay 1 caja, pre-seleccionar esa.
+        const favorita = cR.data.find(
+          (c) => (c as unknown as { es_default?: boolean }).es_default === true,
+        );
+        if (favorita) setCajaId(favorita.id);
+        else if (cR.data.length === 1) setCajaId(cR.data[0]!.id);
       }
       if (gR.ok) {
         setCategorias(gR.data);

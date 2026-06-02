@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import {
   Plus, Wallet, Tag, Edit2, Archive, ArchiveRestore, ArrowLeft,
   CheckCircle2, XCircle, Landmark, Smartphone, PiggyBank, Banknote,
+  Star, Trash2,
 } from 'lucide-react';
 import { Button, Field, Input, Select, Modal, useConfirm } from '@/components/common';
 import { IllustratedEmpty } from '@/components/brand/IllustratedEmpty';
@@ -10,6 +11,7 @@ import { toast } from '@/lib/toast';
 import { cn } from '@/lib/cn';
 import {
   listarCajasAdmin, crearCaja, actualizarCaja, archivarCaja, reactivarCaja,
+  eliminarCaja, marcarCajaDefault,
   listarCategoriasAdmin, crearCategoria, actualizarCategoria,
   archivarCategoria, reactivarCategoria,
   type CajaAdminRow, type CajaTipo,
@@ -144,8 +146,44 @@ function CajasTab() {
     else toast.error(humanizeError(r.error));
   }
 
+  // JL-CAJA #2 · Eliminar caja (hard delete). El RPC bloquea si saldo ≠ 0
+  // o si tiene movimientos históricos. En esos casos la BD devuelve un
+  // mensaje accionable que mostramos directamente en el toast.
+  async function onEliminar(caja: CajaAdminRow) {
+    const ok = await confirm({
+      title: `Eliminar "${caja.nombre}"`,
+      message: caja.cantidad_movimientos > 0
+        ? `Esta caja tiene ${caja.cantidad_movimientos} movimiento(s) histórico(s). Para preservar el balance histórico, sólo se permite eliminar cajas sin movimientos. Si querés ocultarla, usá Archivar.`
+        : 'La caja se eliminará de forma permanente. Esta acción no se puede deshacer.',
+      confirmLabel: 'Eliminar',
+      danger: true,
+    });
+    if (!ok) return;
+    const r = await eliminarCaja(caja.caja_id);
+    if (r.ok) { toast.success('Caja eliminada'); void recargar(); }
+    else toast.error(humanizeError(r.error));
+  }
+
+  // JL-CAJA #3 · Marcar como favorita (default para cobranzas).
+  async function onMarcarDefault(caja: CajaAdminRow) {
+    if (caja.es_default) return; // ya es default, no hace nada
+    const r = await marcarCajaDefault(caja.caja_id);
+    if (r.ok) { toast.success(`"${caja.nombre}" es ahora la caja favorita`); void recargar(); }
+    else toast.error(humanizeError(r.error));
+  }
+
+  // JL-CAJA #4 · Sort por orden ASC, nombre ASC (activas primero).
   const visibles = useMemo(() => {
-    return mostrarArchivadas ? cajas : cajas.filter((c) => c.activo);
+    const filtered = mostrarArchivadas ? cajas : cajas.filter((c) => c.activo);
+    return [...filtered].sort((a, b) => {
+      // Activas antes que archivadas (consistente con la RPC).
+      if (a.activo !== b.activo) return a.activo ? -1 : 1;
+      // Favorita arriba del todo entre las activas.
+      if (a.es_default !== b.es_default) return a.es_default ? -1 : 1;
+      // Luego por orden, luego por nombre.
+      if (a.orden !== b.orden) return a.orden - b.orden;
+      return a.nombre.localeCompare(b.nombre, 'es');
+    });
   }, [cajas, mostrarArchivadas]);
 
   return (
@@ -213,6 +251,25 @@ function CajasTab() {
                     <Icon size={22} />
                   </div>
                   <div className="flex gap-1">
+                    {/* JL-CAJA #3 · estrella para marcar como favorita */}
+                    {caja.activo && (
+                      <button
+                        type="button"
+                        onClick={() => void onMarcarDefault(caja)}
+                        className={cn(
+                          'rounded-lg p-1.5 transition',
+                          caja.es_default
+                            ? 'text-amber-500'
+                            : 'text-brand-muted hover:bg-amber-50 hover:text-amber-500',
+                        )}
+                        title={caja.es_default ? 'Caja favorita (se pre-selecciona en cobranza)' : 'Marcar como favorita'}
+                      >
+                        <Star
+                          size={15}
+                          fill={caja.es_default ? 'currentColor' : 'none'}
+                        />
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={() => setEditing(caja)}
@@ -226,7 +283,7 @@ function CajasTab() {
                         type="button"
                         onClick={() => onArchivar(caja)}
                         className="rounded-lg p-1.5 text-brand-muted hover:bg-rose-50 hover:text-rose-600"
-                        title="Archivar"
+                        title="Archivar (preserva historial)"
                       >
                         <Archive size={15} />
                       </button>
@@ -240,11 +297,27 @@ function CajasTab() {
                         <ArchiveRestore size={15} />
                       </button>
                     )}
+                    {/* JL-CAJA #2 · papelera = hard delete (solo cajas sin movimientos) */}
+                    {caja.activo && caja.cantidad_movimientos === 0 && (
+                      <button
+                        type="button"
+                        onClick={() => void onEliminar(caja)}
+                        className="rounded-lg p-1.5 text-brand-muted hover:bg-rose-50 hover:text-rose-600"
+                        title="Eliminar (definitivamente — sólo para cajas sin movimientos)"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    )}
                   </div>
                 </div>
 
                 <div className="mt-3 flex items-center gap-2">
                   <p className="font-medium text-brand-ink">{caja.nombre}</p>
+                  {caja.es_default && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold uppercase text-amber-700">
+                      <Star size={10} fill="currentColor" /> Favorita
+                    </span>
+                  )}
                   {!caja.activo && (
                     <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium uppercase text-slate-600">
                       Archivada
@@ -303,12 +376,17 @@ interface CajaFormProps {
 function CajaFormModal({ caja, onClose, onSaved }: CajaFormProps) {
   const isEditing = caja !== null;
   const [nombre, setNombre] = useState(caja?.nombre ?? '');
+  // JL-CAJA #1 · tipo es editable también en modo edit (mig 0174).
   const [tipo, setTipo] = useState<CajaTipo>(caja?.tipo ?? 'banco');
   const [color, setColor] = useState(caja?.color ?? '#0e9bc8');
   const [cbu, setCbu] = useState(caja?.cbu ?? '');
   const [alias, setAlias] = useState(caja?.alias ?? '');
   const [numeroCuenta, setNumeroCuenta] = useState(caja?.numero_cuenta ?? '');
   const [bancoEntidad, setBancoEntidad] = useState(caja?.banco_entidad ?? '');
+  // JL-CAJA #4 · orden de la card (entre cajas activas, menor primero).
+  const [orden, setOrden] = useState<number>(caja?.orden ?? 0);
+  // JL-CAJA #3 · favorita: se pre-selecciona en cobranza.
+  const [esDefault, setEsDefault] = useState<boolean>(caja?.es_default ?? false);
   const [saving, setSaving] = useState(false);
 
   async function onSubmit(e: React.FormEvent) {
@@ -317,7 +395,7 @@ function CajaFormModal({ caja, onClose, onSaved }: CajaFormProps) {
     setSaving(true);
     const r = isEditing && caja
       ? await actualizarCaja({
-          cajaId: caja.caja_id, nombre, color,
+          cajaId: caja.caja_id, nombre, tipo, color, orden, es_default: esDefault,
           cbu: cbu || null, alias: alias || null,
           numero_cuenta: numeroCuenta || null, banco_entidad: bancoEntidad || null,
         })
@@ -327,12 +405,18 @@ function CajaFormModal({ caja, onClose, onSaved }: CajaFormProps) {
           numero_cuenta: numeroCuenta || null, banco_entidad: bancoEntidad || null,
         });
     setSaving(false);
-    if (r.ok) {
-      toast.success(isEditing ? 'Caja actualizada' : 'Caja creada');
-      onSaved();
-    } else {
+    if (!r.ok) {
       toast.error(humanizeError(r.error));
+      return;
     }
+    // Si es alta y marcó favorita, hacer un segundo call al RPC marcar_default
+    // (la creación inicial no expone p_es_default; lo hacemos post-create).
+    if (!isEditing && esDefault && r.data) {
+      const r2 = await marcarCajaDefault(String(r.data));
+      if (!r2.ok) toast.error(humanizeError(r2.error));
+    }
+    toast.success(isEditing ? 'Caja actualizada' : 'Caja creada');
+    onSaved();
   }
 
   return (
@@ -340,7 +424,7 @@ function CajaFormModal({ caja, onClose, onSaved }: CajaFormProps) {
       open
       onClose={onClose}
       title={isEditing ? 'Editar caja' : 'Nueva caja'}
-      width={520}
+      width={560}
     >
       <form onSubmit={onSubmit} className="space-y-4">
         <Field label="Nombre" required>
@@ -352,7 +436,8 @@ function CajaFormModal({ caja, onClose, onSaved }: CajaFormProps) {
           />
         </Field>
 
-        {!isEditing && (
+        {/* JL-CAJA #1 · tipo editable en alta y edición */}
+        <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Tipo">
             <Select value={tipo} onChange={(e) => setTipo(e.target.value as CajaTipo)}>
               <option value="banco">Banco</option>
@@ -361,7 +446,18 @@ function CajaFormModal({ caja, onClose, onSaved }: CajaFormProps) {
               <option value="efectivo">Efectivo</option>
             </Select>
           </Field>
-        )}
+          {/* JL-CAJA #4 · orden (menor primero) */}
+          <Field label="Orden">
+            <Input
+              type="number"
+              inputMode="numeric"
+              value={String(orden)}
+              onChange={(e) => setOrden(Number(e.target.value) || 0)}
+              placeholder="0"
+              title="Las cajas con menor orden aparecen primero en la lista."
+            />
+          </Field>
+        </div>
 
         <Field label="Color">
           <div className="flex items-center gap-2">
@@ -398,6 +494,26 @@ function CajaFormModal({ caja, onClose, onSaved }: CajaFormProps) {
             </Field>
           </div>
         )}
+
+        {/* JL-CAJA #3 · favorita */}
+        <label className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50/50 p-3">
+          <input
+            type="checkbox"
+            checked={esDefault}
+            onChange={(e) => setEsDefault(e.target.checked)}
+            className="mt-0.5 rounded border-slate-300 text-amber-500 focus:ring-amber-400"
+          />
+          <span className="text-sm text-brand-ink">
+            <span className="inline-flex items-center gap-1 font-medium">
+              <Star size={13} fill="currentColor" className="text-amber-500" />
+              Caja favorita
+            </span>
+            <span className="block text-xs text-brand-muted">
+              Se pre-selecciona en el modal de cobranza. Si marcás esta como
+              favorita, las otras dejan de serlo automáticamente.
+            </span>
+          </span>
+        </label>
 
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="ghost" onClick={onClose}>
