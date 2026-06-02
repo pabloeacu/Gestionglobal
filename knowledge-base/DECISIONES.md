@@ -13,6 +13,50 @@
 - **Fecha:**
 -->
 
+## DGG-33 · Sin asignación individual — fan-out a TODOS los gerentes en 3 canales
+- **Decisión:** Gestión Global NO tiene asignaciones individuales de
+  trabajo. Todos los usuarios con rol `gerente` (y `operador`) ven todo y
+  se ocupan de todo. Hay UNA SOLA agenda compartida. **Consecuencia
+  operativa**: cualquier evento que merezca atención de la gerencia
+  dispara push + banner in-app + email a TODOS los gerentes activos
+  (fan-out por rol, no por persona).
+- **Razón:** Decisión del dueño (2026-06-02). El equipo es chico, atiende
+  como grupo y el patrón "asignar al gerente X" introducía bugs silenciosos
+  (los otros gerentes nunca se enteraban — anti-patrón
+  `IF asignado_a IS NOT NULL THEN notif_emitir(uno) ELSE notif_emitir_staff()`).
+- **Implementación:**
+  - Helper único `public.notify_all_gerentes(evento, titulo, cuerpo, url,
+    payload, send_email, template_slug, email_vars, prioridad,
+    related_table, related_id)` que dispara los 3 canales en una sola
+    llamada (mig `0170_notify_all_gerentes_y_fanout.sql`).
+  - Template default `gerencia-notif-generica` para que cualquier evento
+    tenga email sin crear template específico.
+  - Triggers migrados a usar el helper (suma email a los que antes eran
+    sólo in-app+push): `tracking_linea_on_insert` (cliente sube nota /
+    gestor avance), `_notif_tracking_cerrado_trg`,
+    `dispatch_alarmas_tracking_hoy`.
+  - Trigger NUEVO sobre `movimientos` cuando ingreso/facturacion →
+    notifica "cobranza recibida" a toda la gerencia (cierra GAP-2 de
+    ASIG-B).
+- **Frontend:** removidos del módulo trámites: columna "Asignado", KPI
+  "Sin asignar", filtro `asignadoA`, parámetro `asignado_a` en
+  `createTramite` y `UpdateTramitePatch`, sidebar `<Select>` "Asignado a"
+  en `TramiteDetailPage` (legacy, no ruteada).
+- **BD:** el campo `tramites.asignado_a` SE MANTIENE para datos
+  históricos y registros importados de Excel. El índice parcial sólo
+  cubre filas con valor (overhead nulo). El audit trigger
+  `tramite_on_update` sigue capturando eventos `asignado`/`desasignado`
+  históricos.
+- **Alternativas descartadas:**
+  - Reponer el `<Select>` en el detalle nuevo — descartada porque el
+    equipo decidió que no hay asignaciones, no porque la UI fuera mala.
+  - Mantener la columna en grilla pero siempre "Sin asignar" — confuso
+    e implica acción que no existe.
+- **Verificación e2e** (`SELECT notify_all_gerentes(...); → assert
+  side-effects; cleanup`): 2 gerentes activos → 2 filas in-app, 2 emails
+  encolados, 1 push (sólo gerente con suscripción) ✓.
+- **Fecha:** 2026-06-02 · ref ASIG-A/B/C, E-GG-35, mig 0170.
+
 ## DGG-01 · Single-tenant (sin tabla empresas)
 - **Decisión:** La plataforma gestiona únicamente Gestión Global. No hay tabla
   `empresas` ni `empresa_id`. Configuración global en fila singleton
