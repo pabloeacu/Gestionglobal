@@ -14,6 +14,79 @@
 - **Fecha / módulo:**
 -->
 
+## E-GG-35 · Columna "Asignado" sin UI accesible + anti-patrón fan-out por `asignado_a`
+- **Síntoma:** en `/gerencia/tramites` la columna "Asignado" mostraba
+  "Sin asignar" casi siempre. El usuario preguntó "¿dónde se asigna?" y al
+  investigar descubrimos dos cosas:
+  1. El selector `<Select>` para setear `asignado_a` vivía en
+     `src/modules/tramites/pages/TramiteDetailPage.tsx:333-345` (legacy).
+     Esa ruta se redirige a `/gerencia/trackings/:id` desde E-GG-01, y el
+     `TrackingDetailPage` nuevo **no tiene el selector** → la columna
+     se renderea pero no hay UI alcanzable para mutarla.
+  2. En paralelo, varios triggers (mig 0090, 0098, **0105 vigente**) tenían
+     el anti-patrón:
+     ```
+     IF v_asignado_a IS NOT NULL THEN
+       notif_emitir(v_asignado_a, ...);   -- sólo a la persona asignada
+     ELSE
+       notif_emitir_staff(...);            -- fan-out al staff
+     END IF;
+     ```
+     Resultado: si el trámite tenía `asignado_a` poblado, **los otros
+     gerentes nunca se enteraban** de movimientos del cliente. Si el
+     asignado estaba de licencia → caso huérfano silencioso.
+- **Causa raíz:**
+  - (i) Regresión de E-GG-01: la unificación legacy `/gerencia/tramites/:id` →
+    `/gerencia/trackings/:id` migró todo (cierre de ciclo, alarmas,
+    recurrencia) pero **no migró el control de asignación**. Quedó
+    huérfano hace ~7 meses.
+  - (ii) El anti-patrón notif fue introducido en migs 0090/0098 antes
+    de tomar la decisión de "todos ven todo" (DGG-33). Quedó replicado
+    por copy-paste cuando 0105 reescribió la función.
+  - (iii) La auditoría doble ("auditar a fondo" §6 CLAUDE.md) detecta gaps
+    DENTRO del chunk auditado, no regresiones viejas en módulos no
+    tocados. No tenía un check de paridad "columna grilla ↔ control
+    edición" transversal.
+- **Fix:**
+  1. Decisión arquitectónica DGG-33: no hay asignaciones individuales.
+  2. Mig `0170_notify_all_gerentes_y_fanout.sql`:
+     - Helper `public.notify_all_gerentes(...)` (3 canales unificados).
+     - Reescritura de `tracking_linea_on_insert` quitando el
+       `IF v_asignado_a` y usando el helper (suma email).
+     - Migración de `_notif_tracking_cerrado_trg` y
+       `dispatch_alarmas_tracking_hoy` al helper.
+     - Trigger nuevo sobre `movimientos` (cobranza recibida).
+  3. Frontend: removidos columna "Asignado", KPI "Sin asignar",
+     parámetros de filtro/insert/update, sidebar del legacy.
+  4. Campo `tramites.asignado_a` se mantiene en BD por compatibilidad
+     histórica (datos pre-decisión + import de Excel viejo).
+- **Verificación e2e** (en producción, mig aplicada):
+  | Test | Resultado esperado | Real |
+  |---|---|---|
+  | `SELECT notify_all_gerentes('_test', ...)` | int = count gerentes activos | 2 ✓ |
+  | Inserciones en notificaciones_internas | 2 | 2 ✓ |
+  | Inserciones en email_queue | 2 | 2 ✓ |
+  | Inserciones en push_notifications_queue | 1 (sólo gerente con subs) | 1 ✓ |
+  | `pg_get_functiondef(tracking_linea_on_insert)` contiene `v_asignado_a IS NOT NULL` | false | false ✓ |
+  | Trigger `trg_notif_cobranza_recibida` enabled | 'O' (enabled) | 'O' ✓ |
+- **Prevención:**
+  - Auditoría UI-coverage transversal (ASIG-A) corrida para detectar
+    todos los gaps "columna visible sin control editable" en gerencia.
+    Resultado: la columna "Asignado" era el caso más visible; otros
+    gaps menores quedan en BACKLOG.
+  - **Regla candidata para CLAUDE.md** (a discutir con el usuario): "toda
+    columna persistida visible en grilla debe tener al menos una de:
+    editor en el detail ruteado, control en form drawer, quick-edit
+    inline, o tag AUTO documentado (trigger/derivada). Si ninguna aplica,
+    es deuda y se documenta como GAP en ERRORES.md."
+  - **Regla candidata para CLAUDE.md**: "cuando se redirige una ruta
+    legacy a una página nueva, hacer diff de campos editables entre
+    las dos páginas; cualquier control presente en la legacy y ausente
+    en la nueva = E## obligatorio (habría detectado E-GG-01 → este
+    E-GG-35)."
+- **Fecha / módulo:** 2026-06-02 · trámites / notif · mig 0170, DGG-33,
+  ASIG-A/B/C.
+
 ## E-GG-34 · Páginas se abrían "desde abajo" (body como scroll container fantasma)
 - **Síntoma:** José Luis (y luego el dueño) reporta: "entrá a la landing,
   bajá hasta el medio, clickeá cualquier card (Plataforma, Capacitaciones,
