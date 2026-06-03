@@ -13,6 +13,42 @@
 - **Fecha:**
 -->
 
+## DGG-41 v2 (auditoría doble) · Cierre de huecos del chunk celebración
+
+Después de cerrar DGG-41 corrió la **doble auditoría a fondo** (método
+del CLAUDE.md §6) con 3 agentes en paralelo. Hallazgos y fixes:
+
+| Sev | Hallazgo | Fix |
+|---|---|---|
+| 🔴 | **R6 GAP**: 0184 no otorga `GRANT EXECUTE` de las 2 RPCs nuevas a `authenticated`. Funcionaría hoy por el grant default histórico, pero el 30/10/2026 Supabase cambia ese default y rompería | **Mig 0185** con GRANTs explícitos + bloque smoke `BEGIN; SET LOCAL role authenticated; PERFORM ...; ROLLBACK;` que cierra R6 + R18 al mismo tiempo |
+| 🔴 | **Banner inline sin vínculo curso↔trámite**: `PortalGestionDetailPage` renderizaba `<CertCelebracionBanner variant="inline" />` cuando `tramite.categoria === 'curso'`, pero `tramites` NO tiene `curso_id` ni el RPC `cliente_tramites_listar` lo devuelve. El banner mostraba TODOS los certs del alumno, no solo el del trámite. Redundante con el banner de PortalHome | Quitar el banner inline del detail page. Queda sólo en PortalHome (al tope). El alumno ve la celebración apenas entra al portal, no hace falta repetirla |
+| 🟡 | **Variant prop muerto** | Quitada — el componente ya no recibe `variant`, sólo `cursoId?` opcional |
+| 🟡 | **`load()` silenciaba errores** | `console.warn` con el error en vez de fallar mudo. No usamos toast porque el banner es opcional, no queremos interrumpir al alumno con un error técnico si la RPC falla |
+
+**Lo que la auditoría confirmó OK**:
+- R5 (RPCs SECURITY DEFINER + search_path).
+- R12 (las RPCs no cruzan administraciones, son por `auth.uid()`).
+- R16 (funciones nuevas, no overload ambiguo).
+- R17 (trigger es SECURITY DEFINER + escribe en `push_notifications_queue` que tiene RLS solo-SELECT).
+- Cobertura: todas las vías de emisión (Campus auto, cron, cierre manual DGG-38) terminan en INSERT a `certificados` → trigger dispara.
+- Ownership de `cert_marcar_celebracion_vista` (sólo dueño o staff).
+- Filtro de `cliente_certs_celebrar` por `auth.uid()`.
+- Idempotencia (segundo llamado a marcar → 0 rows affected, no error).
+- Fallbacks de datos nulos (alumno sin profile, cert sin snapshot).
+
+**Dudas pateadas a mejora futura** (no son bugs):
+- Realtime listener para cert emitido en vivo mientras alumno está en PortalHome (bajo impacto, queda como F5).
+- Push también a campanita in-app además de push web (decisión: push es push, son canales distintos).
+- Excepción del trigger `RAISE WARNING` sin tabla de auditoría (chequeable vía logs de Postgres si pasa algo raro).
+
+**Aprendizaje incorporado**: cualquier chunk que agrega RPCs públicas
+debe incluir `GRANT EXECUTE` + smoke `BEGIN/PERFORM/ROLLBACK` en la
+misma mig (R6+R18 juntas), no en una siguiente. R6 dice "explícito en
+la misma migración", lo respetamos en 0185 por compromiso pero es
+deuda haber tenido que hacer una mig separada.
+
+- **Fecha:** 2026-06-02 · ref CELEB-AUDIT-1 a 4, mig 0185.
+
 ## DGG-41 · Celebración del cert: banner + push + email premium con frase fija
 - **Decisión:** la emisión de un certificado de curso (sea por cert auto
   del Campus o por cierre manual con motivo "Concluyó el curso") dispara

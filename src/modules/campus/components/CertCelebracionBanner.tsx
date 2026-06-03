@@ -35,20 +35,14 @@ import { generateCertificadoPdf } from '../lib/generateCertificadoPdf';
 
 interface Props {
   /**
-   * Opcional. Si se pasa, solo se muestra el cert correspondiente a ese
-   * curso (uso en PortalGestionDetailPage donde el trámite es de un curso
-   * específico). Si no se pasa, muestra TODOS los certs sin ver del alumno
-   * (uso en PortalHome).
+   * Opcional. Si se pasa, filtra a un curso específico. En el portal
+   * actual no hay vínculo estructural trámite↔curso, así que en
+   * `PortalHome` se omite y el banner muestra TODOS los certs sin ver.
    */
   cursoId?: string;
-  /**
-   * Variante visual. `home` = HotCard wide; `inline` = bloque integrado
-   * arriba del timeline en el detalle del trámite.
-   */
-  variant?: 'home' | 'inline';
 }
 
-export function CertCelebracionBanner({ cursoId, variant = 'home' }: Props) {
+export function CertCelebracionBanner({ cursoId }: Props) {
   const [items, setItems] = useState<CertCelebrarItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -56,7 +50,12 @@ export function CertCelebracionBanner({ cursoId, variant = 'home' }: Props) {
   async function load() {
     const r = await listCertsCelebrarCliente();
     setLoading(false);
-    if (!r.ok) return;
+    if (!r.ok) {
+      // No interrumpir al alumno con un toast — el banner es opcional.
+      // Sólo lo logueamos para que aparezca en Salud del sistema si pasa.
+      console.warn('[CertCelebracionBanner] no se pudo cargar:', r.error);
+      return;
+    }
     const filtered = cursoId ? r.data.filter((c) => c.curso_id === cursoId) : r.data;
     setItems(filtered);
   }
@@ -102,7 +101,7 @@ export function CertCelebracionBanner({ cursoId, variant = 'home' }: Props) {
   if (loading || items.length === 0) return null;
 
   return (
-    <div className={variant === 'home' ? 'space-y-3' : 'space-y-3'}>
+    <div className="space-y-3">
       {items.map((it) => (
         <article
           key={it.cert_id}

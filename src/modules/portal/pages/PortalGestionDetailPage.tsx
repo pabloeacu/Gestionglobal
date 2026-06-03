@@ -22,7 +22,6 @@ import {
 } from 'lucide-react';
 import { toast } from '@/lib/toast';
 import { PedidosDocPanel } from '@/components/common/PedidosDocPanel';
-import { CertCelebracionBanner } from '@/modules/campus/components/CertCelebracionBanner';
 import {
   fetchClienteTramites,
   fetchClienteTrackingLineas,
@@ -160,12 +159,6 @@ export function PortalGestionDetailPage() {
           <DataChip icon={Clock} label="Actividad" value={formatActividad(tramite.horas_desde_actividad)} />
         </div>
       </section>
-
-      {/* DGG-41 · Banner celebratorio si el trámite es de un curso y el alumno
-          tiene cert no descargado. Se muestra al tope del detalle del trámite. */}
-      {tramite.categoria === 'curso' && (
-        <CertCelebracionBanner variant="inline" />
-      )}
 
       {/* N2 · Pedidos de documentación al cliente (banner amber con upload por item) */}
       <PedidosDocPanel

@@ -134,7 +134,7 @@ export function PortalHome() {
       {/* DGG-41 · Banner premium cuando el alumno terminó un curso y se
           emitió su certificado. Tiene la frase de José Luis + CTA descarga
           directa del PDF. Va al tope para que se vea apenas entra. */}
-      <CertCelebracionBanner variant="home" />
+      <CertCelebracionBanner />
 
       {/* M1 · Banner urgente cuando hay pedidos de documentación abiertos.
           Va arriba para que el cliente lo vea apenas entra. */}
