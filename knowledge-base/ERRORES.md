@@ -14,6 +14,71 @@
 - **Fecha / módulo:**
 -->
 
+## E-GG-42 · `column "fuente" of relation "curso_matriculas" does not exist` al asignar alumno a curso
+- **Síntoma:** José Luis (2026-06-02) abre el drawer "Asignar al curso"
+  desde el detalle del Curso de Formación RPAC, elige Estudio Save y
+  click "Asignar al curso" → toast: *"column \"fuente\" of relation
+  \"curso_matriculas\" does not exist"*. Bloqueo total del flujo de
+  asignación manual de alumnos.
+- **Causa raíz:** la migración 0172 (`audit_d_fixes`, 2026-05-30)
+  modificó la RPC `public.curso_asignar_alumno()` agregando el campo
+  `fuente = 'gerencia_manual'` al INSERT:
+  ```sql
+  INSERT INTO public.curso_matriculas (curso_id, administracion_id, profile_id, fuente)
+  VALUES (p_curso_id, p_administracion_id, v_profile_id, 'gerencia_manual')
+  ```
+  Pero **nunca agregó la columna `fuente`** a la tabla. La mig fue
+  half-shipped: tocó la RPC pero olvidó el `ALTER TABLE`. Bug latente
+  desde esa mig hasta que JL fue el primero en disparar el flujo en
+  producción.
+- **Por qué no se detectó antes:** la mig 0172 era parte de DEEP-AUDIT-D
+  (auditoría técnica BD), que era una pasada amplia de fixes. El
+  `apply_migration` no falla aunque la RPC tenga refs a columnas
+  inexistentes (Postgres compila plpgsql en runtime con search_path),
+  y los smokes de ese chunk no incluyeron una llamada real a
+  `curso_asignar_alumno`. Tampoco había browser walkthrough específico
+  del flujo "asignar alumno desde gerencia" en QA.
+- **Fix (mig 0183):**
+  ```sql
+  ALTER TABLE public.curso_matriculas ADD COLUMN IF NOT EXISTS fuente text;
+  -- Backfill semántico
+  UPDATE public.curso_matriculas
+     SET fuente = CASE WHEN submission_origen IS NOT NULL
+                       THEN 'formulario_publico' ELSE 'gerencia_manual' END
+   WHERE fuente IS NULL;
+  ALTER TABLE public.curso_matriculas
+    ALTER COLUMN fuente SET DEFAULT 'gerencia_manual';
+  ```
+  Sin check constraint a propósito — admite valores futuros (`webinar_auto`,
+  `import_legacy`, etc) sin requerir cambios de schema.
+- **Smoke e2e** (BEGIN/ROLLBACK con simulación de role gerente JL):
+  curso + administracion + profile sintéticos → `curso_asignar_alumno()`
+  → matrícula creada con `fuente='gerencia_manual'` ✓.
+- **Auditoría transversal** (R12 / regla 9):
+  - Otras RPCs que insertan en `curso_matriculas`: `curso_matricular`
+    (no usa `fuente`, su INSERT está sano).
+  - Otras tablas con misma deuda potencial — `grep` por columnas
+    referenciadas en RPCs pero no presentes en pg_attribute:
+    ```sql
+    -- patrón sugerido para futuras auditorías
+    SELECT p.proname, regexp_matches(pg_get_functiondef(p.oid),
+      'INSERT\s+INTO\s+public\.(\w+)\s*\([^)]+\)', 'g') AS matched
+    FROM pg_proc p ...
+    ```
+    Sin tiempo para correr exhaustivo en este chunk; sumada a backlog
+    auditoría tipo "schema drift entre RPC y tabla".
+- **Prevención:** patrón canónico — toda mig que modifique INSERT/UPDATE
+  de una RPC debe ir acompañada de **smoke e2e** que ejecute la RPC
+  realmente (con `BEGIN; PERFORM rpc(...); ROLLBACK;`). Si la mig
+  toca columnas que no existen, el smoke lo detecta antes del push.
+  Lección complementaria al método doble del usuario.
+- **Cambio de método en curso:** este es el segundo bug que el browser
+  testing visual habría detectado en segundos (E-GG-41 + E-GG-42 en el
+  mismo día). Necesito creds de un usuario gerente de prueba o que el
+  usuario haga walkthrough post-deploy para que el ciclo "revisar +
+  ejercitar" sea completo.
+- **Fecha / módulo:** 2026-06-02 · Campus · `curso_matriculas` · mig 0183.
+
 ## E-GG-41 · Tab "Documentación" muestra 0 adjuntos cuando el cliente subió archivos vía PedidoDoc
 - **Síntoma:** José Luis (2026-06-02) reporta que en el detalle de un
   trámite con una línea "Cliente envió 1 archivo(s) de documentación para
