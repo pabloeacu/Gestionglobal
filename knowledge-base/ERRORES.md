@@ -14,6 +14,43 @@
 - **Fecha / módulo:**
 -->
 
+## E-GG-43 · KPI "Resueltos" muestra 0 en tab Activos hasta que se cambia a Historial
+- **Síntoma:** José Luis (2026-06-02) abre el portal cliente → tab
+  Activos → ve "Resueltos: 0" pero claramente el cliente tiene un
+  trámite cerrado (TRM-2026-00014 "Curso de Formación RPAC", estado
+  "RESUELTO" en BD). Al click "Todo el historial", el contador se
+  refresca y muestra "1". Inconsistencia entre los KPIs y la realidad
+  hasta que cambia el tab.
+- **Causa raíz:** `PortalGestionesPage.tsx` línea 38 hacía:
+  ```ts
+  const res = await fetchClienteTramites(filter === 'abiertos');
+  ```
+  Cuando el tab era 'abiertos', el RPC backend filtraba y devolvía
+  SOLO estados abiertos. El array `items` quedaba parcial. Los stats
+  (`useMemo`) calculaban `resueltos = items.filter(estado === 'resuelto')`
+  sobre ese array filtrado → siempre 0 en tab Activos. Al cambiar a
+  'todos', fetch traía todo, items se completaba, stats reflejaba el
+  conteo real → ilusión de "se refresca al ir al historial".
+- **Bug secundario** (DGG-38 EXT): el filtro contaba SOLO `estado='resuelto'`.
+  Pero el flujo de cierre con motivo (DGG-38 EXT) deja `estado='cerrado'`.
+  Desde la óptica del cliente ambos son trámites terminados.
+- **Fix:**
+  - Un único fetch sin filtro backend (`fetchClienteTramites(false)`).
+  - `useEffect` sin dependencia en `filter` → no refetch al cambiar tab.
+  - `visibleItems` nuevo `useMemo` aplica el filtro UI en memoria.
+  - `stats` sigue calculando sobre `items` completo → KPIs correctos
+    desde el primer load.
+  - `stats.resueltos` cuenta tanto `'resuelto'` como `'cerrado'`.
+- **Auditoría transversal** (R12): grep de componentes con
+  `useState<X[]> + fetch(filtro) + useMemo stats sobre X`. Resultado:
+  0 hits adicionales en el codebase. PortalGestionesPage era el único
+  caso del anti-patrón.
+- **Capitalizada como R19** en CLAUDE.md: "KPIs/contadores se calculan
+  sobre el universo completo; los filtros viven en memoria". Smell
+  check: si tu `useEffect` re-fetchea cuando cambia un filtro UI,
+  probablemente estás cometiendo este error.
+- **Fecha / módulo:** 2026-06-02 · Portal cliente · `PortalGestionesPage.tsx`.
+
 ## E-GG-42 · `column "fuente" of relation "curso_matriculas" does not exist` al asignar alumno a curso
 - **Síntoma:** José Luis (2026-06-02) abre el drawer "Asignar al curso"
   desde el detalle del Curso de Formación RPAC, elige Estudio Save y
