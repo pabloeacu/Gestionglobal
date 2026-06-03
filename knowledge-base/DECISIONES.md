@@ -13,6 +13,68 @@
 - **Fecha:**
 -->
 
+## DGG-41 · Celebración del cert: banner + push + email premium con frase fija
+- **Decisión:** la emisión de un certificado de curso (sea por cert auto
+  del Campus o por cierre manual con motivo "Concluyó el curso") dispara
+  **3 canales celebratorios** orquestados desde un único trigger BD:
+  push notification, email premium MANAXER y banner persistente en el
+  portal cliente. La frase fija (acordada con JL): *"¡FELICITACIONES!
+  terminaste el curso ___. Sin lugar a dudas, tu esfuerzo valió la
+  pena. Recordá: el éxito no se basa en encajar, sino en sobresalir"*.
+- **Razón:** José Luis (2026-06-02): "el cierre con certificado es un
+  momento importante, no podemos desperdiciarlo. Banner, mail y push
+  especiales que destaquen el evento y den acceso directo a la
+  descarga". Es un punto de inflexión emocional en el journey del
+  alumno y la plataforma tiene que estar a la altura.
+- **Implementación:**
+  - **Mig 0184** ALTER `certificados` ADD `celebracion_vista_at timestamptz`
+    (NULL hasta que el alumno descargue o descarte). Trigger
+    `trg_certificado_celebrar` AFTER INSERT en `certificados`
+    (SECURITY DEFINER, EXCEPTION WHEN OTHERS para no abortar emisión
+    del cert por fallos de side-effects):
+    - Encola **push** vía INSERT en `push_notifications_queue` con
+      title `🎓 ¡Felicitaciones!`, body con nombre del curso, click_url
+      al portal de Mis Cursos.
+    - Encola **email** vía `encolar_email('curso-felicitacion', ...)`
+      con plantilla nueva (`titulo_visual` con emoji, `color_acento`
+      dorado #f59e0b, cuerpo HTML con frase destacada estilo cita).
+    - Dispara para CUALQUIER cert emitido (no requiere submission_origen) →
+      cubre alumnos asignados manualmente desde Campus también.
+  - **2 RPCs nuevas**:
+    - `cliente_certs_celebrar()` → lista certs del alumno logueado con
+      `celebracion_vista_at IS NULL`. Para alimentar el banner.
+    - `cert_marcar_celebracion_vista(p_cert_id)` → marca el cert como
+      celebrado (al descargar o descartar el banner). Sólo el dueño
+      o staff puede llamarla.
+  - **Frontend**:
+    - `src/modules/campus/components/CertCelebracionBanner.tsx` —
+      componente reusable con variantes `home` y `inline`. Banner
+      cyan/dorado con frase + botón "Descargar mi certificado" + link
+      "Ver verificación pública" + X para descartar. Click descarga →
+      genera PDF cliente con `generateCertificadoPdf` + marca como
+      vista → banner desaparece.
+    - **PortalHome**: banner al tope, antes del DocsPendientesBanner.
+    - **PortalGestionDetailPage**: banner inline arriba del timeline
+      cuando `tramite.categoria === 'curso'` (filtra por cert del
+      curso si lo identifica, pero como simple compromise muestra
+      todos los pendientes del alumno).
+  - **Service**: `listCertsCelebrarCliente`, `marcarCelebracionVista`,
+    `getCertCompleto` en `campus.ts`. Tipos casteados con `as never`
+    para los nuevos RPCs hasta que se regeneren los types de Supabase.
+- **Por qué frase fija (no rotativa)**: JL prefiere consistencia. Si
+  más adelante quiere rotar, el copy vive en la plantilla email +
+  componente — un edit puntual.
+- **Por qué PDF directo (no página de verificación)**: JL: "al click,
+  que descargue el PDF". El link a verificación pública queda como
+  secundario por si el alumno quiere compartir el link de verificación.
+- **Por qué dispara para CUALQUIER cert**: tratar igual a los alumnos
+  vengan o no de formulario. La gerencia también asigna manual desde
+  Campus — ese alumno merece la misma celebración.
+- **Smoke e2e** (BEGIN/INSERT/verificar/ROLLBACK): cert insertado →
+  push_notifications_queue=1 row con título "¡Felicitaciones!" + email
+  encolado con plantilla `curso-felicitacion` + subject con emoji ✓.
+- **Fecha:** 2026-06-02 · ref CELEB-1 a 7, mig 0184.
+
 ## DGG-39 · Cobranza · emparejamiento de campos entre las dos vías de registro
 - **Decisión:** las dos formas de registrar una cobranza (modal simple
   desde el panel de Solicitud recibida y wizard de 3 pasos desde Cuenta

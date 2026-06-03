@@ -45,6 +45,7 @@ import {
   type PedidoAbiertoResumen,
 } from '@/services/api/tramitePedidosDoc';
 import { ActivarPushAssistant } from '@/components/common/ActivarPushAssistant';
+import { CertCelebracionBanner } from '@/modules/campus/components/CertCelebracionBanner';
 import { NovedadesBanner } from '../components/NovedadesBanner';
 import { PortalOnboardingTour, tourCompletado } from '../components/PortalOnboardingTour';
 import { PortalPwaAssistant } from '../components/PortalPwaAssistant';
@@ -129,6 +130,11 @@ export function PortalHome() {
 
       {/* CTA universal: pide permiso de push con 1 click (no entra a config). */}
       <ActivarPushAssistant />
+
+      {/* DGG-41 · Banner premium cuando el alumno terminó un curso y se
+          emitió su certificado. Tiene la frase de José Luis + CTA descarga
+          directa del PDF. Va al tope para que se vea apenas entra. */}
+      <CertCelebracionBanner variant="home" />
 
       {/* M1 · Banner urgente cuando hay pedidos de documentación abiertos.
           Va arriba para que el cliente lo vea apenas entra. */}

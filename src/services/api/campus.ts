@@ -1428,6 +1428,56 @@ export async function resolverEsquemaParaCert(
   return normalizarEsquema(def);
 }
 
+// ============================================================================
+// DGG-41 (2026-06-02 · José Luis) · Celebración del cert
+// ============================================================================
+export interface CertCelebrarItem {
+  cert_id: string;
+  codigo: string;
+  curso_id: string;
+  curso_titulo: string;
+  emitido_at: string;
+  link_verificacion: string;
+}
+
+/**
+ * Lista los certificados del alumno logueado que aún no fueron "celebrados"
+ * (banner sin descartar / sin descargar). Para mostrar el banner premium en
+ * PortalHome y en el detalle del trámite curso.
+ */
+export async function listCertsCelebrarCliente(): Promise<ApiResponse<CertCelebrarItem[]>> {
+  // RPCs nuevas (mig 0184) — types se regeneran luego.
+  const { data, error } = await supabase.rpc('cliente_certs_celebrar' as never);
+  if (error) return fail('CERT_CELEBRAR_LIST', error.message, error);
+  return ok(((data as unknown) ?? []) as CertCelebrarItem[]);
+}
+
+/**
+ * Marca un cert como "celebración vista". Se llama al descargar o al cerrar
+ * el banner explícitamente. Idempotente (no toca si ya estaba marcado).
+ */
+export async function marcarCelebracionVista(certId: string): Promise<ApiResponse<true>> {
+  const { error } = await supabase.rpc(
+    'cert_marcar_celebracion_vista' as never,
+    { p_cert_id: certId } as never,
+  );
+  if (error) return fail('CERT_CELEB_MARCAR', error.message, error);
+  return ok(true);
+}
+
+/**
+ * Obtiene un certificado completo por id (para generar el PDF).
+ */
+export async function getCertCompleto(certId: string): Promise<ApiResponse<CertificadoRow>> {
+  const { data, error } = await supabase
+    .from('certificados')
+    .select('*')
+    .eq('id', certId)
+    .single();
+  if (error) return fail('CERT_GET', error.message, error);
+  return ok(data as CertificadoRow);
+}
+
 /**
  * Resuelve el esquema cuando todavía no hay cert emitido (vista previa antes
  * de la emisión). Solo usa el curso → esquema o el default.
