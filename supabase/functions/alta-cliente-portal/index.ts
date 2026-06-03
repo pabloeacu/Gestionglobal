@@ -22,6 +22,7 @@
 // y reusa credenciales (no genera nueva password). Devuelve { user_id, password_set: false }.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.46.1';
+import { humanizeUpstream, humanizeUpstreamMsg } from '../_shared/humanize.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -119,7 +120,9 @@ Deno.serve(async (req) => {
         administracion_id: body.administracion_id,
         err: errCreate?.message,
       });
-      return json(500, { ok: false, error: `Crear user: ${errCreate?.message ?? 'desconocido'}` });
+      // E-GG-44
+      const h = humanizeUpstream(errCreate?.message, 'No pudimos crear el acceso al portal. Verificá el email y reintentá.');
+      return json(h.status, { ok: false, error: h.message });
     }
     userId = newUser.user.id;
     passwordSet = true;
@@ -157,7 +160,9 @@ Deno.serve(async (req) => {
         user_id: userId,
         err: errLink.message,
       });
-      return json(500, { ok: false, error: `Vincular admin↔user: ${errLink.message}` });
+      // E-GG-44
+      const h = humanizeUpstream(errLink.message, 'El usuario se creó pero no pudimos vincularlo al cliente. Avisá a un gerente.');
+      return json(h.status, { ok: false, error: h.message });
     }
   }
 

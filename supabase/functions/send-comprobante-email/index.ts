@@ -14,6 +14,7 @@
 //   WORKSPACE_REPLY_TO          (= contacto@gestionglobal.ar)
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.46.1';
+import { humanizeUpstream, humanizeUpstreamMsg } from '../_shared/humanize.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -109,10 +110,14 @@ Deno.serve(async (req) => {
     });
     if (!r.ok) {
       const txt = await r.text();
-      return jsonError(502, `Gmail API ${r.status}: ${txt}`);
+      console.error('send-comprobante-email · Gmail API non-2xx', { status: r.status, body: txt.slice(0, 500) });
+      // E-GG-44 (Pattern-5 · 2026-06-02)
+      return jsonError(502, humanizeUpstreamMsg(txt, 'No pudimos enviar el comprobante por email. Verificá la dirección y reintentá.'));
     }
   } catch (e) {
-    return jsonError(502, `Gmail API error: ${(e as Error).message}`);
+    console.error('send-comprobante-email · Gmail API exception', { err: (e as Error).message });
+    // E-GG-44
+    return jsonError(502, humanizeUpstreamMsg((e as Error).message, 'No pudimos conectar con Gmail para enviar el comprobante. Reintentá en unos minutos.'));
   }
 
   const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);

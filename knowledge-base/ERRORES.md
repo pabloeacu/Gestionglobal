@@ -14,6 +14,60 @@
 - **Fecha / módulo:**
 -->
 
+## E-GG-44 · Mensajes técnicos crudos de servicios externos llegan al cliente (sweep preventivo Pattern-5)
+- **Síntoma:** mandato de auditoría preventiva pos-E-GG-39 (José Luis, "no
+  dejés nada para mañana"). El bug E-GG-39 (Supabase Auth devolvió "Password
+  is known to be weak..." en inglés al cliente del portal) capitalizó el
+  patrón. El sweep transversal sobre todas las edge fns reveló **19 hits**
+  donde `error.message` crudo de servicios externos (Supabase Auth, Gmail API,
+  ARCA SOAP, Zoom) se propagaba al frontend sin humanizar.
+- **Clasificación de los hits** (cliente-facing vs background-only):
+  - **8 cliente-facing** (el usuario VE el mensaje en un toast): humanizadas
+    en este sweep.
+    1. `crear-gerente/index.ts:97,114` · gerencia crea otro usuario.
+    2. `alta-cliente-portal/index.ts:122,160` · alta de cliente con acceso.
+    3. `send-comprobante-email/index.ts:115` · Gmail API al enviar comprobante.
+    4. `cj-enviar-pdf/index.ts:117` · Gmail al enviar PDF jurídico.
+    5. `zoom-meeting-create/index.ts:153` · creación de reunión Zoom.
+    6. `zoom-webinar-create/index.ts:145` · creación de webinar Zoom.
+    7. `arca-autorizar-comprobante/index.ts:57` · job lookup ARCA.
+  - **11 background-only** (cron/webhook, errores van a logs sin llegar al
+    UI): se dejan con `error.message` crudo. Incluye: `dispatch-emails`,
+    `dispatch-push`, `dispatch-vencimientos`, `dispatch-recupero`,
+    `dispatch-arca-emission`, `notify-vencimientos`, `email-bounce-harvester`,
+    `gmail-pubsub-webhook`, `webex-webhook`, `health-flows-check`,
+    `db-health-alert-check`.
+- **Fix:**
+  - Helper centralizado nuevo: `supabase/functions/_shared/humanize.ts`
+    con `humanizeUpstream(rawMessage, fallback?)` y `humanizeUpstreamMsg()`.
+    Mapas regex para los 22 casos comunes de Supabase Auth + Gmail + ARCA
+    + Zoom + red/infra. Fallback genérico en español que NO incluye el
+    mensaje técnico crudo (no leakea info al cliente).
+  - 8 edge fns cliente-facing parchadas para usar el helper. Pattern:
+    ```ts
+    if (errCreate || !newUser?.user) {
+      console.error('crear-gerente: createUser falló', { err: errCreate?.message });
+      const h = humanizeUpstream(errCreate?.message, 'No pudimos crear el usuario. Verificá el email y reintentá.');
+      return json(h.status, { ok: false, error: h.message });
+    }
+    ```
+    Se mantiene el `console.error` con el msg técnico (va a logs de
+    Supabase para debugging), pero al cliente le llega solo el copy humano.
+  - Las 7 funciones deployadas vía Supabase Management API (incluyen
+    `_shared/humanize.ts` y deps existentes como `arca.ts`, `emisor.ts`).
+- **Auditoría transversal** (R12): grep `(e as Error).message`, `err.message`,
+  `error.message` en `supabase/functions/*/index.ts`. 19 hits totales. La
+  clasificación cliente-facing vs background fue decidida según el flujo:
+  ¿el JSON con el error llega a un `toast.error()` del frontend? Si sí,
+  humanizar. Si va a un cron log o queue retry, dejar crudo.
+- **Prevención:** patrón canónico ya consolidado en R17/R18 de CLAUDE.md
+  + helper compartido. Smell check para futuras edge fns: si tu fn devuelve
+  `error: err.message` sin pasarlo por `humanizeUpstream()`, y NO es un
+  cron/webhook background, es un bug latente. Reglas R18 y R19 de CLAUDE.md
+  ya capitalizan el patrón "humanizar antes de devolver".
+- **Fecha / módulo:** 2026-06-02 · Edge functions · `_shared/humanize.ts` +
+  7 funciones deployadas.
+
 ## E-GG-43 · KPI "Resueltos" muestra 0 en tab Activos hasta que se cambia a Historial
 - **Síntoma:** José Luis (2026-06-02) abre el portal cliente → tab
   Activos → ve "Resueltos: 0" pero claramente el cliente tiene un

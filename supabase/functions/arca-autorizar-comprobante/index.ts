@@ -5,6 +5,7 @@
 // verify_jwt=false: bearer CRON_SECRET o service_role.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.46.1';
+import { humanizeUpstream, humanizeUpstreamMsg } from '../_shared/humanize.ts';
 import {
   wsaaLogin,
   feCompUltimoAutorizado,
@@ -54,7 +55,12 @@ async function autorizar(admin: ReturnType<typeof createClient>, jobId: string) 
     .select('id, comprobante_id, status, attempt, max_attempts')
     .eq('id', jobId)
     .single();
-  if (jobErr || !jobRow) return { ok: false, error: `Job no encontrado: ${jobErr?.message ?? 'null'}` };
+  if (jobErr || !jobRow) {
+    console.error('arca-autorizar-comprobante · job lookup falló', { jobId, err: jobErr?.message });
+    // E-GG-44 (Pattern-5 · 2026-06-02). El dispatcher cron usa este error
+    // crudo internamente, pero como puede invocarse desde UI manual lo humanizamos.
+    return { ok: false, error: humanizeUpstreamMsg(jobErr?.message ?? 'null', 'No encontramos el job de autorización ARCA. Refrescá la lista.') };
+  }
   if (!['pending', 'sending'].includes(jobRow.status as string)) {
     return { ok: true, skipped: true, motivo: `job en estado ${jobRow.status}` };
   }

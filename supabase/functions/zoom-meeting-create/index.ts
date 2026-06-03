@@ -19,6 +19,7 @@
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { humanizeUpstream, humanizeUpstreamMsg } from '../_shared/humanize.ts';
 
 const ACCOUNT_ID    = Deno.env.get("ZOOM_ACCOUNT_ID") ?? "";
 const CLIENT_ID     = Deno.env.get("ZOOM_S2S_CLIENT_ID") ?? "";
@@ -150,7 +151,11 @@ Deno.serve(async (req) => {
     p_password: mtg.password ?? null,
     p_duracion_min: duracionMin,
   });
-  if (rpcErr) return json(500, { error: "rpc_set_zoom", detail: rpcErr.message });
+  if (rpcErr) {
+    console.error('zoom-meeting-create · rpc_set_zoom falló', { encuentroId, err: rpcErr.message });
+    // E-GG-44 (Pattern-5 · 2026-06-02)
+    return json(500, { error: humanizeUpstreamMsg(rpcErr.message, 'La reunión Zoom se creó pero no pudimos guardarla en el curso. Avisá a un gerente.') });
+  }
 
   return json(200, {
     ok: true,

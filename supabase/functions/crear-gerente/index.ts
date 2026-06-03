@@ -95,7 +95,10 @@ Deno.serve(async (req) => {
     user_metadata: { full_name: body.nombre, role },
   });
   if (errCreate || !newUser?.user) {
-    return json(500, { ok: false, error: `Crear user: ${errCreate?.message ?? 'desconocido'}` });
+    // E-GG-44 (Pattern-5 sweep · 2026-06-02): humanizar antes de devolver
+    const { humanizeUpstream } = await import('../_shared/humanize.ts');
+    const h = humanizeUpstream(errCreate?.message, 'No pudimos crear el usuario. Verificá el email y reintentá.');
+    return json(h.status, { ok: false, error: h.message });
   }
 
   // 5) Upsert profile con role + partner_id si corresponde
@@ -109,7 +112,10 @@ Deno.serve(async (req) => {
   }
   const { error: errProfile } = await admin.from('profiles').upsert(profile);
   if (errProfile) {
-    return json(500, { ok: false, error: `Crear profile: ${errProfile.message}` });
+    // E-GG-44
+    const { humanizeUpstream } = await import('../_shared/humanize.ts');
+    const h = humanizeUpstream(errProfile.message, 'El usuario se creó pero no pudimos terminar de configurar su perfil. Avisá a un gerente.');
+    return json(h.status, { ok: false, error: h.message });
   }
 
   return json(200, { ok: true, user_id: newUser.user.id, password_temporal: passwordTemporal });

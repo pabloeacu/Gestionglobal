@@ -13,6 +13,7 @@
 // Citas: regla 7 (edge fn versionada), reuso del patrón dispatch-emails.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.46.1';
+import { humanizeUpstream, humanizeUpstreamMsg } from '../_shared/humanize.ts';
 
 const DOMAIN = 'gestionglobal.ar';
 const FROM = `consultoriajuridica@${DOMAIN}`;
@@ -109,12 +110,16 @@ Deno.serve(async (req) => {
     });
     if (!r.ok) {
       const txt = await r.text();
-      return jsonError(502, `Gmail ${r.status}: ${txt.slice(0, 500)}`);
+      console.error('cj-enviar-pdf · Gmail non-2xx', { status: r.status, body: txt.slice(0, 500) });
+      // E-GG-44
+      return jsonError(502, humanizeUpstreamMsg(txt, 'No pudimos enviar el PDF de consulta jurídica. Verificá la dirección y reintentá.'));
     }
     const j = await r.json() as { id?: string };
     providerMsgId = j.id ?? null;
   } catch (e) {
-    return jsonError(502, `Gmail error: ${(e as Error).message}`);
+    console.error('cj-enviar-pdf · Gmail exception', { err: (e as Error).message });
+    // E-GG-44
+    return jsonError(502, humanizeUpstreamMsg((e as Error).message, 'No pudimos conectar con Gmail. Reintentá en unos minutos.'));
   }
 
   // 6) Registrar en sent_emails + marcar doc como enviado
