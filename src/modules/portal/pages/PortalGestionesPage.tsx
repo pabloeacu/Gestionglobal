@@ -27,15 +27,21 @@ import {
 import { humanizeError } from '@/lib/errors';
 
 export function PortalGestionesPage() {
+  // E-GG-43 (2026-06-02 · José Luis): los KPIs (Abiertos/Esperan/Resueltos)
+  // deben calcularse sobre el universo COMPLETO de gestiones del cliente,
+  // no sobre la lista filtrada por tab. Antes el fetch traía solo abiertos
+  // cuando el tab era "Activos" → "Resueltos: 0" hasta que el usuario
+  // cambiaba a "Todo el historial" y refrescaba.
+  //
+  // Fix: un único fetch sin filtro backend. El filtro por tab vive en
+  // memoria; los stats calculan sobre items completos.
   const [items, setItems] = useState<ClienteTramite[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'abiertos' | 'todos'>('abiertos');
-  // Bloque H / obs 12: el modal fue reemplazado por pantalla propia
-  // (PortalGestionDetailPage). selected/setSelected ya no se usan.
 
   async function load() {
     setLoading(true);
-    const res = await fetchClienteTramites(filter === 'abiertos');
+    const res = await fetchClienteTramites(false); // TRAE TODO siempre
     setLoading(false);
     if (!res.ok) {
       toast.error('No pudimos cargar tus gestiones', { description: humanizeError(res.error) });
@@ -44,15 +50,27 @@ export function PortalGestionesPage() {
     setItems(res.data);
   }
 
-  useEffect(() => { void load(); /* eslint-disable-next-line */ }, [filter]);
+  // Solo refetch al montar el componente — no cuando cambia filter
+  // (el filtro vive 100% en memoria).
+  useEffect(() => { void load(); }, []);
 
-  // Bloque H / obs 12: el marcado-como-leído ahora lo hace PortalGestionDetailPage
-  // cuando el cliente abre la pantalla. Acá ya no hay selected/modal.
+  // Lista visible filtrada según tab (lo que antes hacía el RPC).
+  const ESTADOS_ABIERTOS = ['abierto', 'en_progreso', 'esperando_cliente'] as const;
+  const visibleItems = useMemo(
+    () => filter === 'abiertos'
+      ? items.filter((t) => (ESTADOS_ABIERTOS as readonly string[]).includes(t.estado))
+      : items,
+    [items, filter],
+  );
 
+  // Stats sobre el universo COMPLETO. "Resueltos" incluye tanto
+  // 'resuelto' como 'cerrado' — ambos son trámites terminados desde
+  // la perspectiva del cliente (DGG-38 EXT introdujo cierre con motivo
+  // que deja estado='cerrado').
   const stats = useMemo(() => ({
-    abiertos: items.filter((t) => ['abierto','en_progreso','esperando_cliente'].includes(t.estado)).length,
+    abiertos: items.filter((t) => (ESTADOS_ABIERTOS as readonly string[]).includes(t.estado)).length,
     esperando: items.filter((t) => t.estado === 'esperando_cliente').length,
-    resueltos: items.filter((t) => t.estado === 'resuelto').length,
+    resueltos: items.filter((t) => t.estado === 'resuelto' || t.estado === 'cerrado').length,
   }), [items]);
 
   return (
@@ -110,7 +128,7 @@ export function PortalGestionesPage() {
         <div className="space-y-2">
           {[0,1,2].map((i) => <Skeleton key={i} className="h-20 rounded-2xl" />)}
         </div>
-      ) : items.length === 0 ? (
+      ) : visibleItems.length === 0 ? (
         <IllustratedEmpty
           illustration="lista"
           title={filter === 'abiertos' ? 'Sin gestiones activas' : 'Sin gestiones registradas'}
@@ -125,7 +143,7 @@ export function PortalGestionesPage() {
         />
       ) : (
         <ul className="space-y-2">
-          {items.map((t) => (
+          {visibleItems.map((t) => (
             <li key={t.id}>
               <TramiteCard t={t} />
             </li>
