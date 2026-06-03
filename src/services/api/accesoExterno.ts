@@ -50,10 +50,11 @@ export async function subirAdjuntoGestor(
   token: string,
   file: File,
 ): Promise<ApiResponse<string>> {
-  const safe = file.name.replace(/[^\w.\-]/g, '_');
+  // E-GG-40 sweep
+  const { safeStorageKey } = await import('@/lib/storageKeys');
   const path = `${token}/${Date.now()}-${Math.random()
     .toString(36)
-    .slice(2, 8)}-${safe}`;
+    .slice(2, 8)}-${safeStorageKey(file.name)}`;
   const { error } = await supabase.storage
     .from(GESTOR_UPLOADS_BUCKET)
     .upload(path, file, { upsert: false, contentType: file.type || undefined });

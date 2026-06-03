@@ -583,8 +583,9 @@ export async function subirAdjunto(
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) return fail('NO_SESSION', 'Sin sesión activa');
 
-  const safeName = file.name.replace(/[^a-zA-Z0-9._-]+/g, '_');
-  const storage_path = `${tramite_id}/${Date.now()}_${safeName}`;
+  // E-GG-40 sweep
+  const { safeStorageKey } = await import('@/lib/storageKeys');
+  const storage_path = `${tramite_id}/${Date.now()}_${safeStorageKey(file.name)}`;
 
   const upload = await supabase.storage
     .from('tramite-adjuntos')
@@ -633,8 +634,9 @@ export async function subirDocumentoFinalTramite(
   tramite_id: string,
   file: File,
 ): Promise<ApiResponse<string>> {
-  const safe = file.name.replace(/[^\w.\-]/g, '_');
-  const path = `${tramite_id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${safe}`;
+  // E-GG-40 sweep
+  const { safeStorageKey } = await import('@/lib/storageKeys');
+  const path = `${tramite_id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${safeStorageKey(file.name)}`;
   const { error } = await supabase.storage
     .from('tramite-documento-final')
     .upload(path, file, {

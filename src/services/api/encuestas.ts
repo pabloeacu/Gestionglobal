@@ -169,8 +169,9 @@ export async function uploadFotoTestimonio(
   matricula_id: string,
   file: File,
 ): Promise<ApiResponse<string>> {
-  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-  const path = `${curso_id}/${matricula_id}-${Date.now()}-${safeName}`;
+  // E-GG-40 sweep
+  const { safeStorageKey } = await import('@/lib/storageKeys');
+  const path = `${curso_id}/${matricula_id}-${Date.now()}-${safeStorageKey(file.name)}`;
   const up = await supabase.storage
     .from('encuesta-testimonios')
     .upload(path, file, { upsert: true, contentType: file.type || undefined });

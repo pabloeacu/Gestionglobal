@@ -1665,8 +1665,9 @@ export async function uploadCampusMedia(
   ownerId: string,
   file: File,
 ): Promise<ApiResponse<string>> {
-  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-  const path = `${scope}/${ownerId}/${Date.now()}-${safeName}`;
+  // E-GG-40 sweep · safeStorageKey normaliza NFKD y quita diacríticos
+  const { safeStorageKey } = await import('@/lib/storageKeys');
+  const path = `${scope}/${ownerId}/${Date.now()}-${safeStorageKey(file.name)}`;
   const up = await supabase.storage
     .from('campus-media')
     .upload(path, file, { upsert: true, contentType: file.type || undefined });

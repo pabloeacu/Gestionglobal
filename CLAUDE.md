@@ -1,11 +1,16 @@
 # CLAUDE.md — Plataforma Gestión Global
 
-> Las reglas eran 13 originales. **A partir de 2026-06-02 son 17** —
+> Las reglas eran 13 originales. **A partir de 2026-06-02 son 20** —
 > sumamos R14 (paridad columna-grilla ↔ control), R15 (diff legacy ↔
 > nueva al redirigir) capitalizadas del incidente E-GG-35, R16 (overloads
 > de RPC ambiguos) capitalizada del bug de cobranza de José Luis (E-GG-37),
-> y R17 (triggers SECURITY DEFINER cuando escriben en tablas RLS sin
-> policy de write) capitalizada del bug del kanban (E-GG-38).
+> R17 (triggers SECURITY DEFINER cuando escriben en tablas RLS sin
+> policy de write) capitalizada del bug del kanban (E-GG-38),
+> R18 (smoke obligatorio en migs que tocan RPCs) capitalizada del
+> bug "column fuente does not exist" (E-GG-42), R19 (KPIs sobre
+> universo completo, filtros UI en memoria) capitalizada del bug de
+> "Resueltos: 0" del portal (E-GG-43), y R20 (helper `safeStorageKey`
+> obligatorio en uploads) capitalizada del sweep preventivo de E-GG-40.
 
 > **Si arrancás una sesión nueva, leé en este orden:**
 >   1. `PROJECT_STATUS.md` (raíz) — snapshot vivo de dónde quedó el proyecto,
@@ -134,6 +139,49 @@ gerentes, portal de administradores clientes, formularios públicos sin login.
     ```
     Debe devolver 0 filas. Si devuelve algo, convertir esa función a
     `SECURITY DEFINER` antes de cerrar.
+18. **Smoke obligatorio en migs que modifican INSERT/UPDATE de RPC**
+    (E-GG-42, 2026-06-02). Toda migración que cambie el `INSERT INTO ...`
+    de una RPC debe ir acompañada de un smoke e2e que ejecute la RPC
+    realmente:
+    ```sql
+    BEGIN;
+      SET LOCAL role authenticated;
+      SET LOCAL "request.jwt.claims" TO '{"sub":"<uid>","role":"authenticated"}';
+      PERFORM public.mi_rpc(<args sintéticos>);
+      -- verificar side effects
+    ROLLBACK;
+    ```
+    Postgres compila plpgsql en runtime con `search_path` por llamada,
+    por eso `apply_migration` NO falla aunque la RPC referencie una
+    columna inexistente. El bug se manifiesta cuando un usuario real
+    dispara el flujo en producción. Caso: mig 0172 modificó
+    `curso_asignar_alumno` para insertar `fuente='gerencia_manual'`
+    pero olvidó `ALTER TABLE ADD COLUMN fuente`. Bug latente 3 días
+    hasta que JL fue el primero en asignar un alumno.
+19. **KPIs/contadores se calculan sobre el universo completo;
+    los filtros viven en memoria** (E-GG-43, 2026-06-02). Cuando un
+    componente muestra contadores arriba de una lista filtrada
+    (tabs, dropdowns, switches), el dataset crudo debe traerse SIN
+    filtro de backend y los KPIs cálculan sobre ese universo completo.
+    El filtro se aplica con `useMemo` en memoria para la lista visible.
+    Caso: `PortalGestionesPage` traía `fetchClienteTramites(soloAbiertos)`,
+    el array `items` quedaba parcial, y `stats.resueltos` siempre era
+    0 hasta que el cliente cambiaba tab. Smell check: si tu `useEffect`
+    re-fetchea cuando cambia un filtro UI, probablemente estás cometiendo
+    este error.
+20. **Toda subida de archivo a Supabase Storage usa `safeStorageKey()`**
+    (E-GG-40 sweep, 2026-06-02). El helper en `src/lib/storageKeys.ts`
+    normaliza NFKD + remueve diacríticos + limita a `[a-zA-Z0-9._-]`.
+    No usar regex parciales como `/\s+/g` ni `/[^\w.\-]/g` (este último
+    deja pasar acentos en algunos runtimes). Patrón canónico:
+    ```ts
+    import { buildStorageKey, safeStorageKey } from '@/lib/storageKeys';
+    const path = buildStorageKey(scopeId, file.name);
+    // o si necesitás más control:
+    const path = `${scope}/${Date.now()}-${safeStorageKey(file.name)}`;
+    ```
+    Smell check: cualquier `file.name.replace(...)` en código nuevo es
+    sospechoso. Mejor migrar al helper.
 
 ## 3. Decisiones de arranque (2026-05-19)
 
