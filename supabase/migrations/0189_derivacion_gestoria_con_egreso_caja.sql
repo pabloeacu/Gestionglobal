@@ -15,6 +15,11 @@
 --   4. RPC `solicitud_derivar_v3` que llama a v2 y, si hay monto > 0 +
 --      caja, INSERTea un movimiento egreso atómicamente y vincula
 --      derivación ↔ movimiento.
+--
+-- NOTA (DGG-43 v2 · mig 0190): Pablo pidió reusar la categoría existente
+-- "Servicios de Gestoría" en lugar de crear "Gastos de gestoría". La 0190
+-- redirige el default del RPC y elimina la categoría creada acá. El seed de
+-- esta mig queda como histórico — la 0190 lo deja sin efecto.
 -- ============================================================================
 
 INSERT INTO public.categorias_finanzas (nombre, tipo, icono, activo)

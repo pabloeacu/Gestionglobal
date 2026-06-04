@@ -502,9 +502,10 @@ export function WizardActivacion({
 
                 {/* DGG-43 (2026-06-04 · Pablo): si hay monto, ofrecemos
                     seleccionar la caja para que el sistema genere el asiento
-                    de egreso automáticamente. Categoría fija: "Gastos de
-                    gestoría". El movimiento queda visible en Finanzas y se
-                    puede revertir o anular como cualquier otro. */}
+                    de egreso automáticamente. Categoría fija: "Servicios de
+                    Gestoría" (DGG-43 v2: reusa la categoría existente, no
+                    creamos una nueva). El movimiento queda visible en
+                    Finanzas y se puede revertir o anular como cualquier otro. */}
                 {(() => {
                   const m = parseFloat(montoGestoria.replace(',', '.'));
                   const hayMonto = !isNaN(m) && m > 0;
@@ -530,7 +531,7 @@ export function WizardActivacion({
                       {cajaSeleccionada ? (
                         <p className="text-[11px] text-brand-ink/80">
                           Vamos a registrar un <strong>egreso de ${(!isNaN(m) ? m : 0).toLocaleString('es-AR')}</strong>{' '}
-                          en categoría <strong>Gastos de gestoría</strong>. Va a aparecer en Finanzas como cualquier otro movimiento (revertible / anulable).
+                          en categoría <strong>Servicios de Gestoría</strong>. Va a aparecer en Finanzas como cualquier otro movimiento (revertible / anulable).
                         </p>
                       ) : (
                         <p className="text-[11px] text-amber-700">

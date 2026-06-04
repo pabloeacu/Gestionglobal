@@ -45,14 +45,20 @@
   (v2), sin movimiento. Eso preserva el caso "registro nominal sin
   impacto financiero".
 
-- **Categoría "Gastos de gestoría"** (Pablo: "si no existe, creala"):
-  - Creada con seed idempotente al aplicar la mig.
-  - Tipo='egreso', icono Briefcase, activo=true.
-  - **No reutilizamos "Servicios de Gestoría"** (que existía) porque el
-    nombre exacto que pidió Pablo es distinto y la separación permite
-    análisis distinguible: "Gastos" para pagos a gestores externos
-    de tareas operativas vs "Servicios" para honorarios de gestoría
-    propia. Si Pablo quiere unificar después, se hace por análisis.
+- **Categoría del egreso · "Servicios de Gestoría"** (corrección DGG-43 v2,
+  Pablo 2026-06-04): inicialmente (mig 0189) creé una categoría nueva
+  "Gastos de gestoría" siguiendo el "si no existe, creala". Pablo
+  corrigió: *"Servicios de gestoría es una buena categoría. No hace
+  falta crear una nueva. Si ya lo hiciste, eliminala y redirigí el
+  gasto bajo la categoría existente."*
+  - **Mig 0190**: el RPC ahora hace lookup default a la categoría
+    EXISTENTE "Servicios de Gestoría" (id `4d2019ef-…`). La categoría
+    "Gastos de gestoría" se eliminó (verificado: 0 movimientos, 0
+    derivaciones vinculadas → borrado seguro con guarda NOT EXISTS).
+  - Aprendizaje: antes de crear una categoría nueva por instrucción
+    literal, chequear si ya existe una semánticamente equivalente y
+    proponer reusarla. El catálogo de finanzas debe quedar chico y
+    legible para los reportes.
 
 - **Operación del movimiento post-creación** (requisito: "que opere
   como cualquier otro pago"):

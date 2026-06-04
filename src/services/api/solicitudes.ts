@@ -282,8 +282,9 @@ export interface DerivarInput {
   adjuntos?: Array<{ path: string; filename: string; mime: string; size: number }>;
   // DGG-43 (2026-06-04 · Pablo) · si el operador eligió caja, la RPC v3 crea
   // un movimiento egreso atómico vinculado a la derivación. Categoría
-  // default: "Gastos de gestoría". El movimiento opera como cualquier otro:
-  // se puede revertir o anular desde Finanzas.
+  // default: "Servicios de Gestoría" (categoría existente — DGG-43 v2). El
+  // movimiento opera como cualquier otro: se puede revertir o anular desde
+  // Finanzas.
   caja_id?: string | null;
   categoria_id?: string | null;
 }
