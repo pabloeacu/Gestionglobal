@@ -392,7 +392,12 @@ export function FinanzasDashboardPage() {
                             <RotateCcw size={13} />
                           </button>
                         )}
-                        {!m.revertido_at && m.estado !== 'anulado' && (
+                        {/* E-GG-47 · Anular sólo permitido en movimientos
+                            que NO entraron a un ciclo de reversión. El
+                            contrasiento (origen='reversion') tampoco se
+                            anula: dejaría huérfano al original del par y
+                            descalibraría la caja. */}
+                        {!m.revertido_at && m.estado !== 'anulado' && m.origen !== 'reversion' && (
                           <button
                             type="button"
                             onClick={() => onAnular(m)}

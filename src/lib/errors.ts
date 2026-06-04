@@ -123,6 +123,15 @@ const HUMAN_BY_MESSAGE: Array<{ re: RegExp; human: string }> = [
   { re: /password should be at least|password is too short/i, human: 'La contraseña es muy corta. Probá con una de al menos 8 caracteres.' },
   { re: /new password should be different|same as the old password/i, human: 'La contraseña nueva tiene que ser distinta a la anterior.' },
   { re: /password should contain|character types/i, human: 'La contraseña no cumple los requisitos mínimos.' },
+  // E-GG-47 (2026-06-04) · guards de fz_anular_movimiento. La UI ya filtra
+  // los botones para que estos casos no aparezcan, pero los humanizamos
+  // como defensa en profundidad por si alguien llama la RPC directamente.
+  { re: /movimiento_revertido_no_se_puede_anular/i, human: 'Este movimiento ya fue revertido. El par reversión-contrasiento es inmutable; no se puede anular después.' },
+  { re: /movimiento_contrasiento_no_se_puede_anular/i, human: 'Los contrasientos generados por una reversión no se anulan: dejarían huérfano al movimiento original del par.' },
+  { re: /movimiento_con_imputaciones_usar_revertir/i, human: 'Este movimiento ya está imputado a un comprobante. Para deshacerlo usá "Revertir" en vez de "Anular".' },
+  { re: /no_se_puede_revertir_un_contrasiento/i, human: 'Un contrasiento no se revierte (anularía la reversión original). Si te equivocaste al revertir, contactá soporte.' },
+  { re: /movimiento_ya_revertido/i, human: 'Este movimiento ya está revertido.' },
+  { re: /movimiento_anulado_no_se_revierte/i, human: 'Este movimiento está anulado; no se puede revertir.' },
 ];
 
 /**
