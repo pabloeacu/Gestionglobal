@@ -14,6 +14,74 @@
 - **Fecha / módulo:**
 -->
 
+## E-GG-46 · Patrón estado-derivado-vs-propagado en otros 2 lugares (auditoría preventiva pos E-GG-45)
+- **Síntoma (preventivo)**: José Luis (2026-06-04): "auditá este chunk a fondo,
+  quiero que esta falla no se repercuta en ningún otro lugar ni en la
+  visión de ningún usuario". Lanzados 3 agentes en paralelo (vistas
+  gerencia, vistas cliente/partner/gestor/alumno, RPCs+análogos
+  directos). Encontrados 2 lugares con el MISMO patrón causa raíz que
+  E-GG-45:
+  1. **Banner "Necesitamos documentación" en PortalHome** (cliente):
+     `listPedidosAbiertosCliente()` filtra pedidos por `estado='abierto'`
+     pero no mira el estado del trámite vinculado. Si el trámite ya está
+     `cerrado`/`cancelado` (CIERRE-EXT/DGG-38), el cliente sigue viendo
+     el banner urgente "Necesitamos documentación para tu trámite" para
+     una gestión que ya terminó.
+  2. **Grilla de Prospectos** (`ProspectosListPage`):
+     `listProspectos()` no joinea con `administraciones`. Cuando un
+     prospecto se convierte (`convertido_at`+`convertido_a_administracion_id`)
+     pero el cliente convertido después se da de baja
+     (`administraciones.activo=false` / `estado='baja'`/'suspendido'`),
+     el prospecto sigue mostrándose como "Convertido ✓" verde sin pista
+     de que el cliente ya no está activo. El gerente puede confundirse
+     contando "prospectos convertidos" como clientes activos.
+- **Causa raíz común** (idéntica a E-GG-45): A genera B con ciclo
+  propio; B llega a estado terminal pero A no se propaga (por diseño).
+  La UI tiene que derivar el estado real combinando ambos via join.
+- **Fix**:
+  1. `listPedidosAbiertosCliente()` (`src/services/api/tramitePedidosDoc.ts`):
+     ahora joinea `tramites.estado` y filtra en memoria los pedidos
+     cuyo trámite está en `TRAMITE_TERMINAL_PARA_BANNER = {cerrado,
+     cancelado}`. El banner desaparece automáticamente cuando la
+     gestión está terminada.
+  2. `listProspectos()` (`src/services/api/webinars.ts`): joinea
+     `administraciones:convertido_a_administracion_id(activo,estado)` y
+     expone `cliente_activo` + `cliente_estado` en un nuevo tipo
+     `ProspectoListItem`. La UI muestra badge gris **"Cliente de baja"**
+     cuando `cliente_activo===false` o badge amber **"Cliente
+     suspendido"** cuando `cliente_estado='suspendido'`. El badge
+     verde "Convertido" sigue mostrándose porque la conversión sí pasó
+     históricamente — pero el gerente ahora ve el contexto.
+- **Lo que NO se cambió** (decisiones explícitas):
+  - **No** se agregó propagación por trigger (cierre de trámite → cierre
+    de pedido_doc; baja de cliente → flag en prospecto). Misma razón que
+    E-GG-45: las entidades A son registro histórico, B tiene ciclo
+    propio; mantener la separación en BD y derivar en UI es más limpio.
+  - **No** se quitaron los prospectos convertidos de la grilla "Convertidos".
+    El gerente puede querer ver el historial completo de prospectos
+    captados. La info del estado actual del cliente sí se agrega.
+- **Análogos menores pateados a mejora futura** (auditoría detectó pero
+  no son del patrón visual exacto que pidió JL):
+  - `cliente_tramites_listar` / `cliente_webinars_listar` no validan
+    `administracion.activo` del cliente logueado. Si se da de baja pero
+    aún tiene sesión activa, sigue viendo todo. Es más tema de auth/RLS
+    que del patrón #14 — fuera del scope de este chunk.
+  - `partner_mis_comprobantes` no refleja baja de cliente. Reporte
+    interno, bajo impacto.
+- **Prevención (Patrón #14 refinado)**: cualquier RPC/service que
+  liste entidades cuyo `*_id` apunta a una entidad con estados
+  terminales DEBE joinear el estado de la entidad referida. La UI
+  consumidora decide si filtrar, agregar badge contextual o cambiar
+  el CTA. Tres patrones canónicos al respecto:
+  - **Filtrar** (banner docs): si A es accionable y B terminal, A no
+    debería aparecer.
+  - **Badge contextual** (prospecto convertido): mantener la fila pero
+    agregar info del estado de B.
+  - **CTA condicional** (solicitud + trámite, E-GG-45): mantener la
+    fila y la acción pero cambiar el verbo del CTA.
+- **Fecha / módulo:** 2026-06-04 · `src/services/api/tramitePedidosDoc.ts`,
+  `src/services/api/webinars.ts`, `src/modules/webinars-admin/pages/ProspectosListPage.tsx`.
+
 ## E-GG-45 · "Procesar" en card de solicitud cuyo trámite ya está cerrado
 - **Síntoma:** José Luis (2026-06-04 capture): en la grilla de Solicitudes
   Recibidas (`/gerencia/solicitudes`) aparece una card del **Curso inicial

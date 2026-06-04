@@ -213,6 +213,14 @@ export interface PedidoAbiertoResumen {
   items_rechazados: number;
   enviado_para_revision_at: string | null;
 }
+// E-GG-46 (2026-06-04 · auditoría E-GG-45): patrón estado-derivado-vs-propagado.
+// El cierre del trámite (`tracking_cerrar`, DGG-38) NO marca como cerrados los
+// pedidos de documentación que estaban abiertos para ese trámite — es por
+// diseño (los pedidos quedan como registro histórico). Si no filtramos acá,
+// el cliente ve el banner urgente "Necesitamos documentación" en PortalHome
+// para un trámite que ya está cerrado/cancelado. Misma raíz que E-GG-45.
+const TRAMITE_TERMINAL_PARA_BANNER = new Set(['cerrado', 'cancelado']);
+
 export async function listPedidosAbiertosCliente(): Promise<ApiResponse<PedidoAbiertoResumen[]>> {
   // RLS ya filtra por administración del cliente. Sólo pedidos abiertos.
   const { data: pedidos, error } = await supabase
@@ -224,12 +232,19 @@ export async function listPedidosAbiertosCliente(): Promise<ApiResponse<PedidoAb
   if (!pedidos || pedidos.length === 0) return ok([]);
 
   const tramiteIds = Array.from(new Set(pedidos.map(p => p.tramite_id)));
+  // E-GG-46: traemos también el estado del trámite para filtrar los que ya
+  // están en estado terminal.
   const { data: tramites } = await supabase
     .from('tramites')
-    .select('id, codigo, titulo')
+    .select('id, codigo, titulo, estado')
     .in('id', tramiteIds);
-  const tmap = new Map<string, { codigo: string | null; titulo: string | null }>();
-  for (const t of tramites ?? []) tmap.set(t.id, { codigo: t.codigo, titulo: t.titulo });
+  const tmap = new Map<
+    string,
+    { codigo: string | null; titulo: string | null; estado: string }
+  >();
+  for (const t of tramites ?? []) {
+    tmap.set(t.id, { codigo: t.codigo, titulo: t.titulo, estado: t.estado });
+  }
 
   const { data: items } = await supabase
     .from('tramite_pedidos_doc_items')
@@ -244,10 +259,13 @@ export async function listPedidosAbiertosCliente(): Promise<ApiResponse<PedidoAb
     stats.set(it.pedido_id, s);
   }
 
-  const resumen: PedidoAbiertoResumen[] = pedidos.map(p => {
+  // E-GG-46: filtramos los pedidos cuyo trámite ya está en estado terminal.
+  // Si el cliente terminó su gestión, no le mostramos "te falta documentación".
+  const resumen: PedidoAbiertoResumen[] = pedidos.flatMap(p => {
     const t = tmap.get(p.tramite_id);
+    if (t && TRAMITE_TERMINAL_PARA_BANNER.has(t.estado)) return [];
     const st = stats.get(p.id) ?? { pen: 0, rej: 0 };
-    return {
+    return [{
       pedido_id: p.id,
       tramite_id: p.tramite_id,
       tramite_codigo: t?.codigo ?? null,
@@ -256,7 +274,7 @@ export async function listPedidosAbiertosCliente(): Promise<ApiResponse<PedidoAb
       items_pendientes: st.pen,
       items_rechazados: st.rej,
       enviado_para_revision_at: p.enviado_para_revision_at,
-    };
+    }];
   });
   return ok(resumen);
 }

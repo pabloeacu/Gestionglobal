@@ -7,6 +7,7 @@ import {
   convertirProspecto,
   listProspectos,
   type ProspectoRow,
+  type ProspectoListItem,
 } from '@/services/api/webinars';
 import { listAdministraciones, type AdministracionListItem } from '@/services/api/administraciones';
 import { cn } from '@/lib/cn';
@@ -22,7 +23,7 @@ function fmtFecha(iso: string): string {
 type Filtro = 'todos' | 'sin_convertir' | 'convertidos';
 
 export function ProspectosListPage() {
-  const [items, setItems] = useState<ProspectoRow[]>([]);
+  const [items, setItems] = useState<ProspectoListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [filtro, setFiltro] = useState<Filtro>('sin_convertir');
   const [search, setSearch] = useState('');
@@ -130,9 +131,28 @@ export function ProspectosListPage() {
                   <td className="px-4 py-2 text-xs text-brand-muted">{fmtFecha(p.created_at)}</td>
                   <td className="px-4 py-2">
                     {p.convertido_at ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2 py-0.5 text-[10px] font-semibold text-green-700">
-                        <CheckCircle2 size={10} /> Convertido
-                      </span>
+                      // E-GG-46 · Si el cliente al que se convirtió este
+                      // prospecto está dado de baja, mostramos un badge
+                      // adicional para que el gerente no asuma "Convertido"
+                      // como cliente activo. Mismo patrón que E-GG-45.
+                      <div className="flex flex-col items-start gap-1">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2 py-0.5 text-[10px] font-semibold text-green-700">
+                          <CheckCircle2 size={10} /> Convertido
+                        </span>
+                        {p.cliente_activo === false && (
+                          <span
+                            className="inline-flex items-center gap-1 rounded-full border border-slate-300 bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600"
+                            title={`Estado del cliente: ${p.cliente_estado ?? 'inactivo'}`}
+                          >
+                            Cliente de baja
+                          </span>
+                        )}
+                        {p.cliente_estado === 'suspendido' && p.cliente_activo !== false && (
+                          <span className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
+                            Cliente suspendido
+                          </span>
+                        )}
+                      </div>
                     ) : (
                       <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700">Lead</span>
                     )}
