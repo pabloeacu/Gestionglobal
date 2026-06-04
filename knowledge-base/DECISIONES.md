@@ -42,11 +42,20 @@
   de formulario). La señal contempla ambos caminos por robustez.
 
 - **Implementación**:
-  - **Backend** (mig 0193): computed column `cobro_pendiente(public.tramites)`
-    — función SQL `STABLE SECURITY DEFINER` que PostgREST expone como columna
-    virtual. `EXISTS` de un comprobante no anulado, `total>0`, `saldo>0`,
-    por cualquiera de los dos caminos. `GRANT EXECUTE` sólo a `authenticated`
-    (anon revocado). Índice parcial en `solicitudes(tramite_id)`.
+  - **Backend** (mig 0193 + hardening 0194): computed column
+    `cobro_pendiente(public.tramites)` — función SQL `STABLE SECURITY INVOKER`
+    que PostgREST expone como columna virtual. `EXISTS` de un comprobante no
+    anulado, `total>0`, `saldo>0`, por cualquiera de los dos caminos.
+    `GRANT EXECUTE` sólo a `authenticated` (anon revocado). Índice parcial en
+    `solicitudes(tramite_id)`.
+    - **Hardening (mig 0194)**: la 0193 la creó `SECURITY DEFINER` y el
+      advisor `0029` la marcó (un autenticado podía invocarla vía
+      `/rest/v1/rpc/cobro_pendiente` salteando RLS → fuga del booleano
+      "impago"). Se pasó a `SECURITY INVOKER`: para el kanban (staff, que
+      lee todo por `comprobantes_select` + `sol_staff_all`) el resultado es
+      idéntico, y un cliente sólo vería sus propias filas. Verificado bajo
+      RLS real de gerente (impago→true, sin_comprobante→false) y advisor
+      limpio.
   - **Frontend** (`tramites.ts`): `listTramites` selecciona `cobro_pendiente`;
     helper `esAvanceTramite(from,to)` que usa `ESTADO_ORDEN`
     (abierto<en_progreso<esperando_cliente<resuelto<cerrado; cancelado=-1).
