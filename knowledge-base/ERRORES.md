@@ -14,6 +14,56 @@
 - **Fecha / módulo:**
 -->
 
+## E-GG-49 · Adjunto del gestor no abre ("Bucket not found")
+- **Síntoma**: Pablo (2026-06-04 captura): la línea de tracking "Aporte de
+  gestoría externa" con un adjunto (el certificado del trámite). Al abrir
+  el adjunto, la URL
+  `.../storage/v1/object/public/gestor-uploads/<path>` devuelve
+  `{"statusCode":"404","error":"Bucket not found"}`.
+- **Causa raíz**: el bucket `gestor-uploads` se creó **privado**
+  (`public=false`) en la mig 0095, pero TODO el código que sube ahí
+  (`subirAdjuntoGestor` en accesoExterno.ts:62, `subirAdjuntoTracking`
+  en trackings.ts:624) usa `getPublicUrl()`. Una URL pública no resuelve
+  sobre un bucket privado — Supabase devuelve el mensaje engañoso
+  "Bucket not found" (en realidad es "el bucket no es público"). La URL
+  pública se guardaba en `archivos_urls` de la línea y el componente la
+  abría directo con `<a href>` → 404.
+- **Por qué no se detectó antes**: el contenido es visible para gerencia
+  por la policy `gestor_up_staff_select`, pero gerencia accede vía la app
+  con su sesión; el bug se ve al abrir la URL pública cruda (como hizo
+  JL). El cliente, que NO es staff, nunca podría haberlo abierto.
+- **Fix** (decisión de Pablo vía AskUserQuestion): **mig 0191** marca el
+  bucket `gestor-uploads` como **público**, igual que
+  `tramite-documento-final` (que ya es público y contiene el mismo tipo
+  de contenido: documentos finales del trámite). El path es
+  no-adivinable (token/tracking-id + timestamp + random de 6 chars).
+  Sin cambios de código — el código ya usaba `getPublicUrl()`
+  correctamente; sólo faltaba que el bucket fuera público.
+  - **Verificado en vivo**: la URL del adjunto que JL reportó roto
+    ahora responde `HTTP 200` (curl real contra producción).
+- **Auditoría transversal** (getPublicUrl × buckets privados): barrido de
+  los 10 `getPublicUrl()` del código contra el estado público/privado de
+  cada bucket. Resultado:
+  - 9 usan buckets públicos correctos (avatars, campus-media,
+    emisor-logos, encuesta-testimonios, formulario-previews,
+    formulario-descargas, tramite-documento-final, y los 2 de
+    gestor-uploads ahora público).
+  - **1 hallazgo: `partners.ts:146` usa `getPublicUrl()` sobre
+    `partner-facturas` que es PRIVADO** → mismo bug latente. Diferencia:
+    la factura del partner sólo la leen staff + partner (ambos logueados,
+    ambos con policy SELECT), por lo que la solución correcta NO es
+    público (es un documento fiscal sensible) sino **URL firmada**. Hoy
+    el bucket tiene 0 archivos → bug latente, no manifiesto. Pendiente
+    (E-GG-50 propuesto): cambiar `partnerSubirFactura` a guardar el path
+    y generar `createSignedUrl()` al leer, o resolver con edge function.
+- **Prevención**: cualquier `upload()` a un bucket seguido de
+  `getPublicUrl()` requiere que el bucket sea público. Si es privado,
+  usar `createSignedUrl()`. Smell check: cruzar cada `getPublicUrl` con
+  `storage.buckets.public`. Patrón inverso ya documentado en
+  solicitudes.ts:215 ("bucket privado → URL firmada").
+- **Fecha / módulo:** 2026-06-04 · `supabase/migrations/0191`,
+  bucket `gestor-uploads`. Hallazgo pendiente: `partner-facturas`.
+
 ## E-GG-48 · "Se salió del sistema" tras enviar formulario desde portal cliente
 - **Síntoma**: José Luis (2026-06-04): "Después de enviar, desde el portal
   del cliente, la solicitud del Certificado de Acreditación, confirmó el
