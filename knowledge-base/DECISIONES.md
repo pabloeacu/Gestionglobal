@@ -52,11 +52,22 @@
   dashboard (DEFINER) lee la tabla para decidir; el front llama `marcar` al
   renderizar suaves y `posponer` desde el botón. CTAs → `/formulario/:slug`.
 
-- **Pendiente para refinar** (sugerencias mías, NO implementadas aún; Pablo
-  dijo "vamos refinando"): (a) callar suaves si el cliente tiene deuda;
-  (b) gracia de ~15 días para recién llegados; (c) operativo: recordar a
-  gerencia cargar el número RPAC al cerrar el trámite de matrícula (para que
-  `matricula_rpac` no quede NULL).
+- **Refinamientos DGG-45r (mig 0197 · implementados, Pablo "no dejés nada
+  pendiente")**:
+  1. **No upsell con deuda**: certificado + consultoría (cross-sell pago) se
+     callan si `cliente_deuda_neta.total > 0`.
+  2. **Gracia recién llegados**: certificado + consultoría + webinar no se
+     muestran los primeros 15 días desde `administraciones.created_at`.
+     (`v_puede_crosssell = NOT deuda AND NOT recién_llegado`.) `ddjj_diciembre`
+     y las obligaciones NO se suprimen; el webinar (gratis) se gatea por
+     gracia pero no por deuda.
+  3. **Operativo**: trigger `trg_tramite_matricula_recordar_numero`
+     (AFTER UPDATE OF estado en `tramites`) → al cerrar un trámite de matrícula
+     inicial con `matricula_rpac` NULL, llama `notify_all_gerentes` (campana,
+     sin email) para que gerencia cargue el número. Cierra la causa raíz.
+  - Verificado e2e: Estudio Save (recién llegado) → cross-sell suprimido (sólo
+    queda la obligación); el trigger creó 2 notif a gerencia al cerrar la
+    matrícula sin número.
 
 - **Verificado e2e** bajo JWT real del cliente Estudio Save: `matricula_inicial`
   ausente (matriculado por trámite cerrado); oportunidades = {curso_actualizacion,
