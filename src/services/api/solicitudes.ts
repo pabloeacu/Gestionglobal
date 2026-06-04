@@ -25,6 +25,11 @@ export interface SolicitudListItem extends SolicitudRow {
   // #161/obs 2: precio del servicio para pre-fill comprobante desde solicitud
   servicio_precio_base?: number | null;
   servicio_precio_modo?: string | null;
+  // E-GG-45 (2026-06-04 · JL): estado y código del trámite vinculado para que
+  // la card pueda mostrar "Trámite cerrado" en vez de "Procesar" cuando el
+  // trámite generado por la solicitud activada ya está cerrado/cancelado.
+  tramite_estado: string | null;
+  tramite_codigo: string | null;
 }
 
 export interface ListSolicitudesFilters {
@@ -63,7 +68,8 @@ export async function listSolicitudes(
          formularios:formulario_id(titulo,categoria)
        ),
        administraciones:cliente_id(nombre),
-       servicios:servicio_solicitado_id(nombre)`,
+       servicios:servicio_solicitado_id(nombre),
+       tramites:tramite_id(estado,codigo)`,
       { count: 'exact' },
     )
     .order('created_at', { ascending: false })
@@ -97,6 +103,7 @@ export async function listSolicitudes(
     } | null;
     administraciones: { nombre: string } | null;
     servicios: { nombre: string } | null;
+    tramites: { estado: string; codigo: string } | null;
   };
 
   const rows: SolicitudListItem[] = (data ?? []).map((raw) => {
@@ -105,6 +112,7 @@ export async function listSolicitudes(
       formulario_submissions,
       administraciones,
       servicios,
+      tramites,
       ...rest
     } = r;
     return {
@@ -115,6 +123,8 @@ export async function listSolicitudes(
         formulario_submissions?.formularios?.categoria ?? null,
       cliente_nombre: administraciones?.nombre ?? null,
       servicio_nombre: servicios?.nombre ?? null,
+      tramite_estado: tramites?.estado ?? null,
+      tramite_codigo: tramites?.codigo ?? null,
     };
   });
 
@@ -153,7 +163,8 @@ export async function getSolicitud(
              formularios:formulario_id(titulo,categoria,schema)
            ),
            administraciones:cliente_id(nombre),
-           servicios:servicio_solicitado_id(nombre, precio_base, precio_modo)`,
+           servicios:servicio_solicitado_id(nombre, precio_base, precio_modo),
+           tramites:tramite_id(estado,codigo)`,
         )
         .eq('id', id)
         .single(),
@@ -183,12 +194,14 @@ export async function getSolicitud(
       precio_base: number | null;
       precio_modo: string | null;
     } | null;
+    tramites: { estado: string; codigo: string } | null;
   };
   const s = solRaw as Joined;
   const {
     formulario_submissions,
     administraciones,
     servicios,
+    tramites,
     ...rest
   } = s;
 
@@ -228,6 +241,10 @@ export async function getSolicitud(
     // #161/obs 2: precio_base del servicio para pre-fill el comprobante
     servicio_precio_base: servicios?.precio_base ?? null,
     servicio_precio_modo: servicios?.precio_modo ?? null,
+    // E-GG-45 · estado del trámite vinculado (para SolicitudCard + posibles
+    // banners en el detail page).
+    tramite_estado: tramites?.estado ?? null,
+    tramite_codigo: tramites?.codigo ?? null,
     submission_payload:
       (formulario_submissions?.datos as Record<string, unknown>) ?? null,
     submission_adjuntos: adjuntos,

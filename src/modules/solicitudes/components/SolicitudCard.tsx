@@ -2,6 +2,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import {
   ArrowRight,
   Calendar,
+  CheckCircle2,
   ClipboardList,
   Mail,
   Phone,
@@ -76,6 +77,32 @@ function tiempoRelativo(iso: string | null | undefined): {
   return { texto, color, fechaExacta };
 }
 
+// E-GG-45 (2026-06-04 · JL): el trámite vinculado puede estar cerrado o
+// cancelado (estados terminales). Cuando eso pasa, mostramos un texto
+// distinto en el CTA para no confundir al gerente con "Procesar" en algo
+// ya concluido. El cierre de un trámite no propaga automáticamente al
+// estado de la solicitud (eso es por diseño — la solicitud queda en
+// `activada` como registro histórico), así que inferimos el ciclo de vida
+// real combinando ambos estados.
+const TRAMITE_TERMINAL = new Set(['cerrado', 'cancelado']);
+
+function ctaDe(estado: SolicitudEstado, tramiteEstado: string | null): string {
+  // Solicitud activada → ya hay trámite. El CTA debería llevar a verlo, no
+  // a "procesarla" otra vez.
+  if (estado === 'activada') {
+    if (tramiteEstado && TRAMITE_TERMINAL.has(tramiteEstado)) {
+      return 'Trámite cerrado';
+    }
+    return 'Ver trámite';
+  }
+  // Estados terminales sin trámite (descartada/rechazada): se sigue
+  // pudiendo entrar a ver el detalle, pero no a "procesar".
+  if (estado === 'descartada' || estado === 'rechazada') return 'Ver detalle';
+  // recibida / en_revision / derivada: la solicitud está abierta y hay
+  // trabajo por hacer → CTA original.
+  return 'Procesar';
+}
+
 export function SolicitudCard({ s }: Props) {
   const navigate = useNavigate();
   const { texto: tiempoTexto, color: tiempoColor, fechaExacta } = tiempoRelativo(
@@ -84,6 +111,11 @@ export function SolicitudCard({ s }: Props) {
   const estado = (s.estado ?? 'recibida') as SolicitudEstado;
   // 1.D · "Derivar" rápido disponible mientras la solicitud no esté cerrada.
   const puedeDerivar = estado !== 'activada' && estado !== 'descartada';
+  const ctaText = ctaDe(estado, s.tramite_estado);
+  const tramiteCerrado =
+    estado === 'activada' &&
+    s.tramite_estado != null &&
+    TRAMITE_TERMINAL.has(s.tramite_estado);
 
   return (
     <Link
@@ -130,6 +162,21 @@ export function SolicitudCard({ s }: Props) {
         </h3>
       </div>
 
+      {/* E-GG-45 · Mini-chip del trámite cerrado para que el gerente vea
+          de un pantallazo que esta solicitud ya está concluida y no se
+          confunda con el CTA al lado. */}
+      {tramiteCerrado && (
+        <div className="relative">
+          <span
+            className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700"
+            title={s.tramite_codigo ? `Trámite ${s.tramite_codigo}` : undefined}
+          >
+            <CheckCircle2 size={11} />
+            Trámite {s.tramite_codigo ?? ''} cerrado
+          </span>
+        </div>
+      )}
+
       {/* Solicitante */}
       <div className="relative space-y-1 border-t border-slate-100 pt-3 text-xs text-brand-muted">
         <p className="flex items-center gap-1.5 truncate text-brand-ink">
@@ -168,8 +215,13 @@ export function SolicitudCard({ s }: Props) {
         ) : (
           <span />
         )}
-        <span className="inline-flex items-center text-xs font-medium text-brand-cyan opacity-70 transition group-hover:opacity-100">
-          Procesar
+        <span
+          className={cn(
+            'inline-flex items-center text-xs font-medium opacity-70 transition group-hover:opacity-100',
+            tramiteCerrado ? 'text-slate-500' : 'text-brand-cyan',
+          )}
+        >
+          {ctaText}
           <ArrowRight
             size={13}
             className="ml-1 transition group-hover:translate-x-0.5"

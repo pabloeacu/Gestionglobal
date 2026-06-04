@@ -14,6 +14,44 @@
 - **Fecha / módulo:**
 -->
 
+## E-GG-45 · "Procesar" en card de solicitud cuyo trámite ya está cerrado
+- **Síntoma:** José Luis (2026-06-04 capture): en la grilla de Solicitudes
+  Recibidas (`/gerencia/solicitudes`) aparece una card del **Curso inicial
+  de formación de administradores** con estado `ACTIVADA` y CTA "Procesar →"
+  apuntando al detalle. JL: "el trámite ya está Cerrado". Click → entra al
+  SolicitudDetailPage, ve badge verde "Activada" + link al trámite cerrado.
+  La acción de "procesar" ya no aplica, pero el CTA insinúa que sí.
+- **Causa raíz:** dos cosas:
+  1. El cierre del trámite (`tracking_cerrar`, DGG-38) **no propaga** al
+     `estado` de la solicitud que lo originó. La solicitud queda en
+     `activada` perpetuamente, sea cual sea el destino del trámite. Esto
+     es por diseño (la solicitud es registro histórico), no un bug — pero
+     la UI no compensa.
+  2. `SolicitudCard.tsx` hardcodea la label "Procesar" sin mirar ni el
+     estado de la solicitud ni el del trámite vinculado.
+- **Fix:**
+  - `listSolicitudes` y `getSolicitud` ahora hacen join con
+    `tramites:tramite_id(estado,codigo)` y exponen `tramite_estado` +
+    `tramite_codigo` en `SolicitudListItem`.
+  - `SolicitudCard.tsx` calcula el CTA con un switch sobre el ciclo de
+    vida real combinando ambos estados:
+    - `activada` + trámite cerrado/cancelado → "Trámite cerrado" en gris
+      slate + mini-chip emerald "Trámite XX cerrado" arriba del bloque
+      solicitante.
+    - `activada` + trámite abierto → "Ver trámite".
+    - `descartada` / `rechazada` → "Ver detalle".
+    - Resto (recibida/en_revision/derivada) → "Procesar" (original).
+- **Prevención:** **Patrón #14** del catálogo de auditoría — "estado
+  de entidad derivado vs estado propagado". Cada vez que una entidad A
+  genera una entidad B y B tiene un ciclo de vida (estados terminales),
+  preguntarse si las grillas de A muestran info engañosa cuando B llega
+  a terminal. Si no se propaga (decisión arquitectural), la UI tiene que
+  derivarlo con un join. Hay 2 otras vías análogas que merece auditar
+  más adelante: (a) `formulario_submissions` cuyo `solicitud_id`
+  generado está activado, y (b) `prospectos` cuyo cliente convertido
+  está dado de baja.
+- **Fecha / módulo:** 2026-06-04 · `src/modules/solicitudes/`.
+
 ## E-GG-44 · Mensajes técnicos crudos de servicios externos llegan al cliente (sweep preventivo Pattern-5)
 - **Síntoma:** mandato de auditoría preventiva pos-E-GG-39 (José Luis, "no
   dejés nada para mañana"). El bug E-GG-39 (Supabase Auth devolvió "Password
