@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { createPortal } from 'react-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { toast } from '@/lib/toast';
 import {
   Send,
@@ -71,6 +72,12 @@ export function FormularioRunner({
   prefillValues,
   origenCanal = 'publico',
 }: FormularioRunnerProps) {
+  // E-GG-48 (2026-06-04 · Pablo): cuando el cliente envía un formulario
+  // desde el portal, después del submit ve la pantalla pública sin link de
+  // vuelta y "siente que salió del sistema". El navigate de react-router
+  // lleva al portal SIN recargar la app (la sesión se preserva en
+  // memoria, no hay flash de deslogueo).
+  const navigate = useNavigate();
   const schema = formulario.schema as unknown as FormularioSchemaDef;
   const [state, setState] = useState<Record<string, FieldState>>({});
   const [files, setFiles] = useState<Record<string, File[]>>({});
@@ -263,6 +270,11 @@ export function FormularioRunner({
     setDone({ mensaje: res.data.mensaje, redirect: res.data.redirect_url });
     if (res.data.redirect_url) {
       window.setTimeout(() => { window.location.href = res.data.redirect_url!; }, 2500);
+    } else if (origenCanal === 'cliente') {
+      // E-GG-48 · Si el cliente vino desde el portal y no hay redirect
+      // configurado, lo devolvemos al portal automáticamente para que no
+      // quede "fuera del sistema" visualmente.
+      window.setTimeout(() => { navigate('/portal/gestiones', { replace: true }); }, 2500);
     }
   }
 
@@ -277,6 +289,21 @@ export function FormularioRunner({
         <p className="mt-3 text-sm leading-relaxed text-brand-ink">{done.mensaje}</p>
         {done.redirect && (
           <p className="mt-4 text-xs text-brand-muted">Redirigiendo en un instante…</p>
+        )}
+        {/* E-GG-48 · Si el cliente vino desde el portal, mostrar link
+            explícito de vuelta + leyenda de redirección automática. */}
+        {origenCanal === 'cliente' && !done.redirect && (
+          <>
+            <p className="mt-4 text-xs text-brand-muted">
+              Te llevamos de vuelta a tu portal en un instante…
+            </p>
+            <Link
+              to="/portal/gestiones"
+              className="mt-5 inline-flex items-center gap-2 rounded-xl bg-brand-cyan px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-cyan/90"
+            >
+              Volver a mi portal ahora
+            </Link>
+          </>
         )}
       </div>
     );

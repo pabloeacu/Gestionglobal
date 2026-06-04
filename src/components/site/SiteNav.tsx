@@ -1,8 +1,9 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, LayoutDashboard } from 'lucide-react';
 import { BrandMark } from '@/components/brand/BrandMark';
 import { cn } from '@/lib/cn';
+import { useAuth } from '@/contexts/AuthContext';
 
 const LINKS = [
   { hash: '#servicios', label: 'Servicios' },
@@ -22,6 +23,11 @@ interface SiteNavProps {
 export function SiteNav({ darkHero = false }: SiteNavProps) {
   const [scrolled, setScrolled] = useState(false);
   const location = useLocation();
+  // E-GG-48 (2026-06-04): cuando el cliente ya está logueado y aterriza
+  // en una página pública (típico: /formulario/:slug?origen=portal), el
+  // botón "Ingresar" lo confunde — "¿no estoy ya adentro?". Si tenemos
+  // user, reemplazamos el CTA por uno que lo lleva al portal.
+  const { user } = useAuth();
   // Si NO estamos en la home (ej: estamos dentro de un formulario público
   // /formulario/:slug), los anchors a secciones (#servicios, etc.) deben
   // navegar primero a `/` y ahí scrollear. Si solo cambiamos el hash en una
@@ -77,21 +83,36 @@ export function SiteNav({ darkHero = false }: SiteNavProps) {
           ))}
         </nav>
 
-        <Link
-          to="/ingresar"
-          className={cn(
-            'group inline-flex items-center gap-1.5 rounded-full px-5 py-2 text-sm font-medium transition',
-            onDark
-              ? 'bg-white text-brand-ink hover:bg-white/90'
-              : 'bg-brand-ink text-white hover:bg-brand-cyan',
-          )}
-        >
-          Ingresar
-          <ArrowRight
-            size={15}
-            className="transition group-hover:translate-x-0.5"
-          />
-        </Link>
+        {user ? (
+          <Link
+            to="/portal"
+            className={cn(
+              'group inline-flex items-center gap-1.5 rounded-full px-5 py-2 text-sm font-medium transition',
+              onDark
+                ? 'bg-white text-brand-ink hover:bg-white/90'
+                : 'bg-brand-ink text-white hover:bg-brand-cyan',
+            )}
+          >
+            <LayoutDashboard size={15} />
+            Mi portal
+          </Link>
+        ) : (
+          <Link
+            to="/ingresar"
+            className={cn(
+              'group inline-flex items-center gap-1.5 rounded-full px-5 py-2 text-sm font-medium transition',
+              onDark
+                ? 'bg-white text-brand-ink hover:bg-white/90'
+                : 'bg-brand-ink text-white hover:bg-brand-cyan',
+            )}
+          >
+            Ingresar
+            <ArrowRight
+              size={15}
+              className="transition group-hover:translate-x-0.5"
+            />
+          </Link>
+        )}
       </div>
     </header>
   );

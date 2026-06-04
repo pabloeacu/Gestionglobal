@@ -14,6 +14,62 @@
 - **Fecha / módulo:**
 -->
 
+## E-GG-48 · "Se salió del sistema" tras enviar formulario desde portal cliente
+- **Síntoma**: José Luis (2026-06-04): "Después de enviar, desde el portal
+  del cliente, la solicitud del Certificado de Acreditación, confirmó el
+  envío y se salió del sistema." Reproducción manual confirmó el
+  comportamiento.
+- **Causa raíz** (NO es un logout técnico, es UX): el flujo "Nuevo
+  servicio" del portal navega al cliente desde `/portal/nuevo-servicio`
+  hacia `/formulario/:slug?origen=portal`. Esa ruta es la página
+  PÚBLICA `FormularioPublicoPage` que renderiza `SiteNav` + `SiteFooter`
+  públicos en lugar del `PortalLayout`. La sesión sigue válida en
+  memoria, pero el cliente visualmente queda "fuera" del portal:
+  - No ve el sidebar con Mis Gestiones / Mi cuenta / etc.
+  - Ve el SiteNav con el botón "Ingresar" que sugiere "no estás
+    logueado".
+  - Tras enviar, ve la pantalla verde "¡Listo!" pero sin link de vuelta
+    al portal. Para volver, debe tipear `/portal` en la URL o tocar el
+    logo (que va a la landing pública).
+- **Fix**:
+  - **`FormularioRunner.tsx`**: tras submit OK, si `origenCanal === 'cliente'`
+    y NO hay `redirect_url_after` configurado, redirige automáticamente
+    a `/portal/gestiones` usando `useNavigate()` (NO `window.location`,
+    así la SPA preserva la sesión sin recargar). Además, en la pantalla
+    de confirmación verde se muestra:
+    - Mensaje "Te llevamos de vuelta a tu portal en un instante…"
+    - Botón "Volver a mi portal ahora" (link a `/portal/gestiones`).
+  - **`SiteNav.tsx`**: usa `useAuth()`. Si `user` no es null, reemplaza
+    el botón "Ingresar →" por "Mi portal" (icono LayoutDashboard,
+    link a `/portal`). Resuelve también el caso del cliente que ya
+    estaba en el portal y aterriza en cualquier página pública.
+- **Aprovechado en el mismo chunk**: cambio del formulario
+  `certificado-rpac` solicitado por Pablo. Se eliminó la sección
+  "Destino del certificado" (campos: destino, CUIT consorcio,
+  denominación consorcio) y se reemplazó por una sección informativa
+  ("El certificado es válido 30 días para cualquier destinatario,
+  incluyendo consorcios y entidades que lo requieran"). Aplicado vía
+  UPDATE directo al `schema.sections` jsonb.
+- **Auditoría transversal** (1 agente Explore con scope "portal→público
+  sin retorno"). Otros lugares con el mismo patrón pero menor impacto,
+  pateados a backlog:
+  - `PortalWebinarsPage` → "Unirme al webinar" abre link externo en
+    nueva tab. Es esperado (Zoom/Webex), bajo impacto.
+  - `VerificarCertificadoPage` (pública) no detecta si el visitante es
+    el dueño del cert para personalizar la UI ("Este es tu
+    certificado", link a Mis certs). Mejora futura, no es bug.
+- **Prevención (regla nueva propuesta)**: cualquier flujo que navegue
+  desde una sección autenticada (portal/gerencia) a una página pública
+  debe (a) preservar contexto visual del usuario logueado en la nav
+  (SiteNav adaptativo) y (b) garantizar un camino claro de vuelta al
+  contexto autenticado post-acción. Anti-patrón: usar
+  `window.location.href` cuando se puede usar `navigate()` de react
+  router (el primero recarga la SPA y pierde estado in-memory; el
+  segundo lo preserva).
+- **Fecha / módulo:** 2026-06-04 · `src/modules/public/components/FormularioRunner.tsx`,
+  `src/components/site/SiteNav.tsx`, schema BD del formulario
+  `certificado-rpac`.
+
 ## E-GG-47 · Cobranza · Anular movimiento del par revertido descalibra la caja
 - **Síntoma**: Pablo (2026-06-04 análisis conceptual): "si cobré $1000 y lo
   revierto, el par suma 0. Si después anulo el ingreso original que tuvo
