@@ -244,6 +244,29 @@ export const NEXT_ESTADO: Record<TramiteEstado, TramiteEstado | null> = {
   cancelado: null,
 };
 
+// DGG-44 · Orden canónico de la pipeline para detectar AVANCES (forward).
+// `cancelado` = -1 → mover a/desde cancelado no es "avanzar".
+export const ESTADO_ORDEN: Record<TramiteEstado, number> = {
+  abierto: 0,
+  en_progreso: 1,
+  esperando_cliente: 2,
+  resuelto: 3,
+  cerrado: 4,
+  cancelado: -1,
+};
+
+// DGG-44 · ¿El cambio `from → to` avanza la gestión hacia el cierre?
+// Sólo los avances disparan el gate de cobranza (no las regresiones ni
+// los movimientos a/desde cancelado).
+export function esAvanceTramite(
+  from: TramiteEstado,
+  to: TramiteEstado,
+): boolean {
+  const a = ESTADO_ORDEN[from];
+  const b = ESTADO_ORDEN[to];
+  return a >= 0 && b >= 0 && b > a;
+}
+
 // ============================================================================
 // List + filtros (gerencia)
 // ============================================================================
@@ -251,6 +274,10 @@ export interface TramiteListItem extends TramiteRow {
   administracion_nombre: string | null;
   consorcio_nombre: string | null;
   asignado_nombre: string | null;
+  // DGG-44 · computed column (Postgrest). TRUE si el trámite tiene un
+  // comprobante con costo (total>0) e impago (saldo>0). Señal del gate de
+  // cobranza al avanzar en el kanban. Sólo lo solicita listTramites.
+  cobro_pendiente: boolean;
 }
 
 export interface ListTramitesParams {
@@ -272,6 +299,7 @@ interface RawListRow extends TramiteRow {
   administraciones: { id: string; nombre: string } | null;
   consorcios: { id: string; nombre: string } | null;
   asignado: { id: string; full_name: string | null } | null;
+  cobro_pendiente?: boolean | null; // DGG-44 · sólo presente en listTramites
 }
 
 function mapRaw(r: RawListRow): TramiteListItem {
@@ -280,6 +308,7 @@ function mapRaw(r: RawListRow): TramiteListItem {
     administracion_nombre: r.administraciones?.nombre ?? null,
     consorcio_nombre: r.consorcios?.nombre ?? null,
     asignado_nombre: r.asignado?.full_name ?? null,
+    cobro_pendiente: r.cobro_pendiente ?? false,
   };
 }
 
@@ -293,6 +322,7 @@ export async function listTramites(
     .from('tramites')
     .select(
       `*,
+       cobro_pendiente,
        administraciones(id,nombre),
        consorcios(id,nombre),
        asignado:profiles!tramites_asignado_a_fkey(id,full_name)`,

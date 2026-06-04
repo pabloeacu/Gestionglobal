@@ -8,7 +8,7 @@ import {
   ArrowRight,
   GripVertical,
 } from 'lucide-react';
-import { Button, SkeletonRow } from '@/components/common';
+import { Button, SkeletonRow, useConfirm } from '@/components/common';
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
 import { useSounds } from '@/contexts/SoundContext';
 import { cn } from '@/lib/cn';
@@ -18,6 +18,7 @@ import {
   updateTramite,
   computeSla,
   NEXT_ESTADO,
+  esAvanceTramite,
   TRAMITE_CATEGORIA_LABEL,
   TRAMITE_PRIORIDAD_LABEL,
   TRAMITE_ESTADO_LABEL,
@@ -67,6 +68,7 @@ export function TramitesKanbanPage() {
   const [dragId, setDragId] = useState<string | null>(null);
   const [dragOverCol, setDragOverCol] = useState<TramiteEstado | null>(null);
   const { play } = useSounds();
+  const confirm = useConfirm();
 
   async function load() {
     setLoading(true);
@@ -106,6 +108,32 @@ export function TramitesKanbanPage() {
 
   async function mover(t: TramiteListItem, nuevoEstado: TramiteEstado) {
     if (t.estado === nuevoEstado) return;
+
+    // DGG-44 · Gate de cobranza. Si se AVANZA (hacia el cierre) un trámite con
+    // un comprobante con costo e impago, pedir confirmación. Soft gate: el
+    // usuario siempre puede continuar. No aplica a regresiones ni a trámites
+    // sin comprobante (DDJJ) ni con comprobante $0,00 (bonificado/gratuito).
+    if (
+      esAvanceTramite(t.estado as TramiteEstado, nuevoEstado) &&
+      t.cobro_pendiente
+    ) {
+      const ok = await confirm({
+        title: 'Trámite impago',
+        message: (
+          <div className="space-y-2">
+            <p>
+              Este trámite no tiene cobranza registrada. Por lo tanto, está
+              impago.
+            </p>
+            <p>¿Desea avanzar la gestión de todos modos?</p>
+          </div>
+        ),
+        confirmLabel: 'Avanzar',
+        cancelLabel: 'Cancelar',
+      });
+      if (!ok) return; // Cancelar → la tarjeta queda donde está.
+    }
+
     // Optimistic update
     setRows((prev) =>
       prev.map((r) => (r.id === t.id ? { ...r, estado: nuevoEstado } : r)),

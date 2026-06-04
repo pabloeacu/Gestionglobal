@@ -13,6 +13,65 @@
 - **Fecha:**
 -->
 
+## DGG-44 · Gate de cobranza al avanzar un trámite en el kanban
+
+- **Decisión** (Pablo, 2026-06-04): al **avanzar** un trámite en el kanban
+  (botón → o drag&drop hacia una columna posterior), si el trámite tiene un
+  **comprobante con costo (total > 0) e impago (saldo_pendiente > 0)**, el
+  sistema muestra una ventana de confirmación:
+  *"Este trámite no tiene cobranza registrada. Por lo tanto, está impago.
+  ¿Desea avanzar la gestión de todos modos?"* con botones **Avanzar** /
+  **Cancelar**. Es un **soft gate**: el operador siempre puede continuar.
+
+- **Origen**: Pablo avanzó el certificado de acreditación TRM-2026-00023 de
+  Abierto → En progreso sin haber cargado el cobro. "Excepto DDJJ, el resto,
+  para avanzar, requiere pagos previos." En vez de hardcodear la excepción
+  DDJJ, se generaliza con la señal de cobranza.
+
+- **Por qué la regla es general** (cubre los 3 casos de Pablo sin listas
+  hardcodeadas de servicios):
+  - **Sin comprobante** (típico DDJJ) → no hay cargo → no advierte.
+  - **Comprobante $0,00** (webinar, servicio bonificado al 100%) → total 0
+    → no advierte.
+  - **Comprobante con costo, ya cobrado** (saldo 0) → no advierte.
+  - **Comprobante con costo, impago** (saldo > 0) → **advierte**.
+
+- **Modelo de datos** (verificado en vivo): el comprobante del trámite se
+  vincula vía `solicitudes.comprobante_id` (con `solicitudes.tramite_id`),
+  NO por el campo directo `tramites.comprobante_id` (siempre NULL en flujos
+  de formulario). La señal contempla ambos caminos por robustez.
+
+- **Implementación**:
+  - **Backend** (mig 0193): computed column `cobro_pendiente(public.tramites)`
+    — función SQL `STABLE SECURITY DEFINER` que PostgREST expone como columna
+    virtual. `EXISTS` de un comprobante no anulado, `total>0`, `saldo>0`,
+    por cualquiera de los dos caminos. `GRANT EXECUTE` sólo a `authenticated`
+    (anon revocado). Índice parcial en `solicitudes(tramite_id)`.
+  - **Frontend** (`tramites.ts`): `listTramites` selecciona `cobro_pendiente`;
+    helper `esAvanceTramite(from,to)` que usa `ESTADO_ORDEN`
+    (abierto<en_progreso<esperando_cliente<resuelto<cerrado; cancelado=-1).
+  - **Kanban** (`TramitesKanbanPage.mover`): antes del optimistic update, si
+    `esAvanceTramite(...) && t.cobro_pendiente` → `useConfirm()` (R13, sin
+    `window.confirm`). Cancelar deja la tarjeta donde está.
+
+- **Alcance**: sólo **avances** (no regresiones, no a/desde cancelado). El
+  único punto de avance es el kanban — `/gerencia/tramites/:id` es redirect
+  legacy muerto (E-GG-35), el MetadataDrawer no edita estado, y "Reabrir" es
+  flujo aparte con su propio diálogo. Sin bypass.
+
+- **Nota abierta**: el warning también salta al mover a "Esperando cliente"
+  (que a veces es justo donde se deja un trámite *porque* se espera el pago).
+  Se dejó uniforme ("cualquier avance", palabras de Pablo); excluir ese
+  estado sería 2 líneas si molesta.
+
+- **Alternativas descartadas**: (a) hard gate en BD/trigger — descartado,
+  Pablo quiere poder avanzar igual; (b) hardcodear "DDJJ exento" — frágil,
+  no contempla webinars/bonificados; (c) embeber comprobante en el select
+  y computar el booleano en el front — más datos y lógica en el cliente
+  (viola el espíritu de R4).
+
+- **Fecha:** 2026-06-04 · mig 0193 · `tramites.ts` · `TramitesKanbanPage.tsx`.
+
 ## DGG-43 · Derivación a gestoría con asiento contable integrado
 
 - **Decisión** (Pablo, 2026-06-04): cuando gerencia deriva una solicitud
