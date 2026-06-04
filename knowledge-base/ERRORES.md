@@ -42,27 +42,44 @@
   - **Verificado en vivo**: la URL del adjunto que JL reportó roto
     ahora responde `HTTP 200` (curl real contra producción).
 - **Auditoría transversal** (getPublicUrl × buckets privados): barrido de
-  los 10 `getPublicUrl()` del código contra el estado público/privado de
-  cada bucket. Resultado:
-  - 9 usan buckets públicos correctos (avatars, campus-media,
-    emisor-logos, encuesta-testimonios, formulario-previews,
-    formulario-descargas, tramite-documento-final, y los 2 de
+  los 12 matches de `getPublicUrl` del código contra el estado
+  público/privado de cada bucket. Reconciliación completa:
+  - **9 calls reales** a buckets públicos correctos (avatars,
+    encuesta-testimonios, tramite-documento-final, campus-media,
+    emisor-logos, formulario-previews, formulario-descargas, y los 2 de
     gestor-uploads ahora público).
+  - **2 son comentarios**, no llamadas (accesoExterno.ts:6 y
+    solicitudes.ts:215 — el código real ahí usa `createSignedUrl()`
+    porque `form-adjuntos` es privado: patrón correcto).
   - **1 hallazgo: `partners.ts:146` usa `getPublicUrl()` sobre
-    `partner-facturas` que es PRIVADO** → mismo bug latente. Diferencia:
-    la factura del partner sólo la leen staff + partner (ambos logueados,
-    ambos con policy SELECT), por lo que la solución correcta NO es
-    público (es un documento fiscal sensible) sino **URL firmada**. Hoy
-    el bucket tiene 0 archivos → bug latente, no manifiesto. Pendiente
-    (E-GG-50 propuesto): cambiar `partnerSubirFactura` a guardar el path
-    y generar `createSignedUrl()` al leer, o resolver con edge function.
+    `partner-facturas` que es PRIVADO** → mismo bug latente, **resuelto
+    en la misma sesión (mig 0192)**. El partner sube su factura PDF, la
+    URL pública rota se guarda en `comprobantes.partner_factura_pdf_url`,
+    y **el CLIENTE la descarga desde su portal**
+    (`PortalComprobanteDetailPage.onDescargarPdf` → `fetch(url).blob()` →
+    "el cliente recibe LA FACTURA, no una réplica"). El cliente NO es
+    staff ni partner → ni la RLS del bucket lo dejaría leer: es
+    **exactamente el patrón de gestor-uploads** (lector no-staff). Hoy el
+    bucket tiene 0 archivos → era latente, no manifiesto. **Fix (decisión
+    de Pablo, mismo criterio que gestor-uploads): mig 0192 marca
+    `partner-facturas` público.**
+    - Nota de honestidad técnica: un análisis inicial supuso "sólo leen
+      staff+partner → conviene URL firmada"; era **incorrecto** — el
+      cliente la descarga y no satisface la RLS. La reconciliación
+      completa del flujo write→store→read lo corrigió.
+  - **Resultado tras 0191+0192**: TODOS los `getPublicUrl()` del código
+    apuntan a buckets públicos, y el único bucket privado consumido
+    (`form-adjuntos`) usa `createSignedUrl()` correctamente. Clase de bug
+    cerrada, sin latentes restantes.
 - **Prevención**: cualquier `upload()` a un bucket seguido de
   `getPublicUrl()` requiere que el bucket sea público. Si es privado,
   usar `createSignedUrl()`. Smell check: cruzar cada `getPublicUrl` con
-  `storage.buckets.public`. Patrón inverso ya documentado en
-  solicitudes.ts:215 ("bucket privado → URL firmada").
-- **Fecha / módulo:** 2026-06-04 · `supabase/migrations/0191`,
-  bucket `gestor-uploads`. Hallazgo pendiente: `partner-facturas`.
+  `storage.buckets.public`. Y al rastrear quién lee una URL, seguir el
+  flujo completo write→store→read (la URL puede guardarse en una columna
+  y consumirse desde un módulo distinto y por un rol distinto al que
+  sube).
+- **Fecha / módulo:** 2026-06-04 · `supabase/migrations/0191`
+  (gestor-uploads) + `0192` (partner-facturas). Clase de bug cerrada.
 
 ## E-GG-48 · "Se salió del sistema" tras enviar formulario desde portal cliente
 - **Síntoma**: José Luis (2026-06-04): "Después de enviar, desde el portal
