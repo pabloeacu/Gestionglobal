@@ -36,6 +36,7 @@ import {
   Paperclip,
   Pencil,
   Plus,
+  RotateCcw,
   Settings,
   Share2,
   Sparkles,
@@ -83,6 +84,7 @@ import { EstadosConfigManager } from '../components/EstadosConfigManager';
 import { CategoriasConfigManager } from '../components/CategoriasConfigManager';
 import { ProgramarVencimientoModal } from '../components/ProgramarVencimientoModal';
 import { CerrarTramiteDialog } from '../components/CerrarTramiteDialog';
+import { ReabrirTramiteDialog } from '../components/ReabrirTramiteDialog';
 import { PedidosDocPanel } from '@/components/common/PedidosDocPanel';
 // DGG-41 (2026-06-02 · José Luis): la tab Documentación debe mostrar
 // también los archivos del flujo PedidoDoc (cliente sube docs por bucket
@@ -128,6 +130,10 @@ export function TrackingDetailPage() {
   // DGG-38 · Modal de cierre con tabs "Subir archivo" / "Pegar URL".
   // Reemplaza el `usePrompt()` simple que sólo aceptaba URL.
   const [cerrarOpen, setCerrarOpen] = useState(false);
+  // DGG-42 · Modal de reapertura cuando el trámite está cerrado y se quiere
+  // revertir el cierre (error de gerencia, documentación tardía del cliente,
+  // etc.). Pide motivo + opt-in para notificar al cliente.
+  const [reabrirOpen, setReabrirOpen] = useState(false);
   // Después de cerrar, si el servicio tiene vigencia_meses, encadenamos al
   // ProgramarVencimientoModal (FIX-V4). Memorizamos el flag al abrir el
   // cerrar dialog para usarlo en el callback.
@@ -646,6 +652,16 @@ export function TrackingDetailPage() {
                 <CalendarClock className="h-4 w-4" /> Programar próximo vencimiento
               </Button>
             )}
+            {/* DGG-42 · Reabrir el trámite si fue cerrado por error. */}
+            {isStaff && data.estado === 'cerrado' && (
+              <Button
+                variant="ghost"
+                onClick={() => setReabrirOpen(true)}
+                title="Revertir el cierre de este trámite"
+              >
+                <RotateCcw className="h-4 w-4" /> Reabrir
+              </Button>
+            )}
           </div>
         </div>
 
@@ -942,6 +958,17 @@ export function TrackingDetailPage() {
         tramiteId={data.id}
         categoria={data.categoria as import('@/services/api/tramites').TramiteCategoria}
         onCerrado={handleCerradoOk}
+      />
+
+      {/* DGG-42 · Reabrir trámite cerrado con motivo + opt-in para
+          notificar al cliente. */}
+      <ReabrirTramiteDialog
+        open={reabrirOpen}
+        onClose={() => setReabrirOpen(false)}
+        tramiteId={data.id}
+        tramiteTitulo={data.titulo}
+        motivoCierreOriginal={(data as { motivo_cierre?: string | null }).motivo_cierre ?? null}
+        onReabierto={() => { void load(); }}
       />
 
       <ProgramarVencimientoModal

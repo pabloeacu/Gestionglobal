@@ -240,15 +240,20 @@ export function VouchersTab({ servicio_id }: VouchersTabProps) {
                       >
                         <Power size={14} className={v.activo ? 'text-emerald-600' : 'text-brand-muted'} />
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => void onEliminar(v)}
-                        title="Eliminar"
-                        aria-label="Eliminar voucher"
-                        className="rounded-md p-1.5 text-red-600 hover:bg-red-50"
-                      >
-                        <Trash2 size={14} />
-                      </button>
+                      {/* E-GG-47 audit · Botón Eliminar oculto si hay usos.
+                          La BD veta con FK violation; mejor no ofrecer la
+                          acción que mostrar un error técnico al click. */}
+                      {v.usos_count === 0 && (
+                        <button
+                          type="button"
+                          onClick={() => void onEliminar(v)}
+                          title="Eliminar"
+                          aria-label="Eliminar voucher"
+                          className="rounded-md p-1.5 text-red-600 hover:bg-red-50"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>

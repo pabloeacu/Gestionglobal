@@ -136,6 +136,11 @@ const HUMAN_BY_MESSAGE: Array<{ re: RegExp; human: string }> = [
   { re: /chk_cae_no_anulable|check constraint.*cae/i, human: 'Este comprobante ya tiene CAE de ARCA. Para deshacerlo emití una Nota de Crédito; no se puede anular directamente.' },
   { re: /imputacion_supera_monto_del_movimiento/i, human: 'La imputación que querés registrar es mayor al monto disponible en el movimiento.' },
   { re: /movimiento_inexistente_para_imputacion/i, human: 'El movimiento al que querés imputar ya no existe.' },
+  // DGG-42 · errores de tracking_reabrir.
+  { re: /solo_staff_puede_reabrir/i, human: 'Sólo el staff de gerencia puede reabrir un trámite.' },
+  { re: /tramite_no_cerrado_no_se_reabre/i, human: 'Este trámite no está cerrado, no hay nada para reabrir.' },
+  { re: /tramite_inexistente/i, human: 'El trámite que querés reabrir ya no existe.' },
+  { re: /motivo_reapertura_requerido/i, human: 'Ingresá un motivo para la reapertura — el cliente y los reportes lo necesitan.' },
 ];
 
 /**

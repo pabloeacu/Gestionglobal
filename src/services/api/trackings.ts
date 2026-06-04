@@ -301,6 +301,27 @@ export async function cerrarTracking(
 }
 
 // ----------------------------------------------------------------------------
+// REABRIR trámite cerrado (DGG-42, 2026-06-04 · Pablo)
+// Sólo aplicable cuando estado='cerrado'. Limpia fecha_fin / motivo_cierre /
+// resuelto_at, incrementa reabierto_count y agrega línea automática "Trámite
+// reabierto. Motivo: ...". Si `notificarCliente=true` además dispara email
+// (template `tramite-reabierto`) + push al cliente. Mig 0188.
+// ----------------------------------------------------------------------------
+export async function reabrirTracking(
+  trackingId: string,
+  motivo: string,
+  notificarCliente: boolean,
+): Promise<ApiResponse<true>> {
+  const { error } = await supabase.rpc('tracking_reabrir' as never, {
+    p_tramite_id: trackingId,
+    p_motivo: motivo,
+    p_notificar_cliente: notificarCliente,
+  } as never);
+  if (error) return fail('TRACKING_REABRIR', error.message, error);
+  return ok(true);
+}
+
+// ----------------------------------------------------------------------------
 // CERRAR CICLO + programar próximo vencimiento (mig 0040)
 // Genera un vencimiento ligado al tracking con offsets de alarma personalizados
 // y marca cycle_closed_at en la fila de tramites.
