@@ -29,6 +29,7 @@ import {
   ChevronRight,
   PlayCircle,
   BellRing,
+  X,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
@@ -37,6 +38,8 @@ import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
 import {
   fetchClientePortalDashboard,
   fetchTrackingAvancesNuevosCount,
+  marcarOportunidadMostrada,
+  posponerOportunidad,
   type ClientePortalDashboard,
   type ClienteOportunidad,
 } from '@/services/api/portal-dashboard';
@@ -67,9 +70,28 @@ export function PortalHome() {
       listPedidosAbiertosCliente(),
     ]);
     setLoading(false);
-    if (res.ok && !res.data.error) setData(res.data);
+    if (res.ok && !res.data.error) {
+      setData(res.data);
+      // DGG-45 · sostiene la recurrencia "desde la última vez mostrado":
+      // marca como vistos hoy los banners suaves visibles para que no
+      // reaparezcan hasta N días después.
+      const posponibles = res.data.oportunidades
+        .filter((o) => o.posponible)
+        .map((o) => o.codigo);
+      if (posponibles.length > 0) void marcarOportunidadMostrada(posponibles);
+    }
     setAvancesNuevos(count);
     if (pedidos.ok) setPedidosAbiertos(pedidos.data);
+  }
+
+  // DGG-45 · "Recordar después": pospone un banner suave 30 días.
+  async function handlePosponer(codigo: string) {
+    setData((prev) =>
+      prev
+        ? { ...prev, oportunidades: prev.oportunidades.filter((o) => o.codigo !== codigo) }
+        : prev,
+    );
+    await posponerOportunidad(codigo);
   }
 
   useEffect(() => { void load(); }, []);
@@ -152,7 +174,7 @@ export function PortalHome() {
       <Assistants />
 
       {data.oportunidades.length > 0 && (
-        <Oportunidades items={data.oportunidades} />
+        <Oportunidades items={data.oportunidades} onPosponer={handlePosponer} />
       )}
 
       {data.cursos_activos.length > 0 && (
@@ -447,7 +469,13 @@ function Atajos({ avancesNuevos }: { avancesNuevos: number }) {
 // =========================================================================
 // Oportunidades cross-sell (todas las que no fueron hot)
 // =========================================================================
-function Oportunidades({ items }: { items: ClienteOportunidad[] }) {
+function Oportunidades({
+  items,
+  onPosponer,
+}: {
+  items: ClienteOportunidad[];
+  onPosponer: (codigo: string) => void;
+}) {
   // Excluir la urgente/alto que ya está en HotCards
   const restantes = items.filter((_, idx) => {
     const urgenteIdx = items.findIndex(o => o.tone === 'urgente');
@@ -464,23 +492,36 @@ function Oportunidades({ items }: { items: ClienteOportunidad[] }) {
       </header>
       <div className="grid gap-3 sm:grid-cols-2">
         {restantes.map((op) => (
-          <Link
-            key={op.codigo}
-            to={op.cta_path}
-            className="group flex items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4 transition hover:border-brand-cyan hover:shadow-md"
-          >
-            <span className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-xl bg-brand-cyan-pale text-brand-cyan">
-              {iconForOportunidad(op.icono)}
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="kicker text-brand-cyan opacity-80">{op.kicker}</p>
-              <p className="font-semibold text-brand-ink">{op.titulo}</p>
-              <p className="line-clamp-2 text-xs text-brand-muted">{op.descripcion}</p>
-              <p className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-brand-cyan transition group-hover:gap-1.5">
-                {op.cta_label} <ArrowRight size={11} />
-              </p>
-            </div>
-          </Link>
+          <div key={op.codigo} className="relative">
+            <Link
+              to={op.cta_path}
+              className="group flex h-full items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4 transition hover:border-brand-cyan hover:shadow-md"
+            >
+              <span className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-xl bg-brand-cyan-pale text-brand-cyan">
+                {iconForOportunidad(op.icono)}
+              </span>
+              <div className="min-w-0 flex-1 pr-5">
+                <p className="kicker text-brand-cyan opacity-80">{op.kicker}</p>
+                <p className="font-semibold text-brand-ink">{op.titulo}</p>
+                <p className="line-clamp-2 text-xs text-brand-muted">{op.descripcion}</p>
+                <p className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-brand-cyan transition group-hover:gap-1.5">
+                  {op.cta_label} <ArrowRight size={11} />
+                </p>
+              </div>
+            </Link>
+            {/* DGG-45 · "Recordar después" — sólo en banners suaves (posponibles) */}
+            {op.posponible && (
+              <button
+                type="button"
+                onClick={() => onPosponer(op.codigo)}
+                title="Recordar más tarde"
+                aria-label="Recordar más tarde"
+                className="absolute right-2 top-2 grid h-6 w-6 place-items-center rounded-full bg-white/80 text-brand-muted ring-1 ring-inset ring-slate-200 backdrop-blur-sm transition hover:bg-white hover:text-brand-ink"
+              >
+                <X size={12} />
+              </button>
+            )}
+          </div>
         ))}
       </div>
     </section>

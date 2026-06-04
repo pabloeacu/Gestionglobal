@@ -101,6 +101,9 @@ export interface ClienteOportunidad {
   icono: string;
   webinar_id?: string;
   fecha_hora?: string;
+  // DGG-45 · true en banners "suaves" (cross-sell/recordatorios): se pueden
+  // posponer 30 días. Las obligaciones/deadlines vienen sin este flag.
+  posponible?: boolean;
 }
 
 export interface ClientePortalDashboard {
@@ -121,6 +124,30 @@ export async function fetchClientePortalDashboard(): Promise<ApiResponse<Cliente
   const { data, error } = await supabase.rpc('cliente_portal_dashboard');
   if (error) return fail('PORTAL_DASHBOARD', error.message, error);
   return ok(data as unknown as ClientePortalDashboard);
+}
+
+/**
+ * DGG-45 · Registra que estos banners de oportunidad fueron MOSTRADOS hoy.
+ * Sostiene la recurrencia "desde la última vez mostrado" (el banner no
+ * reaparece hasta N días después). Se llama una vez por carga del dashboard
+ * con los códigos de las oportunidades suaves visibles.
+ */
+export async function marcarOportunidadMostrada(codigos: string[]): Promise<void> {
+  if (codigos.length === 0) return;
+  await supabase.rpc('cliente_oportunidad_marcar_mostrada' as never, {
+    p_codigos: codigos,
+  } as never);
+}
+
+/**
+ * DGG-45 · Pospone un banner de oportunidad 30 días (acción "Recordar después").
+ */
+export async function posponerOportunidad(codigo: string): Promise<ApiResponse<true>> {
+  const { error } = await supabase.rpc('cliente_oportunidad_posponer' as never, {
+    p_codigo: codigo,
+  } as never);
+  if (error) return fail('OPORTUNIDAD_POSPONER', error.message, error);
+  return ok(true);
 }
 
 /**

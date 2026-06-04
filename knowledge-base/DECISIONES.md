@@ -13,6 +13,57 @@
 - **Fecha:**
 -->
 
+## DGG-45 · Motor de reglas de banners ("oportunidades") del portal
+
+- **Origen** (Pablo, 2026-06-04): Estudio Save ya se matriculó (trámite
+  "Inscripción al RPAC" cerrado) pero seguía viendo el banner "Matriculate
+  como administrador" en el inicio del portal. Causa: el motor definía
+  "matriculado" SÓLO como `administraciones.matricula_rpac IS NOT NULL`, y
+  gerencia nunca cargó el número de matrícula. Pablo pidió repasar las reglas
+  de banners de "publicidad" como un motor coherente.
+
+- **Decisión — "matriculado" robusto** (Pablo, opción elegida): un cliente es
+  matriculado si `matricula_rpac IS NOT NULL` **O** tiene un trámite de
+  matrícula cerrado (servicio `Inscripción al RPAC%`). Así, aunque falte el
+  número, el sistema ya no le ofrece matricularse. Banner "Matriculate" sólo
+  si NO matriculado.
+
+- **Reglas del motor** (todas en `cliente_portal_dashboard`, mig 0196):
+  | Prioridad | Banner | Condición | Bucket |
+  |---|---|---|---|
+  | 10 | DDJJ vence pronto | DDJJ vigente 0-60d | acción |
+  | 20 | Renová matrícula | matriculado + vence 0-60d | acción |
+  | 30 | Matriculate | NO matriculado | acción |
+  | 40 | Cumplí tu actualización | matriculado + sin actualización este año | acción |
+  | 55 | DDJJ — arrancá temprano (NUEVO) | diciembre + matriculado + DDJJ sin iniciar | suave |
+  | 60 | Certificado de acreditación (NUEVO) | matriculado, cada 90d | suave |
+  | 70 | Consultoría jurídica (NUEVO) | matriculado, cada 120d | suave |
+  | 80 | Webinar gratuito | no inscripto al próximo | suave |
+
+- **Decisiones de Pablo** (vía AskUserQuestion):
+  1. **Cantidad**: máx **2** banners — top-1 acción/obligación + top-1 suave.
+  2. **Recurrencia** (suaves): "desde la última vez mostrado" — el banner se
+     marca visto hoy (`last_shown_at`) y no reaparece hasta N días después.
+  3. **Posponer**: los suaves tienen botón "Recordar más tarde" → snooze 30d.
+
+- **Infra** (mig 0195): tabla `cliente_oportunidad_eventos`
+  (administración, código → `last_shown_at`, `snoozed_until`) + RPCs
+  `cliente_oportunidad_marcar_mostrada(text[])` y `_posponer(text)`. El
+  dashboard (DEFINER) lee la tabla para decidir; el front llama `marcar` al
+  renderizar suaves y `posponer` desde el botón. CTAs → `/formulario/:slug`.
+
+- **Pendiente para refinar** (sugerencias mías, NO implementadas aún; Pablo
+  dijo "vamos refinando"): (a) callar suaves si el cliente tiene deuda;
+  (b) gracia de ~15 días para recién llegados; (c) operativo: recordar a
+  gerencia cargar el número RPAC al cerrar el trámite de matrícula (para que
+  `matricula_rpac` no quede NULL).
+
+- **Verificado e2e** bajo JWT real del cliente Estudio Save: `matricula_inicial`
+  ausente (matriculado por trámite cerrado); oportunidades = {curso_actualizacion,
+  certificado_acreditacion}; posponer certificado lo oculta y entra consultoría.
+
+- **Fecha:** 2026-06-04 · migs 0195+0196 · `portal-dashboard.ts` · `PortalHome.tsx`.
+
 ## DGG-44 · Gate de cobranza al avanzar un trámite en el kanban
 
 - **Decisión** (Pablo, 2026-06-04): al **avanzar** un trámite en el kanban
