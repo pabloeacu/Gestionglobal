@@ -13,6 +13,94 @@
 - **Fecha:**
 -->
 
+## DGG-43 · Derivación a gestoría con asiento contable integrado
+
+- **Decisión** (Pablo, 2026-06-04): cuando gerencia deriva una solicitud
+  a la gestoría externa y declara un monto que la empresa paga, el
+  sistema **debe asentar ese egreso en la caja automáticamente**. No
+  hay que hacer el doble registro manual (derivar + cargar movimiento)
+  ni dejar que se descuadre la contabilidad.
+
+- **Cómo funciona**:
+  - En el wizard de derivación (`WizardActivacion.tsx` paso 1), cuando
+    el operador escribe un monto > 0 aparece un sub-bloque cyan:
+    **"💼 Imputación contable"** con un selector de caja que pre-elige
+    la caja default (`cajas.es_default`). El operador puede confirmar
+    o cambiar.
+  - Si confirma con caja: la RPC `solicitud_derivar_v3` (mig 0189)
+    llama internamente a `solicitud_derivar_v2` (que envía el email y
+    persiste adjuntos) y, en la misma transacción, **inserta un
+    movimiento egreso** con:
+    - `tipo='egreso'`, `estado='identificado'`
+    - `origen='derivacion_gestoria'` (valor nuevo agregado al CHECK)
+    - `categoria_id` → "Gastos de gestoría" (creada idempotente)
+    - `referencia='SOL:<solicitud_id>'`
+    - `descripcion='Pago a gestoría · <destinatario> · solicitud <id8>'`
+    - `administracion_id` heredado del cliente de la solicitud
+  - Vincula `solicitud_derivaciones.movimiento_id` con el mov creado.
+  - Toast premium: "Solicitud derivada y pago registrado. Mail enviado
+    a X. Egreso de $Y imputado en `<caja>`."
+
+- **Si el operador NO elige caja**: la derivación funciona como antes
+  (v2), sin movimiento. Eso preserva el caso "registro nominal sin
+  impacto financiero".
+
+- **Categoría "Gastos de gestoría"** (Pablo: "si no existe, creala"):
+  - Creada con seed idempotente al aplicar la mig.
+  - Tipo='egreso', icono Briefcase, activo=true.
+  - **No reutilizamos "Servicios de Gestoría"** (que existía) porque el
+    nombre exacto que pidió Pablo es distinto y la separación permite
+    análisis distinguible: "Gastos" para pagos a gestores externos
+    de tareas operativas vs "Servicios" para honorarios de gestoría
+    propia. Si Pablo quiere unificar después, se hace por análisis.
+
+- **Operación del movimiento post-creación** (requisito: "que opere
+  como cualquier otro pago"):
+  - Aparece en Finanzas → Dashboard → Movimientos recientes con su
+    categoría, descripción y monto.
+  - Se puede **revertir** con `fz_revertir_movimiento` → crea
+    contrasiento ingreso y el original queda `revertido_at` seteado.
+  - Se puede **anular** con `fz_anular_movimiento` si NO está revertido
+    y no es contrasiento (guardas E-GG-47 aplican).
+  - Los KPIs de finanzas (saldo total, egresos del mes) lo cuentan.
+
+- **Alternativas descartadas**:
+  - **Auto-crear el movimiento siempre** que haya monto: descartado
+    porque rompería derivaciones legítimas sin impacto financiero
+    (ej. retroactivos, transferencias ya hechas por afuera).
+  - **Pedir la caja después** en un modal aparte tras derivar:
+    descartado porque pierde atomicidad. Si el operador deriva y
+    después se distrae, queda derivación sin asiento → contabilidad
+    descuadrada.
+  - **Crear NUEVA categoría con código fijo + slug**: descartado
+    porque el catálogo ya tiene solo `nombre` como identificador y el
+    lookup es por nombre exacto. Es simple y consistente.
+
+- **Smoke e2e in-mig**: BEGIN; deriva con $35.000 en MP. Gestión
+  Global; verifica delta = -35.000 + vinculación derivación ↔
+  movimiento; ROLLBACK. Producción intacta. Confirmado.
+
+- **Auditoría a fondo** (2 agentes paralelos):
+  - Integridad contable del nuevo flujo: OK. Movimiento pasa por las
+    guardas de E-GG-47 al intentar anular (sin imputaciones, sin
+    revertido, no contrasiento → permitido). Revertir crea
+    contrasiento + deja `revertido_at` en el original; la UI no
+    rompe.
+  - GAP detectado análogo (no del chunk DGG-43 pero del mismo patrón):
+    `partner_marcar_rendicion_pagada` SOLO cambia el flag a 'pagada'
+    sin crear movimiento egreso. Lo dejo como **mejora futura
+    (DGG-44 propuesto)**: cuando se marca una rendición como pagada,
+    pedir caja y crear movimiento egreso atómico también.
+
+- **Pateado a backlog**:
+  - Idempotencia hard contra doble click (hoy se mitiga con `busy1`
+    del frontend, pero no hay constraint UNIQUE en BD).
+  - Indicador visual en derivación cuando su movimiento vinculado
+    fue revertido o anulado posteriormente.
+
+- **Fecha**: 2026-06-04. Migs: 0189 (mig principal), 0189b (fix
+  columna `codigo`), 0189c (CHECK constraint origen).
+
 ## DGG-42 · Reapertura de trámites como evento de primera clase
 
 - **Decisión** (Pablo, 2026-06-04): el cierre de un trámite NO es

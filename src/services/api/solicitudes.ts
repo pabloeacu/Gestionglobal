@@ -280,6 +280,19 @@ export interface DerivarInput {
   monto_pago_gestoria?: number | null;
   // N3 · adjuntos enviados a la gestoría. NO visibles al cliente.
   adjuntos?: Array<{ path: string; filename: string; mime: string; size: number }>;
+  // DGG-43 (2026-06-04 · Pablo) · si el operador eligió caja, la RPC v3 crea
+  // un movimiento egreso atómico vinculado a la derivación. Categoría
+  // default: "Gastos de gestoría". El movimiento opera como cualquier otro:
+  // se puede revertir o anular desde Finanzas.
+  caja_id?: string | null;
+  categoria_id?: string | null;
+}
+
+export interface DerivarResult {
+  derivacionId: string;
+  /** Si la derivación generó el asiento contable de egreso, su ID. */
+  movimientoId: string | null;
+  tieneEgreso: boolean;
 }
 
 const BUCKET_GESTORIA = 'gestoria-adjuntos';
@@ -310,8 +323,38 @@ export async function uploadAdjuntoGestoria(
 export async function derivar(
   id: string,
   input: DerivarInput,
-): Promise<ApiResponse<{ derivacionId: string }>> {
-  // N3 · si trae monto o adjuntos, usa la v2 del RPC.
+): Promise<ApiResponse<DerivarResult>> {
+  // DGG-43 · Si el operador eligió caja para imputar el egreso, usamos v3.
+  const useV3 =
+    input.caja_id != null &&
+    input.monto_pago_gestoria != null &&
+    input.monto_pago_gestoria > 0;
+  if (useV3) {
+    const { data, error } = await rpc('solicitud_derivar_v3', {
+      p_solicitud_id: id,
+      p_destinatario_email: input.destinatario_email,
+      p_destinatario_nombre: input.destinatario_nombre ?? null,
+      p_plantilla_slug: input.plantilla_slug ?? 'solicitud-derivada-gestoria',
+      p_observaciones: input.observaciones ?? null,
+      p_dias_validez: input.dias_validez ?? 14,
+      p_monto_pago: input.monto_pago_gestoria,
+      p_adjuntos: (input.adjuntos ?? []) as unknown as Parameters<typeof rpc>[1]['p_adjuntos'],
+      p_caja_id: input.caja_id,
+      p_categoria_id: input.categoria_id ?? null,
+    } as unknown as Parameters<typeof rpc>[1]);
+    if (error) return fail('SOL_DERIVAR_V3', error.message, error);
+    const parsed = (data ?? {}) as {
+      derivacion_id?: string;
+      movimiento_id?: string | null;
+      tiene_egreso?: boolean;
+    };
+    return ok({
+      derivacionId: parsed.derivacion_id ?? '',
+      movimientoId: parsed.movimiento_id ?? null,
+      tieneEgreso: !!parsed.tiene_egreso,
+    });
+  }
+  // N3 · si trae monto o adjuntos pero NO caja, usa v2 (sin asiento).
   const useV2 = input.monto_pago_gestoria != null || (input.adjuntos && input.adjuntos.length > 0);
   if (useV2) {
     const { data, error } = await rpc('solicitud_derivar_v2', {
@@ -325,7 +368,7 @@ export async function derivar(
       p_adjuntos: (input.adjuntos ?? []) as unknown as Parameters<typeof rpc>[1]['p_adjuntos'],
     } as unknown as Parameters<typeof rpc>[1]);
     if (error) return fail('SOL_DERIVAR_V2', error.message, error);
-    return ok({ derivacionId: data as string });
+    return ok({ derivacionId: data as string, movimientoId: null, tieneEgreso: false });
   }
   const { data, error } = await rpc('solicitud_derivar', {
     p_solicitud_id: id,
@@ -336,7 +379,7 @@ export async function derivar(
     p_dias_validez: input.dias_validez ?? 14,
   } as unknown as Parameters<typeof rpc>[1]);
   if (error) return fail('SOL_DERIVAR', error.message, error);
-  return ok({ derivacionId: data as string });
+  return ok({ derivacionId: data as string, movimientoId: null, tieneEgreso: false });
 }
 
 export interface CrearClienteInput {

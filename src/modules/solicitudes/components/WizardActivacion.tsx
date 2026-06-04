@@ -118,6 +118,30 @@ export function WizardActivacion({
   type AdjuntoGestoria = { path: string; filename: string; mime: string; size: number };
   const [adjuntosGestoria, setAdjuntosGestoria] = useState<AdjuntoGestoria[]>([]);
   const [subiendoAdj, setSubiendoAdj] = useState(false);
+  // DGG-43 (2026-06-04 · Pablo) · Caja en la que impacta el egreso del pago a
+  // la gestoría. Si el operador selecciona una, la RPC v3 crea un movimiento
+  // egreso atómico en categoría "Gastos de gestoría". Vacío = sin asiento
+  // (la derivación queda igual; sólo no se imputa contablemente).
+  type CajaOpcion = { caja_id: string; nombre: string; saldo: number; es_default?: boolean };
+  const [cajasDisponibles, setCajasDisponibles] = useState<CajaOpcion[]>([]);
+  const [cajaSeleccionada, setCajaSeleccionada] = useState<string>('');
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const { getCajasConSaldo } = await import('@/services/api/finanzas');
+      const r = await getCajasConSaldo();
+      if (!cancelled && r.ok) {
+        setCajasDisponibles(r.data);
+        // Pre-seleccionamos la caja con `es_default = true` para acelerar el
+        // alta. Si el operador prefiere otra, la cambia en un click.
+        const def = (r.data as Array<CajaOpcion & { es_default?: boolean }>).find(
+          (c) => c.es_default,
+        );
+        if (def) setCajaSeleccionada(def.caja_id);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
   const [busy1, setBusy1] = useState(false);
   const [paso1Hecho, setPaso1Hecho] = useState(
     draftInicial?.paso1Hecho ?? false,
@@ -274,22 +298,34 @@ export function WizardActivacion({
     }
     setBusy1(true);
     const montoNum = parseFloat(montoGestoria.replace(',', '.'));
+    const tieneMonto = !isNaN(montoNum) && montoNum > 0;
     const res = await derivar(solicitud.id, {
       destinatario_email: destinatarioEmail.trim(),
       destinatario_nombre: destinatarioNombre.trim() || undefined,
       observaciones: observDerivacion.trim() || undefined,
       dias_validez: diasValidez,
-      monto_pago_gestoria: !isNaN(montoNum) && montoNum > 0 ? montoNum : null,
+      monto_pago_gestoria: tieneMonto ? montoNum : null,
       adjuntos: adjuntosGestoria.length > 0 ? adjuntosGestoria : undefined,
+      // DGG-43: si hay monto Y caja, dispara el asiento atómico
+      caja_id: tieneMonto && cajaSeleccionada ? cajaSeleccionada : null,
     });
     setBusy1(false);
     if (!res.ok) {
       toast.error('No pudimos derivar', { description: humanizeError(res.error) });
       return;
     }
-    toast.success('Solicitud derivada a la gestoría', {
-      description: `Se envió al ${destinatarioEmail}`,
-    });
+    // DGG-43: mensaje extendido cuando se creó el asiento de egreso
+    const cajaNombre = cajasDisponibles.find((c) => c.caja_id === cajaSeleccionada)?.nombre;
+    toast.success(
+      res.data.tieneEgreso
+        ? 'Solicitud derivada y pago registrado'
+        : 'Solicitud derivada a la gestoría',
+      {
+        description: res.data.tieneEgreso
+          ? `Mail enviado a ${destinatarioEmail}. Egreso de $${montoNum.toLocaleString('es-AR')} imputado en ${cajaNombre ?? 'la caja seleccionada'}.`
+          : `Se envió al ${destinatarioEmail}`,
+      },
+    );
     setPaso1Hecho(true);
     setStep(1);
   }
@@ -463,6 +499,47 @@ export function WizardActivacion({
                     </span>
                   </div>
                 </Field>
+
+                {/* DGG-43 (2026-06-04 · Pablo): si hay monto, ofrecemos
+                    seleccionar la caja para que el sistema genere el asiento
+                    de egreso automáticamente. Categoría fija: "Gastos de
+                    gestoría". El movimiento queda visible en Finanzas y se
+                    puede revertir o anular como cualquier otro. */}
+                {(() => {
+                  const m = parseFloat(montoGestoria.replace(',', '.'));
+                  const hayMonto = !isNaN(m) && m > 0;
+                  if (!hayMonto) return null;
+                  return (
+                    <div className="rounded-lg border border-brand-cyan/40 bg-brand-cyan-pale/30 p-3 space-y-2">
+                      <p className="text-[11px] font-semibold uppercase tracking-wider text-brand-cyan">
+                        💼 Imputación contable
+                      </p>
+                      <Field label="Caja que paga el egreso">
+                        <Select
+                          value={cajaSeleccionada}
+                          onChange={(e) => setCajaSeleccionada(e.target.value)}
+                        >
+                          <option value="">— No imputar a ninguna caja —</option>
+                          {cajasDisponibles.map((c) => (
+                            <option key={c.caja_id} value={c.caja_id}>
+                              {c.nombre} (saldo: ${Number(c.saldo).toLocaleString('es-AR')})
+                            </option>
+                          ))}
+                        </Select>
+                      </Field>
+                      {cajaSeleccionada ? (
+                        <p className="text-[11px] text-brand-ink/80">
+                          Vamos a registrar un <strong>egreso de ${(!isNaN(m) ? m : 0).toLocaleString('es-AR')}</strong>{' '}
+                          en categoría <strong>Gastos de gestoría</strong>. Va a aparecer en Finanzas como cualquier otro movimiento (revertible / anulable).
+                        </p>
+                      ) : (
+                        <p className="text-[11px] text-amber-700">
+                          Si dejás <em>sin caja</em>, queda solo el registro de derivación. No se impacta tu caja.
+                        </p>
+                      )}
+                    </div>
+                  );
+                })()}
                 <Field label="Adjuntos para la gestoría">
                   <input
                     type="file"
