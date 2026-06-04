@@ -132,6 +132,10 @@ const HUMAN_BY_MESSAGE: Array<{ re: RegExp; human: string }> = [
   { re: /no_se_puede_revertir_un_contrasiento/i, human: 'Un contrasiento no se revierte (anularía la reversión original). Si te equivocaste al revertir, contactá soporte.' },
   { re: /movimiento_ya_revertido/i, human: 'Este movimiento ya está revertido.' },
   { re: /movimiento_anulado_no_se_revierte/i, human: 'Este movimiento está anulado; no se puede revertir.' },
+  // E-GG-47 auditoría (2026-06-04) · invariantes contables capitalizadas a BD.
+  { re: /chk_cae_no_anulable|check constraint.*cae/i, human: 'Este comprobante ya tiene CAE de ARCA. Para deshacerlo emití una Nota de Crédito; no se puede anular directamente.' },
+  { re: /imputacion_supera_monto_del_movimiento/i, human: 'La imputación que querés registrar es mayor al monto disponible en el movimiento.' },
+  { re: /movimiento_inexistente_para_imputacion/i, human: 'El movimiento al que querés imputar ya no existe.' },
 ];
 
 /**

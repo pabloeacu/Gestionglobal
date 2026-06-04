@@ -14,6 +14,77 @@
 - **Fecha / módulo:**
 -->
 
+## E-GG-47 · Cobranza · Anular movimiento del par revertido descalibra la caja
+- **Síntoma**: Pablo (2026-06-04 análisis conceptual): "si cobré $1000 y lo
+  revierto, el par suma 0. Si después anulo el ingreso original que tuvo
+  la reversión, queda el contrasiento de −$1000 huérfano. Caja queda en
+  −$1000". Confirmado en producción real:
+  - Caja "MP. Gestión Global", par revertido $175.000: si anulamos el
+    original revertido → delta −$175k, saldo de la caja queda en
+    −$50.000. Si anulamos el contrasiento → delta +$175k, saldo
+    queda en $300.000. Ambas posibilidades eran reales y la RPC las
+    dejaba pasar.
+- **Causa raíz**:
+  1. **Modelo conceptual mezclado en el código**. "Anular" debería ser
+     para movimientos que NUNCA participaron de un ciclo contable;
+     "Revertir" cierra un ciclo y, una vez cerrado, **ningún miembro
+     del par puede tocarse más**. La RPC `fz_anular_movimiento` no lo
+     entendía así: sólo vetaba el caso de "tiene imputaciones".
+  2. Cuando se revierte, el RPC `fz_revertir_movimiento` borra las
+     imputaciones del original (eso es correcto — devuelve el
+     comprobante a "pendiente"). Resultado: el original queda con
+     `revertido_at` seteado pero **sin imputaciones**, y el guard
+     existente lo dejaba pasar a anulado.
+  3. El contrasiento (`origen='reversion'`) nunca tiene imputaciones
+     por diseño. También pasaba el guard.
+  4. La UI sólo bloqueaba el botón Anular para movimientos ya
+     revertidos / anulados. No miraba si el movimiento era un
+     contrasiento.
+- **Fix**:
+  - **Mig 0186**: `fz_anular_movimiento` ahora tiene 3 guards en este
+    orden: (1) `revertido_at IS NOT NULL` → `movimiento_revertido_no_se_puede_anular`,
+    (2) `origen='reversion'` → `movimiento_contrasiento_no_se_puede_anular`,
+    (3) imputaciones > 0 → `movimiento_con_imputaciones_usar_revertir`
+    (existente).
+  - **`FinanzasDashboardPage.tsx`**: agregamos `&& m.origen !== 'reversion'`
+    a la guarda del botón Anular. Ahora el botón sólo aparece en
+    movimientos que pueden anularse sin riesgo.
+  - **`errors.ts`**: 6 nuevos mappings humanizados para los códigos de
+    error del ciclo anular/revertir (defensa en profundidad por si
+    alguien llama la RPC directamente y la UI no filtró el botón).
+  - **Smoke e2e in-mig**: aplica `fz_anular_movimiento` sobre el par
+    revertido REAL en producción y verifica los 2 rejects.
+  - **Browser test en Vercel**: confirmamos que los 2 contrasientos
+    visibles en la tabla muestran 0 botones y los originales revertidos
+    también. Movimientos normales muestran Revertir + Anular OK.
+- **Auditoría a fondo posterior** (Pablo: "audita este chunk a fondo, no
+  quiero que se repercuta en ningún otro lugar"). 3 agentes en paralelo
+  (RPCs/triggers con patrón soft-delete + UI botones acción + invariantes
+  contables BD). Capitalizado en mig 0187 dos invariantes adicionales
+  que el frontend asumía pero la BD no enforce:
+  - **CHECK `chk_cae_no_anulable`** en `comprobantes`: `cae IS NULL OR
+    estado <> 'anulado'`. La UI ya bloqueaba pero un UPDATE manual
+    podía romperlo. 0 violaciones en producción al momento de aplicar.
+  - **Trigger `trg_imp_validar_sum`** en `movimiento_imputaciones`:
+    bloquea inserts/updates que sobre-imputen un movimiento (suma >
+    monto). Defensa en profundidad al recálculo del saldo del
+    comprobante. 0 violaciones en producción al momento de aplicar.
+- **Pateado a otro chunk** (no aplicado acá):
+  - Bloqueo de reapertura de trámite cerrado (requiere decidir si
+    "reabrir" es válido como operación normal o nunca).
+  - Partner rendición cancelada con re-atribución de movimientos
+    (más complejo, requiere análisis de flujo).
+- **Prevención (regla nueva propuesta para CLAUDE.md)**: cualquier RPC
+  que haga **soft-delete sobre una entidad que pueda pertenecer a un
+  par/ciclo contable** (reversión, transferencia, NC/ND, rendición)
+  DEBE vetar la eliminación si la entidad ya está dentro del ciclo.
+  Smoke obligatorio sobre el par real al cerrar la mig. Y en UI, el
+  botón de la acción no debería mostrarse si la BD la veta — no
+  esperar al toast de error.
+- **Fecha / módulo:** 2026-06-04 · `supabase/migrations/0186, 0187`,
+  `src/services/api/finanzas.ts`, `src/lib/errors.ts`,
+  `src/modules/finanzas/pages/FinanzasDashboardPage.tsx`.
+
 ## E-GG-46 · Patrón estado-derivado-vs-propagado en otros 2 lugares (auditoría preventiva pos E-GG-45)
 - **Síntoma (preventivo)**: José Luis (2026-06-04): "auditá este chunk a fondo,
   quiero que esta falla no se repercuta en ningún otro lugar ni en la
