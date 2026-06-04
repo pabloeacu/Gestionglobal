@@ -13,6 +13,100 @@
 - **Fecha:**
 -->
 
+## DGG-42 · Reapertura de trámites como evento de primera clase
+
+- **Decisión** (Pablo, 2026-06-04): el cierre de un trámite NO es
+  irreversible. Gerencia puede reabrir un trámite cerrado y el efecto
+  debe propagarse a TODAS las vistas (cards del cliente, KPIs, reportes,
+  chips de solicitudes). Implementado como evento explícito con
+  registro de historia + opt-in de notificación al cliente.
+
+- **Modelo conceptual**:
+  - `tramites.estado='cerrado'` no implica inmutabilidad. Es un estado
+    como cualquier otro.
+  - Al reabrir: `estado='en_progreso'`, se VACÍAN los campos del cierre
+    (`fecha_fin`, `motivo_cierre`, `cierre_satisfactorio`,
+    `resuelto_at`, `resuelto_por`). Estos quedaban como "huella" del
+    cierre vigente, no como historia. Si el trámite se cierra de nuevo,
+    estos se vuelven a poblar con el nuevo cierre.
+  - La HISTORIA queda en 3 columnas nuevas:
+    - `reabierto_count` (int, default 0) — cuántas veces se reabrió.
+    - `ultima_reapertura_at` (timestamptz) — cuándo.
+    - `ultima_reapertura_motivo` (text) — por qué.
+  - La línea de tracking de cierre NO se borra, queda en el historial
+    visible. Se agrega encima una línea nueva con
+    `categoria='reapertura'`, `estado_asociado='reabierto'`, descripción
+    `"Trámite reabierto. Motivo: <texto>"`, visible al cliente.
+
+- **Notificación al cliente — opt-in**:
+  - Default OFF. El operador decide caso por caso.
+  - Si la reapertura es interna (corregir error de gerencia que el
+    cliente nunca vio) → OFF.
+  - Si la reapertura cambia algo que ya comunicamos (mail de cierre,
+    push, banner celebración cert) → ON.
+  - Cuando es ON: encola email con plantilla `tramite-reabierto`
+    (kicker "GESTIÓN ACTUALIZADA", color cyan, motivo destacado como
+    cita) + push a todos los usuarios del cliente.
+
+- **Cobertura del impacto** (verificado, no nuevas RPCs necesarias):
+  - **Card en CC del cliente / Mis Gestiones**: `cliente_tramites_listar`
+    filtra por `estado IN ('abierto','en_progreso','esperando_cliente')`.
+    Trámite reabierto vuelve a aparecer automático.
+  - **KPI "Resueltos"**: `PortalGestionesPage` calcula en memoria sobre
+    el universo completo (E-GG-43); cuenta `estado === 'cerrado'`. Al
+    reabrir, deja de contar.
+  - **Card en Solicitudes Recibidas** (E-GG-45): `listSolicitudes`
+    joinea `tramites.estado`. El chip "Trámite cerrado" desaparece
+    porque el join devuelve el estado actual.
+  - **Banner celebración cert (DGG-41)**: el banner mira
+    `certificados.celebracion_vista_at`, NO el estado del trámite. Si
+    el cert se mantuvo (no se revocó), el banner sigue siendo válido.
+    Si querés que desaparezca, hay que revocar el cert aparte (flujo
+    separado, no incluido en DGG-42).
+
+- **Alternativas descartadas**:
+  - **Bloquear reapertura con trigger**. Era la opción defensiva, pero
+    Pablo es claro: la reapertura ES un caso de uso real (errores de
+    gerencia). Bloquearla obligaría a hacer trampa con un nuevo trámite.
+  - **Generar línea de tracking sin cambiar estado**. Mantendría la
+    auditoría pero no propagaría a las cards/KPIs. Anti-patrón
+    contradice DGG-42 (debe impactar en todos los reportes).
+  - **Cerrar el cert/celebración al reabrir**. El cert es independiente
+    (puede emitirse con el trámite abierto o cerrado). Mezclarlos
+    confunde modelos.
+
+- **Smoke e2e**:
+  - 3 guards in-mig: no existe / no cerrado / motivo vacío. OK.
+  - Reabrir TRM-2026-00015 en BEGIN/ROLLBACK: estado pasó
+    `cerrado`→`en_progreso`, `fecha_fin` a NULL, `motivo_cierre` a NULL,
+    `reabierto_count` 0→1, línea automática con `categoria='reapertura'`.
+    Producción intacta post-rollback.
+
+- **Mig**: `0188_tramite_reabrir_email_y_partner_dedup.sql`.
+  Componente UI nuevo: `ReabrirTramiteDialog.tsx`.
+  Servicio nuevo: `reabrirTracking()` en `services/api/trackings.ts`.
+
+- **Fecha**: 2026-06-04.
+
+## DGG-42 audit · Dedup atribuciones de rendiciones partner
+
+- **Decisión**: `partner_crear_rendicion` excluye comprobantes y
+  movimientos que YA están atribuidos a OTRA rendición, sin importar
+  el estado de esa rendición (borrador / cerrada / pagada / cancelada).
+- **Razón**: hallazgo de la auditoría E-GG-47 (Agente A): rendiciones
+  canceladas dejaban los movs disponibles para re-atribuir en la
+  próxima → doble contabilización si la cancelación fue por error.
+- **Política**: una vez que un mov está atribuido a una rendición, está
+  fuera del pool hasta que se des-atribuya explícitamente (limpiar
+  `movimientos.partner_id_atribucion`). Esto incluye los de rendiciones
+  canceladas — la cancelación NO es señal automática de "estos movs
+  vuelven al pool".
+- **Cómo "re-incluir" si fue error**: el operador debe des-atribuir el
+  movimiento manualmente (futuro: UI para reasignar
+  `partner_id_atribucion`).
+- **Fecha**: 2026-06-04.
+
+
 ## DGG-41 v2 (auditoría doble) · Cierre de huecos del chunk celebración
 
 Después de cerrar DGG-41 corrió la **doble auditoría a fondo** (método
