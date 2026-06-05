@@ -173,8 +173,23 @@ el footer de fuente. En esa pasada se cazó y corrigió **E-GG-51** (CORS prefli
 faltaba `x-client-info` → la consulta fallaba con FunctionsFetchError; curl no
 lo había detectado porque no hace preflight). Deployado v6.
 
-**Pendiente menor (sin bloqueo):**
-1. **Doc-proxy de binarios** (`tramix-doc-proxy` + uso de `tramix_documentos_cache`):
-   diferido hasta tener un expediente con PDF adjunto real para validar el patrón
-   del enlace del binario en `ActuacionDetails` (el legajo modelo no tiene
-   adjuntos). Mientras tanto: salvavidas oficial.
+**Detalle de actuación + descarga de documento ✅ (2026-06-05, en vivo).** Pablo
+observó que la actuación SÍ tiene más info + documento (mi recon inicial fue
+incompleto). Reconocido el flujo real y cerrado el "pendiente":
+- `ActuacionDetails` expone **Extracto Actuación + Fecha de Firma + el TEXTO
+  COMPLETO** de la actuación (`<textarea id="taText">`).
+- "Ver Texto Completo" = `buildDownloadWord('OpenWord','/TRAMIX','')` →
+  `window.location='/TRAMIX/DownloadActWord?'` → documento real
+  (`application/octet-stream; filename=Texto_Actuac.doc`, RTF ~33-37KB). El 3er
+  arg (`''` vs `'disabled'`) indica si hay documento.
+- `tramix-doc-proxy` (edge fn, verify_jwt=true): `action 'actuacion'`
+  (texto+extracto+fecha_firma+tiene_documento; cache `tramix_detalle_cache`
+  ref_key `act:o:t:n:a:idx`) y `action 'documento'` (nav → DownloadActWord →
+  sube el binario al bucket privado `tramix-documentos` + `tramix_documentos_cache`
+  → URL firmada 5'). El cliente no puede pegarle directo (necesita la sesión).
+- Modal: cada movimiento expandible (texto completo + Extracto + Fecha de firma)
+  con botón "Descargar documento (.doc)".
+- **Verificado en vivo** (Administración TEST): EXP 22178/25 → texto completo +
+  descarga del `.doc` (36.780 bytes subidos a Storage, log OK).
+
+**Subsistema TRAMIX completo. Sin pendientes de scraping.**
