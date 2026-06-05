@@ -15,6 +15,7 @@ import {
   PlusCircle,
   ArrowRight,
   ChevronRight,
+  Landmark,
 } from 'lucide-react';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import { IllustratedEmpty } from '@/components/brand/IllustratedEmpty';
@@ -25,6 +26,7 @@ import {
   type ClienteTramite,
 } from '@/services/api/portal-dashboard';
 import { humanizeError } from '@/lib/errors';
+import { TramixConsultaModal } from '@/modules/portal/components/TramixConsultaModal';
 
 export function PortalGestionesPage() {
   // E-GG-43 (2026-06-02 · José Luis): los KPIs (Abiertos/Esperan/Resueltos)
@@ -38,6 +40,8 @@ export function PortalGestionesPage() {
   const [items, setItems] = useState<ClienteTramite[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'abiertos' | 'todos'>('abiertos');
+  // DGG-46 · modal de consulta a la Mesa de Entradas Virtual (TRAMIX/DPPJ-PBA)
+  const [tramixOpen, setTramixOpen] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -89,14 +93,26 @@ export function PortalGestionesPage() {
               Acá ves el estado de todos los trámites que Gestión Global está procesando para vos.
             </p>
           </div>
-          <Link
-            to="/portal/nuevo"
-            className="inline-flex items-center gap-2 self-start rounded-xl bg-brand-cyan px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-cyan/90 sm:self-end"
-          >
-            <PlusCircle size={15} /> Nueva solicitud
-          </Link>
+          <div className="flex flex-col gap-2 self-start sm:flex-row sm:items-center sm:self-end">
+            <button
+              type="button"
+              onClick={() => setTramixOpen(true)}
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-brand-cyan/30 bg-brand-cyan/5 px-4 py-2 text-sm font-semibold text-brand-cyan transition hover:bg-brand-cyan/10"
+            >
+              <Landmark size={15} /> Consultar en Mesa de Entradas Virtual PBA
+            </button>
+            <Link
+              to="/portal/nuevo"
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-brand-cyan px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-cyan/90"
+            >
+              <PlusCircle size={15} /> Nueva solicitud
+            </Link>
+          </div>
         </div>
       </section>
+
+      {/* DGG-46 · Modal Mesa de Entradas Virtual PBA (TRAMIX) */}
+      <TramixConsultaModal open={tramixOpen} onClose={() => setTramixOpen(false)} />
 
       {/* Stats */}
       <section className="grid grid-cols-1 gap-3 sm:grid-cols-3">
