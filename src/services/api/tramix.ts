@@ -73,6 +73,63 @@ export async function consultarTramixDetalle(ref: TramixDetalleRef, force = fals
   return { ok: true, data: data as TramixDetalleResp };
 }
 
+// ── Detalle de actuación + descarga de documento (tramix-doc-proxy) ──────────
+
+export type TramixActuacionDetalle = {
+  extracto_actuacion: string;
+  fecha_firma: string;
+  texto: string;
+  tiene_documento: boolean;
+};
+export type TramixActuacionResp = {
+  resultado: TramixResultado;
+  actuacion?: TramixActuacionDetalle;
+  desde_cache?: boolean;
+  consultado_at?: string;
+};
+export type TramixDocumentoResp = {
+  resultado: TramixResultado | 'SIN_DOCUMENTO';
+  url?: string;
+  nombre?: string;
+};
+
+/** Trae el detalle de una actuación (texto completo + extracto + fecha de firma). */
+export async function consultarTramixActuacion(
+  ref: TramixDetalleRef,
+  actIdx: string,
+  force = false,
+): Promise<Ok<TramixActuacionResp> | Fail> {
+  const { data, error } = await supabase.functions.invoke<TramixActuacionResp>('tramix-doc-proxy', {
+    body: { action: 'actuacion', detalle_ref: ref, actIdx, force },
+  });
+  if (error) return { ok: false, error: await extractEdgeFnError(error) };
+  return { ok: true, data: data as TramixActuacionResp };
+}
+
+/** Pide el documento (.doc) de una actuación → URL firmada de Storage (5 min). */
+export async function descargarTramixDocumento(
+  ref: TramixDetalleRef,
+  actIdx: string,
+  force = false,
+): Promise<Ok<TramixDocumentoResp> | Fail> {
+  const { data, error } = await supabase.functions.invoke<TramixDocumentoResp>('tramix-doc-proxy', {
+    body: { action: 'documento', detalle_ref: ref, actIdx, force },
+  });
+  if (error) return { ok: false, error: await extractEdgeFnError(error) };
+  return { ok: true, data: data as TramixDocumentoResp };
+}
+
+/** Dispara la descarga de una URL (signed URL con content-disposition attachment). */
+export function triggerDownload(url: string, nombre?: string) {
+  const a = document.createElement('a');
+  a.href = url;
+  if (nombre) a.download = nombre;
+  a.rel = 'noopener';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
 // ── helpers de presentación ──────────────────────────────────────────────────
 
 /** URL oficial de la Mesa de Entradas Virtual (salvavidas / deep-link). */

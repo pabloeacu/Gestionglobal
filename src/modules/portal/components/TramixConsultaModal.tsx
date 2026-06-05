@@ -7,13 +7,15 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   Landmark, RefreshCw, ExternalLink, Info, ChevronDown, Loader2,
-  AlertTriangle, Inbox, FileText, Clock,
+  AlertTriangle, Inbox, FileText, Clock, FileDown,
 } from 'lucide-react';
 import { Modal } from '@/components/common/Modal';
 import { toast } from '@/lib/toast';
 import {
-  consultarTramix, consultarTramixDetalle, estadoTone, TRAMIX_URL_OFICIAL,
+  consultarTramix, consultarTramixDetalle, consultarTramixActuacion,
+  descargarTramixDocumento, triggerDownload, estadoTone, TRAMIX_URL_OFICIAL,
   type TramixConsultaResp, type TramixExpediente, type TramixDetalle,
+  type TramixDetalleRef, type TramixActuacion, type TramixActuacionDetalle,
 } from '@/services/api/tramix';
 
 const refKeyOf = (e: TramixExpediente) => (e.detalle_ref ? `${e.detalle_ref.o}:${e.detalle_ref.n}:${e.detalle_ref.a}` : e.numero);
@@ -54,7 +56,104 @@ function EstadoBadge({ estado }: { estado: string }) {
   );
 }
 
-function DetalleView({ detalle }: { detalle: TramixDetalle }) {
+function ActuacionItem({ detalleRef, act }: { detalleRef: TramixDetalleRef | null; act: TramixActuacion }) {
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [data, setData] = useState<TramixActuacionDetalle | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [descargando, setDescargando] = useState(false);
+  const puedeExpandir = !!(detalleRef && act.actIdx != null);
+
+  const toggle = async () => {
+    if (!puedeExpandir) return;
+    if (open) { setOpen(false); return; }
+    setOpen(true);
+    if (!data) {
+      setLoading(true); setError(null);
+      const r = await consultarTramixActuacion(detalleRef!, act.actIdx!);
+      setLoading(false);
+      if (!r.ok) setError(r.error);
+      else if (r.data.resultado === 'OK' && r.data.actuacion) setData(r.data.actuacion);
+      else setError('No pudimos abrir el detalle de esta actuación.');
+    }
+  };
+
+  const descargar = async () => {
+    if (!detalleRef || act.actIdx == null) return;
+    setDescargando(true);
+    const r = await descargarTramixDocumento(detalleRef, act.actIdx);
+    setDescargando(false);
+    if (!r.ok) { toast.error('No pudimos descargar el documento', { description: r.error }); return; }
+    if (r.data.resultado === 'OK' && r.data.url) { triggerDownload(r.data.url, r.data.nombre); toast.success('Descargando documento…'); }
+    else if (r.data.resultado === 'SIN_DOCUMENTO') toast.info('Esta actuación no tiene documento descargable.');
+    else toast.error('No se pudo obtener el documento ahora. Probá de nuevo en unos segundos.');
+  };
+
+  return (
+    <li className="relative pl-4">
+      <span className="absolute left-0 top-2 h-2 w-2 rounded-full bg-brand-cyan" />
+      <button
+        type="button"
+        onClick={toggle}
+        disabled={!puedeExpandir}
+        className={`flex w-full items-start gap-2 rounded-lg px-1.5 py-1 text-left ${puedeExpandir ? 'transition hover:bg-slate-50' : 'cursor-default'}`}
+      >
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-brand-ink">
+              <Clock size={11} className="text-brand-muted" /> {act.fecha}
+            </span>
+            {act.estado ? <span className="text-[10px] font-medium text-brand-muted">· {act.estado}</span> : null}
+          </div>
+          <p className="text-xs text-brand-ink">{act.extracto}</p>
+        </div>
+        {puedeExpandir && <ChevronDown size={14} className={`mt-0.5 shrink-0 text-brand-muted transition ${open ? 'rotate-180' : ''}`} />}
+      </button>
+
+      {open && (
+        <div className="ml-1.5 mt-1.5">
+          {loading && (
+            <div className="flex items-center gap-2 py-1.5 text-[11px] text-brand-muted">
+              <Loader2 size={12} className="animate-spin" /> Abriendo actuación…
+            </div>
+          )}
+          {error && <Salvavidas motivo="No pudimos abrir esta actuación." />}
+          {data && (
+            <div className="space-y-2 rounded-lg border border-slate-100 bg-slate-50/60 p-2.5">
+              {(data.extracto_actuacion || data.fecha_firma) && (
+                <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-[11px]">
+                  {data.extracto_actuacion && (
+                    <span><span className="font-semibold text-brand-muted">Extracto:</span> <span className="text-brand-ink">{data.extracto_actuacion}</span></span>
+                  )}
+                  {data.fecha_firma && (
+                    <span><span className="font-semibold text-brand-muted">Firmada:</span> <span className="text-brand-ink">{data.fecha_firma}</span></span>
+                  )}
+                </div>
+              )}
+              {data.texto && (
+                <div className="max-h-56 overflow-y-auto whitespace-pre-wrap rounded-md border border-slate-200 bg-white p-2 text-[11px] leading-relaxed text-brand-ink">
+                  {data.texto}
+                </div>
+              )}
+              {data.tiene_documento && (
+                <button
+                  type="button"
+                  onClick={descargar}
+                  disabled={descargando}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-brand-cyan px-2.5 py-1.5 text-[11px] font-semibold text-white transition hover:bg-brand-cyan/90 disabled:opacity-60"
+                >
+                  {descargando ? <Loader2 size={12} className="animate-spin" /> : <FileDown size={12} />} Descargar documento (.doc)
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </li>
+  );
+}
+
+function DetalleView({ detalle, detalleRef }: { detalle: TramixDetalle; detalleRef: TramixDetalleRef | null }) {
   const h = detalle.header || {};
   const campos: { k: string; v: string }[] = [
     { k: 'Expediente', v: h['Expediente Nº'] || '' },
@@ -80,18 +179,9 @@ function DetalleView({ detalle }: { detalle: TramixDetalle }) {
         {detalle.actuaciones.length === 0 ? (
           <p className="text-xs text-brand-muted">Sin actuaciones registradas.</p>
         ) : (
-          <ol className="space-y-2">
+          <ol className="space-y-1.5">
             {detalle.actuaciones.map((a, i) => (
-              <li key={i} className="relative pl-4">
-                <span className="absolute left-0 top-1.5 h-2 w-2 rounded-full bg-brand-cyan" />
-                <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-brand-ink">
-                    <Clock size={11} className="text-brand-muted" /> {a.fecha}
-                  </span>
-                  {a.estado ? <span className="text-[10px] font-medium text-brand-muted">· {a.estado}</span> : null}
-                </div>
-                <p className="text-xs text-brand-ink">{a.extracto}</p>
-              </li>
+              <ActuacionItem key={i} detalleRef={detalleRef} act={a} />
             ))}
           </ol>
         )}
@@ -229,7 +319,7 @@ export function TramixConsultaModal({ open, onClose }: { open: boolean; onClose:
                         {det?.error && (
                           <div className="mt-2"><Salvavidas legajo={r.legajo} motivo="No pudimos abrir el detalle de este expediente." /></div>
                         )}
-                        {det?.data && <DetalleView detalle={det.data} />}
+                        {det?.data && <DetalleView detalle={det.data} detalleRef={e.detalle_ref} />}
                       </div>
                     )}
                   </li>
