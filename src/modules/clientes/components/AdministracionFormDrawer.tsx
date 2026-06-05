@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { toast } from '@/lib/toast';
-import { Building2, Save, ArrowLeft, ArrowRight, Loader2 } from 'lucide-react';
+import { Building2, Save, ArrowLeft, ArrowRight, Loader2, KeyRound } from 'lucide-react';
 import {
   Drawer,
   Button,
@@ -19,6 +19,7 @@ import {
   updateAdministracion,
   type AdministracionRow,
 } from '@/services/api/administraciones';
+import { altaClientePortal } from '@/services/api/usuarios';
 import { humanizeError } from '@/lib/errors';
 
 interface AdministracionFormDrawerProps {
@@ -56,6 +57,8 @@ type FormState = {
   origen: string;
   convenio: string;
   observaciones: string;
+  // UI-only (no va al payload): si crear el acceso al portal tras el alta.
+  crearAcceso: boolean;
 };
 
 const EMPTY: FormState = {
@@ -85,6 +88,7 @@ const EMPTY: FormState = {
   origen: '',
   convenio: '',
   observaciones: '',
+  crearAcceso: false,
 };
 
 function rowToForm(r: AdministracionRow): FormState {
@@ -115,6 +119,7 @@ function rowToForm(r: AdministracionRow): FormState {
     origen: r.origen ?? '',
     convenio: r.convenio ?? '',
     observaciones: r.observaciones ?? '',
+    crearAcceso: false,
   };
 }
 
@@ -182,6 +187,12 @@ export function AdministracionFormDrawer({
       if (firstErrIdx >= 0) setStep(firstErrIdx);
       return;
     }
+    // Si se pidió crear acceso al portal, el email es obligatorio (vive en paso Contacto).
+    if (!editing && form.crearAcceso && !form.email.trim()) {
+      setErrors((e) => ({ ...e, email: 'Necesario para crear el acceso al portal' }));
+      setStep(2);
+      return;
+    }
     setSaving(true);
     const payload = {
       codigo: form.codigo.trim(),
@@ -215,9 +226,9 @@ export function AdministracionFormDrawer({
     const res = editing
       ? await updateAdministracion(editing.id, payload)
       : await createAdministracion(payload);
-    setSaving(false);
 
     if (!res.ok) {
+      setSaving(false);
       toast.error(
         editing
           ? 'No pudimos actualizar la administración'
@@ -229,6 +240,29 @@ export function AdministracionFormDrawer({
     toast.success(
       editing ? 'Administración actualizada' : 'Administración creada',
     );
+
+    // Alta de acceso al portal (sólo en creación nueva y si se tildó). La cuenta
+    // la dispara el gerente desde acá; la edge fn crea el user + manda credenciales.
+    if (!editing && form.crearAcceso) {
+      const alta = await altaClientePortal({
+        administracion_id: res.data.id,
+        email: form.email.trim(),
+        nombre: form.nombre.trim(),
+      });
+      if (!alta.ok) {
+        toast.error('Cliente creado, pero no pudimos crear el acceso al portal', {
+          description: humanizeError(alta.error),
+        });
+      } else {
+        const d = alta.data as { password_set?: boolean } | null;
+        toast.success(
+          d?.password_set === false
+            ? 'Ese email ya tenía usuario; quedó vinculado al cliente.'
+            : `Acceso al portal creado. Credenciales enviadas a ${form.email.trim()}.`,
+        );
+      }
+    }
+    setSaving(false);
     onSaved?.(res.data);
     onClose();
   }
@@ -578,6 +612,36 @@ export function AdministracionFormDrawer({
                   onChange={(e) => setField('observaciones', e.target.value)}
                 />
               </Field>
+
+              {/* Alta de acceso al portal sólo en creación nueva. Si no se tilda
+                  acá, se puede crear después desde la ficha del cliente. */}
+              {!editing && (
+                <label className="mt-2 flex cursor-pointer items-start gap-3 rounded-xl border border-brand-cyan/30 bg-brand-cyan/5 p-4">
+                  <input
+                    type="checkbox"
+                    checked={form.crearAcceso}
+                    onChange={(e) => setField('crearAcceso', e.target.checked)}
+                    className="mt-0.5 h-4 w-4 rounded border-slate-300 text-brand-cyan focus:ring-brand-cyan"
+                  />
+                  <span className="text-sm">
+                    <span className="inline-flex items-center gap-1.5 font-semibold text-brand-ink">
+                      <KeyRound size={14} className="text-brand-cyan" /> Crear acceso al portal para este cliente
+                    </span>
+                    <span className="mt-0.5 block text-xs text-brand-muted">
+                      {form.email.trim() ? (
+                        <>
+                          Le enviamos las credenciales a{' '}
+                          <span className="font-medium text-brand-ink">{form.email.trim()}</span> al guardar.
+                        </>
+                      ) : (
+                        <>
+                          Cargá el email en el paso <span className="font-medium">Contacto</span> para habilitarlo.
+                        </>
+                      )}
+                    </span>
+                  </span>
+                </label>
+              )}
             </StepPanel>
           )}
         </div>

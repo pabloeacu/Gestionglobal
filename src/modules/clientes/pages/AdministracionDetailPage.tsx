@@ -17,15 +17,19 @@ import {
   Layers,
   Eye,
   EyeOff,
+  KeyRound,
+  ShieldCheck,
 } from 'lucide-react';
 import {
   Button,
   Tabs,
   useConfirm,
+  usePrompt,
   AnimatedNumber,
   CopyButton,
   InlineEdit,
 } from '@/components/common';
+import { altaClientePortal } from '@/services/api/usuarios';
 import { BrandLoader } from '@/components/brand/BrandLoader';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import { AdministracionFormDrawer } from '../components/AdministracionFormDrawer';
@@ -64,6 +68,7 @@ export function AdministracionDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const confirm = useConfirm();
+  const prompt = usePrompt();
   const [admin, setAdmin] = useState<AdministracionRow | null>(null);
   const [consorcios, setConsorcios] = useState<ConsorcioRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -71,6 +76,7 @@ export function AdministracionDetailPage() {
   const [editOpen, setEditOpen] = useState(false);
   const [consorcioFormOpen, setConsorcioFormOpen] = useState(false);
   const [editingConsorcio, setEditingConsorcio] = useState<ConsorcioRow | null>(null);
+  const [creandoAcceso, setCreandoAcceso] = useState(false);
 
   async function load() {
     if (!id) return;
@@ -129,6 +135,40 @@ export function AdministracionDetailPage() {
     toast.success('Guardado');
   }
 
+  // Crear acceso al portal del cliente (auth user + email con credenciales).
+  // El alta de la cuenta la dispara el gerente; la edge fn alta-cliente-portal
+  // crea el user con password temporal y encola el email de bienvenida.
+  async function onCrearAcceso() {
+    if (!admin) return;
+    const email = await prompt({
+      title: 'Crear acceso al portal',
+      message: `Vas a crear el usuario para que "${admin.nombre}" entre al portal de clientes. Le enviamos las credenciales por email.`,
+      label: 'Email del cliente',
+      placeholder: 'cliente@correo.com',
+      defaultValue: admin.email ?? '',
+      confirmLabel: 'Crear acceso',
+    });
+    if (!email || !email.trim()) return;
+    setCreandoAcceso(true);
+    const res = await altaClientePortal({
+      administracion_id: admin.id,
+      email: email.trim(),
+      nombre: admin.nombre,
+    });
+    setCreandoAcceso(false);
+    if (!res.ok) {
+      toast.error('No pudimos crear el acceso al portal', { description: humanizeError(res.error) });
+      return;
+    }
+    const data = res.data as { password_set?: boolean } | null;
+    toast.success(
+      data?.password_set === false
+        ? `Ese email ya tenía usuario; quedó vinculado a ${admin.nombre}.`
+        : `Acceso creado. Enviamos las credenciales a ${email.trim()}.`,
+    );
+    void load();
+  }
+
   if (loading && !admin) {
     return (
       <div className="grid place-items-center p-16">
@@ -163,6 +203,9 @@ export function AdministracionDetailPage() {
       <FichaCover
         admin={admin}
         badge={badge}
+        tieneAcceso={Boolean(admin.user_id)}
+        creandoAcceso={creandoAcceso}
+        onCrearAcceso={() => void onCrearAcceso()}
         onEdit={() => setEditOpen(true)}
         onArchive={() => void onArchive()}
       />
@@ -251,11 +294,17 @@ export function AdministracionDetailPage() {
 function FichaCover({
   admin,
   badge,
+  tieneAcceso,
+  creandoAcceso,
+  onCrearAcceso,
   onEdit,
   onArchive,
 }: {
   admin: AdministracionRow;
   badge: { label: string; cls: string };
+  tieneAcceso: boolean;
+  creandoAcceso: boolean;
+  onCrearAcceso: () => void;
   onEdit: () => void;
   onArchive: () => void;
 }) {
@@ -320,7 +369,19 @@ function FichaCover({
               </div>
             </div>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {tieneAcceso ? (
+              <span
+                className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-700"
+                title="Este cliente ya tiene usuario para entrar al portal"
+              >
+                <ShieldCheck size={14} /> Acceso al portal activo
+              </span>
+            ) : (
+              <Button onClick={onCrearAcceso} loading={creandoAcceso}>
+                <KeyRound size={14} /> Crear acceso al portal
+              </Button>
+            )}
             <Button variant="secondary" onClick={onEdit}>
               <Pencil size={14} /> Editar
             </Button>
