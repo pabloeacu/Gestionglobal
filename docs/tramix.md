@@ -149,7 +149,9 @@ Cada fila tiene un checkbox + el **link de detalle en la columna Número**.
   estándar): verificado desde sandbox/curl; **verificar desde el runtime de Edge
   en Fase 1** (si Supabase Edge bloqueara el egress HTTP:8080, el feature NO se
   implementa — premisa de Pablo).
-- Datos personales de terceros: sólo se expone a cada cliente SU legajo.
+- Datos personales de terceros: TRAMIX es **consulta pública** (Disp. 148/06) y
+  el legajo es **editable** (ver §11). El gate per-usuario acota el volumen; no se
+  compila ni cruza data de terceros. Default = ficha o última consulta del usuario.
 
 ## 10. Estado final (2026-06-04 · DGG-46 · commit `69896b4`)
 
@@ -191,5 +193,36 @@ incompleto). Reconocido el flujo real y cerrado el "pendiente":
   con botón "Descargar documento (.doc)".
 - **Verificado en vivo** (Administración TEST): EXP 22178/25 → texto completo +
   descarga del `.doc` (36.780 bytes subidos a Storage, log OK).
+
+## 11. Legajo editable (2026-06-05 · en vivo)
+
+Pablo: el legajo venía fijo desde la ficha, sin campo visible ni forma de
+cambiarlo ("presiono el botón y no me ofrece nada para completar"). Como TRAMIX
+es **consulta pública** (Disp. DPPJ 148/06), el legajo pasa a ser **editable** y
+autocompletado desde la ficha (`administraciones.legajo_rpac`) **o** la última
+consulta del usuario (`localStorage gg.tramix.legajo`), pero **siempre editable**.
+
+- **Contrato edge fns** (`tramix-consulta` v7, `tramix-doc-proxy` v2): aceptan
+  `b.legajo` del cliente; `legajo = legajoCliente || legajo_rpac de la ficha`;
+  **toda** respuesta devuelve `legajo_default` para precargar el campo. El
+  ownership de `detalle`/`actuacion`/`documento` se valida contra el cache del
+  legajo efectivamente consultado (`tramix_cache[legajo]`). `titular` se deriva de
+  `expedientes[0].denominacion`. `SIN_LEGAJO` sólo si no hay legajo en ficha ni en
+  el request.
+- **Service** (`src/services/api/tramix.ts`): las 4 funciones de query aceptan
+  `legajo?`; `TramixConsultaResp` expone `legajo_default`.
+- **Modal** (`TramixConsultaModal`) — dos modos:
+  - `form` → campo editable autocompletado + **"Buscar"** (primera apertura sin
+    legajo en ficha, o al pulsar "Cambiar de legajo"). Campo preseleccionado.
+  - `results` → barra superior `[legajo][Actualizar][Cambiar de legajo]` + lista.
+  Al **reabrir**, auto-busca el último legajo (gana los pasos intermedios).
+  Sanitiza a dígitos (`inputMode=numeric`). Mobile 360 friendly.
+- **Verificado en vivo** (Administración TEST, producción): first-open auto-buscó
+  284265 (6 exp.) → `localStorage` persistió 284265 · "Cambiar de legajo" → form
+  con campo preseleccionado · buscar **999999** → salvavidas al portal con ese
+  legajo (TRAMIX no devuelve nada parseable → PARSE_ERROR) · "Actualizar" 284265 →
+  6 exp. de nuevo · actuación OBSERVACION GENERICA → extracto + fecha de firma +
+  texto completo + botón documento. **Log server-side**: 284265→OK×6,
+  999999→PARSE_ERROR×1. Edge fns en repo (R7). Build limpio. Commit del *por qué*.
 
 **Subsistema TRAMIX completo. Sin pendientes de scraping.**

@@ -1631,3 +1631,25 @@ El usuario lo pidió en dos requerimientos simultáneos.
 
 - **Reglas:** R2, R4, R6, R7, R13, R18. Doc viva: `docs/tramix.md`.
 - **Fecha:** 2026-06-04 · commit `69896b4`.
+
+- **Addendum 2026-06-05 — documentos resueltos + legajo editable (en vivo):**
+  - **Documentos** (supera el "límite honesto" de arriba): Pablo mostró que la
+    actuación SÍ trae texto completo + documento. `tramix-doc-proxy` (verify_jwt):
+    `actuacion` (extracto+fecha_firma+texto+tiene_documento) y `documento` (baja el
+    `.doc` de `/DownloadActWord` server-side → bucket privado `tramix-documentos` →
+    URL firmada 5'). Verificado en vivo (EXP 22178/25: `.doc` de 36.780 B).
+  - **Legajo editable** (supera "el front NUNCA manda el legajo"): como TRAMIX es
+    consulta **pública** (Disp. 148/06), el legajo pasa a ser **editable**. Default =
+    legajo del cliente (`localStorage gg.tramix.legajo` = su última consulta) **o** el
+    de la ficha (`legajo_rpac`); siempre editable. `tramix-consulta` (v7) y
+    `tramix-doc-proxy` (v2) aceptan `b.legajo` y devuelven `legajo_default`; el
+    ownership de detalle/actuacion/documento se valida contra `tramix_cache[legajo]`
+    efectivamente consultado; `titular` = `expedientes[0].denominacion`. Modal con
+    modos `form` (`[campo][Buscar]`) / `results` (`[campo][Actualizar][Cambiar de
+    legajo]`); al reabrir auto-busca el último legajo. **Click-through visual COMPLETO
+    en vivo** (Administración TEST): first-open→284265 (6 exp) · "Cambiar de legajo"→
+    form preseleccionado · buscar 999999→salvavidas al portal con ese legajo ·
+    "Actualizar" 284265→6 exp · actuación OBSERVACION GENERICA con extracto+fecha+texto
+    completo+botón documento. Log server-side: 284265→OK×6, 999999→PARSE_ERROR×1.
+  - **Reglas extra:** R4 (services), R7 (edge fns en repo), R8 (cols verificadas),
+    R13 (sin window nativo). Fecha: 2026-06-05.
