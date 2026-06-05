@@ -850,6 +850,7 @@ export type Database = {
           color: string | null
           created_at: string
           created_by: string | null
+          es_default: boolean
           icono: string | null
           id: string
           moneda: string
@@ -868,6 +869,7 @@ export type Database = {
           color?: string | null
           created_at?: string
           created_by?: string | null
+          es_default?: boolean
           icono?: string | null
           id?: string
           moneda?: string
@@ -886,6 +888,7 @@ export type Database = {
           color?: string | null
           created_at?: string
           created_by?: string | null
+          es_default?: boolean
           icono?: string | null
           id?: string
           moneda?: string
@@ -1089,6 +1092,7 @@ export type Database = {
         Row: {
           administracion_id: string | null
           alumno_profile_id: string
+          celebracion_vista_at: string | null
           codigo: string
           created_at: string
           curso_id: string | null
@@ -1111,6 +1115,7 @@ export type Database = {
         Insert: {
           administracion_id?: string | null
           alumno_profile_id: string
+          celebracion_vista_at?: string | null
           codigo: string
           created_at?: string
           curso_id?: string | null
@@ -1133,6 +1138,7 @@ export type Database = {
         Update: {
           administracion_id?: string | null
           alumno_profile_id?: string
+          celebracion_vista_at?: string | null
           codigo?: string
           created_at?: string
           curso_id?: string | null
@@ -1256,6 +1262,38 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      cliente_oportunidad_eventos: {
+        Row: {
+          administracion_id: string
+          codigo: string
+          last_shown_at: string | null
+          snoozed_until: string | null
+          updated_at: string
+        }
+        Insert: {
+          administracion_id: string
+          codigo: string
+          last_shown_at?: string | null
+          snoozed_until?: string | null
+          updated_at?: string
+        }
+        Update: {
+          administracion_id?: string
+          codigo?: string
+          last_shown_at?: string | null
+          snoozed_until?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cliente_oportunidad_eventos_administracion_id_fkey"
+            columns: ["administracion_id"]
+            isOneToOne: false
+            referencedRelation: "administraciones"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       comprobante_avisos_vencimiento: {
         Row: {
@@ -2320,6 +2358,41 @@ export type Database = {
           },
         ]
       }
+      curso_examen_secciones: {
+        Row: {
+          created_at: string
+          descripcion: string | null
+          examen_id: string
+          id: string
+          orden: number
+          titulo: string
+        }
+        Insert: {
+          created_at?: string
+          descripcion?: string | null
+          examen_id: string
+          id?: string
+          orden?: number
+          titulo: string
+        }
+        Update: {
+          created_at?: string
+          descripcion?: string | null
+          examen_id?: string
+          id?: string
+          orden?: number
+          titulo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "curso_examen_secciones_examen_id_fkey"
+            columns: ["examen_id"]
+            isOneToOne: false
+            referencedRelation: "curso_examenes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       curso_examenes: {
         Row: {
           created_at: string
@@ -2389,6 +2462,7 @@ export type Database = {
           created_at: string
           curso_id: string
           estado: string
+          fuente: string | null
           id: string
           inscripto_at: string
           observaciones: string | null
@@ -2402,6 +2476,7 @@ export type Database = {
           created_at?: string
           curso_id: string
           estado?: string
+          fuente?: string | null
           id?: string
           inscripto_at?: string
           observaciones?: string | null
@@ -2415,6 +2490,7 @@ export type Database = {
           created_at?: string
           curso_id?: string
           estado?: string
+          fuente?: string | null
           id?: string
           inscripto_at?: string
           observaciones?: string | null
@@ -2547,27 +2623,33 @@ export type Database = {
           created_at: string
           enunciado: string
           examen_id: string
+          explicacion: string | null
           id: string
           orden: number
           puntaje: number
+          seccion_id: string | null
           tipo: string
         }
         Insert: {
           created_at?: string
           enunciado: string
           examen_id: string
+          explicacion?: string | null
           id?: string
           orden?: number
           puntaje?: number
+          seccion_id?: string | null
           tipo?: string
         }
         Update: {
           created_at?: string
           enunciado?: string
           examen_id?: string
+          explicacion?: string | null
           id?: string
           orden?: number
           puntaje?: number
+          seccion_id?: string | null
           tipo?: string
         }
         Relationships: [
@@ -2576,6 +2658,13 @@ export type Database = {
             columns: ["examen_id"]
             isOneToOne: false
             referencedRelation: "curso_examenes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "curso_preguntas_seccion_id_fkey"
+            columns: ["seccion_id"]
+            isOneToOne: false
+            referencedRelation: "curso_examen_secciones"
             referencedColumns: ["id"]
           },
         ]
@@ -5517,6 +5606,8 @@ export type Database = {
           acceso_externo_token: string | null
           acceso_externo_url: string | null
           adjuntos_jsonb: Json
+          caja_id: string | null
+          categoria_finanzas_id: string | null
           creada_por: string | null
           destinatario_email: string
           destinatario_nombre: string | null
@@ -5524,6 +5615,7 @@ export type Database = {
           enviada_at: string
           id: string
           monto_pago_gestoria: number | null
+          movimiento_id: string | null
           observaciones: string | null
           plantilla_email_slug: string | null
           solicitud_id: string
@@ -5532,6 +5624,8 @@ export type Database = {
           acceso_externo_token?: string | null
           acceso_externo_url?: string | null
           adjuntos_jsonb?: Json
+          caja_id?: string | null
+          categoria_finanzas_id?: string | null
           creada_por?: string | null
           destinatario_email: string
           destinatario_nombre?: string | null
@@ -5539,6 +5633,7 @@ export type Database = {
           enviada_at?: string
           id?: string
           monto_pago_gestoria?: number | null
+          movimiento_id?: string | null
           observaciones?: string | null
           plantilla_email_slug?: string | null
           solicitud_id: string
@@ -5547,6 +5642,8 @@ export type Database = {
           acceso_externo_token?: string | null
           acceso_externo_url?: string | null
           adjuntos_jsonb?: Json
+          caja_id?: string | null
+          categoria_finanzas_id?: string | null
           creada_por?: string | null
           destinatario_email?: string
           destinatario_nombre?: string | null
@@ -5554,16 +5651,45 @@ export type Database = {
           enviada_at?: string
           id?: string
           monto_pago_gestoria?: number | null
+          movimiento_id?: string | null
           observaciones?: string | null
           plantilla_email_slug?: string | null
           solicitud_id?: string
         }
         Relationships: [
           {
+            foreignKeyName: "solicitud_derivaciones_caja_id_fkey"
+            columns: ["caja_id"]
+            isOneToOne: false
+            referencedRelation: "cajas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solicitud_derivaciones_caja_id_fkey"
+            columns: ["caja_id"]
+            isOneToOne: false
+            referencedRelation: "cajas_con_saldo"
+            referencedColumns: ["caja_id"]
+          },
+          {
+            foreignKeyName: "solicitud_derivaciones_categoria_finanzas_id_fkey"
+            columns: ["categoria_finanzas_id"]
+            isOneToOne: false
+            referencedRelation: "categorias_finanzas"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "solicitud_derivaciones_email_queue_id_fkey"
             columns: ["email_queue_id"]
             isOneToOne: false
             referencedRelation: "email_queue"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solicitud_derivaciones_movimiento_id_fkey"
+            columns: ["movimiento_id"]
+            isOneToOne: false
+            referencedRelation: "movimientos"
             referencedColumns: ["id"]
           },
           {
@@ -6226,6 +6352,7 @@ export type Database = {
           administracion_id: string | null
           asignado_a: string | null
           categoria: string
+          cierre_satisfactorio: boolean | null
           codigo: string
           comprobante_id: string | null
           consorcio_id: string | null
@@ -6239,9 +6366,11 @@ export type Database = {
           fecha_inicio: string | null
           formulario_submission_id: string | null
           id: string
+          motivo_cierre: string | null
           parent_tracking_id: string | null
           periodo: string | null
           prioridad: string
+          reabierto_count: number
           requiere_docs_cliente: boolean
           responsable_id: string | null
           resuelto_at: string | null
@@ -6255,6 +6384,8 @@ export type Database = {
           total_comentarios: number
           total_vistas: number
           ultima_actividad_at: string
+          ultima_reapertura_at: string | null
+          ultima_reapertura_motivo: string | null
           updated_at: string
           vence_at: string | null
         }
@@ -6262,6 +6393,7 @@ export type Database = {
           administracion_id?: string | null
           asignado_a?: string | null
           categoria: string
+          cierre_satisfactorio?: boolean | null
           codigo: string
           comprobante_id?: string | null
           consorcio_id?: string | null
@@ -6275,9 +6407,11 @@ export type Database = {
           fecha_inicio?: string | null
           formulario_submission_id?: string | null
           id?: string
+          motivo_cierre?: string | null
           parent_tracking_id?: string | null
           periodo?: string | null
           prioridad?: string
+          reabierto_count?: number
           requiere_docs_cliente?: boolean
           responsable_id?: string | null
           resuelto_at?: string | null
@@ -6291,6 +6425,8 @@ export type Database = {
           total_comentarios?: number
           total_vistas?: number
           ultima_actividad_at?: string
+          ultima_reapertura_at?: string | null
+          ultima_reapertura_motivo?: string | null
           updated_at?: string
           vence_at?: string | null
         }
@@ -6298,6 +6434,7 @@ export type Database = {
           administracion_id?: string | null
           asignado_a?: string | null
           categoria?: string
+          cierre_satisfactorio?: boolean | null
           codigo?: string
           comprobante_id?: string | null
           consorcio_id?: string | null
@@ -6311,9 +6448,11 @@ export type Database = {
           fecha_inicio?: string | null
           formulario_submission_id?: string | null
           id?: string
+          motivo_cierre?: string | null
           parent_tracking_id?: string | null
           periodo?: string | null
           prioridad?: string
+          reabierto_count?: number
           requiere_docs_cliente?: boolean
           responsable_id?: string | null
           resuelto_at?: string | null
@@ -6327,6 +6466,8 @@ export type Database = {
           total_comentarios?: number
           total_vistas?: number
           ultima_actividad_at?: string
+          ultima_reapertura_at?: string | null
+          ultima_reapertura_motivo?: string | null
           updated_at?: string
           vence_at?: string | null
         }
@@ -6409,6 +6550,144 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      tramix_cache: {
+        Row: {
+          consultado_at: string
+          estado_hash: string | null
+          legajo: string
+          payload: Json
+        }
+        Insert: {
+          consultado_at?: string
+          estado_hash?: string | null
+          legajo: string
+          payload: Json
+        }
+        Update: {
+          consultado_at?: string
+          estado_hash?: string | null
+          legajo?: string
+          payload?: Json
+        }
+        Relationships: []
+      }
+      tramix_detalle_cache: {
+        Row: {
+          consultado_at: string
+          payload: Json
+          ref_key: string
+        }
+        Insert: {
+          consultado_at?: string
+          payload: Json
+          ref_key: string
+        }
+        Update: {
+          consultado_at?: string
+          payload?: Json
+          ref_key?: string
+        }
+        Relationships: []
+      }
+      tramix_documentos_cache: {
+        Row: {
+          bajado_at: string
+          content_type: string | null
+          doc_key: string
+          nombre: string | null
+          storage_path: string
+        }
+        Insert: {
+          bajado_at?: string
+          content_type?: string | null
+          doc_key: string
+          nombre?: string | null
+          storage_path: string
+        }
+        Update: {
+          bajado_at?: string
+          content_type?: string | null
+          doc_key?: string
+          nombre?: string | null
+          storage_path?: string
+        }
+        Relationships: []
+      }
+      tramix_query_log: {
+        Row: {
+          administracion_id: string | null
+          at: string
+          id: number
+          legajo: string | null
+          resultado: string | null
+          user_id: string | null
+        }
+        Insert: {
+          administracion_id?: string | null
+          at?: string
+          id?: never
+          legajo?: string | null
+          resultado?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          administracion_id?: string | null
+          at?: string
+          id?: never
+          legajo?: string | null
+          resultado?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      tramix_session: {
+        Row: {
+          aceptado_at: string | null
+          cookie: string | null
+          expira_estimada_at: string | null
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          aceptado_at?: string | null
+          cookie?: string | null
+          expira_estimada_at?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          aceptado_at?: string | null
+          cookie?: string | null
+          expira_estimada_at?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      tramix_throttle: {
+        Row: {
+          circuito_abierto_hasta: string | null
+          fallos_recientes: number
+          id: string
+          last_hit_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          circuito_abierto_hasta?: string | null
+          fallos_recientes?: number
+          id?: string
+          last_hit_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          circuito_abierto_hasta?: string | null
+          fallos_recientes?: number
+          id?: string
+          last_hit_at?: string | null
+          updated_at?: string
+        }
+        Relationships: []
       }
       vencimientos: {
         Row: {
@@ -7248,6 +7527,10 @@ export type Database = {
         }[]
       }
       cerrar_mi_sesion: { Args: { p_session_id: string }; Returns: boolean }
+      cert_marcar_celebracion_vista: {
+        Args: { p_cert_id: string }
+        Returns: undefined
+      }
       cj_documento_actualizar: {
         Args: {
           p_color_acento: string
@@ -7411,6 +7694,17 @@ export type Database = {
           titulo: string
         }[]
       }
+      cliente_certs_celebrar: {
+        Args: never
+        Returns: {
+          cert_id: string
+          codigo: string
+          curso_id: string
+          curso_titulo: string
+          emitido_at: string
+          link_verificacion: string
+        }[]
+      }
       cliente_ctacte_extracto: {
         Args: { p_admin_id?: string; p_desde?: string; p_hasta?: string }
         Returns: {
@@ -7450,6 +7744,14 @@ export type Database = {
       cliente_marcar_tracking_leido: {
         Args: { p_tramite_id: string }
         Returns: number
+      }
+      cliente_oportunidad_marcar_mostrada: {
+        Args: { p_codigos: string[] }
+        Returns: undefined
+      }
+      cliente_oportunidad_posponer: {
+        Args: { p_codigo: string }
+        Returns: undefined
       }
       cliente_perfil_datos_formulario: { Args: never; Returns: Json }
       cliente_portal_dashboard: { Args: never; Returns: Json }
@@ -7492,6 +7794,10 @@ export type Database = {
         Returns: string
       }
       cliente_webinars_listar: { Args: never; Returns: Json }
+      cobro_pendiente: {
+        Args: { t: Database["public"]["Tables"]["tramites"]["Row"] }
+        Returns: boolean
+      }
       comprobante_transformar_a_fiscal: {
         Args: { p_comprobante_id: string; p_nuevo_tipo: string }
         Returns: string
@@ -7682,6 +7988,26 @@ export type Database = {
           p_meeting_id: number
         }
         Returns: string
+      }
+      curso_iniciar_intento: {
+        Args: { p_examen_id: string; p_matricula_id: string }
+        Returns: {
+          aprobado: boolean | null
+          examen_id: string
+          id: string
+          iniciado_at: string
+          intento: number
+          matricula_id: string
+          nota: number | null
+          respuestas: Json
+          terminado_at: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "examen_intentos"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       curso_marcar_clase_completada: {
         Args: { p_clase_id: string; p_matricula_id: string }
@@ -7891,12 +8217,14 @@ export type Database = {
           p_caja_id: string
           p_cbu?: string
           p_color?: string
+          p_es_default?: boolean
           p_icono?: string
           p_nombre: string
           p_numero_cuenta?: string
           p_orden?: number
+          p_tipo?: string
         }
-        Returns: undefined
+        Returns: string
       }
       fz_caja_archivar: { Args: { p_caja_id: string }; Returns: undefined }
       fz_caja_crear: {
@@ -7913,6 +8241,8 @@ export type Database = {
         }
         Returns: string
       }
+      fz_caja_eliminar: { Args: { p_caja_id: string }; Returns: string }
+      fz_caja_marcar_default: { Args: { p_caja_id: string }; Returns: string }
       fz_caja_reactivar: { Args: { p_caja_id: string }; Returns: undefined }
       fz_categoria_actualizar: {
         Args: {
@@ -7964,38 +8294,22 @@ export type Database = {
         }
         Returns: string
       }
-      fz_crear_movimiento_manual:
-        | {
-            Args: {
-              p_administracion_id?: string
-              p_caja_id: string
-              p_categoria_id?: string
-              p_comprobante_imputar_a_id?: string
-              p_consorcio_id?: string
-              p_descripcion?: string
-              p_fecha: string
-              p_monto: number
-              p_referencia?: string
-              p_tipo: string
-            }
-            Returns: string
-          }
-        | {
-            Args: {
-              p_administracion_id?: string
-              p_caja_id: string
-              p_categoria_id?: string
-              p_comprobante_imputar_a_id?: string
-              p_consorcio_id?: string
-              p_descripcion?: string
-              p_fecha: string
-              p_monto: number
-              p_partner_id_atribucion?: string
-              p_referencia?: string
-              p_tipo: string
-            }
-            Returns: string
-          }
+      fz_crear_movimiento_manual: {
+        Args: {
+          p_administracion_id?: string
+          p_caja_id: string
+          p_categoria_id?: string
+          p_comprobante_imputar_a_id?: string
+          p_consorcio_id?: string
+          p_descripcion?: string
+          p_fecha: string
+          p_monto: number
+          p_partner_id_atribucion?: string
+          p_referencia?: string
+          p_tipo: string
+        }
+        Returns: string
+      }
       fz_crear_transferencia: {
         Args: {
           p_caja_destino_id: string
@@ -8050,6 +8364,7 @@ export type Database = {
           cbu: string
           color: string
           created_at: string
+          es_default: boolean
           icono: string
           moneda: string
           nombre: string
@@ -8597,24 +8912,15 @@ export type Database = {
         Args: { p_desde: string; p_hasta: string; p_partner_id: string }
         Returns: string
       }
-      partner_marcar_facturado:
-        | {
-            Args: {
-              p_comprobante_id: string
-              p_numero_externo: string
-              p_observacion?: string
-            }
-            Returns: string
-          }
-        | {
-            Args: {
-              p_comprobante_id: string
-              p_numero_externo: string
-              p_observacion?: string
-              p_pdf_url?: string
-            }
-            Returns: string
-          }
+      partner_marcar_facturado: {
+        Args: {
+          p_comprobante_id: string
+          p_numero_externo: string
+          p_observacion?: string
+          p_pdf_url?: string
+        }
+        Returns: string
+      }
       partner_mis_comprobantes: {
         Args: never
         Returns: {
@@ -8699,32 +9005,19 @@ export type Database = {
         Args: { p_ip?: string; p_token: string; p_user_agent?: string }
         Returns: undefined
       }
-      registrar_cobranza_comprobante:
-        | {
-            Args: {
-              p_caja_id: string
-              p_categoria_id: string
-              p_comprobante_id: string
-              p_descripcion: string
-              p_fecha: string
-              p_monto: number
-              p_referencia: string
-            }
-            Returns: string
-          }
-        | {
-            Args: {
-              p_caja_id: string
-              p_categoria_id: string
-              p_comprobante_id: string
-              p_descripcion: string
-              p_fecha: string
-              p_monto: number
-              p_partner_id_atribucion?: string
-              p_referencia: string
-            }
-            Returns: string
-          }
+      registrar_cobranza_comprobante: {
+        Args: {
+          p_caja_id: string
+          p_categoria_id: string
+          p_comprobante_id: string
+          p_descripcion: string
+          p_fecha: string
+          p_monto: number
+          p_partner_id_atribucion?: string
+          p_referencia: string
+        }
+        Returns: string
+      }
       reintentar_arca_job: { Args: { p_job_id: string }; Returns: string }
       reset_arca_jobs_colgados: {
         Args: { p_max_age_min?: number }
@@ -8772,28 +9065,17 @@ export type Database = {
         }
         Returns: string
       }
-      solicitud_derivar:
-        | {
-            Args: {
-              p_destinatario_email: string
-              p_destinatario_nombre: string
-              p_observaciones?: string
-              p_plantilla_slug?: string
-              p_solicitud_id: string
-            }
-            Returns: string
-          }
-        | {
-            Args: {
-              p_destinatario_email: string
-              p_destinatario_nombre: string
-              p_dias_validez?: number
-              p_observaciones?: string
-              p_plantilla_slug?: string
-              p_solicitud_id: string
-            }
-            Returns: string
-          }
+      solicitud_derivar: {
+        Args: {
+          p_destinatario_email: string
+          p_destinatario_nombre: string
+          p_dias_validez?: number
+          p_observaciones?: string
+          p_plantilla_slug?: string
+          p_solicitud_id: string
+        }
+        Returns: string
+      }
       solicitud_derivar_v2: {
         Args: {
           p_adjuntos?: Json
@@ -8806,6 +9088,21 @@ export type Database = {
           p_solicitud_id: string
         }
         Returns: string
+      }
+      solicitud_derivar_v3: {
+        Args: {
+          p_adjuntos?: Json
+          p_caja_id?: string
+          p_categoria_id?: string
+          p_destinatario_email: string
+          p_destinatario_nombre: string
+          p_dias_validez?: number
+          p_monto_pago?: number
+          p_observaciones?: string
+          p_plantilla_slug?: string
+          p_solicitud_id: string
+        }
+        Returns: Json
       }
       solicitud_descartar: {
         Args: { p_motivo: string; p_solicitud_id: string }
@@ -8851,7 +9148,13 @@ export type Database = {
         Returns: string
       }
       tracking_cerrar: {
-        Args: { p_documento_final_url: string; p_tramite_id: string }
+        Args: {
+          p_documento_final_url?: string
+          p_motivo_cierre: string
+          p_observaciones?: string
+          p_satisfactorio: boolean
+          p_tramite_id: string
+        }
         Returns: undefined
       }
       tracking_cerrar_ciclo: {
@@ -8872,6 +9175,7 @@ export type Database = {
           administracion_id: string | null
           asignado_a: string | null
           categoria: string
+          cierre_satisfactorio: boolean | null
           codigo: string
           comprobante_id: string | null
           consorcio_id: string | null
@@ -8885,9 +9189,11 @@ export type Database = {
           fecha_inicio: string | null
           formulario_submission_id: string | null
           id: string
+          motivo_cierre: string | null
           parent_tracking_id: string | null
           periodo: string | null
           prioridad: string
+          reabierto_count: number
           requiere_docs_cliente: boolean
           responsable_id: string | null
           resuelto_at: string | null
@@ -8901,6 +9207,8 @@ export type Database = {
           total_comentarios: number
           total_vistas: number
           ultima_actividad_at: string
+          ultima_reapertura_at: string | null
+          ultima_reapertura_motivo: string | null
           updated_at: string
           vence_at: string | null
         }[]
@@ -8910,6 +9218,14 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      tracking_reabrir: {
+        Args: {
+          p_motivo: string
+          p_notificar_cliente?: boolean
+          p_tramite_id: string
+        }
+        Returns: undefined
       }
       tramite_incrementar_vistas: {
         Args: { p_tramite_id: string }
@@ -8938,6 +9254,19 @@ export type Database = {
           p_archivo_path: string
           p_archivo_size: number
           p_item_id: string
+        }
+        Returns: undefined
+      }
+      tramix_gate: {
+        Args: { p_force?: boolean; p_legajo: string; p_user: string }
+        Returns: Json
+      }
+      tramix_record: {
+        Args: {
+          p_administracion: string
+          p_legajo: string
+          p_resultado: string
+          p_user: string
         }
         Returns: undefined
       }

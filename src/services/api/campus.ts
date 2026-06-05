@@ -20,6 +20,8 @@ export type CursoBibliografiaRow =
 export type CursoExamenRow = Database['public']['Tables']['curso_examenes']['Row'];
 export type CursoPreguntaRow = Database['public']['Tables']['curso_preguntas']['Row'];
 export type CursoOpcionRow = Database['public']['Tables']['curso_opciones']['Row'];
+export type CursoExamenSeccionRow =
+  Database['public']['Tables']['curso_examen_secciones']['Row'];
 export type CursoMatriculaRow =
   Database['public']['Tables']['curso_matriculas']['Row'];
 export type CursoProgresoRow =
@@ -179,6 +181,7 @@ export interface CursoDetalle {
   bibliografia: CursoBibliografiaRow[];
   examenes: Array<
     CursoExamenRow & {
+      secciones: CursoExamenSeccionRow[];
       preguntas: Array<CursoPreguntaRow & { opciones: CursoOpcionRow[] }>;
     }
   >;
@@ -218,13 +221,14 @@ export async function getCurso(
   // 4. Exámenes con preguntas y opciones.
   const { data: examenes, error: e4 } = await supabase
     .from('curso_examenes')
-    .select('*, curso_preguntas(*, curso_opciones(*))')
+    .select('*, curso_examen_secciones(*), curso_preguntas(*, curso_opciones(*))')
     .eq('curso_id', curso.id)
     .order('created_at', { ascending: true });
   if (e4) return fail('CURSO_EXAMENES', e4.message, e4);
 
   type ModRaw = CursoModuloRow & { curso_clases: CursoClaseRow[] };
   type ExRaw = CursoExamenRow & {
+    curso_examen_secciones: CursoExamenSeccionRow[];
     curso_preguntas: Array<CursoPreguntaRow & { curso_opciones: CursoOpcionRow[] }>;
   };
 
@@ -238,6 +242,9 @@ export async function getCurso(
   const examenesOrdenados = (examenes as unknown as ExRaw[] | null ?? []).map(
     (e) => ({
       ...(e as CursoExamenRow),
+      secciones: [...(e.curso_examen_secciones ?? [])].sort(
+        (a, b) => a.orden - b.orden,
+      ),
       preguntas: [...(e.curso_preguntas ?? [])]
         .sort((a, b) => a.orden - b.orden)
         .map((p) => ({
@@ -407,28 +414,14 @@ export async function iniciarIntento(
   examenId: string,
   matriculaId: string,
 ): Promise<ApiResponse<ExamenIntentoRow>> {
-  // Próximo número de intento.
-  const { data: prev, error: e1 } = await supabase
-    .from('examen_intentos')
-    .select('intento')
-    .eq('examen_id', examenId)
-    .eq('matricula_id', matriculaId)
-    .order('intento', { ascending: false })
-    .limit(1);
-  if (e1) return fail('INTENTO_PREV', e1.message, e1);
-  const siguiente = (prev?.[0]?.intento ?? 0) + 1;
-
-  const { data, error } = await supabase
-    .from('examen_intentos')
-    .insert({
-      examen_id: examenId,
-      matricula_id: matriculaId,
-      intento: siguiente,
-    })
-    .select()
-    .single();
+  // RPC atómica (regla 4): valida ventana + tope de intentos server-side y
+  // serializa arranques concurrentes. Reemplaza el read-then-insert del front.
+  const { data, error } = await supabase.rpc('curso_iniciar_intento', {
+    p_examen_id: examenId,
+    p_matricula_id: matriculaId,
+  });
   if (error) return fail('INTENTO_INIT', error.message, error);
-  return ok(data);
+  return ok(data as unknown as ExamenIntentoRow);
 }
 
 export interface ResultadoExamen {
@@ -440,6 +433,7 @@ export interface ResultadoExamen {
     correcta: boolean | null;
     puntaje: number;
     pendiente_revision: boolean;
+    explicacion: string | null;
   }>;
 }
 
@@ -745,6 +739,8 @@ export interface ExamenInput {
   fecha_cierre?: string | null;
   intentos_max?: number;
   nota_aprobacion?: number;
+  mostrar_resultados?: boolean;
+  mezclar_preguntas?: boolean;
 }
 
 export async function crearExamen(
@@ -761,6 +757,8 @@ export async function crearExamen(
       fecha_cierre: input.fecha_cierre ?? null,
       intentos_max: input.intentos_max ?? 1,
       nota_aprobacion: input.nota_aprobacion ?? 60,
+      mostrar_resultados: input.mostrar_resultados ?? true,
+      mezclar_preguntas: input.mezclar_preguntas ?? false,
     })
     .select()
     .single();
@@ -794,7 +792,9 @@ export interface PreguntaInput {
   enunciado: string;
   tipo: PreguntaTipo;
   puntaje?: number;
-  opciones?: Array<{ texto: string; correcta: boolean }>;
+  explicacion?: string | null;
+  seccion_id?: string | null;
+  opciones?: Array<{ texto: string; correcta: boolean; retroalimentacion?: string | null }>;
 }
 
 export async function crearPregunta(
@@ -814,6 +814,8 @@ export async function crearPregunta(
       enunciado: input.enunciado,
       tipo: input.tipo,
       puntaje: input.puntaje ?? 1,
+      explicacion: input.explicacion ?? null,
+      seccion_id: input.seccion_id ?? null,
       orden: next,
     })
     .select()
@@ -826,6 +828,7 @@ export async function crearPregunta(
       orden: i + 1,
       texto: o.texto,
       correcta: o.correcta,
+      retroalimentacion: o.retroalimentacion ?? null,
     }));
     const { error: e2 } = await supabase.from('curso_opciones').insert(rows);
     if (e2) return fail('OPCIONES_CREATE', e2.message, e2);
@@ -873,6 +876,62 @@ export async function reemplazarOpciones(
   }));
   const { error: e2 } = await supabase.from('curso_opciones').insert(rows);
   if (e2) return fail('OPCIONES_CREATE', e2.message, e2);
+  return ok(true);
+}
+
+// Secciones del examen (DGG-47): agrupan preguntas por tema/instructor.
+export interface SeccionInput {
+  examen_id: string;
+  titulo: string;
+  descripcion?: string | null;
+  orden?: number;
+}
+
+export async function crearSeccion(
+  input: SeccionInput,
+): Promise<ApiResponse<CursoExamenSeccionRow>> {
+  const { data: ord } = await supabase
+    .from('curso_examen_secciones')
+    .select('orden')
+    .eq('examen_id', input.examen_id)
+    .order('orden', { ascending: false })
+    .limit(1);
+  const next = ((ord?.[0]?.orden as number | undefined) ?? 0) + 1;
+  const { data, error } = await supabase
+    .from('curso_examen_secciones')
+    .insert({
+      examen_id: input.examen_id,
+      titulo: input.titulo,
+      descripcion: input.descripcion ?? null,
+      orden: input.orden ?? next,
+    })
+    .select()
+    .single();
+  if (error) return fail('SECCION_CREATE', error.message, error);
+  return ok(data);
+}
+
+export async function actualizarSeccion(
+  id: string,
+  patch: Partial<Omit<SeccionInput, 'examen_id'>>,
+): Promise<ApiResponse<CursoExamenSeccionRow>> {
+  const { data, error } = await supabase
+    .from('curso_examen_secciones')
+    .update(patch)
+    .eq('id', id)
+    .select()
+    .single();
+  if (error) return fail('SECCION_UPDATE', error.message, error);
+  return ok(data);
+}
+
+export async function borrarSeccion(id: string): Promise<ApiResponse<true>> {
+  // Las preguntas de la sección quedan con seccion_id NULL (ON DELETE SET NULL).
+  const { error } = await supabase
+    .from('curso_examen_secciones')
+    .delete()
+    .eq('id', id);
+  if (error) return fail('SECCION_DELETE', error.message, error);
   return ok(true);
 }
 
