@@ -1,13 +1,20 @@
 // src/modules/portal/components/TramixConsultaModal.tsx
 // DGG-46 · Modal "Consultar mi trámite en Mesa de Entradas Virtual PBA".
-// Renderiza nativo el estado de los expedientes del legajo del cliente (TRAMIX/DPPJ),
+// Renderiza nativo el estado de los expedientes de un legajo (TRAMIX/DPPJ),
 // con detalle expandible (header + actuaciones), nota de fuente oficial, "i" de T&C
 // y salvavidas (deep-link oficial) ante cualquier error. 100% aislado/additivo.
+//
+// Legajo EDITABLE (pedido Pablo, 2026-06-05): el número viene autocompletado
+// desde la ficha de la administración o desde la última consulta (localStorage),
+// pero el usuario puede cambiarlo y consultar cualquier legajo.
+//   · modo 'form'    → campo editable + "Buscar"     (primera vez / "Cambiar de legajo")
+//   · modo 'results' → barra [legajo][Actualizar][Cambiar de legajo] + resultados
+// Al reabrir, auto-busca el último legajo cargado (gana los pasos intermedios).
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Landmark, RefreshCw, ExternalLink, Info, ChevronDown, Loader2,
-  AlertTriangle, Inbox, FileText, Clock, FileDown,
+  AlertTriangle, Inbox, FileText, Clock, FileDown, Search, Pencil,
 } from 'lucide-react';
 import { Modal } from '@/components/common/Modal';
 import { toast } from '@/lib/toast';
@@ -17,6 +24,11 @@ import {
   type TramixConsultaResp, type TramixExpediente, type TramixDetalle,
   type TramixDetalleRef, type TramixActuacion, type TramixActuacionDetalle,
 } from '@/services/api/tramix';
+
+const LS_KEY = 'gg.tramix.legajo';
+const onlyDigits = (s: string) => (s || '').replace(/\D/g, '');
+const readLast = () => { try { return onlyDigits(localStorage.getItem(LS_KEY) || ''); } catch { return ''; } };
+const saveLast = (l: string) => { try { if (l) localStorage.setItem(LS_KEY, l); } catch { /* noop */ } };
 
 const refKeyOf = (e: TramixExpediente) => (e.detalle_ref ? `${e.detalle_ref.o}:${e.detalle_ref.n}:${e.detalle_ref.a}` : e.numero);
 
@@ -33,7 +45,7 @@ function Salvavidas({ legajo, motivo }: { legajo?: string; motivo: string }) {
       <p className="text-sm font-semibold text-brand-ink">{motivo}</p>
       <p className="mt-1 text-xs text-brand-muted">
         Podés consultarlo directamente en el sitio oficial de la Mesa de Entradas Virtual de la Provincia
-        {legajo ? <> con tu legajo <span className="font-semibold text-brand-ink">{legajo}</span></> : null}.
+        {legajo ? <> con el legajo <span className="font-semibold text-brand-ink">{legajo}</span></> : null}.
       </p>
       <a
         href={TRAMIX_URL_OFICIAL}
@@ -56,7 +68,7 @@ function EstadoBadge({ estado }: { estado: string }) {
   );
 }
 
-function ActuacionItem({ detalleRef, act }: { detalleRef: TramixDetalleRef | null; act: TramixActuacion }) {
+function ActuacionItem({ detalleRef, act, legajo }: { detalleRef: TramixDetalleRef | null; act: TramixActuacion; legajo: string }) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<TramixActuacionDetalle | null>(null);
@@ -70,7 +82,7 @@ function ActuacionItem({ detalleRef, act }: { detalleRef: TramixDetalleRef | nul
     setOpen(true);
     if (!data) {
       setLoading(true); setError(null);
-      const r = await consultarTramixActuacion(detalleRef!, act.actIdx!);
+      const r = await consultarTramixActuacion(detalleRef!, act.actIdx!, legajo);
       setLoading(false);
       if (!r.ok) setError(r.error);
       else if (r.data.resultado === 'OK' && r.data.actuacion) setData(r.data.actuacion);
@@ -81,7 +93,7 @@ function ActuacionItem({ detalleRef, act }: { detalleRef: TramixDetalleRef | nul
   const descargar = async () => {
     if (!detalleRef || act.actIdx == null) return;
     setDescargando(true);
-    const r = await descargarTramixDocumento(detalleRef, act.actIdx);
+    const r = await descargarTramixDocumento(detalleRef, act.actIdx, legajo);
     setDescargando(false);
     if (!r.ok) { toast.error('No pudimos descargar el documento', { description: r.error }); return; }
     if (r.data.resultado === 'OK' && r.data.url) { triggerDownload(r.data.url, r.data.nombre); toast.success('Descargando documento…'); }
@@ -117,7 +129,7 @@ function ActuacionItem({ detalleRef, act }: { detalleRef: TramixDetalleRef | nul
               <Loader2 size={12} className="animate-spin" /> Abriendo actuación…
             </div>
           )}
-          {error && <Salvavidas motivo="No pudimos abrir esta actuación." />}
+          {error && <Salvavidas legajo={legajo} motivo="No pudimos abrir esta actuación." />}
           {data && (
             <div className="space-y-2 rounded-lg border border-slate-100 bg-slate-50/60 p-2.5">
               {(data.extracto_actuacion || data.fecha_firma) && (
@@ -153,7 +165,7 @@ function ActuacionItem({ detalleRef, act }: { detalleRef: TramixDetalleRef | nul
   );
 }
 
-function DetalleView({ detalle, detalleRef }: { detalle: TramixDetalle; detalleRef: TramixDetalleRef | null }) {
+function DetalleView({ detalle, detalleRef, legajo }: { detalle: TramixDetalle; detalleRef: TramixDetalleRef | null; legajo: string }) {
   const h = detalle.header || {};
   const campos: { k: string; v: string }[] = [
     { k: 'Expediente', v: h['Expediente Nº'] || '' },
@@ -181,7 +193,7 @@ function DetalleView({ detalle, detalleRef }: { detalle: TramixDetalle; detalleR
         ) : (
           <ol className="space-y-1.5">
             {detalle.actuaciones.map((a, i) => (
-              <ActuacionItem key={i} detalleRef={detalleRef} act={a} />
+              <ActuacionItem key={i} detalleRef={detalleRef} act={a} legajo={legajo} />
             ))}
           </ol>
         )}
@@ -191,24 +203,82 @@ function DetalleView({ detalle, detalleRef }: { detalle: TramixDetalle; detalleR
 }
 
 export function TramixConsultaModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const [mode, setMode] = useState<'form' | 'results'>('results');
+  const [legajoInput, setLegajoInput] = useState('');
+  const [searchedLegajo, setSearchedLegajo] = useState('');
   const [loading, setLoading] = useState(false);
   const [resp, setResp] = useState<TramixConsultaResp | null>(null);
   const [expandido, setExpandido] = useState<string | null>(null);
   const [detalles, setDetalles] = useState<Record<string, { loading: boolean; data?: TramixDetalle; error?: string }>>({});
   const [showInfo, setShowInfo] = useState(false);
+  const inputRef = useRef<HTMLInputElement | null>(null);
 
-  const cargar = useCallback(async (force = false) => {
+  // Busca un legajo concreto y muestra resultados (modo 'results').
+  const buscar = useCallback(async (rawLegajo: string, force: boolean) => {
+    const legajo = onlyDigits(rawLegajo);
+    if (!legajo) { setMode('form'); setTimeout(() => inputRef.current?.focus(), 30); return; }
+    setMode('results');
     setLoading(true);
-    const r = await consultarTramix(force);
+    setExpandido(null);
+    setDetalles({});
+    const r = await consultarTramix(legajo, force);
     setLoading(false);
-    if (!r.ok) { setResp({ resultado: 'ERROR' }); toast.error('No pudimos consultar la Mesa de Entradas', { description: r.error }); return; }
+    if (!r.ok) {
+      setResp({ resultado: 'ERROR', legajo });
+      setSearchedLegajo(legajo);
+      toast.error('No pudimos consultar la Mesa de Entradas', { description: r.error });
+      return;
+    }
     setResp(r.data);
+    const used = r.data.legajo || legajo;
+    setSearchedLegajo(used);
+    setLegajoInput(used);
+    saveLast(used);
     if (force && r.data.resultado === 'OK') toast.success('Consulta actualizada');
   }, []);
 
+  // Primera apertura sin legajo recordado: usa el de la ficha (server) o pide uno.
+  const initFromFicha = useCallback(async () => {
+    setMode('results');
+    setLoading(true);
+    const r = await consultarTramix(undefined, false);
+    setLoading(false);
+    if (!r.ok) { setResp({ resultado: 'ERROR' }); return; }
+    setResp(r.data);
+    if (r.data.resultado === 'SIN_ADMIN') { setMode('results'); return; }
+    const def = onlyDigits(r.data.legajo || r.data.legajo_default || '');
+    if (r.data.resultado === 'SIN_LEGAJO' || !def) {
+      // No hay legajo en la ficha → formulario para que el usuario lo ingrese.
+      setLegajoInput(def);
+      setMode('form');
+      setTimeout(() => inputRef.current?.focus(), 30);
+      return;
+    }
+    setSearchedLegajo(def);
+    setLegajoInput(def);
+    saveLast(def);
+  }, []);
+
   useEffect(() => {
-    if (open) { setResp(null); setDetalles({}); setExpandido(null); setShowInfo(false); cargar(false); }
-  }, [open, cargar]);
+    if (!open) return;
+    setResp(null);
+    setDetalles({});
+    setExpandido(null);
+    setShowInfo(false);
+    const remembered = readLast();
+    if (remembered) {
+      // Reapertura: gano los pasos intermedios y auto-busco el último legajo.
+      setLegajoInput(remembered);
+      buscar(remembered, false);
+    } else {
+      initFromFicha();
+    }
+  }, [open, buscar, initFromFicha]);
+
+  const cambiarLegajo = () => {
+    setMode('form');
+    setTimeout(() => { inputRef.current?.focus(); inputRef.current?.select(); }, 30);
+  };
 
   const toggleDetalle = async (e: TramixExpediente) => {
     if (!e.detalle_ref) return;
@@ -217,7 +287,7 @@ export function TramixConsultaModal({ open, onClose }: { open: boolean; onClose:
     setExpandido(key);
     if (!detalles[key]?.data) {
       setDetalles((d) => ({ ...d, [key]: { loading: true } }));
-      const r = await consultarTramixDetalle(e.detalle_ref);
+      const r = await consultarTramixDetalle(e.detalle_ref, searchedLegajo);
       if (!r.ok) setDetalles((d) => ({ ...d, [key]: { loading: false, error: r.error } }));
       else if (r.data.resultado === 'OK' && r.data.detalle) setDetalles((d) => ({ ...d, [key]: { loading: false, data: r.data.detalle } }));
       else setDetalles((d) => ({ ...d, [key]: { loading: false, error: 'No pudimos abrir el detalle. Probá desde el sitio oficial.' } }));
@@ -226,6 +296,7 @@ export function TramixConsultaModal({ open, onClose }: { open: boolean; onClose:
 
   const r = resp;
   const exps = r?.expedientes ?? [];
+  const initialLoading = loading && !r;
 
   return (
     <Modal
@@ -237,146 +308,230 @@ export function TramixConsultaModal({ open, onClose }: { open: boolean; onClose:
       icon={<Landmark size={18} className="text-brand-cyan" />}
     >
       <div className="space-y-4">
-        {/* Barra de fuente + acciones */}
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <button
-            type="button"
-            onClick={() => setShowInfo((v) => !v)}
-            className="inline-flex items-center gap-1.5 text-[11px] font-medium text-brand-muted transition hover:text-brand-ink"
-          >
-            <Info size={13} /> ¿De dónde salen estos datos?
-          </button>
-          <button
-            type="button"
-            disabled={loading}
-            onClick={() => cargar(true)}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-[11px] font-semibold text-brand-ink transition hover:bg-slate-50 disabled:opacity-50"
-          >
-            <RefreshCw size={12} className={loading ? 'animate-spin' : ''} /> Actualizar
-          </button>
-        </div>
+        {/* Barra de fuente (info de T&C) — siempre disponible */}
+        <button
+          type="button"
+          onClick={() => setShowInfo((v) => !v)}
+          className="inline-flex items-center gap-1.5 text-[11px] font-medium text-brand-muted transition hover:text-brand-ink"
+        >
+          <Info size={13} /> ¿De dónde salen estos datos?
+        </button>
 
         {showInfo && (
           <div className="rounded-xl bg-slate-50 p-3 text-[11px] leading-relaxed text-brand-muted">
             Consultamos por vos la <strong>Mesa de Entradas Virtual</strong> de la Dirección Provincial de Personas
             Jurídicas (PBA). Es información <strong>oficial pero meramente informativa</strong> (Disp. DPPJ 148/06):
-            no es vinculante, puede no estar actualizada en tiempo real y solo mostramos <strong>tu</strong> legajo.
+            no es vinculante y puede no estar actualizada en tiempo real.
             Para gestiones formales, usá siempre el sitio oficial.
           </div>
         )}
 
-        {/* Cuerpo según estado */}
-        {loading && !r && (
+        {/* Carga inicial */}
+        {initialLoading && (
           <div className="flex flex-col items-center justify-center gap-3 py-10 text-center">
             <Loader2 size={28} className="animate-spin text-brand-cyan" />
             <p className="text-sm text-brand-muted">Consultando la Mesa de Entradas Virtual…</p>
           </div>
         )}
 
-        {r && r.resultado === 'OK' && (
-          <>
-            <div className="flex items-center justify-between gap-2 rounded-xl bg-brand-ink/5 px-3 py-2">
-              <div>
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-brand-muted">Titular · Legajo {r.legajo}</p>
-                <p className="text-sm font-semibold text-brand-ink">{r.titular || '—'}</p>
+        {/* ════════ MODO FORMULARIO (puntos 1 y 2) ════════ */}
+        {mode === 'form' && !initialLoading && (
+          <form
+            onSubmit={(e) => { e.preventDefault(); if (legajoInput) buscar(legajoInput, false); }}
+            className="space-y-3"
+          >
+            <div className="rounded-xl border border-slate-200 bg-white p-4">
+              <label htmlFor="tramix-legajo" className="mb-1.5 block text-xs font-semibold text-brand-ink">
+                Número de legajo (RPAC)
+              </label>
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  id="tramix-legajo"
+                  ref={inputRef}
+                  value={legajoInput}
+                  onChange={(e) => setLegajoInput(onlyDigits(e.target.value))}
+                  inputMode="numeric"
+                  autoComplete="off"
+                  placeholder="Ej. 12345"
+                  className="min-w-0 flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-brand-ink outline-none transition focus:border-brand-cyan focus:ring-2 focus:ring-brand-cyan/20"
+                />
+                <button
+                  type="submit"
+                  disabled={!legajoInput || loading}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-brand-cyan px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-cyan/90 disabled:opacity-50"
+                >
+                  {loading ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />} Buscar
+                </button>
               </div>
-              <span className="rounded-full bg-white px-2.5 py-1 text-[11px] font-bold text-brand-ink shadow-sm">
-                {exps.length} expediente{exps.length === 1 ? '' : 's'}
-              </span>
+              {r?.resultado === 'SIN_LEGAJO' ? (
+                <p className="mt-2 inline-flex items-start gap-1.5 text-[11px] text-amber-600">
+                  <AlertTriangle size={13} className="mt-px shrink-0" />
+                  No tenés un legajo guardado en tu ficha. Ingresá uno para consultar.
+                </p>
+              ) : (
+                <p className="mt-2 text-[11px] text-brand-muted">
+                  Lo autocompletamos desde tu ficha o tu última consulta. Podés editarlo y consultar cualquier legajo.
+                </p>
+              )}
             </div>
+          </form>
+        )}
 
-            <ul className="space-y-2">
-              {exps.map((e) => {
-                const key = refKeyOf(e);
-                const open = expandido === key;
-                const det = detalles[key];
-                return (
-                  <li key={key} className="overflow-hidden rounded-xl border border-slate-200">
-                    <button
-                      type="button"
-                      onClick={() => toggleDetalle(e)}
-                      className="flex w-full items-center gap-3 px-3 py-2.5 text-left transition hover:bg-slate-50"
-                    >
-                      <FileText size={16} className="shrink-0 text-brand-cyan" />
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                          <span className="text-sm font-semibold text-brand-ink">{e.numero}</span>
-                          <EstadoBadge estado={e.estado} />
-                        </div>
-                        <p className="truncate text-xs text-brand-muted">
-                          {e.tramite}{e.fecha ? ` · ${e.fecha}` : ''}
-                        </p>
-                      </div>
-                      <ChevronDown size={16} className={`shrink-0 text-brand-muted transition ${open ? 'rotate-180' : ''}`} />
-                    </button>
-                    {open && (
-                      <div className="px-3 pb-3">
-                        {det?.loading && (
-                          <div className="flex items-center gap-2 py-3 text-xs text-brand-muted">
-                            <Loader2 size={14} className="animate-spin" /> Abriendo detalle…
-                          </div>
-                        )}
-                        {det?.error && (
-                          <div className="mt-2"><Salvavidas legajo={r.legajo} motivo="No pudimos abrir el detalle de este expediente." /></div>
-                        )}
-                        {det?.data && <DetalleView detalle={det.data} detalleRef={e.detalle_ref} />}
-                      </div>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
+        {/* ════════ MODO RESULTADOS (punto 4) ════════ */}
+        {mode === 'results' && r && !initialLoading && (
+          <>
+            {/* Barra superior: campo legajo + Actualizar + Cambiar de legajo */}
+            {r.resultado !== 'SIN_ADMIN' && (
+              <form
+                onSubmit={(e) => { e.preventDefault(); if (legajoInput) buscar(legajoInput, true); }}
+                className="rounded-xl border border-slate-200 bg-white p-2.5"
+              >
+                <label htmlFor="tramix-legajo-bar" className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-brand-muted">
+                  Legajo RPAC
+                </label>
+                <div className="flex flex-wrap items-center gap-2">
+                  <input
+                    id="tramix-legajo-bar"
+                    ref={inputRef}
+                    value={legajoInput}
+                    onChange={(e) => setLegajoInput(onlyDigits(e.target.value))}
+                    inputMode="numeric"
+                    autoComplete="off"
+                    placeholder="Número de legajo"
+                    className="min-w-0 flex-1 basis-32 rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm font-semibold text-brand-ink outline-none transition focus:border-brand-cyan focus:ring-2 focus:ring-brand-cyan/20"
+                  />
+                  <button
+                    type="submit"
+                    disabled={loading || !legajoInput}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-brand-cyan px-3 py-1.5 text-[11px] font-semibold text-white transition hover:bg-brand-cyan/90 disabled:opacity-50"
+                  >
+                    <RefreshCw size={12} className={loading ? 'animate-spin' : ''} /> Actualizar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={cambiarLegajo}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-brand-ink transition hover:bg-slate-50"
+                  >
+                    <Pencil size={12} /> Cambiar de legajo
+                  </button>
+                </div>
+              </form>
+            )}
 
-            <p className="text-center text-[10px] text-brand-muted">
-              Fuente: Mesa de Entradas Virtual DPPJ-PBA · datos al {fmtFecha(r.consultado_at)}
-              {r.desde_cache ? ' (en caché)' : ''}
-            </p>
+            {/* Cuerpo de resultados */}
+            {loading ? (
+              <div className="flex items-center justify-center gap-2 py-8 text-sm text-brand-muted">
+                <Loader2 size={18} className="animate-spin text-brand-cyan" /> Consultando…
+              </div>
+            ) : (
+              <>
+                {r.resultado === 'OK' && (
+                  <>
+                    <div className="flex items-center justify-between gap-2 rounded-xl bg-brand-ink/5 px-3 py-2">
+                      <div className="min-w-0">
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-brand-muted">Titular · Legajo {r.legajo}</p>
+                        <p className="truncate text-sm font-semibold text-brand-ink">{r.titular || '—'}</p>
+                      </div>
+                      <span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-[11px] font-bold text-brand-ink shadow-sm">
+                        {exps.length} expediente{exps.length === 1 ? '' : 's'}
+                      </span>
+                    </div>
+
+                    <ul className="space-y-2">
+                      {exps.map((e) => {
+                        const key = refKeyOf(e);
+                        const isOpen = expandido === key;
+                        const det = detalles[key];
+                        return (
+                          <li key={key} className="overflow-hidden rounded-xl border border-slate-200">
+                            <button
+                              type="button"
+                              onClick={() => toggleDetalle(e)}
+                              className="flex w-full items-center gap-3 px-3 py-2.5 text-left transition hover:bg-slate-50"
+                            >
+                              <FileText size={16} className="shrink-0 text-brand-cyan" />
+                              <div className="min-w-0 flex-1">
+                                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                                  <span className="text-sm font-semibold text-brand-ink">{e.numero}</span>
+                                  <EstadoBadge estado={e.estado} />
+                                </div>
+                                <p className="truncate text-xs text-brand-muted">
+                                  {e.tramite}{e.fecha ? ` · ${e.fecha}` : ''}
+                                </p>
+                              </div>
+                              <ChevronDown size={16} className={`shrink-0 text-brand-muted transition ${isOpen ? 'rotate-180' : ''}`} />
+                            </button>
+                            {isOpen && (
+                              <div className="px-3 pb-3">
+                                {det?.loading && (
+                                  <div className="flex items-center gap-2 py-3 text-xs text-brand-muted">
+                                    <Loader2 size={14} className="animate-spin" /> Abriendo detalle…
+                                  </div>
+                                )}
+                                {det?.error && (
+                                  <div className="mt-2"><Salvavidas legajo={searchedLegajo} motivo="No pudimos abrir el detalle de este expediente." /></div>
+                                )}
+                                {det?.data && <DetalleView detalle={det.data} detalleRef={e.detalle_ref} legajo={searchedLegajo} />}
+                              </div>
+                            )}
+                          </li>
+                        );
+                      })}
+                    </ul>
+
+                    <p className="text-center text-[10px] text-brand-muted">
+                      Fuente: Mesa de Entradas Virtual DPPJ-PBA · datos al {fmtFecha(r.consultado_at)}
+                      {r.desde_cache ? ' (en caché)' : ''}
+                    </p>
+                  </>
+                )}
+
+                {r.resultado === 'NOT_FOUND' && (
+                  <div className="space-y-4 py-2">
+                    <div className="flex flex-col items-center gap-2 py-4 text-center">
+                      <Inbox size={28} className="text-brand-muted" />
+                      <p className="text-sm font-semibold text-brand-ink">No encontramos expedientes</p>
+                      <p className="max-w-sm text-xs text-brand-muted">
+                        No hay expedientes asociados al legajo <span className="font-semibold">{r.legajo}</span> en la Mesa de
+                        Entradas Virtual, o todavía no figuran cargados. Verificá el número o probá con otro.
+                      </p>
+                    </div>
+                    <Salvavidas legajo={r.legajo} motivo="¿Esperabas ver un expediente?" />
+                  </div>
+                )}
+
+                {r.resultado === 'SIN_ADMIN' && (
+                  <div className="flex flex-col items-center gap-2 py-8 text-center">
+                    <AlertTriangle size={26} className="text-amber-500" />
+                    <p className="text-sm font-semibold text-brand-ink">Tu usuario todavía no está vinculado</p>
+                    <p className="max-w-sm text-xs text-brand-muted">
+                      No encontramos tu administración. Escribinos y lo configuramos para que puedas consultar la Mesa de Entradas Virtual.
+                    </p>
+                  </div>
+                )}
+
+                {r.resultado === 'RATE_LIMITED' && (
+                  <div className="flex flex-col items-center gap-3 py-8 text-center">
+                    <Clock size={26} className="text-brand-cyan" />
+                    <p className="text-sm font-semibold text-brand-ink">Estamos con muchas consultas</p>
+                    <p className="max-w-sm text-xs text-brand-muted">Probá de nuevo en unos segundos.</p>
+                    <button onClick={() => buscar(legajoInput || searchedLegajo, false)} className="rounded-lg bg-brand-cyan px-3 py-2 text-xs font-semibold text-white hover:bg-brand-cyan/90">Reintentar</button>
+                  </div>
+                )}
+
+                {['TRAMIX_DOWN', 'TIMEOUT', 'CIRCUIT_OPEN', 'PARSE_ERROR', 'TC_BLOCKED', 'ERROR', 'NO_AUTH', 'FORBIDDEN', 'INVALID'].includes(r.resultado) && (
+                  <div className="space-y-4 py-2">
+                    <div className="flex flex-col items-center gap-2 py-3 text-center">
+                      <AlertTriangle size={26} className="text-amber-500" />
+                      <p className="text-sm font-semibold text-brand-ink">La Mesa de Entradas Virtual no responde ahora</p>
+                      <p className="max-w-sm text-xs text-brand-muted">Es un sitio del Gobierno de la Provincia y a veces no está disponible. Podés intentar directamente desde el sitio oficial.</p>
+                    </div>
+                    <Salvavidas legajo={searchedLegajo} motivo="Consultá directamente en el sitio oficial" />
+                  </div>
+                )}
+              </>
+            )}
           </>
-        )}
-
-        {r && r.resultado === 'NOT_FOUND' && (
-          <div className="space-y-4 py-2">
-            <div className="flex flex-col items-center gap-2 py-4 text-center">
-              <Inbox size={28} className="text-brand-muted" />
-              <p className="text-sm font-semibold text-brand-ink">No encontramos expedientes</p>
-              <p className="max-w-sm text-xs text-brand-muted">
-                No hay expedientes asociados al legajo <span className="font-semibold">{r.legajo}</span> en la Mesa de
-                Entradas Virtual, o todavía no figuran cargados.
-              </p>
-            </div>
-            <Salvavidas legajo={r.legajo} motivo="¿Esperabas ver un expediente?" />
-          </div>
-        )}
-
-        {r && (r.resultado === 'SIN_LEGAJO' || r.resultado === 'SIN_ADMIN') && (
-          <div className="flex flex-col items-center gap-2 py-8 text-center">
-            <AlertTriangle size={26} className="text-amber-500" />
-            <p className="text-sm font-semibold text-brand-ink">Falta tu legajo RPAC</p>
-            <p className="max-w-sm text-xs text-brand-muted">
-              Para consultar la Mesa de Entradas Virtual necesitamos tu número de legajo del RPAC.
-              Escribinos y lo configuramos en tu perfil.
-            </p>
-          </div>
-        )}
-
-        {r && r.resultado === 'RATE_LIMITED' && (
-          <div className="flex flex-col items-center gap-3 py-8 text-center">
-            <Clock size={26} className="text-brand-cyan" />
-            <p className="text-sm font-semibold text-brand-ink">Estamos con muchas consultas</p>
-            <p className="max-w-sm text-xs text-brand-muted">Probá de nuevo en unos segundos.</p>
-            <button onClick={() => cargar(false)} className="rounded-lg bg-brand-cyan px-3 py-2 text-xs font-semibold text-white hover:bg-brand-cyan/90">Reintentar</button>
-          </div>
-        )}
-
-        {r && ['TRAMIX_DOWN', 'TIMEOUT', 'CIRCUIT_OPEN', 'PARSE_ERROR', 'TC_BLOCKED', 'ERROR', 'NO_AUTH', 'FORBIDDEN', 'INVALID'].includes(r.resultado) && (
-          <div className="space-y-4 py-2">
-            <div className="flex flex-col items-center gap-2 py-3 text-center">
-              <AlertTriangle size={26} className="text-amber-500" />
-              <p className="text-sm font-semibold text-brand-ink">La Mesa de Entradas Virtual no responde ahora</p>
-              <p className="max-w-sm text-xs text-brand-muted">Es un sitio del Gobierno de la Provincia y a veces no está disponible. Podés intentar directamente desde el sitio oficial.</p>
-            </div>
-            <Salvavidas legajo={r.legajo} motivo="Consultá directamente en el sitio oficial" />
-          </div>
         )}
       </div>
     </Modal>

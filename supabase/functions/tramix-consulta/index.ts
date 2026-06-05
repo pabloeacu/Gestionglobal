@@ -5,19 +5,18 @@ import { DOMParser, type Element } from "jsr:@b-fuze/deno-dom";
 // ============================================================================
 // TRAMIX · tramix-consulta (PRODUCCIÓN) · DGG-46
 // Consulta de expedientes DPPJ-PBA (Mesa de Entradas Virtual) para el portal.
-// 100% aislada. Privacidad: el legajo se deriva server-side de
-// administraciones.legajo_rpac del usuario autenticado (NUNCA se confía en el
-// cliente). Cache-first + gate atómico anti-martilleo + sesión reusable +
-// circuit-breaker. Taxonomía de errores -> salvavidas en el front.
+// 100% aislada. El legajo es EDITABLE por el usuario (TRAMIX es consulta
+// pública, Disp. DPPJ 148/06): default = el que manda el cliente (su última
+// consulta) o el de su ficha (administraciones.legajo_rpac). Cache-first + gate
+// atómico anti-martilleo (per-usuario) + sesión reusable + circuit-breaker.
 // Parsers validados sobre HTML real (legajo 284265 / EZEQUIEL CARLOS GOMEZ).
 // ============================================================================
 
 const BASE = Deno.env.get("TRAMIX_BASE_URL") ?? "http://tramix.persjuri.gba.gov.ar:8080/TRAMIX";
 const UA = "GestionGlobal-PortalClientes/1.0 (consulta informativa de expedientes; +https://gestionglobal.ar)";
 const TIMEOUT_MS = 12000;
-const CACHE_FRESH_MS = 15 * 60 * 1000;   // 15 min: cache "fresca" -> no se pega a TRAMIX
-const SESSION_MAX_MS = 18 * 60 * 1000;    // reusar cookie hasta 18 min
-
+const CACHE_FRESH_MS = 15 * 60 * 1000;
+const SESSION_MAX_MS = 18 * 60 * 1000;
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -61,7 +60,6 @@ async function establishSession(): Promise<string> {
   return cookie;
 }
 
-// deno-dom parsers (validados sobre HTML real, legajo 284265) -----------------
 function parseResults(html: string) {
   const doc = new DOMParser().parseFromString(html, "text/html"); if (!doc) return { count: null as number | null, expedientes: [] as any[] };
   let count: number | null = null; const m = html.match(/encontrado\s+(\d+)\s+expedientes/i) || html.match(/(\d+)\s+expedientes que coinciden/i); if (m) count = parseInt(m[1], 10);
@@ -96,8 +94,6 @@ async function estadoHash(exps: any[]): Promise<string> {
   const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
   return [...new Uint8Array(buf)].slice(0, 8).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
-
-// session helpers (singleton cookie en tramix_session) ------------------------
 async function getCookie(svc: any, forceNew = false): Promise<string> {
   if (!forceNew) {
     const { data } = await svc.from("tramix_session").select("cookie, aceptado_at").eq("id", "singleton").maybeSingle();
@@ -114,32 +110,31 @@ Deno.serve(async (req) => {
   const t0 = performance.now();
   const svc = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
   try {
-    // --- auth ---
     const authHeader = req.headers.get("Authorization") || "";
     const userClient = createClient(SUPABASE_URL, ANON_KEY, { global: { headers: { Authorization: authHeader } }, auth: { persistSession: false } });
     const { data: ures } = await userClient.auth.getUser();
     const user = ures?.user;
     if (!user) return json({ resultado: "NO_AUTH" }, 401);
 
-    // --- resolver administración + legajo (server-side, privacidad) ---
     const { data: prof } = await svc.from("profiles").select("administracion_id").eq("id", user.id).maybeSingle();
     const adminId = prof?.administracion_id ?? null;
     if (!adminId) return json({ resultado: "SIN_ADMIN" });
-    const { data: adm } = await svc.from("administraciones").select("legajo_rpac, nombre").eq("id", adminId).maybeSingle();
-    const legajo = String(adm?.legajo_rpac ?? "").replace(/[^0-9]/g, "");
-    const titular = adm?.nombre ?? "";
-    if (!legajo) return json({ resultado: "SIN_LEGAJO" });
+    const { data: adm } = await svc.from("administraciones").select("legajo_rpac").eq("id", adminId).maybeSingle();
+    const legajoDefault = String(adm?.legajo_rpac ?? "").replace(/[^0-9]/g, "");
 
     const b = await req.json().catch(() => ({} as any));
     const action = b.action ?? "consultar";
     const force = !!b.force;
+    // Legajo editable: lo que mande el cliente (su última consulta) o el de su ficha.
+    const legajoCliente = b.legajo != null ? String(b.legajo).replace(/[^0-9]/g, "") : "";
+    const legajo = legajoCliente || legajoDefault;
+    if (!legajo) return json({ resultado: "SIN_LEGAJO", legajo_default: legajoDefault });
 
     // =================== DETALLE ===================
     if (action === "detalle") {
       const ref = b.detalle_ref || {};
       const o = clean(String(ref.o ?? "")), t = clean(String(ref.t ?? "EXP")), n = clean(String(ref.n ?? "")), a = clean(String(ref.a ?? ""));
       if (!o || !n || !a) return json({ resultado: "INVALID" });
-      // privacidad: el ref DEBE pertenecer a un expediente del legajo del usuario (según cache)
       const { data: cacheRow } = await svc.from("tramix_cache").select("payload").eq("legajo", legajo).maybeSingle();
       const owns = !!cacheRow?.payload?.expedientes?.some((e: any) => e?.detalle_ref?.n === n && e?.detalle_ref?.a === a && e?.detalle_ref?.o === o);
       if (!owns) return json({ resultado: "FORBIDDEN" });
@@ -171,32 +166,34 @@ Deno.serve(async (req) => {
     }
 
     // =================== CONSULTAR ===================
+    const okList = (payload: any, extra: Record<string, unknown> = {}) => json({ resultado: payload?.expedientes?.length ? "OK" : "NOT_FOUND", legajo, legajo_default: legajoDefault, titular: payload?.titular ?? "", expedientes: payload?.expedientes ?? [], ...extra });
     const { data: cache } = await svc.from("tramix_cache").select("payload, estado_hash, consultado_at").eq("legajo", legajo).maybeSingle();
     if (cache && !force && (Date.now() - new Date(cache.consultado_at).getTime() < CACHE_FRESH_MS)) {
-      return json({ resultado: cache.payload?.expedientes?.length ? "OK" : "NOT_FOUND", legajo, titular, expedientes: cache.payload?.expedientes ?? [], desde_cache: true, consultado_at: cache.consultado_at, ms: Math.round(performance.now() - t0) });
+      return okList(cache.payload, { desde_cache: true, consultado_at: cache.consultado_at, ms: Math.round(performance.now() - t0) });
     }
     const gate = await svc.rpc("tramix_gate", { p_user: user.id, p_legajo: legajo, p_force: force }).then((r: any) => r.data);
     if (gate?.decision !== "allow") {
-      if (cache) return json({ resultado: cache.payload?.expedientes?.length ? "OK" : "NOT_FOUND", legajo, titular, expedientes: cache.payload?.expedientes ?? [], desde_cache: true, consultado_at: cache.consultado_at, throttle_note: gate?.decision });
-      return json({ resultado: gateToResultado(gate?.decision), wait_ms: gate?.wait_ms, retry_at: gate?.retry_at });
+      if (cache) return okList(cache.payload, { desde_cache: true, consultado_at: cache.consultado_at, throttle_note: gate?.decision });
+      return json({ resultado: gateToResultado(gate?.decision), legajo, legajo_default: legajoDefault, wait_ms: gate?.wait_ms, retry_at: gate?.retry_at });
     }
     try {
       const qs = `txtLegajo=${encodeURIComponent(legajo)}&txtNumero=&txtAnio=&txtDenom=&chbPersonalQuery=&orderBy=LEGAJO`;
       let cookie = await getCookie(svc);
       let r = await hit(`/QueryExped?${qs}`, { cookie, follow: true });
-      if (looksTC(r.body)) { cookie = await getCookie(svc, true); r = await hit(`/QueryExped?${qs}`, { cookie, follow: true }); if (looksTC(r.body)) { await svc.rpc("tramix_record", { p_user: user.id, p_administracion: adminId, p_legajo: legajo, p_resultado: "TC_BLOCKED" }); return cache ? json({ resultado: "OK", legajo, titular, expedientes: cache.payload?.expedientes ?? [], desde_cache: true, consultado_at: cache.consultado_at, throttle_note: "TC_BLOCKED" }) : json({ resultado: "TC_BLOCKED" }); } }
+      if (looksTC(r.body)) { cookie = await getCookie(svc, true); r = await hit(`/QueryExped?${qs}`, { cookie, follow: true }); if (looksTC(r.body)) { await svc.rpc("tramix_record", { p_user: user.id, p_administracion: adminId, p_legajo: legajo, p_resultado: "TC_BLOCKED" }); return cache ? okList(cache.payload, { desde_cache: true, consultado_at: cache.consultado_at, throttle_note: "TC_BLOCKED" }) : json({ resultado: "TC_BLOCKED", legajo, legajo_default: legajoDefault }); } }
       const p = parseResults(r.body);
-      if (!p.expedientes.length && p.count !== 0) { await svc.rpc("tramix_record", { p_user: user.id, p_administracion: adminId, p_legajo: legajo, p_resultado: "PARSE_ERROR" }); return cache ? json({ resultado: "OK", legajo, titular, expedientes: cache.payload?.expedientes ?? [], desde_cache: true, consultado_at: cache.consultado_at, throttle_note: "PARSE_ERROR" }) : json({ resultado: "PARSE_ERROR" }); }
+      if (!p.expedientes.length && p.count !== 0) { await svc.rpc("tramix_record", { p_user: user.id, p_administracion: adminId, p_legajo: legajo, p_resultado: "PARSE_ERROR" }); return cache ? okList(cache.payload, { desde_cache: true, consultado_at: cache.consultado_at, throttle_note: "PARSE_ERROR" }) : json({ resultado: "PARSE_ERROR", legajo, legajo_default: legajoDefault }); }
+      const titular = p.expedientes[0]?.denominacion ?? "";
       const payload = { titular, expedientes: p.expedientes };
       const hash = await estadoHash(p.expedientes);
       await svc.from("tramix_cache").upsert({ legajo, payload, estado_hash: hash, consultado_at: new Date().toISOString() });
       await svc.rpc("tramix_record", { p_user: user.id, p_administracion: adminId, p_legajo: legajo, p_resultado: p.expedientes.length ? "OK" : "NOT_FOUND" });
-      return json({ resultado: p.expedientes.length ? "OK" : "NOT_FOUND", legajo, titular, expedientes: p.expedientes, desde_cache: false, consultado_at: new Date().toISOString(), ms: Math.round(performance.now() - t0) });
+      return okList(payload, { desde_cache: false, consultado_at: new Date().toISOString(), ms: Math.round(performance.now() - t0) });
     } catch (e) {
       const res = e instanceof TramixTimeout ? "TIMEOUT" : "TRAMIX_DOWN";
       await svc.rpc("tramix_record", { p_user: user.id, p_administracion: adminId, p_legajo: legajo, p_resultado: res });
-      if (cache) return json({ resultado: cache.payload?.expedientes?.length ? "OK" : "NOT_FOUND", legajo, titular, expedientes: cache.payload?.expedientes ?? [], desde_cache: true, consultado_at: cache.consultado_at, throttle_note: res });
-      return json({ resultado: res });
+      if (cache) return okList(cache.payload, { desde_cache: true, consultado_at: cache.consultado_at, throttle_note: res });
+      return json({ resultado: res, legajo, legajo_default: legajoDefault });
     }
   } catch (e) {
     return json({ resultado: "ERROR", error: String(e), ms: Math.round(performance.now() - t0) }, 500);

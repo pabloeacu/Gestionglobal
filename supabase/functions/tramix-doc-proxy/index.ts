@@ -118,12 +118,14 @@ Deno.serve(async (req) => {
     const adminId = prof?.administracion_id ?? null;
     if (!adminId) return json({ resultado: "SIN_ADMIN" });
     const { data: adm } = await svc.from("administraciones").select("legajo_rpac").eq("id", adminId).maybeSingle();
-    const legajo = String(adm?.legajo_rpac ?? "").replace(/[^0-9]/g, "");
-    if (!legajo) return json({ resultado: "SIN_LEGAJO" });
+    const legajoDefault = String(adm?.legajo_rpac ?? "").replace(/[^0-9]/g, "");
 
     const b = await req.json().catch(() => ({} as any));
     const action = b.action ?? "actuacion";
     const force = !!b.force;
+    // Legajo editable: el que mande el cliente (la consulta que está mirando) o el de su ficha.
+    const legajo = (b.legajo != null ? String(b.legajo).replace(/[^0-9]/g, "") : "") || legajoDefault;
+    if (!legajo) return json({ resultado: "SIN_LEGAJO" });
     const ref = b.detalle_ref || {};
     const o = clean(String(ref.o ?? "")), t = clean(String(ref.t ?? "EXP")), n = clean(String(ref.n ?? "")), a = clean(String(ref.a ?? ""));
     const actIdx = String(b.actIdx ?? "0").replace(/[^0-9]/g, "") || "0";

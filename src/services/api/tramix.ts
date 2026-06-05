@@ -30,6 +30,8 @@ export type TramixResultado =
 export type TramixConsultaResp = {
   resultado: TramixResultado;
   legajo?: string;
+  /** Legajo por defecto del usuario (ficha o última consulta) — para precargar el campo editable. */
+  legajo_default?: string;
   titular?: string;
   expedientes?: TramixExpediente[];
   desde_cache?: boolean;
@@ -55,19 +57,24 @@ export type TramixDetalleResp = {
 type Ok<T> = { ok: true; data: T };
 type Fail = { ok: false; error: string };
 
-/** Consulta la lista de expedientes del legajo del usuario autenticado. */
-export async function consultarTramix(force = false): Promise<Ok<TramixConsultaResp> | Fail> {
+/**
+ * Consulta la lista de expedientes de un legajo.
+ * `legajo` es opcional y editable por el usuario: si se omite, el servidor usa
+ * el de la ficha de la administración (`legajo_default`). El front nunca obliga
+ * a mandarlo — pero cuando el usuario lo edita en el modal, lo pasa acá.
+ */
+export async function consultarTramix(legajo?: string, force = false): Promise<Ok<TramixConsultaResp> | Fail> {
   const { data, error } = await supabase.functions.invoke<TramixConsultaResp>('tramix-consulta', {
-    body: { action: 'consultar', force },
+    body: { action: 'consultar', legajo, force },
   });
   if (error) return { ok: false, error: await extractEdgeFnError(error) };
   return { ok: true, data: data as TramixConsultaResp };
 }
 
-/** Trae el detalle (header + actuaciones) de un expediente del propio legajo. */
-export async function consultarTramixDetalle(ref: TramixDetalleRef, force = false): Promise<Ok<TramixDetalleResp> | Fail> {
+/** Trae el detalle (header + actuaciones) de un expediente del legajo consultado. */
+export async function consultarTramixDetalle(ref: TramixDetalleRef, legajo?: string, force = false): Promise<Ok<TramixDetalleResp> | Fail> {
   const { data, error } = await supabase.functions.invoke<TramixDetalleResp>('tramix-consulta', {
-    body: { action: 'detalle', detalle_ref: ref, force },
+    body: { action: 'detalle', detalle_ref: ref, legajo, force },
   });
   if (error) return { ok: false, error: await extractEdgeFnError(error) };
   return { ok: true, data: data as TramixDetalleResp };
@@ -97,10 +104,11 @@ export type TramixDocumentoResp = {
 export async function consultarTramixActuacion(
   ref: TramixDetalleRef,
   actIdx: string,
+  legajo?: string,
   force = false,
 ): Promise<Ok<TramixActuacionResp> | Fail> {
   const { data, error } = await supabase.functions.invoke<TramixActuacionResp>('tramix-doc-proxy', {
-    body: { action: 'actuacion', detalle_ref: ref, actIdx, force },
+    body: { action: 'actuacion', detalle_ref: ref, actIdx, legajo, force },
   });
   if (error) return { ok: false, error: await extractEdgeFnError(error) };
   return { ok: true, data: data as TramixActuacionResp };
@@ -110,10 +118,11 @@ export async function consultarTramixActuacion(
 export async function descargarTramixDocumento(
   ref: TramixDetalleRef,
   actIdx: string,
+  legajo?: string,
   force = false,
 ): Promise<Ok<TramixDocumentoResp> | Fail> {
   const { data, error } = await supabase.functions.invoke<TramixDocumentoResp>('tramix-doc-proxy', {
-    body: { action: 'documento', detalle_ref: ref, actIdx, force },
+    body: { action: 'documento', detalle_ref: ref, actIdx, legajo, force },
   });
   if (error) return { ok: false, error: await extractEdgeFnError(error) };
   return { ok: true, data: data as TramixDocumentoResp };
