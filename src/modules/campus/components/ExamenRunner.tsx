@@ -4,30 +4,28 @@ import { Button } from '@/components/common';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/cn';
 import {
+  getExamenParaRendir,
   iniciarIntento,
   listIntentos,
   responderExamen,
   type CursoExamenRow,
-  type CursoOpcionRow,
-  type CursoPreguntaRow,
-  type CursoExamenSeccionRow,
   type ExamenIntentoRow,
+  type ExamenRendir,
+  type ExamenRendirPregunta,
   type RespuestaPregunta,
   type ResultadoExamen,
 } from '@/services/api/campus';
 import { humanizeError } from '@/lib/errors';
 
-type PreguntaFull = CursoPreguntaRow & { opciones: CursoOpcionRow[] };
-
 interface ExamenRunnerProps {
   matriculaId: string;
-  examen: CursoExamenRow & {
-    secciones: CursoExamenSeccionRow[];
-    preguntas: PreguntaFull[];
-  };
+  // Sólo metadata del examen. El contenido (preguntas/opciones) lo trae la RPC
+  // sanitizada `curso_examen_rendir` — el alumno NUNCA recibe `correcta` (E-GG-52).
+  examen: CursoExamenRow;
 }
 
-type Grupo = { seccion: CursoExamenSeccionRow | null; preguntas: PreguntaFull[] };
+type SeccionLite = ExamenRendir['secciones'][number];
+type Grupo = { seccion: SeccionLite | null; preguntas: ExamenRendirPregunta[] };
 
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
@@ -40,21 +38,18 @@ function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
-// Agrupa las preguntas por sección (en orden) + grupo "sin sección" al final.
-// Si el examen mezcla, baraja preguntas dentro de cada grupo y sus opciones.
-function construirGrupos(
-  examen: ExamenRunnerProps['examen'],
-  mezclar: boolean,
-): Grupo[] {
-  const porSeccion = new Map<string, PreguntaFull[]>();
-  const sin: PreguntaFull[] = [];
-  for (const p of examen.preguntas) {
+// Agrupa por sección (en orden) + grupo "sin sección" al final. Si el examen
+// mezcla, baraja preguntas dentro de cada grupo y sus opciones.
+function construirGrupos(contenido: ExamenRendir, mezclar: boolean): Grupo[] {
+  const porSeccion = new Map<string, ExamenRendirPregunta[]>();
+  const sin: ExamenRendirPregunta[] = [];
+  for (const p of contenido.preguntas) {
     if (p.seccion_id) {
       if (!porSeccion.has(p.seccion_id)) porSeccion.set(p.seccion_id, []);
       porSeccion.get(p.seccion_id)!.push(p);
     } else sin.push(p);
   }
-  const prep = (ps: PreguntaFull[]) => {
+  const prep = (ps: ExamenRendirPregunta[]) => {
     const ordered = mezclar ? shuffle(ps) : [...ps].sort((a, b) => a.orden - b.orden);
     return ordered.map((p) => ({
       ...p,
@@ -64,7 +59,7 @@ function construirGrupos(
     }));
   };
   const grupos: Grupo[] = [];
-  for (const s of [...examen.secciones].sort((a, b) => a.orden - b.orden)) {
+  for (const s of [...contenido.secciones].sort((a, b) => a.orden - b.orden)) {
     grupos.push({ seccion: s, preguntas: prep(porSeccion.get(s.id) ?? []) });
   }
   if (sin.length) grupos.push({ seccion: null, preguntas: prep(sin) });
@@ -75,28 +70,40 @@ function construirGrupos(
 export function ExamenRunner({ matriculaId, examen }: ExamenRunnerProps) {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [contenido, setContenido] = useState<ExamenRendir | null>(null);
   const [intento, setIntento] = useState<ExamenIntentoRow | null>(null);
   const [previos, setPrevios] = useState<ExamenIntentoRow[]>([]);
   const [respuestas, setRespuestas] = useState<Record<string, string[]>>({});
   const [resultado, setResultado] = useState<ResultadoExamen | null>(null);
   const [vista, setVista] = useState<Grupo[]>([]);
 
+  const totalPreguntas = contenido?.preguntas.length ?? 0;
   const totalPuntaje = useMemo(
-    () => examen.preguntas.reduce((a, p) => a + (p.puntaje ?? 0), 0),
-    [examen.preguntas],
+    () => (contenido?.preguntas ?? []).reduce((a, p) => a + (p.puntaje ?? 0), 0),
+    [contenido],
   );
 
   useEffect(() => {
-    void cargarPrevios();
+    void cargar();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [examen.id, matriculaId]);
 
-  async function cargarPrevios() {
+  async function cargar() {
     setLoading(true);
-    const res = await listIntentos(matriculaId, examen.id);
+    const [cont, intentos] = await Promise.all([
+      getExamenParaRendir(examen.id),
+      listIntentos(matriculaId, examen.id),
+    ]);
     setLoading(false);
-    if (!res.ok) { toast.error(humanizeError(res.error)); return; }
-    setPrevios(res.data);
+    if (!cont.ok) { toast.error(humanizeError(cont.error)); return; }
+    if (!intentos.ok) { toast.error(humanizeError(intentos.error)); return; }
+    setContenido(cont.data);
+    setPrevios(intentos.data);
+  }
+
+  async function recargarPrevios() {
+    const res = await listIntentos(matriculaId, examen.id);
+    if (res.ok) setPrevios(res.data);
   }
 
   const intentosRestantes = Math.max(0, (examen.intentos_max ?? 1) - previos.length);
@@ -107,12 +114,13 @@ export function ExamenRunner({ matriculaId, examen }: ExamenRunnerProps) {
     new Date(examen.fecha_habilitacion) > new Date();
 
   async function arrancar() {
+    if (!contenido) return;
     setLoading(true);
     const res = await iniciarIntento(examen.id, matriculaId);
     setLoading(false);
     if (!res.ok) { toast.error(humanizeError(res.error)); return; }
     setIntento(res.data);
-    setVista(construirGrupos(examen, examen.mezclar_preguntas));
+    setVista(construirGrupos(contenido, examen.mezclar_preguntas));
     setRespuestas({});
     setResultado(null);
   }
@@ -133,7 +141,7 @@ export function ExamenRunner({ matriculaId, examen }: ExamenRunnerProps) {
     setSubmitting(false);
     if (!res.ok) { toast.error(humanizeError(res.error)); return; }
     setResultado(res.data);
-    void cargarPrevios();
+    void recargarPrevios();
   }
 
   if (loading) {
@@ -220,9 +228,9 @@ export function ExamenRunner({ matriculaId, examen }: ExamenRunnerProps) {
                       )}
                       <span><span className="text-brand-cyan">P{n}.</span> {p.enunciado}</span>
                     </p>
-                    {p.explicacion && (
+                    {d?.explicacion && (
                       <p className="mt-1.5 pl-6 text-xs text-brand-muted">
-                        <span className="font-semibold">Justificación:</span> {p.explicacion}
+                        <span className="font-semibold">Justificación:</span> {d.explicacion}
                       </p>
                     )}
                   </div>
@@ -252,8 +260,8 @@ export function ExamenRunner({ matriculaId, examen }: ExamenRunnerProps) {
               </p>
             )}
             <p className="mt-2 text-xs text-brand-muted">
-              {examen.preguntas.length} preguntas · {totalPuntaje} puntos · Nota
-              mínima {examen.nota_aprobacion}/100 · Intentos restantes:{' '}
+              {totalPreguntas} preguntas · {totalPuntaje} puntos · Nota mínima{' '}
+              {examen.nota_aprobacion}/100 · Intentos restantes:{' '}
               <strong>{intentosRestantes}</strong>
             </p>
           </div>
@@ -290,7 +298,9 @@ export function ExamenRunner({ matriculaId, examen }: ExamenRunnerProps) {
 
         <Button
           onClick={arrancar}
-          disabled={intentosRestantes <= 0 || yaCerrado || aunNoHabilitado || loading}
+          disabled={
+            intentosRestantes <= 0 || yaCerrado || aunNoHabilitado || loading || totalPreguntas === 0
+          }
         >
           Comenzar examen
         </Button>

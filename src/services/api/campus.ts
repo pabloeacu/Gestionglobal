@@ -464,6 +464,40 @@ export async function listIntentos(
   return ok(data ?? []);
 }
 
+// Contenido del examen SANITIZADO para que lo rinda el alumno: SIN `correcta`,
+// sin retroalimentación y sin explicación (viajan sólo al corregir, vía
+// curso_responder_examen). Regla 3 / E-GG-52. Lo provee la RPC SECURITY DEFINER
+// curso_examen_rendir; el SELECT directo de preguntas/opciones es staff-only.
+export interface ExamenRendirPregunta {
+  id: string;
+  seccion_id: string | null;
+  orden: number;
+  tipo: PreguntaTipo;
+  enunciado: string;
+  puntaje: number;
+  opciones: Array<{ id: string; orden: number; texto: string }>;
+}
+export interface ExamenRendir {
+  examen: Pick<
+    CursoExamenRow,
+    | 'id' | 'curso_id' | 'titulo' | 'descripcion' | 'nota_aprobacion'
+    | 'intentos_max' | 'mostrar_resultados' | 'mezclar_preguntas'
+    | 'fecha_habilitacion' | 'fecha_cierre'
+  >;
+  secciones: Array<Pick<CursoExamenSeccionRow, 'id' | 'titulo' | 'descripcion' | 'orden'>>;
+  preguntas: ExamenRendirPregunta[];
+}
+
+export async function getExamenParaRendir(
+  examenId: string,
+): Promise<ApiResponse<ExamenRendir>> {
+  const { data, error } = await supabase.rpc('curso_examen_rendir', {
+    p_examen_id: examenId,
+  });
+  if (error) return fail('EXAMEN_RENDIR', error.message, error);
+  return ok(data as unknown as ExamenRendir);
+}
+
 // ============================================================================
 // CRUDs staff · cursos, módulos, clases, exámenes
 // ============================================================================

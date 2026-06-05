@@ -7989,6 +7989,7 @@ export type Database = {
         }
         Returns: string
       }
+      curso_examen_rendir: { Args: { p_examen_id: string }; Returns: Json }
       curso_iniciar_intento: {
         Args: { p_examen_id: string; p_matricula_id: string }
         Returns: {

@@ -54,8 +54,8 @@ export function ExamenEditor({ cursoId, examenes, onChanged }: ExamenEditorProps
       curso_id: cursoId,
       titulo: titulo.trim(),
       descripcion: descripcion.trim() || null,
-      nota_aprobacion: nota,
-      intentos_max: intentos,
+      nota_aprobacion: Math.min(100, Math.max(0, nota || 0)),
+      intentos_max: Math.max(1, intentos || 1),
       mostrar_resultados: mostrar,
       mezclar_preguntas: mezclar,
     });
@@ -400,8 +400,8 @@ function ExamenMetaForm({ examen, onSaved, onCancel }: {
     const res = await actualizarExamen(examen.id, {
       titulo: titulo.trim(),
       descripcion: descripcion.trim() || null,
-      nota_aprobacion: nota,
-      intentos_max: intentos,
+      nota_aprobacion: Math.min(100, Math.max(0, nota || 0)),
+      intentos_max: Math.max(1, intentos || 1),
       mostrar_resultados: mostrar,
       mezclar_preguntas: mezclar,
     });
