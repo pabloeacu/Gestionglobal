@@ -1566,3 +1566,68 @@ El usuario lo pidió en dos requerimientos simultáneos.
     notif_emitir escala a push).
 
 - **Fecha:** 2026-06-01 / 2026-06-02 · commit `<DGG-32>`.
+
+---
+
+## DGG-46 · TRAMIX — consulta nativa de expedientes DPPJ-PBA en el portal (2026-06-04)
+
+- **Qué:** botón "Consultar en Mesa de Entradas Virtual PBA" en *Mis gestiones*
+  (portal cliente) → modal que muestra, **nativo**, el estado de los expedientes
+  del legajo del administrador en la Mesa de Entradas Virtual de la Dirección
+  Provincial de Personas Jurídicas (TRAMIX/DPPJ-PBA), con detalle expandible
+  (header + actuaciones) y salvavidas oficial.
+
+- **Premisa de Pablo (innegociable):** "esta ventana debe adaptarse a nuestra
+  tecnología, no al revés. Si se puede, buenísimo; si no, no la implementamos."
+  → El "Route Handler de Next.js" del brief se implementó como **Supabase Edge
+  Function (Deno) aislada** (`tramix-consulta`). **Egress verificado EN VIVO**
+  desde el runtime de Edge a `tramix.persjuri.gba.gov.ar:8080` (HTTP, puerto no
+  estándar): 200, JSESSIONID, 238ms → se puede → se implementó. Cero impacto
+  sobre lo existente (additivo).
+
+- **Privacidad por construcción:** el legajo NO lo manda el front. La Edge fn
+  resuelve `auth.getUser()` → `profiles.administracion_id` →
+  `administraciones.legajo_rpac` (server-side, service_role). El cliente sólo ve
+  SU legajo. La acción `detalle` valida que el `detalle_ref` pertenezca a un
+  expediente del legajo del usuario (según cache) antes de pegarle a TRAMIX
+  (`FORBIDDEN` si no).
+
+- **Anti-martilleo (sitio gov frágil de 2006):** cache-first (`tramix_cache` /
+  `tramix_detalle_cache`, 15' fresco) + gate atómico
+  `tramix_gate(p_user,p_legajo,p_force)` (SECURITY DEFINER, `FOR UPDATE` sobre
+  `tramix_throttle` singleton: throttle global 3.5s + cooldown 30s por
+  usuario+legajo en refresco forzado + tope 30/h) + circuit-breaker
+  `tramix_record` (5 fallos → 10' abierto) + sesión JSESSIONID+T&C reutilizable
+  (`tramix_session`, 18', re-aceptación automática ante muro de T&C).
+
+- **Flujo TRAMIX (latin1):** `GET /` → `POST /jsp/Instrucciones.jsp` (acepta
+  T&C) → `POST /LoginServlet` → `GET /QueryExped?txtLegajo=...` (¡por GET!) →
+  `GET /ExpedDetails?o&t&n&a`. Parsers `deno-dom` **validados sobre HTML real**
+  (legajo modelo 284265 / EZEQUIEL CARLOS GOMEZ): 6 expedientes con todos los
+  campos + `detalle_ref`, y detalle (header 11 campos + actuaciones).
+
+- **Taxonomía → salvavidas:** `OK·NOT_FOUND·SIN_LEGAJO·SIN_ADMIN·RATE_LIMITED·
+  CIRCUIT_OPEN·TRAMIX_DOWN·TIMEOUT·PARSE_ERROR·TC_BLOCKED·FORBIDDEN`. Ante
+  cualquier fallo, el modal ofrece el **deep-link oficial** con el legajo a la
+  vista. El "i" cita la fuente (Disp. DPPJ 148/06: informativo, no vinculante).
+
+- **Límite honesto (documentos diferidos):** ningún expediente del legajo modelo
+  tiene PDF adjunto (`ActuacionDetails` de la observación no expone binario), así
+  que **no se construyó un descargador a ciegas** ("no quedar atrapado en un
+  desarrollo imperfecto"). `tramix_documentos_cache` + bucket privado quedan
+  listos para cerrar el patrón con un expediente con adjunto real.
+
+- **Capa de datos (mig 0198, aislada):** 6 tablas + bucket. RLS en todas (R2);
+  las 5 internas sin policy (deny-all a clientes, sólo Edge fn con service_role)
+  → advisor `rls_enabled_no_policy` nivel **INFO** = diseño buscado. GRANTs
+  explícitos (R6). Gate/record SECURITY DEFINER con `REVOKE FROM authenticated`
+  → no disparan advisor 0029. Smoke e2e de los RPCs en la migración (R18).
+
+- **Verificación:** egress (vivo) · parsers consultar+detalle (vivo sobre 284265)
+  · gate/record (smoke mig) · auth gate (401/NO_AUTH, vivo) · composición BD
+  (Estudio Save → legajo_rpac 284265). **Pendiente:** click-through visual del
+  modal logueado como cliente (gateado por credenciales del portal). Legajo de
+  Estudio Save apuntado a 284265 para que ese test muestre los 6 expedientes.
+
+- **Reglas:** R2, R4, R6, R7, R13, R18. Doc viva: `docs/tramix.md`.
+- **Fecha:** 2026-06-04 · commit `69896b4`.

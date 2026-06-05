@@ -127,17 +127,20 @@ Cada fila tiene un checkbox + el **link de detalle en la columna Número**.
 
 ## 8. Plan de fases (con checkpoint al cierre de cada una)
 
-- **Fase 0 — Reconocimiento** ✅ (este doc). Pendiente menor: patrón binario de
-  documento (se cierra al implementar Fase 1, capturando un ActuacionDetails con PDF).
-- **Fase 1 — Backend núcleo**: Edge Function `tramix-consulta` (sesión/T&C + GET
-  QueryExped + parser tabla con `detalle_ref` + acción ExpedDetails) +
-  `tramix-doc-proxy` + taxonomía de errores. Tests del parser con el HTML real
-  capturado (284265: encontrado / no-encontrado / T&C-expirada / detalle).
-- **Fase 2 — Anti-martilleo**: cache-first + cola serial + throttle distribuido
-  (tabla) + cooldown + tope/hora + circuit breaker. Tests de carrera.
-- **Fase 3 — Frontend modal**: estados, ícono "i", salvavidas, a11y.
-- **Fase 4 — Integración**: tablas + RLS + env vars + base `estado_hash` para
-  notificaciones futuras (Resend).
+- **Fase 0 — Reconocimiento** ✅ (este doc).
+- **Fase 1 — Backend núcleo** ✅ · Edge Function `tramix-consulta` (PROD,
+  verify_jwt=true): sesión/T&C reusable + GET QueryExped + parser tabla con
+  `detalle_ref` + acción `detalle` (ExpedDetails: header + actuaciones).
+  Parsers `deno-dom` validados sobre HTML real de 284265. Taxonomía de errores
+  completa. (Doc-proxy de binarios **diferido**: ver §10.)
+- **Fase 2 — Anti-martilleo** ✅ · cache-first (15') + gate atómico
+  `tramix_gate` (throttle global 3.5s + cooldown 30s + tope 30/h) + circuit
+  breaker `tramix_record` (5 fallos → 10'). Smoke de carrera en mig 0198.
+- **Fase 3 — Frontend modal** ✅ · `TramixConsultaModal` en *Mis gestiones*:
+  estados, ícono "i" (T&C), lista de expedientes con badge por estado, detalle
+  expandible (lazy), salvavidas, a11y.
+- **Fase 4 — Integración** ✅ · mig 0198 (6 tablas + RLS + GRANTs + bucket) +
+  `estado_hash` poblado en cache para notificaciones futuras (Resend).
 
 ## 9. Riesgos / límites honestos
 
@@ -147,3 +150,26 @@ Cada fila tiene un checkbox + el **link de detalle en la columna Número**.
   en Fase 1** (si Supabase Edge bloqueara el egress HTTP:8080, el feature NO se
   implementa — premisa de Pablo).
 - Datos personales de terceros: sólo se expone a cada cliente SU legajo.
+
+## 10. Estado final (2026-06-04 · DGG-46 · commit `69896b4`)
+
+**Implementado y desplegado** (Fases 1-4). Artefactos:
+- Edge fn `tramix-consulta` (PROD, verify_jwt=true) — repo:
+  `supabase/functions/tramix-consulta/index.ts`.
+- Mig `0198_tramix_subsistema.sql` (6 tablas + RLS + GRANTs + bucket +
+  `tramix_gate` + `tramix_record` + smoke R18).
+- Front: `src/services/api/tramix.ts` + `src/modules/portal/components/
+  TramixConsultaModal.tsx` + botón en `PortalGestionesPage`.
+
+**Verificado:** egress Edge→tramix:8080 (vivo, 238ms) · parsers consultar+detalle
+(vivo sobre 284265: 6 expedientes + detalle) · gate/record (smoke mig) · auth
+gate (401/NO_AUTH vivo) · composición BD (Estudio Save → legajo_rpac 284265).
+
+**Pendiente menor (sin bloqueo):**
+1. **Click-through visual** del modal logueado como cliente (gateado por
+   credenciales del portal → lo hace Pablo; el legajo de Estudio Save ya
+   apunta a 284265 para que se vean los 6 expedientes en vivo).
+2. **Doc-proxy de binarios** (`tramix-doc-proxy` + uso de `tramix_documentos_cache`):
+   diferido hasta tener un expediente con PDF adjunto real para validar el patrón
+   del enlace del binario en `ActuacionDetails` (el legajo modelo no tiene
+   adjuntos). Mientras tanto: salvavidas oficial.
