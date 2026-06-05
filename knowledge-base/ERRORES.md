@@ -2023,3 +2023,53 @@
     y "lo declarás cada vez". Vale más que cualquier optimización del
     formulario.
 - **Fecha / módulo:** 2026-06-02 · auditoría E-GG-32 cierre.
+
+---
+
+## E-GG-50 · El creador de clientes nunca creaba el usuario de login (2026-06-04)
+
+- **Síntoma (Pablo):** "quise crear un cliente nuevo y el creador se saltó el
+  último paso, me sacó de la pantalla y no me creó el usuario".
+- **Reproducción:** quedó la administración `Administración TEST`
+  (`pabloeacu+test@gmail.com`) creada, **sin** `auth.users` ni `profiles`, sin
+  rastro en los logs de la edge function de alta. → la falla fue **en el
+  frontend, antes de llamar al backend**.
+- **Causa raíz:** `AdministracionFormDrawer` (el creador de clientes) sólo hace
+  `createAdministracion()` y cierra el drawer. **Nunca** crea el acceso al
+  portal. La creación del usuario (`altaClientePortal` → edge fn
+  `alta-cliente-portal`) sólo existía dentro de `WizardActivacion` (activar
+  solicitud). No había NINGÚN punto de entrada para dar acceso al portal a una
+  administración creada directo → cliente huérfano, no-transaccional, sin feedback.
+- **Fix:** (1) ficha del cliente (`AdministracionDetailPage`): botón "Crear
+  acceso al portal" cuando `user_id` es null (usePrompt para el email) + chip
+  "Acceso al portal activo" cuando ya tiene; (2) creador
+  (`AdministracionFormDrawer`): checkbox opcional "Crear acceso al portal para
+  este cliente" en el último paso (sólo alta nueva, con guarda de email),
+  que tras `createAdministracion` llama `altaClientePortal`. La edge fn ya era
+  idempotente + manda credenciales por mail.
+- **Lección:** todo flujo de "alta de entidad con acceso" que separa la
+  creación del registro de la creación de la credencial DEBE ofrecer la
+  credencial en el mismo lugar (o dejar un punto de entrada visible en la
+  ficha), o queda el hueco "creé el cliente pero no puede entrar".
+- **Fecha / módulo:** 2026-06-04 · clientes · commit `39aada4`.
+
+## E-GG-51 · TRAMIX: el modal abría pero la consulta fallaba (CORS preflight) (2026-06-04)
+
+- **Síntoma:** QA en vivo del modal TRAMIX (DGG-46): abría perfecto pero la
+  consulta tiraba toast "No pudimos consultar… Failed to send a request to the
+  Edge Function" (`FunctionsFetchError`).
+- **Causa raíz:** `supabase.functions.invoke` agrega los headers
+  `x-client-info` y `x-supabase-api-version` al request. El **preflight CORS**
+  pedía permiso para esos headers y mi `Access-Control-Allow-Headers` sólo
+  listaba `authorization, apikey, content-type` → el navegador **bloqueaba** el
+  POST antes de mandarlo (de ahí "failed to send", no un 4xx/5xx). En Fase 0
+  había validado la función con **curl**, que NO hace preflight → pasó.
+- **Fix:** `Access-Control-Allow-Headers` ahora incluye `x-client-info,
+  x-supabase-api-version` + `Access-Control-Allow-Methods: POST, OPTIONS`
+  (mismo patrón que `alta-cliente-portal`). Deployado v6. Verificado en vivo:
+  6 expedientes del legajo 284265 + detalle, render nativo.
+- **Lección:** validar edge functions cliente-facing **desde el browser** (con
+  supabase-js), no sólo con curl — el preflight CORS sólo aparece en el browser.
+  Headers mínimos para functions.invoke: `authorization, x-client-info, apikey,
+  content-type, x-supabase-api-version`.
+- **Fecha / módulo:** 2026-06-04 · tramix-consulta · commit `6ac2d08`.

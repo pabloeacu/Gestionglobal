@@ -165,11 +165,16 @@ Cada fila tiene un checkbox + el **link de detalle en la columna Número**.
 (vivo sobre 284265: 6 expedientes + detalle) · gate/record (smoke mig) · auth
 gate (401/NO_AUTH vivo) · composición BD (Estudio Save → legajo_rpac 284265).
 
+**Click-through visual ✅ (2026-06-04, en vivo en producción):** logueado como
+`Administración TEST` (legajo 284265) en el portal, el modal mostró los **6
+expedientes reales** con badges por estado (INSCRIPTO/INICIADO/OBSERVADO/
+NOTIFICADO OFICIOS), el detalle expandible (header + actuaciones/movimientos) y
+el footer de fuente. En esa pasada se cazó y corrigió **E-GG-51** (CORS preflight
+faltaba `x-client-info` → la consulta fallaba con FunctionsFetchError; curl no
+lo había detectado porque no hace preflight). Deployado v6.
+
 **Pendiente menor (sin bloqueo):**
-1. **Click-through visual** del modal logueado como cliente (gateado por
-   credenciales del portal → lo hace Pablo; el legajo de Estudio Save ya
-   apunta a 284265 para que se vean los 6 expedientes en vivo).
-2. **Doc-proxy de binarios** (`tramix-doc-proxy` + uso de `tramix_documentos_cache`):
+1. **Doc-proxy de binarios** (`tramix-doc-proxy` + uso de `tramix_documentos_cache`):
    diferido hasta tener un expediente con PDF adjunto real para validar el patrón
    del enlace del binario en `ActuacionDetails` (el legajo modelo no tiene
    adjuntos). Mientras tanto: salvavidas oficial.
