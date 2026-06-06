@@ -1806,3 +1806,35 @@ El usuario lo pidió en dos requerimientos simultáneos.
   Consola sin errores.
 - **Reglas:** R1, R4, R6, R8, R20. Mig 0205. Build limpio (tsc + vite).
 - **Fecha:** 2026-06-06.
+
+## DGG-52 · Examen Integrador del Curso de formación RPAC cargado (2026-06-06)
+
+- **Qué:** Pablo pasó el examen integrador del "Curso inicial de formación ·
+  Administradores RPAC" (curso `202d8ec3`) en un .docx (export de Google Forms).
+  Cargado con el mismo diseñador que FUNDPLATA (DGG-47): **14 secciones
+  temáticas, 35 preguntas** (15 V/F + 20 opción múltiple), **100 pts**,
+  aprobación **60**, **intentos 1** (sin recuperatorio, decisión de Pablo), sin
+  mezclar, justificación por pregunta donde el origen la traía.
+- **Datos del alumno NO se piden** (decisión de Pablo, igual que FUNDPLATA): el
+  .docx traía una "Sección 1 · Datos del alumno" (8 campos: email, nombre,
+  apellido, DNI, CUIT, matrícula, legajo, mail RPAC) → **omitida por completo**
+  (ya los tenemos del perfil/administración; el alumno rinde logueado).
+- **6 preguntas sin clave en el origen** (el .docx las marcaba "SIN RESPUESTA
+  CORRECTA CONFIGURADA": P22, P23, P29, P30, P34, P35 = 17 pts inganables si se
+  cargaban así). Se le consultaron a Pablo, que respondió: **P22=A, P23=C,
+  P29=C, P30=B, P34=A, P35=C**. Con eso el examen es 100% respondible.
+- **Carga:** DO block atómico (guarda anti-duplicado) con el patrón exacto de
+  FUNDPLATA (V/F = 2 opciones Verdadero/Falso; MC = N opciones; `correcta`
+  bool). No es migración (es contenido, como los módulos/clases del campus).
+- **Verificado:** estructura (14 sec / 35 preg / 100 pts / exactamente 1 opción
+  correcta por pregunta / totales por sección 1:1 con el doc). **Smoke de
+  scoring** con las RPCs reales (`curso_iniciar_intento` + `curso_responder_examen`,
+  todo revertido): todas correctas → **100/aprobado**; preguntas 1-18 mal (54
+  pts) → **46/no aprobado**; 2º intento **bloqueado** por el trigger de ventana
+  (única chance enforced). Motor sanitizado (E-GG-52): el alumno rinde por RPC
+  sin recibir la clave.
+- **Pendiente menor:** walkthrough visual logueado como alumno (la sesión del
+  browser de QA se cayó; el render del nodo Examen + ExamenRunner ya se validó
+  en vivo en el curso de Actualización, mismo componente).
+- **Reglas:** R1, R3, R4. Sin migración (contenido).
+- **Fecha:** 2026-06-06.
