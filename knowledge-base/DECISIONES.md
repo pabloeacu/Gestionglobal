@@ -1653,3 +1653,41 @@ El usuario lo pidió en dos requerimientos simultáneos.
     completo+botón documento. Log server-side: 284265→OK×6, 999999→PARSE_ERROR×1.
   - **Reglas extra:** R4 (services), R7 (edge fns en repo), R8 (cols verificadas),
     R13 (sin window nativo). Fecha: 2026-06-05.
+
+## DGG-47 · Diseñador de exámenes completo del campus (2026-06-05)
+
+- **Qué:** se amplió el motor + la UI de exámenes del campus para cargar exámenes
+  reales tipo "Examen Curso de Actualización FUNDPLATA 2026 (RPAC-PBA)" (6
+  secciones temáticas por instructor, 15 preguntas ponderadas 6/7 pts = 100,
+  aprobación 60%, única chance, justificación por pregunta). Pablo: "todo lo que
+  necesitamos para este examen y los futuros".
+- **Origen:** mapeo de las consignas del examen contra el diseñador existente. El
+  motor ya hacía bien lo conceptual (puntaje ponderado → % → aprueba ≥
+  nota_aprobacion; intento único server-side; condición examen-auto del
+  certificado). Faltaban 3 recursos: **secciones**, **puntaje editable en la UI**
+  (la UI siempre mandaba 1) y **justificación por pregunta**; + **edición** del
+  examen/pregunta (antes sólo se podían borrar).
+- **Mig 0199:** tabla `curso_examen_secciones` (RLS espejo de preguntas + GRANTs
+  R6) + `curso_preguntas.seccion_id` + `curso_preguntas.explicacion`. RPC atómica
+  `curso_iniciar_intento` (regla 4; advisory lock anti doble-click; el trigger de
+  ventana/cap sigue validando). `curso_responder_examen` devuelve `explicacion`
+  por pregunta en el detalle (MISMA firma (uuid,jsonb) → sin overload, R16; el
+  cálculo de nota NO cambió). Smoke R18: correcto=100/aprobado, parcial=54/no.
+- **Front:** `ExamenEditor` (gerencia) — descripción del examen, editar
+  examen/pregunta, puntaje por pregunta, secciones (título+descr), explicación por
+  pregunta, retroalimentación por opción, toggles mostrar_resultados/mezclar.
+  `ExamenRunner` (alumno) — render agrupado por sección, respeta mezclar, radio
+  single-correcta, resultado con feedback por pregunta + justificación (respeta
+  mostrar_resultados).
+- **Seguridad (E-GG-52 / mig 0200):** la doble auditoría (3 agentes) cazó que el
+  alumno recibía `correcta`/`explicacion` en el payload de red. Se cerró con la
+  RPC sanitizada `curso_examen_rendir` + RLS de preguntas/opciones staff-only
+  (regla 3). La justificación se revela recién al responder.
+- **Decisiones de Pablo:** secciones reales (sí), descartar la "Sección 1 · Datos
+  del participante" del Google Forms por redundante (el alumno rinde logueado y
+  matriculado; identidad/email automáticos), MC/VF de una sola respuesta correcta.
+- **Pendiente:** carga del examen real (depende del curso "Actualización RPAC
+  2026" en nuestro campus, que Pablo arma manual) + walkthrough visual logueado
+  (gerente + alumno) — gateado por credenciales.
+- **Reglas:** R2, R3, R4, R6, R12, R16, R18. Build limpio. Migs 0199 + 0200.
+- **Fecha:** 2026-06-05.

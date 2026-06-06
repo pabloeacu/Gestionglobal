@@ -2073,3 +2073,35 @@
   Headers mínimos para functions.invoke: `authorization, x-client-info, apikey,
   content-type, x-supabase-api-version`.
 - **Fecha / módulo:** 2026-06-04 · tramix-consulta · commit `6ac2d08`.
+
+## E-GG-52 · El examen filtraba las respuestas correctas al browser del alumno (2026-06-05)
+
+- **Síntoma:** al ampliar el diseñador de exámenes (DGG-47) para cargar el examen
+  real de Actualización RPAC 2026, la doble auditoría (3 agentes) detectó que el
+  alumno recibía `curso_opciones.correcta`, la retroalimentación y
+  `curso_preguntas.explicacion` en el payload de red. Un alumno matriculado abría
+  DevTools → Network y veía la respuesta correcta de cada pregunta **antes** de
+  responder. Para un examen habilitante (matrícula RPAC) invalida la evaluación.
+- **Causa raíz:** el loader del alumno `getCurso` hacía
+  `curso_examenes(*, curso_preguntas(*, curso_opciones(*)))` — el `*` traía la
+  columna sensible `correcta`. La policy `curso_opciones_select` (mig 0029)
+  concedía SELECT de la fila COMPLETA a cualquier matriculado, confiando en que el
+  front "no la mostrara" → seguridad por ocultamiento del lado del cliente. Es lo
+  que la propia mig 0029 anticipó como "pragmático, endurecer si hace falta".
+  Viola la regla 3 (sin secretos en el front).
+- **Fix (a nivel datos, no front — mig 0200):** (a) RPC
+  `curso_examen_rendir(p_examen_id)` SECURITY DEFINER que devuelve examen +
+  secciones + preguntas + opciones **sanitizadas** (sin `correcta`, sin
+  retroalimentación, sin `explicacion`); tenancy staff/matriculado (R12). (b) RLS
+  endurecida: SELECT directo de `curso_preguntas`/`curso_opciones` queda SOLO para
+  staff; el alumno accede al contenido únicamente por la RPC. (c) La justificación
+  se revela recién al responder, vía el `detalle` de `curso_responder_examen` (la
+  corrección siempre fue 100% server-side). Front: `getExamenParaRendir` +
+  `ExamenRunner` consume la RPC; la explicación del resultado sale de
+  `resultado.detalle`, no del payload.
+- **Verificación:** smoke 0200 (BEGIN/ROLLBACK): la RPC no incluye
+  correcta/explicacion; un alumno no-staff ya no lee `curso_opciones` directo.
+- **Lección:** "el front no lo muestra" NO es seguridad — si el dato viaja, está
+  filtrado. Datos que el cliente no debe ver se ocultan en la FUENTE (RPC
+  sanitizada / RLS por rol), no en el render. (Regla 3.)
+- **Fecha / módulo:** 2026-06-05 · campus exámenes · mig 0200.
