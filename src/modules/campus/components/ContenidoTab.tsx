@@ -157,6 +157,9 @@ function ModuloEditor({
   const [titulo, setTitulo] = useState(modulo.titulo);
   const [descripcion, setDescripcion] = useState(modulo.descripcion ?? '');
   const [icono, setIcono] = useState<string | null>(modulo.icono_url ?? null);
+  const [docenteNombre, setDocenteNombre] = useState(modulo.docente_nombre ?? '');
+  const [docenteFoto, setDocenteFoto] = useState<string | null>(modulo.docente_foto_url ?? null);
+  const [docenteBio, setDocenteBio] = useState(modulo.docente_bio ?? '');
   const [pub, setPub] = useState<PublicacionState>({
     publicado: modulo.publicado ?? true,
     publicar_at: modulo.publicar_at,
@@ -168,6 +171,9 @@ function ModuloEditor({
     titulo !== modulo.titulo ||
     (descripcion || null) !== (modulo.descripcion ?? null) ||
     (icono || null) !== (modulo.icono_url ?? null) ||
+    (docenteNombre || null) !== (modulo.docente_nombre ?? null) ||
+    (docenteFoto || null) !== (modulo.docente_foto_url ?? null) ||
+    (docenteBio || null) !== (modulo.docente_bio ?? null) ||
     pub.publicado !== (modulo.publicado ?? true) ||
     pub.publicar_at !== modulo.publicar_at ||
     pub.despublicar_at !== modulo.despublicar_at;
@@ -184,6 +190,9 @@ function ModuloEditor({
       titulo: titulo.trim(),
       descripcion: descripcion.trim() || null,
       icono_url: icono,
+      docente_nombre: docenteNombre.trim() || null,
+      docente_foto_url: docenteFoto,
+      docente_bio: docenteBio.trim() || null,
       publicado: pub.publicado,
       publicar_at: pub.publicar_at,
       despublicar_at: pub.despublicar_at,
@@ -320,6 +329,41 @@ function ModuloEditor({
                   onChange={(e) => setDescripcion(e.target.value)}
                   rows={2}
                   placeholder="Breve introducción al módulo. Aparece debajo del título."
+                />
+              </Field>
+            </div>
+          </div>
+
+          {/* Docente a cargo de la asignatura */}
+          <div className="grid gap-4 rounded-xl border border-slate-200 bg-brand-zebra/20 p-3 sm:grid-cols-[120px_1fr]">
+            <ImageUploader
+              value={docenteFoto}
+              onChange={setDocenteFoto}
+              onPersist={async (url) => {
+                const r = await actualizarModulo(modulo.id, { docente_foto_url: url });
+                if (!r.ok) toast.error(humanizeError(r.error));
+                else onChanged();
+              }}
+              scope="modulo-docente"
+              ownerId={modulo.id}
+              shape="circle"
+              label="Foto del docente"
+              hint="Avatar del docente a cargo de la asignatura. Recortable. ≤ 5 MB."
+            />
+            <div className="space-y-3">
+              <Field label="Docente a cargo">
+                <Input
+                  value={docenteNombre}
+                  onChange={(e) => setDocenteNombre(e.target.value)}
+                  placeholder="Ej: Lic. Ximena González"
+                />
+              </Field>
+              <Field label="Bio del docente (opcional)">
+                <Textarea
+                  value={docenteBio}
+                  onChange={(e) => setDocenteBio(e.target.value)}
+                  rows={2}
+                  placeholder="Breve reseña del docente. Aparece en la asignatura."
                 />
               </Field>
             </div>

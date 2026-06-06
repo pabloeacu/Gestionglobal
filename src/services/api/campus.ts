@@ -602,6 +602,9 @@ export async function actualizarModulo(
       | 'descripcion'
       | 'orden'
       | 'icono_url'
+      | 'docente_nombre'
+      | 'docente_foto_url'
+      | 'docente_bio'
       | 'publicado'
       | 'publicar_at'
       | 'despublicar_at'
@@ -1796,7 +1799,7 @@ export function estadoPublicacion(
   return { tone: 'emerald', label: 'Publicado' };
 }
 
-export type CampusMediaScope = 'curso-banner' | 'curso-instructor' | 'modulo-icono' | 'clase-instructor';
+export type CampusMediaScope = 'curso-banner' | 'curso-instructor' | 'modulo-icono' | 'modulo-docente' | 'clase-instructor';
 
 /**
  * Sube una imagen al bucket público `campus-media` y devuelve la URL pública.

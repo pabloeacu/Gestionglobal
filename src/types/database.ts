@@ -2536,6 +2536,9 @@ export type Database = {
           curso_id: string
           descripcion: string | null
           despublicar_at: string | null
+          docente_bio: string | null
+          docente_foto_url: string | null
+          docente_nombre: string | null
           icono_url: string | null
           id: string
           orden: number
@@ -2549,6 +2552,9 @@ export type Database = {
           curso_id: string
           descripcion?: string | null
           despublicar_at?: string | null
+          docente_bio?: string | null
+          docente_foto_url?: string | null
+          docente_nombre?: string | null
           icono_url?: string | null
           id?: string
           orden?: number
@@ -2562,6 +2568,9 @@ export type Database = {
           curso_id?: string
           descripcion?: string | null
           despublicar_at?: string | null
+          docente_bio?: string | null
+          docente_foto_url?: string | null
+          docente_nombre?: string | null
           icono_url?: string | null
           id?: string
           orden?: number

@@ -164,7 +164,13 @@ export function CursoDetalleAlumnoPage() {
   const clases = useMemo(
     () =>
       modulosVisibles.flatMap((m) =>
-        m.clases.map((c) => ({ ...c, modulo: m.titulo, moduloOrden: m.orden })),
+        m.clases.map((c) => ({
+          ...c,
+          modulo: m.titulo,
+          moduloOrden: m.orden,
+          docenteNombre: m.docente_nombre,
+          docenteFoto: m.docente_foto_url,
+        })),
       ),
     [modulosVisibles],
   );
@@ -325,6 +331,24 @@ export function CursoDetalleAlumnoPage() {
                     Módulo {m.orden} · {m.titulo}
                   </span>
                 </h3>
+                {m.docente_nombre && (
+                  <div className="mt-1 flex items-center gap-2 px-1">
+                    {m.docente_foto_url ? (
+                      <img
+                        src={m.docente_foto_url}
+                        alt=""
+                        className="h-6 w-6 rounded-full object-cover ring-1 ring-slate-200"
+                      />
+                    ) : (
+                      <span className="grid h-6 w-6 place-items-center rounded-full bg-brand-cyan/10 text-[10px] font-semibold text-brand-cyan">
+                        {(m.docente_nombre.split(' ').pop() ?? '·').charAt(0)}
+                      </span>
+                    )}
+                    <span className="text-xs font-medium text-brand-ink">
+                      {m.docente_nombre}
+                    </span>
+                  </div>
+                )}
                 <ul className="mt-1 space-y-1">
                   {m.clases.map((c) => {
                     const done = completadasSet.has(c.id);
@@ -402,6 +426,8 @@ export function CursoDetalleAlumnoPage() {
             <ClasePlayer
               matriculaId={matricula.id}
               clase={claseActiva}
+              docenteNombre={claseActiva.docenteNombre}
+              docenteFoto={claseActiva.docenteFoto}
               completada={completadasSet.has(claseActiva.id)}
               onCompletada={() => void reload()}
             />

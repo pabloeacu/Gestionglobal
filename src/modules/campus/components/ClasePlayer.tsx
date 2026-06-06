@@ -26,6 +26,10 @@ interface ClasePlayerProps {
   clase: CursoClaseRow;
   completada: boolean;
   onCompletada: () => void;
+  /** Docente a cargo de la asignatura (módulo). Se usa como avatar de respaldo
+   *  y se muestra "Con <nombre>" debajo del título de la clase. */
+  docenteNombre?: string | null;
+  docenteFoto?: string | null;
 }
 
 // Reproductor + acciones de una clase para el alumno.
@@ -34,6 +38,8 @@ export function ClasePlayer({
   clase,
   completada,
   onCompletada,
+  docenteNombre,
+  docenteFoto,
 }: ClasePlayerProps) {
   const [saving, setSaving] = useState(false);
 
@@ -55,9 +61,9 @@ export function ClasePlayer({
     <article className="space-y-4 motion-safe:animate-fade-up">
       <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex items-start gap-3">
-          {clase.instructor_foto_url && (
+          {(clase.instructor_foto_url || docenteFoto) && (
             <img
-              src={clase.instructor_foto_url}
+              src={clase.instructor_foto_url || docenteFoto || undefined}
               alt=""
               className="h-14 w-14 shrink-0 rounded-full border border-slate-200 object-cover shadow-sm"
             />
@@ -69,6 +75,11 @@ export function ClasePlayer({
             <h2 className="mt-1 font-display text-2xl font-bold text-brand-ink">
               {clase.titulo}
             </h2>
+            {docenteNombre && (
+              <p className="mt-1 text-sm font-medium text-brand-muted">
+                Con {docenteNombre}
+              </p>
+            )}
             {clase.descripcion && (
               <p className="mt-2 max-w-2xl text-sm text-brand-muted">
                 {clase.descripcion}
