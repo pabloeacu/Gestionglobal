@@ -33,6 +33,7 @@ import {
   resolverEsquemaParaCert,
   verificacionUrl,
   type CertificadoRow,
+  type CursoBibliografiaRow,
   type CursoDetalle,
   type CursoEncuentroRow,
   type CursoMatriculaRow,
@@ -47,6 +48,16 @@ import { ProgresoBar } from '../components/ProgresoBar';
 import { EncuentrosEnVivoAlumno, ClaseEnVivoFullLayout } from '../components/EncuentrosEnVivoAlumno';
 import { EncuestaAlumnoCard } from '../components/EncuestaAlumnoCard';
 import { humanizeError } from '@/lib/errors';
+
+// (DGG-51) El panel derecho del curso muestra UN nodo por vez. Los "nodos" del
+// menú son: cada clase y, además — como estadios propios, no colgando de cada
+// clase — encuentros sincrónicos, bibliografía, examen (último) y certificado.
+type NodoSel =
+  | { tipo: 'clase'; id: string }
+  | { tipo: 'sincronico' }
+  | { tipo: 'bibliografia' }
+  | { tipo: 'examen' }
+  | { tipo: 'certificado' };
 
 // Página del alumno matriculado (portal). Si no está matriculado y el curso es
 // público, muestra CTA de inscripción.
@@ -66,7 +77,8 @@ export function CursoDetalleAlumnoPage() {
   // (incluido el <ZoomLiveEmbed>) → al re-montar dispara un join() duplicado
   // y Zoom interpreta dos solicitudes de admisión.
   const [initialLoading, setInitialLoading] = useState(true);
-  const [claseActivaId, setClaseActivaId] = useState<string | null>(null);
+  // El panel derecho muestra el nodo seleccionado; null = default a 1ª clase.
+  const [nodoSel, setNodoSel] = useState<NodoSel | null>(null);
   // DGG-14: cuando el alumno entra a un encuentro en vivo, el layout
   // cambia a "modo clase" — embed full-width, sidebar oculto.
   const [encuentroEnVivoId, setEncuentroEnVivoId] = useState<string | null>(null);
@@ -170,14 +182,26 @@ export function CursoDetalleAlumnoPage() {
           moduloOrden: m.orden,
           docenteNombre: m.docente_nombre,
           docenteFoto: m.docente_foto_url,
+          docenteCv: m.docente_cv_url,
         })),
       ),
     [modulosVisibles],
   );
 
+  // Nodo efectivo: si el alumno no eligió nada, default a la primera clase.
+  const nodoEfectivo: NodoSel = useMemo(() => {
+    if (nodoSel) return nodoSel;
+    const primera = clases[0];
+    if (primera) return { tipo: 'clase', id: primera.id };
+    return { tipo: 'clase', id: '' };
+  }, [nodoSel, clases]);
+
   const claseActiva = useMemo(
-    () => clases.find((c) => c.id === claseActivaId) ?? clases[0] ?? null,
-    [clases, claseActivaId],
+    () =>
+      nodoEfectivo.tipo === 'clase'
+        ? clases.find((c) => c.id === nodoEfectivo.id) ?? null
+        : null,
+    [clases, nodoEfectivo],
   );
 
   if (initialLoading || !data) {
@@ -243,6 +267,12 @@ export function CursoDetalleAlumnoPage() {
       />
     );
   }
+
+  // Aviso fijo de encuentro en vivo AHORA (independiente del nodo activo).
+  const enVivoAhora =
+    encuentros.find(
+      (e) => e.zoom_status === 'en_curso' || e.webex_status === 'en_curso',
+    ) ?? null;
 
   return (
     <div className="mx-auto max-w-7xl">
@@ -347,16 +377,29 @@ export function CursoDetalleAlumnoPage() {
                     <span className="text-xs font-medium text-brand-ink">
                       {m.docente_nombre}
                     </span>
+                    {m.docente_cv_url && (
+                      <a
+                        href={m.docente_cv_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        download
+                        title="Descargar CV del docente"
+                        className="ml-auto inline-flex items-center gap-0.5 rounded-md px-1 py-0.5 text-[10px] font-semibold text-brand-cyan hover:bg-brand-cyan/10"
+                      >
+                        <Download size={11} /> CV
+                      </a>
+                    )}
                   </div>
                 )}
                 <ul className="mt-1 space-y-1">
                   {m.clases.map((c) => {
                     const done = completadasSet.has(c.id);
-                    const isActive = (claseActiva?.id ?? '') === c.id;
+                    const isActive =
+                      nodoEfectivo.tipo === 'clase' && nodoEfectivo.id === c.id;
                     return (
                       <li key={c.id}>
                         <button
-                          onClick={() => setClaseActivaId(c.id)}
+                          onClick={() => setNodoSel({ tipo: 'clase', id: c.id })}
                           className={cn(
                             'flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm transition',
                             isActive
@@ -382,52 +425,136 @@ export function CursoDetalleAlumnoPage() {
               </section>
             ))}
 
+            {/* Nodos por tipo (DGG-51): cada uno abre SOLO su contenido. */}
+            {encuentros.length > 0 && (
+              <NavNodo
+                icon={<Video size={15} className="text-amber-600" />}
+                label="Encuentros sincrónicos"
+                sub={`${encuentros.length} en vivo`}
+                active={nodoEfectivo.tipo === 'sincronico'}
+                onClick={() => setNodoSel({ tipo: 'sincronico' })}
+              />
+            )}
+            {bibliografiaVisible.length > 0 && (
+              <NavNodo
+                icon={<BookOpen size={15} className="text-brand-cyan" />}
+                label="Bibliografía"
+                sub={`${bibliografiaVisible.length} material${
+                  bibliografiaVisible.length === 1 ? '' : 'es'
+                }`}
+                active={nodoEfectivo.tipo === 'bibliografia'}
+                onClick={() => setNodoSel({ tipo: 'bibliografia' })}
+              />
+            )}
             {data.examenes.length > 0 && (
-              <section>
-                <h3 className="kicker px-1 text-brand-muted">Exámenes</h3>
-                <ul className="mt-1 space-y-1">
-                  {data.examenes.map((e) => (
-                    <li
-                      key={e.id}
-                      className="rounded-lg px-2 py-1.5 text-sm text-brand-muted"
-                    >
-                      <ScrollText
-                        size={14}
-                        className="mr-1 inline text-brand-cyan"
-                      />
-                      {e.titulo}
-                    </li>
-                  ))}
-                </ul>
-              </section>
+              <NavNodo
+                icon={<ScrollText size={15} className="text-brand-cyan" />}
+                label={
+                  data.examenes.length === 1
+                    ? data.examenes[0]?.titulo ?? 'Evaluaciones'
+                    : 'Evaluaciones'
+                }
+                sub="Examen final"
+                active={nodoEfectivo.tipo === 'examen'}
+                onClick={() => setNodoSel({ tipo: 'examen' })}
+              />
+            )}
+            {(condiciones.filter((c) => c.activa).length > 0 || certificado) && (
+              <NavNodo
+                icon={
+                  <Award
+                    size={15}
+                    className={certificado ? 'text-emerald-600' : 'text-brand-cyan'}
+                  />
+                }
+                label="Mi certificado"
+                sub={certificado ? 'Emitido · descargá' : 'Condiciones'}
+                active={nodoEfectivo.tipo === 'certificado'}
+                onClick={() => setNodoSel({ tipo: 'certificado' })}
+              />
             )}
           </nav>
         </aside>
 
-        {/* Contenido principal */}
+        {/* Contenido principal — un nodo por vez (DGG-51) */}
         <main className="space-y-6">
-          {/* Encuentros sincrónicos en vivo (DGG-14) */}
-          {encuentros.some((e: any) => e.zoom_meeting_id) && (
-            <EncuentrosEnVivoAlumno
-              encuentros={encuentros}
-              userName={userNameStable}
-              activoEncuentroId={encuentroEnVivoId}
-              onEntrar={(id) => setEncuentroEnVivoId(id)}
-              onSalir={() => setEncuentroEnVivoId(null)}
-            />
+          {/* Aviso fijo: encuentro en vivo AHORA, esté donde esté el alumno */}
+          {enVivoAhora && nodoEfectivo.tipo !== 'sincronico' && (
+            <button
+              onClick={() => setNodoSel({ tipo: 'sincronico' })}
+              className="flex w-full items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-left transition hover:bg-amber-100"
+            >
+              <span className="relative grid h-9 w-9 shrink-0 place-items-center rounded-full bg-amber-100 text-amber-700">
+                <Video size={16} />
+                <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 animate-pulse rounded-full bg-red-500 ring-2 ring-white" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-semibold text-amber-900">
+                  Hay un encuentro en vivo ahora
+                </span>
+                <span className="block truncate text-xs text-amber-800">
+                  {enVivoAhora.titulo} · tocá para entrar
+                </span>
+              </span>
+            </button>
           )}
-          {(condiciones.filter((c) => c.activa).length > 0 || certificado) && (
-            <CondicionesAlumnoPanel
-              condiciones={condiciones.filter((c) => c.activa)}
-              certificado={certificado}
-            />
-          )}
-          {claseActiva ? (
+
+          {nodoEfectivo.tipo === 'sincronico' ? (
+            encuentros.length > 0 ? (
+              <EncuentrosEnVivoAlumno
+                encuentros={encuentros}
+                userName={userNameStable}
+                activoEncuentroId={encuentroEnVivoId}
+                onEntrar={(id) => setEncuentroEnVivoId(id)}
+                onSalir={() => setEncuentroEnVivoId(null)}
+              />
+            ) : (
+              <NodoVacio
+                icon={<Video size={26} />}
+                titulo="Sin encuentros sincrónicos"
+                mensaje="Este curso no tiene encuentros en vivo programados."
+              />
+            )
+          ) : nodoEfectivo.tipo === 'bibliografia' ? (
+            <BibliografiaPanel items={bibliografiaVisible} />
+          ) : nodoEfectivo.tipo === 'examen' ? (
+            data.examenes.length > 0 ? (
+              <section className="space-y-4">
+                <header className="flex items-center gap-2">
+                  <ScrollText size={16} className="text-brand-cyan" />
+                  <h2 className="font-display text-lg font-semibold text-brand-ink">
+                    Evaluaciones
+                  </h2>
+                </header>
+                {data.examenes.map((e) => (
+                  <ExamenRunner key={e.id} matriculaId={matricula.id} examen={e} />
+                ))}
+              </section>
+            ) : (
+              <NodoVacio
+                icon={<ScrollText size={26} />}
+                titulo="Sin evaluaciones"
+                mensaje="Este curso todavía no tiene examen."
+              />
+            )
+          ) : nodoEfectivo.tipo === 'certificado' ? (
+            <>
+              <CondicionesAlumnoPanel
+                condiciones={condiciones.filter((c) => c.activa)}
+                certificado={certificado}
+              />
+              <EncuestaAlumnoCard
+                curso_id={data.curso.id}
+                matricula_id={matricula.id}
+              />
+            </>
+          ) : claseActiva ? (
             <ClasePlayer
               matriculaId={matricula.id}
               clase={claseActiva}
               docenteNombre={claseActiva.docenteNombre}
               docenteFoto={claseActiva.docenteFoto}
+              docenteCvUrl={claseActiva.docenteCv}
               completada={completadasSet.has(claseActiva.id)}
               onCompletada={() => void reload()}
             />
@@ -436,61 +563,6 @@ export function CursoDetalleAlumnoPage() {
               Este curso todavía no tiene clases publicadas.
             </div>
           )}
-
-          {/* Bibliografía */}
-          {bibliografiaVisible.length > 0 && (
-            <section className="card-premium p-5">
-              <header className="mb-2 flex items-center gap-2">
-                <BookOpen size={16} className="text-brand-cyan" />
-                <h2 className="font-display text-lg font-semibold text-brand-ink">
-                  Bibliografía
-                </h2>
-              </header>
-              <ul className="divide-y divide-slate-100">
-                {bibliografiaVisible.map((b) => (
-                  <li
-                    key={b.id}
-                    className="flex items-center justify-between py-2 text-sm"
-                  >
-                    <div>
-                      <p className="font-semibold text-brand-ink">{b.titulo}</p>
-                      {b.autor && (
-                        <p className="text-xs text-brand-muted">{b.autor}</p>
-                      )}
-                    </div>
-                    {b.url && (
-                      <a
-                        href={b.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-xs font-medium text-brand-cyan hover:underline"
-                      >
-                        Abrir
-                      </a>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
-
-          {/* Exámenes */}
-          {data.examenes.length > 0 && (
-            <section className="space-y-4">
-              <header className="flex items-center gap-2">
-                <ScrollText size={16} className="text-brand-cyan" />
-                <h2 className="font-display text-lg font-semibold text-brand-ink">
-                  Evaluaciones
-                </h2>
-              </header>
-              {data.examenes.map((e) => (
-                <ExamenRunner key={e.id} matriculaId={matricula.id} examen={e} />
-              ))}
-            </section>
-          )}
-
-          {/* Encuesta de Satisfacción (mig 0136) — sólo si está activa */}
-          <EncuestaAlumnoCard curso_id={data.curso.id} matricula_id={matricula.id} />
         </main>
       </div>
     </div>
@@ -661,6 +733,132 @@ function CondicionesAlumnoPanel({
         ))}
       </ul>
     </section>
+  );
+}
+
+// Nodo de "estadio" del menú (encuentros / bibliografía / examen / certificado).
+// Se ve como un módulo clicable; al seleccionarlo el panel derecho muestra SOLO
+// su contenido (DGG-51).
+function NavNodo({
+  icon,
+  label,
+  sub,
+  active,
+  onClick,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  sub?: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        'flex w-full items-center gap-2.5 rounded-xl border px-3 py-2.5 text-left transition',
+        active
+          ? 'border-brand-cyan/30 bg-brand-cyan/10'
+          : 'border-slate-200 bg-white hover:border-brand-cyan/30 hover:bg-slate-50',
+      )}
+    >
+      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-brand-cyan/10">
+        {icon}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-semibold text-brand-ink">
+          {label}
+        </span>
+        {sub && (
+          <span className="block truncate text-[11px] text-brand-muted">{sub}</span>
+        )}
+      </span>
+    </button>
+  );
+}
+
+// Panel de bibliografía (nodo): link externo y/o PDF descargable por ítem.
+function BibliografiaPanel({ items }: { items: CursoBibliografiaRow[] }) {
+  if (items.length === 0) {
+    return (
+      <NodoVacio
+        icon={<BookOpen size={26} />}
+        titulo="Sin bibliografía"
+        mensaje="Este curso todavía no tiene material de lectura cargado."
+      />
+    );
+  }
+  return (
+    <section className="card-premium p-5">
+      <header className="mb-3 flex items-center gap-2">
+        <BookOpen size={16} className="text-brand-cyan" />
+        <h2 className="font-display text-lg font-semibold text-brand-ink">
+          Bibliografía
+        </h2>
+      </header>
+      <ul className="divide-y divide-slate-100">
+        {items.map((b) => (
+          <li
+            key={b.id}
+            className="flex items-center justify-between gap-3 py-3 text-sm"
+          >
+            <div className="min-w-0">
+              <p className="font-semibold text-brand-ink">{b.titulo}</p>
+              {b.autor && <p className="text-xs text-brand-muted">{b.autor}</p>}
+              {b.descripcion && (
+                <p className="mt-0.5 text-xs text-brand-muted">{b.descripcion}</p>
+              )}
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              {b.archivo_url && (
+                <a
+                  href={b.archivo_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  download
+                  className="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium text-brand-ink hover:bg-slate-50"
+                >
+                  <Download size={13} /> Descargar
+                </a>
+              )}
+              {b.url && (
+                <a
+                  href={b.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs font-medium text-brand-cyan hover:underline"
+                >
+                  Abrir
+                </a>
+              )}
+            </div>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+// Placeholder de nodo sin contenido.
+function NodoVacio({
+  icon,
+  titulo,
+  mensaje,
+}: {
+  icon: React.ReactNode;
+  titulo: string;
+  mensaje: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center">
+      <span className="mx-auto grid h-12 w-12 place-items-center rounded-xl bg-brand-cyan/10 text-brand-cyan">
+        {icon}
+      </span>
+      <p className="mt-3 font-display text-base font-semibold text-brand-ink">
+        {titulo}
+      </p>
+      <p className="mt-1 text-sm text-brand-muted">{mensaje}</p>
+    </div>
   );
 }
 

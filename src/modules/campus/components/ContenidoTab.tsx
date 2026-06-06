@@ -28,6 +28,7 @@ import {
 } from '@/components/common';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/cn';
+import { FileUploader } from './FileUploader';
 import {
   actualizarBibliografia,
   actualizarClase,
@@ -160,6 +161,7 @@ function ModuloEditor({
   const [docenteNombre, setDocenteNombre] = useState(modulo.docente_nombre ?? '');
   const [docenteFoto, setDocenteFoto] = useState<string | null>(modulo.docente_foto_url ?? null);
   const [docenteBio, setDocenteBio] = useState(modulo.docente_bio ?? '');
+  const [docenteCv, setDocenteCv] = useState<string | null>(modulo.docente_cv_url ?? null);
   const [pub, setPub] = useState<PublicacionState>({
     publicado: modulo.publicado ?? true,
     publicar_at: modulo.publicar_at,
@@ -174,6 +176,7 @@ function ModuloEditor({
     (docenteNombre || null) !== (modulo.docente_nombre ?? null) ||
     (docenteFoto || null) !== (modulo.docente_foto_url ?? null) ||
     (docenteBio || null) !== (modulo.docente_bio ?? null) ||
+    (docenteCv || null) !== (modulo.docente_cv_url ?? null) ||
     pub.publicado !== (modulo.publicado ?? true) ||
     pub.publicar_at !== modulo.publicar_at ||
     pub.despublicar_at !== modulo.despublicar_at;
@@ -193,6 +196,7 @@ function ModuloEditor({
       docente_nombre: docenteNombre.trim() || null,
       docente_foto_url: docenteFoto,
       docente_bio: docenteBio.trim() || null,
+      docente_cv_url: docenteCv,
       publicado: pub.publicado,
       publicar_at: pub.publicar_at,
       despublicar_at: pub.despublicar_at,
@@ -366,6 +370,19 @@ function ModuloEditor({
                   placeholder="Breve reseña del docente. Aparece en la asignatura."
                 />
               </Field>
+              <FileUploader
+                value={docenteCv}
+                onChange={setDocenteCv}
+                onPersist={async (url) => {
+                  const r = await actualizarModulo(modulo.id, { docente_cv_url: url });
+                  if (!r.ok) toast.error(humanizeError(r.error));
+                  else onChanged();
+                }}
+                scope="modulo-docente-cv"
+                ownerId={modulo.id}
+                label="CV del docente (PDF)"
+                hint="Opcional. El alumno lo descarga desde la asignatura. ≤ 10 MB."
+              />
             </div>
           </div>
 
@@ -863,6 +880,7 @@ function BiblioItem({
   const [titulo, setTitulo] = useState(item.titulo);
   const [autor, setAutor] = useState(item.autor ?? '');
   const [url, setUrl] = useState(item.url ?? '');
+  const [archivo, setArchivo] = useState<string | null>(item.archivo_url ?? null);
   const [descripcion, setDescripcion] = useState(item.descripcion ?? '');
   const [pub, setPub] = useState<PublicacionState>({
     publicado: item.publicado ?? true,
@@ -875,6 +893,7 @@ function BiblioItem({
     titulo !== item.titulo ||
     (autor || null) !== (item.autor ?? null) ||
     (url || null) !== (item.url ?? null) ||
+    (archivo || null) !== (item.archivo_url ?? null) ||
     (descripcion || null) !== (item.descripcion ?? null) ||
     pub.publicado !== (item.publicado ?? true) ||
     pub.publicar_at !== item.publicar_at ||
@@ -892,6 +911,7 @@ function BiblioItem({
       titulo: titulo.trim(),
       autor: autor.trim() || null,
       url: url.trim() || null,
+      archivo_url: archivo,
       descripcion: descripcion.trim() || null,
       publicado: pub.publicado,
       publicar_at: pub.publicar_at,
@@ -958,9 +978,22 @@ function BiblioItem({
               <Input value={autor} onChange={(e) => setAutor(e.target.value)} />
             </Field>
           </div>
-          <Field label="URL">
+          <Field label="Link externo (opcional)">
             <Input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…" />
           </Field>
+          <FileUploader
+            value={archivo}
+            onChange={setArchivo}
+            onPersist={async (u) => {
+              const r = await actualizarBibliografia(item.id, { archivo_url: u });
+              if (!r.ok) toast.error(humanizeError(r.error));
+              else onChanged();
+            }}
+            scope="biblio-archivo"
+            ownerId={item.id}
+            label="Archivo (PDF)"
+            hint="Opcional. Subí el PDF de la lectura. El alumno lo descarga. ≤ 10 MB."
+          />
           <Field label="Descripción (opcional)">
             <Textarea
               rows={2}

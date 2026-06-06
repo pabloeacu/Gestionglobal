@@ -30,6 +30,8 @@ interface ClasePlayerProps {
    *  y se muestra "Con <nombre>" debajo del título de la clase. */
   docenteNombre?: string | null;
   docenteFoto?: string | null;
+  /** CV del docente (PDF). Si está, se ofrece descargar bajo el título. */
+  docenteCvUrl?: string | null;
 }
 
 // Reproductor + acciones de una clase para el alumno.
@@ -40,6 +42,7 @@ export function ClasePlayer({
   onCompletada,
   docenteNombre,
   docenteFoto,
+  docenteCvUrl,
 }: ClasePlayerProps) {
   const [saving, setSaving] = useState(false);
 
@@ -76,8 +79,19 @@ export function ClasePlayer({
               {clase.titulo}
             </h2>
             {docenteNombre && (
-              <p className="mt-1 text-sm font-medium text-brand-muted">
-                Con {docenteNombre}
+              <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm font-medium text-brand-muted">
+                <span>Con {docenteNombre}</span>
+                {docenteCvUrl && (
+                  <a
+                    href={docenteCvUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    download
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-brand-cyan hover:underline"
+                  >
+                    <Download size={12} /> CV del docente
+                  </a>
+                )}
               </p>
             )}
             {clase.descripcion && (

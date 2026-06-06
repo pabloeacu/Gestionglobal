@@ -2537,6 +2537,7 @@ export type Database = {
           descripcion: string | null
           despublicar_at: string | null
           docente_bio: string | null
+          docente_cv_url: string | null
           docente_foto_url: string | null
           docente_nombre: string | null
           icono_url: string | null
@@ -2553,6 +2554,7 @@ export type Database = {
           descripcion?: string | null
           despublicar_at?: string | null
           docente_bio?: string | null
+          docente_cv_url?: string | null
           docente_foto_url?: string | null
           docente_nombre?: string | null
           icono_url?: string | null
@@ -2569,6 +2571,7 @@ export type Database = {
           descripcion?: string | null
           despublicar_at?: string | null
           docente_bio?: string | null
+          docente_cv_url?: string | null
           docente_foto_url?: string | null
           docente_nombre?: string | null
           icono_url?: string | null
