@@ -2143,3 +2143,60 @@
   final, ambos deben disparar el mismo fan-out. Patrón hermano de E-GG-26/E-GG-28
   (gaps de fan-out) y E-GG-35 (paridad entre 2 vías de la misma acción).
 - **Fecha / módulo:** 2026-06-06 · trackings/notificaciones · mig 0201.
+
+## E-GG-54 · Reabrir por kanban no avisaba a nadie + envenenaba el fix del cierre (2026-06-06)
+
+- **Hallazgo de la doble auditoría** (3 agentes paralelos + e2e) sobre el fix
+  E-GG-53. Espejo exacto del mismo patrón:
+  - **#1** Reabrir un trámite arrastrando la tarjeta en el kanban
+    ('cerrado'→'abierto'/'en_progreso', UPDATE directo de estado) **NO
+    notificaba a NADIE** (ni cliente ni gerencia). Solo el modal
+    `tracking_reabrir` notifica.
+  - **#2** Ese reabrir por kanban **no limpiaba `motivo_cierre`** (solo lo hace
+    la RPC). Como el fix 0201 usa `motivo_cierre IS NULL` para decidir si
+    notifica al cliente en el CIERRE, un re-cierre posterior por kanban quedaba
+    **envenenado** por el motivo viejo → suprimía el aviso. Hueco en el propio
+    fix 0201.
+- **Fix (mig 0202, decisión Pablo "simetría total"):** `tramite_on_update`
+  (BEFORE) limpia la metadata de cierre al reabrir por kanban (desactiva el
+  envenenamiento de #2) y `_notif_tracking_cerrado_trg` (AFTER) inserta una
+  línea `'reapertura'` visible → fan-out al cliente (email + push + campanita)
+  por `tracking_linea_on_insert`. Discriminador anti-doble: **`reabierto_count`**
+  (la RPC lo incrementa en el mismo UPDATE; el kanban no) → no duplica con
+  `tracking_reabrir`. + seed de las categorías `'cierre'`/`'reapertura'` en
+  `tracking_categorias_config` (no estaban → el chip mostraba el slug crudo).
+- **Verificación R18 (BEGIN/ROLLBACK):** smoke C (kanban-reopen) → motivo NULL +
+  1 línea reapertura + 1 email cliente; smoke E (re-cierre tras reabrir) → 1
+  cierre + 1 email (envenenamiento curado).
+- **Lección:** cada acción terminal con doble-vía (modal/RPC vs kanban/directo)
+  debe producir el MISMO fan-out en AMBOS sentidos (cerrar Y reabrir). Y un
+  discriminador heurístico (`motivo_cierre IS NULL`) tiene que mantenerse
+  coherente en TODAS las transiciones que lo afectan, o se envenena.
+- **Fecha / módulo:** 2026-06-06 · trackings/notificaciones · mig 0202.
+
+## E-GG-55 · tracking_reabrir con "notificar cliente" tildado estaba roto (2026-06-06)
+
+- **Descubierto por el smoke e2e de E-GG-54** (ejercitar, no leer).
+  `tracking_reabrir(.., p_notificar_cliente => true)` lanzaba error y abortaba
+  TODA la reapertura por 2 bugs en el bloque de notificación:
+  1. `encolar_email(.., 1)` pasa `1` (integer) donde la firma única de
+     `encolar_email` espera `smallint` → 42883 "function does not exist". Drift
+     tipo E-GG-42: `encolar_email` se redefinió a smallint y este caller (mig
+     0188) quedó desfasado; plpgsql no lo valida al aplicar la migración.
+  2. el push hacía `INSERT ... FROM profiles WHERE p.rol='cliente'`, pero
+     `profiles` no tiene columna `rol` (es `role`) y no existe el rol `'cliente'`
+     (los clientes son `role='administrador'`) → 42703.
+  Efecto en prod: el gerente que reabría desde el modal con el check "notificar
+  al cliente" tildado recibía un error y la reapertura **NO se hacía**.
+- **Fix (mig 0203):** `encolar_email(.., 1::smallint)` + push vía
+  `encolar_push(v_admin.user_id, ...)` (el `user_id` de la administración es el
+  perfil del cliente en el portal), cada notificación envuelta en
+  `BEGIN/EXCEPTION` para que un fallo de notificación NO aborte la reapertura.
+- **Verificación R18:** smoke D (modal reabrir notify=true) → la RPC completa
+  sin error + email `tramite-reabierto` encolado + sin doble línea (mi trigger
+  de 0202 se abstiene por `reabierto_count`).
+- **Lección:** las RPCs que llaman a otras funciones por nombre+args son
+  frágiles al drift de firmas (plpgsql resuelve en runtime, no al migrar). Toda
+  RPC con un branch "raro" (notificar opcional) necesita un smoke e2e que
+  ejercite ESE branch, no solo el happy path.
+- **Fecha / módulo:** 2026-06-06 · trackings/reapertura · mig 0203.

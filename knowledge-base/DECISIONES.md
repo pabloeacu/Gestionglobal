@@ -1711,3 +1711,27 @@ El usuario lo pidió en dos requerimientos simultáneos.
   mismo estado final, todas disparan el mismo fan-out."
 - **Reglas:** R1, R17, R18. Mig 0201. Build limpio.
 - **Fecha:** 2026-06-06.
+
+## DGG-49 · Simetría total cierre↔reapertura del trámite + fix de reabrir-notify roto (2026-06-06)
+
+- **Qué:** completando DGG-48 (avisar al cliente en el cierre por kanban), la
+  **doble auditoría a fondo** (3 agentes paralelos + e2e, a pedido de Pablo)
+  encontró el espejo: reabrir por kanban no avisaba a nadie y envenenaba el
+  discriminador del cierre (E-GG-54), y el modal Reabrir con "notificar"
+  tildado estaba ROTO en producción (E-GG-55). Pablo: "limpiar metadata +
+  avisar al cliente" (simetría total).
+- **Cómo:** **mig 0202** — reabrir por kanban limpia la metadata de cierre +
+  inserta línea `'reapertura'` visible (fan-out al cliente por
+  `tracking_linea_on_insert`), discriminado de la RPC por `reabierto_count`; +
+  seed de categorías `'cierre'`/`'reapertura'` en `tracking_categorias_config`.
+  **Mig 0203** — `tracking_reabrir(notify=true)` corregido (`encolar_email`
+  smallint + `encolar_push` por `user_id`; cada notif envuelta).
+- **Por qué:** un evento terminal de negocio y su inverso deben tratarse igual
+  por TODAS las vías; y los smokes e2e del branch "notificar" cazaron un bug que
+  la lectura estática no veía.
+- **Regla candidata (a confirmar con Pablo):** "todo evento terminal de negocio
+  (y su inverso) notifica a TODOS los públicos relevantes; si hay N vías que
+  llegan al mismo estado final, todas disparan el mismo fan-out."
+- **Reglas:** R1, R16, R17, R18. Migs 0202 + 0203. Build limpio. Verificado R18
+  (smokes C/D/E). DB verificada limpia tras los smokes.
+- **Fecha:** 2026-06-06.
