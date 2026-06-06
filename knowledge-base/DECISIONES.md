@@ -1691,3 +1691,23 @@ El usuario lo pidió en dos requerimientos simultáneos.
   (gerente + alumno) — gateado por credenciales.
 - **Reglas:** R2, R3, R4, R6, R12, R16, R18. Build limpio. Migs 0199 + 0200.
 - **Fecha:** 2026-06-05.
+
+## DGG-48 · El cierre de trámite notifica al cliente por cualquier vía (2026-06-06)
+
+- **Qué:** unificamos la notificación al cliente del cierre de trámites. Antes solo
+  el modal "Cerrar trámite" avisaba al cliente; cerrar moviendo la tarjeta en el
+  kanban avisaba solo a gerencia (E-GG-53). Ahora cualquier transición a
+  cerrado/resuelto notifica al cliente (email + push + campanita + línea en el
+  portal), sin duplicar cuando se usa el modal.
+- **Cómo:** el trigger universal `_notif_tracking_cerrado_trg` inserta la línea de
+  cierre visible cuando `motivo_cierre IS NULL` (cierre fuera del modal), delegando
+  el fan-out a `tracking_linea_on_insert`. No se reimplementa la notificación: un
+  solo lugar de verdad.
+- **Por qué así:** reusar la maquinaria de líneas garantiza paridad exacta con el
+  modal (mismo email/push/campanita/portal). El discriminador por `motivo_cierre`
+  es robusto porque `tracking_reabrir` lo limpia al reabrir.
+- **Regla candidata (a confirmar con Pablo):** "todo evento terminal de negocio
+  notifica a TODOS los públicos (gerencia + cliente); si hay N vías que llegan al
+  mismo estado final, todas disparan el mismo fan-out."
+- **Reglas:** R1, R17, R18. Mig 0201. Build limpio.
+- **Fecha:** 2026-06-06.

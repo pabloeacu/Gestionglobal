@@ -2105,3 +2105,41 @@
   filtrado. Datos que el cliente no debe ver se ocultan en la FUENTE (RPC
   sanitizada / RLS por rol), no en el render. (Regla 3.)
 - **Fecha / módulo:** 2026-06-05 · campus exámenes · mig 0200.
+
+## E-GG-53 · Cerrar un trámite por el kanban no avisaba al cliente (solo a gerentes) (2026-06-06)
+
+- **Síntoma (caso JL):** el 05/06 JL cerró el trámite "Certificado de
+  acreditación RPAC" de Estudio Save. La gerencia recibió el mail "Trámite
+  cerrado · …" y el portal del cliente mostraba el trámite cerrado, pero el
+  cliente (estudio.saveriano@gmail.com) NUNCA recibió el mail del cierre.
+- **Descartado DNS/DMARC:** esa casilla venía recibiendo todo `sent` (bienvenida,
+  avances, "nuevo servicio") sin bounce. El mail del cierre no figuraba en
+  `email_queue` NI en `sent_emails` → nunca se generó. No era entrega, era
+  encolado: el correo nunca se creó.
+- **Causa raíz:** hay DOS vías de cerrar un trámite y solo una avisaba al cliente.
+  (a) **modal "Cerrar trámite"** (`tracking_cerrar`) → inserta una línea
+  `visible_cliente=true` → `tracking_linea_on_insert` → email + push + campanita al
+  cliente. (b) **kanban / cambio de estado** (UPDATE directo estado='cerrado') →
+  solo `_notif_tracking_cerrado_trg` → `notify_all_gerentes` (gerencia). JL usó
+  (b): el trámite quedó `estado='cerrado'` pero con `motivo_cierre`/`fecha_fin`/
+  `cierre_satisfactorio` = NULL y SIN línea de cierre — firma inequívoca del cierre
+  por kanban (`tramite_on_update` setea resuelto_at/resuelto_por), no del modal.
+  Alcance: 2 de 4 cierres desde el lanzamiento fueron por kanban → 2 clientes sin
+  aviso.
+- **Fix (mig 0201 · decisión Pablo "avisar siempre al cliente"):**
+  `_notif_tracking_cerrado_trg` (el hook universal que ya corre en CUALQUIER
+  transición a cerrado/resuelto) ahora inserta la línea de cierre visible cuando el
+  cierre NO vino del modal — discriminador `motivo_cierre IS NULL` (el modal lo
+  setea NOT NULL en el mismo UPDATE; `tracking_reabrir` lo limpia) y solo en la 1ª
+  transición a terminal (evita doble en resuelto→cerrado). Reusa la maquinaria de
+  líneas: el cliente recibe email + push + campanita + lo ve en el portal, idéntico
+  al modal, sin duplicar.
+- **Verificación (R18, BEGIN/ROLLBACK):** smoke A (kanban) → 1 línea 'cierre' + 1
+  mail al cliente; smoke B (modal) → 0 líneas del trigger (no duplica) + 1 línea del
+  modal + 1 solo mail. Retroactivo: encolado el aviso de cierre a los 2 clientes
+  afectados (Estudio Save + Expensas Pagas).
+- **Lección:** un evento terminal de negocio (cierre) debe notificar a TODOS los
+  públicos relevantes, no a uno. Si hay 2 caminos que producen el mismo estado
+  final, ambos deben disparar el mismo fan-out. Patrón hermano de E-GG-26/E-GG-28
+  (gaps de fan-out) y E-GG-35 (paridad entre 2 vías de la misma acción).
+- **Fecha / módulo:** 2026-06-06 · trackings/notificaciones · mig 0201.
