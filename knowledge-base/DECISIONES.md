@@ -1735,3 +1735,30 @@ El usuario lo pidió en dos requerimientos simultáneos.
 - **Reglas:** R1, R16, R17, R18. Migs 0202 + 0203. Build limpio. Verificado R18
   (smokes C/D/E). DB verificada limpia tras los smokes.
 - **Fecha:** 2026-06-06.
+
+## DGG-50 · Docente a cargo por asignatura + carga del curso Actualización 2026 RPAC (2026-06-06)
+
+- **Qué:** Pablo armó las 5 asignaturas asincrónicas del curso "Actualización
+  2026 RPAC" (cada módulo = una asignatura, con su docente a cargo y sus videos
+  de YouTube). El modelo tenía instructor solo a nivel curso (uno) y foto por
+  clase sin nombre → faltaba el **docente por módulo**.
+- **Mig 0204:** `curso_modulos` += `docente_nombre`/`docente_foto_url`/
+  `docente_bio` (ALTER, GRANTs vigentes). Editor de gerencia (`ContenidoTab`):
+  bloque "Docente a cargo" (nombre + `ImageUploader` scope `modulo-docente` +
+  bio). Vista del alumno (`CursoDetalleAlumnoPage` + `ClasePlayer`): docente
+  encabezando cada asignatura en el nav + "Con <docente>" + avatar (foto o
+  inicial) junto al reproductor.
+- **Contenido cargado** (curso 488b58c3, publicado): 5 asignaturas / 19 clases
+  asincrónicas con sus videos: (1) Comunicación efectiva y resolución de
+  conflictos · Lic. Ximena González · 6; (2) Traspaso de Administración · Dr.
+  Raúl Castro · 2; (3) Proceso administrativo ante el RPAC · Dra. Mayra Lucero ·
+  3; (4) Obligaciones: libros, DDJJ · Fabián Beuchel · 2; (5) Auditoría interna y
+  externa · Dra. Tamara Suken · 6. Coincide con las secciones del examen
+  (DGG-47). Descripción por asignatura redactada; duraciones en blanco.
+- **Verificado en vivo** (alumno de prueba, prod): 0/19 clases, las 5
+  asignaturas con su docente, videos de YouTube embebidos y reproduciendo el
+  correcto, el examen coexiste.
+- **Pendiente:** fotos de los 5 docentes (hoy muestran la inicial) — a cargar
+  con las imágenes de Pablo.
+- **Reglas:** R1, R4, R6, R20. Mig 0204. Build limpio.
+- **Fecha:** 2026-06-06.
