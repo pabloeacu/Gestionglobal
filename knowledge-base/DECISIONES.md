@@ -1758,7 +1758,51 @@ El usuario lo pidió en dos requerimientos simultáneos.
 - **Verificado en vivo** (alumno de prueba, prod): 0/19 clases, las 5
   asignaturas con su docente, videos de YouTube embebidos y reproduciendo el
   correcto, el examen coexiste.
-- **Pendiente:** fotos de los 5 docentes (hoy muestran la inicial) — a cargar
-  con las imágenes de Pablo.
+- **Fotos cargadas** (2026-06-06): las 5 fotos de docentes (zip de Pablo,
+  nombre de archivo = docente) subidas a `campus-media/modulo-docente/<id>/` y
+  asignadas a `docente_foto_url`. Para pasar la policy `campus_media_write_staff`
+  (exige `is_staff()`; `get_user_role()` lee `profiles.role` en vivo) se elevó
+  temporalmente el rol del alumno de prueba a gerente y se revirtió en el acto.
+  Renderizan en vivo (HTTP 200, naturalWidth 314). Sin pendientes.
 - **Reglas:** R1, R4, R6, R20. Mig 0204. Build limpio.
+- **Fecha:** 2026-06-06.
+
+## DGG-51 · Examen/bibliografía/encuentros como nodos propios del curso + CV del docente (2026-06-06)
+
+- **Origen** (Pablo): en la vista del alumno el examen (y, a futuro, la
+  bibliografía) se renderizaba como una sección FIJA debajo del reproductor de
+  CADA clase ("se ve debajo de cada clase"), confundiendo la vista de la clase
+  con la del examen, que es un estadio aparte (el último). Pablo pidió que el
+  examen, la bibliografía y los encuentros sincrónicos "funcionen como un
+  módulo": nodos propios del menú. Además: un campo de CV del docente
+  descargable, y subir bibliografía como PDF (hoy sólo aceptaba link).
+- **Decisión — nodos por tipo, NO módulos tipados** (Pablo, opción A de 2):
+  el menú del curso del alumno tiene un nodo por cada clase y — como estadios
+  propios, en orden fijo y lógico — encuentros sincrónicos → bibliografía →
+  examen (último) → "Mi certificado". Click en un nodo = SOLO ese contenido a
+  la derecha. Se descartó "módulos tipados y ordenables" (columna `tipo` en
+  `curso_modulos` + relinkear examen/biblio/encuentros a módulos + rehacer el
+  editor de gerencia) por mayor costo/riesgo sin necesidad: examen, bibliografía
+  y encuentros YA son entidades propias colgadas del curso; el problema era 100%
+  de presentación en `CursoDetalleAlumnoPage`.
+- **Implementación frontend:** la selección se generalizó de `claseActivaId`
+  (string) a `NodoSel` (clase/sincronico/bibliografia/examen/certificado); el
+  panel derecho conmuta por nodo (default = primera clase). Se quitó el render
+  fijo de encuentros + condiciones que colgaba arriba del reproductor; se agregó
+  un aviso fijo de "encuentro en vivo ahora" (sólo si `zoom/webex_status =
+  'en_curso'`) que salta al nodo sincrónico sin tocar el flujo delicado del
+  embed (E-GG-14). La bibliografía como nodo soporta descarga de PDF
+  (`archivo_url`) además del link.
+- **CV del docente:** mig 0205 `ADD COLUMN curso_modulos.docente_cv_url`.
+  Editable en gerencia (`ContenidoTab`, componente `FileUploader` nuevo) y
+  descargable por el alumno en el nav de cada asignatura ("CV") y bajo el título
+  de la clase ("CV del docente"). `FileUploader` (PDF, sin cropper) sube por
+  `uploadCampusMedia` (R20), reutilizado para CV y bibliografía; scopes nuevos
+  `modulo-docente-cv` y `biblio-archivo`.
+- **Verificado en vivo** (alumno de prueba, prod, con datos de QA temporales ya
+  borrados): vista de clase limpia (sólo la clase); nodos Encuentros (1 en vivo)
+  · Bibliografía (Descargar PDF + Abrir) · Examen (último, abre el ExamenRunner
+  sin colgar de ninguna clase); CV del docente descargable en nav y reproductor.
+  Consola sin errores.
+- **Reglas:** R1, R4, R6, R8, R20. Mig 0205. Build limpio (tsc + vite).
 - **Fecha:** 2026-06-06.
