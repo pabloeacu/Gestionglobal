@@ -1838,3 +1838,29 @@ El usuario lo pidió en dos requerimientos simultáneos.
   en vivo en el curso de Actualización, mismo componente).
 - **Reglas:** R1, R3, R4. Sin migración (contenido).
 - **Fecha:** 2026-06-06.
+
+## DGG-53 · Acordeón de módulos en el menú del alumno (2026-06-07)
+
+- **Origen** (Pablo, estética del campus): el menú lateral del alumno
+  (`CursoDetalleAlumnoPage`) listaba TODOS los módulos con TODAS sus clases
+  expandidas → scroll largo. Pablo pidió módulos colapsables: **nombre del
+  módulo + docente siempre visibles**, clases colapsables, y **un solo módulo
+  abierto a la vez** (abrir el 3 cierra el 2) — para acortar el scroll y
+  concentrar la experiencia (más premium).
+- **Implementación:** estado único `openModuloId` (string|null) + `accordionTocado`
+  (distingue el default del estado elegido). `openModuloEfectivo = accordionTocado
+  ? openModuloId : moduloDeActivaId`: hasta que el alumno toca el acordeón se abre
+  el módulo de la clase activa (o el primero); después respeta su elección,
+  incluido "todos colapsados". Cada módulo es una card (badge nº + título +
+  chevron) con el bloque docente (foto/nombre/CV) SIEMPRE visible y las clases
+  bajo `{open && <ul motion-safe:animate-fade-up>}`. El header SÓLO togglea (no
+  cambia la clase activa); sólo los botones de clase setean `nodoSel`. Punto cyan
+  en el header del módulo colapsado que contiene la clase activa. Los nodos de
+  tipo (encuentros/bibliografía/examen/certificado, DGG-51) quedan como están,
+  después de los módulos.
+- **Verificado en vivo** (alumno de prueba, prod): default abre el módulo de la
+  clase activa; abrir M3 cierra M1 (uno-a-la-vez); docente visible en colapsados;
+  scroll mucho más corto; sesión persiste tras recarga; 0 errores de consola.
+  Código revisado (header sólo togglea; estado único garantiza uno-abierto).
+- **Reglas:** frontend puro, sin migración. Build limpio (tsc + vite).
+- **Fecha:** 2026-06-07.
