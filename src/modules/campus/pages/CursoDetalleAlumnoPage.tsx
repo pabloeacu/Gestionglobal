@@ -5,6 +5,7 @@ import {
   Award,
   BookOpen,
   CheckCircle2,
+  ChevronDown,
   Circle,
   Download,
   Loader2,
@@ -82,6 +83,12 @@ export function CursoDetalleAlumnoPage() {
   // DGG-14: cuando el alumno entra a un encuentro en vivo, el layout
   // cambia a "modo clase" — embed full-width, sidebar oculto.
   const [encuentroEnVivoId, setEncuentroEnVivoId] = useState<string | null>(null);
+  // Acordeón del menú lateral del alumno: sólo UN módulo abierto a la vez (menos
+  // scroll, experiencia más concentrada). El nombre del módulo + el docente
+  // quedan SIEMPRE visibles; las clases se colapsan/expanden. null = todos
+  // colapsados; accordionTocado distingue el default del estado elegido.
+  const [openModuloId, setOpenModuloId] = useState<string | null>(null);
+  const [accordionTocado, setAccordionTocado] = useState(false);
 
   const reload = useCallback(async (opts?: { silent?: boolean }) => {
     const silent = opts?.silent === true;
@@ -203,6 +210,20 @@ export function CursoDetalleAlumnoPage() {
         : null,
     [clases, nodoEfectivo],
   );
+
+  // Módulo abierto efectivo del acordeón: hasta que el alumno toque el acordeón,
+  // se abre el módulo de la clase activa (o el primero); después respeta su
+  // elección (incluido "todos colapsados").
+  const moduloDeActivaId = useMemo(() => {
+    if (claseActiva) {
+      const m = modulosVisibles.find((mm) =>
+        mm.clases.some((c) => c.id === claseActiva.id),
+      );
+      if (m) return m.id;
+    }
+    return modulosVisibles[0]?.id ?? null;
+  }, [claseActiva, modulosVisibles]);
+  const openModuloEfectivo = accordionTocado ? openModuloId : moduloDeActivaId;
 
   if (initialLoading || !data) {
     return (
@@ -347,83 +368,132 @@ export function CursoDetalleAlumnoPage() {
             className="opacity-15"
           />
           <nav className="relative space-y-3">
-            {modulosVisibles.map((m) => (
-              <section key={m.id}>
-                <h3 className="kicker flex items-center gap-2 px-1 text-brand-muted">
-                  {m.icono_url && (
-                    <img
-                      src={m.icono_url}
-                      alt=""
-                      className="h-5 w-5 rounded border border-slate-200 object-cover"
-                    />
+            {modulosVisibles.map((m) => {
+              const open = openModuloEfectivo === m.id;
+              const tieneActiva =
+                claseActiva != null &&
+                m.clases.some((c) => c.id === claseActiva.id);
+              return (
+                <section
+                  key={m.id}
+                  className={cn(
+                    'overflow-hidden rounded-xl border bg-white transition-colors',
+                    open ? 'border-brand-cyan/30' : 'border-slate-200',
                   )}
-                  <span>
-                    Módulo {m.orden} · {m.titulo}
-                  </span>
-                </h3>
-                {m.docente_nombre && (
-                  <div className="mt-1 flex items-center gap-2 px-1">
-                    {m.docente_foto_url ? (
-                      <img
-                        src={m.docente_foto_url}
-                        alt=""
-                        className="h-6 w-6 rounded-full object-cover ring-1 ring-slate-200"
-                      />
-                    ) : (
-                      <span className="grid h-6 w-6 place-items-center rounded-full bg-brand-cyan/10 text-[10px] font-semibold text-brand-cyan">
-                        {(m.docente_nombre.split(' ').pop() ?? '·').charAt(0)}
-                      </span>
-                    )}
-                    <span className="text-xs font-medium text-brand-ink">
-                      {m.docente_nombre}
+                >
+                  {/* Header (toggle): número + título + chevron */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAccordionTocado(true);
+                      setOpenModuloId(open ? null : m.id);
+                    }}
+                    aria-expanded={open}
+                    className="flex w-full items-center gap-2 px-3 py-2.5 text-left transition hover:bg-slate-50"
+                  >
+                    <span className="grid h-6 w-6 shrink-0 place-items-center rounded-lg bg-brand-cyan/10 text-[11px] font-bold text-brand-cyan">
+                      {m.orden}
                     </span>
-                    {m.docente_cv_url && (
-                      <a
-                        href={m.docente_cv_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        download
-                        title="Descargar CV del docente"
-                        className="ml-auto inline-flex items-center gap-0.5 rounded-md px-1 py-0.5 text-[10px] font-semibold text-brand-cyan hover:bg-brand-cyan/10"
-                      >
-                        <Download size={11} /> CV
-                      </a>
+                    {m.icono_url && (
+                      <img
+                        src={m.icono_url}
+                        alt=""
+                        className="h-5 w-5 shrink-0 rounded border border-slate-200 object-cover"
+                      />
                     )}
-                  </div>
-                )}
-                <ul className="mt-1 space-y-1">
-                  {m.clases.map((c) => {
-                    const done = completadasSet.has(c.id);
-                    const isActive =
-                      nodoEfectivo.tipo === 'clase' && nodoEfectivo.id === c.id;
-                    return (
-                      <li key={c.id}>
-                        <button
-                          onClick={() => setNodoSel({ tipo: 'clase', id: c.id })}
-                          className={cn(
-                            'flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm transition',
-                            isActive
-                              ? 'bg-brand-cyan/10 text-brand-ink'
-                              : 'text-brand-muted hover:bg-slate-50 hover:text-brand-ink',
-                          )}
+                    <span className="line-clamp-2 min-w-0 flex-1 text-sm font-semibold text-brand-ink">
+                      {m.titulo}
+                    </span>
+                    {tieneActiva && !open && (
+                      <span
+                        className="h-1.5 w-1.5 shrink-0 rounded-full bg-brand-cyan"
+                        aria-hidden
+                      />
+                    )}
+                    <ChevronDown
+                      size={16}
+                      className={cn(
+                        'shrink-0 text-brand-muted transition-transform duration-300',
+                        open && 'rotate-180',
+                      )}
+                    />
+                  </button>
+
+                  {/* Docente: SIEMPRE visible (colapsado o no) */}
+                  {m.docente_nombre && (
+                    <div className="flex items-center gap-2 px-3 pb-2.5">
+                      {m.docente_foto_url ? (
+                        <img
+                          src={m.docente_foto_url}
+                          alt=""
+                          className="h-6 w-6 shrink-0 rounded-full object-cover ring-1 ring-slate-200"
+                        />
+                      ) : (
+                        <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-brand-cyan/10 text-[10px] font-semibold text-brand-cyan">
+                          {(m.docente_nombre.split(' ').pop() ?? '·').charAt(0)}
+                        </span>
+                      )}
+                      <span className="min-w-0 flex-1 truncate text-xs font-medium text-brand-ink">
+                        {m.docente_nombre}
+                      </span>
+                      {m.docente_cv_url && (
+                        <a
+                          href={m.docente_cv_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          download
+                          title="Descargar CV del docente"
+                          className="inline-flex shrink-0 items-center gap-0.5 rounded-md px-1 py-0.5 text-[10px] font-semibold text-brand-cyan hover:bg-brand-cyan/10"
                         >
-                          {done ? (
-                            <CheckCircle2 size={14} className="text-emerald-600" />
-                          ) : c.tipo === 'sincronica_zoom' ? (
-                            <Video size={14} className="text-amber-600" />
-                          ) : c.tipo === 'lectura_pdf' ? (
-                            <BookOpen size={14} />
-                          ) : (
-                            <ScrollText size={14} />
-                          )}
-                          <span className="flex-1 truncate">{c.titulo}</span>
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </section>
-            ))}
+                          <Download size={11} /> CV
+                        </a>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Clases del módulo: colapsable (acordeón, 1 abierto a la vez) */}
+                  {open && (
+                    <ul className="space-y-1 border-t border-slate-100 px-2 py-2 motion-safe:animate-fade-up">
+                      {m.clases.map((c) => {
+                        const done = completadasSet.has(c.id);
+                        const isActive =
+                          nodoEfectivo.tipo === 'clase' &&
+                          nodoEfectivo.id === c.id;
+                        return (
+                          <li key={c.id}>
+                            <button
+                              onClick={() =>
+                                setNodoSel({ tipo: 'clase', id: c.id })
+                              }
+                              className={cn(
+                                'flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm transition',
+                                isActive
+                                  ? 'bg-brand-cyan/10 text-brand-ink'
+                                  : 'text-brand-muted hover:bg-slate-50 hover:text-brand-ink',
+                              )}
+                            >
+                              {done ? (
+                                <CheckCircle2
+                                  size={14}
+                                  className="text-emerald-600"
+                                />
+                              ) : c.tipo === 'sincronica_zoom' ? (
+                                <Video size={14} className="text-amber-600" />
+                              ) : c.tipo === 'lectura_pdf' ? (
+                                <BookOpen size={14} />
+                              ) : (
+                                <ScrollText size={14} />
+                              )}
+                              <span className="flex-1 truncate">{c.titulo}</span>
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </section>
+              );
+            })}
 
             {/* Nodos por tipo (DGG-51): cada uno abre SOLO su contenido. */}
             {encuentros.length > 0 && (
