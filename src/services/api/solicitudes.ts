@@ -269,6 +269,20 @@ export async function marcarEnRevision(
   return ok(true);
 }
 
+// Wizard v2 · rama terminal "Pedir documentación y dejar en revisión": deja la
+// solicitud en_revision + mail al cliente (+ campana/push). Mig 0206.
+export async function pedirDocsRevision(
+  id: string,
+  mensaje: string,
+): Promise<ApiResponse<true>> {
+  const { error } = await rpc('solicitud_pedir_docs_revision', {
+    p_solicitud_id: id,
+    p_mensaje: mensaje,
+  });
+  if (error) return fail('SOL_DOCS_REVISION', error.message, error);
+  return ok(true);
+}
+
 export interface DerivarInput {
   destinatario_email: string;
   destinatario_nombre?: string;

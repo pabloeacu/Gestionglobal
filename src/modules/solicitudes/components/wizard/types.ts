@@ -135,3 +135,9 @@ export function totalComprobante(c: ComprobanteState): number {
   const bonif = Math.min(100, Math.max(0, Number(c.bonifPorc) || 0));
   return Math.round(precio * (1 - bonif / 100) * 100) / 100;
 }
+
+/** Clave estable de un adjunto del formulario (índice + campo + nombre).
+ *  Usada por el Paso 2 (docChecks) y por el ProcesadorFinal (PedidoDoc). */
+export function adjKey(campo: string, nombre: string, i: number): string {
+  return `${i}::${campo}::${nombre}`;
+}

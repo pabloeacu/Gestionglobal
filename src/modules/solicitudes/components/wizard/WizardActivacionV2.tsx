@@ -177,9 +177,11 @@ export function WizardActivacionV2({ open, onClose, solicitud, onActivated }: Pr
             flags={flags}
             state={state}
             onDone={(trackingId) => {
-              onActivated?.(trackingId);
+              if (trackingId) onActivated?.(trackingId);
               onClose();
-              navigate(`/gerencia/trackings/${trackingId}`);
+              // Terminal (revisión/rechazo/descarte) → no hay trámite: volvemos a
+              // la lista, donde la solicitud ya refleja su nuevo estado.
+              navigate(trackingId ? `/gerencia/trackings/${trackingId}` : '/gerencia/solicitudes');
             }}
           />
         )}

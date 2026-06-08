@@ -19,11 +19,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { Field, StepPanel, Textarea } from '@/components/common';
-import type { DocOutcome, PasoProps } from './types';
-
-function adjKey(campo: string, nombre: string, i: number) {
-  return `${i}::${campo}::${nombre}`;
-}
+import { adjKey, type DocOutcome, type PasoProps } from './types';
 
 interface OutcomeOpcion {
   key: DocOutcome;
