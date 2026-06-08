@@ -17,9 +17,13 @@
 //      user = host_email (gerente) o 'me' (cuenta principal de la S2S app).
 //   4) Edge: rpc curso_encuentro_set_zoom(...) con id+join_url+start_url+pwd.
 
-import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { humanizeUpstream, humanizeUpstreamMsg } from '../_shared/humanize.ts';
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.46.1";
+// F9 (Lista JL · 2026-06-08): la causa del CORS 500 era el import
+// `jsr:@supabase/functions-js/edge-runtime.d.ts` — el specifier jsr: ya no
+// resuelve en el cold-start del edge runtime actual y crasheaba el boot (el
+// OPTIONS devolvía 500 sin CORS). Es type-only → se elimina. Las edge fns que
+// andan (dispatch-*, submit-formulario) no lo tienen. Bump a @2.46.1 + inline
+// del único humanize de paso.
 
 const ACCOUNT_ID    = Deno.env.get("ZOOM_ACCOUNT_ID") ?? "";
 const CLIENT_ID     = Deno.env.get("ZOOM_S2S_CLIENT_ID") ?? "";
@@ -153,8 +157,7 @@ Deno.serve(async (req) => {
   });
   if (rpcErr) {
     console.error('zoom-meeting-create · rpc_set_zoom falló', { encuentroId, err: rpcErr.message });
-    // E-GG-44 (Pattern-5 · 2026-06-02)
-    return json(500, { error: humanizeUpstreamMsg(rpcErr.message, 'La reunión Zoom se creó pero no pudimos guardarla en el curso. Avisá a un gerente.') });
+    return json(500, { error: 'La reunión Zoom se creó pero no pudimos guardarla en el curso. Avisá a un gerente.' });
   }
 
   return json(200, {

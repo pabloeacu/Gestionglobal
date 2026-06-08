@@ -1276,7 +1276,10 @@ export async function marcarAsistencia(
 // ============================================================================
 // Fase 3 · Integración Zoom (DGG-14)
 // Edge functions:
-//   - zoom-meeting-create  : staff crea reunión Zoom y guarda metadata.
+//   - zoom-encuentro-create : staff crea reunión Zoom y guarda metadata.
+//     (F9 · Lista JL 2026-06-08: reemplaza a `zoom-meeting-create`, cuyo cold-start
+//      crasheaba por el bundle de supabase-js → OPTIONS 500 sin CORS. La nueva usa
+//      fetch crudo a la REST/Auth/RPC de Supabase y bootea OK.)
 //   - zoom-sdk-signature   : firma JWT del Web Meeting SDK para join.
 // ============================================================================
 
@@ -1296,7 +1299,7 @@ export async function crearSalaZoom(input: {
   topic?: string;
   hostEmail?: string;
 }): Promise<ApiResponse<ZoomMeetingCreated>> {
-  const { data, error } = await supabase.functions.invoke('zoom-meeting-create', {
+  const { data, error } = await supabase.functions.invoke('zoom-encuentro-create', {
     body: {
       encuentro_id: input.encuentroId,
       duracion_min: input.duracionMin,
