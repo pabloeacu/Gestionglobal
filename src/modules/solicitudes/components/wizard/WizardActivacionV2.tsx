@@ -57,6 +57,9 @@ function validarPaso(key: PasoKey, state: WizardState): boolean {
       }
       return true;
     }
+    case 'gestoria':
+      // Si la derivación está activa, exige el email del gestor.
+      return state.gestoria.activa ? state.gestoria.email.trim().length > 0 : true;
     default:
       return true;
   }
