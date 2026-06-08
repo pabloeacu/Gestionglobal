@@ -16,6 +16,7 @@ import { PasoComprobante } from './PasoComprobante';
 import { PasoGestoria } from './PasoGestoria';
 import { PasoTracking } from './PasoTracking';
 import { PasoCampus } from './PasoCampus';
+import { totalComprobante } from './types';
 import type { PasoKey, PasoProps, SolicitudFlags, WizardState } from './types';
 
 interface Props {
@@ -41,6 +42,20 @@ function validarPaso(key: PasoKey, state: WizardState): boolean {
       // (pedir/revisión/rechazo/descarte) exige el mensaje/motivo.
       if (state.docOutcome === 'completa') return !hayCruz;
       return state.docMensajeCliente.trim().length > 0;
+    }
+    case 'comprobante': {
+      const c = state.comprobante;
+      if (c.omitir || c.gratuito) return true;
+      if (!c.descripcion.trim()) return false;
+      const total = totalComprobante(c);
+      // $0 (bonif 100) o "sin cobro ahora" → no exige caja.
+      if (total === 0 || c.pagoModo === 'ninguno') return true;
+      if (!c.cajaId) return false;
+      if (c.pagoModo === 'parcial') {
+        const m = Number(c.montoCobrado);
+        return Number.isFinite(m) && m > 0 && m <= total;
+      }
+      return true;
     }
     default:
       return true;

@@ -47,7 +47,24 @@ function clasificar(sol: SolicitudDetalle): SolicitudFlags {
 // ---------------------------------------------------------------------------
 function estadoInicial(sol: SolicitudDetalle, flags: SolicitudFlags): WizardState {
   const nombre = sol.solicitante_nombre ?? '';
-  const precioRef = sol.precio_final ?? sol.servicio_precio_base ?? null;
+  // Pre-fill comprobante evitando doble descuento: si conocemos precio base +
+  // voucher, los mandamos separados (precio base + bonificación %); si sólo hay
+  // precio_final, va ese con 0% (el descuento ya viene aplicado).
+  const baseCat = sol.servicio_precio_base;
+  const voucherPct = sol.voucher_descuento_pct ?? 0;
+  let compPrecio = '';
+  let compBonif = '0';
+  if (flags.esGratuito) {
+    compPrecio = String(baseCat ?? sol.precio_aplicado ?? sol.precio_final ?? 0);
+    compBonif = '100';
+  } else if (baseCat != null && voucherPct > 0) {
+    compPrecio = String(baseCat);
+    compBonif = String(voucherPct);
+  } else {
+    const v = sol.precio_final ?? baseCat ?? null;
+    compPrecio = v != null ? String(v) : '';
+    compBonif = '0';
+  }
   return {
     modoCliente: sol.cliente_id ? 'existente' : 'nuevo',
     clienteIdExistente: sol.cliente_id ?? '',
@@ -65,13 +82,15 @@ function estadoInicial(sol: SolicitudDetalle, flags: SolicitudFlags): WizardStat
     docMensajeCliente: '',
     comprobante: {
       omitir: flags.esDDJJ,
-      concepto: sol.servicio_nombre ?? sol.formulario_titulo ?? 'Servicio',
-      precio: flags.esGratuito ? '0' : precioRef != null ? String(precioRef) : '',
-      bonifPorc: flags.esGratuito ? '100' : '0',
+      gratuito: flags.esGratuito,
+      descripcion: sol.servicio_nombre ?? sol.formulario_titulo ?? 'Servicio',
+      precio: compPrecio,
+      bonifPorc: compBonif,
       pagoModo: flags.esGratuito ? 'ninguno' : 'total',
       montoCobrado: '',
       cajaId: '',
-      comparteParter: false,
+      categoriaId: '',
+      compartePartner: false,
       partnerId: null,
     },
     gestoria: {

@@ -26,8 +26,11 @@ export type PagoModo = 'total' | 'parcial' | 'ninguno';
 export interface ComprobanteState {
   /** DDJJ → no se emite comprobante en el wizard (se hará al cerrar el trámite). */
   omitir: boolean;
-  concepto: string;
-  /** Precio bruto del ítem (antes de bonificación). */
+  /** Servicio gratuito / 100% bonificado → comprobante en $0 sin cobranza. */
+  gratuito: boolean;
+  /** Descripción del ítem (nombre del servicio). El concepto fiscal es 'servicios'. */
+  descripcion: string;
+  /** Precio unitario bruto del ítem (antes de bonificación). */
   precio: string;
   /** Bonificación 0..100 (%). 100 = gratis. */
   bonifPorc: string;
@@ -35,7 +38,9 @@ export interface ComprobanteState {
   /** Monto efectivamente cobrado si pagoModo='parcial'. */
   montoCobrado: string;
   cajaId: string;
-  comparteParter: boolean;
+  /** Categoría de ingreso (opcional) para reportes financieros. */
+  categoriaId: string;
+  compartePartner: boolean;
   partnerId: string | null;
 }
 
@@ -122,4 +127,11 @@ export interface PasoProps {
   flags: SolicitudFlags;
   state: WizardState;
   set: Dispatch<SetStateAction<WizardState>>;
+}
+
+/** Total del comprobante (1 ítem · precio · bonificación). Redondeado a 2 dec. */
+export function totalComprobante(c: ComprobanteState): number {
+  const precio = Number(c.precio) || 0;
+  const bonif = Math.min(100, Math.max(0, Number(c.bonifPorc) || 0));
+  return Math.round(precio * (1 - bonif / 100) * 100) / 100;
 }
