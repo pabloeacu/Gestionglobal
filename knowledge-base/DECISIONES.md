@@ -1946,3 +1946,31 @@ El usuario lo pidió en dos requerimientos simultáneos.
   database.ts (el `>` trunca antes de fallar) → siempre verificar `wc -l` y
   restaurar de git si quedó en 0.
 - **Fecha:** 2026-06-08.
+
+## DGG-56 · Referencia del campo (consigna) en cada documento adjunto
+
+- **Qué/por qué (Pablo 2026-06-08):** "cada documento adjunto debe tener la
+  referencia del campo que completa" (ej. "DNI Frente: archivo.jpg"). Antes se
+  mostraba el slug crudo (`dni_frente`) o nada. Que los documentos no queden
+  sueltos sino anclados a su consigna, en **todas** las superficies.
+- **Superficies:** (1) wizard Paso 2 "Revisar documentación", (2) panel del
+  gestor (acceso externo), (3) **mail al gestor** (`solicitud-derivada-gestoria`,
+  nueva var `documentos` = lista "— Consigna: archivo"), (4) PDF del trámite,
+  (5) ficha de gerencia (`SolicitudDetailPage`).
+- **Modelo:** la etiqueta vive en el **schema** del formulario
+  (`{sections:[{fields:[{name,label}]}]}`); `formulario_adjuntos.field_name` es
+  el slug (join key). No hay tabla relacional de campos.
+- **Implementación:** `src/lib/formSchema.ts` (NUEVO, extraído de
+  `SolicitudDetailPage`, DRY) + mig **0208** `private.form_field_label(schema,slug)`
+  (espejo SQL — jsonpath recursivo, fallback humanize idéntico al TS: sólo 1ra
+  letra, NO `initcap`). `gestor_obtener_info_solicitud` devuelve `label`;
+  `solicitud_derivar_v2` arma `documentos`. Firmas intactas (**R16**); UPDATE de
+  plantilla idempotente; smoke embebido (**R18**). Mail SIN tocar el dispatcher:
+  texto plano + `<div style="white-space:pre-line">{{documentos}}</div>`,
+  `renderVars` escapa `&<>` (sin XSS), vacío = div invisible.
+- **Verificado (§6):** 3 agentes (SQL sólido sin regresión, XSS cerrado; front
+  sin bugs, `docChecks` intacto; coherencia) + e2e BD con ROLLBACK (panel:
+  `label="DNI - Frente"`; mail: var `documentos` con 9 consignas reales). El
+  smoke embebido del helper capturó una divergencia (initcap vs 1ra-letra) →
+  corregida. Build limpio. Prueba en vivo OK.
+- **Fecha:** 2026-06-08.
