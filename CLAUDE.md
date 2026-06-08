@@ -209,6 +209,23 @@ Vercel → GitHub → Supabase → Google Workspace.
 
 ## 5. Flujo de trabajo
 
+> **⚠️ PREMISA DE CIERRE INELUDIBLE — capitalizada 2026-06-08 (Pablo: "no quiero
+> pedírtelo cada vez; tenelo como premisa obligatoria e ineludible").** Ninguna
+> feature o fix de lógica/datos se considera TERMINADO sin que, AUTOMÁTICAMENTE y
+> sin que Pablo lo pida, haga LAS DOS cosas y las reporte:
+> 1. **Doble auditoría a fondo §6** — 3 agentes en paralelo (REVISAR lo estático)
+>    **+ EJERCITAR e2e en BD** (`BEGIN`/INSERT sintético/verificar el side-effect
+>    en otras tablas/`ROLLBACK`; bajo MCP, `DO $$ … RAISE EXCEPTION` para forzar
+>    rollback). Build limpio + smoke SELECT NO alcanza.
+> 2. **Prueba en vivo en el browser** (URL Vercel, logueado): apariencia +
+>    funcionalidad + casos borde + consola sin errores, desktop **y** mobile 360px.
+>    Si falta sesión, reusar la de gerente abierta (acciones de sólo-lectura) o
+>    crear un gerente QA efímero y limpiarlo — NUNCA esperar a que Pablo lo pida.
+>
+> Reportar SIEMPRE al cierre: "auditoría §6: OK / hallazgos+fix" y "prueba en vivo:
+> OK / captura". Si por algún motivo no se puede hacer una de las dos, decirlo
+> explícito y por qué — jamás omitirlo en silencio ni cerrar con sólo build+smoke.
+
 Ciclo de cierre: `npm run build` limpio (incluye `tsc --noEmit` — D13) →
 migraciones aplicadas → edge fns deployadas → commit del *por qué* → push a
 `origin/main` (Vercel auto-deploya; "no pushear sin pedir" NO aplica acá) →

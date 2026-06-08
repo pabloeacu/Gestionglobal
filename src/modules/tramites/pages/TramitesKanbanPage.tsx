@@ -172,7 +172,7 @@ export function TramitesKanbanPage() {
             persiste al instante.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {compPendCount > 0 && (
             <button
               type="button"
