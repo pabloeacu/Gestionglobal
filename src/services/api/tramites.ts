@@ -278,6 +278,9 @@ export interface TramiteListItem extends TramiteRow {
   // comprobante con costo (total>0) e impago (saldo>0). Señal del gate de
   // cobranza al avanzar en el kanban. Sólo lo solicita listTramites.
   cobro_pendiente: boolean;
+  // DGG-55 · computed column (Postgrest). TRUE si el trámite no es terminal y NO
+  // tiene comprobante no-anulado vinculado (capta DDJJ + huecos). Chip + filtro.
+  comprobante_pendiente: boolean;
 }
 
 export interface ListTramitesParams {
@@ -300,6 +303,7 @@ interface RawListRow extends TramiteRow {
   consorcios: { id: string; nombre: string } | null;
   asignado: { id: string; full_name: string | null } | null;
   cobro_pendiente?: boolean | null; // DGG-44 · sólo presente en listTramites
+  comprobante_pendiente?: boolean | null; // DGG-55 · idem
 }
 
 function mapRaw(r: RawListRow): TramiteListItem {
@@ -309,6 +313,7 @@ function mapRaw(r: RawListRow): TramiteListItem {
     consorcio_nombre: r.consorcios?.nombre ?? null,
     asignado_nombre: r.asignado?.full_name ?? null,
     cobro_pendiente: r.cobro_pendiente ?? false,
+    comprobante_pendiente: r.comprobante_pendiente ?? false,
   };
 }
 
@@ -323,6 +328,7 @@ export async function listTramites(
     .select(
       `*,
        cobro_pendiente,
+       comprobante_pendiente,
        administraciones(id,nombre),
        consorcios(id,nombre),
        asignado:profiles!tramites_asignado_a_fkey(id,full_name)`,

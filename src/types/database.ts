@@ -7810,6 +7810,10 @@ export type Database = {
         Args: { t: Database["public"]["Tables"]["tramites"]["Row"] }
         Returns: boolean
       }
+      comprobante_pendiente: {
+        Args: { t: Database["public"]["Tables"]["tramites"]["Row"] }
+        Returns: boolean
+      }
       comprobante_transformar_a_fiscal: {
         Args: { p_comprobante_id: string; p_nuevo_tipo: string }
         Returns: string

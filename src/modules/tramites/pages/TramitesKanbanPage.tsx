@@ -7,6 +7,7 @@ import {
   AlertTriangle,
   ArrowRight,
   GripVertical,
+  Receipt,
 } from 'lucide-react';
 import { Button, SkeletonRow, useConfirm } from '@/components/common';
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
@@ -67,6 +68,8 @@ export function TramitesKanbanPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [dragId, setDragId] = useState<string | null>(null);
   const [dragOverCol, setDragOverCol] = useState<TramiteEstado | null>(null);
+  // DGG-55 · filtro "Comprobante pendiente" (capta DDJJ + huecos).
+  const [soloCompPend, setSoloCompPend] = useState(false);
   const { play } = useSounds();
   const confirm = useConfirm();
 
@@ -100,11 +103,18 @@ export function TramitesKanbanPage() {
       cancelado: [],
     };
     for (const r of rows) {
+      if (soloCompPend && !r.comprobante_pendiente) continue;
       const e = r.estado as TramiteEstado;
       if (m[e]) m[e].push(r);
     }
     return m;
-  }, [rows]);
+  }, [rows, soloCompPend]);
+
+  // DGG-55 · cantidad de trámites con comprobante pendiente (DDJJ + huecos).
+  const compPendCount = useMemo(
+    () => rows.filter((r) => r.comprobante_pendiente).length,
+    [rows],
+  );
 
   async function mover(t: TramiteListItem, nuevoEstado: TramiteEstado) {
     if (t.estado === nuevoEstado) return;
@@ -163,6 +173,24 @@ export function TramitesKanbanPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {compPendCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setSoloCompPend((v) => !v)}
+              title="Trámites sin comprobante emitido (DDJJ y otros). Para no perder de vista la cobranza."
+              className={cn(
+                'inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium transition',
+                soloCompPend
+                  ? 'border-violet-400 bg-violet-50 text-violet-700'
+                  : 'border-slate-200 text-brand-ink hover:border-violet-300 hover:text-violet-700',
+              )}
+            >
+              <Receipt size={15} /> Comprobante pendiente
+              <span className="rounded-full bg-violet-100 px-1.5 text-xs font-bold text-violet-700">
+                {compPendCount}
+              </span>
+            </button>
+          )}
           <Link
             to="/gerencia/tramites"
             className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-brand-ink transition hover:border-brand-cyan hover:text-brand-cyan"
@@ -278,6 +306,14 @@ export function TramitesKanbanPage() {
                                   <> · {t.administracion_nombre}</>
                                 )}
                               </p>
+                              {t.comprobante_pendiente && (
+                                <span
+                                  className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-semibold text-violet-700"
+                                  title="Falta emitir el comprobante (ej. DDJJ)"
+                                >
+                                  <Receipt size={10} /> Comprobante pendiente
+                                </span>
+                              )}
                               {/* DGG-33: removida etiqueta "Asignado / Sin asignar".
                                   Footer ahora muestra sólo el chip de SLA a la derecha. */}
                               <div className="mt-2 flex items-center justify-end gap-2 text-[10px]">

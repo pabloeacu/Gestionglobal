@@ -12,6 +12,7 @@ import {
   ChevronRight,
   KanbanSquare,
   AlertTriangle,
+  Receipt,
 } from 'lucide-react';
 import {
   Button,
@@ -415,6 +416,14 @@ export function TramitesListPage() {
                                 </span>
                               </span>
                               <span className="block truncate">{r.titulo}</span>
+                              {r.comprobante_pendiente && (
+                                <span
+                                  className="mt-1 inline-flex items-center gap-1 rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-semibold text-violet-700"
+                                  title="Falta emitir el comprobante (ej. DDJJ)"
+                                >
+                                  <Receipt size={10} /> Comprobante pendiente
+                                </span>
+                              )}
                             </span>
                           </Link>
                         </td>

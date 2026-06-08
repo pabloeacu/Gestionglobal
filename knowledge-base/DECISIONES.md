@@ -1919,3 +1919,30 @@ El usuario lo pidió en dos requerimientos simultáneos.
 - **Pendiente:** prueba e2e en browser (gerente → portal cliente · Chunk G) +
   doble auditoría a fondo §6 (Chunk H).
 - **Fecha:** 2026-06-08.
+
+## DGG-55 · Chip + filtro "Comprobante pendiente" en trámites
+
+- **Pedido (Pablo, 2026-06-08):** tras el wizard v2, todos los trámites generan
+  comprobante (los gratuitos en $0.00) EXCEPTO las DDJJ (su comprobante se emite
+  al cerrar). Para no perder de vista el seguimiento/cobranza de esos casos: un
+  **chip + filtro "Comprobante pendiente"** dentro de trámites.
+- **Definición:** "comprobante pendiente" = el trámite NO es terminal
+  (cerrado/cancelado) Y no tiene NINGÚN comprobante no-anulado vinculado (por
+  `tramites.comprobante_id` o `solicitudes.tramite_id→comprobante_id`). Capta las
+  DDJJ y cualquier hueco. Distinto de `cobro_pendiente` (DGG-44: tiene
+  comprobante pero impago) — son estados sucesivos.
+- **Implementación:** mig **0207** computed column
+  `comprobante_pendiente(tramites)` (SECURITY INVOKER, espejo de
+  `cobro_pendiente`). Service `tramites.ts`: `TramiteListItem.comprobante_pendiente`
+  + select. UI: chip violeta "Comprobante pendiente" en las cards del kanban y las
+  filas de la lista + toggle en el header del kanban "Comprobante pendiente (N)"
+  que filtra el board.
+- **Verificado:** smoke read-only — 3 pendientes (los 3 trámites no-terminales
+  reales hoy sin comprobante), **0 terminales** y **0 con comprobante no-anulado**
+  falsamente marcados. Build limpio (tsc + vite). Types: entrada de función
+  agregada a database.ts a mano (el regen local no tiene token; el computed
+  column se consume vía select crudo + `TramiteListItem`, igual que cobro_pendiente).
+- **Nota de proceso:** `scripts/generate-types.sh` sin token válido vacía
+  database.ts (el `>` trunca antes de fallar) → siempre verificar `wc -l` y
+  restaurar de git si quedó en 0.
+- **Fecha:** 2026-06-08.
