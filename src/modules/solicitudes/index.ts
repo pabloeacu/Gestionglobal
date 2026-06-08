@@ -6,5 +6,5 @@
 
 export { SolicitudesListPage } from './pages/SolicitudesListPage';
 export { SolicitudDetailPage } from './pages/SolicitudDetailPage';
-export { WizardActivacion } from './components/WizardActivacion';
+export { WizardActivacionV2 } from './components/wizard';
 export { SolicitudCard } from './components/SolicitudCard';

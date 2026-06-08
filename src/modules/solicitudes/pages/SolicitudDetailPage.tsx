@@ -41,7 +41,7 @@ import {
   type SolicitudDetalle,
   type SolicitudEstado,
 } from '@/services/api/solicitudes';
-import { WizardActivacion } from '../components/WizardActivacion';
+import { WizardActivacionV2 } from '../components/wizard';
 import { PanelComprobanteCobranza } from '../components/PanelComprobanteCobranza';
 import { cn } from '@/lib/cn';
 import { humanizeError } from '@/lib/errors';
@@ -502,8 +502,8 @@ export function SolicitudDetailPage() {
         </section>
       )}
 
-      {/* Wizard */}
-      <WizardActivacion
+      {/* Wizard de activación v2 (rediseño collect-only · DGG-54) */}
+      <WizardActivacionV2
         open={wizardOpen}
         onClose={() => setWizardOpen(false)}
         solicitud={data}

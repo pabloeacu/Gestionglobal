@@ -1864,3 +1864,58 @@ El usuario lo pidió en dos requerimientos simultáneos.
   Código revisado (header sólo togglea; estado único garantiza uno-abierto).
 - **Reglas:** frontend puro, sin migración. Build limpio (tsc + vite).
 - **Fecha:** 2026-06-07.
+
+## DGG-54 · Rediseño del wizard de activación de solicitudes (collect-only + procesador final)
+
+- **Pedido (Pablo, PDF "Wizard rediseñado"):** reorganizar flujo/orden/
+  presentación del wizard de conversión solicitud→trámite **sin tocar la
+  mecánica interna** de lo que ya funciona. Núcleo: el wizard **junta toda la
+  info en pasos y NO procesa nada hasta el final** ("Comenzar proceso"), que
+  recorre todo con una **barra de progreso** mostrando cada proceso.
+- **Decisiones (4 preguntas a Pablo antes de codear):**
+  - **Q1 · Procesamiento:** secuencial + reintento desde el paso fallido,
+    reusando los RPCs existentes (no RPC orquestadora monolítica). Realista:
+    emails/alta-usuario/campus no son reversibles.
+  - **Q2 · Paso 2 docs incompletas:** revisión/rechazo/descarte son
+    **terminales** (no generan comprobante/cobranza/tracking); "pedir docs y
+    avanzar" completa todo y deja el PedidoDoc como primer tracking.
+  - **Q3 · Sin cobro:** DDJJ saltea el comprobante (se emite al cerrar el
+    trámite); gratuito/100% bonificado → comprobante **$0 sin cobranza**.
+  - **Q4 · Paneles standalone:** se mantienen intactos (el wizard orquesta los
+    mismos servicios) — mínimo riesgo de regresión.
+- **Arquitectura:** `src/modules/solicitudes/components/wizard/` — `types.ts`
+  (estado collect-only + flags + helpers `totalComprobante`/`adjKey`),
+  `useWizardActivacion` (estado, flags curso/webinar/DDJJ/gratuito/origen, pasos
+  condicionales, draft, navegación), 6 paneles (Cliente/Documentación/
+  Comprobante/Gestoría/Tracking/Campus), `ProcesadorFinal` (runner secuencial +
+  checklist en vivo + reintento + idempotencia por estado real), shell
+  `WizardActivacionV2` con encabezado de contexto fijo. Swap del mount en
+  `SolicitudDetailPage`; wizard viejo (`WizardActivacion.tsx`) eliminado.
+- **Backend (mínimo):** mig **0206** `solicitud_pedir_docs_revision` (RPC +
+  template `solicitud-docs-revision`, espeja `solicitud_rechazar` mig 0125) —
+  única pieza nueva, para la rama terminal "revisión". El resto reusa RPCs
+  existentes (solicitud_activar, emitir_comprobante_manual,
+  registrar_cobranza_comprobante, solicitud_derivar_v3, curso_asignar_alumno,
+  inscribir_a_webinar, tramite_pedido_doc_crear).
+- **Trazabilidad (regla 8):**
+
+  | Paso original | Nuevo paso | Motivo | Deps | Pruebas | Resultado |
+  |---|---|---|---|---|---|
+  | 1 Derivar (commit inmediato) | 4 Gestoría (opcional · diferido) | no procesar hasta el final | solicitud_derivar_v3 | build | OK |
+  | 2 Alta cliente | 1 Cliente (primero) | orden PDF | solicitud_activar | build | OK |
+  | 3 Tracking | 5 Tracking (+ observaciones) | orden PDF | solicitud_activar | build | OK |
+  | panel aparte | 3 Comprobante (en wizard) | dentro del wizard | emitir_comprobante_manual, registrar_cobranza | smoke $0 | OK |
+  | — | 2 Revisar documentación (✓/✗) | nuevo (PDF) | formulario_adjuntos, pedidoDoc, mig 0206 | smoke revisión | OK |
+  | — (manual) | 6 Campus (curso/webinar) | nuevo (PDF) | asignar_alumno, inscribir_a_webinar | build | OK |
+  | N commits sueltos | Procesador final secuencial + checklist | barra de progreso | todos | smoke + build | OK |
+
+- **Cambios de comportamiento (capitalizados):** (1) derivación pasa de commit-
+  inmediato a commit-al-final; (2) comprobante/cobranza entra al wizard; (3) se
+  habilita comprobante $0 (la UI vieja bloqueaba precio ≤ 0).
+- **Verificado:** smoke R18 mig 0206 (en_revision + observación + 1 email,
+  revertido por RAISE EXCEPTION); smoke $0 (total=0.00 + cobranza $0 rechazada
+  por la RPC, revertido); build limpio (tsc + vite) en cada chunk (A–F); push por
+  chunk (código no montado hasta el swap → pushes intermedios seguros).
+- **Pendiente:** prueba e2e en browser (gerente → portal cliente · Chunk G) +
+  doble auditoría a fondo §6 (Chunk H).
+- **Fecha:** 2026-06-08.
