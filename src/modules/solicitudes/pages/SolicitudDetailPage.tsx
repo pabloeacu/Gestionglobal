@@ -31,6 +31,12 @@ import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import { BrandLoader } from '@/components/brand/BrandLoader';
 import { toast } from '@/lib/toast';
 import {
+  camposDelSchema,
+  fieldLabelMap,
+  humanizeFieldName as humanize,
+  labelDeCampo,
+} from '@/lib/formSchema';
+import {
   descartar,
   rechazarSolicitud,
   getSolicitud,
@@ -384,7 +390,10 @@ export function SolicitudDetailPage() {
           </p>
         ) : (
           <ul className="space-y-2">
-            {data.submission_adjuntos.map((a, i) => (
+            {(() => {
+              // Referencia del campo (consigna) que completa cada archivo.
+              const adjLabelMap = fieldLabelMap(data.formulario_schema);
+              return data.submission_adjuntos.map((a, i) => (
               <li key={i}>
                 {/* 1.B · click abre el lightbox (PDF iframe / imagen img); el
                     ícono abre en pestaña como fallback. */}
@@ -394,9 +403,11 @@ export function SolicitudDetailPage() {
                     onClick={() => setLightbox({ url: a.url, nombre: a.nombre })}
                     className="flex flex-1 items-center gap-2 text-left"
                   >
-                    <Paperclip size={14} className="text-brand-cyan" />
+                    <Paperclip size={14} className="shrink-0 text-brand-cyan" />
                     <span className="font-medium text-brand-ink">{a.nombre}</span>
-                    <span className="text-xs text-brand-muted">({a.campo})</span>
+                    <span className="text-xs text-brand-muted">
+                      ({labelDeCampo(adjLabelMap, a.campo)})
+                    </span>
                   </button>
                   <a
                     href={a.url}
@@ -410,7 +421,8 @@ export function SolicitudDetailPage() {
                   </a>
                 </div>
               </li>
-            ))}
+              ));
+            })()}
           </ul>
         )}
       </section>
@@ -790,42 +802,8 @@ function DataChip({
   );
 }
 
-// 1.C · humaniza una key cruda ("dni_solicitante" → "Dni solicitante").
-function humanize(key: string): string {
-  const base = key.replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim();
-  return base.charAt(0).toUpperCase() + base.slice(1);
-}
-
-// 1.C · extrae lista de campos del schema del builder, recorriendo
-// secciones cuando aplica. Tolera schemas de distintos shapes.
-type CampoSchema = { name: string; label: string };
-function camposDelSchema(schema: unknown): CampoSchema[] {
-  if (!schema || typeof schema !== 'object') return [];
-  const out: CampoSchema[] = [];
-  const visit = (node: unknown) => {
-    if (!node || typeof node !== 'object') return;
-    if (Array.isArray(node)) {
-      node.forEach(visit);
-      return;
-    }
-    const obj = node as Record<string, unknown>;
-    if (typeof obj.name === 'string') {
-      out.push({
-        name: obj.name,
-        label:
-          typeof obj.label === 'string' && obj.label.trim()
-            ? obj.label
-            : humanize(obj.name),
-      });
-    }
-    if (Array.isArray(obj.fields)) obj.fields.forEach(visit);
-    if (Array.isArray(obj.secciones)) obj.secciones.forEach(visit);
-    if (Array.isArray(obj.sections)) obj.sections.forEach(visit);
-    if (Array.isArray(obj.campos)) obj.campos.forEach(visit);
-  };
-  visit(schema);
-  return out;
-}
+// 1.C · `humanize` / `camposDelSchema` / `CampoSchema` viven ahora en
+// `@/lib/formSchema` (única fuente de verdad, reusada por el wizard Paso 2).
 
 // 1.C · ordena las entries por el orden del schema y resuelve labels.
 function payloadEnOrden(

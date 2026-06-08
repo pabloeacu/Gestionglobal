@@ -15,6 +15,8 @@ const BRAND_CYAN = '#009ECA';
 
 export interface AdjuntoTramite {
   field_name: string;
+  /** Etiqueta humana del campo (consigna) resuelta server-side (mig 0208). */
+  label?: string | null;
   filename_original: string;
   storage_path: string;
   url_descarga?: string; // URL firmada (ya generada por el caller)
@@ -89,7 +91,7 @@ function buildHtml(input: TramitePdfInput): string {
               ${a.url_descarga
                 ? `<a href="${escapeHtml(a.url_descarga)}" target="_blank">${escapeHtml(a.filename_original)}</a>`
                 : `<span>${escapeHtml(a.filename_original)}</span>`}
-              <span class="adj-campo">· ${escapeHtml(a.field_name.replace(/_/g, ' '))}</span>
+              <span class="adj-campo">· ${escapeHtml(a.label || a.field_name.replace(/_/g, ' '))}</span>
             </li>
           `,
             )

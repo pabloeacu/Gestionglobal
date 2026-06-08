@@ -19,6 +19,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { Field, StepPanel, Textarea } from '@/components/common';
+import { fieldLabelMap, labelDeCampo } from '@/lib/formSchema';
 import { adjKey, type DocOutcome, type PasoProps } from './types';
 
 interface OutcomeOpcion {
@@ -72,6 +73,13 @@ function mensajeLabel(o: DocOutcome): string {
 
 export function PasoDocumentacion({ solicitud, state, set }: PasoProps) {
   const adjuntos = solicitud.submission_adjuntos ?? [];
+  // Referencia del campo (consigna) que completa cada archivo: resolvemos el
+  // slug `campo` → etiqueta humana usando el schema del formulario, para que
+  // los documentos no queden sueltos sino anclados a su consigna (Pablo).
+  const labelMap = useMemo(
+    () => fieldLabelMap(solicitud.formulario_schema),
+    [solicitud.formulario_schema],
+  );
 
   // Inicializamos cada archivo en ✓ (correcto) la primera vez: el camino feliz
   // (todo bien) avanza con un click; gerencia marca ✗ donde corresponda.
@@ -138,8 +146,8 @@ export function PasoDocumentacion({ solicitud, state, set }: PasoProps) {
                 className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-white p-3 sm:flex-row sm:items-center sm:justify-between"
               >
                 <div className="min-w-0">
-                  <p className="text-[11px] font-semibold uppercase tracking-wider text-brand-muted">
-                    {a.campo}
+                  <p className="text-[11px] font-semibold tracking-wide text-brand-cyan break-words">
+                    {labelDeCampo(labelMap, a.campo)}
                   </p>
                   <p className="truncate text-sm font-medium text-brand-ink">{a.nombre}</p>
                   {a.url && (

@@ -486,6 +486,8 @@ type InfoSolicitud = {
   datos: Record<string, unknown>;
   adjuntos: Array<{
     field_name: string;
+    /** Etiqueta humana del campo (consigna) resuelta server-side (mig 0208). */
+    label?: string | null;
     filename_original: string;
     storage_path: string;
   }>;
@@ -706,8 +708,15 @@ function PanelGestor({ token }: { token: string }) {
                           className="inline-flex items-center gap-1.5 rounded-lg bg-slate-50 px-2.5 py-1.5 text-xs text-brand-ink hover:bg-brand-cyan/10 hover:text-brand-cyan"
                           title="Descargar archivo"
                         >
-                          <Paperclip size={11} className="text-brand-cyan" />
-                          {a.filename_original}
+                          <Paperclip size={11} className="shrink-0 text-brand-cyan" />
+                          <span className="min-w-0 break-words">
+                            {(a.label ?? a.field_name) && (
+                              <span className="font-semibold">
+                                {a.label ?? a.field_name}:{' '}
+                              </span>
+                            )}
+                            {a.filename_original}
+                          </span>
                           <UploadCloud size={10} className="rotate-180 text-brand-muted" />
                         </a>
                       </li>
