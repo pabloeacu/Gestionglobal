@@ -35,6 +35,13 @@ function validarPaso(key: PasoKey, state: WizardState): boolean {
         : state.clienteIdExistente.length > 0;
     case 'tracking':
       return state.periodo.trim().length > 0 && state.fechaInicio.length > 0;
+    case 'documentacion': {
+      const hayCruz = Object.values(state.docChecks).some((v) => v === false);
+      // 'completa' sólo es válido si no hay ningún ✗; cualquier otra rama
+      // (pedir/revisión/rechazo/descarte) exige el mensaje/motivo.
+      if (state.docOutcome === 'completa') return !hayCruz;
+      return state.docMensajeCliente.trim().length > 0;
+    }
     default:
       return true;
   }
