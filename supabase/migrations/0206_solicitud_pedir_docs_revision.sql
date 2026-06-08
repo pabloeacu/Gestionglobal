@@ -7,7 +7,9 @@
 -- push si tiene usuario de portal) explicando qué documentación falta.
 -- Espeja `solicitud_rechazar` (mig 0125) — patrón probado, 3 canales.
 -- R16: nombre nuevo (no es overload de marcar_en_revision). R5/R12: SD +
--- search_path. R17: las tablas de notif tienen policies de write propias.
+-- search_path. R17: las 3 colas (email_queue/notificaciones_internas/
+-- push_notifications_queue) se escriben SOLO vía SECURITY DEFINER; las dos de
+-- notif NO tienen policy INSERT → el SD (owner) las desbloquea (lección E-GG-38).
 -- ============================================================================
 
 CREATE OR REPLACE FUNCTION public.solicitud_pedir_docs_revision(

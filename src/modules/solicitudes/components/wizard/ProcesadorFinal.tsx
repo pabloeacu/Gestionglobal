@@ -36,6 +36,7 @@ import { listCobranzasDeComprobante, registrarCobranza } from '@/services/api/co
 import { asignarAlumno } from '@/services/api/campus';
 import { inscribirManual } from '@/services/api/webinars';
 import { crearPedidoDoc } from '@/services/api/tramitePedidosDoc';
+import { agregarLinea } from '@/services/api/trackings';
 import { limpiarDraftV2 } from './useWizardActivacion';
 import { adjKey, totalComprobante, type SolicitudFlags, type WizardState } from './types';
 
@@ -68,6 +69,8 @@ interface Props {
   flags: SolicitudFlags;
   state: WizardState;
   onDone: (trackingId: string | null) => void;
+  /** Avisa al shell si el procesador está corriendo (para bloquear el cierre). */
+  onRunningChange?: (running: boolean) => void;
 }
 
 function hoy(): string {
@@ -169,6 +172,26 @@ function construirOps(
       return `Trámite abierto (${res.data.trackingId.slice(0, 8)}…)`;
     },
   });
+
+  // 1b · Observación interna del tracking (si la gerencia la cargó). Best-effort:
+  //      línea interna (no visible al cliente) sobre la apertura.
+  if (state.observacionesTracking.trim()) {
+    ops.push({
+      key: 'observacion',
+      label: 'Registrar observación del tracking',
+      bestEffort: true,
+      run: async (ctx) => {
+        if (!ctx.trackingId) return 'Sin trámite';
+        const r = await agregarLinea(ctx.trackingId, {
+          categoria: 'alta',
+          descripcion: state.observacionesTracking.trim(),
+          visible_cliente: false,
+        });
+        if (!r.ok) throw new Error(humanizeError(r.error));
+        return 'Observación interna agregada';
+      },
+    });
+  }
 
   // 2 · Acceso al portal + bienvenida (sólo cliente nuevo · best-effort).
   if (state.modoCliente === 'nuevo') {
@@ -292,6 +315,7 @@ function construirOps(
     ops.push({
       key: 'campus',
       label: 'Matricular en el curso',
+      bestEffort: true,
       run: async (ctx) => {
         if (!ctx.administracionId) throw new Error('Falta el cliente para matricular');
         const r = await asignarAlumno({ cursoId, administracionId: ctx.administracionId });
@@ -305,6 +329,7 @@ function construirOps(
     ops.push({
       key: 'webinar',
       label: 'Inscribir al webinar',
+      bestEffort: true,
       run: async () => {
         const email = (
           (state.modoCliente === 'nuevo' ? state.nuevoCliente.email : null) ??
@@ -350,7 +375,7 @@ function construirOps(
   return ops;
 }
 
-export function ProcesadorFinal({ solicitud, flags, state, onDone }: Props) {
+export function ProcesadorFinal({ solicitud, flags, state, onDone, onRunningChange }: Props) {
   const ops = useMemo(() => construirOps(solicitud, flags, state), [solicitud, flags, state]);
   const [views, setViews] = useState<OpView[]>(() =>
     ops.map((o) => ({ key: o.key, label: o.label, status: 'pending', bestEffort: o.bestEffort })),
@@ -400,6 +425,12 @@ export function ProcesadorFinal({ solicitud, flags, state, onDone }: Props) {
     void correr(0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Avisa al shell mientras corre (para bloquear el cierre del modal y evitar
+  // abandonar el proceso a mitad — defensa contra duplicación al reabrir).
+  useEffect(() => {
+    onRunningChange?.(corriendo);
+  }, [corriendo, onRunningChange]);
 
   return (
     <div className="space-y-4">

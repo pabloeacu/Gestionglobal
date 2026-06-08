@@ -2200,3 +2200,53 @@
   RPC con un branch "raro" (notificar opcional) necesita un smoke e2e que
   ejercite ESE branch, no solo el happy path.
 - **Fecha / módulo:** 2026-06-06 · trackings/reapertura · mig 0203.
+
+## E-GG-56 · Doble auditoría a fondo del wizard de activación v2 (DGG-54)
+
+- **Contexto:** método §6 (3 agentes paralelos + e2e en vivo) sobre el wizard
+  rediseñado. La activación e2e en browser pasó perfecta; la lectura estática
+  encontró hallazgos que el happy-path no exponía. Fixeados en el mismo chunk.
+- **Hallazgos FIXEADOS:**
+  1. **(Crítico) Duplicación de comprobante al cerrar el modal a mitad de
+     proceso.** Si la emisión del comprobante sale OK pero la cobranza falla, y
+     el gerente cierra con la X/Escape (en vez de *Reintentar*) y reabre el
+     wizard, el prop `solicitud` quedaba stale (sin `comprobante_id`) → la op
+     comprobante re-emitía OTRO comprobante. **Fix:** (a) `onRunningChange` →
+     `procesando` bloquea el cierre del modal (`onClose` no-op) mientras corre;
+     (b) refetch de la solicitud en `onClose` del wizard (no sólo en
+     `onActivated`) → al reabrir ve `comprobante_id`/`tramite_id` reales y
+     saltea. El guard `listCobranzasDeComprobante` ya prevenía doble cobranza.
+  2. **Campus/webinar frenaban toda la activación si fallaban** (siendo
+     "opcionales"). El trámite ya quedaba abierto pero un error de matrícula/
+     inscripción abortaba la secuencia. **Fix:** ops `campus`+`webinar` →
+     `bestEffort` (avisan, no detienen). También mitiga el email faltante al
+     inscribir webinar de un cliente existente.
+  3. **`observacionesTracking` fantasma** (regla 1 suave: se juntaba pero no se
+     persistía). **Fix:** op best-effort que agrega una línea interna del
+     tracking (`categoria='alta'`, `visible_cliente=false`) con la observación.
+  4. **Comentario R17 de la mig 0206 inexacto** (decía que las colas de notif
+     "tienen policies de write propias"; 2 de 3 NO las tienen y se salvan por
+     ser SECURITY DEFINER). Reescrito.
+- **Verificado sólido (sin acción):** firmas RPC (sin patrón E-GG-42),
+  no-duplicación de cliente (`solicitud_activar` aborta si ya `activada`),
+  idempotencia/resume por estado real, regla 4 (0 `supabase.from` en
+  componentes), R5/R12/R16/R17 de la mig 0206, paridad de variables del
+  template, downstream de `en_revision` (listSolicitudes/SolicitudCard ok),
+  R20 en uploads, ramas terminales Q2.
+- **DIFERIDO (decisión de Pablo):**
+  - **Partner + servicio gratuito/$0:** el selector de partner se oculta en $0
+    (no hay movimiento de cobranza que atribuir). Probablemente by-design (un
+    servicio $0 no se rinde ni se factura), pero si se quiere atribuir partners
+    en bonificados-100%, falta un mecanismo de atribución sin cobranza.
+  - **Operador (no-gerente) en ramas terminales:** `pedir_docs_revision` y
+    `rechazar` exigen `role='gerente'` estricto (`descartar` acepta operador).
+    Un operador que elija revisión/rechazo recibe error humanizado (dead-end).
+  - **`esGratuito` falso-positivo si `precio_final=0` por error de carga** y
+    **`esWebinar` sin guard `!esDDJJ`:** riesgo bajo (el gerente edita el precio
+    en Paso 3; un slug webinar+ddjj es improbable). A monitorear.
+- **Lección:** un wizard que difiere mutaciones al final debe (a) impedir el
+  cierre mientras procesa y (b) refrescar su fuente de verdad al cerrar, o la
+  idempotencia basada en el prop inicial se rompe al reabrir sobre un estado
+  parcial. Las ops "opcionales" (campus) deben ser best-effort para no frenar
+  el núcleo (cliente+trámite+cobranza).
+- **Fecha / módulo:** 2026-06-08 · solicitudes/wizard v2 · DGG-54.

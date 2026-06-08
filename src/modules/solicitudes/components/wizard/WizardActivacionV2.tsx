@@ -3,7 +3,7 @@
 // (Atrás / Siguiente / Cancelar; último = Comenzar proceso). Nada se procesa
 // hasta el ProcesadorFinal. Cita: PDF "Wizard rediseñado" + decisiones Q1-Q4.
 
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, Sparkles } from 'lucide-react';
 import { Button, Modal, Stepper, type Step } from '@/components/common';
@@ -67,6 +67,9 @@ function validarPaso(key: PasoKey, state: WizardState): boolean {
 
 export function WizardActivacionV2({ open, onClose, solicitud, onActivated }: Props) {
   const navigate = useNavigate();
+  // Mientras el ProcesadorFinal corre, bloqueamos el cierre del modal (X/Escape)
+  // para no abandonar el proceso a mitad.
+  const [procesando, setProcesando] = useState(false);
   const wiz = useWizardActivacion(solicitud, open);
   const {
     flags,
@@ -115,7 +118,7 @@ export function WizardActivacionV2({ open, onClose, solicitud, onActivated }: Pr
   return (
     <Modal
       open={open}
-      onClose={onClose}
+      onClose={procesando ? () => {} : onClose}
       title="Wizard de activación"
       kicker="Solicitud · Flujo Maestro"
       width={820}
@@ -176,6 +179,7 @@ export function WizardActivacionV2({ open, onClose, solicitud, onActivated }: Pr
             solicitud={solicitud}
             flags={flags}
             state={state}
+            onRunningChange={setProcesando}
             onDone={(trackingId) => {
               if (trackingId) onActivated?.(trackingId);
               onClose();

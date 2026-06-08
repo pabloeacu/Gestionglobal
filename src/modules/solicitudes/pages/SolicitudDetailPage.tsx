@@ -505,7 +505,13 @@ export function SolicitudDetailPage() {
       {/* Wizard de activación v2 (rediseño collect-only · DGG-54) */}
       <WizardActivacionV2
         open={wizardOpen}
-        onClose={() => setWizardOpen(false)}
+        onClose={() => {
+          setWizardOpen(false);
+          // E-GG-56: refetch al cerrar para que, si el proceso quedó a medias,
+          // al reabrir el wizard vea el estado real (tramite_id/comprobante_id)
+          // y no re-emita un comprobante duplicado.
+          void load();
+        }}
         solicitud={data}
         onActivated={() => void load()}
       />
