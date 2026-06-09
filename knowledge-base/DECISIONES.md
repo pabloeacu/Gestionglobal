@@ -2161,3 +2161,36 @@ El usuario lo pidió en dos requerimientos simultáneos.
   skip-lists como sí lo hace el runner — hoy inerte (el bloque no es `required`
   ni aporta key al payload); se difiere a un chunk de consistencia aparte.
 - **Fecha:** 2026-06-09.
+
+## DGG-62 · F7 · Banner de solicitudes nuevas en tiempo real (Inicio de gerencia)
+
+- **Contexto (Lista JL · F7):** la gerencia quería un aviso claro en el dashboard
+  cuando entra una solicitud nueva (formulario público). Ya existía un
+  `NuevasSolicitudesWidget` (Bloque B / obs 1, tarea #160), pero (a) **estaba roto**
+  — filtraba un estado inexistente, ver E-GG-61 — y (b) cargaba una sola vez, sin
+  realtime.
+- **Decisión de Pablo:** "banner en el Inicio + tiempo real", énfasis **sutil**
+  (aparición + número, sin sonido ni toast). No global (sólo el Inicio).
+- **Implementación (puro frontend, sin migración):**
+  1. **Fix del estado (E-GG-61):** `listSolicitudesPendientes` ahora filtra
+     `estado IN ('recibida','en_revision')` (antes `'nueva'`, inexistente). El
+     banner por fin muestra las solicitudes que esperan la primera acción.
+  2. **Tiempo real:** el widget se suscribe a Realtime de `solicitudes`
+     (`useRealtimeRefresh`; la tabla ya estaba en la publicación
+     `supabase_realtime`; la RLS `sol_staff_all` filtra por staff) → el banner
+     aparece/actualiza el contador **sin recargar**.
+  3. **UI:** estado activo = banner ámbar prominente con punto "en vivo"
+     (`animate-ping`) + número animado al cambiar (`key={total}` +
+     `animate-fade-in`). Estado vacío = barra slim "Todo al día" (no roba foco).
+     **Reubicado arriba de todo** en el Inicio (antes de los asistentes).
+- **§6 (2 agentes) + prueba en vivo:** realtime/correctness + UX/regresiones,
+  ambos OK (suscripción + cleanup, RLS solo-staff, debounce de ráfagas → 1
+  recarga, sin loops, guard mounted, tour desacoplado, sin imports muertos).
+  **Prueba en vivo (gerente, deploy):** el banner mostró las 2 pendientes reales
+  que estaban invisibles y, al flipear una 3ª a `recibida`, subió a 3 **en vivo
+  sin recargar** y volvió a 2 al revertir. Consola sin errores de app. La sesión
+  de gerente había expirado y los 2 únicos gerentes son personas reales → **NO
+  creé cuentas QA ni toqué sus contraseñas** (regla de seguridad); Pablo se
+  relogueó para la prueba.
+- **Commits:** `c48e907` (realtime + reubicación) + `29e5d25` (fix del estado).
+- **Fecha:** 2026-06-09.

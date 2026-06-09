@@ -2442,3 +2442,39 @@
   guardar ahí datos de un usuario que otro no debería ver. Smell check: claves
   globales (`gg.*`) que guarden datos específicos de un usuario.
 - **Fecha / módulo:** 2026-06-09 · portal · `TramixConsultaModal.tsx` · Lista JL F3.
+
+## E-GG-61 · El aviso de "nuevas solicitudes" filtraba un estado inexistente → nunca se mostró (F7 · Lista JL)
+
+- **Síntoma (JL):** el gerente no veía en el dashboard el aviso de solicitudes
+  nuevas que ingresan por los formularios públicos. Se enteraba sólo por la
+  campanita / mail, no por un banner en el Inicio.
+- **Causa raíz:** `listSolicitudesPendientes` (que alimenta
+  `NuevasSolicitudesWidget`) filtraba `estado = 'nueva'`, pero **`'nueva'` NO
+  está en el CHECK de `solicitudes`** (`recibida` / `en_revision` / `derivada` /
+  `activada` / `rechazada` / `descartada`). Las solicitudes nuevas nacen
+  `'recibida'` (trigger submission→solicitud, migs 0035/0074/0135/0161).
+  Resultado: el `count` daba **siempre 0** → el widget mostraba permanentemente
+  el estado vacío. El aviso **nunca se disparó** desde que se creó (Bloque B /
+  obs 1, tarea #160). Lo descubrí en la prueba en vivo de F7: un `UPDATE
+  estado='nueva'` voló con `23514 violates check constraint`.
+- **Por qué pasó inadvertido:** `.eq('estado','nueva')` no es error de compilación
+  ni de runtime (Postgres acepta el literal en el filtro; sólo no matchea
+  ninguna fila). La grilla de Solicitudes sí usaba el filtro correcto
+  (`in ('recibida','en_revision','derivada')`), así que el dato existía — sólo el
+  widget del dashboard miraba un valor fantasma, y su estado vacío parecía
+  normal. Patrón hermano de **E-GG-43** (KPIs/contadores con universo mal
+  filtrado): un literal de estado inexistente pasa silencioso.
+- **Fix:** `listSolicitudesPendientes` filtra `estado IN ('recibida',
+  'en_revision')` (las que esperan la PRIMERA acción de la gerencia: derivar o
+  activar). El link "Ver todas" del widget → `?estado=activas`. Capitalizado
+  junto al realtime (DGG-62): el banner ahora aparece **y** se actualiza en vivo.
+  **Verificado en vivo:** el banner pasó a mostrar las 2 pendientes reales (Paul
+  Test `recibida` + Expensas Pagas `en_revision`) que estaban invisibles, y al
+  flipear una 3ª a `recibida` el contador subió a 3 **sin recargar** (realtime) y
+  volvió a 2 al revertir.
+- **Prevención:** todo `.eq('estado', '<literal>')` debe validarse contra el CHECK
+  real (`pg_constraint`/`information_schema`) — un valor fantasma no falla, sólo
+  devuelve 0 en silencio. Smell check: contadores que dan siempre 0 / widgets que
+  nunca salen del estado vacío.
+- **Fecha / módulo:** 2026-06-09 · gerencia · `solicitudes.ts` +
+  `NuevasSolicitudesWidget.tsx` · Lista JL F7.
