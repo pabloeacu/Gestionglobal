@@ -1,19 +1,22 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from '@/lib/toast';
-import {
-  Plus,
-  List as ListIcon,
-  AlertTriangle,
-  ArrowRight,
-  GripVertical,
-  Receipt,
-} from 'lucide-react';
-import { Button, SkeletonRow, useConfirm } from '@/components/common';
+import { Plus, List as ListIcon, AlertTriangle, ArrowRight, GripVertical, Receipt } from 'lucide-react';
+import { Button, SkeletonRow, useConfirm, RefreshIndicator } from '@/components/common';
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
 import { useSounds } from '@/contexts/SoundContext';
 import { cn } from '@/lib/cn';
 import { TramiteFormDrawer } from '../components/TramiteFormDrawer';
+import { TramitesSegmentos, TramitesFilterBar } from '../components/TramitesFiltros';
+import {
+  ACTIVE_ESTADOS,
+  applyTramitesFilters,
+  countSegments,
+  servicioOptions,
+  INITIAL_TRAMITES_FILTER,
+  type TramitesFilterState,
+  type SegmentKey,
+} from '../components/tramitesFilter';
 import {
   listTramites,
   updateTramite,
@@ -30,29 +33,15 @@ import {
 } from '@/services/api/tramites';
 import { humanizeError } from '@/lib/errors';
 
-// Columnas visibles del kanban (excluimos cancelado por defecto).
-const COLUMNS: { key: TramiteEstado; label: string; cls: string }[] = [
+// Todas las columnas posibles. Con "Solo activos" ON se muestran las 4 activas;
+// al apagar el switch aparecen también Cerrados y Cancelados.
+const ALL_COLUMNS: { key: TramiteEstado; label: string; cls: string }[] = [
   { key: 'abierto', label: 'Abiertos', cls: 'border-blue-300/60 bg-blue-50/60' },
-  {
-    key: 'en_progreso',
-    label: 'En progreso',
-    cls: 'border-cyan-300/60 bg-cyan-50/60',
-  },
-  {
-    key: 'esperando_cliente',
-    label: 'Esperando cliente',
-    cls: 'border-amber-300/60 bg-amber-50/60',
-  },
-  {
-    key: 'resuelto',
-    label: 'Resueltos',
-    cls: 'border-emerald-300/60 bg-emerald-50/60',
-  },
-  {
-    key: 'cerrado',
-    label: 'Cerrados',
-    cls: 'border-slate-300/60 bg-slate-50/60',
-  },
+  { key: 'en_progreso', label: 'En progreso', cls: 'border-cyan-300/60 bg-cyan-50/60' },
+  { key: 'esperando_cliente', label: 'Esperando cliente', cls: 'border-amber-300/60 bg-amber-50/60' },
+  { key: 'resuelto', label: 'Resueltos', cls: 'border-emerald-300/60 bg-emerald-50/60' },
+  { key: 'cerrado', label: 'Cerrados', cls: 'border-slate-300/60 bg-slate-50/60' },
+  { key: 'cancelado', label: 'Cancelados', cls: 'border-red-300/60 bg-red-50/60' },
 ];
 
 const PRIORIDAD_DOT: Record<TramitePrioridad, string> = {
@@ -63,96 +52,94 @@ const PRIORIDAD_DOT: Record<TramitePrioridad, string> = {
 };
 
 export function TramitesKanbanPage() {
-  const [rows, setRows] = useState<TramiteListItem[]>([]);
+  const [universe, setUniverse] = useState<TramiteListItem[]>([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [dragId, setDragId] = useState<string | null>(null);
   const [dragOverCol, setDragOverCol] = useState<TramiteEstado | null>(null);
-  // DGG-55 · filtro "Comprobante pendiente" (capta DDJJ + huecos).
-  const [soloCompPend, setSoloCompPend] = useState(false);
+  const [f, setF] = useState<TramitesFilterState>(INITIAL_TRAMITES_FILTER);
   const { play } = useSounds();
   const confirm = useConfirm();
 
+  function update(patch: Partial<TramitesFilterState>) {
+    setF((prev) => ({ ...prev, ...patch }));
+  }
+  function clear() {
+    setF(INITIAL_TRAMITES_FILTER);
+  }
+  function toggleSegment(key: SegmentKey) {
+    setF((prev) => ({ ...prev, segment: prev.segment === key ? null : key }));
+  }
+
+  const firstLoadDoneRef = useRef(false);
   async function load() {
-    setLoading(true);
+    if (firstLoadDoneRef.current) setRefreshing(true);
+    else setLoading(true);
     const res = await listTramites({
-      estados: COLUMNS.map((c) => c.key),
-      limit: 500,
+      estados: f.soloActivos ? ACTIVE_ESTADOS : undefined,
+      limit: 1000,
     });
     setLoading(false);
+    setRefreshing(false);
+    firstLoadDoneRef.current = true;
     if (!res.ok) {
       toast.error(`No pudimos cargar los trámites: ${humanizeError(res.error)}`);
       return;
     }
-    setRows(res.data.rows);
+    setUniverse(res.data.rows);
+    setTotal(res.data.total);
   }
 
   useEffect(() => {
     void load();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [f.soloActivos]);
 
   useRealtimeRefresh(['tramites'], () => void load(), 350);
 
+  const columns = useMemo(
+    () => (f.soloActivos ? ALL_COLUMNS.filter((c) => (ACTIVE_ESTADOS as TramiteEstado[]).includes(c.key)) : ALL_COLUMNS),
+    [f.soloActivos],
+  );
+  const counts = useMemo(() => countSegments(universe), [universe]);
+  const servicioOpts = useMemo(() => servicioOptions(universe), [universe]);
+  const filtered = useMemo(() => applyTramitesFilters(universe, f), [universe, f]);
+
   const byEstado = useMemo(() => {
-    const m: Record<TramiteEstado, TramiteListItem[]> = {
-      abierto: [],
-      en_progreso: [],
-      esperando_cliente: [],
-      resuelto: [],
-      cerrado: [],
-      cancelado: [],
-    };
-    for (const r of rows) {
-      if (soloCompPend && !r.comprobante_pendiente) continue;
+    const m = {} as Record<TramiteEstado, TramiteListItem[]>;
+    for (const c of ALL_COLUMNS) m[c.key] = [];
+    for (const r of filtered) {
       const e = r.estado as TramiteEstado;
       if (m[e]) m[e].push(r);
     }
     return m;
-  }, [rows, soloCompPend]);
-
-  // DGG-55 · cantidad de trámites con comprobante pendiente (DDJJ + huecos).
-  const compPendCount = useMemo(
-    () => rows.filter((r) => r.comprobante_pendiente).length,
-    [rows],
-  );
+  }, [filtered]);
 
   async function mover(t: TramiteListItem, nuevoEstado: TramiteEstado) {
     if (t.estado === nuevoEstado) return;
-
-    // DGG-44 · Gate de cobranza. Si se AVANZA (hacia el cierre) un trámite con
-    // un comprobante con costo e impago, pedir confirmación. Soft gate: el
-    // usuario siempre puede continuar. No aplica a regresiones ni a trámites
-    // sin comprobante (DDJJ) ni con comprobante $0,00 (bonificado/gratuito).
-    if (
-      esAvanceTramite(t.estado as TramiteEstado, nuevoEstado) &&
-      t.cobro_pendiente
-    ) {
+    // DGG-44 · gate de cobranza (soft) al AVANZAR un trámite impago.
+    if (esAvanceTramite(t.estado as TramiteEstado, nuevoEstado) && t.cobro_pendiente) {
       const ok = await confirm({
         title: 'Trámite impago',
         message: (
           <div className="space-y-2">
-            <p>
-              Este trámite no tiene cobranza registrada. Por lo tanto, está
-              impago.
-            </p>
+            <p>Este trámite no tiene cobranza registrada. Por lo tanto, está impago.</p>
             <p>¿Desea avanzar la gestión de todos modos?</p>
           </div>
         ),
         confirmLabel: 'Avanzar',
         cancelLabel: 'Cancelar',
       });
-      if (!ok) return; // Cancelar → la tarjeta queda donde está.
+      if (!ok) return;
     }
-
-    // Optimistic update
-    setRows((prev) =>
-      prev.map((r) => (r.id === t.id ? { ...r, estado: nuevoEstado } : r)),
-    );
+    setUniverse((prev) => prev.map((r) => (r.id === t.id ? { ...r, estado: nuevoEstado } : r)));
     play('click');
     const res = await updateTramite(t.id, { estado: nuevoEstado });
     if (!res.ok) {
       toast.error(`No pudimos mover el trámite: ${humanizeError(res.error)}`);
-      void load();  // re-sync
+      void load();
       return;
     }
     play('success');
@@ -161,36 +148,16 @@ export function TramitesKanbanPage() {
 
   return (
     <div className="mx-auto max-w-[1600px] space-y-6">
+      <RefreshIndicator show={refreshing} />
       <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="kicker text-brand-cyan">Operación</p>
-          <h1 className="font-display text-3xl font-bold text-brand-ink sm:text-4xl">
-            Trámites · Kanban
-          </h1>
+          <h1 className="font-display text-3xl font-bold text-brand-ink sm:text-4xl">Trámites · Kanban</h1>
           <p className="mt-1 text-sm text-brand-muted">
-            Arrastrá una tarjeta entre columnas o usá el botón →. El cambio se
-            persiste al instante.
+            Arrastrá una tarjeta entre columnas o usá el botón →. El cambio se persiste al instante.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {compPendCount > 0 && (
-            <button
-              type="button"
-              onClick={() => setSoloCompPend((v) => !v)}
-              title="Trámites sin comprobante emitido (DDJJ y otros). Para no perder de vista la cobranza."
-              className={cn(
-                'inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium transition',
-                soloCompPend
-                  ? 'border-violet-400 bg-violet-50 text-violet-700'
-                  : 'border-slate-200 text-brand-ink hover:border-violet-300 hover:text-violet-700',
-              )}
-            >
-              <Receipt size={15} /> Comprobante pendiente
-              <span className="rounded-full bg-violet-100 px-1.5 text-xs font-bold text-violet-700">
-                {compPendCount}
-              </span>
-            </button>
-          )}
           <Link
             to="/gerencia/tramites"
             className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-brand-ink transition hover:border-brand-cyan hover:text-brand-cyan"
@@ -203,10 +170,29 @@ export function TramitesKanbanPage() {
         </div>
       </header>
 
+      {/* F8 · Segmentos + barra (sin chips de Estado: las columnas son los estados) */}
+      <TramitesSegmentos counts={counts} active={f.segment} onToggle={toggleSegment} />
+      <TramitesFilterBar
+        f={f}
+        update={update}
+        servicioOpts={servicioOpts}
+        shown={filtered.length}
+        total={universe.length}
+        onClear={clear}
+        showEstadoChips={false}
+      />
+
+      {total > universe.length && (
+        <p className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+          <AlertTriangle size={13} className="shrink-0" />
+          Mostrando {universe.length} de {total} trámites. Afiná los filtros para no perder ninguno.
+        </p>
+      )}
+
       {loading ? (
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
-          {COLUMNS.map((c) => (
-            <div key={c.key} className="card-premium space-y-3 p-4">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
+          {ACTIVE_ESTADOS.map((c) => (
+            <div key={c} className="card-premium space-y-3 p-4">
               <SkeletonRow cols={2} />
               <SkeletonRow cols={2} />
               <SkeletonRow cols={2} />
@@ -214,46 +200,36 @@ export function TramitesKanbanPage() {
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
-          {COLUMNS.map((col) => {
-            const items = byEstado[col.key];
+        <div className={cn('grid grid-cols-1 gap-4', f.soloActivos ? 'lg:grid-cols-4' : 'lg:grid-cols-6')}>
+          {columns.map((col) => {
+            const items = byEstado[col.key] ?? [];
             const isOver = dragOverCol === col.key;
             return (
               <section
                 key={col.key}
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  setDragOverCol(col.key);
-                }}
+                onDragOver={(e) => { e.preventDefault(); setDragOverCol(col.key); }}
                 onDragLeave={() => setDragOverCol((prev) => (prev === col.key ? null : prev))}
                 onDrop={(e) => {
                   e.preventDefault();
                   setDragOverCol(null);
                   if (!dragId) return;
-                  const t = rows.find((r) => r.id === dragId);
+                  const t = universe.find((r) => r.id === dragId);
                   if (t) void mover(t, col.key);
                   setDragId(null);
                 }}
                 className={cn(
                   'flex min-h-[400px] flex-col rounded-2xl border p-3 transition-colors',
                   col.cls,
-                  isOver &&
-                    'ring-2 ring-brand-cyan/50 ring-offset-2 ring-offset-white',
+                  isOver && 'ring-2 ring-brand-cyan/50 ring-offset-2 ring-offset-white',
                 )}
               >
                 <header className="mb-3 flex items-center justify-between px-1">
-                  <h2 className="text-sm font-semibold text-brand-ink">
-                    {col.label}
-                  </h2>
-                  <span className="rounded-full bg-white/70 px-2 py-0.5 text-[11px] font-semibold text-brand-muted">
-                    {items.length}
-                  </span>
+                  <h2 className="text-sm font-semibold text-brand-ink">{col.label}</h2>
+                  <span className="rounded-full bg-white/70 px-2 py-0.5 text-[11px] font-semibold text-brand-muted">{items.length}</span>
                 </header>
                 <div className="flex-1 space-y-2.5">
                   {items.length === 0 ? (
-                    <p className="px-2 py-6 text-center text-[11px] text-brand-muted/70">
-                      Sin trámites en esta columna
-                    </p>
+                    <p className="px-2 py-6 text-center text-[11px] text-brand-muted/70">Sin trámites en esta columna</p>
                   ) : (
                     items.map((t, idx) => {
                       const sla = computeSla(t);
@@ -263,82 +239,46 @@ export function TramitesKanbanPage() {
                           key={t.id}
                           draggable
                           onDragStart={() => setDragId(t.id)}
-                          onDragEnd={() => {
-                            setDragId(null);
-                            setDragOverCol(null);
-                          }}
+                          onDragEnd={() => { setDragId(null); setDragOverCol(null); }}
                           className={cn(
                             'group rounded-xl border border-slate-200 bg-white p-3 shadow-sm transition-shadow hover:shadow-md motion-safe:animate-fade-up',
                             dragId === t.id && 'opacity-60',
                           )}
-                          style={{
-                            animationDelay: `${Math.min(idx, 8) * 30}ms`,
-                          }}
+                          style={{ animationDelay: `${Math.min(idx, 8) * 30}ms` }}
                         >
                           <div className="flex items-start gap-2">
-                            <GripVertical
-                              size={14}
-                              className="mt-0.5 shrink-0 text-brand-muted/60 group-hover:text-brand-muted"
-                            />
+                            <GripVertical size={14} className="mt-0.5 shrink-0 text-brand-muted/60 group-hover:text-brand-muted" />
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center gap-1.5">
                                 <span
-                                  className={cn(
-                                    'inline-block h-2 w-2 shrink-0 rounded-full',
-                                    PRIORIDAD_DOT[t.prioridad as TramitePrioridad],
-                                  )}
+                                  className={cn('inline-block h-2 w-2 shrink-0 rounded-full', PRIORIDAD_DOT[t.prioridad as TramitePrioridad])}
                                   title={`Prioridad: ${TRAMITE_PRIORIDAD_LABEL[t.prioridad as TramitePrioridad]}`}
                                 />
-                                <span className="font-mono text-[10px] uppercase tracking-wider text-brand-muted">
-                                  {t.codigo}
-                                </span>
+                                <span className="font-mono text-[10px] uppercase tracking-wider text-brand-muted">{t.codigo}</span>
                               </div>
-                              <Link
-                                to={`/gerencia/tramites/${t.id}`}
-                                className="mt-0.5 block truncate text-sm font-medium text-brand-ink hover:text-brand-cyan"
-                                title={t.titulo}
-                              >
+                              <Link to={`/gerencia/tramites/${t.id}`} className="mt-0.5 block truncate text-sm font-medium text-brand-ink hover:text-brand-cyan" title={t.titulo}>
                                 {t.titulo}
                               </Link>
                               <p className="mt-0.5 truncate text-[11px] text-brand-muted">
                                 {TRAMITE_CATEGORIA_LABEL[t.categoria as TramiteCategoria]}
-                                {t.administracion_nombre && (
-                                  <> · {t.administracion_nombre}</>
-                                )}
+                                {t.administracion_nombre && <> · {t.administracion_nombre}</>}
                               </p>
                               {t.comprobante_pendiente && (
-                                <span
-                                  className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-semibold text-violet-700"
-                                  title="Falta emitir el comprobante (ej. DDJJ)"
-                                >
+                                <span className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-semibold text-violet-700" title="Falta emitir el comprobante (ej. DDJJ)">
                                   <Receipt size={10} /> Comprobante pendiente
                                 </span>
                               )}
-                              {/* DGG-33: removida etiqueta "Asignado / Sin asignar".
-                                  Footer ahora muestra sólo el chip de SLA a la derecha. */}
                               <div className="mt-2 flex items-center justify-end gap-2 text-[10px]">
                                 {sla.vencido ? (
                                   <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-red-50 px-1.5 py-0.5 font-semibold text-red-700">
-                                    <AlertTriangle size={10} />
-                                    {Math.abs(sla.diasRestantes ?? 0)}d
+                                    <AlertTriangle size={10} />{Math.abs(sla.diasRestantes ?? 0)}d
                                   </span>
                                 ) : sla.diasRestantes !== null ? (
-                                  <span
-                                    className={cn(
-                                      'shrink-0 rounded-full px-1.5 py-0.5 font-semibold',
-                                      sla.diasRestantes <= 1
-                                        ? 'bg-red-50 text-red-700'
-                                        : sla.diasRestantes <= 3
-                                          ? 'bg-amber-50 text-amber-700'
-                                          : 'bg-emerald-50 text-emerald-700',
-                                    )}
-                                  >
+                                  <span className={cn('shrink-0 rounded-full px-1.5 py-0.5 font-semibold', sla.diasRestantes <= 1 ? 'bg-red-50 text-red-700' : sla.diasRestantes <= 3 ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700')}>
                                     {sla.diasRestantes}d
                                   </span>
                                 ) : (
-                                  <span className="shrink-0 text-brand-muted/70">
-                                    {sla.diasAbierto}d abierto
-                                  </span>
+                                  <span className="shrink-0 text-brand-muted/70">{sla.diasAbierto}d abierto</span>
                                 )}
                               </div>
                               {nextEst && (
@@ -348,8 +288,7 @@ export function TramitesKanbanPage() {
                                   className="mt-2 inline-flex w-full items-center justify-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-brand-muted transition hover:border-brand-cyan hover:text-brand-cyan"
                                   title={`Avanzar a ${TRAMITE_ESTADO_LABEL[nextEst]}`}
                                 >
-                                  <ArrowRight size={11} />
-                                  {TRAMITE_ESTADO_LABEL[nextEst]}
+                                  <ArrowRight size={11} />{TRAMITE_ESTADO_LABEL[nextEst]}
                                 </button>
                               )}
                             </div>
@@ -365,11 +304,7 @@ export function TramitesKanbanPage() {
         </div>
       )}
 
-      <TramiteFormDrawer
-        open={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
-        onCreated={() => void load()}
-      />
+      <TramiteFormDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} onCreated={() => void load()} />
     </div>
   );
 }

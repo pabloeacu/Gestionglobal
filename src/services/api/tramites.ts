@@ -274,6 +274,9 @@ export interface TramiteListItem extends TramiteRow {
   administracion_nombre: string | null;
   consorcio_nombre: string | null;
   asignado_nombre: string | null;
+  // F8 (DGG-64) · nombre del servicio del catálogo (para el multiselect de
+  // filtros). Null si el trámite no tiene servicio vinculado.
+  servicio_nombre: string | null;
   // DGG-44 · computed column (Postgrest). TRUE si el trámite tiene un
   // comprobante con costo (total>0) e impago (saldo>0). Señal del gate de
   // cobranza al avanzar en el kanban. Sólo lo solicita listTramites.
@@ -302,6 +305,7 @@ interface RawListRow extends TramiteRow {
   administraciones: { id: string; nombre: string } | null;
   consorcios: { id: string; nombre: string } | null;
   asignado: { id: string; full_name: string | null } | null;
+  servicios?: { id: string; nombre: string } | null; // F8 · sólo en listTramites
   cobro_pendiente?: boolean | null; // DGG-44 · sólo presente en listTramites
   comprobante_pendiente?: boolean | null; // DGG-55 · idem
 }
@@ -312,6 +316,7 @@ function mapRaw(r: RawListRow): TramiteListItem {
     administracion_nombre: r.administraciones?.nombre ?? null,
     consorcio_nombre: r.consorcios?.nombre ?? null,
     asignado_nombre: r.asignado?.full_name ?? null,
+    servicio_nombre: r.servicios?.nombre ?? null,
     cobro_pendiente: r.cobro_pendiente ?? false,
     comprobante_pendiente: r.comprobante_pendiente ?? false,
   };
@@ -331,6 +336,7 @@ export async function listTramites(
        comprobante_pendiente,
        administraciones(id,nombre),
        consorcios(id,nombre),
+       servicios(id,nombre),
        asignado:profiles!tramites_asignado_a_fkey(id,full_name)`,
       { count: 'exact' },
     )

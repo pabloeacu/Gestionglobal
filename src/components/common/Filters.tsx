@@ -341,7 +341,7 @@ export function SortHeader({
       type="button"
       onClick={() => onToggle(sortKey)}
       className={cn(
-        'inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wider transition',
+        'group inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wider transition',
         active ? 'text-brand-cyan' : 'text-brand-muted hover:text-brand-ink',
         align === 'right' && 'flex-row-reverse',
         className,
