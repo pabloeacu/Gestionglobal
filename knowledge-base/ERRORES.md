@@ -2410,3 +2410,35 @@
   es ver el efecto en las pantallas que usa el usuario.
 - **Fecha / módulo:** 2026-06-09 · solicitudes/wizard (`ProcesadorFinal.tsx`,
   `useWizardActivacion.ts`) + `usuarios.ts` · Lista JL F1.
+
+## E-GG-60 · TRAMIX: el legajo de test "pegado" aparecía precargado a otros clientes (F3 · Lista JL)
+
+- **Síntoma (JL):** en QA consultamos un legajo de test en TRAMIX (Mesa de
+  Entradas Virtual PBA). Después JL entró como **otro cliente** de prueba **en el
+  mismo navegador** y, al abrir TRAMIX, apareció **precargado ese mismo número de
+  test**. La consulta y el botón funcionan perfecto; el bug era *de dónde tomaba
+  el número precargado*.
+- **Causa raíz:** la clave `localStorage['gg.tramix.legajo']` era **por-NAVEGADOR,
+  no por-usuario**, nunca se limpiaba al cerrar sesión, y al reabrir el modal
+  **ganaba sobre el legajo propio del cliente** (de su ficha). → un cliente
+  heredaba el último legajo consultado por OTRO usuario en esa máquina. Fuga
+  cross-usuario + privacidad (no sólo el legajo de test: cualquier legajo de un
+  usuario previo). **NO era la BD:** sólo un cliente (Estudio Save) tiene
+  `legajo_rpac` cargado en su ficha, sin duplicados → el número de test no se
+  guardó en ninguna ficha.
+- **Fix (NO toca la lógica de consulta de TRAMIX, que funciona):** la clave del
+  "recordar último legajo" se scopea por usuario — `gg.tramix.legajo:<userId>`
+  (vía `useAuth()`) — + **purga one-time de la clave global vieja** (limpia el
+  legajo de test de los navegadores que ya lo tienen). Un usuario fresco arranca
+  con su propio legajo de la ficha (`initFromFicha`) o vacío; se preserva la UX
+  de "recordar" pero aislada por usuario. `TramixConsultaModal.tsx`.
+- **Verificación EN VIVO:** simulé la fuga (`localStorage['gg.tramix.legajo']='999999'`)
+  + login como Estudio Save (legajo propio 284265) → TRAMIX mostró **284265**
+  (no 999999), trajo sus 6 expedientes reales, y el localStorage quedó:
+  clave global **purgada** + nueva `gg.tramix.legajo:<uid>` = `284265`. ✓
+- **Prevención:** cualquier estado "recordado" en `localStorage` debe scopearse
+  por usuario (o limpiarse al logout). `localStorage` es por-origen/navegador y
+  **persiste entre sesiones de usuarios distintos** en la misma máquina — nunca
+  guardar ahí datos de un usuario que otro no debería ver. Smell check: claves
+  globales (`gg.*`) que guarden datos específicos de un usuario.
+- **Fecha / módulo:** 2026-06-09 · portal · `TramixConsultaModal.tsx` · Lista JL F3.
