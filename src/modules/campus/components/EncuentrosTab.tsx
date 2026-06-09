@@ -123,14 +123,16 @@ export function EncuentrosTab({ data }: { data: CursoDetalle }) {
       danger: true,
     });
     if (!ok) return;
-    // Si tiene sala Zoom, borrarla PRIMERO para no dejarla huérfana en la cuenta
-    // Zoom (F9-bis · Lista JL). Si el borrado en Zoom falla, abortamos el borrado
-    // del encuentro: preferimos que el gerente reintente a dejar una sala fantasma.
+    // Si tiene sala Zoom, intentamos borrarla PRIMERO para no dejarla huérfana
+    // en la cuenta Zoom (F9-bis · Lista JL). Best-effort: si Zoom rechaza el
+    // borrado (típico: falta el scope `meeting:delete:meeting:admin` en la app
+    // de Zoom), NO bloqueamos el borrado del encuentro — avisamos y seguimos.
     if ((enc as any).zoom_meeting_id) {
       const del = await eliminarSalaZoom({ encuentroId: enc.id });
       if (!del.ok) {
-        toast.error(humanizeError(del.error));
-        return;
+        toast.warning(humanizeError(del.error), {
+          description: 'La reunión queda en tu cuenta de Zoom; podés borrarla a mano desde el portal.',
+        });
       }
     }
     const res = await borrarEncuentro(enc.id);

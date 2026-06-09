@@ -108,7 +108,18 @@ Deno.serve(async (req) => {
     });
     if (!dr.ok && dr.status !== 404) {
       const detail = await dr.text();
-      return json(502, { error: "zoom_delete_failed", status: dr.status, detail });
+      console.error("zoom-encuentro-delete DELETE failed", "status=" + dr.status, "detail=" + detail);
+      // Zoom code 4711 = la app S2S no tiene el scope `meeting:delete:meeting:admin`
+      // (config del Marketplace de Zoom — sólo un gerente puede agregarlo).
+      const missingScope = /does not contain scopes|meeting:delete|"?code"?\s*:?\s*4711/i.test(detail);
+      return json(502, {
+        error: missingScope
+          ? "Zoom no permite borrar la reunión: falta activar el permiso «meeting:delete:meeting:admin» en la app de Zoom (Marketplace) y reactivarla."
+          : "No pudimos borrar la reunión en Zoom en este momento.",
+        missing_scope: missingScope,
+        status: dr.status,
+        detail,
+      });
     }
 
     // 6) limpiar la fila del encuentro (si vino por encuentro_id)
