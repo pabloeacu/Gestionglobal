@@ -57,6 +57,10 @@ export function GerenciaHome() {
         </p>
       </header>
 
+      {/* F7 (Lista JL · DGG-62): banner de solicitudes nuevas EN TIEMPO REAL,
+          arriba de todo para que el gerente no se lo pierda. Slim si no hay nada. */}
+      <NuevasSolicitudesWidget />
+
       {/* J1 · checklist "Primeros 5 minutos" para nuevos gerentes.
           Auto-oculto cuando se completa o el user lo descarta. */}
       <PrimerosMinutos />
@@ -72,9 +76,6 @@ export function GerenciaHome() {
 
       {/* P2-#25 · Banner inteligente que invita a cerrar el mes anterior */}
       <ReporteMensualBanner />
-
-      {/* Bloque B / obs 1: alerta de solicitudes nuevas esperando atención */}
-      <NuevasSolicitudesWidget />
 
       {/* Bloque A / obs 5: alarmas que vencen hoy o están vencidas (con
           botones de postergación rápida +3/+5/+10 días hábiles) */}
