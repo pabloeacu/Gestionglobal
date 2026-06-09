@@ -2308,3 +2308,53 @@
   (`webinars.ts:crearReunionZoom`) tampoco usa `extractEdgeFnError`.
 - **Fecha / módulo:** 2026-06-08 · campus/encuentros · edge fn
   `zoom-encuentro-create` (reemplaza `zoom-meeting-create`) · Lista JL F9.
+
+## E-GG-58 · Reuniones Zoom huérfanas al borrar encuentros + app S2S sin scope de delete (F9-bis · Lista JL) (2026-06-08)
+
+- **Síntoma:** Pablo (captura del portal Zoom): quedaron 2 reuniones
+  programadas en la cuenta Zoom con el mismo nombre ("Curso de Actualización
+  2026…"). Temor a (a) duplicación de salas y (b) confusión del host (que
+  inicia desde el portal Zoom, no desde el campus).
+- **Diagnóstico:** El sistema **NO duplica** — doble guarda: el botón "Crear
+  sala" sólo aparece `{!tieneSala}` (EncuentrosTab.tsx) y la edge fn tiene
+  guarda 409 `meeting_already_created`. Las 2 reuniones eran **artefactos de
+  testing de F9** (una por invoke directo + de-linkeada por SQL, otra por el
+  botón). PERO la revisión destapó 2 gaps reales:
+  1. **Huérfanos al borrar:** `borrarEncuentro` (campus.ts) sólo hacía
+     `delete()` de la fila de `curso_encuentros` — **nunca borraba la reunión
+     en Zoom**. Borrar un encuentro con sala dejaba la reunión fantasma en la
+     cuenta Zoom para siempre.
+  2. **Nombre ambiguo:** el `topic` era `Curso · Encuentro`; en la lista del
+     portal Zoom el texto se trunca al inicio → dos encuentros del mismo curso
+     se ven idénticos → el host no sabe cuál iniciar.
+- **Fix:**
+  - Nueva edge fn **`zoom-encuentro-delete`** (raw fetch, DGG-57): S2S
+    `DELETE /v2/meetings/{id}` + limpia la fila. Modos `{encuentro_id}` (app)
+    y `{meeting_id}` (limpieza de huérfanos). Idempotente (Zoom 404 = OK).
+  - `eliminar(encuentro)` borra la reunión Zoom **antes** de la fila;
+    botón **"Eliminar sala"** por fila para regenerar; `topic` ahora
+    `Encuentro · Curso` (el host distingue en el portal).
+- **Sub-bug capitalizado (root del "no borra"):** al testear en vivo, el
+  DELETE a Zoom devolvió **400 · code 4711 "Invalid access token, does not
+  contain scopes:[meeting:delete:meeting:admin, meeting:delete:meeting]"**.
+  La **app S2S de Zoom puede CREAR reuniones pero no BORRARLAS** — le falta el
+  scope de delete (config del Marketplace de Zoom; sólo el dueño de la cuenta
+  lo agrega). Mitigaciones:
+  - La fn detecta el 4711 y devuelve un **mensaje claro** ("falta activar
+    «meeting:delete:meeting:admin» en la app de Zoom") en vez de un código
+    técnico — verificado en vivo (toast).
+  - `borrarEncuentro` pasa a **best-effort**: si Zoom rechaza el borrado de la
+    reunión, **no bloquea** el borrado del encuentro (avisa con `toast.warning`
+    y sigue). Sin esto, sin el scope no se podrían borrar encuentros con sala.
+  - **Acción pendiente de Pablo:** agregar el scope
+    `meeting:delete:meeting:admin` a la app S2S (Zoom Marketplace → Scopes →
+    Add → reactivar). Con eso el delete + la limpieza de huérfanos funcionan
+    end-to-end. La prueba en vivo del delete completo queda pendiente de ese
+    scope (reportado explícitamente a Pablo, §5).
+- **Prevención:** al integrar una API externa con S2S/OAuth, verificar que la
+  app tenga **todos** los scopes del ciclo de vida (create **y** delete/update),
+  no sólo el de creación. Un flujo que crea recursos sin poder borrarlos
+  acumula huérfanos. Smell check al diseñar: "¿puedo deshacer lo que esta fn
+  crea?".
+- **Fecha / módulo:** 2026-06-08 · campus/encuentros · `zoom-encuentro-delete`
+  + EncuentrosTab + campus.ts · Lista JL F9-bis.
