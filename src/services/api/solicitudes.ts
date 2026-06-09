@@ -512,8 +512,12 @@ export interface SolicitudesKpis {
 
 // DGG-34 R4 sweep · capitalizaciones desde WizardActivacion + widgets.
 
-/** Lista las solicitudes pendientes con estado 'nueva' (no derivadas / no
- * activadas). Usado por `NuevasSolicitudesWidget` en el dashboard. */
+/** Lista las solicitudes que esperan la PRIMERA acción de la gerencia:
+ * estado 'recibida' (recién ingresada) o 'en_revision' (en análisis, aún sin
+ * derivar ni activar). Usado por `NuevasSolicitudesWidget` en el dashboard.
+ * F7 (Lista JL): antes filtraba `estado='nueva'` — valor que NO existe en el
+ * CHECK de solicitudes (recibida/en_revision/derivada/activada/rechazada/
+ * descartada) → el contador daba SIEMPRE 0 y el aviso nunca se mostraba. */
 export interface SolicitudPendienteRow {
   id: string;
   solicitante_nombre: string | null;
@@ -530,7 +534,7 @@ export async function listSolicitudesPendientes(
     .select('id, solicitante_nombre, solicitante_email, servicio_slug, created_at', {
       count: 'exact',
     })
-    .eq('estado', 'nueva')
+    .in('estado', ['recibida', 'en_revision'])
     .order('created_at', { ascending: false })
     .limit(limit);
   if (error) return fail('SOLICITUDES_PENDIENTES', error.message, error);

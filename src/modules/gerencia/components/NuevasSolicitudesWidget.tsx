@@ -33,7 +33,7 @@ export function NuevasSolicitudesWidget({ limit = 5 }: { limit?: number }) {
   const mountedRef = useRef(true);
 
   const load = useCallback(async () => {
-    // Estado 'nueva' = solicitudes que aún no fueron derivadas ni activadas.
+    // Pendientes = estado 'recibida'/'en_revision' (aún sin derivar ni activar).
     const res = await listSolicitudesPendientes(limit);
     if (!mountedRef.current) return; // evita setState tras unmount (realtime)
     setLoading(false);
@@ -126,7 +126,7 @@ export function NuevasSolicitudesWidget({ limit = 5 }: { limit?: number }) {
 
       {total > items.length && (
         <Link
-          to="/gerencia/solicitudes?estado=nueva"
+          to="/gerencia/solicitudes?estado=activas"
           className="mt-3 inline-block text-xs font-medium text-brand-cyan hover:underline"
         >
           Ver todas ({total}) →
