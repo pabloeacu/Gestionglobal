@@ -46,6 +46,9 @@ interface ProcCtx {
   trackingId?: string;
   administracionId?: string;
   comprobanteId?: string;
+  /** profile/user del alumno creado en el alta de portal — se pasa explícito a
+   *  la matrícula del curso para no depender de la resolución admin→user_id. */
+  profileId?: string;
 }
 
 interface OpDef {
@@ -193,25 +196,37 @@ function construirOps(
     });
   }
 
-  // 2 · Acceso al portal + bienvenida (sólo cliente nuevo · best-effort).
+  // 2 · Acceso al portal + bienvenida (sólo cliente nuevo).
+  //   F1: para un CURSO el usuario de portal es prerequisito de la matrícula
+  //   (curso_asignar_alumno lo resuelve desde administraciones.user_id). Por eso
+  //   este paso NO es best-effort cuando es curso: si el alta falla, frena antes
+  //   de cobrar (no "cobrado sin matricular") y es reintentable (la edge fn es
+  //   idempotente). Para no-curso sigue siendo best-effort (la bienvenida es
+  //   un nice-to-have). Además capturamos el user_id para pasarlo explícito a
+  //   la matrícula.
   if (state.modoCliente === 'nuevo') {
     ops.push({
       key: 'portal',
       label: 'Acceso al portal + correo de bienvenida',
-      bestEffort: true,
+      bestEffort: !flags.esCurso,
       run: async (ctx) => {
         if (!ctx.administracionId) throw new Error('No se pudo resolver el cliente creado');
         const email =
           (state.nuevoCliente.email ?? '').trim() || solicitud.solicitante_email || '';
         const nombre =
           (state.nuevoCliente.nombre ?? '').trim() || solicitud.solicitante_nombre || 'Cliente';
-        if (!email) return 'Sin email: no se envió la bienvenida';
+        if (!email) {
+          if (flags.esCurso)
+            throw new Error('El alumno necesita un email para crear su acceso al curso.');
+          return 'Sin email: no se envió la bienvenida';
+        }
         const r = await altaClientePortal({
           administracion_id: ctx.administracionId,
           email,
           nombre,
         });
         if (!r.ok) throw new Error(humanizeError(r.error));
+        ctx.profileId = (r.data as { user_id?: string } | null)?.user_id ?? undefined;
         return 'Bienvenida enviada con credenciales';
       },
     });
@@ -315,11 +330,29 @@ function construirOps(
     ops.push({
       key: 'campus',
       label: 'Matricular en el curso',
-      bestEffort: true,
+      // F1: la matrícula del curso NO es best-effort — un curso cobrado no puede
+      // quedar sin matricular en silencio. Falla VISIBLE + Reintentar.
+      bestEffort: false,
       run: async (ctx) => {
         if (!ctx.administracionId) throw new Error('Falta el cliente para matricular');
-        const r = await asignarAlumno({ cursoId, administracionId: ctx.administracionId });
-        if (!r.ok) throw new Error(humanizeError(r.error));
+        const r = await asignarAlumno({
+          cursoId,
+          administracionId: ctx.administracionId,
+          // Explícito desde el alta de portal (determinístico); si no está,
+          // la RPC lo resuelve desde administraciones.user_id.
+          profileId: ctx.profileId,
+        });
+        if (!r.ok) {
+          const msg = humanizeError(r.error);
+          // Caso típico: el alumno todavía no tiene usuario de portal vinculado.
+          if (/profile_id|user|usuario/i.test(msg)) {
+            throw new Error(
+              'No se pudo matricular: el alumno todavía no tiene acceso al portal. ' +
+                'Revisá el paso «Acceso al portal» (o creá el usuario) y reintentá.',
+            );
+          }
+          throw new Error(msg);
+        }
         return 'Alumno matriculado';
       },
     });
