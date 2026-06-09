@@ -2270,12 +2270,18 @@ El usuario lo pidió en dos requerimientos simultáneos.
   título + meta + descripción + docentes con foto + form embebido) y, al
   despublicar, la página de texto; nav nítido (fix darkHero); **consola sin
   errores**. Mobile 360 verificado por código (la tool de resize no refleja
-  360px en la captura, mismo límite que DGG-51). **Portal cliente:** la sesión
-  abierta era de gerente (`/portal` redirige a gerencia) → el hero del portal
-  quedó verificado por código (Agente C) + reuso de `WebinarIdentidad` (probado
-  en vivo) + la RPC `cliente_webinar_inscribirme` ya en prod; la confirmación
-  visual con sesión de cliente queda pendiente (no creo cuentas).
-- **Webinar de prueba** creado y **eliminado** (0 webinars, 0 inscriptos/tokens
-  huérfanos).
+  360px en la captura, mismo límite que DGG-51). **Portal cliente (sesión de
+  cliente QA creada por SQL a pedido de Pablo):** hero branded (banner + título
+  como `h2` + meta + descripción + docentes con foto) + botón **one-click
+  "Inscribirme gratis"** → `useConfirm` (regla 13) → toast **"¡Inscripto!"** → el
+  botón pasa a **"Ya estás inscripto"** (`yaInscriptoVigente` tras reload) y el
+  vigente NO se duplica en las listas. Verificado end-to-end.
+- **Cleanup QA:** el cliente QA (auth.users + identity + profile + administración)
+  y el webinar de prueba se **eliminaron por completo** (0 webinars; 0
+  usuario/profile/administración/identity/inscriptos QA; cascadas FK verificadas).
+  Browser deslogueado.
+- **Nota de proceso:** Pablo confirmó que los **clientes/usuarios QA efímeros se
+  crean por SQL** para la prueba en vivo y se limpian — NO aplica a los 2
+  gerentes reales (sus contraseñas no se tocan).
 - **Commits:** `3692660` (chunk 2) · `da1b1dc` (chunk 3) · `64e9ab3` (§6 fixes).
 - **Fecha:** 2026-06-09.
