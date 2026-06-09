@@ -1832,7 +1832,13 @@ export type CampusMediaScope =
   | 'modulo-docente'
   | 'clase-instructor'
   | 'modulo-docente-cv'
-  | 'biblio-archivo';
+  | 'biblio-archivo'
+  // F6 (DGG-63) · Webinars con esquema rico. Reusamos el bucket campus-media
+  // (público, policy campus_media_write_staff path-agnóstica) para el banner
+  // del webinar y las fotos del roster de docentes. R20: el upload pasa por
+  // uploadCampusMedia → safeStorageKey.
+  | 'webinar-banner'
+  | 'webinar-docente';
 
 /**
  * Sube una imagen al bucket público `campus-media` y devuelve la URL pública.

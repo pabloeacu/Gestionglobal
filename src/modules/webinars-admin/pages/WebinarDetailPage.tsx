@@ -11,8 +11,16 @@ import {
   CheckCircle2,
   Copy as CopyIcon,
   Link2,
+  Megaphone,
+  Image as ImageIcon,
+  GraduationCap,
+  Plus,
+  Trash2,
+  AlertTriangle,
+  Save,
 } from 'lucide-react';
-import { Button, Field, Input, Modal } from '@/components/common';
+import { Button, Field, Input, Modal, Textarea } from '@/components/common';
+import { ImageUploader } from '@/modules/campus/components/ImageUploader';
 import { listarEsquemas } from '@/services/api/certificado-esquemas';
 import { toast } from '@/lib/toast';
 import {
@@ -23,11 +31,32 @@ import {
   crearReunionZoom,
   actualizarWebinar,
   emitirCertificadosWebinarLote,
+  parseDocentes,
   type WebinarRow,
+  type WebinarDocente,
   type InscriptoConCanal,
 } from '@/services/api/webinars';
 import { cn } from '@/lib/cn';
 import { humanizeError } from '@/lib/errors';
+
+// F6 (DGG-63) · ¿el webinar está "vigente" para inscripción? Espeja la regla
+// SQL de webinar_inscripcion_activa(): no cancelado y now() < inicio+duración.
+function esWebinarVigente(w: WebinarRow): boolean {
+  if (w.status === 'cancelado') return false;
+  const fin = new Date(w.fecha_hora).getTime() + (w.duracion_min ?? 0) * 60_000;
+  return Date.now() < fin;
+}
+
+// ISO almacenado → partes locales para los inputs date/time (mismo criterio
+// que el alta: el ISO se arma con hora local del browser).
+function isoToLocalParts(iso: string): { date: string; time: string } {
+  const d = new Date(iso);
+  const p = (n: number) => String(n).padStart(2, '0');
+  return {
+    date: `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`,
+    time: `${p(d.getHours())}:${p(d.getMinutes())}`,
+  };
+}
 
 type Tab = 'config' | 'inscriptos' | 'asistencia';
 
@@ -199,7 +228,14 @@ function ConfigTab({ webinar, onCrearZoom, creatingZoom, onRecargar }: {
   }
 
   return (
-    <div className="grid gap-4 md:grid-cols-2">
+    <div className="space-y-4">
+      {/* F6 (DGG-63) · Publicación + identidad del webinar (esquema tipo curso) */}
+      <PublicacionCard webinar={webinar} onRecargar={onRecargar} />
+      <DatosWebinarCard webinar={webinar} onRecargar={onRecargar} />
+      <BannerCard webinar={webinar} onRecargar={onRecargar} />
+      <DocentesCard webinar={webinar} onRecargar={onRecargar} />
+
+      <div className="grid gap-4 md:grid-cols-2">
       {/* Canal Zoom */}
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="mb-3 flex items-center gap-2">
@@ -263,14 +299,6 @@ function ConfigTab({ webinar, onCrearZoom, creatingZoom, onRecargar }: {
         )}
       </section>
 
-      {/* Descripción */}
-      {webinar.descripcion && (
-        <section className="md:col-span-2 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="font-display text-lg font-bold text-brand-ink mb-2">Descripción</h2>
-          <p className="text-sm text-brand-muted whitespace-pre-wrap">{webinar.descripcion}</p>
-        </section>
-      )}
-
       {/* Grabación */}
       {webinar.grabacion_url && (
         <section className="md:col-span-2 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -288,7 +316,292 @@ function ConfigTab({ webinar, onCrearZoom, creatingZoom, onRecargar }: {
 
       {/* Certificado de asistencia */}
       <CertificadoWebinarSection webinar={webinar} onRecargar={onRecargar} />
+      </div>
     </div>
+  );
+}
+
+// ============================================================================
+// F6 (DGG-63) · Secciones del editor rico del webinar.
+// ============================================================================
+
+// Publicación: toggle "Publicado" + estado de vigencia + aviso suave (decisión
+// de Pablo: no se bloquea publicar; se avisa si falta banner o docentes para
+// que la página de inscripción se vea completa).
+function PublicacionCard({ webinar, onRecargar }: { webinar: WebinarRow; onRecargar: () => Promise<void> }) {
+  const [saving, setSaving] = useState(false);
+  const docentes = parseDocentes(webinar.docentes);
+  const vigente = esWebinarVigente(webinar);
+
+  const faltantes: string[] = [];
+  if (!webinar.banner_url) faltantes.push('el banner');
+  if (docentes.length === 0) faltantes.push('al menos un docente');
+
+  async function toggle(next: boolean) {
+    setSaving(true);
+    const res = await actualizarWebinar(webinar.id, { publicado: next });
+    setSaving(false);
+    if (!res.ok) {
+      toast.error('No pudimos actualizar la publicación', { description: humanizeError(res.error) });
+      return;
+    }
+    toast.success(next ? 'Webinar publicado' : 'Webinar despublicado');
+    void onRecargar();
+  }
+
+  const estado = !webinar.publicado
+    ? { label: 'Borrador · no se muestra', cls: 'bg-slate-100 text-slate-600 ring-slate-200' }
+    : vigente
+      ? { label: 'Publicado y vigente · se muestra en la inscripción', cls: 'bg-emerald-50 text-emerald-700 ring-emerald-200' }
+      : { label: 'Publicado pero fuera de vigencia · no se muestra', cls: 'bg-amber-50 text-amber-700 ring-amber-200' };
+
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <Megaphone size={18} className="text-brand-cyan" />
+          <h2 className="font-display text-lg font-bold text-brand-ink">Publicación</h2>
+        </div>
+        {/* Toggle */}
+        <button
+          type="button"
+          role="switch"
+          aria-checked={webinar.publicado}
+          disabled={saving}
+          onClick={() => void toggle(!webinar.publicado)}
+          className={cn(
+            'relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition disabled:opacity-60',
+            webinar.publicado ? 'bg-brand-cyan' : 'bg-slate-300',
+          )}
+        >
+          <span
+            className={cn(
+              'inline-block h-5 w-5 transform rounded-full bg-white shadow transition',
+              webinar.publicado ? 'translate-x-6' : 'translate-x-1',
+            )}
+          />
+        </button>
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <span className={cn('rounded-full px-3 py-1 text-xs font-semibold ring-1', estado.cls)}>
+          {estado.label}
+        </span>
+      </div>
+
+      <p className="mt-3 text-xs text-brand-muted">
+        Sólo un webinar <strong>publicado y vigente</strong> aparece en la inscripción (landing y
+        portal). Vigencia = hasta el inicio + la duración. Si hay varios, se muestra el más próximo
+        («el más próximo gana») — podés publicar más de uno sin problema.
+      </p>
+
+      {webinar.publicado && faltantes.length > 0 && (
+        <div className="mt-3 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+          <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+          <span>
+            La página de inscripción se va a ver incompleta: falta {faltantes.join(' y ')}. Podés
+            publicarlo igual, pero te conviene completarlo abajo.
+          </span>
+        </div>
+      )}
+    </section>
+  );
+}
+
+// Datos del webinar: edición de título / descripción / fecha-hora / duración
+// (antes sólo se seteaban al crear, sin edición posterior).
+function DatosWebinarCard({ webinar, onRecargar }: { webinar: WebinarRow; onRecargar: () => Promise<void> }) {
+  const inicial = isoToLocalParts(webinar.fecha_hora);
+  const [titulo, setTitulo] = useState(webinar.titulo);
+  const [descripcion, setDescripcion] = useState(webinar.descripcion ?? '');
+  const [fecha, setFecha] = useState(inicial.date);
+  const [hora, setHora] = useState(inicial.time);
+  const [duracion, setDuracion] = useState(webinar.duracion_min);
+  const [saving, setSaving] = useState(false);
+
+  const dirty =
+    titulo !== webinar.titulo ||
+    descripcion !== (webinar.descripcion ?? '') ||
+    fecha !== inicial.date ||
+    hora !== inicial.time ||
+    duracion !== webinar.duracion_min;
+
+  async function guardar() {
+    if (!titulo.trim()) { toast.error('El título no puede quedar vacío'); return; }
+    if (!fecha) { toast.error('Falta la fecha'); return; }
+    const fechaHora = new Date(`${fecha}T${hora || '00:00'}:00`).toISOString();
+    setSaving(true);
+    const res = await actualizarWebinar(webinar.id, {
+      titulo: titulo.trim(),
+      descripcion: descripcion.trim() || null,
+      fechaHora,
+      duracionMin: duracion,
+    });
+    setSaving(false);
+    if (!res.ok) {
+      toast.error('No pudimos guardar los cambios', { description: humanizeError(res.error) });
+      return;
+    }
+    toast.success('Datos del webinar actualizados');
+    void onRecargar();
+  }
+
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="mb-3 flex items-center gap-2">
+        <Clock size={18} className="text-brand-cyan" />
+        <h2 className="font-display text-lg font-bold text-brand-ink">Datos del webinar</h2>
+      </div>
+      <div className="space-y-3">
+        <Field label="Título" required>
+          <Input value={titulo} onChange={(e) => setTitulo(e.target.value)} placeholder="Ej. Cómo cumplir con la DDJJ 2026" />
+        </Field>
+        <Field label="Descripción">
+          <Textarea value={descripcion} onChange={(e) => setDescripcion(e.target.value)} rows={3} placeholder="Resumen del contenido del webinar" />
+        </Field>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <Field label="Fecha" required>
+            <Input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
+          </Field>
+          <Field label="Hora">
+            <Input type="time" value={hora} onChange={(e) => setHora(e.target.value)} />
+          </Field>
+          <Field label="Duración (min)">
+            <Input type="number" value={duracion} onChange={(e) => setDuracion(Number(e.target.value))} min={15} max={600} step={15} />
+          </Field>
+        </div>
+      </div>
+      <div className="mt-3 flex justify-end">
+        <Button onClick={guardar} loading={saving} disabled={!dirty}>
+          <Save size={14} /> Guardar cambios
+        </Button>
+      </div>
+    </section>
+  );
+}
+
+// Banner: imagen ancha (3:1) que encabeza la página de inscripción. Sube al
+// bucket campus-media (scope webinar-banner) vía ImageUploader (R20).
+function BannerCard({ webinar, onRecargar }: { webinar: WebinarRow; onRecargar: () => Promise<void> }) {
+  const [banner, setBanner] = useState<string | null>(webinar.banner_url);
+
+  async function persist(url: string | null) {
+    const res = await actualizarWebinar(webinar.id, { bannerUrl: url });
+    if (!res.ok) {
+      toast.error('No pudimos guardar el banner', { description: humanizeError(res.error) });
+      return;
+    }
+    await onRecargar();
+  }
+
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="mb-3 flex items-center gap-2">
+        <ImageIcon size={18} className="text-brand-cyan" />
+        <h2 className="font-display text-lg font-bold text-brand-ink">Banner</h2>
+      </div>
+      <p className="mb-3 text-xs text-brand-muted">
+        Imagen que encabeza la página de inscripción (landing y portal). Recomendado 3:1 (ej. 1200×400).
+      </p>
+      <ImageUploader
+        value={banner}
+        onChange={setBanner}
+        onPersist={(url) => persist(url)}
+        scope="webinar-banner"
+        ownerId={webinar.id}
+        shape="wide"
+        label="Banner del webinar"
+        hint="Hasta 5 MB · se recorta en 3:1"
+      />
+    </section>
+  );
+}
+
+// Docentes: roster [{nombre, foto_url}]. Agregar / quitar / nombre + foto de
+// cada uno. La foto sube al bucket campus-media (scope webinar-docente, R20);
+// el array completo se persiste en webinars.docentes.
+function DocentesCard({ webinar, onRecargar }: { webinar: WebinarRow; onRecargar: () => Promise<void> }) {
+  const [docentes, setDocentes] = useState<WebinarDocente[]>(() => parseDocentes(webinar.docentes));
+
+  // Siempre persiste el array EXPLÍCITO que se le pasa (evita closures rancios
+  // al combinar edición de nombre con subida de foto).
+  async function persist(next: WebinarDocente[]) {
+    setDocentes(next);
+    const res = await actualizarWebinar(webinar.id, { docentes: next });
+    if (!res.ok) {
+      toast.error('No pudimos guardar los docentes', { description: humanizeError(res.error) });
+      return;
+    }
+    await onRecargar();
+  }
+
+  function setNombreLocal(i: number, v: string) {
+    setDocentes((prev) => prev.map((d, j) => (j === i ? { ...d, nombre: v } : d)));
+  }
+
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <GraduationCap size={18} className="text-brand-cyan" />
+          <h2 className="font-display text-lg font-bold text-brand-ink">Docentes</h2>
+          {docentes.length > 0 && (
+            <span className="rounded-full bg-brand-cyan/10 px-2 py-0.5 text-[11px] font-semibold text-brand-cyan">
+              {docentes.length}
+            </span>
+          )}
+        </div>
+        <Button variant="secondary" onClick={() => void persist([...docentes, { nombre: '', foto_url: null }])}>
+          <Plus size={13} /> Agregar docente
+        </Button>
+      </div>
+
+      {docentes.length === 0 ? (
+        <p className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4 text-center text-xs text-brand-muted">
+          Sin docentes cargados. Agregá al menos uno (nombre + foto) para que la página de
+          inscripción muestre quién dicta el webinar.
+        </p>
+      ) : (
+        <ul className="space-y-3">
+          {docentes.map((d, i) => (
+            <li
+              key={i}
+              className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-slate-50/60 p-3 sm:flex-nowrap"
+            >
+              <ImageUploader
+                value={d.foto_url}
+                onChange={() => { /* preview se refleja vía persist(next) */ }}
+                onPersist={(url) =>
+                  persist(docentes.map((x, j) => (j === i ? { ...x, foto_url: url } : x)))
+                }
+                scope="webinar-docente"
+                ownerId={webinar.id}
+                shape="circle"
+                size="sm"
+              />
+              <div className="min-w-0 flex-1">
+                <Field label="Nombre del docente">
+                  <Input
+                    value={d.nombre}
+                    onChange={(e) => setNombreLocal(i, e.target.value)}
+                    onBlur={() => { if (d.nombre !== parseDocentes(webinar.docentes)[i]?.nombre) void persist(docentes); }}
+                    placeholder="Ej. Dra. María González"
+                  />
+                </Field>
+              </div>
+              <button
+                type="button"
+                onClick={() => void persist(docentes.filter((_, j) => j !== i))}
+                aria-label="Quitar docente"
+                className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-slate-200 bg-white text-red-600 hover:bg-red-50"
+              >
+                <Trash2 size={15} />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }
 

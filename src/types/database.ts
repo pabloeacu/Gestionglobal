@@ -7121,12 +7121,14 @@ export type Database = {
       }
       webinars: {
         Row: {
+          banner_url: string | null
           cert_emite: boolean
           cert_esquema_id: string | null
           creado_por: string | null
           created_at: string
           cupo_zoom: number | null
           descripcion: string | null
+          docentes: Json
           duracion_min: number
           fecha_hora: string
           finalizado_at: string | null
@@ -7135,6 +7137,7 @@ export type Database = {
           id: string
           iniciado_at: string | null
           plataforma: string
+          publicado: boolean
           status: string
           titulo: string
           updated_at: string
@@ -7149,12 +7152,14 @@ export type Database = {
           zoom_start_url: string | null
         }
         Insert: {
+          banner_url?: string | null
           cert_emite?: boolean
           cert_esquema_id?: string | null
           creado_por?: string | null
           created_at?: string
           cupo_zoom?: number | null
           descripcion?: string | null
+          docentes?: Json
           duracion_min?: number
           fecha_hora: string
           finalizado_at?: string | null
@@ -7163,6 +7168,7 @@ export type Database = {
           id?: string
           iniciado_at?: string | null
           plataforma?: string
+          publicado?: boolean
           status?: string
           titulo: string
           updated_at?: string
@@ -7177,12 +7183,14 @@ export type Database = {
           zoom_start_url?: string | null
         }
         Update: {
+          banner_url?: string | null
           cert_emite?: boolean
           cert_esquema_id?: string | null
           creado_por?: string | null
           created_at?: string
           cupo_zoom?: number | null
           descripcion?: string | null
+          docentes?: Json
           duracion_min?: number
           fecha_hora?: string
           finalizado_at?: string | null
@@ -7191,6 +7199,7 @@ export type Database = {
           id?: string
           iniciado_at?: string | null
           plataforma?: string
+          publicado?: boolean
           status?: string
           titulo?: string
           updated_at?: string

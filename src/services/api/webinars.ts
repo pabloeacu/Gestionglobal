@@ -10,6 +10,32 @@ export type WebinarRow = Database['public']['Tables']['webinars']['Row'];
 export type WebinarInscriptoRow = Database['public']['Tables']['webinar_inscriptos']['Row'];
 export type ProspectoRow = Database['public']['Tables']['prospectos']['Row'];
 
+// F6 (DGG-63) · Roster de docentes del webinar (esquema tipo curso). Se
+// persiste en webinars.docentes (jsonb [{nombre,foto_url}]). foto_url puede
+// ser null → la UI muestra la inicial del nombre (igual que campus).
+export interface WebinarDocente {
+  nombre: string;
+  foto_url: string | null;
+}
+
+/**
+ * Lee de forma defensiva el roster de docentes de una fila de webinar.
+ * `webinars.docentes` es jsonb (tipado como `Json`), así que normalizamos a
+ * `WebinarDocente[]` descartando entradas mal formadas. Nunca tira.
+ */
+export function parseDocentes(value: WebinarRow['docentes']): WebinarDocente[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((d) => {
+      if (!d || typeof d !== 'object' || Array.isArray(d)) return null;
+      const rec = d as Record<string, unknown>;
+      const nombre = typeof rec.nombre === 'string' ? rec.nombre : '';
+      const foto = typeof rec.foto_url === 'string' ? rec.foto_url : null;
+      return { nombre, foto_url: foto } as WebinarDocente;
+    })
+    .filter((d): d is WebinarDocente => d !== null);
+}
+
 export interface WebinarKpis {
   proximos: number;
   en_vivo: number;
@@ -119,6 +145,10 @@ export interface ActualizarWebinarInput {
   status?: 'programado' | 'en_curso' | 'finalizado' | 'cancelado';
   certEsquemaId?: string | null;
   certEmite?: boolean;
+  // F6 (DGG-63)
+  bannerUrl?: string | null;
+  publicado?: boolean;
+  docentes?: WebinarDocente[];
 }
 
 export async function actualizarWebinar(
@@ -138,6 +168,11 @@ export async function actualizarWebinar(
     if (input.status !== undefined) patch.status = input.status;
     if (input.certEsquemaId !== undefined) patch.cert_esquema_id = input.certEsquemaId;
     if (input.certEmite !== undefined) patch.cert_emite = input.certEmite;
+    if (input.bannerUrl !== undefined) patch.banner_url = input.bannerUrl;
+    if (input.publicado !== undefined) patch.publicado = input.publicado;
+    if (input.docentes !== undefined) {
+      patch.docentes = input.docentes as unknown as WebinarUpdate['docentes'];
+    }
     const { error } = await supabase.from('webinars').update(patch).eq('id', id);
     if (error) throw error;
     return ok(true as const);

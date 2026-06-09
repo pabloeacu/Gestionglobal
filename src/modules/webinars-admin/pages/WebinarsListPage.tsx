@@ -130,6 +130,15 @@ export function WebinarsListPage() {
                       <span className={cn('rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider', badge?.cls ?? '')}>
                         {badge?.label ?? w.status}
                       </span>
+                      {/* F6 (DGG-63) · estado de publicación (vivo para inscripción) */}
+                      <span className={cn(
+                        'rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider',
+                        w.publicado
+                          ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                          : 'border-slate-200 bg-slate-50 text-slate-500',
+                      )}>
+                        {w.publicado ? 'Publicado' : 'Borrador'}
+                      </span>
                     </div>
                     {w.descripcion && (
                       <p className="mt-1 line-clamp-2 text-sm text-brand-muted">{w.descripcion}</p>
