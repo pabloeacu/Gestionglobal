@@ -2095,3 +2095,34 @@ El usuario lo pidió en dos requerimientos simultáneos.
   UI real (gerencia + portal del cliente)** y que el dueño lo confirme **antes**
   de limpiar el dato de prueba. El smoke en tablas no alcanza.
 - **Fecha:** 2026-06-09.
+
+## DGG-60 · F2 · Referencia del egreso a gestoría: cliente · trámite (no reiterativa)
+
+- **Contexto (Lista JL · F2):** el movimiento de egreso a la gestoría
+  (`origen='derivacion_gestoria'`, generado por `solicitud_derivar_v3` —
+  DGG-43) mostraba en Cajas/Movimientos sólo la gestoría destinataria + un id
+  opaco de la solicitud. No se podía saber **a qué cliente** ni **a qué
+  trámite** correspondía el pago. Además el `administracion_id` del movimiento
+  quedaba NULL cuando la derivación ocurría antes de vincular el cliente.
+- **Decisión:** descripción CLARA y **no reiterativa**. Pablo: "una
+  concatenación clara, pero que no se reitere… porque podría ser que el mismo
+  cliente pida más de una vez el mismo trámite a través del tiempo". El
+  distinguidor único es el **código TRM-XXXX** del trámite (o, si todavía no hay
+  trámite, la solicitud corta `Sol. XXXXXXXX`). Formato:
+  `Egreso gestoría · <Cliente> · <TRM-XXXX — Servicio> · <Gestoría>`.
+- **Trampa evitada (reiteración):** el título del trámite ya es
+  `"<servicio> · <cliente>"`, así que usarlo embebía el nombre del cliente
+  **dos veces**. El helper usa el **servicio limpio** (`servicios.nombre` →
+  `servicio_slug`), no el título del trámite. Detectado y corregido en el
+  backfill **antes** de cerrar.
+- **Implementación (mig 0209):** helper `private.egreso_gestoria_ref(solicitud,
+  gestoria) RETURNS jsonb` (DRY entre la RPC y el backfill) → `{descripcion,
+  referencia, admin_id}`. `referencia = 'SOL:<uuid>[ · TRM:<codigo>]'` para
+  trazabilidad de máquina. `solicitud_derivar_v3` (misma firma → R16 ok,
+  CREATE OR REPLACE) lo invoca. Backfill de los egresos históricos + resuelve
+  `administracion_id` si quedó NULL. Smoke R18 al cierre (`DO $smoke$` verifica
+  que la descripción matchea `'Egreso gestoría · %'`).
+- **Reglas aplicadas:** R8 (E43 · `information_schema` antes de tocar tablas con
+  naming híbrido), R16 (misma firma → no overload), R18 (smoke e2e en mig que
+  cambia el INSERT de una RPC).
+- **Fecha:** 2026-06-09.
