@@ -1974,3 +1974,32 @@ El usuario lo pidió en dos requerimientos simultáneos.
   smoke embebido del helper capturó una divergencia (initcap vs 1ra-letra) →
   corregida. Build limpio. Prueba en vivo OK.
 - **Fecha:** 2026-06-08.
+
+## DGG-57 · Las edge functions del proyecto evitan `@supabase/supabase-js` (raw fetch a REST/Auth/RPC)
+
+- **Qué/por qué (capitalizado de E-GG-57, Lista JL · F9, 2026-06-08):**
+  instanciar el cliente `@supabase/supabase-js` (`createClient`, vía esm.sh)
+  **crashea el cold-start** del edge runtime actual de Supabase. Cuando una
+  edge fn revienta en el boot, su `OPTIONS` devuelve 500 **sin** headers CORS,
+  y el browser lo reporta como "CORS faltante / Failed to fetch" — un síntoma
+  totalmente engañoso que cuesta horas de diagnóstico (ver E-GG-57: se
+  descartó versión de supabase-js, import jsr, shared-import, verify_jwt y
+  slug antes de aislar el bundle como culpable con una probe mínima).
+- **Decisión:** **no usar `@supabase/supabase-js` en edge functions nuevas o
+  reescritas.** Usar `fetch` crudo contra los endpoints REST/Auth/RPC:
+  - Validar token de usuario: `GET ${SUPABASE_URL}/auth/v1/user`
+    `{Authorization: Bearer <token>, apikey: ANON_KEY}`.
+  - Service-role: `GET/POST ${SUPABASE_URL}/rest/v1/<tabla|rpc>`
+    `{apikey: SERVICE_ROLE, Authorization: Bearer ${SERVICE_ROLE}}`.
+  - Envolver TODO el handler en un try/catch global que devuelva 500 **con**
+    CORS, para que ningún fallo no previsto se escape como "500 sin CORS".
+- **Matices:** las edge fns viejas que YA funcionan con supabase-js (dispatch-*,
+  submit-formulario, etc.) no se tocan preventivamente (andan); se migran sólo
+  si fallan o si se las edita por otra razón. La excepción conocida pendiente
+  es **`zoom-webinar-create`** (mismo bug latente, se reescribe en F6 webinars).
+- **Check de cierre al deployar una edge fn:** `curl -i -X OPTIONS <fn-url>`
+  debe devolver 2xx **con** `access-control-allow-origin`. Si da 500 sin CORS,
+  la fn no bootea — revisar imports pesados.
+- **Primer caso:** `zoom-encuentro-create` (reemplaza `zoom-meeting-create`),
+  verificado en vivo creando una reunión Zoom real desde el botón de gerencia.
+- **Fecha:** 2026-06-08.

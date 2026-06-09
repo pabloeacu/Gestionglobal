@@ -2250,3 +2250,61 @@
   parcial. Las ops "opcionales" (campus) deben ser best-effort para no frenar
   el núcleo (cliente+trámite+cobranza).
 - **Fecha / módulo:** 2026-06-08 · solicitudes/wizard v2 · DGG-54.
+
+## E-GG-57 · "Crear sala Zoom" no generaba la sala — el bundle de `@supabase/supabase-js` crasheaba el cold-start de la edge function (Lista JL · F9) (2026-06-08)
+
+- **Síntoma:** JL (gerente): en el Campus, el botón **"Crear sala Zoom"** de un
+  encuentro sincrónico fallaba con un toast de error; en consola
+  `FunctionsFetchError / Failed to send request / CORS Missing Allow Origin`
+  (`TypeError: Failed to fetch`). El encuentro nunca quedaba con sala. La
+  edge function era `zoom-meeting-create`.
+- **Causa raíz:** la función **crasheaba en el COLD-START** del edge runtime
+  actual de Supabase. Cuando una edge function revienta en el arranque, su
+  handler de `OPTIONS` (preflight) devuelve **500 SIN headers CORS** → el
+  browser lo reporta como "CORS faltante / Failed to fetch", ocultando que el
+  verdadero problema está en el boot, no en CORS. El disparador del crash era
+  **instanciar el cliente `@supabase/supabase-js`** (`createClient`) — su
+  bundle (vía esm.sh) no resuelve/inicializa en este runtime y tira el boot.
+- **Diagnóstico (qué se descartó, cada uno con redeploy + prueba en vivo):**
+  versión de supabase-js (2.45→2.46), el import type-only `jsr:@supabase/
+  functions-js/edge-runtime.d.ts`, el shared-import `_shared/humanize.ts`,
+  `verify_jwt`, y el slot/slug (un nombre nuevo tampoco booteaba). La pista
+  decisiva: una **probe mínima** que SÓLO importaba supabase-js (sin
+  instanciarlo) booteaba OK; la función completa que hacía `createClient` NO
+  → el bundle instanciado era el culpable.
+- **Fix:** **reescribir la función SIN `@supabase/supabase-js`**, usando
+  `fetch` crudo contra la REST/Auth/RPC de Supabase:
+  - validar token de usuario: `GET ${SUPABASE_URL}/auth/v1/user` con
+    `{Authorization: Bearer <token>, apikey: ANON_KEY}`.
+  - leer/escribir con service-role: `GET/POST ${SUPABASE_URL}/rest/v1/<tabla>`
+    y `POST .../rest/v1/rpc/<fn>` con `{apikey: SERVICE_ROLE, Authorization:
+    Bearer ${SERVICE_ROLE}}`.
+  - Nuevo slug **`zoom-encuentro-create`** (la vieja `zoom-meeting-create`
+    quedó como slot huérfano deployado — no hay tool MCP para borrar edge
+    functions; se elimina del dashboard). Frontend (`campus.ts` `crearSalaZoom`)
+    repunteado al slug nuevo. Carpeta vieja removida del repo.
+  - **Paridad verificada (§6):** settings del meeting, los 6 params del RPC
+    `curso_encuentro_set_zoom` (uuid,bigint,text,text,text,integer — overload
+    único, R16 OK), shape de respuesta y validaciones son idénticos a la vieja.
+  - **Hardening §6:** TODO el cuerpo va dentro de un **try/catch global** que
+    devuelve 500 **CON** CORS — sin esto, un fallo de red interno o un
+    `.json()` sobre respuesta no-JSON volvería a escaparse como "500 sin CORS"
+    (la misma clase de bug). Además regex UUID canónica 8-4-4-4-12.
+- **Verificado en vivo (prueba del botón, frontend v76cd1b7):** gerente →
+  Campus → "Curso de Actualización 2026" → encuentro "Asambleas Virtuales" →
+  click "Crear sala Zoom" → toast "Sala Zoom creada ✓" + la fila pasa a
+  "Iniciar como host / Link público / ID 85225512738 · pwd 493485". BD:
+  `curso_encuentros.zoom_meeting_id=85225512738`, join `us06web.zoom.us/j/
+  85225512738`, pwd 493485 (coincide). Smoke OPTIONS sobre la v5 → **204 con
+  CORS** (boot sano). Consola sin errores del app (sólo ruido de extensión).
+- **Prevención (→ DGG-57):** las edge functions del proyecto **evitan
+  `@supabase/supabase-js`**; usan `fetch` crudo a REST/Auth/RPC. Smell check
+  al tocar/crear una edge fn: si importa `createClient` de supabase-js,
+  reescribir con fetch crudo. Check de boot al deployar: `curl -i -X OPTIONS
+  <fn-url>` debe dar 2xx **con** `access-control-allow-origin`.
+- **Deuda relacionada (F6 webinars):** `zoom-webinar-create` arrastra el
+  MISMO patrón roto (importa+instancia supabase-js 2.45.0) → se reescribirá
+  igual al abordar el formulario de webinar. Su handler de error
+  (`webinars.ts:crearReunionZoom`) tampoco usa `extractEdgeFnError`.
+- **Fecha / módulo:** 2026-06-08 · campus/encuentros · edge fn
+  `zoom-encuentro-create` (reemplaza `zoom-meeting-create`) · Lista JL F9.
