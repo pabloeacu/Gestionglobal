@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   CalendarClock,
+  Clock,
   Radio,
   Video,
   X,
@@ -53,6 +54,20 @@ function useIsMobile() {
   }, []);
   return isMobile;
 }
+
+// "Ahora" reactivo: re-renderiza cada 30s para que el botón de unirse se
+// habilite/cierre solo al entrar/salir de la ventana temporal sin que el
+// alumno tenga que refrescar (F9-ter · Lista JL).
+function useNow(intervalMs = 30_000) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), intervalMs);
+    return () => clearInterval(id);
+  }, [intervalMs]);
+  return now;
+}
+
+const GATE_PREV_MS = 10 * 60_000; // habilita 10 min antes del horario
 
 // SDK Component View natural 720×874 (aspect ~0.82 vertical).
 //
@@ -152,6 +167,7 @@ export function EncuentrosEnVivoAlumno({
   onEntrar,
 }: Props) {
   const isMobile = useIsMobile();
+  const now = useNow();
 
   const visibles = useMemo(
     () =>
@@ -186,6 +202,30 @@ export function EncuentrosEnVivoAlumno({
           const isLive = status === 'en_curso';
           const finalizado = status === 'finalizado';
           const tieneGrabacion = !!enc.grabacion_play_url;
+
+          // Gating temporal del acceso del alumno (F9-ter · Lista JL):
+          // habilitado SÓLO en [fecha_hora − 10min, fecha_hora + duración], o
+          // si el host ya inició (isLive). Antes / después / sin-fecha → bloqueado.
+          const fhMs = enc.fecha_hora ? new Date(enc.fecha_hora).getTime() : null;
+          const opensAtMs = fhMs != null ? fhMs - GATE_PREV_MS : null;
+          const closesAtMs = fhMs != null ? fhMs + (enc.duracion_min ?? 60) * 60_000 : null;
+          const dentroVentana =
+            fhMs != null && now >= (opensAtMs as number) && now <= (closesAtMs as number);
+          const puedeUnirse = dentroVentana || isLive;
+          const gateMsg =
+            fhMs == null
+              ? 'Pendiente de programar la fecha'
+              : now < (opensAtMs as number)
+                ? `Se habilita ${fmtFechaHora(new Date(opensAtMs as number).toISOString())}`
+                : 'El encuentro finalizó';
+          const botonBloqueado = (
+            <span
+              className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-2 text-xs font-semibold text-brand-muted"
+              title="El acceso se habilita 10 minutos antes del horario programado del encuentro."
+            >
+              <Clock size={13} /> {gateMsg}
+            </span>
+          );
           return (
             <li
               key={enc.id}
@@ -233,52 +273,70 @@ export function EncuentrosEnVivoAlumno({
                   )}
 
                   {/* ZOOM (default) · botón grande external link. Asistencia
-                      tracked via webhook meeting.participant_joined/left. */}
-                  {!finalizado && isZoom && enc.zoom_join_url && (
-                    <a
-                      href={enc.zoom_join_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={cn(
-                        'inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-xs font-bold text-white shadow-sm transition',
-                        isLive
-                          ? 'bg-red-600 hover:bg-red-700'
-                          : 'bg-brand-cyan hover:bg-brand-cyan/90',
-                      )}
-                      title="Abrir la reunión en Zoom oficial"
-                    >
-                      <ExternalLink size={13} />{' '}
-                      {isLive ? 'Unirme a la clase Zoom' : 'Abrir reunión Zoom'}
-                    </a>
-                  )}
+                      tracked via webhook meeting.participant_joined/left.
+                      Gateado por tiempo (F9-ter): habilitado 10 min antes. */}
+                  {!finalizado &&
+                    isZoom &&
+                    enc.zoom_join_url &&
+                    (puedeUnirse ? (
+                      <a
+                        href={enc.zoom_join_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={cn(
+                          'inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-xs font-bold text-white shadow-sm transition',
+                          isLive
+                            ? 'bg-red-600 hover:bg-red-700'
+                            : 'bg-brand-cyan hover:bg-brand-cyan/90',
+                        )}
+                        title="Abrir la reunión en Zoom oficial"
+                      >
+                        <ExternalLink size={13} />{' '}
+                        {isLive ? 'Unirme a la clase Zoom' : 'Unirme al encuentro'}
+                      </a>
+                    ) : (
+                      botonBloqueado
+                    ))}
 
-                  {/* WEBEX · embed embebido en el campus (botón abre overlay) */}
-                  {!finalizado && isWebex && !isMobile && (
-                    <button
-                      onClick={() => onEntrar(enc.id)}
-                      className={cn(
-                        'inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-xs font-bold text-white shadow-sm transition',
-                        isLive
-                          ? 'bg-red-600 hover:bg-red-700'
-                          : 'bg-brand-cyan hover:bg-brand-cyan/90',
-                      )}
-                    >
-                      <Radio size={13} />{' '}
-                      {isLive ? 'Entrar a la clase Webex' : 'Conectarme a Webex'}
-                    </button>
-                  )}
+                  {/* WEBEX · embed embebido en el campus (botón abre overlay).
+                      Gateado por tiempo (F9-ter): habilitado 10 min antes. */}
+                  {!finalizado &&
+                    isWebex &&
+                    !isMobile &&
+                    (puedeUnirse ? (
+                      <button
+                        onClick={() => onEntrar(enc.id)}
+                        className={cn(
+                          'inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-xs font-bold text-white shadow-sm transition',
+                          isLive
+                            ? 'bg-red-600 hover:bg-red-700'
+                            : 'bg-brand-cyan hover:bg-brand-cyan/90',
+                        )}
+                      >
+                        <Radio size={13} />{' '}
+                        {isLive ? 'Entrar a la clase Webex' : 'Conectarme a Webex'}
+                      </button>
+                    ) : (
+                      botonBloqueado
+                    ))}
 
-                  {/* Mobile · Webex también via link externo para mejor UX */}
-                  {!finalizado && isWebex && isMobile && enc.webex_join_url && (
-                    <a
-                      href={enc.webex_join_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-brand-cyan px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-brand-cyan/90"
-                    >
-                      <Smartphone size={13} /> Abrir Webex
-                    </a>
-                  )}
+                  {/* Mobile · Webex también via link externo. Gateado (F9-ter). */}
+                  {!finalizado &&
+                    isWebex &&
+                    isMobile &&
+                    enc.webex_join_url &&
+                    (puedeUnirse ? (
+                      <a
+                        href={enc.webex_join_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-brand-cyan px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-brand-cyan/90"
+                      >
+                        <Smartphone size={13} /> Abrir Webex
+                      </a>
+                    ) : (
+                      botonBloqueado
+                    ))}
                 </div>
               </div>
 

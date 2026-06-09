@@ -90,11 +90,18 @@ export function EncuentrosTab({ data }: { data: CursoDetalle }) {
       toast.error('Ponele un título al encuentro.');
       return;
     }
+    // Fecha/hora OBLIGATORIA (F9-ter · Lista JL): el acceso del alumno se
+    // condiciona a ese día/horario (botón habilitado recién 10 min antes), así
+    // que un encuentro sin fecha no tiene sentido para el alumno.
+    if (!fecha) {
+      toast.error('Poné la fecha y hora del encuentro. El alumno accede recién 10 min antes del horario.');
+      return;
+    }
     setCreating(true);
     const res = await crearEncuentro({
       cursoId: data.curso.id,
       titulo: titulo.trim(),
-      fechaHora: fecha ? new Date(fecha).toISOString() : null,
+      fechaHora: new Date(fecha).toISOString(),
       descripcion: desc.trim() || null,
       plataforma,
     });
@@ -221,7 +228,7 @@ export function EncuentrosTab({ data }: { data: CursoDetalle }) {
               placeholder="Encuentro 1 · dudas normativas"
             />
           </Field>
-          <Field label="Fecha y hora">
+          <Field label="Fecha y hora" required>
             <Input
               type="datetime-local"
               value={fecha}
