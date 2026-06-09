@@ -2126,3 +2126,38 @@ El usuario lo pidió en dos requerimientos simultáneos.
   naming híbrido), R16 (misma firma → no overload), R18 (smoke e2e en mig que
   cambia el INSERT de una RPC).
 - **Fecha:** 2026-06-09.
+
+## DGG-61 · F5 · Bloque de costos en el formulario de consultoría jurídica ($20k/$36k)
+
+- **Contexto (Lista JL · F5):** el formulario público `consultoria-juridica`
+  era el único de los 5 formularios que NO mostraba el bloque "Costos del
+  trámite" (`costos_info`); los 4 RPAC (matriculación/renovación/certificado/
+  DDJJ) ya lo tenían. Hueco de paridad entre formularios.
+- **Decisión (Pablo):** dos tarifas alineadas al campo `requiere_analisis` que
+  el form **ya** pregunta ("¿Requiere análisis de actas o reglamentos?"):
+  - **Consulta jurídica → $20.000** ("sin análisis de documentación").
+  - **Consulta con análisis de actas o reglamentos → $36.000** ("incluye la
+    revisión de la documentación adjunta").
+  El servicio del catálogo (`juridico_consulta`, precio $25.000) **NO se toca**:
+  el bloque es informativo (igual que en los otros formularios). El precio del
+  comprobante lo ajusta el gerente según corresponda.
+- **Implementación (mig 0210):** insert quirúrgico del bloque `costos_info` como
+  primer campo de la sección "Pago" (antes de "Adjuntar comprobante de pago"),
+  vía rebuild por secciones (preserva los 10 campos existentes y el `condition`
+  de `docs_analisis`). Reusa la cuenta MP estándar (CVU/alias/titular/CUIT) y la
+  forma JSON idéntica a los otros 4 forms. **Idempotente** (si ya hubiera un
+  `costos_info`, no hace nada) + smoke R18 (verifica 1 bloque / 2 ítems /
+  comprobante intacto). `schema_draft` se limpia (el builder muestra lo
+  publicado). **Sin cambios de frontend**: el render de `costos_info`
+  (`CostosInfoCard`) y el editor del builder ya existen (AJL-4); el campo es
+  presentacional (excluido de validación/submission por el runner).
+- **§6 doble auditoría (2 agentes + verificación):** A (integridad/render) y B
+  (downstream/submission) **ambos OK** — ningún campo perdido, el bloque no
+  entra al payload → no afecta submission/email/`documentos` (DGG-56)/PDF/ficha/
+  cross-match (Bloque J)/builder. Prueba en vivo en el form público: las dos
+  tarifas + cuenta + notas renderizan premium (desktop), consola sin errores de
+  app. **Hallazgo menor diferido** (no bloqueante): el edge fn `submit-formulario`
+  y el `onSave` del builder no listan `costos_info`/`file_download` en sus
+  skip-lists como sí lo hace el runner — hoy inerte (el bloque no es `required`
+  ni aporta key al payload); se difiere a un chunk de consistencia aparte.
+- **Fecha:** 2026-06-09.
