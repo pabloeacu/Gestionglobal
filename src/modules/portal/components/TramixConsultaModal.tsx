@@ -11,13 +11,14 @@
 //   · modo 'results' → barra [legajo][Actualizar][Cambiar de legajo] + resultados
 // Al reabrir, auto-busca el último legajo cargado (gana los pasos intermedios).
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Landmark, RefreshCw, ExternalLink, Info, ChevronDown, Loader2,
   AlertTriangle, Inbox, FileText, Clock, FileDown, Search, Pencil,
 } from 'lucide-react';
 import { Modal } from '@/components/common/Modal';
 import { toast } from '@/lib/toast';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   consultarTramix, consultarTramixDetalle, consultarTramixActuacion,
   descargarTramixDocumento, triggerDownload, estadoTone, TRAMIX_URL_OFICIAL,
@@ -25,10 +26,19 @@ import {
   type TramixDetalleRef, type TramixActuacion, type TramixActuacionDetalle,
 } from '@/services/api/tramix';
 
-const LS_KEY = 'gg.tramix.legajo';
+// F3 (E-GG-60): el "recordar último legajo" debe ser POR-USUARIO. La clave
+// global vieja (`gg.tramix.legajo`) era por-NAVEGADOR → un cliente heredaba el
+// último legajo consultado por OTRO usuario en esa máquina (fuga cross-usuario +
+// privacidad: ej. el legajo de test de QA aparecía precargado a otro cliente).
+const LS_KEY_LEGACY = 'gg.tramix.legajo';
+const lsKeyForUser = (uid: string) => `gg.tramix.legajo:${uid}`;
 const onlyDigits = (s: string) => (s || '').replace(/\D/g, '');
-const readLast = () => { try { return onlyDigits(localStorage.getItem(LS_KEY) || ''); } catch { return ''; } };
-const saveLast = (l: string) => { try { if (l) localStorage.setItem(LS_KEY, l); } catch { /* noop */ } };
+const readLast = (key: string | null) => {
+  try { return key ? onlyDigits(localStorage.getItem(key) || '') : ''; } catch { return ''; }
+};
+const saveLast = (key: string | null, l: string) => {
+  try { if (key && l) localStorage.setItem(key, l); } catch { /* noop */ }
+};
 
 const refKeyOf = (e: TramixExpediente) => (e.detalle_ref ? `${e.detalle_ref.o}:${e.detalle_ref.n}:${e.detalle_ref.a}` : e.numero);
 
@@ -212,6 +222,9 @@ export function TramixConsultaModal({ open, onClose }: { open: boolean; onClose:
   const [detalles, setDetalles] = useState<Record<string, { loading: boolean; data?: TramixDetalle; error?: string }>>({});
   const [showInfo, setShowInfo] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const { user } = useAuth();
+  // F3: la clave "recordar último legajo" se scopea por USUARIO (no por navegador).
+  const lsKey = useMemo(() => (user?.id ? lsKeyForUser(user.id) : null), [user?.id]);
 
   // Busca un legajo concreto y muestra resultados (modo 'results').
   const buscar = useCallback(async (rawLegajo: string, force: boolean) => {
@@ -233,9 +246,9 @@ export function TramixConsultaModal({ open, onClose }: { open: boolean; onClose:
     const used = r.data.legajo || legajo;
     setSearchedLegajo(used);
     setLegajoInput(used);
-    saveLast(used);
+    saveLast(lsKey, used);
     if (force && r.data.resultado === 'OK') toast.success('Consulta actualizada');
-  }, []);
+  }, [lsKey]);
 
   // Primera apertura sin legajo recordado: usa el de la ficha (server) o pide uno.
   const initFromFicha = useCallback(async () => {
@@ -256,8 +269,8 @@ export function TramixConsultaModal({ open, onClose }: { open: boolean; onClose:
     }
     setSearchedLegajo(def);
     setLegajoInput(def);
-    saveLast(def);
-  }, []);
+    saveLast(lsKey, def);
+  }, [lsKey]);
 
   useEffect(() => {
     if (!open) return;
@@ -265,7 +278,10 @@ export function TramixConsultaModal({ open, onClose }: { open: boolean; onClose:
     setDetalles({});
     setExpandido(null);
     setShowInfo(false);
-    const remembered = readLast();
+    // F3: purga one-time de la clave global vieja (limpia el legajo de test de QA
+    // que pudo quedar en este navegador, compartido entre usuarios).
+    try { localStorage.removeItem(LS_KEY_LEGACY); } catch { /* noop */ }
+    const remembered = readLast(lsKey);
     if (remembered) {
       // Reapertura: gano los pasos intermedios y auto-busco el último legajo.
       setLegajoInput(remembered);
