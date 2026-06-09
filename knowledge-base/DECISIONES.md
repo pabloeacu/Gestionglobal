@@ -2034,8 +2034,15 @@ El usuario lo pidió en dos requerimientos simultáneos.
   asistencia). El ingreso real anticipado igual lo bloquea Zoom
   (`waiting_room:true` + `join_before_host:false`). Enforcement server-side
   (replicar la ventana en `zoom-sdk-signature` + no exponer `zoom_join_url`
-  antes de `opensAt`) queda como **hardening opcional** (no hecho; la §6 lo
-  señaló como severidad media). Edición de encuentros existentes (p. ej. setear
+  antes de `opensAt`) queda como **hardening opcional DESCARTADO explícitamente
+  por Pablo (2026-06-08)**: se verificó en código que el "presente" lo registra
+  SÓLO el webhook `meeting.participant_joined` (`zoom-webhook/index.ts:129-160`
+  → RPC `curso_encuentro_zoom_evento`), **NO el click del botón** (el de Zoom es
+  un `<a href={zoom_join_url}>` plano; el de Webex sólo abre el embed vía
+  `setEncuentroEnVivoId`; `registrarAsistencia` no tiene caller en el flujo del
+  alumno). Por ende un click temprano no puede falsear asistencia. Sumado al
+  backstop de Zoom, el gate client-side cubre el único objetivo restante
+  (prevención de confusión del alumno), así que el server-side no aporta. Edición de encuentros existentes (p. ej. setear
   fecha a uno viejo "Sin fecha" como "Asambleas Virtuales") → diferido a **F10**
   (encuentros como módulos); por ahora la fecha es obligatoria sólo en el alta.
 - **§6 (2 agentes):** gate correcto (boundaries inclusivos, override isLive,
@@ -2043,7 +2050,10 @@ El usuario lo pidió en dos requerimientos simultáneos.
   13) + `crearEncuentro` único caller (nada se rompe por la obligatoriedad);
   cobertura: árbol de entrada del alumno estrecho, único bypass real (HotCard)
   fixeado. **Prueba en vivo:** fecha-obligatoria verificada (toast de error +
-  campo required + no crea). Gate del alumno verificado por §6 + build (no por
-  render con sesión de alumno matriculado — desproporcionado de montar para un
-  gate de UI; ofrecido a Pablo). Build limpio.
+  campo required + no crea). Gate del alumno verificado por §6 + build **y por
+  render en vivo con sesión real de alumno matriculado** (2026-06-08): 2
+  encuentros DEMO en el curso RPAC — uno dentro de ventana → botón "Unirme al
+  encuentro" activo; uno futuro (+3 h) → chip "Se habilita {fecha − 10 min}"
+  no-click. Capturado para Pablo; demo limpiado y sesión de gerente restaurada.
+  Build limpio.
 - **Fecha:** 2026-06-08.
