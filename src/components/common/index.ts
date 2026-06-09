@@ -16,3 +16,18 @@ export { ColorPicker } from './ColorPicker';
 export { EmailManaxerPreview, buildManaxerHtml, type ManaxerTemplateData } from './EmailManaxerPreview';
 export { Tooltip } from './Tooltip';
 export { RefreshIndicator } from './RefreshIndicator';
+// F8 (DGG-64) · toolkit premium de filtros
+export {
+  Switch,
+  FilterChips,
+  FilterMultiSelect,
+  SegmentCard,
+  SortHeader,
+  ResultCount,
+  useSort,
+  type ChipOption,
+  type MultiSelectOption,
+  type SortState,
+  type SortDir,
+  type FilterTone,
+} from './Filters';

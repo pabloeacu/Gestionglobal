@@ -4,6 +4,78 @@
 
 ---
 
+## Lista JL — mapeo de fases (verbatim) · actualizado 2026-06-09
+
+> Observaciones de José Luis transcriptas VERBATIM (Pablo las confirmó). Orden de
+> ejecución acordado: F1, F3, F2, F5, F7, F6, **F8, F4, F10**. No volver a perder
+> el mapeo F-número → observación.
+
+| Fase | Estado | Observación de José Luis (verbatim) |
+|---|---|---|
+| **F1** | ✅ DGG-59 / E-GG-59 | "El mismo trámite está activo y no figura nada en Cuenta corriente. Ahora ya lo cerré y no quedó cargada deuda alguna en el cliente (en este caso, alumno)." |
+| **F2** | ✅ DGG-60 | "Referencia del gasto debe ser 'cliente - trámite'." |
+| **F3** | ✅ E-GG-60 | "Quedó cargado el legajo de muestra en todos los portales de clientes. Debería venir en blanco en la primer consulta o bien traerlo desde la ficha del cliente (si lo tiene cargado), y una vez que lo carga por primera vez, recién entonces recordarlo (siempre por cada cliente en particular de modo independiente)." |
+| **F4** | ⏳ PENDIENTE | Mensajes del gestor → moderación de gerencia (ver abajo). |
+| **F5** | ✅ DGG-61 | "Faltaría info del Costo del servicio con y sin análisis de documentación. La onda es que los costos queden señalizados tal y como en los otros formularios. En este caso es así: $20.000 Consulta simple / $36.000 Consulta con análisis de documentación." |
+| **F6** | ✅ DGG-63 | "El formulario de webinar está activo y solo debería estarlo cuando hay un webinar activo. Mientras tanto, debería tener una web de 'Estate atento a nuestra próxima capacitación gratuita…'. Cuando un webinar gratuito se habilita, este formulario va a contener la info del webinar (su foto/banner, su docente a cargo, el título y la descripción)." |
+| **F7** | ✅ DGG-62 / E-GG-61 | "La solicitud de un formulario (sea por landing o por portal cliente) no se avisa en banner de gerencia. Llega por mail y por push/notificación, pero necesitamos un banner en el dashboard." |
+| **F8** | ⏳ PENDIENTE (en curso) | Sistema de filtros premium en Solicitudes y Trámites (ver abajo). |
+| **F9** | ✅ DGG-57 / DGG-58 (+ bis/ter) | "Los encuentros sincrónicos no generan sala." |
+| **F10** | ⏳ PENDIENTE | Encuentros sincrónicos como módulos (ver abajo). |
+
+### F8 · Sistema de filtros premium en Solicitudes y Trámites (VERBATIM)
+
+> "Tenemos que tener un Sistema de filtros premium para solicitudes y trámites que
+> permitan segmentar la visión del gerente. Esto es porque ahora tenemos algunas…
+> pero pronto serán cientos. Y requerimos que sea ordenado y metódico.
+> Además, deberíamos tener un filtro predeterminado que solo muestre 'activos'. Es
+> decir, que esconda lo que ya está cerrado. No se borra. Está para consulta…pero lo
+> quita de la visión para que no entorpezca.
+> No todo tiene que ser filtro de multipleselect clásico. Algunos pueden ser switches
+> tipo toggle o cards que funcionen como filtros.
+> De hecho, sería importante que los encabezados de la lista sean filtros también."
+
+Requisitos clave: (1) default = sólo ACTIVOS (oculta cerrados, NO los borra, quedan
+para consulta); (2) filtros variados: multiselect + toggles/switches + cards-filtro;
+(3) los encabezados de columna deben funcionar como filtros/orden; (4) escala a
+cientos. Aplica a Solicitudes Y Trámites (lista + kanban). Investigar a fondo páginas/
+RPCs actuales y preguntar a Pablo qué filtros exactos y si persisten en URL.
+
+### F4 · Mensajes del gestor → moderación de gerencia (VERBATIM)
+
+> "Vamos a hacer un cambio de paradigma respecto a los mensajes del gestor.
+> Actualmente, todo lo que envía se publica como un paso del tracking del trámite. A
+> partir de ahora: cada envío del gestor sobre un trámite será una SOLICITUD DE
+> REVISIÓN para la gerencia. La gerencia recibirá ese mensaje con sus respectivos
+> adjuntos y decidirá si:
+>  a) Lo publica como tracking tal como está.
+>  b) Lo publica como tracking con modificaciones en la redacción o en los adjuntos.
+>  c) Si con la publicación, ya cambia el estado del trámite.
+>  d) Si no lo publica porque lo cataloga como información interna (queda como registro
+>     interno NO visualizado por el cliente)."
+
+Requisitos clave: el envío del gestor YA NO publica directo al tracking; entra a una
+COLA DE MODERACIÓN de gerencia (con adjuntos); gerencia aprueba tal cual / edita
+texto+adjuntos / aprueba y cambia estado / rechaza-marca-interno. Recién al aprobar se
+hace visible al cliente.
+
+### F10 · Encuentros sincrónicos como módulos (VERBATIM)
+
+> "Amén de lo anterior (que se puedan generar las salas), hay que repensar los
+> encuentros sincrónicos como módulos que contemplen:
+>  - Nombre e imagen del docente.
+>  - CV del docente.
+>  - Y la posibilidad de generar una lista de fechas ALTERNATIVAS o bien una serie de
+>    encuentros. Es decir, que se pueda configurar que una sola asistencia sea
+>    suficiente para contemplar la condición (fechas alternativas) o todas ellas
+>    (serie de encuentros) para cumplimiento de la condición."
+
+Requisitos clave: encuentros con docente (nombre + foto + CV, como módulos del Campus
+DGG-50/51); fechas ALTERNATIVAS (basta 1 asistencia) O serie (asistir a TODAS); +
+pendiente F9-ter: editar encuentros viejos y setearles fecha ("Asambleas Virtuales").
+
+---
+
 ## Estado actualizado 2026-05-25 (post P2 ola 1+2)
 **Progreso 25→24 mejoras P2 hechas** · 14 pendientes:
 - 4 audits visuales menores (#1, #3, #4, #6)
