@@ -2194,3 +2194,88 @@ El usuario lo pidió en dos requerimientos simultáneos.
   relogueó para la prueba.
 - **Commits:** `c48e907` (realtime + reubicación) + `29e5d25` (fix del estado).
 - **Fecha:** 2026-06-09.
+
+## DGG-63 · F6 · Webinars con esquema rico + inscripción CONDICIONAL (form compartido + inscribe al vigente)
+
+- **Contexto (Lista JL · F6):** los webinars debían dejar de ser un alta seca y
+  pasar a tener identidad tipo curso (banner + docente(s) con foto), y la
+  inscripción (landing + portal) debía ser **condicional**: si hay un webinar
+  vivo se muestra su identidad + formulario; si no, una página de espera.
+- **Decisiones de Pablo (lockeadas):**
+  - **Esquema rico:** `banner_url` + `docentes` jsonb roster `[{nombre,foto_url}]`
+    (varios, foto opcional) + toggle `publicado`.
+  - **Vigencia** = hasta `fecha_hora + duracion_min` (la inscripción se mantiene
+    hasta que el webinar termina).
+  - **"El más próximo gana":** si hay varios publicados+vigentes, se muestra el de
+    fecha más cercana aún no terminado; **no se bloquea** publicar un 2º.
+  - **Disposición condicional:** con webinar vigente → branded (banner + nombre +
+    descripción + docentes con foto) + el formulario vinculado; sin webinar →
+    página de TEXTO propia: «Estate atento a nuestra próxima capacitación
+    gratuita. / Creemos que la capacitación es clave para la excelencia… que no
+    encajen, sino que sobresalgan. / #AliadosDeTuTiempo» (NO la página "Muy
+    pronto").
+  - **Form compartido + inscribe al vigente** (decisión de chunk 3): todos los
+    webinars usan el form `webinarios` (categoría `evento`); el editor **no** lleva
+    selector de form; enviar ese form inscribe SIEMPRE al webinar vigente.
+  - **Edición completa** del webinar en el detalle (título/descr/fecha/hora/
+    duración además de banner/roster/publicar) y **aviso suave** al publicar (no
+    se bloquea; se avisa si falta banner/docentes/canal).
+- **Implementación (4 chunks):**
+  1. **Chunk 1 (mig 0211):** `webinars` += `banner_url`/`publicado`/`docentes`;
+     índice parcial `idx_webinars_publicado_fecha`; RPC pública
+     `webinar_inscripcion_activa()` (anon, SECURITY DEFINER, SÓLO campos públicos
+     —sin secretos Zoom—).
+  2. **Chunk 2 (frontend):** editor en `WebinarDetailPage` — `PublicacionCard`
+     (toggle + estado de vigencia + aviso suave), `DatosWebinarCard` (edición
+     completa), `BannerCard` + `DocentesCard` (roster: agregar/quitar, nombre +
+     foto c/u) reusando el bucket `campus-media` con scopes nuevos
+     `webinar-banner`/`webinar-docente` vía `ImageUploader`→`safeStorageKey`
+     (R20). Pill "Publicado/Borrador" en la lista (R14). Tipos `webinars`
+     reflejados a mano en `database.ts` (precedente DGG-55; el regen completo con
+     token queda para cuando esté disponible).
+  3. **Chunk 3 (migs 0212/0213 + frontend):** `private.webinar_vigente_id()` como
+     ÚNICA fuente de "el más próximo gana", reusada por la RPC (qué se muestra) y
+     por el trigger `inscribir_webinar_desde_submission` (a quién se inscribe:
+     `COALESCE(form.webinar_id, vigente)`). La RPC cae al form `evento`
+     compartido cuando el webinar no tiene uno propio (`COALESCE` + LATERAL).
+     Frontend: `WebinarInscripcionShared` (hook `useWebinarVigente` +
+     `WebinarIdentidad` + `WebinarTextoEspera`), página pública **`/webinars`**
+     (identidad + `FormularioRunner` embebido por `formulario_slug`, ó texto) —
+     destino del CTA de webinar de la landing (antes `/formulario/webinarios`);
+     **portal**: hero branded del vigente + inscripción one-click
+     (`cliente_webinar_inscribirme`), manteniendo "mis inscripciones"/grabaciones
+     (el vigente se excluye de las listas para no duplicar; sin vigente → texto).
+  4. **Chunk 4:** §6 + prueba en vivo + docs.
+- **§6 doble auditoría (3 agentes + e2e en BD):** hallazgos corregidos en el mismo
+  chunk: `DocentesCard` identificaba docentes por índice (riesgo de perder una
+  edición / aplicar foto al docente equivocado) → reescrito con id estable de
+  sesión + `rowsRef` + persist deduplicado; `darkHero` en `/webinars` dejaba el
+  nav blanco sobre blanco → quitado; validación de duración/fecha en
+  `DatosWebinarCard`; doble `<h1>` en el portal → prop `as` en `WebinarIdentidad`;
+  aviso de docentes sin nombre. **e2e (BEGIN/ROLLBACK):** el trigger inscribe al
+  **vigente** al enviar el form compartido (canal youtube), la RPC devuelve
+  identidad rica + `formulario_slug='webinarios'` por fallback con
+  `formulario_id` NULL, y NULL al despublicar/vencer. **R16** (0 overloads) y
+  **R17** (0 triggers inseguros) limpios; **R3** OK (la RPC pública no filtra
+  secretos Zoom/Webex). **Hallazgo PRE-F6 derivado a tarea aparte** (no es
+  regresión de F6): la policy `webinars_authenticated_select USING(true)` (mig
+  0050) deja a cualquier `authenticated` leer secretos Zoom por `select *`
+  directo; ningún flujo F6 lo explota (el portal usa RPCs curadas).
+- **Prueba en vivo (URL Vercel):** **chunk 2 (editor, sesión de gerente)** —
+  Publicación (toggle + pill emerald "Publicado y vigente"), Datos (Guardar
+  deshabilitado si no hay cambios), Banner (preview + Reemplazar), Docentes
+  (roster 2 filas + Agregar + fotos), edición de nombre de un docente que
+  **persistió sin corromper al otro** (fix validado en vivo), pill "Publicado" en
+  la lista. **chunk 3 público (`/webinars`, anónimo)** — branded (banner +
+  título + meta + descripción + docentes con foto + form embebido) y, al
+  despublicar, la página de texto; nav nítido (fix darkHero); **consola sin
+  errores**. Mobile 360 verificado por código (la tool de resize no refleja
+  360px en la captura, mismo límite que DGG-51). **Portal cliente:** la sesión
+  abierta era de gerente (`/portal` redirige a gerencia) → el hero del portal
+  quedó verificado por código (Agente C) + reuso de `WebinarIdentidad` (probado
+  en vivo) + la RPC `cliente_webinar_inscribirme` ya en prod; la confirmación
+  visual con sesión de cliente queda pendiente (no creo cuentas).
+- **Webinar de prueba** creado y **eliminado** (0 webinars, 0 inscriptos/tokens
+  huérfanos).
+- **Commits:** `3692660` (chunk 2) · `da1b1dc` (chunk 3) · `64e9ab3` (§6 fixes).
+- **Fecha:** 2026-06-09.
