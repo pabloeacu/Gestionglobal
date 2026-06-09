@@ -336,6 +336,11 @@ function PublicacionCard({ webinar, onRecargar }: { webinar: WebinarRow; onRecar
   const faltantes: string[] = [];
   if (!webinar.banner_url) faltantes.push('el banner');
   if (docentes.length === 0) faltantes.push('al menos un docente');
+  // Sin canal (Zoom/YouTube) la inscripción del público falla en silencio
+  // (inscribir_a_webinar exige zoom_join_url o youtube_live_url).
+  if (!webinar.zoom_join_url && !webinar.youtube_live_url) {
+    faltantes.push('un canal de transmisión (creá la sala Zoom o cargá YouTube Live)');
+  }
 
   async function toggle(next: boolean) {
     setSaving(true);

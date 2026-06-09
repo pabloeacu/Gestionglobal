@@ -100,7 +100,7 @@ const SERVICIOS: ServicioGrupo[] = [
         titulo: 'Capacitaciones gratuitas',
         descripcion:
           'Webinars, podcasts y charlas con especialistas — una comunidad que aprende y crece.',
-        cta: { href: '/formulario/webinarios', label: 'Sumarme gratis' },
+        cta: { href: '/webinars', label: 'Sumarme gratis' },
       },
     ],
   },

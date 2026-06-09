@@ -15,7 +15,6 @@ import {
   Loader2,
 } from 'lucide-react';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
-import { IllustratedEmpty } from '@/components/brand/IllustratedEmpty';
 import { Skeleton, useConfirm, Button } from '@/components/common';
 import { toast } from '@/lib/toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -25,6 +24,11 @@ import {
   type ClienteWebinarItem,
 } from '@/services/api/portal-dashboard';
 import { humanizeError } from '@/lib/errors';
+import {
+  useWebinarVigente,
+  WebinarIdentidad,
+  WebinarTextoEspera,
+} from '@/modules/webinars-publico/WebinarInscripcionShared';
 
 export function PortalWebinarsPage() {
   const { user } = useAuth();
@@ -33,6 +37,9 @@ export function PortalWebinarsPage() {
   const [disponibles, setDisponibles] = useState<ClienteWebinarItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [inscribing, setInscribing] = useState<string | null>(null);
+
+  // F6 (DGG-63) · hero branded del webinar vigente ("el más próximo gana").
+  const { data: vigente, loading: loadingVigente, reload: reloadVigente } = useWebinarVigente();
 
   async function load() {
     setLoading(true);
@@ -47,6 +54,32 @@ export function PortalWebinarsPage() {
   }
 
   useEffect(() => { void load(); }, []);
+
+  // ¿el cliente ya está inscripto al vigente? (para mostrar "ya estás inscripto"
+  // en el hero en vez del botón). Se evita además duplicarlo en las listas.
+  const yaInscriptoVigente = !!vigente && mis.some((m) => m.webinar_id === vigente.id);
+  const misSinVigente = mis.filter((m) => !vigente || m.webinar_id !== vigente.id);
+  const dispSinVigente = disponibles.filter((d) => !vigente || d.webinar_id !== vigente.id);
+
+  async function handleInscribirVigente() {
+    if (!user || !vigente) return;
+    const ok = await confirm({
+      title: 'Inscribirme al webinar',
+      message: `¿Confirmás tu inscripción a "${vigente.titulo}"? Te vamos a enviar el link unas horas antes.`,
+      confirmLabel: 'Inscribirme',
+    });
+    if (!ok) return;
+    setInscribing(vigente.id);
+    const res = await inscribirmeAWebinar(vigente.id);
+    setInscribing(null);
+    if (!res.ok) {
+      toast.error('No pudimos inscribirte', { description: humanizeError(res.error) });
+      return;
+    }
+    toast.success('¡Inscripto!', { description: 'Te vamos a recordar antes del evento.' });
+    await load();
+    reloadVigente();
+  }
 
   async function handleInscribir(w: ClienteWebinarItem) {
     if (!user) return;
@@ -86,52 +119,64 @@ export function PortalWebinarsPage() {
         </div>
       </section>
 
-      {/* Loading */}
+      {/* F6 (DGG-63) · Hero del webinar vigente (branded) ó texto de espera */}
+      {loadingVigente ? (
+        <Skeleton className="h-64 rounded-2xl" />
+      ) : vigente ? (
+        <section className="card-premium relative overflow-hidden p-5 sm:p-6">
+          <WebinarIdentidad w={vigente}>
+            {yaInscriptoVigente ? (
+              <span className="inline-flex items-center gap-2 rounded-xl bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-200">
+                <CheckCircle2 size={16} /> Ya estás inscripto
+              </span>
+            ) : (
+              <Button onClick={() => void handleInscribirVigente()} disabled={inscribing === vigente.id}>
+                {inscribing === vigente.id
+                  ? <Loader2 size={14} className="animate-spin" />
+                  : <Sparkles size={14} />}
+                {inscribing === vigente.id ? 'Inscribiendo…' : 'Inscribirme gratis'}
+              </Button>
+            )}
+          </WebinarIdentidad>
+        </section>
+      ) : (
+        <section className="card-premium relative overflow-hidden p-6 sm:p-10">
+          <WebinarTextoEspera />
+        </section>
+      )}
+
+      {/* Loading de las listas */}
       {loading && (
         <div className="space-y-3">
           {[0,1].map((i) => <Skeleton key={i} className="h-32 rounded-2xl" />)}
         </div>
       )}
 
-      {/* Mis webinars */}
       {!loading && (
         <>
-          {mis.length > 0 && (
+          {/* Mis inscripciones (excluye el vigente, que ya está en el hero) */}
+          {misSinVigente.length > 0 && (
             <section>
               <header className="mb-3 px-1">
                 <p className="kicker text-brand-muted">MIS INSCRIPCIONES</p>
               </header>
               <ul className="grid gap-3 sm:grid-cols-2">
-                {mis.map((w) => <li key={w.webinar_id}><WebinarMyCard w={w} /></li>)}
+                {misSinVigente.map((w) => <li key={w.webinar_id}><WebinarMyCard w={w} /></li>)}
               </ul>
             </section>
           )}
 
-          {/* Disponibles */}
-          <section>
-            <header className="mb-3 flex items-center justify-between px-1">
-              <p className="kicker text-brand-muted">PRÓXIMOS WEBINARS</p>
-              {disponibles.length > 0 && (
+          {/* Otros próximos disponibles (excluye el vigente) */}
+          {dispSinVigente.length > 0 && (
+            <section>
+              <header className="mb-3 flex items-center justify-between px-1">
+                <p className="kicker text-brand-muted">{vigente ? 'OTROS PRÓXIMOS WEBINARS' : 'PRÓXIMOS WEBINARS'}</p>
                 <span className="text-[11px] font-medium text-brand-muted">
-                  {disponibles.length} disponible{disponibles.length === 1 ? '' : 's'}
+                  {dispSinVigente.length} disponible{dispSinVigente.length === 1 ? '' : 's'}
                 </span>
-              )}
-            </header>
-            {disponibles.length === 0 ? (
-              mis.length === 0 ? (
-                <IllustratedEmpty
-                  illustration="lista"
-                  title="Sin webinars programados"
-                  description="Cuando tengamos un nuevo webinar te avisaremos."
-                />
-              ) : (
-                <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center text-sm text-brand-muted">
-                  Estás al día. No hay otros webinars disponibles por ahora.
-                </div>
-              )
-            ) : (
+              </header>
               <ul className="grid gap-3 sm:grid-cols-2">
-                {disponibles.map((w) => (
+                {dispSinVigente.map((w) => (
                   <li key={w.webinar_id}>
                     <WebinarAvailCard
                       w={w}
@@ -141,8 +186,8 @@ export function PortalWebinarsPage() {
                   </li>
                 ))}
               </ul>
-            )}
-          </section>
+            </section>
+          )}
         </>
       )}
     </div>

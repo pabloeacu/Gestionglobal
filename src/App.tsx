@@ -76,6 +76,7 @@ const WebinarsListPage = lazy(() => import('@/modules/webinars-admin').then(m =>
 const WebinarDetailPage = lazy(() => import('@/modules/webinars-admin').then(m => ({ default: m.WebinarDetailPage })));
 const ProspectosListPage = lazy(() => import('@/modules/webinars-admin').then(m => ({ default: m.ProspectosListPage })));
 const WebinarPublicoPage = lazy(() => import('@/modules/webinars-publico/WebinarPublicoPage').then(m => ({ default: m.WebinarPublicoPage })));
+const WebinarInscripcionPublicaPage = lazy(() => import('@/modules/webinars-publico/WebinarInscripcionPublicaPage').then(m => ({ default: m.WebinarInscripcionPublicaPage })));
 const CampusWebinarPage = lazy(() => import('@/modules/webinars-publico/CampusWebinarPage').then(m => ({ default: m.CampusWebinarPage })));
 // Ronda 5 · Flujo Maestro
 const SolicitudesListPage = lazy(() => import('@/modules/solicitudes').then(m => ({ default: m.SolicitudesListPage })));
@@ -279,6 +280,8 @@ export function App() {
         <Route path="/ingresar" element={<LoginPage />} />
         <Route path="/health" element={<HealthPage />} />
         <Route path="/formulario/:slug" element={<FormularioPublicoPage />} />
+        {/* F6 (DGG-63) · Inscripción condicional a webinars (branded ó texto). */}
+        <Route path="/webinars" element={<WebinarInscripcionPublicaPage />} />
         {/* E-GG-32 (Jose Luis): CTAs "Conocer/Probar la plataforma" del landing
             apuntan acá hasta que se lance la plataforma SaaS para administradores
             externos. La página NO revela el nombre interno (que cambiará). */}

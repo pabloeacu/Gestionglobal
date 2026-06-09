@@ -43,6 +43,52 @@ export interface WebinarKpis {
   total_inscriptos: number;
 }
 
+// F6 (DGG-63) · Identidad pública del webinar VIGENTE para inscripción
+// (landing + portal). Lo que devuelve la RPC webinar_inscripcion_activa():
+// sólo campos públicos (sin secretos Zoom) + el formulario vinculado/compartido.
+export interface WebinarInscripcionActiva {
+  id: string;
+  titulo: string;
+  descripcion: string | null;
+  banner_url: string | null;
+  docentes: WebinarDocente[];
+  fecha_hora: string;
+  duracion_min: number;
+  plataforma: string;
+  formulario_id: string | null;
+  formulario_slug: string | null;
+  formulario_activo: boolean | null;
+}
+
+/**
+ * Trae el webinar publicado + vigente más próximo ("el más próximo gana"), o
+ * null si no hay ninguno → el front decide form-vs-texto. Anon-callable.
+ */
+export async function fetchWebinarInscripcionActiva(): Promise<ApiResponse<WebinarInscripcionActiva | null>> {
+  try {
+    const { data, error } = await supabase.rpc('webinar_inscripcion_activa' as never);
+    if (error) throw error;
+    if (!data) return ok(null);
+    const raw = data as unknown as Record<string, unknown>;
+    return ok({
+      id: String(raw.id),
+      titulo: String(raw.titulo),
+      descripcion: (raw.descripcion as string | null) ?? null,
+      banner_url: (raw.banner_url as string | null) ?? null,
+      docentes: parseDocentes(raw.docentes as WebinarRow['docentes']),
+      fecha_hora: String(raw.fecha_hora),
+      duracion_min: Number(raw.duracion_min ?? 0),
+      plataforma: String(raw.plataforma ?? 'zoom'),
+      formulario_id: (raw.formulario_id as string | null) ?? null,
+      formulario_slug: (raw.formulario_slug as string | null) ?? null,
+      formulario_activo: (raw.formulario_activo as boolean | null) ?? null,
+    });
+  } catch (e) {
+    const err = toApiError(e);
+    return fail(err.code, err.message, err.details);
+  }
+}
+
 // DGG-34 R4 sweep · capitalización RPC cliente (PortalWebinarsPage.tsx).
 export async function inscribirmeAWebinar(
   webinarId: string,

@@ -1,0 +1,176 @@
+// F6 (DGG-63) · Piezas compartidas de la inscripción condicional a webinars.
+//
+// Disposición condicional (decisión de Pablo): si hay un webinar PUBLICADO y
+// VIGENTE (webinar_inscripcion_activa), se muestra su identidad branded
+// (banner + nombre + descripción + docentes con foto) + el formulario
+// vinculado/compartido. Si NO hay → una página de texto propia de webinars
+// (NO la página "Muy pronto").
+//
+// Estas piezas son agnósticas del contexto: la LANDING embebe el formulario
+// debajo de <WebinarIdentidad>; el PORTAL pone un botón de inscripción
+// one-click. El texto de espera es idéntico en ambos.
+
+import { useEffect, useState } from 'react';
+import { CalendarClock, Clock, GraduationCap, Sparkles } from 'lucide-react';
+import {
+  fetchWebinarInscripcionActiva,
+  type WebinarInscripcionActiva,
+} from '@/services/api/webinars';
+import { humanizeError } from '@/lib/errors';
+import { cn } from '@/lib/cn';
+
+// ---------------------------------------------------------------------------
+// Hook · trae el webinar vigente (o null) con loading/error y un reload manual.
+// ---------------------------------------------------------------------------
+export function useWebinarVigente() {
+  const [data, setData] = useState<WebinarInscripcionActiva | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
+
+  useEffect(() => {
+    let mounted = true;
+    setLoading(true);
+    setError(null);
+    void fetchWebinarInscripcionActiva().then((res) => {
+      if (!mounted) return;
+      setLoading(false);
+      if (!res.ok) {
+        setError(humanizeError(res.error));
+        return;
+      }
+      setData(res.data);
+    });
+    return () => {
+      mounted = false;
+    };
+  }, [reloadKey]);
+
+  return { data, loading, error, reload: () => setReloadKey((k) => k + 1) };
+}
+
+function fmtFechaLarga(iso: string): string {
+  try {
+    return new Date(iso).toLocaleString('es-AR', {
+      weekday: 'long',
+      day: '2-digit',
+      month: 'long',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch {
+    return iso;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Identidad branded del webinar vigente. `children` = la acción de inscripción
+// (formulario embebido en landing, botón one-click en portal).
+// ---------------------------------------------------------------------------
+export function WebinarIdentidad({
+  w,
+  children,
+}: {
+  w: WebinarInscripcionActiva;
+  children?: React.ReactNode;
+}) {
+  return (
+    <div className="space-y-6">
+      {/* Banner */}
+      {w.banner_url && (
+        <div className="overflow-hidden rounded-3xl border border-slate-200 shadow-[0_24px_60px_-30px_rgba(0,93,105,0.35)]">
+          <img
+            src={w.banner_url}
+            alt={`Banner del webinar ${w.titulo}`}
+            className="block h-auto w-full object-cover"
+            loading="lazy"
+          />
+        </div>
+      )}
+
+      {/* Título + meta */}
+      <div>
+        <p className="kicker text-brand-cyan">Capacitación gratuita · Webinar</p>
+        <h1 className="mt-1 font-display text-3xl font-extrabold leading-tight tracking-tight text-brand-ink sm:text-4xl">
+          {w.titulo}
+        </h1>
+        <p className="mt-2 inline-flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-medium text-brand-muted">
+          <CalendarClock size={15} className="text-brand-cyan" />
+          <span className="capitalize">{fmtFechaLarga(w.fecha_hora)}</span>
+          <span className="text-slate-300">·</span>
+          <Clock size={14} className="text-brand-cyan" />
+          {w.duracion_min} min
+        </p>
+      </div>
+
+      {/* Descripción */}
+      {w.descripcion && (
+        <p className="max-w-2xl whitespace-pre-wrap text-[15px] leading-relaxed text-brand-ink/85">
+          {w.descripcion}
+        </p>
+      )}
+
+      {/* Docentes */}
+      {w.docentes.length > 0 && (
+        <div>
+          <p className="kicker mb-3 flex items-center gap-1.5 text-brand-muted">
+            <GraduationCap size={14} /> {w.docentes.length === 1 ? 'Docente' : 'Docentes'}
+          </p>
+          <ul className="flex flex-wrap gap-x-6 gap-y-3">
+            {w.docentes.map((d, i) => (
+              <li key={i} className="flex items-center gap-3">
+                <DocenteAvatar nombre={d.nombre} foto={d.foto_url} />
+                <span className="text-sm font-semibold text-brand-ink">
+                  {d.nombre || 'Docente'}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* Acción de inscripción (form embebido o botón one-click) */}
+      {children && <div className="pt-2">{children}</div>}
+    </div>
+  );
+}
+
+function DocenteAvatar({ nombre, foto }: { nombre: string; foto: string | null }) {
+  const inicial = (nombre.trim()[0] ?? '·').toUpperCase();
+  return (
+    <span
+      className={cn(
+        'grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-full border border-slate-200 bg-brand-cyan-pale text-brand-cyan',
+      )}
+    >
+      {foto ? (
+        <img src={foto} alt={nombre} className="h-full w-full object-cover" loading="lazy" />
+      ) : (
+        <span className="font-display text-lg font-bold">{inicial}</span>
+      )}
+    </span>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Página de texto cuando NO hay webinar vigente. Texto EXACTO de Pablo
+// (propio de webinars, NO la página "Muy pronto").
+// ---------------------------------------------------------------------------
+export function WebinarTextoEspera() {
+  return (
+    <div className="mx-auto max-w-2xl text-center">
+      <span className="mx-auto mb-5 grid h-16 w-16 place-items-center rounded-2xl bg-brand-cyan-pale text-brand-cyan">
+        <Sparkles size={28} />
+      </span>
+      <h1 className="font-display text-2xl font-extrabold leading-tight tracking-tight text-brand-ink sm:text-3xl">
+        Estate atento a nuestra próxima capacitación gratuita.
+      </h1>
+      <p className="mx-auto mt-4 max-w-xl text-[15px] leading-relaxed text-brand-muted">
+        Creemos que la capacitación es clave para la excelencia, y en Gestión Global tenemos una
+        vocación por la formación de una generación de administradores que no encajen, sino que
+        sobresalgan.
+      </p>
+      <p className="mt-6 font-display text-lg font-bold text-brand-cyan">#AliadosDeTuTiempo</p>
+    </div>
+  );
+}
