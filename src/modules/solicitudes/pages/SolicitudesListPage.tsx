@@ -1,164 +1,165 @@
-import { useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Inbox, Eye, Send, Sparkles, XCircle, Archive, Search, AlertTriangle } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import {
-  Eye,
-  Inbox,
-  Send,
-  Sparkles,
-  Search,
-  Filter,
-  Tag,
-} from 'lucide-react';
-import {
-  AnimatedNumber,
-  Field,
   Input,
-  Select,
   RefreshIndicator,
+  Switch,
+  FilterChips,
+  FilterMultiSelect,
+  SegmentCard,
+  ResultCount,
+  type FilterTone,
 } from '@/components/common';
-import { useRefreshableData } from '@/lib/useRefreshableData';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import { IllustratedEmpty } from '@/components/brand/IllustratedEmpty';
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
+import { toast } from '@/lib/toast';
 import {
-  getKpis,
   listSolicitudes,
   type SolicitudEstado,
   type SolicitudListItem,
 } from '@/services/api/solicitudes';
-import {
-  SolicitudCard,
-  SolicitudCardSkeleton,
-} from '../components/SolicitudCard';
+import { SolicitudCard, SolicitudCardSkeleton } from '../components/SolicitudCard';
 import { ExportButtons } from '@/components/reports/ExportButtons';
 import { generateReportPdf } from '@/lib/reportPdf';
 import { generateReportXls } from '@/lib/reportXls';
+import { humanizeError } from '@/lib/errors';
 
-type EstadoFilter = SolicitudEstado | 'todos' | 'activas';
+// Estados activos (esperan acción del gerente) vs cerrados.
+const ACTIVE_SOL: SolicitudEstado[] = ['recibida', 'en_revision', 'derivada'];
+const CLOSED_SOL: SolicitudEstado[] = ['activada', 'rechazada', 'descartada'];
+
+// Segmentos = estados de triage como cards-filtro (las "KPI cards que filtran").
+const SOL_SEGMENTOS: Record<SolicitudEstado, { label: string; icon: LucideIcon; tone: FilterTone }> = {
+  recibida: { label: 'Sin revisar', icon: Inbox, tone: 'cyan' },
+  en_revision: { label: 'En revisión', icon: Eye, tone: 'amber' },
+  derivada: { label: 'Derivadas', icon: Send, tone: 'violet' },
+  activada: { label: 'Activadas', icon: Sparkles, tone: 'emerald' },
+  rechazada: { label: 'Rechazadas', icon: XCircle, tone: 'red' },
+  descartada: { label: 'Descartadas', icon: Archive, tone: 'slate' },
+};
+
+const ORIGEN_LABEL: Record<string, string> = {
+  landing: 'Landing',
+  cliente: 'Portal cliente',
+  publico: 'Público',
+  portal: 'Portal cliente',
+};
+
+const MAX_UNIVERSO = 1000;
 
 export function SolicitudesListPage() {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const [estado, setEstado] = useState<EstadoFilter>(
-    (searchParams.get('estado') as EstadoFilter) || 'activas',
-  );
+  const [universe, setUniverse] = useState<SolicitudListItem[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Estado de filtro (efímero — decisión de Pablo, F8).
+  const [soloActivos, setSoloActivos] = useState(true);
+  const [segEstado, setSegEstado] = useState<SolicitudEstado | null>(null);
+  const [categorias, setCategorias] = useState<string[]>([]);
+  const [servicios, setServicios] = useState<string[]>([]);
+  const [origenes, setOrigenes] = useState<string[]>([]);
   const [search, setSearch] = useState('');
-  // 1.E · filtro por categoría compartible vía URL (?cat=…).
-  const [categoria, setCategoria] = useState<string>(
-    searchParams.get('cat') ?? '',
-  );
 
-  // F4 · useRefreshableData separa primera carga (loading=true, skeleton) de
-  // refrescos (refreshing=true, indicador top, contenido visible sin flash).
-  const {
-    data,
-    loading,
-    refreshing,
-    reload,
-  } = useRefreshableData(
-    async () => {
-      const [r1, r2] = await Promise.all([
-        listSolicitudes({ estado, search }),
-        getKpis(),
-      ]);
-      return {
-        rows: r1.ok ? r1.data.rows : ([] as SolicitudListItem[]),
-        kpis: r2.ok ? r2.data : null,
-      };
-    },
-    [estado],
-  );
-  const rows = data?.rows ?? [];
-  const kpis = data?.kpis ?? null;
+  const firstLoadDoneRef = useRef(false);
+  async function load() {
+    if (firstLoadDoneRef.current) setRefreshing(true);
+    else setLoading(true);
+    setError(null);
+    const res = await listSolicitudes({ estado: soloActivos ? 'activas' : 'todos', limit: MAX_UNIVERSO });
+    setLoading(false);
+    setRefreshing(false);
+    firstLoadDoneRef.current = true;
+    if (!res.ok) {
+      setError(humanizeError(res.error));
+      toast.error(`No pudimos cargar las solicitudes: ${humanizeError(res.error)}`);
+      return;
+    }
+    setUniverse(res.data.rows);
+    setTotal(res.data.total);
+  }
 
-  // Búsqueda con debounce → reload sin flash.
   useEffect(() => {
-    const t = setTimeout(() => void reload(), 280);
-    return () => clearTimeout(t);
+    void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search]);
+  }, [soloActivos]);
 
-  useRealtimeRefresh(['solicitudes', 'solicitud_derivaciones'], reload);
+  useRealtimeRefresh(['solicitudes', 'solicitud_derivaciones'], () => void load());
 
-  // 1.E · categorías presentes en el set para filtrar.
-  const categoriasDisponibles = useMemo(() => {
-    const set = new Set<string>();
-    for (const r of rows) if (r.formulario_categoria) set.add(r.formulario_categoria);
-    return Array.from(set).sort();
-  }, [rows]);
+  function toggleSoloActivos(v: boolean) {
+    setSoloActivos(v);
+    // si el segmento elegido era un estado cerrado y volvemos a "solo activos", limpiarlo
+    if (v && segEstado && !ACTIVE_SOL.includes(segEstado)) setSegEstado(null);
+  }
+  function toggleSeg(e: SolicitudEstado) {
+    setSegEstado((prev) => (prev === e ? null : e));
+  }
+  function clear() {
+    setSegEstado(null);
+    setCategorias([]);
+    setServicios([]);
+    setOrigenes([]);
+    setSearch('');
+  }
 
-  // 1.E · aplicar filtro categoría client-side + sync URL.
-  const rowsFiltrados = useMemo(
-    () => (categoria ? rows.filter((r) => r.formulario_categoria === categoria) : rows),
-    [rows, categoria],
+  // Estados visibles como segment cards (3 activos, o 6 al apagar el switch).
+  const estadosVisibles = soloActivos ? ACTIVE_SOL : [...ACTIVE_SOL, ...CLOSED_SOL];
+
+  // Conteos de segmentos sobre el universo (R19).
+  const counts = useMemo(() => {
+    const c = {} as Record<SolicitudEstado, number>;
+    for (const e of [...ACTIVE_SOL, ...CLOSED_SOL]) c[e] = 0;
+    for (const r of universe) {
+      const e = r.estado as SolicitudEstado;
+      if (c[e] != null) c[e] += 1;
+    }
+    return c;
+  }, [universe]);
+
+  // Opciones de Categoría / Servicio / Origen presentes en el universo (con conteo).
+  const categoriaOpts = useMemo(() => optionsFrom(universe, (r) => r.formulario_categoria), [universe]);
+  const servicioOpts = useMemo(
+    () => optionsFrom(universe, (r) => r.servicio_solicitado_id, (r) => r.servicio_nombre),
+    [universe],
+  );
+  const origenOpts = useMemo(
+    () => optionsFrom(universe, (r) => r.origen_canal, (r) => ORIGEN_LABEL[r.origen_canal ?? ''] ?? r.origen_canal),
+    [universe],
   );
 
-  // 1.E · sync filtros relevantes a la URL para que el link sea compartible.
-  useEffect(() => {
-    const params = new URLSearchParams(searchParams);
-    if (estado !== 'activas') params.set('estado', estado);
-    else params.delete('estado');
-    if (categoria) params.set('cat', categoria);
-    else params.delete('cat');
-    setSearchParams(params, { replace: true });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [estado, categoria]);
+  const filtered = useMemo(() => {
+    const needle = search.trim().toLowerCase();
+    return universe.filter((r) => {
+      if (segEstado && r.estado !== segEstado) return false;
+      if (categorias.length && !categorias.includes(r.formulario_categoria ?? '')) return false;
+      if (servicios.length && !servicios.includes(r.servicio_solicitado_id ?? '')) return false;
+      if (origenes.length && !origenes.includes(r.origen_canal ?? '')) return false;
+      if (needle) {
+        const hay = `${r.solicitante_nombre ?? ''} ${r.solicitante_email ?? ''} ${r.solicitante_telefono ?? ''} ${r.formulario_titulo ?? ''}`.toLowerCase();
+        if (!hay.includes(needle)) return false;
+      }
+      return true;
+    });
+  }, [universe, segEstado, categorias, servicios, origenes, search]);
 
-  const kpiCards = useMemo(
-    () => [
-      {
-        label: 'Recibidas',
-        value: kpis?.recibidas ?? 0,
-        icon: Inbox,
-        tone: 'cyan' as const,
-      },
-      {
-        label: 'En revisión',
-        value: kpis?.en_revision ?? 0,
-        icon: Eye,
-        tone: 'amber' as const,
-      },
-      {
-        label: 'Derivadas',
-        value: kpis?.derivadas ?? 0,
-        icon: Send,
-        tone: 'violet' as const,
-      },
-      {
-        label: 'Activadas hoy',
-        value: kpis?.activadas_hoy ?? 0,
-        icon: Sparkles,
-        tone: 'emerald' as const,
-      },
-    ],
-    [kpis],
-  );
+  const hasFilters = segEstado !== null || categorias.length > 0 || servicios.length > 0 || origenes.length > 0 || search.trim().length > 0;
+  const universoTruncado = total > universe.length;
 
-  // DGG-26 · Export a PDF/XLS del filtrado actual.
   const exportFiltros = useMemo<Array<{ label: string; value: string }>>(() => {
     const items: Array<{ label: string; value: string }> = [];
-    const estadoLabel: Record<EstadoFilter, string> = {
-      activas: 'Activas (no procesadas)',
-      recibida: 'Recibidas',
-      en_revision: 'En revisión',
-      derivada: 'Derivadas',
-      activada: 'Activadas',
-      rechazada: 'Rechazadas',
-      descartada: 'Descartadas',
-      todos: 'Todas',
-    };
-    items.push({ label: 'Estado', value: estadoLabel[estado] ?? estado });
-    if (categoria) items.push({ label: 'Categoría', value: categoria });
+    items.push({ label: 'Vista', value: soloActivos ? 'Solo activas' : 'Todas' });
+    if (segEstado) items.push({ label: 'Estado', value: SOL_SEGMENTOS[segEstado].label });
+    if (categorias.length) items.push({ label: 'Categoría', value: categorias.join(', ') });
     if (search.trim()) items.push({ label: 'Búsqueda', value: search.trim() });
     return items;
-  }, [estado, categoria, search]);
+  }, [soloActivos, segEstado, categorias, search]);
 
   function formatFecha(s: string | null): string {
     if (!s) return '—';
-    try {
-      return new Date(s).toLocaleDateString('es-AR');
-    } catch {
-      return s;
-    }
+    try { return new Date(s).toLocaleDateString('es-AR'); } catch { return s; }
   }
 
   async function onExportPdf() {
@@ -167,23 +168,19 @@ export function SolicitudesListPage() {
       titulo: 'Solicitudes recibidas',
       subtitulo: 'Centro de solicitudes · Gestión Global',
       filtros: exportFiltros,
-      kpis: [
-        { label: 'Recibidas', value: String(kpis?.recibidas ?? 0), tone: 'cyan' },
-        { label: 'En revisión', value: String(kpis?.en_revision ?? 0), tone: 'amber' },
-        { label: 'Derivadas', value: String(kpis?.derivadas ?? 0), tone: 'cyan' },
-        { label: 'Activadas hoy', value: String(kpis?.activadas_hoy ?? 0), tone: 'emerald' },
-      ],
+      kpis: estadosVisibles.map((e) => ({
+        label: SOL_SEGMENTOS[e].label,
+        value: String(counts[e]),
+        tone: (SOL_SEGMENTOS[e].tone === 'red' ? 'rose' : SOL_SEGMENTOS[e].tone === 'amber' ? 'amber' : SOL_SEGMENTOS[e].tone === 'emerald' ? 'emerald' : SOL_SEGMENTOS[e].tone === 'cyan' ? 'cyan' : 'ink') as 'rose' | 'amber' | 'emerald' | 'cyan' | 'ink',
+      })),
       columns: [
         { key: 'created_at', label: 'Fecha', width: '14%', format: (r) => formatFecha(r.created_at) },
-        { key: 'solicitante_nombre', label: 'Solicitante', width: '24%',
-          format: (r) => r.solicitante_nombre ?? '—' },
-        { key: 'formulario_categoria', label: 'Categoría', width: '18%',
-          format: (r) => r.formulario_categoria ?? '—' },
-        { key: 'formulario_titulo', label: 'Formulario', width: '26%',
-          format: (r) => r.formulario_titulo ?? '—' },
+        { key: 'solicitante_nombre', label: 'Solicitante', width: '24%', format: (r) => r.solicitante_nombre ?? '—' },
+        { key: 'formulario_categoria', label: 'Categoría', width: '18%', format: (r) => r.formulario_categoria ?? '—' },
+        { key: 'formulario_titulo', label: 'Formulario', width: '26%', format: (r) => r.formulario_titulo ?? '—' },
         { key: 'estado', label: 'Estado', width: '18%' },
       ],
-      rows: rowsFiltrados,
+      rows: filtered,
     });
   }
 
@@ -194,189 +191,132 @@ export function SolicitudesListPage() {
       titulo: 'Solicitudes recibidas · Gestión Global',
       filtros: exportFiltros,
       columns: [
-        { key: 'created_at', label: 'Fecha',
-          value: (r) => r.created_at ? new Date(r.created_at) : null, width: 14 },
-        { key: 'solicitante_nombre', label: 'Solicitante', width: 28,
-          value: (r) => r.solicitante_nombre ?? '' },
-        { key: 'solicitante_email', label: 'Email', width: 28,
-          value: (r) => r.solicitante_email ?? '' },
-        { key: 'solicitante_telefono', label: 'Teléfono', width: 18,
-          value: (r) => r.solicitante_telefono ?? '' },
-        { key: 'formulario_categoria', label: 'Categoría', width: 18,
-          value: (r) => r.formulario_categoria ?? '' },
-        { key: 'formulario_titulo', label: 'Formulario', width: 28,
-          value: (r) => r.formulario_titulo ?? '' },
+        { key: 'created_at', label: 'Fecha', value: (r) => (r.created_at ? new Date(r.created_at) : null), width: 14 },
+        { key: 'solicitante_nombre', label: 'Solicitante', width: 28, value: (r) => r.solicitante_nombre ?? '' },
+        { key: 'solicitante_email', label: 'Email', width: 28, value: (r) => r.solicitante_email ?? '' },
+        { key: 'solicitante_telefono', label: 'Teléfono', width: 18, value: (r) => r.solicitante_telefono ?? '' },
+        { key: 'formulario_categoria', label: 'Categoría', width: 18, value: (r) => r.formulario_categoria ?? '' },
+        { key: 'formulario_titulo', label: 'Formulario', width: 28, value: (r) => r.formulario_titulo ?? '' },
         { key: 'estado', label: 'Estado', width: 14 },
       ],
-      rows: rowsFiltrados,
+      rows: filtered,
     });
   }
 
   return (
     <div className="relative mx-auto max-w-6xl space-y-6">
-      {/* F4 · indicador sutil de refresco — reemplaza el flash blanco. */}
       <RefreshIndicator show={refreshing} />
-      <TrianglesAccent
-        position="top-right"
-        size={240}
-        tone="cyan"
-        density="soft"
-        className="opacity-40"
-      />
+      <TrianglesAccent position="top-right" size={240} tone="cyan" density="soft" className="opacity-40" />
 
-      {/* Header */}
       <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="kicker text-brand-cyan">Operación</p>
-          <h1 className="font-display text-3xl font-bold text-brand-ink sm:text-4xl">
-            Solicitudes recibidas
-          </h1>
+          <h1 className="font-display text-3xl font-bold text-brand-ink sm:text-4xl">Solicitudes recibidas</h1>
           <p className="mt-1 max-w-2xl text-sm text-brand-muted">
-            Cada formulario público se convierte automáticamente en una solicitud
-            operativa. Acá las revisás, derivás a gestoría y las activás como
-            tracking del cliente.
+            Cada formulario público se convierte en una solicitud operativa. Acá las revisás, derivás a gestoría y las activás como tracking del cliente.
           </p>
         </div>
-        <ExportButtons
-          onExportPdf={onExportPdf}
-          onExportXls={onExportXls}
-          disabled={rowsFiltrados.length === 0}
-          hint="Solicitudes"
-        />
+        <ExportButtons onExportPdf={onExportPdf} onExportXls={onExportXls} disabled={filtered.length === 0} hint="Solicitudes" />
       </header>
 
-      {/* KPIs */}
-      <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {kpiCards.map((k) => (
-          <KpiCard key={k.label} {...k} />
-        ))}
+      {/* F8 · Segmentos = estados de triage como cards-filtro */}
+      <section className={`grid grid-cols-2 gap-3 ${soloActivos ? 'sm:grid-cols-3' : 'sm:grid-cols-3 lg:grid-cols-6'}`}>
+        {estadosVisibles.map((e) => {
+          const cfg = SOL_SEGMENTOS[e];
+          return (
+            <SegmentCard
+              key={e}
+              label={cfg.label}
+              count={counts[e]}
+              icon={cfg.icon}
+              tone={cfg.tone}
+              active={segEstado === e}
+              onClick={() => toggleSeg(e)}
+            />
+          );
+        })}
       </section>
 
-      {/* Toolbar */}
-      <section className="card-premium flex flex-col gap-3 p-4 sm:flex-row sm:items-end">
-        <Field label="Buscar solicitante" className="flex-1">
-          <div className="relative">
-            <Search
-              size={15}
-              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-brand-muted"
-            />
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Nombre, email o teléfono…"
-              className="pl-9"
-            />
+      {/* F8 · Barra de filtros premium */}
+      <section className="card-premium space-y-3 p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <div className="relative flex-1">
+            <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-brand-muted" />
+            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Nombre, email, teléfono, formulario…" className="pl-9" />
           </div>
-        </Field>
-        <Field label="Estado" className="sm:w-48">
-          <div className="relative">
-            <Filter
-              size={14}
-              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-brand-muted"
-            />
-            <Select
-              value={estado}
-              onChange={(e) => setEstado(e.target.value as EstadoFilter)}
-              className="pl-9"
-            >
-              <option value="activas">Activas (no procesadas)</option>
-              <option value="recibida">Recibidas</option>
-              <option value="en_revision">En revisión</option>
-              <option value="derivada">Derivadas</option>
-              <option value="activada">Activadas</option>
-              <option value="descartada">Descartadas</option>
-              <option value="todos">Todas</option>
-            </Select>
+          <Switch
+            checked={soloActivos}
+            onChange={toggleSoloActivos}
+            label="Solo activas"
+            hint={soloActivos ? '(oculta cerradas)' : '(mostrando todo)'}
+          />
+          <ResultCount shown={filtered.length} total={universe.length} hasFilters={hasFilters} onClear={clear} noun="solicitudes" />
+        </div>
+
+        {(categoriaOpts.length > 0 || servicioOpts.length > 0 || origenOpts.length > 1) && (
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-2.5">
+            {origenOpts.length > 1 && (
+              <div className="flex items-center gap-2">
+                <span className="kicker text-brand-muted">Origen</span>
+                <FilterChips
+                  options={origenOpts.map((o) => ({ value: o.value, label: o.label }))}
+                  selected={origenes}
+                  onChange={setOrigenes}
+                  ariaLabel="Filtrar por origen"
+                />
+              </div>
+            )}
+            {categoriaOpts.length > 0 && (
+              <FilterMultiSelect label="Categoría" options={categoriaOpts} selected={categorias} onChange={setCategorias} />
+            )}
+            {servicioOpts.length > 0 && (
+              <FilterMultiSelect label="Servicio" options={servicioOpts} selected={servicios} onChange={setServicios} searchable />
+            )}
           </div>
-        </Field>
-        {/* 1.E · filtro categoría — sólo se muestra si hay categorías. */}
-        {categoriasDisponibles.length > 0 && (
-          <Field label="Categoría" className="sm:w-48">
-            <div className="relative">
-              <Tag
-                size={14}
-                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-brand-muted"
-              />
-              <Select
-                value={categoria}
-                onChange={(e) => setCategoria(e.target.value)}
-                className="pl-9"
-              >
-                <option value="">Todas</option>
-                {categoriasDisponibles.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </Select>
-            </div>
-          </Field>
         )}
       </section>
 
-      {/* Grilla de cards */}
+      {universoTruncado && (
+        <p className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+          <AlertTriangle size={13} className="shrink-0" />
+          Mostrando {universe.length} de {total} solicitudes. Afiná los filtros para no perder ninguna.
+        </p>
+      )}
+
       {loading ? (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <SolicitudCardSkeleton key={i} />
-          ))}
+          {Array.from({ length: 6 }).map((_, i) => <SolicitudCardSkeleton key={i} />)}
         </div>
-      ) : rowsFiltrados.length === 0 ? (
+      ) : error ? (
+        <div className="card-premium p-8 text-center text-sm text-red-600">{error}</div>
+      ) : filtered.length === 0 ? (
         <IllustratedEmpty
           illustration="lista"
-          title="Sin solicitudes en este filtro"
-          description="Las solicitudes aparecen automáticamente cuando alguien envía un formulario público desde la landing."
+          title={hasFilters ? 'Sin solicitudes con estos filtros' : 'Sin solicitudes activas'}
+          description={hasFilters ? 'Ajustá o limpiá los filtros para ver más.' : 'Las solicitudes aparecen automáticamente cuando alguien envía un formulario público.'}
         />
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {rowsFiltrados.map((r) => (
-            <SolicitudCard key={r.id} s={r} />
-          ))}
+          {filtered.map((r) => <SolicitudCard key={r.id} s={r} />)}
         </div>
       )}
     </div>
   );
 }
 
-// ----------------------------------------------------------------------------
-
-interface KpiCardProps {
-  label: string;
-  value: number;
-  icon: typeof Inbox;
-  tone: 'cyan' | 'amber' | 'violet' | 'emerald';
-}
-
-const TONE_CLASSES: Record<KpiCardProps['tone'], string> = {
-  cyan: 'bg-brand-cyan-pale/40 text-brand-cyan',
-  amber: 'bg-amber-50 text-amber-600',
-  violet: 'bg-violet-50 text-violet-600',
-  emerald: 'bg-emerald-50 text-emerald-600',
-};
-
-function KpiCard({ label, value, icon: Icon, tone }: KpiCardProps) {
-  return (
-    <div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm motion-safe:animate-fade-up">
-      <TrianglesAccent
-        position="top-right"
-        size={90}
-        tone="cyan"
-        density="soft"
-        className="opacity-30"
-      />
-      <div className="relative flex items-center gap-3">
-        <span
-          className={`grid h-9 w-9 place-items-center rounded-xl ${TONE_CLASSES[tone]}`}
-        >
-          <Icon size={16} />
-        </span>
-        <div className="min-w-0">
-          <p className="kicker truncate text-brand-muted">{label}</p>
-          <p className="font-display text-2xl font-bold tabular text-brand-ink">
-            <AnimatedNumber value={value} />
-          </p>
-        </div>
-      </div>
-    </div>
-  );
+// Helper: opciones {value,label,count} para multiselect/chips desde el universo.
+function optionsFrom(
+  rows: SolicitudListItem[],
+  getValue: (r: SolicitudListItem) => string | null | undefined,
+  getLabel?: (r: SolicitudListItem) => string | null | undefined,
+): { value: string; label: string; count: number }[] {
+  const map = new Map<string, { label: string; count: number }>();
+  for (const r of rows) {
+    const v = getValue(r);
+    if (!v) continue;
+    const prev = map.get(v);
+    if (prev) prev.count += 1;
+    else map.set(v, { label: (getLabel ? getLabel(r) : v) || v, count: 1 });
+  }
+  return [...map.entries()].map(([value, x]) => ({ value, label: x.label, count: x.count })).sort((a, b) => a.label.localeCompare(b.label));
 }
