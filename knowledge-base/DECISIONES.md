@@ -2285,3 +2285,27 @@ El usuario lo pidió en dos requerimientos simultáneos.
   gerentes reales (sus contraseñas no se tocan).
 - **Commits:** `3692660` (chunk 2) · `da1b1dc` (chunk 3) · `64e9ab3` (§6 fixes).
 - **Fecha:** 2026-06-09.
+
+## DGG-64 · Límite staff/cliente en webinars = RLS, NO grants por columna (E-GG-62)
+
+- **Contexto:** al cerrar la fuga de secretos Zoom/Webex de `webinars` (E-GG-62)
+  había 3 caminos: (a) RLS de la tabla a sólo-gerencia, (b) vista pública de
+  columnas no-secretas + base cerrada, (c) mover los secretos a una tabla hija
+  `webinar_secretos`. Pablo eligió **(a)**.
+- **Por qué (a):** hoy hay 0 webinars / 0 secretos / 0 certs → cualquier opción es
+  no-destructiva, y (a) es 1 sola línea (drop de la policy permisiva) sin tocar
+  RPCs ni edge functions. (b) y (c) agregan superficie (vista a mantener / 2 RPCs +
+  2 edge fns) para el **mismo resultado práctico**.
+- **Insight reusable (clave):** en Supabase, gerentes y clientes son el **mismo rol
+  DB `authenticated`**; la distinción se hace por **RLS** vía `private.is_staff()`
+  (que lee `profiles.role`), no por rol de Postgres. Corolario: **los GRANTs por
+  columna NO sirven para separar staff de cliente** (lo que se revoca a
+  `authenticated` se le revoca a AMBOS, rompiendo gerencia). Por eso, para
+  proteger columnas que SÓLO gerencia debe ver, la herramienta correcta es **RLS de
+  fila** (o separar la data en otra tabla/RPC SECURITY DEFINER), nunca
+  `REVOKE … (columna) FROM authenticated`. Esto aplica a todo el proyecto.
+- **Residual:** (a) deja la tabla con columnas secretas; si una mig futura re-abre
+  un SELECT a `authenticated` se reabre la fuga. Mitigación: COMMENT de advertencia
+  en `webinars_staff_all` + E-GG-62. Si algún día se justifica blindarlo, (c) es el
+  upgrade. **Verificado** e2e en BD + en vivo contra prod (ver E-GG-62).
+- **Fecha:** 2026-06-09 · mig 0214.

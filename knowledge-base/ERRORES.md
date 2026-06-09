@@ -2478,3 +2478,62 @@
   nunca salen del estado vacío.
 - **Fecha / módulo:** 2026-06-09 · gerencia · `solicitudes.ts` +
   `NuevasSolicitudesWidget.tsx` · Lista JL F7.
+
+## E-GG-62 · Fuga de secretos Zoom/Webex en `webinars` (policy RLS `USING(true)`)
+
+- **Síntoma:** capitalizado en la auditoría §6 de F6 (2026-06-09). La policy
+  `webinars_authenticated_select` (mig 0050) era `FOR SELECT TO authenticated
+  USING (true)`: CUALQUIER usuario `authenticated` —incluido un `administrador`
+  (cliente del portal)— podía, desde la consola del navegador,
+  `supabase.from('webinars').select('*')` y leer columnas SECRETAS:
+  `zoom_start_url` (URL de **host**: inicia/controla la reunión), `zoom_password`,
+  `zoom_meeting_id`, `zoom_meeting_number`, `webex_join_url`, `webex_password`.
+  Viola la regla 3 (sin secretos en el front). No es regresión de F6 — deuda
+  heredada de 0050; ningún flujo de F6 lo explota.
+- **Causa raíz:** la tabla tenía DOS policies — `webinars_staff_all` (FOR ALL,
+  `is_staff()`) y la permisiva `webinars_authenticated_select` (SELECT, `true`).
+  Postgres combina policies del mismo comando con OR, así que el SELECT quedaba
+  `is_staff() OR true` = siempre verdadero. La permisiva se agregó en 0050 con el
+  comentario "para el portal alumno/cliente vea sus inscripciones", pero el portal
+  NUNCA lee la tabla directo: usa RPCs SECURITY DEFINER (`cliente_webinars_listar`,
+  `webinar_inscripcion_activa`, `administracion_webinars`) y la edge fn
+  `webinar-acceso` (service-role, llave = token). Quedó como puerta abierta sin uso
+  legítimo. El único read directo del front alcanzable por no-staff
+  (`resolverEsquemaParaCert`, `campus.ts`, lee sólo `cert_esquema_id`) está
+  neutralizado: la emisión de cert de webinar (0088) persiste `esquema_snapshot`,
+  así que el front retorna antes de tocar la tabla.
+- **Fix (mig 0214, opción (a) decidida con Pablo):** `DROP POLICY
+  webinars_authenticated_select`. La tabla se lee SÓLO por gerencia
+  (`webinars_staff_all` FOR ALL ya cubre el SELECT de staff). Se ELIMINÓ —en vez
+  de reescribirla a `is_staff()`— para no dejar dos policies SELECT redundantes.
+- **Por qué (a) y no separar secretos / vista pública:** en Supabase gerentes y
+  clientes comparten el MISMO rol DB `authenticated`; la distinción staff/cliente
+  es por RLS vía `is_staff()` (lee `profiles.role`), NO por rol DB. Por eso los
+  GRANTs por columna NO pueden distinguirlos (revocar el SELECT de `zoom_start_url`
+  a `authenticated` rompería el `select('*')` de gerencia) → **la RLS es la única
+  capa válida** para el límite staff/cliente, y con la permisiva fuera queda
+  correcta. Las tres formas reales de conectarse son transparentes al cambio:
+  prospecto → mail con magic-link → edge fn `webinar-acceso` (service-role);
+  cliente logueado → portal vía RPC SD; gerencia → staff.
+- **Verificación (doble vía):** (1) **smoke R18 e2e en BD** (`DO`+`RAISE
+  EXCEPTION` para rollback, lección E-GG-54): webinar sintético con secreto →
+  cliente (`administrador`) ve **0 filas / 0 password**, gerente ve **1 fila + el
+  password**. (2) **Prueba en vivo contra PRODUCCIÓN:** cliente QA efímero (creado
+  por SQL) + login real por Auth REST → `GET /rest/v1/webinars?select=…,zoom_password,
+  zoom_start_url` con su JWT → **`200 []`** (bloqueado incluso para columnas
+  no-secretas); flip a gerente con el MISMO token → **ve `zoom_password`**. Cleanup
+  total, residuo 0. **§6 (3 agentes):** completitud OK; **sin regresión** (todas las
+  superficies reales van por SD/service_role; tenancy de `administracion_webinars`
+  OK regla 12); **barrido de bugs hermanos SIN otra fuga** (ARCA cert/csr/p12,
+  `curso_encuentros` zoom/webex, tokens, `cajas.cbu`, `clave_fiscal_arca` — todos
+  bien gateados; los `USING(true)` restantes son catálogos públicos sin secretos).
+- **Prevención:** una policy `USING (true)` de SELECT sobre una tabla con columnas
+  secretas es anti-patrón aunque exista otra policy staff (el OR las suma). Toda
+  `USING(true)` de SELECT requiere comentario que justifique que NO hay columnas
+  secretas legibles (regla 2). **Residual aceptado** de la opción (a): si una mig
+  futura re-abre un SELECT a `authenticated`, los secretos vuelven a filtrarse —
+  mitigado por el COMMENT de advertencia que dejé en `webinars_staff_all` + esta
+  entrada (la separación física de secretos, opción (c), lo blindaría del todo si
+  algún día se justifica el costo).
+- **Fecha / módulo:** 2026-06-09 · seguridad/webinars · mig
+  `0214_webinars_rls_secretos_staff_only.sql` · capitalizado en auditoría §6 de F6.
