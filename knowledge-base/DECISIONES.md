@@ -2057,3 +2057,41 @@ El usuario lo pidió en dos requerimientos simultáneos.
   no-click. Capturado para Pablo; demo limpiado y sesión de gerente restaurada.
   Build limpio.
 - **Fecha:** 2026-06-08.
+
+## DGG-59 · El curso SÍ genera comprobante; la matrícula desde la solicitud nunca queda en silencio (F1 · Lista JL)
+
+- **Qué/por qué (JL · F1):** JL observó que "el curso no genera deuda en CC". El
+  diagnóstico (E-GG-59): el wizard v2 (2026-06-08) **sí** emite el comprobante
+  del curso (cargo en CC) — el bug era del wizard **viejo**. Pablo aclaró el
+  modelo: **el curso NO es como la DDJJ; el curso SIEMPRE genera comprobante**.
+  La particularidad del curso es otra: el wizard, además, **matricula** al
+  cliente desde la solicitud. Mandato de Pablo: "no rompamos eso; asegurémonos
+  de que funciona bien".
+- **Decisiones:**
+  1. **El curso emite comprobante como cualquier servicio** (no se omite). Sólo
+     DDJJ usa `comprobante.omitir`. Verificado e2e (BD) + en vivo: comprobante
+     en Facturación + CC del cliente con cargo, todo reflejado en gerencia **y**
+     portal.
+  2. **La matrícula del curso es robusta y visible, nunca silenciosa.** Como
+     `curso_asignar_alumno` resuelve el `profile_id` desde
+     `administraciones.user_id` (que crea `altaClientePortal`), antes podía
+     fallar en silencio (un curso **cobrado sin matricular**). Ahora: paso
+     "Acceso al portal" **bloqueante para curso** (asegura el usuario *antes* de
+     cobrar; idempotente → Reintentar seguro), paso "Matricular" **bloqueante**
+     (error claro + Reintentar, no ámbar), `profileId` explícito desde el alta,
+     y helper `asegurarUsuarioAlumno` que **resuelve o crea** el usuario del
+     alumno chequeando `user_id` PRIMERO (sin re-crear/"hijackear"; el mail de
+     bienvenida sólo al crear uno nuevo). Cubre cliente nuevo, existente sin
+     usuario, y modal reabierto.
+  3. **Las 2 solicitudes de curso viejas (06-05) sin comprobante se dejan como
+     están** (no se hace backfill) — decisión de Pablo.
+- **§6 (1 agente) + e2e BD + prueba en vivo:** la auditoría cazó BUG-A (cliente
+  existente sin usuario quedaba atrapado) y BUG-B (modal reabierto perdía el
+  ctx) → ambos cubiertos por el helper antes de la prueba en vivo. Prueba en
+  vivo end-to-end (gerente procesa curso → comprobante `00001-…22` $180k +
+  matrícula visible + portal del cliente con la deuda en Mi cuenta). Dato QA
+  limpiado tras confirmar Pablo. Build limpio. Commits `a2ff588` + `74bd0c4`.
+- **Lección de proceso (capitalizada):** verificar flujos financieros **en la
+  UI real (gerencia + portal del cliente)** y que el dueño lo confirme **antes**
+  de limpiar el dato de prueba. El smoke en tablas no alcanza.
+- **Fecha:** 2026-06-09.

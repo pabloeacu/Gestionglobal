@@ -2364,3 +2364,49 @@
   crea?".
 - **Fecha / módulo:** 2026-06-08 · campus/encuentros · `zoom-encuentro-delete`
   + EncuentrosTab + campus.ts · Lista JL F9-bis.
+
+## E-GG-59 · "El curso no genera deuda en CC" — bug del wizard VIEJO + hardening de la matrícula (F1 · Lista JL)
+
+- **Síntoma (JL):** al activar una solicitud de categoría `'curso'` el sistema
+  **no generaba el comprobante** → el curso no quedaba como deuda en la Cuenta
+  Corriente del cliente.
+- **Causa raíz:** era el **wizard de activación VIEJO** (previo a la reescritura
+  v2, commits `c532f1a`/`e1d87a7` del **2026-06-08**). El wizard v2 SÍ emite el
+  comprobante para curso (`comprobante.omitir = flags.esDDJJ` → `false` para
+  curso; sólo DDJJ se omite). **Evidencia en datos reales:** 2 solicitudes
+  `curso-formacion` del **06-05** quedaron `activada` con `comprobante_id = NULL`
+  y esos clientes con **0 comprobantes** — anteriores al swap del wizard v2
+  (06-08). Confirma el diagnóstico de Pablo: "la falla fue antes de modificar el
+  wizard". (Las 2 viejas se dejaron como están — decisión de Pablo.)
+- **Verificación (§6: ejercitar en BD + prueba en vivo, no asumir):**
+  1. **Circuito e2e en BD** (mismas RPCs que dispara el wizard, con rollback):
+     `solicitud_activar` → `emitir_comprobante_manual` (**cargo $180k en CC**) →
+     `registrar_cobranza_comprobante` (**abono $180k, saldo 0**) →
+     `curso_asignar_alumno` (matrícula). OK.
+  2. **Prueba en vivo end-to-end**: el gerente procesa una solicitud de curso
+     real por el wizard → comprobante visible en **Facturación** (`00001-…22`,
+     $180.000, Pagado/Autorizado), matrícula en **Campus → curso → Alumnos**, y
+     **portal del cliente** (logueado como el alumno): "1 cursos activos" +
+     **Mi cuenta → Cargos $180.000** (la deuda) + curso accesible. **Reflejado
+     en gerencia Y en el portal**, no sólo en tablas.
+- **Hardening capitalizado (la "particularidad del curso" — matricular desde la
+  solicitud):** `curso_asignar_alumno` resuelve el `profile_id` desde
+  `administraciones.user_id`, que crea el paso best-effort `altaClientePortal`.
+  Si ese alta fallaba, la matrícula fallaba **en silencio** (ámbar) → un curso
+  **cobrado podía quedar sin matricular**. Fix (commits `a2ff588` + `74bd0c4`):
+  paso "Acceso al portal" **bloqueante para curso** (idempotente → Reintentar
+  seguro; captura el `user_id`), matrícula **bloqueante** (no ámbar) + helper
+  `asegurarUsuarioAlumno` (`usuarios.ts`) que **resuelve o crea** el usuario del
+  alumno chequeando `user_id` PRIMERO (evita re-crear/"hijackear" un user con
+  otro email; el mail de bienvenida sólo se encola al crear uno nuevo). Cubre
+  cliente nuevo, cliente existente sin usuario, y modal reabierto. **Lo cazó la
+  auditoría §6** (BUG-A/BUG-B) antes de la prueba en vivo.
+- **Prevención (lección del chunk):** al verificar un flujo financiero, **dejar
+  el dato VISIBLE en la UI real (gerencia + portal del cliente)** y que el dueño
+  lo confirme **antes** de limpiar el dato de prueba. Acá limpié el comprobante
+  + matrícula apenas verifiqué en tablas, y Pablo no podía verlos en la gerencia
+  → reclamó con razón ("¿en vivo o sólo en tablas? necesito que esté reflejado
+  en gerencia y en el portal"). El smoke en tablas NO alcanza: la prueba en vivo
+  es ver el efecto en las pantallas que usa el usuario.
+- **Fecha / módulo:** 2026-06-09 · solicitudes/wizard (`ProcesadorFinal.tsx`,
+  `useWizardActivacion.ts`) + `usuarios.ts` · Lista JL F1.
