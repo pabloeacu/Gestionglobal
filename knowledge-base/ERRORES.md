@@ -2346,11 +2346,17 @@
   - `borrarEncuentro` pasa a **best-effort**: si Zoom rechaza el borrado de la
     reunión, **no bloquea** el borrado del encuentro (avisa con `toast.warning`
     y sigue). Sin esto, sin el scope no se podrían borrar encuentros con sala.
-  - **Acción pendiente de Pablo:** agregar el scope
-    `meeting:delete:meeting:admin` a la app S2S (Zoom Marketplace → Scopes →
-    Add → reactivar). Con eso el delete + la limpieza de huérfanos funcionan
-    end-to-end. La prueba en vivo del delete completo queda pendiente de ese
-    scope (reportado explícitamente a Pablo, §5).
+  - **RESUELTO (mismo chunk, vía browser):** se agregó el scope
+    `meeting:delete:meeting:admin` a la app S2S **"Gestion Global Campus"**
+    (Zoom Marketplace → la app → Scopes → Add Scopes → Meetings → "Eliminar
+    una reunión" `:admin` → Save). Como la app S2S pide token fresco por
+    llamada, tomó efecto de inmediato. **Verificado e2e EN VIVO:** crear sala
+    (naming "Encuentro · Curso" confirmado en el portal Zoom: "Asambleas
+    Virtuales · Curso de Actualización…"), botón "Eliminar sala" (borra la
+    reunión en Zoom + limpia BD; toast "Sala Zoom eliminada"; Zoom devuelve
+    204, y un re-delete por meeting_id devuelve 404 = confirmado borrado), y
+    **limpieza de las 2 reuniones huérfanas** (87640319662 + 85225512738 →
+    204). La cuenta Zoom quedó limpia (0 reuniones de prueba).
 - **Prevención:** al integrar una API externa con S2S/OAuth, verificar que la
   app tenga **todos** los scopes del ciclo de vida (create **y** delete/update),
   no sólo el de creación. Un flujo que crea recursos sin poder borrarlos
