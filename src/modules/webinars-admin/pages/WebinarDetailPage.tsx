@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -336,6 +336,8 @@ function PublicacionCard({ webinar, onRecargar }: { webinar: WebinarRow; onRecar
   const faltantes: string[] = [];
   if (!webinar.banner_url) faltantes.push('el banner');
   if (docentes.length === 0) faltantes.push('al menos un docente');
+  const sinNombre = docentes.filter((d) => !d.nombre.trim()).length;
+  if (sinNombre > 0) faltantes.push(`el nombre de ${sinNombre} docente${sinNombre === 1 ? '' : 's'}`);
   // Sin canal (Zoom/YouTube) la inscripción del público falla en silencio
   // (inscribir_a_webinar exige zoom_join_url o youtube_live_url).
   if (!webinar.zoom_join_url && !webinar.youtube_live_url) {
@@ -434,7 +436,12 @@ function DatosWebinarCard({ webinar, onRecargar }: { webinar: WebinarRow; onReca
   async function guardar() {
     if (!titulo.trim()) { toast.error('El título no puede quedar vacío'); return; }
     if (!fecha) { toast.error('Falta la fecha'); return; }
-    const fechaHora = new Date(`${fecha}T${hora || '00:00'}:00`).toISOString();
+    if (!Number.isFinite(duracion) || duracion < 15 || duracion > 600) {
+      toast.error('La duración debe estar entre 15 y 600 minutos'); return;
+    }
+    const d = new Date(`${fecha}T${hora || '00:00'}:00`);
+    if (Number.isNaN(d.getTime())) { toast.error('La fecha u hora no es válida'); return; }
+    const fechaHora = d.toISOString();
     setSaving(true);
     const res = await actualizarWebinar(webinar.id, {
       titulo: titulo.trim(),
@@ -525,23 +532,66 @@ function BannerCard({ webinar, onRecargar }: { webinar: WebinarRow; onRecargar: 
 // Docentes: roster [{nombre, foto_url}]. Agregar / quitar / nombre + foto de
 // cada uno. La foto sube al bucket campus-media (scope webinar-docente, R20);
 // el array completo se persiste en webinars.docentes.
-function DocentesCard({ webinar, onRecargar }: { webinar: WebinarRow; onRecargar: () => Promise<void> }) {
-  const [docentes, setDocentes] = useState<WebinarDocente[]>(() => parseDocentes(webinar.docentes));
+//
+// §6 (Agente A) · cada docente lleva un id estable de sesión (NO se persiste):
+//   · key={id} → React no reasigna el estado interno del ImageUploader a la
+//     fila equivocada al quitar uno del medio (evita aplicar una foto en vuelo
+//     a otro docente).
+//   · rowsRef siempre tiene el último estado → las mutaciones (foto/quitar/
+//     nombre) parten de lo último, sin races al subir 2 fotos seguidas.
+//   · persist deduplica contra el último array guardado (lastPersisted) → el
+//     blur del nombre no dispara writes redundantes y es correcto sin importar
+//     el índice.
+interface DocenteRow extends WebinarDocente {
+  id: string;
+}
+let _docSeq = 0;
+const nextDocId = () => `doc-${++_docSeq}`;
+const stripDocentes = (rows: DocenteRow[]): WebinarDocente[] =>
+  rows.map(({ nombre, foto_url }) => ({ nombre, foto_url }));
 
-  // Siempre persiste el array EXPLÍCITO que se le pasa (evita closures rancios
-  // al combinar edición de nombre con subida de foto).
-  async function persist(next: WebinarDocente[]) {
-    setDocentes(next);
-    const res = await actualizarWebinar(webinar.id, { docentes: next });
+function DocentesCard({ webinar, onRecargar }: { webinar: WebinarRow; onRecargar: () => Promise<void> }) {
+  const [rows, setRowsState] = useState<DocenteRow[]>(() =>
+    parseDocentes(webinar.docentes).map((d) => ({ id: nextDocId(), ...d })),
+  );
+  const rowsRef = useRef(rows);
+  const lastPersisted = useRef(JSON.stringify(stripDocentes(rows)));
+
+  function setRows(next: DocenteRow[]) {
+    rowsRef.current = next;
+    setRowsState(next);
+  }
+
+  async function persist(next: DocenteRow[]) {
+    const stripped = stripDocentes(next);
+    const json = JSON.stringify(stripped);
+    if (json === lastPersisted.current) return; // sin cambios reales → no escribe
+    const res = await actualizarWebinar(webinar.id, { docentes: stripped });
     if (!res.ok) {
       toast.error('No pudimos guardar los docentes', { description: humanizeError(res.error) });
       return;
     }
+    lastPersisted.current = json;
     await onRecargar();
   }
 
-  function setNombreLocal(i: number, v: string) {
-    setDocentes((prev) => prev.map((d, j) => (j === i ? { ...d, nombre: v } : d)));
+  function addDocente() {
+    const next = [...rowsRef.current, { id: nextDocId(), nombre: '', foto_url: null }];
+    setRows(next);
+    void persist(next);
+  }
+  function removeDocente(id: string) {
+    const next = rowsRef.current.filter((r) => r.id !== id);
+    setRows(next);
+    void persist(next);
+  }
+  function setFoto(id: string, url: string | null) {
+    const next = rowsRef.current.map((r) => (r.id === id ? { ...r, foto_url: url } : r));
+    setRows(next);
+    void persist(next);
+  }
+  function setNombre(id: string, v: string) {
+    setRows(rowsRef.current.map((r) => (r.id === id ? { ...r, nombre: v } : r)));
   }
 
   return (
@@ -550,35 +600,33 @@ function DocentesCard({ webinar, onRecargar }: { webinar: WebinarRow; onRecargar
         <div className="flex items-center gap-2">
           <GraduationCap size={18} className="text-brand-cyan" />
           <h2 className="font-display text-lg font-bold text-brand-ink">Docentes</h2>
-          {docentes.length > 0 && (
+          {rows.length > 0 && (
             <span className="rounded-full bg-brand-cyan/10 px-2 py-0.5 text-[11px] font-semibold text-brand-cyan">
-              {docentes.length}
+              {rows.length}
             </span>
           )}
         </div>
-        <Button variant="secondary" onClick={() => void persist([...docentes, { nombre: '', foto_url: null }])}>
+        <Button variant="secondary" onClick={addDocente}>
           <Plus size={13} /> Agregar docente
         </Button>
       </div>
 
-      {docentes.length === 0 ? (
+      {rows.length === 0 ? (
         <p className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4 text-center text-xs text-brand-muted">
           Sin docentes cargados. Agregá al menos uno (nombre + foto) para que la página de
           inscripción muestre quién dicta el webinar.
         </p>
       ) : (
         <ul className="space-y-3">
-          {docentes.map((d, i) => (
+          {rows.map((r) => (
             <li
-              key={i}
+              key={r.id}
               className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-slate-50/60 p-3 sm:flex-nowrap"
             >
               <ImageUploader
-                value={d.foto_url}
-                onChange={() => { /* preview se refleja vía persist(next) */ }}
-                onPersist={(url) =>
-                  persist(docentes.map((x, j) => (j === i ? { ...x, foto_url: url } : x)))
-                }
+                value={r.foto_url}
+                onChange={() => { /* preview se refleja vía setFoto → setRows */ }}
+                onPersist={(url) => setFoto(r.id, url)}
                 scope="webinar-docente"
                 ownerId={webinar.id}
                 shape="circle"
@@ -587,16 +635,16 @@ function DocentesCard({ webinar, onRecargar }: { webinar: WebinarRow; onRecargar
               <div className="min-w-0 flex-1">
                 <Field label="Nombre del docente">
                   <Input
-                    value={d.nombre}
-                    onChange={(e) => setNombreLocal(i, e.target.value)}
-                    onBlur={() => { if (d.nombre !== parseDocentes(webinar.docentes)[i]?.nombre) void persist(docentes); }}
+                    value={r.nombre}
+                    onChange={(e) => setNombre(r.id, e.target.value)}
+                    onBlur={() => void persist(rowsRef.current)}
                     placeholder="Ej. Dra. María González"
                   />
                 </Field>
               </div>
               <button
                 type="button"
-                onClick={() => void persist(docentes.filter((_, j) => j !== i))}
+                onClick={() => removeDocente(r.id)}
                 aria-label="Quitar docente"
                 className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-slate-200 bg-white text-red-600 hover:bg-red-50"
               >

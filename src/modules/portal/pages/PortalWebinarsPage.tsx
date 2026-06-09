@@ -124,7 +124,7 @@ export function PortalWebinarsPage() {
         <Skeleton className="h-64 rounded-2xl" />
       ) : vigente ? (
         <section className="card-premium relative overflow-hidden p-5 sm:p-6">
-          <WebinarIdentidad w={vigente}>
+          <WebinarIdentidad w={vigente} as="h2">
             {yaInscriptoVigente ? (
               <span className="inline-flex items-center gap-2 rounded-xl bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-200">
                 <CheckCircle2 size={16} /> Ya estás inscripto

@@ -70,10 +70,14 @@ function fmtFechaLarga(iso: string): string {
 export function WebinarIdentidad({
   w,
   children,
+  as = 'h1',
 }: {
   w: WebinarInscripcionActiva;
   children?: React.ReactNode;
+  /** Tag del título. El portal pasa 'h2' (la página ya tiene su <h1>). */
+  as?: 'h1' | 'h2';
 }) {
+  const Heading = as;
   return (
     <div className="space-y-6">
       {/* Banner */}
@@ -91,9 +95,9 @@ export function WebinarIdentidad({
       {/* Título + meta */}
       <div>
         <p className="kicker text-brand-cyan">Capacitación gratuita · Webinar</p>
-        <h1 className="mt-1 font-display text-3xl font-extrabold leading-tight tracking-tight text-brand-ink sm:text-4xl">
+        <Heading className="mt-1 font-display text-3xl font-extrabold leading-tight tracking-tight text-brand-ink sm:text-4xl">
           {w.titulo}
-        </h1>
+        </Heading>
         <p className="mt-2 inline-flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-medium text-brand-muted">
           <CalendarClock size={15} className="text-brand-cyan" />
           <span className="capitalize">{fmtFechaLarga(w.fecha_hora)}</span>

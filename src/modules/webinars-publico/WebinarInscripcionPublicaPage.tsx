@@ -24,7 +24,7 @@ export function WebinarInscripcionPublicaPage() {
 
   return (
     <div className="min-h-screen bg-white font-sans">
-      <SiteNav darkHero />
+      <SiteNav />
       <main className="relative mx-auto max-w-3xl px-6 py-12 sm:py-16">
         <TrianglesAccent position="top-right" size={200} tone="cyan" density="soft" className="opacity-30" />
         {loading ? (
