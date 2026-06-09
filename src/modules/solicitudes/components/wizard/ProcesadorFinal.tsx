@@ -26,7 +26,7 @@ import {
   setSolicitudComprobante,
   type SolicitudDetalle,
 } from '@/services/api/solicitudes';
-import { altaClientePortal } from '@/services/api/usuarios';
+import { altaClientePortal, asegurarUsuarioAlumno } from '@/services/api/usuarios';
 import { getTramiteAdministracionId } from '@/services/api/tramites';
 import {
   emitirComprobanteManual,
@@ -335,24 +335,32 @@ function construirOps(
       bestEffort: false,
       run: async (ctx) => {
         if (!ctx.administracionId) throw new Error('Falta el cliente para matricular');
+        // F1: la matrícula necesita el usuario de portal del alumno
+        // (curso_asignar_alumno lo resuelve desde administraciones.user_id). Lo
+        // capturamos en el alta (cliente nuevo); para cliente EXISTENTE sin acceso
+        // —o si se reabrió el modal y se perdió el ctx— lo resolvemos o lo creamos
+        // acá. Así un curso cobrado NUNCA queda sin matricular.
+        let profileId = ctx.profileId;
+        if (!profileId) {
+          const ensured = await asegurarUsuarioAlumno({
+            administracionId: ctx.administracionId,
+            fallbackEmail: solicitud.solicitante_email,
+            fallbackNombre: solicitud.cliente_nombre ?? solicitud.solicitante_nombre,
+          });
+          if (!ensured.ok)
+            throw new Error(
+              'No se pudo preparar el acceso del alumno al portal (necesario para ' +
+                `matricular): ${humanizeError(ensured.error)}`,
+            );
+          profileId = ensured.data.profileId;
+          ctx.profileId = profileId;
+        }
         const r = await asignarAlumno({
           cursoId,
           administracionId: ctx.administracionId,
-          // Explícito desde el alta de portal (determinístico); si no está,
-          // la RPC lo resuelve desde administraciones.user_id.
-          profileId: ctx.profileId,
+          profileId,
         });
-        if (!r.ok) {
-          const msg = humanizeError(r.error);
-          // Caso típico: el alumno todavía no tiene usuario de portal vinculado.
-          if (/profile_id|user|usuario/i.test(msg)) {
-            throw new Error(
-              'No se pudo matricular: el alumno todavía no tiene acceso al portal. ' +
-                'Revisá el paso «Acceso al portal» (o creá el usuario) y reintentá.',
-            );
-          }
-          throw new Error(msg);
-        }
+        if (!r.ok) throw new Error(humanizeError(r.error));
         return 'Alumno matriculado';
       },
     });

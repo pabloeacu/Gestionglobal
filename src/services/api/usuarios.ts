@@ -61,6 +61,39 @@ export async function altaClientePortal(
   return ok(data);
 }
 
+// F1 (Lista JL) · Resuelve —o crea si falta— el usuario de portal del alumno para
+// poder matricularlo en un curso. La matrícula (`curso_asignar_alumno`) necesita
+// `administraciones.user_id`; un cliente EXISTENTE sin acceso al portal no lo tiene.
+// Chequea `user_id` PRIMERO (evita re-crear o "hijackear" un user con otro email) y
+// sólo llama `altaClientePortal` si falta — que es idempotente y sólo envía el mail
+// de bienvenida cuando crea un usuario nuevo (no para uno ya existente).
+export async function asegurarUsuarioAlumno(input: {
+  administracionId: string;
+  fallbackEmail?: string | null;
+  fallbackNombre?: string | null;
+}): Promise<ApiResponse<{ profileId: string }>> {
+  const { data: adm, error } = await supabase
+    .from('administraciones')
+    .select('user_id, email, nombre')
+    .eq('id', input.administracionId)
+    .maybeSingle();
+  if (error) return fail('ASEGURAR_USER_ALUMNO', error.message, error);
+  if (adm?.user_id) return ok({ profileId: adm.user_id as string });
+  const email = (((adm?.email as string | null) ?? input.fallbackEmail) ?? '').trim();
+  const nombre = (((adm?.nombre as string | null) ?? input.fallbackNombre) ?? 'Cliente').trim();
+  if (!email)
+    return fail(
+      'ASEGURAR_USER_ALUMNO',
+      'El alumno no tiene email cargado; no se puede crear su acceso al portal para matricularlo.',
+    );
+  const alta = await altaClientePortal({ administracion_id: input.administracionId, email, nombre });
+  if (!alta.ok) return fail('ASEGURAR_USER_ALUMNO', alta.error.message, alta.error.details);
+  const uid = (alta.data as { user_id?: string } | null)?.user_id;
+  if (!uid)
+    return fail('ASEGURAR_USER_ALUMNO', 'No se pudo resolver el usuario del alumno tras crearlo.');
+  return ok({ profileId: uid });
+}
+
 // DGG-34 · Editar nombre + rol de un gerente/operador desde el panel Usuarios
 export async function actualizarGerente(
   user_id: string,
