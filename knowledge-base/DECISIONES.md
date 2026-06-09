@@ -2003,3 +2003,47 @@ El usuario lo pidió en dos requerimientos simultáneos.
 - **Primer caso:** `zoom-encuentro-create` (reemplaza `zoom-meeting-create`),
   verificado en vivo creando una reunión Zoom real desde el botón de gerencia.
 - **Fecha:** 2026-06-08.
+
+## DGG-58 · Encuentros: fecha/hora obligatoria + el acceso del alumno se habilita 10 min antes (F9-ter · Lista JL)
+
+- **Qué/por qué (JL 2026-06-08):** un encuentro sincrónico mostraba "Sin fecha"
+  (el campo era opcional) y el botón del alumno para unirse aparecía apenas
+  existía la sala, sin importar la hora → el alumno podía (a) conectarse a
+  cualquier sala en cualquier momento y (b) que se le tome el "presente"
+  temprano. JL: "la sala la crea el gerente cuando quiere, pero la fecha y el
+  horario deben ser obligatorios; así, para el alumno, se condiciona su acceso
+  a ese día y horario; el botón de conectarse debe habilitarse recién el día,
+  10 min antes". Aplica a TODAS las modalidades (Zoom y Webex).
+- **Decisiones:**
+  1. **Fecha/hora OBLIGATORIA** al crear el encuentro (`EncuentrosTab`: Field
+     `required` + guard en `crear()`). La creación de la SALA sigue siendo
+     on-demand del gerente; lo obligatorio es la fecha.
+  2. **Gating temporal del botón del alumno** (`EncuentrosEnVivoAlumno`):
+     habilitado SÓLO en **[fecha_hora − 10 min, fecha_hora + duración]**, o si
+     el encuentro está en vivo (`status='en_curso'`, vía webhook). Fuera →
+     `<span>` no-click (regla 13) con "Se habilita {fecha+hora}" / "El encuentro
+     finalizó" / "Pendiente de programar la fecha". Hook `useNow(30s)` para que
+     cruce solo la ventana sin refrescar. **El host (gerente) NO se gatea**
+     (entra antes a preparar). Ventana elegida por Pablo: "fin exacto" (sin
+     colchón).
+  3. **Misma regla en el HotCard "clase de hoy" de PortalHome** (lo cazó la
+     §6: era un 2º botón "Unirme" que linkeaba directo a la sala sin gate). Si
+     no está en ventana, el CTA lleva al curso (no a la sala). Así no hay dos
+     botones de unirse con criterios distintos.
+- **Alcance / límite conocido:** el gate es **client-side** (UX + integridad de
+  asistencia). El ingreso real anticipado igual lo bloquea Zoom
+  (`waiting_room:true` + `join_before_host:false`). Enforcement server-side
+  (replicar la ventana en `zoom-sdk-signature` + no exponer `zoom_join_url`
+  antes de `opensAt`) queda como **hardening opcional** (no hecho; la §6 lo
+  señaló como severidad media). Edición de encuentros existentes (p. ej. setear
+  fecha a uno viejo "Sin fecha" como "Asambleas Virtuales") → diferido a **F10**
+  (encuentros como módulos); por ahora la fecha es obligatoria sólo en el alta.
+- **§6 (2 agentes):** gate correcto (boundaries inclusivos, override isLive,
+  legacy null cubierto, comparación UTC sin bug de tz, `useNow` sin leak, regla
+  13) + `crearEncuentro` único caller (nada se rompe por la obligatoriedad);
+  cobertura: árbol de entrada del alumno estrecho, único bypass real (HotCard)
+  fixeado. **Prueba en vivo:** fecha-obligatoria verificada (toast de error +
+  campo required + no crea). Gate del alumno verificado por §6 + build (no por
+  render con sesión de alumno matriculado — desproporcionado de montar para un
+  gate de UI; ofrecido a Pablo). Build limpio.
+- **Fecha:** 2026-06-08.
