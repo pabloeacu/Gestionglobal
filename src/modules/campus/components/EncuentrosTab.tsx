@@ -17,6 +17,7 @@ import {
   configurarSalaWebex,
   crearEncuentro,
   crearSalaZoom,
+  eliminarSalaZoom,
   fmtFechaHora,
   listAsistencias,
   listEncuentros,
@@ -122,11 +123,40 @@ export function EncuentrosTab({ data }: { data: CursoDetalle }) {
       danger: true,
     });
     if (!ok) return;
+    // Si tiene sala Zoom, borrarla PRIMERO para no dejarla huérfana en la cuenta
+    // Zoom (F9-bis · Lista JL). Si el borrado en Zoom falla, abortamos el borrado
+    // del encuentro: preferimos que el gerente reintente a dejar una sala fantasma.
+    if ((enc as any).zoom_meeting_id) {
+      const del = await eliminarSalaZoom({ encuentroId: enc.id });
+      if (!del.ok) {
+        toast.error(humanizeError(del.error));
+        return;
+      }
+    }
     const res = await borrarEncuentro(enc.id);
     if (!res.ok) {
       toast.error(humanizeError(res.error));
       return;
     }
+    void load();
+  }
+
+  async function eliminarSala(enc: CursoEncuentroRow) {
+    const ok = await confirm({
+      title: 'Eliminar sala Zoom',
+      message: `¿Eliminar la reunión Zoom de "${enc.titulo}"? El link actual deja de funcionar. Después podés volver a crear la sala.`,
+      confirmLabel: 'Eliminar sala',
+      danger: true,
+    });
+    if (!ok) return;
+    setCreandoSalaId(enc.id);
+    const res = await eliminarSalaZoom({ encuentroId: enc.id });
+    setCreandoSalaId(null);
+    if (!res.ok) {
+      toast.error(humanizeError(res.error));
+      return;
+    }
+    toast.success('Sala Zoom eliminada');
     void load();
   }
 
@@ -420,6 +450,19 @@ export function EncuentrosTab({ data }: { data: CursoDetalle }) {
                             <ExternalLink size={13} /> Grabación
                           </a>
                         )}
+                        <button
+                          onClick={() => void eliminarSala(enc)}
+                          disabled={creandoSalaId === enc.id}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-600 shadow-sm transition hover:bg-red-50 disabled:opacity-60"
+                          title="Eliminar la sala Zoom (después podés volver a crearla)"
+                        >
+                          {creandoSalaId === enc.id ? (
+                            <Loader2 size={13} className="animate-spin" />
+                          ) : (
+                            <Trash2 size={13} />
+                          )}
+                          Eliminar sala
+                        </button>
                       </>
                     )}
                   </div>

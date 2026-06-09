@@ -1315,6 +1315,28 @@ export async function crearSalaZoom(input: {
   return ok(data as ZoomMeetingCreated);
 }
 
+/**
+ * Staff: borra la reunión Zoom y limpia la metadata del encuentro.
+ * Contrapartida de crearSalaZoom (F9-bis · Lista JL). Evita reuniones huérfanas
+ * al borrar/regenerar un encuentro. Pasá `encuentroId` (caso normal: borra su
+ * reunión + limpia la fila) o `meetingId` (limpieza de huérfanos por ID directo).
+ * Idempotente: si la reunión ya no existe en Zoom, igual resuelve OK.
+ */
+export async function eliminarSalaZoom(input: {
+  encuentroId?: string;
+  meetingId?: number;
+}): Promise<ApiResponse<true>> {
+  const { data, error } = await supabase.functions.invoke('zoom-encuentro-delete', {
+    body: { encuentro_id: input.encuentroId, meeting_id: input.meetingId },
+  });
+  if (error) {
+    const msg = await extractEdgeFnError(error);
+    return fail('ZOOM_DELETE', msg, error);
+  }
+  if (!data?.ok) return fail('ZOOM_DELETE', data?.error ?? 'Falló borrar la sala', data);
+  return ok(true);
+}
+
 export interface ZoomSdkSignature {
   signature: string;
   sdkKey: string;

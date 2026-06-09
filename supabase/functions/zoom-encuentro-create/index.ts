@@ -81,7 +81,11 @@ Deno.serve(async (req) => {
       const cArr = await (await rest(`cursos?id=eq.${enc.curso_id}&select=titulo`)).json();
       cursoTitulo = cArr?.[0]?.titulo ?? "Campus";
     }
-    const topic = body?.topic ?? `${cursoTitulo} · ${enc.titulo}`;
+    // Topic con el ENCUENTRO primero: en la lista del portal Zoom el texto se
+    // trunca al inicio, y dos encuentros del mismo curso se veían idénticos
+    // ("Curso… · "). Con el encuentro adelante el host distingue cuál iniciar
+    // (F9-bis · Lista JL · Pablo 2026-06-08).
+    const topic = body?.topic ?? `${enc.titulo} · ${cursoTitulo}`;
     const startTime = enc.fecha_hora ?? new Date().toISOString();
 
     // 4) token Zoom (S2S OAuth)
