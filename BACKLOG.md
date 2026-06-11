@@ -19,7 +19,7 @@
 | **F5** | ✅ DGG-61 | "Faltaría info del Costo del servicio con y sin análisis de documentación. La onda es que los costos queden señalizados tal y como en los otros formularios. En este caso es así: $20.000 Consulta simple / $36.000 Consulta con análisis de documentación." |
 | **F6** | ✅ DGG-63 | "El formulario de webinar está activo y solo debería estarlo cuando hay un webinar activo. Mientras tanto, debería tener una web de 'Estate atento a nuestra próxima capacitación gratuita…'. Cuando un webinar gratuito se habilita, este formulario va a contener la info del webinar (su foto/banner, su docente a cargo, el título y la descripción)." |
 | **F7** | ✅ DGG-62 / E-GG-61 | "La solicitud de un formulario (sea por landing o por portal cliente) no se avisa en banner de gerencia. Llega por mail y por push/notificación, pero necesitamos un banner en el dashboard." |
-| **F8** | ⏳ PENDIENTE (en curso) | Sistema de filtros premium en Solicitudes y Trámites (ver abajo). |
+| **F8** | ✅ DGG-65 | Sistema de filtros premium en Solicitudes y Trámites (ver abajo). |
 | **F9** | ✅ DGG-57 / DGG-58 (+ bis/ter) | "Los encuentros sincrónicos no generan sala." |
 | **F10** | ⏳ PENDIENTE | Encuentros sincrónicos como módulos (ver abajo). |
 

@@ -2309,3 +2309,67 @@ El usuario lo pidió en dos requerimientos simultáneos.
   en `webinars_staff_all` + E-GG-62. Si algún día se justifica blindarlo, (c) es el
   upgrade. **Verificado** e2e en BD + en vivo contra prod (ver E-GG-62).
 - **Fecha:** 2026-06-09 · mig 0214.
+
+## DGG-65 · F8 · Sistema de filtros premium en Solicitudes y Trámites (triage a escala)
+
+- **Contexto (Lista JL · F8):** José Luis pidió "un sistema de filtros premium para
+  solicitudes y trámites que segmente la visión del gerente… pronto serán cientos…
+  filtro predeterminado que sólo muestre activos (esconde lo cerrado, no lo borra)…
+  no todo multiselect: switches y cards que funcionen como filtros… los encabezados
+  de la lista también filtros". Pablo sumó: "entendé la empresa para sugerir algo
+  superador; asumí cientos en simultáneo".
+- **Lectura del problema (lo que guió el diseño):** a escala el dolor del gerente
+  no es "filtrar por atributo" sino **triage**: ¿qué necesita mi acción HOY? Por eso
+  los filtros estrella son **segmentos inteligentes** que responden esa pregunta, no
+  selects crudos.
+- **Decisiones de Pablo (lockeadas):** (1) **"Solo activos" ON por default** (switch;
+  al apagarlo aparece todo, lo cerrado nunca se borra); (2) estado de filtro
+  **EFÍMERO** (no URL ni localStorage); (3) Solicitudes **mantiene cards** + barra
+  premium (no se convierte en tabla); (4) las **KPI cards de arriba funcionan como
+  filtros** (segmentos clickeables); (5) **encabezados ordenables** en la tabla de
+  Trámites.
+- **Implementación (3 chunks):**
+  1. **Toolkit compartido** (`components/common/Filters.tsx`): `Switch`,
+     `FilterChips<T>`, `FilterMultiSelect` (popover + búsqueda + click-outside),
+     `SegmentCard` (KPI-card-filtro), `SortHeader` + `useSort<T>` (asc→desc→sin
+     orden, nulls al final), `ResultCount`. Estado efímero (vive en cada página).
+  2. **Trámites** (`tramitesFilter.ts` + `TramitesFiltros.tsx` + lista tabla +
+     kanban): activos = abierto/en_progreso/esperando_cliente/resuelto (cerrado/
+     cancelado ocultos con el switch). Segmentos: Vencidos · Vence ≤7d · Esperando
+     cliente · Por cobrar · Sin comprobante. Barra: chips Estado (sólo lista) +
+     Prioridad, multiselect Categoría + Servicio (búsqueda; se oculta si no hay),
+     búsqueda. Encabezados ordenables (Cliente/SLA/Prioridad/Estado). Kanban:
+     mismos segmentos + barra **sin chips de estado** (las columnas SON los
+     estados); con "Solo activos" ON oculta las columnas Cerrados/Cancelados;
+     drag&drop + gate de cobranza DGG-44 intactos. `listTramites` += join aditivo
+     `servicios(id,nombre)`.
+  3. **Solicitudes** (cards + barra): segmentos = los estados de triage como
+     cards-filtro (Sin revisar/En revisión/Derivadas; +Activadas/Rechazadas/
+     Descartadas al apagar el switch) — sin chips de estado redundantes. Barra:
+     búsqueda + Categoría/Servicio multiselect + chips de Origen (landing/portal/
+     público). Se quitó la sync a URL (efímero); el deep-link del widget F7
+     `?estado=activas` sigue OK porque coincide con el default.
+- **Escala / R19:** el universo se trae por backend según "Solo activos" (limit
+  1000) y **los conteos de segmentos + filtros + orden se resuelven en memoria**
+  (conteos sobre el universo, regla 19); aviso ámbar si se excede el tope (lista y
+  kanban, sin truncado silencioso). Para cientos, instantáneo; si algún día son
+  miles, se revisa con server-side. **DGG-33 respetado:** ningún filtro/columna por
+  "asignado" (Gestión Global no tiene asignaciones individuales).
+- **§6 doble auditoría:** chunk 2 con **2 agentes en paralelo** (0 bloqueantes; 3
+  menores fixeados: aviso de truncado en el kanban, clase `group` faltante en
+  `SortHeader`, ocultar el multiselect de Servicio vacío) + **e2e en BD**
+  (BEGIN/ROLLBACK): `vence_at` pasado en un activo cuenta como "vencido" (input del
+  segmento Vencidos), el join de servicio devuelve nombre, las columnas computadas
+  `cobro_pendiente`/`comprobante_pendiente` son legibles. El toolkit y el patrón
+  R19/filtro quedaron auditados ahí; el chunk 3 los reutiliza.
+- **Prueba en vivo (gerente, prod):** **Trámites lista** — segmento "Sin
+  comprobante"→3 (card activa, "3 de 5"); "Solo activos" 5↔9 con chips de Estado
+  dinámicos; multiselect Servicio (popover+búsqueda+conteos+badge+click-outside)→4;
+  orden por Cliente A→Z; Limpiar. **Trámites kanban** — columnas 4↔6 (Cerrados/
+  Cancelados ocultos con el switch ON, visibles al apagarlo). **Solicitudes** —
+  segmentos 3↔6, "Solo activas" 2↔9, "Activadas"→7, chips de Origen. **Consola sin
+  errores de app** (sólo ruido de extensiones `:0:0`). Mobile 360 verificado por
+  código (la tool de resize no refleja 360px, mismo límite que DGG-51). Sin
+  mutaciones (sólo toggles de filtro).
+- **Commits:** `1afc509` (toolkit) · `d42c269` (Trámites) · `a4c3cc3` (Solicitudes).
+- **Fecha:** 2026-06-11.
