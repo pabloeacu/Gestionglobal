@@ -1,6 +1,7 @@
-// submit-formulario v7 (mig 0134/0135): acepta origen_canal + voucher_codigo.
-// Si el voucher es 100% bonificación, salta la validación required de campos
-// file (no se exige adjuntar comprobante de pago).
+// submit-formulario v9: presentacionales (file_download/costos_info) excluidos de
+// la validación, en sync con el runner (F5 · consistencia de skip-lists).
+// Historia: v8 condition.equals acepta string|string[] (mig 0141); v7 origen_canal +
+// voucher_codigo; voucher 100% saltea el required de campos file.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.46.1';
 
@@ -91,7 +92,9 @@ Deno.serve(async (req) => {
   const validationErrors: string[] = [];
   for (const section of schema.sections) {
     for (const field of section.fields) {
-      if (['heading', 'separator', 'html'].includes(field.type)) continue;
+      // Presentacionales (sin dato del usuario): no se validan ni persisten.
+      // Mantener en sync con el runner (FormularioRunner) — F5 · consistencia.
+      if (['heading', 'separator', 'html', 'file_download', 'costos_info'].includes(field.type)) continue;
       if (field.condition) {
         const dep = String(payload.datos[field.condition.field] ?? '');
         const target = field.condition.equals;

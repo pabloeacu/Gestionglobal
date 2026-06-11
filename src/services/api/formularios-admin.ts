@@ -330,7 +330,9 @@ export interface SchemaWarning {
   fieldIdx?: number;
 }
 
-const TIPOS_SIN_NAME = ['separator', 'heading', 'html'];
+// Presentacionales (sin dato/sin key). Incluye file_download + costos_info para
+// alinear con el runner y la validación required (F5 · consistencia de skip-lists).
+const TIPOS_SIN_NAME = ['separator', 'heading', 'html', 'file_download', 'costos_info'];
 
 export function validarSchema(schema: FormularioSchemaDef): SchemaWarning[] {
   const out: SchemaWarning[] = [];

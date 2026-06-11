@@ -444,7 +444,9 @@ export function FormularioBuilderPage() {
     const names = new Set<string>();
     for (const sec of schema.sections) {
       for (const f of sec.fields) {
-        if (['separator', 'heading', 'html'].includes(f.type)) continue;
+        // Presentacionales (sin dato/sin key): no requieren `name`. Alineado con
+        // el runner (FormularioRunner) y PropertiesPanel (F5 · consistencia).
+        if (['separator', 'heading', 'html', 'file_download', 'costos_info'].includes(f.type)) continue;
         if (!f.name) {
           toast.error('Hay campos sin nombre interno (key).');
           return;
