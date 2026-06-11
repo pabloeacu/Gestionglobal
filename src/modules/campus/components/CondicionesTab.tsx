@@ -183,7 +183,7 @@ export function CondicionesTab({
                           })
                         }
                       >
-                        {CONDICION_TIPOS.map((t) => (
+                        {CONDICION_TIPOS.filter((t) => t !== 'asistencia').map((t) => (
                           <option key={t} value={t}>
                             {CONDICION_TIPO_LABEL[t]}
                           </option>

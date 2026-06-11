@@ -197,15 +197,26 @@ export function EncuentrosEnVivoAlumno({
       if (arr) arr.push(e);
       else porId.set(k, [e]);
     }
-    const out: { modulo: ModuloSincronicoRow | null; encs: CursoEncuentroRow[] }[] = [];
+    const out: {
+      modulo: ModuloSincronicoRow | null;
+      encs: CursoEncuentroRow[];
+      totalReal: number;
+    }[] = [];
     for (const m of modulos) {
       const encs = porId.get(m.id);
-      if (encs && encs.length) out.push({ modulo: m, encs });
+      if (encs && encs.length) {
+        // R19: el requisito ("asistí a 1 de N" / "a los N") cuenta TODOS los
+        // encuentros del módulo, no sólo los visibles con sala — igual que el
+        // backend (eval_asistencia_cumplida). Si no, un 'serie' con un encuentro
+        // sin sala todavía sub-reportaría el requisito al alumno.
+        const totalReal = encuentros.filter((e) => e.condicion_id === m.id).length;
+        out.push({ modulo: m, encs, totalReal });
+      }
     }
     const sueltos = porId.get('__none__');
-    if (sueltos && sueltos.length) out.push({ modulo: null, encs: sueltos });
+    if (sueltos && sueltos.length) out.push({ modulo: null, encs: sueltos, totalReal: sueltos.length });
     return out;
-  }, [visibles, modulos]);
+  }, [visibles, modulos, encuentros]);
 
   if (visibles.length === 0) return null;
 
@@ -223,9 +234,9 @@ export function EncuentrosEnVivoAlumno({
         </h2>
       </header>
       <div className="space-y-6">
-        {grupos.map(({ modulo, encs }) => (
+        {grupos.map(({ modulo, encs, totalReal }) => (
           <div key={modulo?.id ?? '__none__'}>
-            {modulo && <ModuloHeaderAlumno modulo={modulo} total={encs.length} />}
+            {modulo && <ModuloHeaderAlumno modulo={modulo} total={totalReal} />}
             <ul className="space-y-3">
               {encs.map((enc) => (
                 <EncuentroLi

@@ -1027,6 +1027,10 @@ export async function guardarCondicionesConfig(
   cursoId: string,
   condiciones: CondicionConfigInput[],
 ): Promise<ApiResponse<true>> {
+  // F10 defensa en profundidad: las condiciones de 'asistencia' (módulos
+  // sincrónicos) se administran SÓLO en EncuentrosTab; nunca se sincronizan
+  // desde acá (evita crear/pisar un módulo fantasma sin modalidad).
+  const conds = condiciones.filter((c) => c.tipo !== 'asistencia');
   // 1. Estado actual.
   const { data: actuales, error: e0 } = await supabase
     .from('curso_condiciones_config')
@@ -1038,7 +1042,7 @@ export async function guardarCondicionesConfig(
   if (e0) return fail('CONDICIONES_SYNC', e0.message, e0);
 
   const idsEntrantes = new Set(
-    condiciones.filter((c) => c.id).map((c) => c.id as string),
+    conds.filter((c) => c.id).map((c) => c.id as string),
   );
   const aBorrar = (actuales ?? [])
     .map((r) => r.id)
@@ -1054,8 +1058,8 @@ export async function guardarCondicionesConfig(
   }
 
   // 3. Upsert (insert nuevas, update existentes) preservando el orden.
-  for (let i = 0; i < condiciones.length; i++) {
-    const c = condiciones[i]!;
+  for (let i = 0; i < conds.length; i++) {
+    const c = conds[i]!;
     const payload = {
       curso_id: cursoId,
       tipo: c.tipo,
