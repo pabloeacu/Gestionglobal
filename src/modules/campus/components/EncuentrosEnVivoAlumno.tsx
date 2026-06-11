@@ -14,9 +14,16 @@ import {
   Video as VideoIcon,
   MessageSquare,
   LogOut,
+  GraduationCap,
+  FileText,
 } from 'lucide-react';
 import { cn } from '@/lib/cn';
-import { fmtFechaHora, type CursoEncuentroRow } from '@/services/api/campus';
+import {
+  fmtFechaHora,
+  type CursoEncuentroRow,
+  type ModalidadSincronica,
+  type ModuloSincronicoRow,
+} from '@/services/api/campus';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import { ZoomLiveEmbed } from './ZoomLiveEmbed';
 import { WebexLiveEmbed } from './WebexLiveEmbed';
@@ -35,6 +42,8 @@ import { WebexLiveEmbed } from './WebexLiveEmbed';
 
 interface Props {
   encuentros: CursoEncuentroRow[];
+  /** F10: módulos sincrónicos del curso (para agrupar + docente + requisito). */
+  modulos: ModuloSincronicoRow[];
   /** Recibido sólo para mantener API estable; el ClaseEnVivoFullLayout lo usa. */
   userName: string;
   /** Cuando el alumno entra a la clase activa, el padre re-acomoda layout. */
@@ -163,6 +172,7 @@ function ZoomEmbedScaled({
 
 export function EncuentrosEnVivoAlumno({
   encuentros,
+  modulos,
   activoEncuentroId,
   onEntrar,
 }: Props) {
@@ -171,11 +181,31 @@ export function EncuentrosEnVivoAlumno({
 
   const visibles = useMemo(
     () =>
-      encuentros.filter((e: any) =>
+      encuentros.filter((e) =>
         e.plataforma === 'webex' ? !!e.webex_meeting_id : !!e.zoom_meeting_id,
       ),
     [encuentros],
   );
+
+  // F10: agrupar por módulo sincrónico (en el orden de los módulos); los
+  // encuentros sin módulo van en un grupo suelto al final.
+  const grupos = useMemo(() => {
+    const porId = new Map<string, CursoEncuentroRow[]>();
+    for (const e of visibles) {
+      const k = e.condicion_id ?? '__none__';
+      const arr = porId.get(k);
+      if (arr) arr.push(e);
+      else porId.set(k, [e]);
+    }
+    const out: { modulo: ModuloSincronicoRow | null; encs: CursoEncuentroRow[] }[] = [];
+    for (const m of modulos) {
+      const encs = porId.get(m.id);
+      if (encs && encs.length) out.push({ modulo: m, encs });
+    }
+    const sueltos = porId.get('__none__');
+    if (sueltos && sueltos.length) out.push({ modulo: null, encs: sueltos });
+    return out;
+  }, [visibles, modulos]);
 
   if (visibles.length === 0) return null;
 
@@ -186,15 +216,88 @@ export function EncuentrosEnVivoAlumno({
 
   return (
     <section className="card-premium p-5">
-      <header className="mb-3 flex items-center gap-2">
+      <header className="mb-4 flex items-center gap-2">
         <Video size={16} className="text-amber-600" />
         <h2 className="font-display text-lg font-semibold text-brand-ink">
           Encuentros en vivo
         </h2>
       </header>
-      <ul className="space-y-3">
-        {visibles.map((enc: any) => {
-          const plataforma = (enc.plataforma as string | undefined) ?? 'zoom';
+      <div className="space-y-6">
+        {grupos.map(({ modulo, encs }) => (
+          <div key={modulo?.id ?? '__none__'}>
+            {modulo && <ModuloHeaderAlumno modulo={modulo} total={encs.length} />}
+            <ul className="space-y-3">
+              {encs.map((enc) => (
+                <EncuentroLi
+                  key={enc.id}
+                  enc={enc}
+                  now={now}
+                  isMobile={isMobile}
+                  onEntrar={onEntrar}
+                />
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function ModuloHeaderAlumno({ modulo, total }: { modulo: ModuloSincronicoRow; total: number }) {
+  const modalidad = (modulo.modalidad as ModalidadSincronica) ?? 'unico';
+  const requisito =
+    modalidad === 'serie'
+      ? `Tenés que asistir a ${total === 1 ? 'el encuentro' : `los ${total} encuentros`}.`
+      : modalidad === 'alternativos'
+        ? `Te alcanza con asistir a 1 de ${total === 1 ? 'la fecha' : `las ${total} fechas`}.`
+        : 'Tenés que asistir al encuentro.';
+  return (
+    <div className="mb-2 flex flex-wrap items-center gap-3 rounded-xl border border-brand-cyan/20 bg-brand-cyan/5 p-3">
+      {modulo.docente_foto_url ? (
+        <img
+          src={modulo.docente_foto_url}
+          alt={modulo.docente_nombre ?? 'Docente'}
+          className="h-10 w-10 shrink-0 rounded-full object-cover ring-2 ring-white"
+        />
+      ) : (
+        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-brand-cyan/15 text-brand-cyan">
+          <GraduationCap size={18} />
+        </div>
+      )}
+      <div className="min-w-0 flex-1">
+        <p className="font-display text-sm font-semibold text-brand-ink">{modulo.etiqueta}</p>
+        {modulo.docente_nombre && (
+          <p className="text-xs text-brand-muted">Con {modulo.docente_nombre}</p>
+        )}
+        <p className="mt-0.5 text-[11px] font-medium text-brand-cyan">{requisito}</p>
+      </div>
+      {modulo.docente_cv_url && (
+        <a
+          href={modulo.docente_cv_url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-brand-ink hover:bg-slate-50"
+        >
+          <FileText size={13} /> CV
+        </a>
+      )}
+    </div>
+  );
+}
+
+function EncuentroLi({
+  enc,
+  now,
+  isMobile,
+  onEntrar,
+}: {
+  enc: CursoEncuentroRow;
+  now: number;
+  isMobile: boolean;
+  onEntrar: (encuentroId: string) => void;
+}) {
+  const plataforma = (enc.plataforma as string | undefined) ?? 'zoom';
           const isZoom = plataforma === 'zoom';
           const isWebex = plataforma === 'webex';
           const statusField = isWebex ? enc.webex_status : enc.zoom_status;
@@ -263,7 +366,7 @@ export function EncuentrosEnVivoAlumno({
                 <div className="flex flex-wrap items-center gap-2">
                   {tieneGrabacion && (
                     <a
-                      href={enc.grabacion_play_url}
+                      href={enc.grabacion_play_url ?? undefined}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100"
@@ -364,10 +467,6 @@ export function EncuentrosEnVivoAlumno({
               )}
             </li>
           );
-        })}
-      </ul>
-    </section>
-  );
 }
 
 // Componente fullscreen REAL — renderea en document.body via React Portal

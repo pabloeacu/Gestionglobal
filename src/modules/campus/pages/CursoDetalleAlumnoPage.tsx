@@ -30,6 +30,7 @@ import {
   listCondicionesMatricula,
   listEncuentros,
   listMatriculas,
+  listModulosSincronicos,
   listProgreso,
   resolverEsquemaParaCert,
   verificacionUrl,
@@ -40,6 +41,7 @@ import {
   type CursoMatriculaRow,
   type CursoProgresoRow,
   type MatriculaCondicionItem,
+  type ModuloSincronicoRow,
   type ProgresoResumen,
 } from '@/services/api/campus';
 import { generateCertificadoPdf } from '../lib/generateCertificadoPdf';
@@ -73,6 +75,7 @@ export function CursoDetalleAlumnoPage() {
   const [condiciones, setCondiciones] = useState<MatriculaCondicionItem[]>([]);
   const [certificado, setCertificado] = useState<CertificadoRow | null>(null);
   const [encuentros, setEncuentros] = useState<CursoEncuentroRow[]>([]);
+  const [modulos, setModulos] = useState<ModuloSincronicoRow[]>([]);
   // E-GG-14: separar carga INICIAL de refreshes silenciosos. Si en cada
   // realtime/refetch ponemos loading=true, el árbol entero se desmonta
   // (incluido el <ZoomLiveEmbed>) → al re-montar dispara un join() duplicado
@@ -110,18 +113,20 @@ export function CursoDetalleAlumnoPage() {
       const found = m.ok && m.data.length > 0 ? m.data[0] : null;
       if (found) {
         setMatricula(found);
-        const [p, r, c, cert, enc] = await Promise.all([
+        const [p, r, c, cert, enc, mods] = await Promise.all([
           listProgreso(found.id),
           getProgresoResumen(found.id),
           listCondicionesMatricula(found.id),
           getCertificadoMatricula(found.id),
           listEncuentros(d.data.curso.id),
+          listModulosSincronicos(d.data.curso.id),
         ]);
         if (p.ok) setProgreso(p.data);
         if (r.ok) setResumen(r.data);
         if (c.ok) setCondiciones(c.data);
         if (cert.ok) setCertificado(cert.data);
         if (enc.ok) setEncuentros(enc.data);
+        if (mods.ok) setModulos(mods.data);
       } else {
         setMatricula(null);
         setProgreso([]);
@@ -129,6 +134,7 @@ export function CursoDetalleAlumnoPage() {
         setCondiciones([]);
         setCertificado(null);
         setEncuentros([]);
+        setModulos([]);
       }
     }
     if (!silent) setInitialLoading(false);
@@ -573,6 +579,7 @@ export function CursoDetalleAlumnoPage() {
             encuentros.length > 0 ? (
               <EncuentrosEnVivoAlumno
                 encuentros={encuentros}
+                modulos={modulos}
                 userName={userNameStable}
                 activoEncuentroId={encuentroEnVivoId}
                 onEntrar={(id) => setEncuentroEnVivoId(id)}
