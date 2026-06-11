@@ -9263,6 +9263,31 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      tracking_moderacion_pendientes: {
+        Args: never
+        Returns: {
+          archivos_urls: string[]
+          cliente_nombre: string
+          created_at: string
+          descripcion: string
+          gestor_label: string
+          linea_id: string
+          servicio_nombre: string
+          tramite_codigo: string
+          tramite_id: string
+        }[]
+      }
+      tracking_moderar_gestor_avance: {
+        Args: {
+          p_accion: string
+          p_archivos_urls?: string[]
+          p_descripcion?: string
+          p_estado_asociado?: string
+          p_linea_id: string
+          p_motivo?: string
+        }
+        Returns: undefined
+      }
       tracking_reabrir: {
         Args: {
           p_motivo: string

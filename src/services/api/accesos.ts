@@ -221,8 +221,10 @@ export async function fetchGestorAvances(
 }
 
 /**
- * El gestor carga su avance. Inserta tracking_lineas con visible_cliente=true
- * (el trigger envía email+push+notif al cliente). Pública (anon, valida token).
+ * El gestor carga su avance (F4). Inserta tracking_lineas con visible_cliente=false
+ * y moderacion_estado='pendiente': el aporte queda en revisión de la gerencia, que
+ * decide publicar/interno/descartar. El cliente NO se entera hasta que se publica.
+ * Pública (anon, valida token).
  */
 export async function gestorCargarAvance(
   token: string,

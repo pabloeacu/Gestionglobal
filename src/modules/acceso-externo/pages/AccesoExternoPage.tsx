@@ -743,7 +743,7 @@ function PanelGestor({ token }: { token: string }) {
           disabled={enviando}
         />
         <p className="text-xs text-brand-muted">
-          El cliente recibirá un email y notificación push automáticamente.
+          Tu aporte pasa por la revisión de la gerencia antes de publicarse al cliente.
         </p>
 
         {/* #154 · Adjuntos ilimitados */}

@@ -2537,3 +2537,72 @@
   algún día se justifica el costo).
 - **Fecha / módulo:** 2026-06-09 · seguridad/webinars · mig
   `0214_webinars_rls_secretos_staff_only.sql` · capitalizado en auditoría §6 de F6.
+
+## E-GG-63 · Fuga de moderación en `tracking_lineas`: el cliente podía leer aportes `interno`/`descartado`/`pendiente` + texto crudo del gestor (RLS `tl_admin_select` sin `visible_cliente`) — F4 (2026-06-11)
+
+- **Síntoma:** capitalizado en la **doble auditoría §6 de F4** (post live-test de 3
+  roles gestoría→gerente→cliente). F4 introdujo aportes de gestoría que entran
+  ocultos (`moderacion_estado` ∈ pendiente/interno/descartado, `visible_cliente=false`)
+  y dos columnas sensibles de auditoría: `gestor_descripcion_original` (texto crudo
+  del gestor, antes de la edición de gerencia) y `descarte_motivo`. La RPC del
+  cliente (`cliente_tracking_lineas`, SECURITY DEFINER) filtra perfecto
+  (`visible_cliente=true`, sin exponer esas columnas), PERO la **policy RLS del
+  cliente `tl_admin_select`** sólo filtraba por tenancy (`tramite de su
+  administración`) **sin `visible_cliente`**, y `authenticated` tiene `GRANT SELECT`
+  directo. Un cliente logueado podía **saltear la RPC** con su anon key + JWT:
+  `GET /rest/v1/tracking_lineas?select=gestor_descripcion_original,descarte_motivo&tramite_id=eq.<suyo>`
+  y leer, de SUS propios trámites, las notas internas de gerencia, los aportes
+  descartados (+ su motivo) y el texto crudo del gestor. **Hermano directo de
+  E-GG-62** (misma clase: tabla con RLS por-fila para el cliente, que en realidad
+  sólo debe leerse por RPC SD; F4 fue lo que creó las filas ocultas a proteger).
+- **Causa raíz:** `tl_admin_select` (`USING EXISTS(tramite de current_administracion_id())`)
+  predataba F4, cuando TODO aporte de gestoría era `visible_cliente=true` → no había
+  nada oculto que filtrar. F4 agregó el concepto de fila oculta pero **no endureció
+  la policy del cliente** (sesgo "revisar lo que está": el frontend y la RPC estaban
+  bien, el agujero estaba en el camino que NINGÚN código usa pero PostgREST expone).
+  El cliente nunca lee la tabla directo — el único read-path cliente es la RPC SD; no
+  hay `from('tracking_lineas')` de cliente en el front (sólo gerencia, vía
+  `tl_staff_all`).
+- **Fix (mig 0216, `DROP POLICY tl_admin_select`):** el cliente NO necesita lectura
+  directa → se elimina su policy de SELECT. Sin policy, PostgREST le deniega la tabla
+  y lee SÓLO por `cliente_tracking_lineas` (SD, con su filtro `visible_cliente=true` +
+  tenancy). Gerencia (`tl_staff_all`) y el INSERT del cliente (`tl_admin_insert`)
+  intactos. (Mismo razonamiento que E-GG-62: gerentes y clientes comparten el rol DB
+  `authenticated`; la RLS es la única capa válida del límite staff/cliente, los GRANT
+  por columna no los distinguen.)
+- **Hallazgos menores del mismo §6, fixeados en la misma mig/commit:**
+  - **A1 (bug):** `tracking_moderar_gestor_avance` persistía `p_estado_asociado` en la
+    línea **sin validar** contra el whitelist (sólo el cambio de `tramites.estado`
+    filtraba) → publicar con `estado='banana'` lo guardaba. Fix: validar el estado
+    temprano (`RAISE 22023`) + rechazar texto vacío al editar. Misma firma →
+    `CREATE OR REPLACE` sin overload (R16 OK).
+  - **A2 (R11):** FK `tracking_lineas.moderada_por` sin índice → índice parcial
+    `idx_tracking_lineas_moderada_por`.
+  - **Copy stale:** `AccesoExternoPage` decía bajo el textarea "El cliente recibirá un
+    email y notificación push automáticamente" (contradecía el flujo de moderación);
+    + comentario engañoso en `accesos.ts:gestorCargarAvance`. Reescritos al flujo F4.
+  - **Type gap:** `tracking_moderar_gestor_avance` y `tracking_moderacion_pendientes`
+    faltaban en `database.ts` (types sin regenerar) → enmascarado con `as never` en el
+    NOMBRE de la RPC (un typo no se hubiera detectado). Regenerados (vía MCP, no el
+    script CLI que pide `SUPABASE_ACCESS_TOKEN`) + quitado el `as never` del nombre.
+- **Verificación (doble vía):** (1) **e2e en BD:** cliente real impersonado
+  (`SET LOCAL ROLE authenticated` + JWT) — ANTES: lectura directa 4/4 filas (2 ocultas,
+  1 motivo); DESPUÉS de la mig: **directo=0 filas, RPC=2 publicados** (portal intacto).
+  Validaciones: `estado='banana'`→22023, texto vacío→22023, publicar normal sin
+  regresión (`vis=true,mod=publicado,ea=resuelto,tramite=resuelto`). R16: 3 RPCs con
+  `n=1`. (2) **Live test 3 roles en PRODUCCIÓN** (cliente QA efímero por SQL): gestoría
+  carga 4 aportes vía magic-link → "Recibido · en revisión", *Historial publicado*
+  vacío; gerencia modera los 4 (publicar tal cual / editar+estado→Esperando cliente /
+  interno / descartar c/motivo) → toasts + cola se vacía; cliente ve **sólo los 2
+  publicados** (B en su versión editada, NO el crudo "fui a afip"), badge "TU ACCIÓN",
+  "2 nuevos avances" (no 4), interno/descartado ocultos; mobile sin overflow; consola
+  sólo ruido de extensión. Cleanup total, residuo 0.
+- **Prevención:** al agregar a una tabla columnas "ocultas/internas" o un flag de
+  visibilidad por-fila, revisar que **la policy RLS del rol que la lee por-fila filtre
+  esa visibilidad** — no alcanza con que la RPC SD filtre, porque el GRANT SELECT +
+  policy permisiva dejan el bypass por PostgREST. Regla práctica: si una tabla se lee
+  desde el cliente SÓLO por RPC SECURITY DEFINER, **no le pongas policy SELECT de
+  cliente** (denegar por defecto). Smell de §6: "para cada columna nueva sensible,
+  ¿quién la puede `select('*')` salteando la RPC?".
+- **Fecha / módulo:** 2026-06-11 · seguridad/trackings · mig
+  `0216_f4_fix_auditoria_moderacion.sql` · capitalizado en la doble auditoría §6 de F4.

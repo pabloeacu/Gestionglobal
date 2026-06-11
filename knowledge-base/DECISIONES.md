@@ -2428,3 +2428,37 @@ El usuario lo pidió en dos requerimientos simultáneos.
   gestor es cambio de copy verificado por build.
 - **Commits:** `10a9a3b` (backend) · `c6bd9fe` (frontend) · `fffa318` (§6 fixes).
 - **Fecha:** 2026-06-11.
+
+## DGG-67 · F4 · Cierre real: live test de 3 roles + doble auditoría §6 → fix de fuga RLS (E-GG-63)
+
+- **Qué:** completa el cierre de DGG-66 (la "prueba en vivo" previa fue parcial:
+  sólo gerente + Descartar). A pedido de Pablo se corrió el **flujo modelo
+  completo de las 3 partes** en producción con cliente QA efímero por SQL, +
+  la **doble auditoría §6 a fondo** (3 agentes en paralelo + e2e en BD).
+- **Live test 3 roles (prod):** **gestoría** (magic-link `/externo/:token`) carga
+  4 aportes → "Recibido · en revisión", *Historial publicado* vacío (no llegan al
+  cliente). **gerencia** (`/gerencia/moderacion`) modera los 4 ejercitando las
+  alternativas: publicar tal cual / **editar+publicar+cambiar estado→Esperando
+  cliente** / interno / descartar (con motivo, regla 13). **cliente** (portal) ve
+  **sólo los 2 publicados** — B en su **versión editada** (no el crudo "fui a afip"),
+  badge "TU ACCIÓN" por el cambio de estado, home "2 nuevos avances" (no 4); interno
+  y descartado **ocultos**. Mobile (≤640) sin overflow; consola sólo ruido de
+  extensión. Cliente QA + trámite + solicitud + token **eliminados** (residuo 0).
+- **§6 → hallazgo crítico (E-GG-63):** la RLS `tl_admin_select` de `tracking_lineas`
+  no filtraba `visible_cliente` → un cliente podía saltear la RPC SD vía PostgREST y
+  leer aportes interno/descartado/pendiente + el texto crudo del gestor + el motivo
+  de descarte de SUS trámites. Confirmado e2e (cliente real: 4 filas, 2 ocultas).
+- **Decisión (mig 0216): `DROP POLICY tl_admin_select`** (no "endurecer con
+  `visible_cliente=true`"). Razón: el cliente NO lee la tabla directo en ningún
+  flujo (sólo por `cliente_tracking_lineas` SD); una policy SELECT de cliente es
+  superficie de ataque sin uso → **denegar por defecto** cierra filas Y columnas
+  sensibles de una. **Refuerza DGG-64/E-GG-62:** en Supabase staff y cliente comparten
+  el rol DB `authenticated`; la RLS (no los grants por columna) es el límite, y una
+  tabla que el cliente sólo lee por RPC SD no debe tener policy SELECT de cliente.
+  Menores del mismo §6, fixeados igual: validación de `p_estado_asociado`+texto vacío
+  (bug "banana"), índice FK `moderada_por` (R11), copy/comentario stale, type gap
+  (RPCs F4 faltaban en `database.ts` → regeneradas, `as never` del nombre fuera).
+- **Verificación post-fix:** e2e BD (cliente directo 4→**0** filas, RPC sigue **2**;
+  validaciones rechazan banana/vacío 22023; publicar sin regresión; R16 0 overloads),
+  build limpio, y portal del cliente re-chequeado en vivo (sigue mostrando los 2).
+- **Fecha:** 2026-06-11.

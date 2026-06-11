@@ -612,7 +612,7 @@ export async function moderarGestorAvance(
   accion: ModeracionAccion,
   input: ModerarGestorAvanceInput = {},
 ): Promise<ApiResponse<true>> {
-  const { error } = await supabase.rpc('tracking_moderar_gestor_avance' as never, {
+  const { error } = await supabase.rpc('tracking_moderar_gestor_avance', {
     p_linea_id: lineaId,
     p_accion: accion,
     p_descripcion: input.descripcion ?? null,
@@ -638,7 +638,7 @@ export interface ModeracionPendiente {
 
 /** Cola de aportes del gestor pendientes de moderación (todos los trámites). */
 export async function fetchModeracionPendientes(): Promise<ApiResponse<ModeracionPendiente[]>> {
-  const { data, error } = await supabase.rpc('tracking_moderacion_pendientes' as never);
+  const { data, error } = await supabase.rpc('tracking_moderacion_pendientes');
   if (error) return fail('TRACKING_MODERACION_PENDIENTES', error.message, error);
   return ok((data ?? []) as unknown as ModeracionPendiente[]);
 }
