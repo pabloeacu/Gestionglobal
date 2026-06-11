@@ -32,6 +32,8 @@ import {
   obtenerInfoSolicitudPorToken,
   firmarAdjuntoCliente,
   subirAdjuntoGestor,
+  gestorAccesoRef,
+  type AccesoRef,
 } from '@/services/api/accesoExterno';
 import { toast } from '@/lib/toast';
 import { humanizeError } from '@/lib/errors';
@@ -45,6 +47,9 @@ export function AccesoExternoPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<AccesoExternoPayload | null>(null);
+  // Pedido Pablo: en el estado de error (token vencido) pre-armamos el mail de
+  // "pedir un nuevo enlace" con cliente + trámite. La RPC resuelve aunque venció.
+  const [refData, setRefData] = useState<AccesoRef | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -61,6 +66,9 @@ export function AccesoExternoPage() {
       setLoading(false);
       if (!res.ok) {
         setError(humanizeError(res.error));
+        // best-effort: cliente + trámite para pre-armar el mail de pedido.
+        const r = await gestorAccesoRef(token);
+        if (!cancelled) setRefData(r);
         return;
       }
       setData(res.data);
@@ -113,29 +121,38 @@ export function AccesoExternoPage() {
             <p className="mt-3 text-xs text-rose-700/80">
               Si el enlace venció, podés pedirle uno nuevo al equipo de Gestión Global.
             </p>
-            {/* 5.D · CTA "Pedir link nuevo" — mailto pre-armado con el
-                token original para que el gerente identifique al destinatario
-                rápido. Sin backend nuevo: el email lo manda la app del usuario. */}
-            <div className="mt-4 flex flex-wrap items-center gap-2">
+            {/* CTA "Pedir un nuevo enlace" — SÓLO mail (Pablo: WhatsApp fuera,
+                no es el medio ideal). El mail va pre-armado con cliente +
+                trámite (gestor_acceso_ref) para que la gerencia identifique al
+                instante qué link regenerar; el token va como referencia interna. */}
+            <div className="mt-4">
               <a
                 href={`mailto:contacto@gestionglobal.ar?subject=${encodeURIComponent(
-                  'Solicito un nuevo enlace de acceso',
+                  refData?.tramite_codigo
+                    ? `Pedido de nuevo enlace · ${refData.tramite_codigo}`
+                    : 'Solicito un nuevo enlace de acceso',
                 )}&body=${encodeURIComponent(
-                  `Hola,\n\nMe gustaría pedir un nuevo enlace para acceder al recurso compartido.\n\nReferencia (no la borres): ${
-                    token ?? '(sin token)'
-                  }\n\nGracias.`,
+                  [
+                    'Hola, equipo de Gestión Global:',
+                    '',
+                    'Mi enlace de acceso venció y necesito uno nuevo para seguir cargando avances del trámite.',
+                    '',
+                    refData?.cliente_nombre ? `Cliente: ${refData.cliente_nombre}` : null,
+                    refData?.tramite_codigo
+                      ? `Trámite: ${refData.tramite_codigo}${
+                          refData.servicio_nombre ? ` — ${refData.servicio_nombre}` : ''
+                        }`
+                      : null,
+                    `Referencia interna (no la borres): ${token ?? '(sin token)'}`,
+                    '',
+                    'Gracias.',
+                  ]
+                    .filter((l): l is string => l !== null)
+                    .join('\n'),
                 )}`}
                 className="inline-flex items-center gap-1.5 rounded-lg bg-rose-700 px-3 py-2 text-sm font-semibold text-white shadow transition hover:bg-rose-800"
               >
-                <Mail size={14} /> Pedir un nuevo enlace
-              </a>
-              <a
-                href="https://wa.me/5491100000000?text=Hola%2C%20necesito%20un%20nuevo%20enlace%20de%20acceso%20a%20Gesti%C3%B3n%20Global"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 rounded-lg border border-rose-300 bg-white px-3 py-2 text-sm font-semibold text-rose-700 transition hover:bg-rose-50"
-              >
-                <Phone size={14} /> WhatsApp
+                <Mail size={14} /> Pedir un nuevo enlace por mail
               </a>
             </div>
           </div>

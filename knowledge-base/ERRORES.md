@@ -2606,3 +2606,62 @@
   ¿quién la puede `select('*')` salteando la RPC?".
 - **Fecha / módulo:** 2026-06-11 · seguridad/trackings · mig
   `0216_f4_fix_auditoria_moderacion.sql` · capitalizado en la doble auditoría §6 de F4.
+
+## E-GG-64 · El gestor externo NO podía adjuntar documentos: el upload anon a `gestor-uploads` siempre falló (2 capas de RLS) (2026-06-11)
+
+- **Síntoma:** Pablo, viendo la bandeja de moderación F4, preguntó "¿estamos seguros
+  de que el gestor puede cargar documentación y se puede visualizar acá?, porque no
+  hay ningún test con documento". Al testearlo de verdad (subir un PDF como gestor
+  anónimo por la Storage API, replicando `subirAdjuntoGestor`): el upload fallaba.
+  **Bug PRE-EXISTENTE** (la feature #154 de adjuntos del gestor **nunca funcionó**
+  para anon); no es de F4, pero F4 lo expuso porque el flujo del gestor incluye subir
+  documentación. El instinto de Pablo ("no hay test con documento") fue exacto.
+- **Causa raíz (DOS capas de RLS, ambas en `storage.objects`):**
+  1. **`permission denied for function is_staff`:** las 4 policies del bucket
+     `certificado-assets` (`staff_insert/read/update/delete_cert_assets`) se crearon
+     **`TO PUBLIC`** (en vez de `TO authenticated`) y su expresión llama
+     `private.is_staff()`. Como `TO PUBLIC` aplica a TODOS los roles (incl. `anon`) y
+     `anon` no tiene EXECUTE sobre `private.is_staff()`, **cualquier** operación anon
+     sobre `storage.objects` (cualquier bucket) abortaba al evaluar esa policy. Esto
+     rompía TODO upload anon — el del gestor y, potencialmente, uploads públicos de
+     formularios.
+  2. **`new row violates row-level security policy`:** una vez tapada (1), el INSERT
+     seguía fallando. La policy `gestor_up_anon_insert` validaba el token con un
+     `EXISTS (SELECT 1 FROM accesos_externos WHERE token = split_part(name,'/',1) …)`
+     **inline**, pero `accesos_externos` tiene RLS staff-only (sin policy para anon) →
+     el subquery, evaluado con los permisos de `anon`, **no ve ninguna fila** → el
+     `WITH CHECK` da falso → deniega. (Un subquery dentro de una policy hereda la RLS
+     de la tabla referenciada para el rol actual.)
+- **Fix:**
+  - **Mig 0217:** `ALTER POLICY staff_*_cert_assets … TO authenticated` (las 4). El
+    bucket cert-assets es staff-only; staff es `authenticated`. Anon deja de evaluar
+    `is_staff()`.
+  - **Mig 0218:** helper `public.gestor_upload_path_ok(p_name) RETURNS boolean`
+    **SECURITY DEFINER** (corre como owner → bypassa la RLS de `accesos_externos`;
+    devuelve sólo boolean; `GRANT EXECUTE … TO anon, authenticated`) que valida que
+    el 1er segmento del path sea un token de solicitud vigente. Se recreó
+    `gestor_up_anon_insert` usando el helper en vez del `EXISTS` inline.
+- **Verificación e2e (en vivo, anon real por Storage/REST API + portal):** ANTES:
+  upload → `403 permission denied for function is_staff`; tras 0217 → `403 new row
+  violates RLS`; tras 0218 → **`200`** (Key devuelta) + GET de la URL pública →
+  **`200 · application/pdf · %PDF-`**. Luego `gestor_cargar_avance` con el adjunto →
+  bandeja RPC `tracking_moderacion_pendientes` devuelve `archivos_urls` → publicar
+  (gerente) → `cliente_tracking_lineas` devuelve el adjunto → **portal del cliente
+  muestra "Descargar comprobante.pdf"** con `href` = la URL pública (200). Cadena
+  completa gestoría→gerencia→cliente con documento, en vivo.
+- **Prevención:** (a) una policy de `storage.objects` (o cualquier tabla) **`TO
+  PUBLIC`** que llame una función de schema `private` (o cualquiera sin EXECUTE para
+  anon) **rompe a TODOS los roles** que no puedan ejecutarla — toda policy con
+  `is_staff()` debe ser `TO authenticated`. (b) Una policy que valide por **subquery
+  a una tabla con RLS** debe usar un helper **SECURITY DEFINER** (el subquery hereda
+  la RLS del rol que inserta). (c) Smell mayor: una feature "anon + token" sin un
+  test e2e que ejercite el camino anon real — el sesgo "el código existe" la dio por
+  funcionando durante meses.
+- **Bonus (mismo turno, pedido de Pablo):** saqué el botón **WhatsApp** del estado de
+  error del acceso externo (su `wa.me/5491100000000` era un placeholder roto y "no es
+  el medio ideal"); queda **sólo el mail**, pre-armado con **cliente + trámite +
+  servicio** vía RPC pública mínima `gestor_acceso_ref` (mig 0219, resuelve aunque el
+  token venció) para que la gerencia identifique al toque qué link regenerar.
+- **Fecha / módulo:** 2026-06-11 · seguridad/storage · migs
+  `0217` + `0218` (+ `0219` el bonus del mail) · hallado por la pregunta de Pablo en
+  el test de adjuntos de F4.

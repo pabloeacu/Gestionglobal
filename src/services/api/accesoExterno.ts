@@ -27,6 +27,24 @@ export async function obtenerInfoSolicitudPorToken(
   return ok(data as unknown);
 }
 
+export interface AccesoRef {
+  cliente_nombre: string | null;
+  tramite_codigo: string | null;
+  servicio_nombre: string | null;
+}
+
+/** Datos mínimos NO sensibles (cliente, código de trámite, servicio) de un
+ * acceso por token. Sirve para pre-armar el mail de "pedir un nuevo enlace"
+ * cuando el token venció — resuelve aunque el token esté vencido/revocado. */
+export async function gestorAccesoRef(token: string): Promise<AccesoRef | null> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.rpc as any)('gestor_acceso_ref', {
+    p_token: token,
+  });
+  if (error || !Array.isArray(data) || data.length === 0) return null;
+  return data[0] as AccesoRef;
+}
+
 /** Devuelve una URL firmada (10 minutos) para descargar un adjunto del
  * cliente desde `form-adjuntos`. El bucket es privado, sólo el gestor con
  * token vigente accede via service en backend RPC; el frontend usa este
