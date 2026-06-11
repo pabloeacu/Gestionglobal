@@ -2373,3 +2373,58 @@ El usuario lo pidió en dos requerimientos simultáneos.
   mutaciones (sólo toggles de filtro).
 - **Commits:** `1afc509` (toolkit) · `d42c269` (Trámites) · `a4c3cc3` (Solicitudes).
 - **Fecha:** 2026-06-11.
+
+## DGG-66 · F4 · Moderación de aportes del gestor (cambio de paradigma)
+
+- **Contexto (Lista JL · F4):** "cada envío del gestor sobre un trámite será una
+  SOLICITUD DE REVISIÓN para la gerencia" que decide: (a) publicar tal cual, (b)
+  publicar editado (redacción/adjuntos), (c) publicar + cambiar estado, (d) dejar
+  interno (no visible al cliente).
+- **El flujo real (que había que interceptar):** el gestor externo, desde su
+  magic-link (`/externo/:token` → `gestorCargarAvance` → RPC `gestor_cargar_avance`),
+  insertaba una `tracking_lineas` con `categoria='gestor_avance'` y
+  `visible_cliente=true` → el trigger notificaba al cliente AL INSTANTE. O sea, se
+  publicaba directo.
+- **Decisiones de Pablo:** moderar en **AMBAS** superficies (bandeja dedicada +
+  inline en el detalle del trámite) · al gestor **sólo "recibido, en revisión"**
+  (no se le notifica el resultado) · acciones **a/b/c/d + Descartar** (5ª: soft,
+  con motivo, queda como auditoría, NO se publica ni queda como línea visible) ·
+  al editar se **PRESERVA el texto original** del gestor.
+- **Implementación (2 chunks):**
+  - **Chunk 1 (backend, mig 0215, commit `10a9a3b`):** `tracking_lineas` += columnas
+    de moderación (`moderacion_estado`/`gestor_descripcion_original`/`gestor_label`/
+    `moderada_at`/`moderada_por`/`descarte_motivo`). `gestor_cargar_avance` ahora
+    inserta `visible_cliente=false` + `moderacion_estado='pendiente'` (el cliente NO
+    se entera; `cliente_tracking_lineas` ya filtra `visible_cliente=true`, sin
+    tocarla). `tracking_moderar_gestor_avance` (staff): publicar (edita texto/
+    adjuntos opcional + estado opcional + notifica al cliente vía helper) / interno /
+    descartar. `tracking_moderacion_pendientes` (cola). Helper
+    `private.tracking_notificar_avance_cliente` extraído (email+push+notif), reusado
+    por el trigger (líneas de staff visibles) y por la RPC al publicar — sin drift;
+    el trigger reetiqueta la alerta de gestor_avance como "PENDIENTE de revisión".
+  - **Chunk 2 (frontend, commits `c6bd9fe` + `fffa318`):** tipos (`tracking_lineas`
+    en database.ts); API (`moderarGestorAvance` + `fetchModeracionPendientes`);
+    **bandeja `ModeracionPage`** (`/gerencia/moderacion` + ítem de nav, realtime);
+    **`ModeracionCard`** con las 5 acciones (Editar/Estado-select/Descartar/Interno/
+    Publicar); **sección inline** ámbar en `TrackingDetailPage` (los pendientes van
+    ahí, NO al timeline; los descartados se ocultan; los internos siguen visibles
+    para gerencia; contadores/badge/KPI/chips/PDF sobre `lineasVisibles`); **lado
+    gestor** (`AccesoExternoPage`): "Recibido · en revisión de la gerencia" + nota.
+- **§6 doble auditoría:** **backend e2e en BD** (BEGIN/ROLLBACK, impersonando
+  gerente): el aporte entra pendiente+invisible, la cola lo lista (3/3),
+  publicar→visible+publicado, interno→invisible+interno, descartar→descartado+motivo;
+  R16 (0 overloads) y R17 (0 funciones inseguras en tracking_lineas) limpios.
+  **Frontend (1 agente):** 0 bloqueantes; 2 menores fixeados (contadores sobre
+  `lineasVisibles` en vez de `data.lineas` crudo; botonera de la card deshabilitada
+  mientras una acción corre).
+- **Prueba en vivo (gerente, prod):** la **bandeja** muestra el aporte pendiente
+  (TRM + servicio + cliente + gestor_label + texto + 5 acciones); el **detalle del
+  trámite** muestra la sección inline "1 aporte pendiente" arriba de todo, con
+  contadores correctos (LÍNEAS 2 = excluye el pendiente); **Descartar** end-to-end
+  (prompt de motivo regla 13 → toast "Aporte descartado" → la sección desaparece,
+  sin notificar al cliente). Consola sin errores de app. Aporte QA sintético creado
+  y **eliminado** (0 residuo). Publicar/interno verificados por el e2e del backend
+  (no se publicó en vivo para no notificar a un cliente real); el "en revisión" del
+  gestor es cambio de copy verificado por build.
+- **Commits:** `10a9a3b` (backend) · `c6bd9fe` (frontend) · `fffa318` (§6 fixes).
+- **Fecha:** 2026-06-11.

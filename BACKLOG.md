@@ -15,7 +15,7 @@
 | **F1** | ✅ DGG-59 / E-GG-59 | "El mismo trámite está activo y no figura nada en Cuenta corriente. Ahora ya lo cerré y no quedó cargada deuda alguna en el cliente (en este caso, alumno)." |
 | **F2** | ✅ DGG-60 | "Referencia del gasto debe ser 'cliente - trámite'." |
 | **F3** | ✅ E-GG-60 | "Quedó cargado el legajo de muestra en todos los portales de clientes. Debería venir en blanco en la primer consulta o bien traerlo desde la ficha del cliente (si lo tiene cargado), y una vez que lo carga por primera vez, recién entonces recordarlo (siempre por cada cliente en particular de modo independiente)." |
-| **F4** | ⏳ PENDIENTE | Mensajes del gestor → moderación de gerencia (ver abajo). |
+| **F4** | ✅ DGG-66 | Mensajes del gestor → moderación de gerencia (ver abajo). |
 | **F5** | ✅ DGG-61 | "Faltaría info del Costo del servicio con y sin análisis de documentación. La onda es que los costos queden señalizados tal y como en los otros formularios. En este caso es así: $20.000 Consulta simple / $36.000 Consulta con análisis de documentación." |
 | **F6** | ✅ DGG-63 | "El formulario de webinar está activo y solo debería estarlo cuando hay un webinar activo. Mientras tanto, debería tener una web de 'Estate atento a nuestra próxima capacitación gratuita…'. Cuando un webinar gratuito se habilita, este formulario va a contener la info del webinar (su foto/banner, su docente a cargo, el título y la descripción)." |
 | **F7** | ✅ DGG-62 / E-GG-61 | "La solicitud de un formulario (sea por landing o por portal cliente) no se avisa en banner de gerencia. Llega por mail y por push/notificación, pero necesitamos un banner en el dashboard." |
