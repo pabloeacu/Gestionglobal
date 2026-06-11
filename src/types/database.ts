@@ -1993,9 +1993,14 @@ export type Database = {
           automatica: boolean
           created_at: string
           curso_id: string
+          descripcion: string | null
+          docente_cv_url: string | null
+          docente_foto_url: string | null
+          docente_nombre: string | null
           etiqueta: string
           examen_id: string | null
           id: string
+          modalidad: string | null
           obligatoria: boolean
           orden: number
           tipo: string
@@ -2006,9 +2011,14 @@ export type Database = {
           automatica?: boolean
           created_at?: string
           curso_id: string
+          descripcion?: string | null
+          docente_cv_url?: string | null
+          docente_foto_url?: string | null
+          docente_nombre?: string | null
           etiqueta: string
           examen_id?: string | null
           id?: string
+          modalidad?: string | null
           obligatoria?: boolean
           orden?: number
           tipo: string
@@ -2019,9 +2029,14 @@ export type Database = {
           automatica?: boolean
           created_at?: string
           curso_id?: string
+          descripcion?: string | null
+          docente_cv_url?: string | null
+          docente_foto_url?: string | null
+          docente_nombre?: string | null
           etiqueta?: string
           examen_id?: string | null
           id?: string
+          modalidad?: string | null
           obligatoria?: boolean
           orden?: number
           tipo?: string
@@ -2158,6 +2173,7 @@ export type Database = {
       }
       curso_encuentros: {
         Row: {
+          condicion_id: string | null
           created_at: string
           curso_id: string
           descripcion: string | null
@@ -2186,6 +2202,7 @@ export type Database = {
           zoom_status: string
         }
         Insert: {
+          condicion_id?: string | null
           created_at?: string
           curso_id: string
           descripcion?: string | null
@@ -2214,6 +2231,7 @@ export type Database = {
           zoom_status?: string
         }
         Update: {
+          condicion_id?: string | null
           created_at?: string
           curso_id?: string
           descripcion?: string | null

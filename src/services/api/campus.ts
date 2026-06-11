@@ -1031,7 +1031,10 @@ export async function guardarCondicionesConfig(
   const { data: actuales, error: e0 } = await supabase
     .from('curso_condiciones_config')
     .select('id')
-    .eq('curso_id', cursoId);
+    .eq('curso_id', cursoId)
+    // F10: las condiciones de 'asistencia' (módulos sincrónicos) las administra
+    // EncuentrosTab con CRUD fino; el full-sync de CondicionesTab NO las toca.
+    .neq('tipo', 'asistencia');
   if (e0) return fail('CONDICIONES_SYNC', e0.message, e0);
 
   const idsEntrantes = new Set(
@@ -1163,6 +1166,9 @@ export interface EncuentroInput {
   linkZoom?: string | null;
   /** DGG-19: 'zoom' (default, link externo) o 'webex' (widget embebido) */
   plataforma?: 'zoom' | 'webex';
+  /** F10: módulo sincrónico (condición de asistencia) al que pertenece. */
+  condicionId?: string | null;
+  duracionMin?: number;
 }
 
 export async function crearEncuentro(
@@ -1177,6 +1183,8 @@ export async function crearEncuentro(
       fecha_hora: input.fechaHora ?? null,
       link_zoom: input.linkZoom ?? null,
       plataforma: input.plataforma ?? 'zoom',
+      condicion_id: input.condicionId ?? null,
+      duracion_min: input.duracionMin ?? undefined,
     })
     .select()
     .single();
@@ -1219,6 +1227,8 @@ export async function actualizarEncuentro(
     descripcion: string | null;
     fecha_hora: string | null;
     link_zoom: string | null;
+    condicion_id: string | null;
+    duracion_min: number;
   }>,
 ): Promise<ApiResponse<CursoEncuentroRow>> {
   const { data, error } = await supabase
@@ -1234,6 +1244,112 @@ export async function actualizarEncuentro(
 export async function borrarEncuentro(id: string): Promise<ApiResponse<true>> {
   const { error } = await supabase.from('curso_encuentros').delete().eq('id', id);
   if (error) return fail('ENCUENTRO_DELETE', error.message, error);
+  return ok(true);
+}
+
+// ============================================================================
+// F10 · Módulos sincrónicos = condición de asistencia con modalidad + docente.
+// Cada uno agrupa N encuentros (curso_encuentros.condicion_id) y define cómo se
+// computa el cumplimiento (trigger backend mig 0220): unico/alternativos → ≥1
+// presente; serie → todos. Reusa el sistema de condiciones del certificado.
+// ============================================================================
+export type ModalidadSincronica = 'unico' | 'alternativos' | 'serie';
+
+export const MODALIDADES_SINCRONICAS: {
+  value: ModalidadSincronica;
+  label: string;
+  hint: string;
+}[] = [
+  { value: 'unico', label: 'Encuentro único', hint: 'Un solo encuentro; hay que asistir a ese.' },
+  { value: 'alternativos', label: 'Fechas alternativas', hint: 'Varias fechas; basta asistir a UNA.' },
+  { value: 'serie', label: 'Serie de encuentros', hint: 'Varios encuentros; hay que asistir a TODOS.' },
+];
+
+/** Un módulo sincrónico ES una fila de curso_condiciones_config (tipo='asistencia'). */
+export type ModuloSincronicoRow = CursoCondicionConfigRow;
+
+export async function listModulosSincronicos(
+  cursoId: string,
+): Promise<ApiResponse<ModuloSincronicoRow[]>> {
+  const { data, error } = await supabase
+    .from('curso_condiciones_config')
+    .select('*')
+    .eq('curso_id', cursoId)
+    .eq('tipo', 'asistencia')
+    .order('orden', { ascending: true })
+    .order('created_at', { ascending: true });
+  if (error) return fail('MODULOS_SINC_LIST', error.message, error);
+  return ok(data ?? []);
+}
+
+export interface ModuloSincronicoInput {
+  titulo: string;
+  descripcion?: string | null;
+  modalidad: ModalidadSincronica;
+  obligatoria?: boolean;
+}
+
+export async function crearModuloSincronico(
+  cursoId: string,
+  input: ModuloSincronicoInput,
+): Promise<ApiResponse<ModuloSincronicoRow>> {
+  const { data: maxRow } = await supabase
+    .from('curso_condiciones_config')
+    .select('orden')
+    .eq('curso_id', cursoId)
+    .order('orden', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const orden = ((maxRow?.orden as number | undefined) ?? -1) + 1;
+  const { data, error } = await supabase
+    .from('curso_condiciones_config')
+    .insert({
+      curso_id: cursoId,
+      tipo: 'asistencia',
+      etiqueta: input.titulo,
+      descripcion: input.descripcion ?? null,
+      modalidad: input.modalidad,
+      obligatoria: input.obligatoria ?? true,
+      automatica: true, // se auto-computa por asistencia a sus encuentros (mig 0220)
+      activa: true,
+      orden,
+    })
+    .select()
+    .single();
+  if (error) return fail('MODULO_SINC_CREATE', error.message, error);
+  return ok(data);
+}
+
+export async function actualizarModuloSincronico(
+  id: string,
+  patch: Partial<{
+    etiqueta: string;
+    descripcion: string | null;
+    modalidad: ModalidadSincronica;
+    docente_nombre: string | null;
+    docente_foto_url: string | null;
+    docente_cv_url: string | null;
+    obligatoria: boolean;
+    activa: boolean;
+  }>,
+): Promise<ApiResponse<ModuloSincronicoRow>> {
+  const { data, error } = await supabase
+    .from('curso_condiciones_config')
+    .update(patch)
+    .eq('id', id)
+    .select()
+    .single();
+  if (error) return fail('MODULO_SINC_UPDATE', error.message, error);
+  return ok(data);
+}
+
+/** Borra el módulo. Sus encuentros quedan con condicion_id=NULL (FK ON DELETE SET NULL). */
+export async function borrarModuloSincronico(id: string): Promise<ApiResponse<true>> {
+  const { error } = await supabase
+    .from('curso_condiciones_config')
+    .delete()
+    .eq('id', id);
+  if (error) return fail('MODULO_SINC_DELETE', error.message, error);
   return ok(true);
 }
 
@@ -1838,7 +1954,10 @@ export type CampusMediaScope =
   // del webinar y las fotos del roster de docentes. R20: el upload pasa por
   // uploadCampusMedia → safeStorageKey.
   | 'webinar-banner'
-  | 'webinar-docente';
+  | 'webinar-docente'
+  // F10 · docente del módulo sincrónico (foto + CV), patrón módulos DGG-50/51.
+  | 'encuentro-docente'
+  | 'encuentro-docente-cv';
 
 /**
  * Sube una imagen al bucket público `campus-media` y devuelve la URL pública.

@@ -38,7 +38,11 @@ export function CondicionesTab({
       return;
     }
     setItems(
-      res.data.map((c) => ({
+      res.data
+        // F10: las condiciones de 'asistencia' (módulos sincrónicos) se administran
+        // en la pestaña Encuentros (con su modalidad + docente + fechas), no acá.
+        .filter((c) => c.tipo !== 'asistencia')
+        .map((c) => ({
         _key: c.id,
         id: c.id,
         tipo: c.tipo as CondicionTipo,
@@ -137,6 +141,12 @@ export function CondicionesTab({
           Definí qué tiene que cumplir el alumno para recibir el certificado. La
           condición de examen se acredita sola al aprobar; el resto las tildás
           vos en la pestaña de gestión.
+        </p>
+        <p className="mb-4 -mt-2 rounded-lg bg-brand-cyan/5 px-3 py-2 text-xs text-brand-muted">
+          La <strong className="text-brand-ink">asistencia a encuentros</strong> se
+          configura en la pestaña <strong className="text-brand-ink">Encuentros</strong>{' '}
+          (cada módulo sincrónico con su modalidad —único / alternativas / serie— y su
+          docente); aparece sola como condición del certificado.
         </p>
 
         {items.length === 0 ? (
@@ -252,7 +262,7 @@ export function CondicionesTab({
         )}
 
         <div className="mt-4 flex flex-wrap items-center gap-2">
-          {CONDICION_TIPOS.map((t) => (
+          {CONDICION_TIPOS.filter((t) => t !== 'asistencia').map((t) => (
             <Button
               key={t}
               variant="secondary"
