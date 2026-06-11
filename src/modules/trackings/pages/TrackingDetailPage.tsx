@@ -242,14 +242,18 @@ export function TrackingDetailPage() {
   // F4 (DGG-66): los aportes del gestor PENDIENTES van a la sección de
   // moderación (no al timeline); los descartados se ocultan. El resto
   // (publicados, internos, líneas normales) se muestran en el timeline.
-  const lineasFiltradas = useMemo<TrackingLineaRow[]>(() => {
-    if (!data) return [];
-    const base = data.lineas.filter(
+  // Líneas que SÍ van al timeline (excluye pendientes de moderación y
+  // descartados). Base para contadores/chips/export → coherente con lo listado.
+  const lineasVisibles = useMemo<TrackingLineaRow[]>(
+    () => (data?.lineas ?? []).filter(
       (l) => l.moderacion_estado !== 'pendiente' && l.moderacion_estado !== 'descartado',
-    );
-    if (!filtroCategoria) return base;
-    return base.filter((l) => l.categoria === filtroCategoria);
-  }, [data, filtroCategoria]);
+    ),
+    [data],
+  );
+  const lineasFiltradas = useMemo<TrackingLineaRow[]>(() => {
+    if (!filtroCategoria) return lineasVisibles;
+    return lineasVisibles.filter((l) => l.categoria === filtroCategoria);
+  }, [lineasVisibles, filtroCategoria]);
 
   // F4 · aportes del gestor pendientes de moderación en ESTE trámite.
   const pendientesModeracion = useMemo<ModeracionPendiente[]>(() => {
@@ -385,7 +389,7 @@ export function TrackingDetailPage() {
             : []),
         ],
         kpis: [
-          { label: 'Líneas', value: String(data.lineas.length), tone: 'cyan' },
+          { label: 'Líneas', value: String(lineasVisibles.length), tone: 'cyan' },
           { label: 'Adjuntos', value: String(adjuntosTodos.length), tone: 'amber' },
           { label: 'Pendientes', value: String(lineasPendientes), tone: 'rose' },
           { label: 'Días abiertos', value: String(diasAbiertos), tone: 'ink' },
@@ -423,7 +427,7 @@ export function TrackingDetailPage() {
               String(l.archivos_urls?.length ?? 0),
           },
         ],
-        rows: [...data.lineas].sort(
+        rows: [...lineasVisibles].sort(
           (a, b) =>
             new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
         ),
@@ -517,7 +521,7 @@ export function TrackingDetailPage() {
       key: 'lineas',
       label: 'Líneas de avance',
       icon: <ListChecks className="h-4 w-4" />,
-      badge: data.lineas.length,
+      badge: lineasVisibles.length,
     },
     {
       key: 'documentacion',
@@ -712,7 +716,7 @@ export function TrackingDetailPage() {
 
         {/* KPI strip */}
         <div className="relative mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">
-          <KpiTile label="Líneas" value={data.lineas.length} icon={<ListChecks />} />
+          <KpiTile label="Líneas" value={lineasVisibles.length} icon={<ListChecks />} />
           <KpiTile label="Adjuntos" value={adjuntosTodos.length} icon={<Paperclip />} />
           <KpiTile label="Pendientes" value={lineasPendientes} icon={<Clock />} />
           <KpiTile
@@ -816,10 +820,10 @@ export function TrackingDetailPage() {
                     : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300',
                 )}
               >
-                Todas ({data.lineas.length})
+                Todas ({lineasVisibles.length})
               </button>
               {data.categorias_disponibles.map((c) => {
-                const count = data.lineas.filter((l) => l.categoria === c.slug).length;
+                const count = lineasVisibles.filter((l) => l.categoria === c.slug).length;
                 if (count === 0) return null;
                 return (
                   <button

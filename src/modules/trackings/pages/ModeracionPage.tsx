@@ -170,24 +170,25 @@ export function ModeracionCard({ item, onResuelto }: { item: ModeracionPendiente
         <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
           <button
             type="button"
+            disabled={busy !== null}
             onClick={() => { if (editando) { setTexto(item.descripcion); setArchivos(item.archivos_urls ?? []); } setEditando((v) => !v); }}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-brand-muted transition hover:border-brand-cyan hover:text-brand-cyan"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-brand-muted transition hover:border-brand-cyan hover:text-brand-cyan disabled:opacity-50"
           >
             <Pencil size={13} /> {editando ? 'Cancelar edición' : 'Editar'}
           </button>
 
           <div className="ml-auto flex flex-wrap items-center gap-2">
-            <Select value={estado} onChange={(e) => setEstado(e.target.value as '' | TramiteEstado)} className="h-9 w-auto py-1 text-xs">
+            <Select value={estado} disabled={busy !== null} onChange={(e) => setEstado(e.target.value as '' | TramiteEstado)} className="h-9 w-auto py-1 text-xs" aria-label="Cambiar estado del trámite al publicar">
               <option value="">Estado: sin cambio</option>
               {TRAMITE_ESTADOS.map((e) => <option key={e} value={e}>Pasar a: {TRAMITE_ESTADO_LABEL[e]}</option>)}
             </Select>
-            <Button variant="ghost" onClick={onDescartar} loading={busy === 'descartar'} className="text-red-600 hover:bg-red-50">
+            <Button variant="ghost" onClick={onDescartar} loading={busy === 'descartar'} disabled={busy !== null} className="text-red-600 hover:bg-red-50">
               <Trash2 size={14} /> Descartar
             </Button>
-            <Button variant="secondary" onClick={onInterno} loading={busy === 'interno'}>
+            <Button variant="secondary" onClick={onInterno} loading={busy === 'interno'} disabled={busy !== null}>
               <EyeOff size={14} /> Interno
             </Button>
-            <Button onClick={() => void ejecutar('publicar')} loading={busy === 'publicar'}>
+            <Button onClick={() => void ejecutar('publicar')} loading={busy === 'publicar'} disabled={busy !== null}>
               <Send size={14} /> {editado || estado ? 'Publicar (editado)' : 'Publicar'}
             </Button>
           </div>
