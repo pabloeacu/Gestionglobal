@@ -2462,3 +2462,59 @@ El usuario lo pidió en dos requerimientos simultáneos.
   validaciones rechazan banana/vacío 22023; publicar sin regresión; R16 0 overloads),
   build limpio, y portal del cliente re-chequeado en vivo (sigue mostrando los 2).
 - **Fecha:** 2026-06-11.
+
+## DGG-68 · F10 · Encuentros sincrónicos como MÓDULOS (docente + 3 modalidades de condición) — última de la Lista JL
+
+- **Qué (verbatim JL):** que los encuentros sincrónicos sean "módulos" con **docente
+  (nombre + foto + CV, como los módulos asincrónicos DGG-50/51)** y que se pueda
+  configurar la condición de asistencia en **3 modalidades**: **encuentro único**
+  (presente en ese), **encuentros alternativos** (presente en ≥1 del bloque) o
+  **serie/bloque** (presente en TODOS). + poder **editar encuentros viejos** (F9-ter).
+- **Aclaración de Pablo (clave para el modelo):** un curso puede tener VARIOS módulos
+  sincrónicos, cada uno con su modalidad; el "presente" se toma igual que hoy (enlace
+  10 min antes + Zoom devuelve asistencia); lo que cambia es cómo se computa "condición
+  cumplida" para el certificado.
+- **Modelo (reusa el sistema de condiciones, sin tocar el gate del cert):** un **módulo
+  sincrónico = una fila de `curso_condiciones_config` tipo='asistencia'** enriquecida
+  con `modalidad` + `docente_nombre/foto_url/cv_url` + `descripcion`; cada
+  `curso_encuentro` apunta a su módulo vía `condicion_id`. La condición se **auto-computa**
+  (triggers SECURITY DEFINER, mig 0220): único/alternativos → ≥1 presente; serie →
+  todos. El gate de emisión (mig 0139) lee `matricula_condiciones.cumplida` igual que
+  cualquier condición → se integra sin cambios. **Decisión de coexistencia:** `asistencia`
+  se administra SÓLO en la pestaña Encuentros (CRUD fino); `CondicionesTab` la excluye
+  del full-sync (`.neq('tipo','asistencia')` + filtro en load/botones/select) para no
+  pisarla.
+- **3 chunks:** (1) backend mig **0220** (columnas + condicion_id + `eval_asistencia_cumplida`
+  + `recompute_asistencia` + 2 triggers; smoke e2e). (2) gerencia: `campus.ts` CRUD de
+  módulos + encuentros extendidos; `EncuentrosTab` reescrito (agrupa por módulo; docente
+  foto+CV; modalidad; obligatorio; **editar** encuentros; reasignar sueltos; Zoom/Webex+
+  asistencia intactos); `CondicionesTab` cede asistencia. (3) alumno: `EncuentrosEnVivoAlumno`
+  agrupa por módulo con docente + requisito por modalidad; el cert auto-computa.
+- **Pipeline de asistencia automática:** YA existe en código (edge fns `zoom-webhook`/
+  `webex-webhook` + upsert mig 0047 en `curso_encuentro_asistencias`); F10 construye
+  encima. **Nunca se ejercitó con sesión real** (0 asistencias) → pendiente: test e2e con
+  una reunión Zoom real con un participante (no se pudo simular acá).
+- **Doble auditoría §6 (3 agentes + e2e) → 3 hallazgos, fixeados en el mismo chunk:**
+  - **Alumno (crítico, latente):** el requisito ("asistí a 1 de N / a los N") contaba
+    sólo los encuentros VISIBLES (con sala), no TODOS los del módulo como el backend →
+    un *serie* con un encuentro sin sala sub-reportaba y el alumno creía cumplir sin
+    certificar (anti-patrón **R19**). Fix: contar sobre todos los encuentros del módulo.
+    **Verificado en vivo:** serie con 3 encuentros (2 con sala, 1 sin) muestra "los **3**
+    encuentros", no 2.
+  - **Gerencia (residual):** el `<Select>` de tipo por-fila de `CondicionesTab` aún
+    ofrecía 'asistencia' → crearía un módulo fantasma sin modalidad. Fix: filtrado +
+    defensa en `guardarCondicionesConfig`.
+  - **Backend (R7):** `tg_asistencia_recompute`/`tg_encuentro_cond_recompute` sin REVOKE
+    de anon/authenticated → mig **0221** (ACL final `{postgres,service_role}`).
+- **Prueba en vivo (alumno QA por SQL, prod):** curso con 3 módulos (único/alternativos/
+  serie), foto+"Con Dra. Castro" en los 3, requisitos correctos. **Las 3 variables de
+  condición chequeadas:** único 1/1→✅; alternativos 1/2→✅ (basta 1); serie 1/2→✗
+  pendiente, 2/2→✅ (todas). Cert: 2/3 pendiente → 3/3 → **auto-emitido** ("¡Listo!
+  Descargá tu certificado", código GG-QAFE-...). Consola sólo ruido de extensión. QA
+  **eliminado** (residuo 0). **Nota:** la prueba en vivo de la UI de GERENCIA (crear/
+  editar módulos) quedó pendiente de sesión de gerente (no creo gerentes QA, regla); el
+  modelo + la consunción del alumno + las condiciones quedaron verificados e2e, y el
+  código de gerencia §6-auditado + build limpio.
+- **Commits:** `2796213` (backend) · `2fd7b6e` (gerencia) · `e324edf` (alumno) ·
+  `76d413c` (§6 fixes). Migs 0220 + 0221.
+- **Fecha:** 2026-06-11. **🏁 Lista JL COMPLETA** (F1, F3, F2, F5, F7, F6, F8, F4, F10).
