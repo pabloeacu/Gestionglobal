@@ -82,6 +82,7 @@ const CampusWebinarPage = lazy(() => import('@/modules/webinars-publico/CampusWe
 const SolicitudesListPage = lazy(() => import('@/modules/solicitudes').then(m => ({ default: m.SolicitudesListPage })));
 const SolicitudDetailPage = lazy(() => import('@/modules/solicitudes').then(m => ({ default: m.SolicitudDetailPage })));
 const TrackingDetailPage = lazy(() => import('@/modules/trackings').then(m => ({ default: m.TrackingDetailPage })));
+const ModeracionPage = lazy(() => import('@/modules/trackings/pages/ModeracionPage').then(m => ({ default: m.ModeracionPage })));
 const AgendaPage = lazy(() => import('@/modules/agenda').then(m => ({ default: m.AgendaPage })));
 const AccesoExternoPage = lazy(() => import('@/modules/acceso-externo').then(m => ({ default: m.AccesoExternoPage })));
 const PartnerPortalPage = lazy(() => import('@/modules/partner-portal/pages/PartnerPortalPage').then(m => ({ default: m.PartnerPortalPage })));
@@ -326,6 +327,8 @@ export function App() {
             element={<TramiteLegacyRedirect />}
           />
           <Route path="trackings/:id" element={<TrackingDetailPage />} />
+          {/* F4 (DGG-66) · bandeja de moderación de aportes del gestor */}
+          <Route path="moderacion" element={<ModeracionPage />} />
           <Route path="agenda" element={<AgendaPage />} />
           {/* Tab "Vencimientos" anidado en la Agenda (unificación temporal). */}
           <Route path="agenda/vencimientos" element={<AgendaPage initialTab="vencimientos" />} />

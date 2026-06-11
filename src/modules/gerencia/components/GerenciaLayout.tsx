@@ -18,6 +18,7 @@ import {
   ChevronDown,
   Command as CommandIcon,
   Megaphone,
+  ShieldCheck,
 } from 'lucide-react';
 import { BrandMark } from '@/components/brand/BrandMark';
 import { IsoMark } from '@/components/brand/IsoMark';
@@ -80,6 +81,7 @@ const NAV: NavGroup[] = [
   },
   { label: 'Clientes', to: '/gerencia/clientes', icon: Users },
   { label: 'Trámites', to: '/gerencia/tramites', icon: Briefcase },
+  { label: 'Moderación', to: '/gerencia/moderacion', icon: ShieldCheck },
   { label: 'Agenda', to: '/gerencia/agenda', icon: CalendarDays },
   {
     label: 'Facturación',

@@ -593,6 +593,56 @@ export async function editarAvanceLinea(
   return ok(true);
 }
 
+// ============================================================================
+// F4 (DGG-66) · Moderación de aportes del gestor externo.
+// ============================================================================
+export type ModeracionAccion = 'publicar' | 'interno' | 'descartar';
+
+export interface ModerarGestorAvanceInput {
+  descripcion?: string | null;   // si se provee, reemplaza el texto (editar, b)
+  archivosUrls?: string[] | null; // si se provee, reemplaza los adjuntos (b)
+  estadoAsociado?: string | null; // al publicar, cambia el estado del trámite (c)
+  motivo?: string | null;         // motivo de descarte (e)
+}
+
+/** Modera un aporte del gestor pendiente: publicar (a/b/c) / interno (d) /
+ *  descartar (e). Sólo gerencia (la RPC valida private.is_staff). */
+export async function moderarGestorAvance(
+  lineaId: string,
+  accion: ModeracionAccion,
+  input: ModerarGestorAvanceInput = {},
+): Promise<ApiResponse<true>> {
+  const { error } = await supabase.rpc('tracking_moderar_gestor_avance' as never, {
+    p_linea_id: lineaId,
+    p_accion: accion,
+    p_descripcion: input.descripcion ?? null,
+    p_archivos_urls: input.archivosUrls ?? null,
+    p_estado_asociado: input.estadoAsociado ?? null,
+    p_motivo: input.motivo ?? null,
+  } as never);
+  if (error) return fail('TRACKING_MODERAR', error.message, error);
+  return ok(true as const);
+}
+
+export interface ModeracionPendiente {
+  linea_id: string;
+  tramite_id: string;
+  tramite_codigo: string;
+  servicio_nombre: string | null;
+  cliente_nombre: string | null;
+  gestor_label: string | null;
+  descripcion: string;
+  archivos_urls: string[];
+  created_at: string;
+}
+
+/** Cola de aportes del gestor pendientes de moderación (todos los trámites). */
+export async function fetchModeracionPendientes(): Promise<ApiResponse<ModeracionPendiente[]>> {
+  const { data, error } = await supabase.rpc('tracking_moderacion_pendientes' as never);
+  if (error) return fail('TRACKING_MODERACION_PENDIENTES', error.message, error);
+  return ok((data ?? []) as unknown as ModeracionPendiente[]);
+}
+
 /** Posterga la alarma de una línea de tracking N días hábiles. */
 export async function postergarAlarmaLinea(
   lineaId: string,

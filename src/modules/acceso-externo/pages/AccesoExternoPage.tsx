@@ -626,7 +626,7 @@ function PanelGestor({ token }: { token: string }) {
       toast.error(humanizeError(res.error));
       return;
     }
-    toast.success('Avance enviado al cliente');
+    toast.success('Aporte enviado · queda en revisión de la gerencia');
     setEnviado(true);
     setDescripcion('');
     setAdjuntos([]);
@@ -825,16 +825,19 @@ function PanelGestor({ token }: { token: string }) {
           )}
         </button>
         {enviado && (
-          <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">
-            <CheckCircle2 size={12} /> Recibido por el cliente
+          <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">
+            <CheckCircle2 size={12} /> Recibido · en revisión de la gerencia
           </div>
         )}
       </div>
+      <p className="mt-2 text-[11px] text-brand-muted">
+        Tus aportes pasan por una revisión de la gerencia antes de publicarse al cliente.
+      </p>
 
       {/* Timeline */}
       <div className="mt-6 border-t border-slate-200 pt-4">
         <div className="kicker mb-3 text-brand-muted">
-          Historial visible al cliente
+          Historial publicado (visible al cliente)
         </div>
         {loadingAvances ? (
           <div className="flex items-center gap-2 text-xs text-brand-muted">

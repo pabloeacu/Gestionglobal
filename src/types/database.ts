@@ -6039,9 +6039,15 @@ export type Database = {
           autor_id: string | null
           categoria: string
           created_at: string
+          descarte_motivo: string | null
           descripcion: string
           estado_asociado: string | null
+          gestor_descripcion_original: string | null
+          gestor_label: string | null
           id: string
+          moderacion_estado: string | null
+          moderada_at: string | null
+          moderada_por: string | null
           postergada_motivo: string | null
           postergada_veces: number
           tramite_id: string
@@ -6054,9 +6060,15 @@ export type Database = {
           autor_id?: string | null
           categoria: string
           created_at?: string
+          descarte_motivo?: string | null
           descripcion: string
           estado_asociado?: string | null
+          gestor_descripcion_original?: string | null
+          gestor_label?: string | null
           id?: string
+          moderacion_estado?: string | null
+          moderada_at?: string | null
+          moderada_por?: string | null
           postergada_motivo?: string | null
           postergada_veces?: number
           tramite_id: string
@@ -6069,9 +6081,15 @@ export type Database = {
           autor_id?: string | null
           categoria?: string
           created_at?: string
+          descarte_motivo?: string | null
           descripcion?: string
           estado_asociado?: string | null
+          gestor_descripcion_original?: string | null
+          gestor_label?: string | null
           id?: string
+          moderacion_estado?: string | null
+          moderada_at?: string | null
+          moderada_por?: string | null
           postergada_motivo?: string | null
           postergada_veces?: number
           tramite_id?: string

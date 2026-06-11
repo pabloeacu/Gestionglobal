@@ -40,6 +40,7 @@ import {
   Settings,
   Share2,
   Sparkles,
+  ShieldCheck,
   Timer,
 } from 'lucide-react';
 import { toast } from '@/lib/toast';
@@ -73,7 +74,9 @@ import {
   type TrackingDetail,
   type TrackingLineaRow,
   type TrackingVencimientoLigado,
+  type ModeracionPendiente,
 } from '@/services/api/trackings';
+import { ModeracionCard } from './ModeracionPage';
 import { LineaTrackingCard } from '../components/LineaTrackingCard';
 import { LineasTimeline } from '../components/LineasTimeline';
 import { AgregarLineaDrawer } from '../components/AgregarLineaDrawer';
@@ -236,11 +239,35 @@ export function TrackingDetailPage() {
     return data.estados_disponibles.find((e) => e.slug === data.estado) ?? null;
   }, [data]);
 
+  // F4 (DGG-66): los aportes del gestor PENDIENTES van a la sección de
+  // moderación (no al timeline); los descartados se ocultan. El resto
+  // (publicados, internos, líneas normales) se muestran en el timeline.
   const lineasFiltradas = useMemo<TrackingLineaRow[]>(() => {
     if (!data) return [];
-    if (!filtroCategoria) return data.lineas;
-    return data.lineas.filter((l) => l.categoria === filtroCategoria);
+    const base = data.lineas.filter(
+      (l) => l.moderacion_estado !== 'pendiente' && l.moderacion_estado !== 'descartado',
+    );
+    if (!filtroCategoria) return base;
+    return base.filter((l) => l.categoria === filtroCategoria);
   }, [data, filtroCategoria]);
+
+  // F4 · aportes del gestor pendientes de moderación en ESTE trámite.
+  const pendientesModeracion = useMemo<ModeracionPendiente[]>(() => {
+    if (!data) return [];
+    return data.lineas
+      .filter((l) => l.categoria === 'gestor_avance' && l.moderacion_estado === 'pendiente')
+      .map((l) => ({
+        linea_id: l.id,
+        tramite_id: data.id,
+        tramite_codigo: data.codigo ?? '',
+        servicio_nombre: data.servicio?.nombre ?? data.titulo ?? null,
+        cliente_nombre: data.administracion?.nombre ?? null,
+        gestor_label: l.gestor_label,
+        descripcion: l.descripcion,
+        archivos_urls: l.archivos_urls ?? [],
+        created_at: l.created_at,
+      }));
+  }, [data]);
 
   // DGG-41: además de archivos_urls de líneas, traer los items del flujo
   // PedidoDoc (cliente sube docs vía bucket privado). Se cargan paralelamente
@@ -534,6 +561,24 @@ export function TrackingDetailPage() {
           </div>
         </div>
       )}
+      {/* F4 (DGG-66) · aportes del gestor PENDIENTES de revisión (inline) */}
+      {pendientesModeracion.length > 0 && (
+        <section className="rounded-3xl border border-amber-300 bg-amber-50/50 p-4 sm:p-5">
+          <div className="mb-3 flex items-center gap-2">
+            <ShieldCheck size={18} className="text-amber-700" />
+            <h2 className="font-display text-lg font-bold text-brand-ink">
+              {pendientesModeracion.length} aporte{pendientesModeracion.length === 1 ? '' : 's'} de gestoría
+              {' '}pendiente{pendientesModeracion.length === 1 ? '' : 's'} de revisión
+            </h2>
+          </div>
+          <ul className="space-y-3">
+            {pendientesModeracion.map((p) => (
+              <li key={p.linea_id}><ModeracionCard item={p} onResuelto={() => void load()} /></li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       {/* Header premium */}
       <header className="relative overflow-hidden rounded-3xl border border-slate-200 bg-gradient-to-br from-white via-cyan-50/40 to-white p-6">
         <TrianglesAccent position="top-right" />
