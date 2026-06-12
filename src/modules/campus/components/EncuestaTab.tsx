@@ -9,6 +9,7 @@ import {
   ClipboardList,
   Star,
   CheckSquare,
+  ListChecks,
   AlignLeft,
   Hash,
   ChevronUp,
@@ -217,11 +218,13 @@ function EncuestaConfig({
           ? '¿Cómo calificarías el curso en general?'
           : tipo === 'estrellas'
             ? 'Calidad del material'
-            : tipo === 'multiple'
+            : tipo === 'multiple' || tipo === 'casillas'
               ? '¿Qué fue lo que más te gustó?'
               : '¿Qué mejorarías?',
       required: true,
-      ...(tipo === 'multiple' ? { opciones: ['Opción A', 'Opción B', 'Opción C'] } : {}),
+      ...(tipo === 'multiple' || tipo === 'casillas'
+        ? { opciones: ['Opción A', 'Opción B', 'Opción C'] }
+        : {}),
     };
     setDraft((d) => ({ preguntas: [...d.preguntas, nueva] }));
   }
@@ -328,6 +331,7 @@ function EncuestaConfig({
           <PaletteItem icon={<Hash size={14} />} label="Escala 1 a 10" onClick={() => addPregunta('escala_10')} />
           <PaletteItem icon={<Star size={14} />} label="Estrellas (1-5)" onClick={() => addPregunta('estrellas')} />
           <PaletteItem icon={<CheckSquare size={14} />} label="Múltiple opción" onClick={() => addPregunta('multiple')} />
+          <PaletteItem icon={<ListChecks size={14} />} label="Casillas (varias)" onClick={() => addPregunta('casillas')} />
           <PaletteItem icon={<AlignLeft size={14} />} label="Texto libre" onClick={() => addPregunta('texto')} />
         </div>
       </section>
@@ -487,7 +491,7 @@ function PreguntaCard({
           onChange={(e) => onPatch({ ayuda: e.target.value || undefined })}
         />
       </Field>
-      {pregunta.tipo === 'multiple' && (
+      {(pregunta.tipo === 'multiple' || pregunta.tipo === 'casillas') && (
         <Field label="Opciones" hint="Una por línea. Mínimo 2.">
           <Textarea
             value={(pregunta.opciones ?? []).join('\n')}
@@ -860,6 +864,35 @@ function StatCard({
       </div>
     );
   }
+  if (pregunta.tipo === 'casillas') {
+    const counts: Record<string, number> = {};
+    for (const v of values) {
+      const arr = Array.isArray(v) ? v : [v];
+      for (const item of arr) {
+        const k = String(item);
+        counts[k] = (counts[k] ?? 0) + 1;
+      }
+    }
+    const ordered = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+    return (
+      <div className="rounded-xl border border-slate-200 bg-white p-3">
+        <p className="text-xs font-semibold text-brand-ink">{pregunta.titulo}</p>
+        <ul className="mt-1 space-y-0.5 text-xs">
+          {ordered.map(([k, c]) => (
+            <li key={k} className="flex items-center justify-between gap-2">
+              <span className="truncate text-brand-ink/90">{k}</span>
+              <span className="tabular-nums font-semibold text-brand-cyan">
+                {c} ({Math.round((c * 100) / total)}%)
+              </span>
+            </li>
+          ))}
+        </ul>
+        <p className="mt-1 text-[10px] text-brand-muted">
+          {total} respuesta(s) · multi
+        </p>
+      </div>
+    );
+  }
   if (pregunta.tipo === 'multiple') {
     const counts: Record<string, number> = {};
     for (const v of values) {
@@ -914,6 +947,10 @@ function renderRespuesta(tipo: PreguntaTipo, v: unknown): React.ReactNode {
   }
   if (tipo === 'escala_10') {
     return <strong>{Number(v)}/10</strong>;
+  }
+  if (tipo === 'casillas') {
+    const arr = Array.isArray(v) ? v : [v];
+    return arr.map((x) => String(x)).join(', ');
   }
   return String(v);
 }

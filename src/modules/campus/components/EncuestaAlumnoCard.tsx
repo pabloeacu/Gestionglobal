@@ -389,6 +389,37 @@ function PreguntaRunner({
             })}
           </div>
         )}
+        {pregunta.tipo === 'casillas' && (
+          <div className="grid gap-2 sm:grid-cols-2">
+            {(pregunta.opciones ?? []).map((op) => {
+              const arr = Array.isArray(valor) ? (valor as string[]) : [];
+              const checked = arr.includes(op);
+              return (
+                <label
+                  key={op}
+                  className={cn(
+                    'flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2 text-sm transition',
+                    checked
+                      ? 'border-brand-cyan bg-brand-cyan-pale/30 text-brand-ink'
+                      : 'border-slate-200 bg-white text-brand-muted hover:border-brand-cyan/40',
+                  )}
+                >
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() =>
+                      onChange(
+                        checked ? arr.filter((x) => x !== op) : [...arr, op],
+                      )
+                    }
+                    className="rounded text-brand-cyan"
+                  />
+                  <span>{op}</span>
+                </label>
+              );
+            })}
+          </div>
+        )}
         {pregunta.tipo === 'texto' && (
           <Textarea
             rows={3}

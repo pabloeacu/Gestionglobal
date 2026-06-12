@@ -11,14 +11,19 @@ export type CursoEncuestaRespuestaRow = Database['public']['Tables']['curso_encu
 // ----------------------------------------------------------------------------
 // Schema de la encuesta (en columna `schema` jsonb)
 // ----------------------------------------------------------------------------
-export type PreguntaTipo = 'escala_10' | 'estrellas' | 'multiple' | 'texto';
+export type PreguntaTipo =
+  | 'escala_10'
+  | 'estrellas'
+  | 'multiple'
+  | 'casillas'
+  | 'texto';
 
 export interface PreguntaDef {
   id: string;          // uuid generado en cliente para identificar respuestas
   tipo: PreguntaTipo;
   titulo: string;      // "¿Cómo calificarías el material?"
   ayuda?: string;      // hint opcional debajo del título
-  opciones?: string[]; // sólo para 'multiple'
+  opciones?: string[]; // sólo para 'multiple' y 'casillas'
   required?: boolean;
 }
 
@@ -31,6 +36,7 @@ export const PREGUNTA_TIPO_LABEL: Record<PreguntaTipo, string> = {
   escala_10: 'Escala 1 a 10',
   estrellas: 'Estrellas (1 a 5)',
   multiple: 'Múltiple opción',
+  casillas: 'Casillas (varias)',
   texto: 'Texto libre',
 };
 
