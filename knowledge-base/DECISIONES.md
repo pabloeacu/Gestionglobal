@@ -2680,3 +2680,40 @@ El usuario lo pidió en dos requerimientos simultáneos.
   bibliografía y no clickeás "Agregar" (no se limpia el storage); sin validación real de MIME
   en uploads (heredado); sweep de los 2 modales con el bug de portal (E-GG-65).
 - **Fecha:** 2026-06-12. Commits `74eacd3` (portal) + `4904f97` (banco+R20). Mig 0231.
+
+## DGG-72 · "Material extra" por módulo (links/archivos, visible al alumno si tiene contenido)
+
+- **Pedido (Pablo):** cada módulo, además de la lista de clases, suma una sección
+  **"Material extra"** que opera como la bibliografía pero a nivel MÓDULO: el gerente carga
+  entradas con URL **o** archivo (cualquier tipo). Al alumno la sección aparece **sólo si el
+  módulo tiene ≥1 ítem** — "es parte del módulo siempre pero visible sólo si posee contenido".
+- **Datos (mig 0232):** tabla `curso_modulo_material` (FK `curso_modulos` ON DELETE CASCADE;
+  `titulo`/`url`/`archivo_url`/`descripcion`/`created_at`, naming espejo de `curso_bibliografia`).
+  **Sin** campos de publicación (a diferencia de bibliografía): la visibilidad la decide sólo el
+  "≥1 ítem". RLS espejando `curso_clases` — SELECT `is_staff() OR curso_matriculado(subquery
+  módulo→curso)`, CUD staff-only; GRANT explícito (R6), índice FK (R11), single-table sin RPC (R5).
+- **API:** `getCurso` anida `material` por módulo (embedded `curso_modulo_material(*)`, ordenado
+  por created_at) igual que `clases`; `crear/actualizar/borrarMaterialModulo`; scope
+  `CampusMediaScope` `'modulo-material'` (reusa bucket campus-media + safeStorageKey, R20).
+- **Gerente (ContenidoTab):** `MaterialExtraSection` + `MaterialItem` por módulo (copia de
+  Bibliografía sin autor/publicación; valida título + url-o-archivo; `accept="*/*"` para "archivos
+  varios", ≤50 MB; R13 useConfirm para borrar).
+- **Alumno (CursoDetalleAlumnoPage):** sección compacta dentro del acordeón del módulo, guardada
+  por `{open && m.material.length > 0}`; se aflojó el filtro que descartaba módulos sin clases
+  (`clases.length>0 || material.length>0`) para que un módulo con sólo material igual aparezca.
+- **§6 (3 agentes + e2e) → 1 GAP crítico fixeado en el mismo chunk:** la §6 detectó que
+  **`curso_duplicar` (mig 0222) NO clonaba `curso_modulo_material`** (la tabla es posterior al clon,
+  que enumera tablas explícitas) → un curso duplicado perdía todo el material extra de sus módulos,
+  rompiendo la promesa de DGG-69. **Fix mig 0233:** paso 3b que clona el material remapeando
+  modulo_id vía `_clone_cmap` (CREATE OR REPLACE, firma intacta, R16 smoke = 0 overloads). **Smoke
+  R18:** curso con 2 materiales → duplicar → el clon trae los 2 (+ 19 clases). Menores notados (no
+  bloqueantes): blobs huérfanos en storage al borrar (heredado de bibliografía); bucket público +
+  accept */* (upload staff-only/trusted); copy del panel principal si un curso fuera 100% sin clases
+  pero con material (caso borde improbable).
+- **e2e RLS + live:** matriculado VE el material (1), otro alumno NO (0), alumno no-staff no puede
+  INSERT (42501) — todo en tx auto-revertida. Live (gerente, prod): la sección "Material extra"
+  renderiza en el módulo, agregar un material persiste en BD y el editor lo muestra (prueba que
+  getCurso anida `material` en vivo); limpiado, residuo 0. El render visual del lado alumno se
+  verificó por e2e (RLS) + el mismo getCurso + revisión estática de 2 agentes (NO se hizo
+  browser-as-alumno: requiere sesión de alumno que no auto-aprovisiono).
+- **Fecha:** 2026-06-12. Migs 0232 (tabla) + 0233 (Duplicar). Commits `68549bc` + `e201144`.
