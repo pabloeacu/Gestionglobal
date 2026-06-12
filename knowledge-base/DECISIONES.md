@@ -2713,7 +2713,10 @@ El usuario lo pidió en dos requerimientos simultáneos.
 - **e2e RLS + live:** matriculado VE el material (1), otro alumno NO (0), alumno no-staff no puede
   INSERT (42501) — todo en tx auto-revertida. Live (gerente, prod): la sección "Material extra"
   renderiza en el módulo, agregar un material persiste en BD y el editor lo muestra (prueba que
-  getCurso anida `material` en vivo); limpiado, residuo 0. El render visual del lado alumno se
-  verificó por e2e (RLS) + el mismo getCurso + revisión estática de 2 agentes (NO se hizo
-  browser-as-alumno: requiere sesión de alumno que no auto-aprovisiono).
+  getCurso anida `material` en vivo); limpiado, residuo 0. **Live alumno (browser, prod):** se
+  creó un alumno QA efímero por SQL (rol administrador + matrícula en f76f9ab3 + 2 materiales en
+  el módulo 1), login real, y se verificó que el módulo CON material muestra la sección "Material
+  extra" (ambos ítems + links Abrir/Descargar correctos) y que el módulo SIN material NO la
+  muestra (regla "≥1 ítem" en vivo); consola limpia; render OK en columna ~300px. Todo el QA
+  (usuario + identidad + sesión + matrícula + materiales) borrado → residuo 0 verificado.
 - **Fecha:** 2026-06-12. Migs 0232 (tabla) + 0233 (Duplicar). Commits `68549bc` + `e201144`.
