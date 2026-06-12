@@ -2559,8 +2559,20 @@ El usuario lo pidió en dos requerimientos simultáneos.
   #C7 **mantenibilidad: las RPC enumeran columnas explícitas → un `ADD COLUMN` futuro se
   pierde callado** (mitigado con comentario ⚠ en la función; candidato a regla nueva o test
   e2e que compare columnas vs INSERT — pendiente decisión de Pablo).
-- **Pendiente (live test):** la prueba en vivo del botón es superficie de **gerencia** →
-  necesita sesión de gerente (no creo gerentes QA). Backend e2e-verificado + §6 + build
-  limpio + deploy hecho; falta el click en vivo con sesión de gerente. Webinars además
-  tiene **0 registros** hoy (el clon quedó verificado sólo por e2e sintético).
+- **Prueba en vivo (sesión de gerente de Pablo, prod):** **curso** — Duplicar en
+  "Actualización 2026" → confirm R13 → el clon abrió en el editor (título "(copia)", slug
+  `…-copia`, Borrador, módulo+6 clases, examen, encuentro sin sala manejado, **Alumnos 0**);
+  consola sin errores de app. **Webinar** (sintético por SQL) — Duplicar → clon "(copia)",
+  "Borrador · no se muestra", **Inscriptos 0**, **"No hay sala Zoom creada"**. Cleanup total
+  → **residuo 0** (0 huérfanos, 2 cursos reales intactos). Mobile por clases (tool clampea
+  ~606, DGG-51).
+- **Pase §6 final adversarial (3 agentes + e2e sobre la función VIVA, a pedido de Pablo):**
+  diff de **181 columnas en 12 tablas** contra la función viva → **cero GAPs**; paridad del
+  examen sobre el curso REAL (15 preguntas / 44 opciones / 5 secciones, todos remapeados);
+  2 hardenings en **mig 0226**: advisory lock por curso-base (#14 TOCTOU de slug, benigno
+  pero lo cierra) + guard `is_staff() IS NOT TRUE` (#12, atrapa auth.uid() NULL — redundante
+  con el REVOKE a anon); gaps de verificación cerrados por e2e: webinar rich-copy (docentes
+  jsonb + banner + form compartido), publicar-el-clon, y bloqueo de uid-sin-profile. **Único
+  e2e-only (no live, sin datos reales):** el remapeo condición→encuentro de módulos
+  sincrónicos F10 (ningún curso real usa F10 aún → no hay fuente para live-test).
 - **Fecha:** 2026-06-11.
