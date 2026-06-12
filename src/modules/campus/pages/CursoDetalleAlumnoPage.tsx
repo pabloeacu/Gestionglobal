@@ -796,12 +796,12 @@ function CondicionesAlumnoPanel({
             >
               {c.etiqueta}
             </span>
-            {c.tipo === 'examen' && (
+            {(c.tipo === 'examen' || c.tipo === 'encuesta') && (
               <span className="inline-flex shrink-0 items-center gap-1 text-[11px] text-brand-muted">
                 <Lock size={11} /> Automática
               </span>
             )}
-            {!c.cumplida && c.tipo !== 'examen' && (
+            {!c.cumplida && c.tipo !== 'examen' && c.tipo !== 'encuesta' && (
               <span className="shrink-0 text-[11px] text-amber-600">
                 Pendiente de verificación
               </span>

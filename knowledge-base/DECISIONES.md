@@ -2576,3 +2576,63 @@ El usuario lo pidió en dos requerimientos simultáneos.
   e2e-only (no live, sin datos reales):** el remapeo condición→encuentro de módulos
   sincrónicos F10 (ningún curso real usa F10 aún → no hay fuente para live-test).
 - **Fecha:** 2026-06-11.
+
+## DGG-70 · Contenido FUNDPLATA + "Encuesta" como condición de certificado
+
+- **Pedido (Pablo):** (1) cargar el contenido del docx "Videos Formacion - Curso FUNDPLATA"
+  como módulos/clases del curso de formación asincrónico (cada asignatura con nombre, nº
+  de clases, vínculo y docente; reusar foto de docente si ya existe en otro curso). (2)
+  Agregar "Encuesta" como condición configurable del certificado para cursos o webinars
+  (completarla pasa a ser requisito). (3) Live test con QA alumno. (4) Doble auditoría.
+- **Parte 1 · contenido (data, vía DO block):** 20 asignaturas (módulos) + 32 clases
+  (videos YouTube `youtu.be/*`, que el helper `youtubeIdFromUrl` ya maneja) + docente por
+  asignatura. Sólo **Dr. Raúl Castro** tenía foto cargada en otro curso → reutilizada
+  (módulos 7 y 8). Módulo 11 "Asambleas Virtuales" decía "Dr. Cingolani > Dr. Acuña" →
+  interpretado como reemplazo → Dr. Acuña.
+  - **⚠ Corrección de target:** cargué primero en `202d8ec3` ("Curso **inicial** de
+    formación"), pero Pablo había creado (vía el botón Duplicar de DGG-69) y nombrado
+    **`f76f9ab3` "Curso de formación · RPAC (asincrónico)"** vacío como target. Mi búsqueda
+    por slug exacto no matcheó el clon (`...-copia`). Detectado en el cleanup del §6 (curso
+    extra + created_by Paul). Confirmado con Pablo → **moví los 20 módulos + 32 clases a
+    f76f9ab3** (UPDATE curso_id; las clases viajan por modulo_id) y dejé 202d8ec3 vacío.
+    Lección: al cargar contenido a "un curso por nombre", listar TODOS los candidatos por
+    título (no sólo por slug exacto) y confirmar el id antes de escribir.
+- **Parte 2 · condición "Encuesta" (mig 0227 + frontend):** el requisito de encuesta ya
+  existía como gate separado (flag `curso_encuestas.requerida_para_cert` +
+  `matricula_cumple_encuesta`). Se lo sube a **condición de primera clase**: tipo
+  `'encuesta'` en `curso_condiciones_config`; el gate honra **flag O condición activa**;
+  trigger en `curso_encuesta_respuestas` (`tg_encuesta_respuesta_sync` →
+  `matricula_sync_encuesta`) marca la condición + dispara la emisión (arregla un gap real:
+  responder la encuesta no auto-emitía el cert). Frontend: `'encuesta'` en
+  CONDICION_TIPOS/LABEL/AUTOMATICA (auto "al responder"); `guardarCondicionesConfig` setea
+  `requerida_para_cert` al guardar; nota en CondicionesTab. **Webinars: deferido** (hoy no
+  tienen encuestas + emiten cert a mano; feature aparte — decidido con Pablo).
+- **Live test (QA alumno por SQL, prod) — cazó un bug que el e2e no vio:** el QA alumno vio
+  el contenido (32 clases, docentes, foto de Castro, video YouTube reproduciendo), la
+  encuesta como "Requerida para emitir tu certificado", la respondió → **pero la respuesta
+  fallaba con "Solo gerencia puede emitir certificados" (42501)**. Causa: el trigger
+  EXISTENTE `trg_condicion_cumplida_emitir` (sobre `matricula_condiciones`) llamaba
+  `emitir_certificado` sin protección; al marcar la condición, el guard `auth.uid() NOT
+  NULL AND NOT is_staff()` bloqueaba al alumno y reventaba toda la respuesta. El e2e no lo
+  cazó porque corrí con claims de gerente (is_staff). **Fix:** emisión síncrona BEST-EFFORT
+  (migs **0228** sync_encuesta + **0229** trg_condicion_cumplida_emitir): marcar la
+  condición/responder nunca falla; gerencia emite al instante, alumno emite vía el **cron
+  gg-campus-certificados** (cada 5 min, auth nula → sin guard). Re-test: respuesta OK,
+  condición cumplida, cron emitió el cert **GG-FORM-2026-2368F1**, y el alumno vio "¡Listo!
+  Descargá tu certificado". Cleanup total (QA alumno + cert + mail + restauración de
+  Formación), residuo 0.
+- **§6 doble auditoría (3 agentes + e2e) → 1 crítico + menores:** **CRÍTICO** —
+  `matricula_sync_examen` tenía el MISMO landmine (PERFORM sin proteger) → un examen-última-
+  condición + auto reventaría el envío del examen del alumno (verificado e2e por el agente;
+  hoy ningún curso real lo tiene). Fix mig **0230** (mismo wrap). Menores de frontend
+  (fixeados): la condición 'encuesta' se mostraba como tilde-manual en `GestionMatriculasTab`
+  y en el panel del alumno (`CursoDetalleAlumnoPage`) → ahora es read-only/Automática como
+  examen. Diferidos (notados, no bloqueantes): dualidad flag-vs-condición (claridad UI);
+  alerta si el cron de certs se cae; `WHEN OTHERS THEN NULL` ciego a errores no-42501;
+  flag-only-sin-condiciones nunca emite (landmine preexistente, las RPAC reales se salvan).
+- **Lección capitalizada:** un trigger/sync que emite el certificado al marcar una condición
+  debe ser **best-effort** — la acción del alumno (responder encuesta / cerrar examen) nunca
+  debe fallar porque el guard de emisión lo bloquee; el cron es el backstop. Y los e2e que
+  corren con claims de gerente NO cubren el path no-staff del alumno → el live test con QA
+  alumno real es insustituible.
+- **Fecha:** 2026-06-12. Migs 0227-0230.

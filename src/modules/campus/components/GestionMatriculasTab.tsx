@@ -132,7 +132,7 @@ export function GestionMatriculasTab({ data }: { data: CursoDetalle }) {
   }, [load]);
 
   async function onTildar(c: MatriculaCondicionItem) {
-    if (c.tipo === 'examen') return; // read-only, lo tilda el sistema
+    if (c.tipo === 'examen' || c.tipo === 'encuesta') return; // read-only, auto (examen al aprobar / encuesta al responder)
     if (c.tipo === 'pago' && !c.cumplida) {
       // El pago se registra con asiento; abrir el modal.
       const m = matriculas.find((mm) => mm.id === c.matricula_id) ?? null;
@@ -315,7 +315,7 @@ export function GestionMatriculasTab({ data }: { data: CursoDetalle }) {
                   {conds.length > 0 && (
                     <ul className="mt-3 space-y-1.5">
                       {conds.map((c) => {
-                        const auto = c.tipo === 'examen';
+                        const auto = c.tipo === 'examen' || c.tipo === 'encuesta';
                         return (
                           <li
                             key={c.id}
