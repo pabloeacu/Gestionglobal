@@ -2760,8 +2760,15 @@
 - **Prevención / barrido:** auditadas las **20** fotos del curso (docente ↔ nombre de
   archivo): todas matchean tras el fix; Gerardo era la única cruzada. Regla de dedo: tras un
   poblado VISUAL en bulk (fotos/avatares desde un banco) correr un check nombre↔archivo + una
-  pasada visual — los errores de "persona equivocada" son invisibles para build/e2e. (Hueco
-  gemelo detectado, NO fixeado sin pedido: el CV de Gerardo está en el banco como
-  `…/gerardo-rodriguez-arauco.pdf` pero su módulo lo tiene en NULL.)
-- **Fecha / módulo:** 2026-06-12 · campus/curso_modulos (data fix) · reportado por Pablo, fix
-  verificado en vivo (gerencia, gerente QA efímero, residuo 0).
+  pasada visual — los errores de "persona equivocada" son invisibles para build/e2e.
+- **Hueco gemelo resuelto (a pedido de Pablo):** el CV de Gerardo estaba en el banco como
+  `…/modulo-docente-cv/banco-formacion/gerardo-rodriguez-arauco.pdf` pero su módulo lo tenía
+  en NULL (link que quedó sin hacer en DGG-73). Aplicando la misma cautela del cruce, se
+  **verificó el contenido del PDF antes de enlazar** (es su CV real: "Estudio Rodriguez
+  Arauco & Asociados", abogado UNMdP 1989, asesor CAPHPBA; idéntico byte-a-byte al del disco
+  657518 B) y se enlazó con `UPDATE curso_modulos SET docente_cv_url` (guard `id` +
+  `docente_cv_url IS NULL` + `RETURNING`, 1 fila). Verificado en vivo: el módulo muestra foto
+  + "CV DEL DOCENTE · gerardo-rodriguez-arauco.pdf" descargable.
+- **Fecha / módulo:** 2026-06-12 · campus/curso_modulos (data fix: foto + CV) · reportado por
+  Pablo, ambos verificados en vivo (gerencia; foto vía gerente QA efímero residuo 0, CV vía
+  reuso sólo-lectura de la sesión de Pablo).
