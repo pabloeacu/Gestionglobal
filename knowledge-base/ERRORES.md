@@ -2693,5 +2693,17 @@
   z-index alto NO lo salva, el bug es de containing block, no de apilado). Quedan para un
   sweep aparte (sus páginas son cortas → no se disparó). Regla de dedo: **todo overlay
   `fixed` debe portearse a `document.body`** (como ya hacen `Modal`/`Drawer`/`DialogProvider`).
-- **Fecha / módulo:** 2026-06-12 · campus/ImageUploader · commit `74eacd3` · cazado por
-  el live test del banco de docentes (DGG-71).
+- **Sweep completo (commit `6355e56`):** se portearon a `document.body` los **11**
+  overlays `fixed inset-0` restantes bajo el wrapper `animate-route-in` (gerencia +
+  portal): campus **EncuestaTab** (emular) + **EncuentrosTab** (Webex); agenda
+  **ProyectadaEmbebidaModal** + **AccionesMenu** (backdrop + menú posicionado);
+  gerencia **TramiteDetailPage** (preview adjunto, inline `{preview&&}`) +
+  **SolicitudDetailPage** (AdjuntoPreview) + **TrackingDetailPage** (flash drag-over,
+  inline `{isDragOver&&}`) + **PartnerDetailPage** (crear usuario); finanzas
+  **ConciliacionPage** (drawer); portal **PortalConsorciosPage** +
+  **PortalOnboardingTour**. Los sidebars móviles de los layouts (GerenciaLayout:254 /
+  PortalLayout:110) están FUERA del wrapper → no afectados, no tocados. Los modales
+  comunes (Modal/Drawer/CommandPalette/CertificadoPreviewModal/EventoModal/
+  FormularioRunner) ya porteaban. Build limpio; los 11 con `import:1 use:1`.
+- **Fecha / módulo:** 2026-06-12 · campus/ImageUploader + sweep · commits `74eacd3`
+  (banco) + `6355e56` (sweep) · cazado por el live test del banco de docentes (DGG-71).
