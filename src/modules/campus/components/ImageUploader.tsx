@@ -11,6 +11,7 @@
 // Borrar la imagen también dispara onPersist(null) para borrar la referencia.
 
 import { useCallback, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import Cropper, { type Area } from 'react-easy-crop';
 import {
   Image as ImageIcon,
@@ -317,7 +318,7 @@ function BankModal({
   const visibles = (items ?? []).filter((it) =>
     q.trim() ? it.nombre.toLowerCase().includes(q.trim().toLowerCase()) : true,
   );
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-[60] grid place-items-center bg-brand-ink/60 p-4">
       <div className="card-premium relative flex max-h-[80vh] w-full max-w-lg flex-col gap-3 p-4">
         <header className="flex items-center justify-between">
@@ -378,7 +379,8 @@ function BankModal({
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -422,7 +424,7 @@ function CropperModal({
     }
   }
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-[60] grid place-items-center bg-brand-ink/60 p-4">
       <div className="card-premium relative flex w-full max-w-lg flex-col gap-3 p-4">
         <header className="flex items-center justify-between">
@@ -493,7 +495,8 @@ function CropperModal({
           </Button>
         </footer>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
