@@ -145,7 +145,7 @@ export function WizardActivacionV2({ open, onClose, solicitud, onActivated }: Pr
             )}
 
             <div className="rounded-xl border border-slate-200 bg-brand-zebra/30 p-3">
-              <Stepper steps={steps} current={step} onJump={setStep} />
+              <Stepper steps={steps} current={step} onJump={setStep} compact />
             </div>
 
             {renderPaso()}
