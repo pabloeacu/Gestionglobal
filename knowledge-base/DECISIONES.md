@@ -2789,3 +2789,26 @@ El usuario lo pidió en dos requerimientos simultáneos.
   casillas joineadas). Consola limpia, desktop.
 - **Fecha:** 2026-06-12. Commits `26248d8` (casillas) + `da9c89b` (hardening) + `8dea638`
   (nodo encuesta propio / E-GG-66). Sin migración (schema jsonb).
+
+## DGG-75 · Las solicitudes 'derivada' salen del default "Solo activas" (JL 2 · obs 2)
+
+- **Pedido (JL):** las solicitudes ya derivadas a trámite (en progreso) seguían apareciendo en
+  "Solicitudes recibidas". JL las quiere fuera del default ("ya se pasaron a Trámites en
+  Proceso pero siguen apareciendo acá").
+- **Decisión:** 'derivada' = handoff (la solicitud ya tiene su `tramite_id`; el trabajo vive en
+  el trámite) → deja de contar como "activa". Se mueve de `ACTIVE_SOL` a `CLOSED_SOL`
+  (`SolicitudesListPage`) y se saca del filtro API `'activas'` (queda `['recibida','en_revision']`,
+  idéntico a `listSolicitudesPendientes` del widget realtime → consistencia). **No se borra ni
+  se pierde:** sigue accesible con el switch "mostrar todo" + su segmento "Derivadas".
+- **Reversa parcial de DGG-65 (F8):** ahí "activas" incluía 'derivada' como parte del triage.
+  JL refinó el criterio: el triage activo es sólo lo que espera la 1ª acción del gerente
+  (recibida/en_revision).
+- **§6:** 2 agentes (correctitud/consistencia + downstream/UX, ambos OK; único caller de
+  'activas' es la página; widget ya consistente) + **live test** (default: derivadas ocultas,
+  KPI cards 3→2, "1 solicitudes"; mostrar todo: 6 segmentos, "2 Derivadas", 11 solicitudes;
+  segmento Derivadas filtra a las 2 reales). Solicitud recibida sintética QA por SQL, residuo 0.
+- **Pendiente menor (pre-existente, no de este cambio):** el link "Ver todas" del
+  `NuevasSolicitudesWidget` apunta a `?estado=activas` pero la página no lee el query param
+  (siempre arranca `soloActivos=true`) → param cosmético/muerto. No molesta (cae igual en el
+  default). Se difiere.
+- **Fecha:** 2026-06-12. Commit `a59cef9`. Sin migración (cambio de filtro frontend/API).
