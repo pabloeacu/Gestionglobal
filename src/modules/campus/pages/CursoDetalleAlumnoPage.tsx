@@ -7,6 +7,7 @@ import {
   CheckCircle2,
   ChevronDown,
   Circle,
+  ClipboardList,
   Download,
   Loader2,
   Lock,
@@ -51,6 +52,10 @@ import { ExamenRunner } from '../components/ExamenRunner';
 import { ProgresoBar } from '../components/ProgresoBar';
 import { EncuentrosEnVivoAlumno, ClaseEnVivoFullLayout } from '../components/EncuentrosEnVivoAlumno';
 import { EncuestaAlumnoCard } from '../components/EncuestaAlumnoCard';
+import {
+  getEncuestaPorCurso,
+  type CursoEncuestaRow,
+} from '@/services/api/encuestas';
 import { humanizeError } from '@/lib/errors';
 
 // (DGG-51) El panel derecho del curso muestra UN nodo por vez. Los "nodos" del
@@ -61,6 +66,7 @@ type NodoSel =
   | { tipo: 'sincronico' }
   | { tipo: 'bibliografia' }
   | { tipo: 'examen' }
+  | { tipo: 'encuesta' }
   | { tipo: 'certificado' };
 
 // Página del alumno matriculado (portal). Si no está matriculado y el curso es
@@ -75,6 +81,7 @@ export function CursoDetalleAlumnoPage() {
   const [resumen, setResumen] = useState<ProgresoResumen | null>(null);
   const [condiciones, setCondiciones] = useState<MatriculaCondicionItem[]>([]);
   const [certificado, setCertificado] = useState<CertificadoRow | null>(null);
+  const [encuesta, setEncuesta] = useState<CursoEncuestaRow | null>(null);
   const [encuentros, setEncuentros] = useState<CursoEncuentroRow[]>([]);
   const [modulos, setModulos] = useState<ModuloSincronicoRow[]>([]);
   // E-GG-14: separar carga INICIAL de refreshes silenciosos. Si en cada
@@ -114,13 +121,14 @@ export function CursoDetalleAlumnoPage() {
       const found = m.ok && m.data.length > 0 ? m.data[0] : null;
       if (found) {
         setMatricula(found);
-        const [p, r, c, cert, enc, mods] = await Promise.all([
+        const [p, r, c, cert, enc, mods, enq] = await Promise.all([
           listProgreso(found.id),
           getProgresoResumen(found.id),
           listCondicionesMatricula(found.id),
           getCertificadoMatricula(found.id),
           listEncuentros(d.data.curso.id),
           listModulosSincronicos(d.data.curso.id),
+          getEncuestaPorCurso(d.data.curso.id),
         ]);
         if (p.ok) setProgreso(p.data);
         if (r.ok) setResumen(r.data);
@@ -128,11 +136,13 @@ export function CursoDetalleAlumnoPage() {
         if (cert.ok) setCertificado(cert.data);
         if (enc.ok) setEncuentros(enc.data);
         if (mods.ok) setModulos(mods.data);
+        if (enq.ok) setEncuesta(enq.data);
       } else {
         setMatricula(null);
         setProgreso([]);
         setResumen(null);
         setCondiciones([]);
+        setEncuesta(null);
         setCertificado(null);
         setEncuentros([]);
         setModulos([]);
@@ -211,6 +221,15 @@ export function CursoDetalleAlumnoPage() {
     if (primera) return { tipo: 'clase', id: primera.id };
     return { tipo: 'clase', id: '' };
   }, [nodoSel, clases]);
+
+  // Encuesta de satisfacción: tiene NODO PROPIO (no cuelga del nodo certificado,
+  // que sólo aparece con condiciones/cert). Así el alumno la alcanza siempre que
+  // esté activa con preguntas. (Bug: en cursos sin condiciones la encuesta era
+  // inalcanzable porque vivía dentro del nodo "Mi certificado".)
+  const encuestaActiva =
+    !!encuesta?.activa &&
+    (((encuesta.schema as { preguntas?: unknown[] } | null)?.preguntas?.length) ??
+      0) > 0;
 
   const claseActiva = useMemo(
     () =>
@@ -590,6 +609,15 @@ export function CursoDetalleAlumnoPage() {
                 onClick={() => setNodoSel({ tipo: 'examen' })}
               />
             )}
+            {encuestaActiva && (
+              <NavNodo
+                icon={<ClipboardList size={15} className="text-violet-600" />}
+                label="Encuesta de satisfacción"
+                sub="Contanos tu experiencia"
+                active={nodoEfectivo.tipo === 'encuesta'}
+                onClick={() => setNodoSel({ tipo: 'encuesta' })}
+              />
+            )}
             {(condiciones.filter((c) => c.activa).length > 0 || certificado) && (
               <NavNodo
                 icon={
@@ -670,16 +698,15 @@ export function CursoDetalleAlumnoPage() {
               />
             )
           ) : nodoEfectivo.tipo === 'certificado' ? (
-            <>
-              <CondicionesAlumnoPanel
-                condiciones={condiciones.filter((c) => c.activa)}
-                certificado={certificado}
-              />
-              <EncuestaAlumnoCard
-                curso_id={data.curso.id}
-                matricula_id={matricula.id}
-              />
-            </>
+            <CondicionesAlumnoPanel
+              condiciones={condiciones.filter((c) => c.activa)}
+              certificado={certificado}
+            />
+          ) : nodoEfectivo.tipo === 'encuesta' ? (
+            <EncuestaAlumnoCard
+              curso_id={data.curso.id}
+              matricula_id={matricula.id}
+            />
           ) : claseActiva ? (
             <ClasePlayer
               matriculaId={matricula.id}
