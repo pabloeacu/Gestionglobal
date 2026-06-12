@@ -717,6 +717,47 @@ export async function borrarClase(id: string): Promise<ApiResponse<true>> {
 }
 
 // Bibliografía
+// ============================================================================
+// Banco de imágenes de docentes (reuso rápido de fotos ya cargadas)
+// ============================================================================
+export interface DocenteBancoItem {
+  nombre: string;
+  foto_url: string;
+}
+
+// Junta los pares (nombre, foto) de docente ya cargados en cualquier curso
+// (módulos asincrónicos + condiciones de asistencia/módulos sincrónicos), para
+// poder reutilizar una foto sin volver a subirla. Distinct por (nombre, foto).
+export async function listDocentesBanco(): Promise<ApiResponse<DocenteBancoItem[]>> {
+  const [m, c] = await Promise.all([
+    supabase
+      .from('curso_modulos')
+      .select('docente_nombre, docente_foto_url')
+      .not('docente_foto_url', 'is', null)
+      .not('docente_nombre', 'is', null),
+    supabase
+      .from('curso_condiciones_config')
+      .select('docente_nombre, docente_foto_url')
+      .not('docente_foto_url', 'is', null)
+      .not('docente_nombre', 'is', null),
+  ]);
+  if (m.error) return fail('DOCENTE_BANCO', m.error.message, m.error);
+  if (c.error) return fail('DOCENTE_BANCO', c.error.message, c.error);
+  const seen = new Set<string>();
+  const out: DocenteBancoItem[] = [];
+  for (const row of [...(m.data ?? []), ...(c.data ?? [])]) {
+    const nombre = (row.docente_nombre ?? '').trim();
+    const foto = (row.docente_foto_url ?? '').trim();
+    if (!nombre || !foto) continue;
+    const key = `${nombre.toLowerCase()}|${foto}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ nombre, foto_url: foto });
+  }
+  out.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+  return ok(out);
+}
+
 export async function crearBibliografia(
   cursoId: string,
   input: {

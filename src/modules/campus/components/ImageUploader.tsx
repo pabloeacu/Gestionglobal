@@ -14,6 +14,7 @@ import { useCallback, useRef, useState } from 'react';
 import Cropper, { type Area } from 'react-easy-crop';
 import {
   Image as ImageIcon,
+  Images,
   Loader2,
   RotateCw,
   Upload,
@@ -24,8 +25,10 @@ import { toast } from '@/lib/toast';
 import { Button } from '@/components/common';
 import { cn } from '@/lib/cn';
 import {
+  listDocentesBanco,
   uploadCampusMedia,
   type CampusMediaScope,
+  type DocenteBancoItem,
 } from '@/services/api/campus';
 import { canvasToOptimizedBlob } from '@/lib/imageWebp';
 import { humanizeError } from '@/lib/errors';
@@ -51,6 +54,12 @@ interface ImageUploaderProps {
   hint?: string;
   /** MB máximo aceptado. Default 5. */
   maxMb?: number;
+  /** Si true, ofrece "Elegir del banco" (fotos de docente ya cargadas en otros
+   *  cursos) además de subir una nueva. */
+  bankEnabled?: boolean;
+  /** Llamado al elegir una foto del banco. El padre setea nombre + foto + persiste
+   *  (no se re-sube nada: se reusa la URL existente). */
+  onPickBank?: (item: DocenteBancoItem) => void;
 }
 
 const SHAPE_CFG = {
@@ -91,11 +100,32 @@ export function ImageUploader({
   label,
   hint,
   maxMb = 5,
+  bankEnabled = false,
+  onPickBank,
 }: ImageUploaderProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [uploading, setUploading] = useState(false);
   const [pickedDataUrl, setPickedDataUrl] = useState<string | null>(null);
   const [originalFileName, setOriginalFileName] = useState<string>('');
+  const [bankOpen, setBankOpen] = useState(false);
+  const [bankItems, setBankItems] = useState<DocenteBancoItem[] | null>(null);
+  const [bankLoading, setBankLoading] = useState(false);
+
+  async function openBank() {
+    setBankOpen(true);
+    if (bankItems !== null) return; // ya cargado en esta sesión
+    setBankLoading(true);
+    const res = await listDocentesBanco();
+    setBankLoading(false);
+    if (!res.ok) {
+      toast.error('No pudimos cargar el banco de imágenes.', {
+        description: humanizeError(res.error),
+      });
+      setBankItems([]);
+      return;
+    }
+    setBankItems(res.data);
+  }
 
   const shapeCfg = SHAPE_CFG[shape];
   const dims = shapeCfg[size];
@@ -202,23 +232,34 @@ export function ImageUploader({
           </div>
         )}
       </div>
-      <button
-        type="button"
-        onClick={() => inputRef.current?.click()}
-        disabled={uploading}
-        className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-brand-ink shadow-sm hover:border-brand-cyan/40 hover:bg-brand-cyan-pale/30 disabled:opacity-60"
-        style={{ width: cfg.w }}
-      >
-        {uploading ? (
-          <>
-            <Loader2 size={12} className="animate-spin" /> Subiendo…
-          </>
-        ) : (
-          <>
-            <Upload size={12} /> {value ? 'Reemplazar' : 'Subir imagen'}
-          </>
+      <div className="flex flex-col gap-1.5" style={{ width: cfg.w }}>
+        <button
+          type="button"
+          onClick={() => inputRef.current?.click()}
+          disabled={uploading}
+          className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-brand-ink shadow-sm hover:border-brand-cyan/40 hover:bg-brand-cyan-pale/30 disabled:opacity-60"
+        >
+          {uploading ? (
+            <>
+              <Loader2 size={12} className="animate-spin" /> Subiendo…
+            </>
+          ) : (
+            <>
+              <Upload size={12} /> {value ? 'Reemplazar' : 'Subir nueva'}
+            </>
+          )}
+        </button>
+        {bankEnabled && onPickBank && (
+          <button
+            type="button"
+            onClick={() => void openBank()}
+            disabled={uploading}
+            className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-brand-cyan/30 bg-brand-cyan-pale/40 px-3 py-1.5 text-xs font-medium text-brand-cyan shadow-sm hover:bg-brand-cyan-pale/70 disabled:opacity-60"
+          >
+            <Images size={12} /> Elegir del banco
+          </button>
         )}
-      </button>
+      </div>
       {hint && (
         <p className="text-[11px] text-brand-muted" style={{ maxWidth: cfg.w }}>
           {hint}
@@ -241,6 +282,102 @@ export function ImageUploader({
           onConfirm={(blob) => void onCropConfirmed(blob)}
         />
       )}
+
+      {bankOpen && onPickBank && (
+        <BankModal
+          items={bankItems}
+          loading={bankLoading}
+          onClose={() => setBankOpen(false)}
+          onPick={(item) => {
+            onPickBank(item);
+            setBankOpen(false);
+            toast.success(`Foto de ${item.nombre} asignada.`);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ============================================================================
+// Modal del banco de fotos de docentes · grilla de las imágenes ya cargadas
+// ============================================================================
+function BankModal({
+  items,
+  loading,
+  onClose,
+  onPick,
+}: {
+  items: DocenteBancoItem[] | null;
+  loading: boolean;
+  onClose: () => void;
+  onPick: (item: DocenteBancoItem) => void;
+}) {
+  const [q, setQ] = useState('');
+  const visibles = (items ?? []).filter((it) =>
+    q.trim() ? it.nombre.toLowerCase().includes(q.trim().toLowerCase()) : true,
+  );
+  return (
+    <div className="fixed inset-0 z-[60] grid place-items-center bg-brand-ink/60 p-4">
+      <div className="card-premium relative flex max-h-[80vh] w-full max-w-lg flex-col gap-3 p-4">
+        <header className="flex items-center justify-between">
+          <h3 className="inline-flex items-center gap-2 font-display text-base font-semibold text-brand-ink">
+            <Images size={16} className="text-brand-cyan" /> Banco de fotos de docentes
+          </h3>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Cerrar"
+            className="rounded-md p-1 text-brand-muted hover:bg-slate-100"
+          >
+            <X size={16} />
+          </button>
+        </header>
+        {items && items.length > 6 && (
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Buscar docente…"
+            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm outline-none focus:border-brand-cyan focus:ring-4 focus:ring-brand-cyan/10"
+          />
+        )}
+        <div className="min-h-[120px] overflow-y-auto">
+          {loading ? (
+            <div className="grid h-32 place-items-center text-brand-muted">
+              <Loader2 size={20} className="animate-spin" />
+            </div>
+          ) : visibles.length === 0 ? (
+            <p className="grid h-32 place-items-center px-4 text-center text-sm text-brand-muted">
+              {items && items.length === 0
+                ? 'Todavía no hay fotos de docentes cargadas. Subí la primera con "Subir nueva".'
+                : 'Ningún docente coincide con la búsqueda.'}
+            </p>
+          ) : (
+            <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {visibles.map((it) => (
+                <li key={`${it.nombre}|${it.foto_url}`}>
+                  <button
+                    type="button"
+                    onClick={() => onPick(it)}
+                    className="flex w-full flex-col items-center gap-1.5 rounded-xl border border-slate-200 bg-white p-2.5 text-center transition hover:border-brand-cyan hover:shadow-sm"
+                    title={`Usar la foto de ${it.nombre}`}
+                  >
+                    <img
+                      src={it.foto_url}
+                      alt={it.nombre}
+                      loading="lazy"
+                      className="h-16 w-16 rounded-full border border-slate-200 object-cover"
+                    />
+                    <span className="line-clamp-2 text-[11px] font-medium text-brand-ink">
+                      {it.nombre}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

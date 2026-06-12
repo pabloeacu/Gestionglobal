@@ -352,7 +352,19 @@ function ModuloEditor({
               ownerId={modulo.id}
               shape="circle"
               label="Foto del docente"
-              hint="Avatar del docente a cargo de la asignatura. Recortable. ≤ 5 MB."
+              hint="Avatar del docente a cargo. Subí una nueva o reusá una del banco. ≤ 5 MB."
+              bankEnabled
+              onPickBank={async (item) => {
+                // Reusar una foto del banco: setea nombre + foto y persiste ambos.
+                setDocenteNombre(item.nombre);
+                setDocenteFoto(item.foto_url);
+                const r = await actualizarModulo(modulo.id, {
+                  docente_nombre: item.nombre,
+                  docente_foto_url: item.foto_url,
+                });
+                if (!r.ok) toast.error(humanizeError(r.error));
+                else onChanged();
+              }}
             />
             <div className="space-y-3">
               <Field label="Docente a cargo">
@@ -801,6 +813,10 @@ function BibliografiaSection({
   const [nuevoTitulo, setNuevoTitulo] = useState('');
   const [nuevoAutor, setNuevoAutor] = useState('');
   const [nuevoUrl, setNuevoUrl] = useState('');
+  const [nuevoArchivo, setNuevoArchivo] = useState<string | null>(null);
+  // ownerId temporal para que el FileUploader pueda subir el PDF ANTES de que
+  // exista la fila de bibliografía (la fila guarda la URL resultante al crear).
+  const [tempOwnerId, setTempOwnerId] = useState(() => crypto.randomUUID());
   const [creando, setCreando] = useState(false);
 
   async function crear() {
@@ -813,6 +829,7 @@ function BibliografiaSection({
       titulo: nuevoTitulo.trim(),
       autor: nuevoAutor.trim() || null,
       url: nuevoUrl.trim() || null,
+      archivo_url: nuevoArchivo,
     });
     setCreando(false);
     if (!res.ok) {
@@ -822,6 +839,8 @@ function BibliografiaSection({
     setNuevoTitulo('');
     setNuevoAutor('');
     setNuevoUrl('');
+    setNuevoArchivo(null);
+    setTempOwnerId(crypto.randomUUID()); // próxima carga usa un path nuevo
     onChanged();
   }
 
@@ -844,25 +863,41 @@ function BibliografiaSection({
           ))}
         </ul>
       )}
-      <div className="mt-4 grid gap-2 sm:grid-cols-[1fr_1fr_1fr_auto]">
-        <Input
-          value={nuevoTitulo}
-          onChange={(e) => setNuevoTitulo(e.target.value)}
-          placeholder="Título"
-        />
-        <Input
-          value={nuevoAutor}
-          onChange={(e) => setNuevoAutor(e.target.value)}
-          placeholder="Autor"
-        />
+      <div className="mt-4 space-y-3 rounded-xl border border-dashed border-slate-300 bg-brand-zebra/20 p-3">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-brand-muted">
+          Nueva bibliografía
+        </p>
+        <div className="grid gap-2 sm:grid-cols-2">
+          <Input
+            value={nuevoTitulo}
+            onChange={(e) => setNuevoTitulo(e.target.value)}
+            placeholder="Título *"
+          />
+          <Input
+            value={nuevoAutor}
+            onChange={(e) => setNuevoAutor(e.target.value)}
+            placeholder="Autor (opcional)"
+          />
+        </div>
         <Input
           value={nuevoUrl}
           onChange={(e) => setNuevoUrl(e.target.value)}
-          placeholder="URL (opcional)"
+          placeholder="Link externo (https://…)"
         />
-        <Button onClick={crear} loading={creando}>
-          <Plus size={13} /> Agregar
-        </Button>
+        <FileUploader
+          value={nuevoArchivo}
+          onChange={setNuevoArchivo}
+          scope="biblio-archivo"
+          ownerId={tempOwnerId}
+          maxMb={50}
+          label="Archivo (PDF)"
+          hint="Cargá el link externo O subí el PDF (lo que prefieras). ≤ 50 MB."
+        />
+        <div className="flex justify-end">
+          <Button onClick={crear} loading={creando}>
+            <Plus size={13} /> Agregar
+          </Button>
+        </div>
       </div>
     </section>
   );
@@ -991,8 +1026,9 @@ function BiblioItem({
             }}
             scope="biblio-archivo"
             ownerId={item.id}
+            maxMb={50}
             label="Archivo (PDF)"
-            hint="Opcional. Subí el PDF de la lectura. El alumno lo descarga. ≤ 10 MB."
+            hint="Opcional. Subí el PDF de la lectura. El alumno lo descarga. ≤ 50 MB."
           />
           <Field label="Descripción (opcional)">
             <Textarea
