@@ -2732,3 +2732,36 @@
   de nodos que lo monta; el browser lo cazó en 1 reload.
 - **Fecha / módulo:** 2026-06-12 · campus/CursoDetalleAlumnoPage · commit `8dea638` · cazado
   por el live test de DGG-74.
+
+## E-GG-67 · Foto de docente cruzada en el banco: Gerardo Rodriguez Arauco mostraba a Raúl Castro (2026-06-12)
+
+- **Síntoma:** en el módulo "Contratación de proveedores…" del curso de formación RPAC
+  (f76f9ab3), el docente "Dr. Gerardo Rodriguez Arauco" mostraba la foto de OTRA persona
+  (la cara del Dr. Raúl Castro). Reportado por Pablo con captura. **Error silencioso:** la
+  foto es válida (existe, carga, recorte prolijo) — sólo es la persona equivocada → ni build
+  ni e2e ni smoke lo detectan, únicamente el ojo humano.
+- **Causa raíz (pick visual errado en bulk, DGG-71):** al poblar las 20 fotos de docentes del
+  curso desde el banco, el módulo de Gerardo (`c54593cb`) quedó apuntando a
+  `modulo-docente/14cb7ba8-…/castro.png` (la foto de Castro, scope de su módulo en OTRO
+  curso) en vez de `modulo-docente/banco-formacion/gerardo-rodriguez-arauco.png` (su foto
+  correcta, que SÍ se había subido bien al banco). Un pick equivocado en 1 de las 20; las
+  otras 19 quedaron bien.
+- **Diagnóstico anti-suposición:** la primera lectura de las 2 capturas de Pablo era ambigua
+  (¿cuál cara es Gerardo?) e incluso me llevó a invertir la conclusión. Se resolvió con
+  **ground truth**: las collages fuente (`Lic. Carlos C/2.png`) traen el NOMBRE arriba de
+  cada foto → Gerardo = el señor de la biblioteca/saco gris (`gerardo-rodriguez-arauco.png`),
+  Castro = el de barba candado (`castro.png`). Lección: ante fotos/identidades, verificar
+  contra la fuente etiquetada, no contra la memoria ni la inferencia (regla §6: EJERCITAR).
+- **Fix (data, sin migración):** `UPDATE curso_modulos SET docente_foto_url = <…/banco-formacion/gerardo-rodriguez-arauco.png>`
+  en `c54593cb`, con guard por `docente_nombre` + `LIKE '%/castro.png'` + `RETURNING` (1
+  fila). Sin pérdida de calidad: se reapunta al original que ya estaba en el banco, no se
+  recorta de la captura. El módulo de Castro (otro curso, 488b58c3) quedó intacto (verificado
+  en vivo: sigue su barba candado bajo "Dr. Raúl Castro").
+- **Prevención / barrido:** auditadas las **20** fotos del curso (docente ↔ nombre de
+  archivo): todas matchean tras el fix; Gerardo era la única cruzada. Regla de dedo: tras un
+  poblado VISUAL en bulk (fotos/avatares desde un banco) correr un check nombre↔archivo + una
+  pasada visual — los errores de "persona equivocada" son invisibles para build/e2e. (Hueco
+  gemelo detectado, NO fixeado sin pedido: el CV de Gerardo está en el banco como
+  `…/gerardo-rodriguez-arauco.pdf` pero su módulo lo tiene en NULL.)
+- **Fecha / módulo:** 2026-06-12 · campus/curso_modulos (data fix) · reportado por Pablo, fix
+  verificado en vivo (gerencia, gerente QA efímero, residuo 0).
