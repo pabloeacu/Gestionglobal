@@ -26,9 +26,11 @@ import { generateReportPdf } from '@/lib/reportPdf';
 import { generateReportXls } from '@/lib/reportXls';
 import { humanizeError } from '@/lib/errors';
 
-// Estados activos (esperan acción del gerente) vs cerrados.
-const ACTIVE_SOL: SolicitudEstado[] = ['recibida', 'en_revision', 'derivada'];
-const CLOSED_SOL: SolicitudEstado[] = ['activada', 'rechazada', 'descartada'];
+// Estados activos (esperan acción del gerente) vs handoff/cerrados.
+// JL 2 · obs 2: 'derivada' ya pasó a trámite (en progreso) → sale del default
+// "Solo activas" y queda en "mostrar todo" (sigue accesible + su segmento; no se borra).
+const ACTIVE_SOL: SolicitudEstado[] = ['recibida', 'en_revision'];
+const CLOSED_SOL: SolicitudEstado[] = ['derivada', 'activada', 'rechazada', 'descartada'];
 
 // Segmentos = estados de triage como cards-filtro (las "KPI cards que filtran").
 const SOL_SEGMENTOS: Record<SolicitudEstado, { label: string; icon: LucideIcon; tone: FilterTone }> = {

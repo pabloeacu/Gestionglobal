@@ -77,7 +77,10 @@ export async function listSolicitudes(
 
   if (filters.estado && filters.estado !== 'todos') {
     if (filters.estado === 'activas') {
-      q = q.in('estado', ['recibida', 'en_revision', 'derivada']);
+      // JL 2 · obs 2: 'derivada' = ya pasó a trámite (handoff) → NO es "activa".
+      // 'activas' = lo que espera la 1ª acción del gerente. Las derivadas se ven
+      // con "mostrar todo" (estado='todos'). Coincide con listSolicitudesPendientes.
+      q = q.in('estado', ['recibida', 'en_revision']);
     } else {
       q = q.eq('estado', filters.estado);
     }
