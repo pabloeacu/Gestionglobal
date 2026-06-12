@@ -2636,3 +2636,47 @@ El usuario lo pidió en dos requerimientos simultáneos.
   corren con claims de gerente NO cubren el path no-staff del alumno → el live test con QA
   alumno real es insustituible.
 - **Fecha:** 2026-06-12. Migs 0227-0230.
+
+## DGG-71 · Bibliografía URL-o-archivo (50 MB) + banco de fotos de docentes (cobertura completa)
+
+- **Pedido (Pablo):** (1) en Bibliografía, poder **subir el archivo O pegar la URL en el
+  mismo paso del alta** (antes había que crear el ítem y recién después subir), con límite
+  **50 MB** (no 10). (2) Armar un **banco de imágenes de docentes**: al subir una foto de
+  docente, ofrecer "cargar una nueva **o** elegir una de las ya cargadas", sembrado con las
+  fotos de los docentes ya configurados.
+- **Bibliografía (frontend + mig 0231):** el form "Nueva bibliografía" ahora trae
+  Título/Autor + Link externo + **Subir archivo** inline (sin crear primero), hint "Cargá el
+  link externo O subí el PDF · ≤ 50 MB". `crearBibliografia` ya aceptaba `archivo_url`; el
+  `FileUploader` del alta usa un `tempOwnerId` (uuid) y sube al instante; la URL del PDF se
+  guarda con el ítem. Mig **0231**: `UPDATE storage.buckets SET file_size_limit=52428800
+  WHERE id='campus-media'` (50 MB punta a punta: front `maxMb=50` + bucket). e2e: INSERT de
+  bibliografía **solo-archivo (url NULL)** persiste OK (url es nullable).
+- **Banco de docentes (`listDocentesBanco` + `ImageUploader` + consumidores):** el
+  `ImageUploader` gana props `bankEnabled`/`onPickBank` y un `BankModal` (grilla
+  `grid-cols-2 sm:grid-cols-3`, búsqueda si >6, foto circular + nombre). `listDocentesBanco`
+  junta los pares {nombre, foto} de **todas** las fuentes con nombre: `curso_modulos`,
+  `curso_condiciones_config`, `cursos.instructor_*` y `webinars.docentes` (jsonb, parseo
+  defensivo); dedup por `nombre.toLowerCase()|foto`. `curso_clases` sólo guarda foto sin
+  nombre → no alimenta el banco, pero sí lo consume.
+- **Cobertura / R14 (hallazgo del §6, capitalizado en el mismo chunk):** la 1ª versión
+  cableaba el picker SÓLO al editor de módulo asincrónico. El pedido ("cuando suba una imagen
+  de docente") es universal → se agregó "Elegir del banco" también a: **encuentro docente**
+  (sincrónico → `curso_condiciones_config`), **instructor del curso** (`cursos`) e
+  **instructor de clase** (`curso_clases`, sólo foto). El picker de **webinars queda diferido**
+  (alineado con "solo cursos por ahora" de DGG-70), pero sus fotos sí alimentan el banco. Hoy
+  hay 0 fotos fuera de módulos → cobertura latente, correcta a futuro.
+- **Fix R20 (E-GG-40) en el mismo archivo:** `ImageUploader.onCropConfirmed` sanitizaba con
+  `originalFileName.replace(/[^a-zA-Z0-9._-]/g,'_')` (regex parcial prohibido, no normaliza
+  NFKD) → migrado a `safeStorageKey()`.
+- **Cierre §6 + live test:** 3 agentes (persistencia/UI · naming/seguridad · regresiones) +
+  e2e en BD (bucket=52428800, banco=5 docentes, RLS de cursos/webinars permite el SELECT del
+  gerente, INSERT biblio solo-archivo OK) + live test logueado: modal del banco centrado y
+  visible (tras fix E-GG-65), pick de "Dr. Raúl Castro" en instructor del curso → persiste
+  nombre+foto en `cursos` (verificado en BD, luego **revertido a NULL — residuo 0**), 20
+  botones de banco en módulos, form de bibliografía con URL+archivo+50MB. Las 5 fotos cargan;
+  grid responsive. Mobile 360px: verificado estructural (grid-cols-2 + card w-full + portal);
+  no se pudo forzar viewport 360 (el tab MCP rinde a 1440 lógico fijo).
+- **Diferidos (menores, notados):** archivos huérfanos si subís un PDF en el alta de
+  bibliografía y no clickeás "Agregar" (no se limpia el storage); sin validación real de MIME
+  en uploads (heredado); sweep de los 2 modales con el bug de portal (E-GG-65).
+- **Fecha:** 2026-06-12. Commits `74eacd3` (portal) + `4904f97` (banco+R20). Mig 0231.

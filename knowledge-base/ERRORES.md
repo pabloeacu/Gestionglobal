@@ -2665,3 +2665,33 @@
 - **Fecha / módulo:** 2026-06-11 · seguridad/storage · migs
   `0217` + `0218` (+ `0219` el bonus del mail) · hallado por la pregunta de Pablo en
   el test de adjuntos de F4.
+
+## E-GG-65 · Modal del "banco de fotos" abría fuera de pantalla (overlay `fixed` bajo ancestro con `transform`) (2026-06-12)
+
+- **Síntoma:** al hacer clic en "Elegir del banco" (foto de docente), el modal NO
+  aparecía. En el DOM existía (5 fotos), pero su `getBoundingClientRect` daba
+  `top:-531, height:25036` → renderizado a ~12.500px de scroll, invisible. Cazado en
+  el **live test** del chunk (no por el e2e/build, que no miran layout).
+- **Causa raíz (CSS containing block):** el modal usa `className="fixed inset-0 ..."`.
+  Por spec, un `position: fixed` se ancla al **viewport** SALVO que tenga un ancestro
+  con `transform`/`filter`/`perspective` ≠ `none` → ese ancestro pasa a ser el
+  *containing block*. El wrapper de ruta de la gerencia tiene `motion-safe:animate-route-in`
+  (keyframe `route-in` con `translateY` + `animation-fill-mode: both`) → **deja un
+  `transform` residual** aun terminada la animación. En una página larga (el curso
+  FUNDPLATA mide ~25.000px con 20 módulos + 32 clases) el "viewport" del modal pasó a ser
+  ese contenedor gigante → `inset-0` lo estiró a 25.036px y `place-items-center` lo centró
+  a ~12.500px.
+- **Fix:** `createPortal(<div className="fixed inset-0 ...">, document.body)` en
+  `ImageUploader.tsx` para **ambos** modales (BankModal **y** CropperModal — el cropper
+  arrastraba el mismo bug latente, sólo visible en páginas largas). Porteado a
+  `document.body`, el overlay escapa del ancestro transformado y vuelve a anclar al
+  viewport. Verificado en vivo: `parentElement === BODY`, `rect {top:0,left:0,w:1425,
+  h:725}` = cubre exactamente el viewport, modal centrado y visible.
+- **Prevención / deuda (agente §6):** cualquier `fixed inset-0` SIN portal bajo el
+  wrapper `animate-route-in` tiene el mismo bug. El barrido halló 2 más: `EncuestaTab.tsx`
+  (`fixed inset-0 z-50`) y `EncuentrosTab.tsx` (modal Webex `fixed inset-0 z-[9999]` — el
+  z-index alto NO lo salva, el bug es de containing block, no de apilado). Quedan para un
+  sweep aparte (sus páginas son cortas → no se disparó). Regla de dedo: **todo overlay
+  `fixed` debe portearse a `document.body`** (como ya hacen `Modal`/`Drawer`/`DialogProvider`).
+- **Fecha / módulo:** 2026-06-12 · campus/ImageUploader · commit `74eacd3` · cazado por
+  el live test del banco de docentes (DGG-71).
