@@ -33,6 +33,7 @@ import {
 } from '@/services/api/campus';
 import { canvasToOptimizedBlob } from '@/lib/imageWebp';
 import { humanizeError } from '@/lib/errors';
+import { safeStorageKey } from '@/lib/storageKeys';
 
 interface ImageUploaderProps {
   /** URL pública actual (o null si no hay imagen). */
@@ -158,7 +159,7 @@ export function ImageUploader({
   async function onCropConfirmed(blob: Blob, ext: 'webp' | 'jpg' = 'jpg') {
     setUploading(true);
     setPickedDataUrl(null);
-    const safeName = originalFileName.replace(/[^a-zA-Z0-9._-]/g, '_') || 'imagen.png';
+    const safeName = safeStorageKey(originalFileName) || 'imagen.png';
     // El blob viene del canvas; la extensión depende del mime óptimo del
     // browser (WebP cuando se puede ⇒ ~30 % más liviano que JPEG).
     const mime = ext === 'webp' ? 'image/webp' : 'image/jpeg';

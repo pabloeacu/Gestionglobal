@@ -350,7 +350,18 @@ function DatosTab({
             shape="circle"
             size="sm"
             label="Foto del instructor"
-            hint="Recortable, con zoom y rotación. ≤ 5 MB."
+            hint="Recortable. Subí una nueva o reusá una del banco. ≤ 5 MB."
+            bankEnabled
+            onPickBank={async (item) => {
+              setInstructor(item.nombre);
+              setInstructorFoto(item.foto_url);
+              const r = await actualizarCurso(data.curso.id, {
+                instructor_nombre: item.nombre,
+                instructor_foto_url: item.foto_url,
+              });
+              if (!r.ok) toast.error(humanizeError(r.error));
+              else onChanged();
+            }}
           />
           <div className="flex-1 space-y-3">
             <Field label="Instructor">

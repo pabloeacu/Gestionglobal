@@ -643,7 +643,17 @@ function ClaseEditor({
                 ownerId={clase.id}
                 shape="circle"
                 label="Foto del docente"
-                hint="Aparece como avatar circular del docente al lado del título de la clase. Recortable. ≤ 5 MB."
+                hint="Avatar del docente. Subí una nueva o reusá una del banco. Recortable. ≤ 5 MB."
+                bankEnabled
+                onPickBank={async (item) => {
+                  // La clase solo guarda foto (sin nombre); reusamos la imagen.
+                  setFoto(item.foto_url);
+                  const r = await actualizarClase(clase.id, {
+                    instructor_foto_url: item.foto_url,
+                  });
+                  if (!r.ok) toast.error(humanizeError(r.error));
+                  else onChanged();
+                }}
               />
             )}
             <div className={cn('space-y-3', tipo !== 'asincronica_video' && 'sm:col-span-2')}>

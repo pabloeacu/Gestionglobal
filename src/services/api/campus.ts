@@ -725,11 +725,15 @@ export interface DocenteBancoItem {
   foto_url: string;
 }
 
-// Junta los pares (nombre, foto) de docente ya cargados en cualquier curso
-// (módulos asincrónicos + condiciones de asistencia/módulos sincrónicos), para
-// poder reutilizar una foto sin volver a subirla. Distinct por (nombre, foto).
+// Junta los pares (nombre, foto) de docente ya cargados en CUALQUIER superficie
+// del campus que tenga nombre asociado: módulos asincrónicos, condiciones /
+// encuentros sincrónicos, instructor del curso, y docentes de webinars (jsonb).
+// Permite reutilizar una foto sin volver a subirla. Distinct por
+// (nombre.toLowerCase(), foto). R14/E-GG-* : el banco se alimenta de todas las
+// fuentes con nombre; `curso_clases` solo guarda foto sin nombre ⇒ no forma un
+// item del banco y queda afuera (pero SÍ puede consumir el banco).
 export async function listDocentesBanco(): Promise<ApiResponse<DocenteBancoItem[]>> {
-  const [m, c] = await Promise.all([
+  const [m, c, cu, w] = await Promise.all([
     supabase
       .from('curso_modulos')
       .select('docente_nombre, docente_foto_url')
@@ -740,14 +744,38 @@ export async function listDocentesBanco(): Promise<ApiResponse<DocenteBancoItem[
       .select('docente_nombre, docente_foto_url')
       .not('docente_foto_url', 'is', null)
       .not('docente_nombre', 'is', null),
+    supabase
+      .from('cursos')
+      .select('instructor_nombre, instructor_foto_url')
+      .not('instructor_foto_url', 'is', null)
+      .not('instructor_nombre', 'is', null),
+    supabase.from('webinars').select('docentes').not('docentes', 'is', null),
   ]);
   if (m.error) return fail('DOCENTE_BANCO', m.error.message, m.error);
   if (c.error) return fail('DOCENTE_BANCO', c.error.message, c.error);
+  if (cu.error) return fail('DOCENTE_BANCO', cu.error.message, cu.error);
+  if (w.error) return fail('DOCENTE_BANCO', w.error.message, w.error);
+  const pares: Array<{ nombre: unknown; foto: unknown }> = [
+    ...(m.data ?? []).map((r) => ({ nombre: r.docente_nombre, foto: r.docente_foto_url })),
+    ...(c.data ?? []).map((r) => ({ nombre: r.docente_nombre, foto: r.docente_foto_url })),
+    ...(cu.data ?? []).map((r) => ({ nombre: r.instructor_nombre, foto: r.instructor_foto_url })),
+  ];
+  // webinars.docentes es jsonb [{ nombre, foto_url }]; parseamos defensivo.
+  for (const row of w.data ?? []) {
+    const arr = (row as { docentes?: unknown }).docentes;
+    if (!Array.isArray(arr)) continue;
+    for (const d of arr) {
+      if (d && typeof d === 'object') {
+        const o = d as Record<string, unknown>;
+        pares.push({ nombre: o.nombre, foto: o.foto_url });
+      }
+    }
+  }
   const seen = new Set<string>();
   const out: DocenteBancoItem[] = [];
-  for (const row of [...(m.data ?? []), ...(c.data ?? [])]) {
-    const nombre = (row.docente_nombre ?? '').trim();
-    const foto = (row.docente_foto_url ?? '').trim();
+  for (const p of pares) {
+    const nombre = (typeof p.nombre === 'string' ? p.nombre : '').trim();
+    const foto = (typeof p.foto === 'string' ? p.foto : '').trim();
     if (!nombre || !foto) continue;
     const key = `${nombre.toLowerCase()}|${foto}`;
     if (seen.has(key)) continue;

@@ -456,7 +456,18 @@ function ModuloCard({
             ownerId={modulo.id}
             shape="circle"
             label="Docente"
-            hint="Foto"
+            hint="Subí una nueva o reusá una del banco."
+            bankEnabled
+            onPickBank={async (item) => {
+              setDocNombre(item.nombre);
+              setDocFoto(item.foto_url);
+              const r = await actualizarModuloSincronico(modulo.id, {
+                docente_nombre: item.nombre,
+                docente_foto_url: item.foto_url,
+              });
+              if (!r.ok) toast.error(humanizeError(r.error));
+              else void onReload();
+            }}
           />
         </div>
         <div className="min-w-0 flex-1 space-y-2">
