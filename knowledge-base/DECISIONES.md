@@ -2771,7 +2771,21 @@ El usuario lo pidió en dos requerimientos simultáneos.
   docx, **publicada**, no obligatoria para cert. 6 preguntas: 2 estrellas (audio/video, docentes),
   2 escala_10 (interés, aplicación —etiquetas en ayuda), 1 casillas (beneficios, 5 opc), 1 multiple
   (curso previo, 3 opc).
-- **§6:** auditoría estática APROBADA (único `Record<PreguntaTipo>` exhaustivo actualizado; sin
-  colisión con el PreguntaTipo de exámenes; regresión de los 4 tipos previos OK; tsc exit 0). Browser
-  del render alumno (checkboxes) pendiente (Pablo editando en la sesión compartida, página cacheada).
-- **Fecha:** 2026-06-12. Commit `26248d8`. Sin migración (schema jsonb).
+- **Bug de alcance cazado en browser (E-GG-66, commit `8dea638`):** la encuesta publicada NO
+  aparecía para el alumno — `EncuestaAlumnoCard` colgaba sólo del nodo 'certificado', que no
+  existe en cursos sin condiciones (este curso tiene 0). Fix: nodo de navegación propio
+  ("Encuesta de satisfacción") gateado por `encuestaActiva`. Ver E-GG-66.
+- **§6 — auditoría estática:** APROBADA (único `Record<PreguntaTipo>` exhaustivo actualizado;
+  sin colisión con el PreguntaTipo de exámenes; regresión de los 4 tipos previos OK; tsc exit 0).
+  Agente fidelidad/seguridad: encuesta fiel al docx; RLS e2e (matriculado responde OK, intruso
+  bloqueado 42501, sin fuga cross-alumno; array de casillas persiste correcto).
+- **§6 — live test (gerente + alumno QA efímeros por SQL, residuo 0):** **alumno** → render de
+  los 6 tipos (10 estrellas, 20 botones escala, 6 checkboxes [5 casillas + permiso], 3 radios,
+  etiquetas de ayuda de escala) + **2 casillas marcadas a la vez** + envío con diálogo de
+  permiso + estado "Encuesta completada". BD: respuesta guardada 1:1 incl. `p_beneficios` como
+  array de 2. **Gerencia** → Configuración (6 preguntas, "Casillas (varias)" en paleta) +
+  Respuestas (StatCards: estrellas 4.0/5.0, escala 8.0/9.0, **casillas "multi" 1(100%) c/u**,
+  multiple "A veces"; testimonio en "Disponibles para campañas"; respuesta individual con
+  casillas joineadas). Consola limpia, desktop.
+- **Fecha:** 2026-06-12. Commits `26248d8` (casillas) + `da9c89b` (hardening) + `8dea638`
+  (nodo encuesta propio / E-GG-66). Sin migración (schema jsonb).

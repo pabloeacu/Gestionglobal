@@ -2707,3 +2707,28 @@
   FormularioRunner) ya porteaban. Build limpio; los 11 con `import:1 use:1`.
 - **Fecha / módulo:** 2026-06-12 · campus/ImageUploader + sweep · commits `74eacd3`
   (banco) + `6355e56` (sweep) · cazado por el live test del banco de docentes (DGG-71).
+
+## E-GG-66 · Encuesta de satisfacción inalcanzable para el alumno en cursos sin condiciones (2026-06-12)
+
+- **Síntoma:** la encuesta del Curso de Actualización 2026 (DGG-74), aunque **publicada y
+  con 6 preguntas**, NO aparecía por ningún lado en el campus del alumno: no tenía forma de
+  responderla. Cazado en el **live test** del cierre de DGG-74 (no por el e2e de BD, que
+  verifica el RPC pero no el árbol de navegación del front).
+- **Causa raíz (gating de render):** en `CursoDetalleAlumnoPage.tsx` la `EncuestaAlumnoCard`
+  se renderizaba SÓLO dentro del nodo `tipo === 'certificado'`. Ese nodo de navegación se
+  materializa únicamente cuando el curso tiene **condiciones activas** o ya emitió
+  certificado. El Curso de Actualización 2026 tiene **0 condiciones** → no existía el nodo
+  'certificado' → la encuesta colgaba de un nodo que nunca se mostraba. Clase de bug R14:
+  dato persistido y visible en gerencia (encuesta publicada) sin UI alcanzable que lo consuma
+  del lado del alumno.
+- **Fix (commit `8dea638`):** la encuesta pasó a tener **nodo de navegación propio**
+  ("Encuesta de satisfacción", ícono `ClipboardList`), gateado por `encuestaActiva`
+  (`!!encuesta?.activa && (schema.preguntas?.length ?? 0) > 0`), independiente del nodo
+  certificado. Se carga `getEncuestaPorCurso` en el `Promise.all` de la página (con reset en
+  la rama de error). `CondicionesAlumnoPanel` quedó solo en el nodo certificado.
+- **Prevención (R14):** para features con superficie de alumno el live test debe ejercitar el
+  curso **más simple** (sin condiciones, sin certificado), no solo el "completo" — los nodos
+  condicionales esconden gaps. La doble auditoría estática miró el componente pero no el árbol
+  de nodos que lo monta; el browser lo cazó en 1 reload.
+- **Fecha / módulo:** 2026-06-12 · campus/CursoDetalleAlumnoPage · commit `8dea638` · cazado
+  por el live test de DGG-74.
