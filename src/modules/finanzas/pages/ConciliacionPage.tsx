@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import {
   ArrowLeft, Upload, Link2, Plus, EyeOff, AlertCircle, CheckCircle2,
@@ -288,7 +289,7 @@ function ResolverLineaDrawer({
     onDone();
   }
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex">
       <div className="flex-1 bg-slate-900/30" onClick={onClose} />
       <aside className="w-full max-w-md overflow-y-auto bg-white shadow-2xl">
@@ -454,7 +455,8 @@ function ResolverLineaDrawer({
           )}
         </div>
       </aside>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

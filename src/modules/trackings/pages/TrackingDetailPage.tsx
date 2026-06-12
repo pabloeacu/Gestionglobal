@@ -12,6 +12,7 @@
 // Regla 13: useConfirm en lugar de window.confirm.
 // ============================================================================
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, useParams } from 'react-router-dom';
 import { useDropZone } from '@/lib/useDropZone';
 import {
@@ -552,7 +553,7 @@ export function TrackingDetailPage() {
       {...dropProps}
     >
       {/* 2.F · overlay de drop visible cuando arrastrás archivos sobre el detalle. */}
-      {isDragOver && (
+      {isDragOver && createPortal(
         <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-brand-cyan/10 backdrop-blur-[1px]">
           <div className="rounded-2xl border-2 border-dashed border-brand-cyan bg-white/90 px-6 py-5 text-center shadow-2xl">
             <Paperclip size={28} className="mx-auto mb-2 text-brand-cyan" />
@@ -563,7 +564,8 @@ export function TrackingDetailPage() {
               Se crea una línea "Documentación adjunta" automáticamente
             </p>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
       {/* F4 (DGG-66) · aportes del gestor PENDIENTES de revisión (inline) */}
       {pendientesModeracion.length > 0 && (

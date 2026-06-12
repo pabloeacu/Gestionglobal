@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, useParams } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -477,7 +478,7 @@ function ModalCrearUsuarioPartner({
     setResultado({ user_id: res.data.user_id, password: res.data.password_temporal });
   }
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 px-4 py-8"
       onClick={onClose}
@@ -597,6 +598,7 @@ function ModalCrearUsuarioPartner({
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

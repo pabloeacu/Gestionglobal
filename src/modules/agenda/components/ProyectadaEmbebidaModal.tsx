@@ -12,6 +12,7 @@
 // monto cuando aplica, descripción, estado) + el botón que sí navega.
 
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowUpRight,
@@ -103,7 +104,7 @@ export function ProyectadaEmbebidaModal({ proyectada, onClose }: Props) {
     onClose();
   }
 
-  return (
+  return createPortal(
     <div
       role="dialog"
       aria-label="Detalle del evento proyectado"
@@ -202,6 +203,7 @@ export function ProyectadaEmbebidaModal({ proyectada, onClose }: Props) {
           </span>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

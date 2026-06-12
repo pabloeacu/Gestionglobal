@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   AlertCircle,
@@ -576,7 +577,7 @@ function AdjuntoLightbox({
   const esPdf = ext === 'pdf';
   const esImg = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'avif', 'svg'].includes(ext);
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-50 grid place-items-center bg-brand-ink/70 p-4 backdrop-blur-sm motion-safe:animate-fade-in"
       onClick={onClose}
@@ -644,7 +645,8 @@ function AdjuntoLightbox({
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

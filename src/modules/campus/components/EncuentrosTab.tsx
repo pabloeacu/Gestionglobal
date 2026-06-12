@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   CalendarClock,
   ExternalLink,
@@ -996,7 +997,7 @@ function WebexSetupModal({
     onSaved();
   }
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
       <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
         <h3 className="font-display text-lg font-bold text-brand-ink">Configurar sala Webex</h3>
@@ -1057,6 +1058,7 @@ function WebexSetupModal({
           </Button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

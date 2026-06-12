@@ -10,6 +10,7 @@
 //   - en desktop → tip "te lo podés instalar como app en el celu"
 
 import { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Home,
   GraduationCap,
@@ -292,7 +293,7 @@ export function PortalOnboardingTour({ open, onClose }: Props) {
     onClose();
   }
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto px-3 sm:px-4 pt-8 sm:pt-12 pb-6 backdrop-blur">
       {/* overlay */}
       <div
@@ -382,7 +383,8 @@ export function PortalOnboardingTour({ open, onClose }: Props) {
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

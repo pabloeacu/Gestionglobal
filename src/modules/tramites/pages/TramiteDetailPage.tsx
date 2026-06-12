@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { toast } from '@/lib/toast';
 import {
@@ -754,7 +755,7 @@ function AdjuntosPane({
         </ul>
       )}
 
-      {preview && (
+      {preview && createPortal(
         <div
           className="fixed inset-0 z-50 grid place-items-center bg-brand-ink/70 p-4 motion-safe:animate-fade-up"
           onClick={() => setPreview(null)}
@@ -813,7 +814,8 @@ function AdjuntosPane({
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </section>
   );

@@ -2,6 +2,7 @@
 // useLayoutEffect mide el alto REAL del menú renderizado y reposiciona;
 // recalcula cuando se expande el submenú "Posponer" (sino se corta abajo).
 import { useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   CalendarClock,
   Check,
@@ -54,7 +55,7 @@ export function AccionesMenu({
     });
   }, [x, y, subOpen]);
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-[70]" onClick={onClose}>
       <div
         ref={menuRef}
@@ -141,6 +142,7 @@ export function AccionesMenu({
           {esRecurrente ? 'Saltear esta ocurrencia' : 'Eliminar'}
         </button>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

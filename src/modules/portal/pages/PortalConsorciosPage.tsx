@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Building2, Users, Wallet, FileText, Hash } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { BrandLoader } from '@/components/brand/BrandLoader';
@@ -218,7 +219,7 @@ function ConsorcioDetailModal({
   consorcio: ConsorcioRow;
   onClose: () => void;
 }) {
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-brand-ink/40 px-4 py-6 motion-safe:animate-fade-up sm:items-center sm:py-8">
       <div
         className="fixed inset-0"
@@ -297,7 +298,8 @@ function ConsorcioDetailModal({
           </dl>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

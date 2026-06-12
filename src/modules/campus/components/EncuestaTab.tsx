@@ -2,6 +2,7 @@
 // Mig 0136. Sub-tabs internos: Configuración (builder + flags) | Respuestas (reportes).
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Trash2,
   Copy,
@@ -556,7 +557,7 @@ function EmularModal({
     onEmulado();
   }
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-50 grid place-items-center bg-brand-ink/40 p-4"
       onClick={onClose}
@@ -615,7 +616,8 @@ function EmularModal({
           </Button>
         </footer>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
