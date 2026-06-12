@@ -43,6 +43,7 @@ export type CursoEncuentroAsistenciaRow =
 export const CONDICION_TIPOS = [
   'examen',
   'asistencia',
+  'encuesta',
   'pago',
   'otra',
 ] as const;
@@ -51,15 +52,17 @@ export type CondicionTipo = (typeof CONDICION_TIPOS)[number];
 export const CONDICION_TIPO_LABEL: Record<CondicionTipo, string> = {
   examen: 'Aprobar el examen',
   asistencia: 'Asistencia a encuentros',
+  encuesta: 'Completar la encuesta de satisfacción',
   pago: 'Pago del curso',
   otra: 'Otra condición',
 };
 
-// La condición de examen es la única automática (se acredita server-side al
-// aprobar). El resto las tilda gerencia/instructor manualmente.
+// examen y encuesta son automáticas (se acreditan server-side: examen al aprobar,
+// encuesta al responder). El resto las tilda gerencia/instructor manualmente.
 export const CONDICION_AUTOMATICA: Record<CondicionTipo, boolean> = {
   examen: true,
   asistencia: false,
+  encuesta: true,
   pago: false,
   otra: false,
 };
@@ -1096,6 +1099,22 @@ export async function guardarCondicionesConfig(
         .insert(payload);
       if (error) return fail('CONDICION_INSERT', error.message, error);
     }
+  }
+
+  // Condición "Encuesta": si hay una activa, marcamos la encuesta del curso como
+  // requerida_para_cert (así el gate y la card del alumno la muestran obligatoria).
+  // NO la desactivamos si no hay (otros cursos pueden tener el flag desde la pestaña
+  // Encuesta de Satisfacción). El gate del backend igual honra la condición directamente
+  // (mig 0227), esto es para el display del alumno + consistencia con la pestaña Encuesta.
+  const hayEncuestaActiva = conds.some(
+    (c) => c.tipo === 'encuesta' && (c.activa ?? true),
+  );
+  if (hayEncuestaActiva) {
+    const { error: eFlag } = await supabase
+      .from('curso_encuestas')
+      .update({ requerida_para_cert: true })
+      .eq('curso_id', cursoId);
+    if (eFlag) return fail('CONDICION_ENCUESTA_FLAG', eFlag.message, eFlag);
   }
   return ok(true);
 }

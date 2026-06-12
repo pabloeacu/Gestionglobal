@@ -138,15 +138,21 @@ export function CondicionesTab({
           </h2>
         </header>
         <p className="mb-4 text-sm text-brand-muted">
-          Definí qué tiene que cumplir el alumno para recibir el certificado. La
-          condición de examen se acredita sola al aprobar; el resto las tildás
-          vos en la pestaña de gestión.
+          Definí qué tiene que cumplir el alumno para recibir el certificado. El
+          examen y la encuesta se acreditan solas (al aprobar / al responder); el
+          resto las tildás vos en la pestaña de gestión.
         </p>
         <p className="mb-4 -mt-2 rounded-lg bg-brand-cyan/5 px-3 py-2 text-xs text-brand-muted">
           La <strong className="text-brand-ink">asistencia a encuentros</strong> se
           configura en la pestaña <strong className="text-brand-ink">Encuentros</strong>{' '}
           (cada módulo sincrónico con su modalidad —único / alternativas / serie— y su
           docente); aparece sola como condición del certificado.
+        </p>
+        <p className="mb-4 -mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
+          La condición <strong>Completar la encuesta de satisfacción</strong> exige que el
+          curso tenga una encuesta activa en la pestaña{' '}
+          <strong>Encuesta de Satisfacción</strong>; se acredita sola cuando el alumno la
+          responde, y dispara la emisión del certificado.
         </p>
 
         {items.length === 0 ? (
@@ -227,7 +233,8 @@ export function CondicionesTab({
                   <div className="mt-2 flex flex-wrap items-center gap-4 pl-7 text-xs">
                     {auto ? (
                       <span className="inline-flex items-center gap-1 rounded-full bg-brand-cyan/10 px-2 py-0.5 font-semibold text-brand-cyan">
-                        <Lock size={11} /> Automática (al aprobar)
+                        <Lock size={11} /> Automática (
+                        {it.tipo === 'encuesta' ? 'al responder' : 'al aprobar'})
                       </span>
                     ) : (
                       <span className="text-brand-muted">Tilde manual de gerencia</span>
