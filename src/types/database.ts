@@ -2261,6 +2261,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "curso_encuentros_condicion_id_fkey"
+            columns: ["condicion_id"]
+            isOneToOne: false
+            referencedRelation: "curso_condiciones_config"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "curso_encuentros_curso_id_fkey"
             columns: ["curso_id"]
             isOneToOne: false
@@ -2544,6 +2551,44 @@ export type Database = {
             columns: ["submission_origen"]
             isOneToOne: false
             referencedRelation: "formulario_submissions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      curso_modulo_material: {
+        Row: {
+          archivo_url: string | null
+          created_at: string
+          descripcion: string | null
+          id: string
+          modulo_id: string
+          titulo: string
+          url: string | null
+        }
+        Insert: {
+          archivo_url?: string | null
+          created_at?: string
+          descripcion?: string | null
+          id?: string
+          modulo_id: string
+          titulo: string
+          url?: string | null
+        }
+        Update: {
+          archivo_url?: string | null
+          created_at?: string
+          descripcion?: string | null
+          id?: string
+          modulo_id?: string
+          titulo?: string
+          url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "curso_modulo_material_modulo_id_fkey"
+            columns: ["modulo_id"]
+            isOneToOne: false
+            referencedRelation: "curso_modulos"
             referencedColumns: ["id"]
           },
         ]
@@ -8017,6 +8062,7 @@ export type Database = {
         }
         Returns: string
       }
+      curso_duplicar: { Args: { p_curso_id: string }; Returns: string }
       curso_encuentro_set_zoom: {
         Args: {
           p_duracion_min?: number
@@ -8654,6 +8700,14 @@ export type Database = {
           user_id: string
         }[]
       }
+      gestor_acceso_ref: {
+        Args: { p_token: string }
+        Returns: {
+          cliente_nombre: string
+          servicio_nombre: string
+          tramite_codigo: string
+        }[]
+      }
       gestor_cargar_avance: {
         Args: {
           p_archivos_urls?: string[]
@@ -8680,6 +8734,7 @@ export type Database = {
         Args: { p_token: string }
         Returns: Json
       }
+      gestor_upload_path_ok: { Args: { p_name: string }; Returns: boolean }
       get_landing_cover_status: { Args: never; Returns: boolean }
       get_public_whatsapp: { Args: never; Returns: string }
       gg_agenda_listar_unificada: {
@@ -8882,6 +8937,10 @@ export type Database = {
       matricula_cumple_encuesta: {
         Args: { p_matricula_id: string }
         Returns: boolean
+      }
+      matricula_sync_encuesta: {
+        Args: { p_matricula_id: string }
+        Returns: undefined
       }
       matricula_sync_examen: {
         Args: { p_matricula_id: string }
@@ -9184,6 +9243,10 @@ export type Database = {
           match_por: string
         }[]
       }
+      solicitud_pedir_docs_revision: {
+        Args: { p_mensaje: string; p_solicitud_id: string }
+        Returns: undefined
+      }
       solicitud_rechazar: {
         Args: { p_motivo: string; p_solicitud_id: string }
         Returns: undefined
@@ -9422,6 +9485,8 @@ export type Database = {
         }
         Returns: string
       }
+      webinar_duplicar: { Args: { p_webinar_id: string }; Returns: string }
+      webinar_inscripcion_activa: { Args: never; Returns: Json }
       webinar_set_zoom: {
         Args: {
           p_duracion_min?: number

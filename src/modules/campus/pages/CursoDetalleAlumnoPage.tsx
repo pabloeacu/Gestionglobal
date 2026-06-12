@@ -10,6 +10,7 @@ import {
   Download,
   Loader2,
   Lock,
+  Paperclip,
   ScrollText,
   ShieldCheck,
   Video,
@@ -178,7 +179,9 @@ export function CursoDetalleAlumnoPage() {
         ...m,
         clases: m.clases.filter((c) => esVisibleAlumno(c)),
       }))
-      .filter((m) => m.clases.length > 0);
+      // Material extra (DGG-72): un módulo con material pero sin clases visibles
+      // igual debe mostrarse (su "material extra" es parte del módulo).
+      .filter((m) => m.clases.length > 0 || m.material.length > 0);
   }, [data]);
 
   const bibliografiaVisible = useMemo(() => {
@@ -496,6 +499,58 @@ export function CursoDetalleAlumnoPage() {
                         );
                       })}
                     </ul>
+                  )}
+
+                  {/* Material extra del módulo (DGG-72): links/archivos.
+                      Sólo aparece si el módulo tiene ≥1 ítem cargado. */}
+                  {open && m.material.length > 0 && (
+                    <div className="border-t border-slate-100 px-2 py-2 motion-safe:animate-fade-up">
+                      <p className="mb-1.5 flex items-center gap-1 px-1 text-[11px] font-semibold uppercase tracking-wide text-brand-muted">
+                        <Paperclip size={11} /> Material extra
+                      </p>
+                      <ul className="space-y-1">
+                        {m.material.map((mat) => (
+                          <li
+                            key={mat.id}
+                            className="rounded-lg px-2 py-1.5 hover:bg-slate-50"
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="min-w-0 flex-1 truncate text-sm text-brand-ink">
+                                {mat.titulo}
+                              </span>
+                              <div className="flex shrink-0 items-center gap-2">
+                                {mat.archivo_url && (
+                                  <a
+                                    href={mat.archivo_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    download
+                                    className="inline-flex items-center gap-1 text-xs font-medium text-brand-cyan hover:underline"
+                                  >
+                                    <Download size={12} /> Descargar
+                                  </a>
+                                )}
+                                {mat.url && (
+                                  <a
+                                    href={mat.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-xs font-medium text-brand-cyan hover:underline"
+                                  >
+                                    Abrir
+                                  </a>
+                                )}
+                              </div>
+                            </div>
+                            {mat.descripcion && (
+                              <p className="mt-0.5 text-xs text-brand-muted">
+                                {mat.descripcion}
+                              </p>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
                   )}
                 </section>
               );

@@ -12,6 +12,7 @@ import {
   BookOpen,
   ChevronDown,
   ChevronUp,
+  Paperclip,
   Plus,
   Save,
   Trash2,
@@ -32,14 +33,17 @@ import { FileUploader } from './FileUploader';
 import {
   actualizarBibliografia,
   actualizarClase,
+  actualizarMaterialModulo,
   actualizarModulo,
   borrarBibliografia,
   borrarClase,
+  borrarMaterialModulo,
   borrarModulo,
   CLASE_TIPOS,
   CLASE_TIPO_LABEL,
   crearBibliografia,
   crearClase,
+  crearMaterialModulo,
   crearModulo,
   estadoPublicacion,
   fmtFechaHora,
@@ -47,6 +51,7 @@ import {
   type CursoBibliografiaRow,
   type CursoClaseRow,
   type CursoDetalle,
+  type CursoModuloMaterialRow,
   type CursoModuloRow,
 } from '@/services/api/campus';
 import { ImageUploader } from './ImageUploader';
@@ -429,6 +434,14 @@ function ModuloEditor({
             )}
             <NuevaClaseForm moduloId={modulo.id} onCreated={onChanged} />
           </div>
+
+          {/* Material extra del módulo (DGG-72): links/archivos varios. Al
+              alumno se le muestra sólo si hay ≥1 ítem. */}
+          <MaterialExtraSection
+            moduloId={modulo.id}
+            items={modulo.material}
+            onChanged={onChanged}
+          />
         </div>
       )}
     </article>
@@ -811,6 +824,232 @@ function NuevaClaseForm({
 // ============================================================================
 // BIBLIOGRAFÍA
 // ============================================================================
+// ============================================================================
+// MATERIAL EXTRA por módulo (DGG-72) · links/archivos varios; visible al alumno
+// SÓLO si el módulo tiene ≥1 ítem. Opera como bibliografía pero con scope módulo.
+// ============================================================================
+function MaterialExtraSection({
+  moduloId,
+  items,
+  onChanged,
+}: {
+  moduloId: string;
+  items: CursoModuloMaterialRow[];
+  onChanged: () => void;
+}) {
+  const [nuevoTitulo, setNuevoTitulo] = useState('');
+  const [nuevoUrl, setNuevoUrl] = useState('');
+  const [nuevoArchivo, setNuevoArchivo] = useState<string | null>(null);
+  // ownerId temporal para subir el archivo ANTES de que exista la fila.
+  const [tempOwnerId, setTempOwnerId] = useState(() => crypto.randomUUID());
+  const [creando, setCreando] = useState(false);
+
+  async function crear() {
+    if (!nuevoTitulo.trim()) {
+      toast.error('Ponele un título al material.');
+      return;
+    }
+    if (!nuevoUrl.trim() && !nuevoArchivo) {
+      toast.error('Agregá un link o subí un archivo.');
+      return;
+    }
+    setCreando(true);
+    const res = await crearMaterialModulo(moduloId, {
+      titulo: nuevoTitulo.trim(),
+      url: nuevoUrl.trim() || null,
+      archivo_url: nuevoArchivo,
+    });
+    setCreando(false);
+    if (!res.ok) {
+      toast.error(humanizeError(res.error));
+      return;
+    }
+    setNuevoTitulo('');
+    setNuevoUrl('');
+    setNuevoArchivo(null);
+    setTempOwnerId(crypto.randomUUID());
+    onChanged();
+  }
+
+  return (
+    <div className="space-y-2 border-t border-slate-100 pt-4">
+      <h4 className="kicker mb-0 flex items-center gap-1 text-brand-muted">
+        <Paperclip size={12} /> Material extra
+      </h4>
+      <p className="text-[11px] text-brand-muted">
+        Links o archivos del módulo. Al alumno sólo se le muestra si hay al menos
+        uno cargado.
+      </p>
+      {items.length > 0 && (
+        <ul className="space-y-2">
+          {items.map((it) => (
+            <MaterialItem key={it.id} item={it} onChanged={onChanged} />
+          ))}
+        </ul>
+      )}
+      <div className="space-y-2 rounded-xl border border-dashed border-slate-300 bg-brand-zebra/20 p-3">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-brand-muted">
+          Nuevo material
+        </p>
+        <Input
+          value={nuevoTitulo}
+          onChange={(e) => setNuevoTitulo(e.target.value)}
+          placeholder="Título * (ej: Planilla de cálculo)"
+        />
+        <Input
+          value={nuevoUrl}
+          onChange={(e) => setNuevoUrl(e.target.value)}
+          placeholder="Link externo (https://…)"
+        />
+        <FileUploader
+          value={nuevoArchivo}
+          onChange={setNuevoArchivo}
+          scope="modulo-material"
+          ownerId={tempOwnerId}
+          maxMb={50}
+          accept="*/*"
+          label="Archivo"
+          hint="Cargá el link externo O subí el archivo (lo que prefieras). ≤ 50 MB."
+        />
+        <div className="flex justify-end">
+          <Button onClick={crear} loading={creando}>
+            <Plus size={13} /> Agregar
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MaterialItem({
+  item,
+  onChanged,
+}: {
+  item: CursoModuloMaterialRow;
+  onChanged: () => void;
+}) {
+  const confirm = useConfirm();
+  const [expanded, setExpanded] = useState(false);
+  const [titulo, setTitulo] = useState(item.titulo);
+  const [url, setUrl] = useState(item.url ?? '');
+  const [archivo, setArchivo] = useState<string | null>(item.archivo_url ?? null);
+  const [descripcion, setDescripcion] = useState(item.descripcion ?? '');
+  const [saving, setSaving] = useState(false);
+
+  const dirty =
+    titulo !== item.titulo ||
+    (url || null) !== (item.url ?? null) ||
+    (archivo || null) !== (item.archivo_url ?? null) ||
+    (descripcion || null) !== (item.descripcion ?? null);
+
+  async function guardar() {
+    if (!titulo.trim()) {
+      toast.error('El título no puede quedar vacío.');
+      return;
+    }
+    setSaving(true);
+    const res = await actualizarMaterialModulo(item.id, {
+      titulo: titulo.trim(),
+      url: url.trim() || null,
+      archivo_url: archivo,
+      descripcion: descripcion.trim() || null,
+    });
+    setSaving(false);
+    if (!res.ok) {
+      toast.error(humanizeError(res.error));
+      return;
+    }
+    toast.success('Material actualizado');
+    onChanged();
+  }
+
+  async function eliminar() {
+    const ok = await confirm({
+      title: 'Eliminar material',
+      message: `¿Eliminar "${item.titulo}"?`,
+      confirmLabel: 'Eliminar',
+      danger: true,
+    });
+    if (!ok) return;
+    const res = await borrarMaterialModulo(item.id);
+    if (!res.ok) {
+      toast.error(humanizeError(res.error));
+      return;
+    }
+    onChanged();
+  }
+
+  return (
+    <li className="overflow-hidden rounded-lg border border-slate-200 bg-brand-zebra/20">
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left text-sm transition hover:bg-white"
+      >
+        <div className="min-w-0">
+          <p className="truncate font-semibold text-brand-ink">{item.titulo}</p>
+          <p className="truncate text-xs text-brand-muted">
+            {item.archivo_url ? 'Archivo' : item.url ? 'Link' : 'Sin contenido'}
+          </p>
+        </div>
+        <span className="text-brand-muted">
+          {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+        </span>
+      </button>
+      {expanded && (
+        <div className="space-y-3 border-t border-slate-200 bg-white p-3">
+          <Field label="Título" required>
+            <Input value={titulo} onChange={(e) => setTitulo(e.target.value)} />
+          </Field>
+          <Field label="Link externo (opcional)">
+            <Input
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              placeholder="https://…"
+            />
+          </Field>
+          <FileUploader
+            value={archivo}
+            onChange={setArchivo}
+            onPersist={async (u) => {
+              const r = await actualizarMaterialModulo(item.id, { archivo_url: u });
+              if (!r.ok) toast.error(humanizeError(r.error));
+              else onChanged();
+            }}
+            scope="modulo-material"
+            ownerId={item.id}
+            maxMb={50}
+            accept="*/*"
+            label="Archivo"
+            hint="Link O archivo. El alumno lo abre/descarga. ≤ 50 MB."
+          />
+          <Field label="Descripción (opcional)">
+            <Textarea
+              rows={2}
+              value={descripcion}
+              onChange={(e) => setDescripcion(e.target.value)}
+            />
+          </Field>
+          <div className="flex items-center justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => void eliminar()}
+              className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-red-600 hover:bg-red-50"
+            >
+              <Trash2 size={12} /> Eliminar
+            </button>
+            {dirty && (
+              <Button onClick={() => void guardar()} loading={saving}>
+                <Save size={13} /> Guardar
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
+    </li>
+  );
+}
+
 function BibliografiaSection({
   cursoId,
   items,

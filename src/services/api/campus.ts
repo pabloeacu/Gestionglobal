@@ -17,6 +17,8 @@ export type CursoModuloRow = Database['public']['Tables']['curso_modulos']['Row'
 export type CursoClaseRow = Database['public']['Tables']['curso_clases']['Row'];
 export type CursoBibliografiaRow =
   Database['public']['Tables']['curso_bibliografia']['Row'];
+export type CursoModuloMaterialRow =
+  Database['public']['Tables']['curso_modulo_material']['Row'];
 export type CursoExamenRow = Database['public']['Tables']['curso_examenes']['Row'];
 export type CursoPreguntaRow = Database['public']['Tables']['curso_preguntas']['Row'];
 export type CursoOpcionRow = Database['public']['Tables']['curso_opciones']['Row'];
@@ -179,6 +181,7 @@ export interface CursoDetalle {
   modulos: Array<
     CursoModuloRow & {
       clases: CursoClaseRow[];
+      material: CursoModuloMaterialRow[];
     }
   >;
   bibliografia: CursoBibliografiaRow[];
@@ -208,7 +211,7 @@ export async function getCurso(
   // 2. Módulos + clases. RLS filtra para no-matriculados (devolverá vacío).
   const { data: modulos, error: e2 } = await supabase
     .from('curso_modulos')
-    .select('*, curso_clases(*)')
+    .select('*, curso_clases(*), curso_modulo_material(*)')
     .eq('curso_id', curso.id)
     .order('orden', { ascending: true });
   if (e2) return fail('CURSO_MODULOS', e2.message, e2);
@@ -229,7 +232,10 @@ export async function getCurso(
     .order('created_at', { ascending: true });
   if (e4) return fail('CURSO_EXAMENES', e4.message, e4);
 
-  type ModRaw = CursoModuloRow & { curso_clases: CursoClaseRow[] };
+  type ModRaw = CursoModuloRow & {
+    curso_clases: CursoClaseRow[];
+    curso_modulo_material: CursoModuloMaterialRow[];
+  };
   type ExRaw = CursoExamenRow & {
     curso_examen_secciones: CursoExamenSeccionRow[];
     curso_preguntas: Array<CursoPreguntaRow & { curso_opciones: CursoOpcionRow[] }>;
@@ -239,6 +245,9 @@ export async function getCurso(
     (m) => ({
       ...(m as CursoModuloRow),
       clases: [...(m.curso_clases ?? [])].sort((a, b) => a.orden - b.orden),
+      material: [...(m.curso_modulo_material ?? [])].sort((a, b) =>
+        (a.created_at ?? '').localeCompare(b.created_at ?? ''),
+      ),
     }),
   );
 
@@ -850,6 +859,63 @@ export async function borrarBibliografia(id: string): Promise<ApiResponse<true>>
     .delete()
     .eq('id', id);
   if (error) return fail('BIBLIO_DELETE', error.message, error);
+  return ok(true);
+}
+
+// ============================================================================
+// Material extra por módulo (curso_modulo_material) · opera como bibliografía
+// pero a nivel MÓDULO. Al alumno la sección se le muestra sólo si el módulo
+// tiene ≥1 ítem (condición de render en CursoDetalleAlumnoPage). Single-table
+// → sin RPC (regla 5); RLS espeja curso_clases (mig 0232).
+// ============================================================================
+export async function crearMaterialModulo(
+  moduloId: string,
+  input: {
+    titulo: string;
+    url?: string | null;
+    archivo_url?: string | null;
+    descripcion?: string | null;
+  },
+): Promise<ApiResponse<CursoModuloMaterialRow>> {
+  const { data, error } = await supabase
+    .from('curso_modulo_material')
+    .insert({
+      modulo_id: moduloId,
+      titulo: input.titulo,
+      url: input.url ?? null,
+      archivo_url: input.archivo_url ?? null,
+      descripcion: input.descripcion ?? null,
+    })
+    .select()
+    .single();
+  if (error) return fail('MODULO_MATERIAL_CREATE', error.message, error);
+  return ok(data);
+}
+
+export async function actualizarMaterialModulo(
+  id: string,
+  patch: Partial<
+    Pick<CursoModuloMaterialRow, 'titulo' | 'url' | 'archivo_url' | 'descripcion'>
+  >,
+): Promise<ApiResponse<CursoModuloMaterialRow>> {
+  const { data, error } = await supabase
+    .from('curso_modulo_material')
+    .update(patch)
+    .eq('id', id)
+    .select()
+    .single();
+  if (error) return fail('MODULO_MATERIAL_UPDATE', error.message, error);
+  return ok(data);
+}
+
+export async function borrarMaterialModulo(
+  id: string,
+): Promise<ApiResponse<true>> {
+  const { error } = await supabase
+    .from('curso_modulo_material')
+    .delete()
+    .eq('id', id);
+  if (error) return fail('MODULO_MATERIAL_DELETE', error.message, error);
   return ok(true);
 }
 
@@ -2055,6 +2121,7 @@ export type CampusMediaScope =
   | 'clase-instructor'
   | 'modulo-docente-cv'
   | 'biblio-archivo'
+  | 'modulo-material'
   // F6 (DGG-63) · Webinars con esquema rico. Reusamos el bucket campus-media
   // (público, policy campus_media_write_staff path-agnóstica) para el banner
   // del webinar y las fotos del roster de docentes. R20: el upload pasa por
