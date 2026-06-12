@@ -239,6 +239,23 @@ export async function eliminarWebinar(id: string): Promise<ApiResponse<true>> {
   }
 }
 
+// Clona un webinar como BORRADOR (publicado=false, status=programado), sin sala
+// Zoom/Webex/YouTube y manteniendo el formulario de evento COMPARTIDO. NO copia
+// inscriptos. Backend: RPC webinar_duplicar (mig 0224, SECURITY DEFINER + is_staff).
+// Devuelve el id del clon. `as any`: RPC nueva, aún no en los types generados.
+export async function duplicarWebinar(id: string): Promise<ApiResponse<string>> {
+  try {
+    const { data, error } = await (supabase.rpc as any)('webinar_duplicar', {
+      p_webinar_id: id,
+    });
+    if (error) throw error;
+    return ok(data as string);
+  } catch (e) {
+    const err = toApiError(e);
+    return fail(err.code, err.message, err.details);
+  }
+}
+
 // DGG-29 · emitir cert a un asistente del webinar
 export async function emitirCertificadoWebinar(
   webinarId: string,

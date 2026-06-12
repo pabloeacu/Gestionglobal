@@ -571,6 +571,20 @@ export async function setCursoActivo(
   return ok(true);
 }
 
+// Clona un curso completo (todo el material: módulos+clases, examen+secciones+
+// preguntas+opciones, condiciones, encuentros [sin sala Zoom], bibliografía,
+// encuestas) remapeando los FK. NO clona alumnos matriculados ni datos por-alumno.
+// El clon nace BORRADOR (activo=false) con slug único y título "… (copia)".
+// Backend: RPC curso_duplicar (mig 0222/0223, SECURITY DEFINER + is_staff). Devuelve
+// el id del clon. `as any`: la RPC es nueva y aún no está en los types generados.
+export async function duplicarCurso(cursoId: string): Promise<ApiResponse<string>> {
+  const { data, error } = await (supabase.rpc as any)('curso_duplicar', {
+    p_curso_id: cursoId,
+  });
+  if (error) return fail('CURSO_DUPLICAR', error.message, error);
+  return ok(data as string);
+}
+
 // Módulos
 export async function crearModulo(
   cursoId: string,

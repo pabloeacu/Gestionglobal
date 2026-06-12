@@ -16,6 +16,7 @@ import {
   Input,
   Select,
   Skeleton,
+  useConfirm,
 } from '@/components/common';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import { IllustratedEmpty } from '@/components/brand/IllustratedEmpty';
@@ -24,6 +25,7 @@ import { toast } from '@/lib/toast';
 import { cn } from '@/lib/cn';
 import {
   crearCurso,
+  duplicarCurso,
   listCursos,
   listMatriculas,
   MODALIDADES,
@@ -46,6 +48,8 @@ export function CampusListPage() {
   const [search, setSearch] = useState('');
   const [modalidad, setModalidad] = useState<ModFilter>('todos');
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
+  const confirm = useConfirm();
 
   async function load() {
     setLoading(true);
@@ -70,6 +74,27 @@ export function CampusListPage() {
     ['cursos', 'curso_matriculas', 'examen_intentos'],
     () => void load(),
   );
+
+  async function handleDuplicate(curso: CursoListItem) {
+    const okc = await confirm({
+      title: 'Duplicar curso',
+      message:
+        `Se creará una copia BORRADOR de "${curso.titulo}" con todo el material ` +
+        '(módulos, clases, examen, condiciones, encuentros, bibliografía y encuestas). ' +
+        'NO se copian los alumnos matriculados. Después la editás y la publicás.',
+      confirmLabel: 'Duplicar',
+    });
+    if (!okc) return;
+    setDuplicatingId(curso.id);
+    const res = await duplicarCurso(curso.id);
+    setDuplicatingId(null);
+    if (!res.ok) {
+      toast.error(`No pudimos duplicar el curso: ${humanizeError(res.error)}`);
+      return;
+    }
+    toast.success('Curso duplicado. Abriendo la copia…');
+    window.location.assign(`/gerencia/campus/${res.data}`);
+  }
 
   const filtered = useMemo(() => {
     return cursos.filter((c) => {
@@ -200,6 +225,8 @@ export function CampusListPage() {
                   key={c.id}
                   curso={c}
                   to={`/gerencia/campus/${c.id}`}
+                  onDuplicate={() => void handleDuplicate(c)}
+                  duplicating={duplicatingId === c.id}
                 />
               ))}
             </div>

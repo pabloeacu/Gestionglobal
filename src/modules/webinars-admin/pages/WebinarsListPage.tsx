@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, Radio, Users, CheckCircle2, Clock, Video, Youtube } from 'lucide-react';
-import { Button, Field, Input, Modal, Select, Textarea } from '@/components/common';
+import { Plus, Radio, Users, CheckCircle2, Clock, Copy, Loader2, Video, Youtube } from 'lucide-react';
+import { Button, Field, Input, Modal, Select, Textarea, useConfirm } from '@/components/common';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import { IllustratedEmpty } from '@/components/brand/IllustratedEmpty';
 import { toast } from '@/lib/toast';
 import {
   crearWebinar,
+  duplicarWebinar,
   getWebinarKpis,
   listWebinars,
   type WebinarRow,
@@ -44,6 +45,8 @@ export function WebinarsListPage() {
   const [loading, setLoading] = useState(true);
   const [filtroStatus, setFiltroStatus] = useState<'todos' | 'programado' | 'en_curso' | 'finalizado' | 'cancelado'>('todos');
   const [openNuevo, setOpenNuevo] = useState(false);
+  const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
+  const confirm = useConfirm();
 
   async function recargar() {
     setLoading(true);
@@ -54,6 +57,27 @@ export function WebinarsListPage() {
   }
 
   useEffect(() => { void recargar(); }, []);
+
+  async function handleDuplicate(w: WebinarRow) {
+    const okc = await confirm({
+      title: 'Duplicar webinar',
+      message:
+        `Se creará una copia BORRADOR de "${w.titulo}" (descripción, fecha, docentes, ` +
+        'banner, certificado y formulario de inscripción). NO se copian la sala Zoom ' +
+        'ni los inscriptos. Después la editás y la publicás.',
+      confirmLabel: 'Duplicar',
+    });
+    if (!okc) return;
+    setDuplicatingId(w.id);
+    const res = await duplicarWebinar(w.id);
+    setDuplicatingId(null);
+    if (!res.ok) {
+      toast.error('No pudimos duplicar el webinar', { description: humanizeError(res.error) });
+      return;
+    }
+    toast.success('Webinar duplicado. Abriendo la copia…');
+    window.location.assign(`/gerencia/formularios/webinars/${res.data}`);
+  }
 
   const visibles = items.filter((w) => filtroStatus === 'todos' || w.status === filtroStatus);
 
@@ -148,6 +172,25 @@ export function WebinarsListPage() {
                     </p>
                   </div>
                   <div className="flex flex-col items-end gap-1.5 text-xs">
+                    <button
+                      type="button"
+                      disabled={duplicatingId === w.id}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (duplicatingId !== w.id) void handleDuplicate(w);
+                      }}
+                      title="Duplicar webinar (copia borrador, sin inscriptos)"
+                      aria-label="Duplicar webinar"
+                      className="relative z-10 inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-brand-ink shadow-sm ring-1 ring-slate-200 transition hover:text-brand-cyan disabled:cursor-not-allowed disabled:opacity-70"
+                    >
+                      {duplicatingId === w.id ? (
+                        <Loader2 size={12} className="animate-spin" />
+                      ) : (
+                        <Copy size={12} />
+                      )}
+                      {duplicatingId === w.id ? 'Duplicando…' : 'Duplicar'}
+                    </button>
                     {tieneZoom && (
                       <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-blue-700">
                         <Video size={11} /> Zoom (cupo {w.cupo_zoom ?? '∞'})

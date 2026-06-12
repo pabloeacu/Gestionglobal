@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Clock, GraduationCap, Users } from 'lucide-react';
+import { Clock, Copy, GraduationCap, Loader2, Users } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import {
   MODALIDAD_LABEL,
@@ -11,10 +11,20 @@ interface CursoCardProps {
   curso: CursoListItem;
   to: string;
   className?: string;
+  /** Si se provee (vista gerencia), muestra el botón "Duplicar" sobre el banner. */
+  onDuplicate?: () => void;
+  /** Spinner + disabled mientras se está clonando este curso. */
+  duplicating?: boolean;
 }
 
 // Tarjeta de curso para el catálogo (staff y alumno).
-export function CursoCard({ curso, to, className }: CursoCardProps) {
+export function CursoCard({
+  curso,
+  to,
+  className,
+  onDuplicate,
+  duplicating,
+}: CursoCardProps) {
   return (
     <Link
       to={to}
@@ -38,6 +48,27 @@ export function CursoCard({ curso, to, className }: CursoCardProps) {
               className="text-brand-cyan/40 transition group-hover:text-brand-cyan/60"
             />
           </div>
+        )}
+        {onDuplicate && (
+          <button
+            type="button"
+            disabled={duplicating}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              if (!duplicating) onDuplicate();
+            }}
+            title="Duplicar curso (copia borrador, sin alumnos)"
+            aria-label="Duplicar curso"
+            className="absolute left-3 top-3 z-10 inline-flex items-center gap-1 rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-semibold text-brand-ink shadow-sm ring-1 ring-slate-200 backdrop-blur transition hover:bg-white hover:text-brand-cyan disabled:cursor-not-allowed disabled:opacity-70"
+          >
+            {duplicating ? (
+              <Loader2 size={12} className="animate-spin" />
+            ) : (
+              <Copy size={12} />
+            )}
+            {duplicating ? 'Duplicando…' : 'Duplicar'}
+          </button>
         )}
         <span
           className={cn(

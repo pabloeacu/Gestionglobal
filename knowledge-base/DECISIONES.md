@@ -2518,3 +2518,49 @@ El usuario lo pidió en dos requerimientos simultáneos.
 - **Commits:** `2796213` (backend) · `2fd7b6e` (gerencia) · `e324edf` (alumno) ·
   `76d413c` (§6 fixes). Migs 0220 + 0221.
 - **Fecha:** 2026-06-11. **🏁 Lista JL COMPLETA** (F1, F3, F2, F5, F7, F6, F8, F4, F10).
+
+## DGG-69 · "Duplicar" curso/webinar (clon profundo del material, sin alumnos)
+
+- **Pedido (Pablo):** que cualquier curso o webinar tenga un botón **"Duplicar"** que
+  genere un clon con TODO el material para reusarlo y editarlo. **Lo único que NO se
+  duplica son los alumnos matriculados/inscriptos. Todo lo demás, sí.**
+- **Backend (clon profundo con remapeo de FK):**
+  - `curso_duplicar(p_curso_id)` (migs **0222**→**0223**→**0225**, SECURITY DEFINER +
+    `is_staff()` + `search_path`): clona en una transacción `cursos` + `curso_modulos` +
+    `curso_clases` + `curso_examenes` + `curso_examen_secciones` + `curso_preguntas` +
+    `curso_opciones` + `curso_condiciones_config` + `curso_encuentros` +
+    `curso_bibliografia` + `curso_encuestas`, remapeando todos los FK vía una temp table
+    `_clone_cmap (kind, old_id, new_id)`. **Excluye** `curso_matriculas` y todo lo
+    por-alumno (progreso, intentos, asistencias, certificados, respuestas, condiciones-de-
+    matrícula) — por construcción (no hay código que los toque).
+  - `webinar_duplicar(p_webinar_id)` (mig **0224**): clona la fila como borrador,
+    manteniendo `formulario_id` (form de evento **compartido** — no se clona el form).
+    Excluye `webinar_inscriptos` y per-persona.
+- **Decisiones de diseño:** (1) el clon nace **BORRADOR** (`activo=false`/`publicado=false`,
+  sin publicar). (2) Título **"… (copia)"** + slug único `…-copia[-N]` (curso; webinar no
+  tiene slug). (3) Los **encuentros** copian fecha/docente/condición pero **NULLean la sala
+  Zoom/Webex** (`zoom_status='programado'`) → se recrean. (4) Las **clases**
+  `sincronica_zoom` también NULLean `zoom_url`/`zoom_fecha_hora` (§6 #C3); `youtube_url`/
+  `material_url` (contenido) **sí** se preservan. (5) Banner, fotos de docentes y
+  `formulario_id` se **comparten** (editables luego) — acoplamiento acotado, aceptable.
+- **Frontend:** botón "Duplicar" (overlay con `preventDefault`+`stopPropagation` para no
+  disparar el `<Link>`) en `CursoCard` (prop opcional → sólo gerencia; el alumno no lo ve)
+  vía `CampusListPage`, y en la card de `WebinarsListPage`. Confirm `useConfirm` (R13),
+  estado `duplicating` anti-doble-submit, navega al editor del clon. Services
+  `duplicarCurso`/`duplicarWebinar` (R4).
+- **Premisa de cierre — EJERCITAR (e2e en BD):** 2 e2e sintéticos `BEGIN/INSERT/clonar como
+  gerente (`set_config` jwt.claims)/verificar/RAISE ROLLBACK`. **El e2e cazó un bug ANTES de
+  shippear:** el INSERT de `curso_encuentros` no tenía `WHERE o.curso_id = p_curso_id` →
+  clonaba encuentros de OTROS cursos (el LEFT JOIN al mapa no filtra). Fix en 0223. (Nunca
+  llegó a prod → no es E-GG, pero valida la premise de ejercitar.)
+- **§6 (3 agentes REVISAR) → 4 hallazgos, todos resueltos:** #C3 clase.zoom_url→sala vieja
+  (fix 0225, verificado e2e); #A26 0223 sin re-GRANT (idempotencia → 0225 self-contained);
+  #A28 TOCTOU de slug (cubierto por UNIQUE `cursos_slug_key` → rollback, sin corrupción);
+  #C7 **mantenibilidad: las RPC enumeran columnas explícitas → un `ADD COLUMN` futuro se
+  pierde callado** (mitigado con comentario ⚠ en la función; candidato a regla nueva o test
+  e2e que compare columnas vs INSERT — pendiente decisión de Pablo).
+- **Pendiente (live test):** la prueba en vivo del botón es superficie de **gerencia** →
+  necesita sesión de gerente (no creo gerentes QA). Backend e2e-verificado + §6 + build
+  limpio + deploy hecho; falta el click en vivo con sesión de gerente. Webinars además
+  tiene **0 registros** hoy (el clon quedó verificado sólo por e2e sintético).
+- **Fecha:** 2026-06-11.
