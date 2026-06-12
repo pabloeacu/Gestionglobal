@@ -795,6 +795,48 @@ export async function listDocentesBanco(): Promise<ApiResponse<DocenteBancoItem[
   return ok(out);
 }
 
+// ============================================================================
+// Banco de CV de docentes (DGG-73) · reuso rápido de CVs ya cargados. Espeja
+// listDocentesBanco pero con docente_cv_url. Sólo curso_modulos +
+// curso_condiciones_config tienen CV (cursos/webinars no).
+// ============================================================================
+export interface DocenteCvBancoItem {
+  nombre: string;
+  cv_url: string;
+}
+
+export async function listDocentesCvBanco(): Promise<
+  ApiResponse<DocenteCvBancoItem[]>
+> {
+  const [m, c] = await Promise.all([
+    supabase
+      .from('curso_modulos')
+      .select('docente_nombre, docente_cv_url')
+      .not('docente_cv_url', 'is', null)
+      .not('docente_nombre', 'is', null),
+    supabase
+      .from('curso_condiciones_config')
+      .select('docente_nombre, docente_cv_url')
+      .not('docente_cv_url', 'is', null)
+      .not('docente_nombre', 'is', null),
+  ]);
+  if (m.error) return fail('DOCENTE_CV_BANCO', m.error.message, m.error);
+  if (c.error) return fail('DOCENTE_CV_BANCO', c.error.message, c.error);
+  const seen = new Set<string>();
+  const out: DocenteCvBancoItem[] = [];
+  for (const row of [...(m.data ?? []), ...(c.data ?? [])]) {
+    const nombre = (row.docente_nombre ?? '').trim();
+    const cv = (row.docente_cv_url ?? '').trim();
+    if (!nombre || !cv) continue;
+    const key = `${nombre.toLowerCase()}|${cv}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ nombre, cv_url: cv });
+  }
+  out.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+  return ok(out);
+}
+
 export async function crearBibliografia(
   cursoId: string,
   input: {

@@ -538,6 +538,17 @@ function ModuloCard({
                 ownerId={modulo.id}
                 label="CV del docente (PDF)"
                 hint="Opcional"
+                bankEnabled
+                onPickBank={async (item) => {
+                  setDocNombre(item.nombre);
+                  setDocCv(item.cv_url);
+                  const r = await actualizarModuloSincronico(modulo.id, {
+                    docente_nombre: item.nombre,
+                    docente_cv_url: item.cv_url,
+                  });
+                  if (!r.ok) toast.error(humanizeError(r.error));
+                  else void onReload();
+                }}
               />
               {metaDirty && (
                 <Button onClick={guardarMeta} loading={savingMeta} className="!py-1.5 text-xs">

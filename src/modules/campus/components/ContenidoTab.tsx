@@ -399,6 +399,17 @@ function ModuloEditor({
                 ownerId={modulo.id}
                 label="CV del docente (PDF)"
                 hint="Opcional. El alumno lo descarga desde la asignatura. ≤ 10 MB."
+                bankEnabled
+                onPickBank={async (item) => {
+                  setDocenteNombre(item.nombre);
+                  setDocenteCv(item.cv_url);
+                  const r = await actualizarModulo(modulo.id, {
+                    docente_nombre: item.nombre,
+                    docente_cv_url: item.cv_url,
+                  });
+                  if (!r.ok) toast.error(humanizeError(r.error));
+                  else onChanged();
+                }}
               />
             </div>
           </div>
