@@ -35,6 +35,9 @@ export function Stepper({ steps, current, onJump, className, compact }: StepperP
   // cualquier cantidad de pasos y a 360px. El modo normal (drawers de 3-5 pasos)
   // queda intacto.
   if (compact) {
+    // Índice seguro para el caption: el wizard ya clampa `current`, pero blindamos
+    // el componente por si un caller pasa `current` fuera de rango (auditoría §6).
+    const safeIdx = Math.min(Math.max(current, 0), Math.max(0, steps.length - 1));
     return (
       <div className={cn('w-full', className)}>
         <ol className="flex w-full items-center gap-1.5">
@@ -56,6 +59,7 @@ export function Stepper({ steps, current, onJump, className, compact }: StepperP
                   disabled={!clickable}
                   onClick={() => clickable && onJump?.(i)}
                   title={s.label}
+                  aria-current={active ? 'step' : undefined}
                   className={cn(
                     'grid h-7 w-7 shrink-0 place-items-center rounded-full text-[11px] font-semibold ring-1 ring-inset transition',
                     s.invalid
@@ -86,15 +90,15 @@ export function Stepper({ steps, current, onJump, className, compact }: StepperP
         </ol>
         <p className="mt-2.5 text-center text-xs font-semibold uppercase tracking-wider">
           <span className="text-brand-muted">
-            Paso {current + 1} de {steps.length}
+            Paso {safeIdx + 1} de {steps.length}
           </span>
           <span aria-hidden className="mx-1.5 text-slate-300">
             ·
           </span>
           <span
-            className={steps[current]?.invalid ? 'text-red-600' : 'text-brand-ink'}
+            className={steps[safeIdx]?.invalid ? 'text-red-600' : 'text-brand-ink'}
           >
-            {steps[current]?.label}
+            {steps[safeIdx]?.label}
           </span>
         </p>
       </div>
@@ -114,6 +118,7 @@ export function Stepper({ steps, current, onJump, className, compact }: StepperP
               type="button"
               disabled={!clickable}
               onClick={() => clickable && onJump?.(i)}
+              aria-current={active ? 'step' : undefined}
               className={cn(
                 'group flex w-full flex-col items-start gap-1 rounded-lg px-3 py-2 text-left transition',
                 clickable && 'hover:bg-slate-50 cursor-pointer',

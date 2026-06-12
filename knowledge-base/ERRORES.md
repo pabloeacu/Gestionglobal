@@ -2772,3 +2772,29 @@
 - **Fecha / módulo:** 2026-06-12 · campus/curso_modulos (data fix: foto + CV) · reportado por
   Pablo, ambos verificados en vivo (gerencia; foto vía gerente QA efímero residuo 0, CV vía
   reuso sólo-lectura de la sesión de Pablo).
+
+## E-GG-68 · Wizard de activación: el paso 6 (Campus) se salía del modal (Stepper sin manejo de overflow) (2026-06-12)
+
+- **Síntoma:** en el "Wizard de activación" de solicitudes de curso/webinar (que suman un 6º
+  paso "Campus"), el 6º paso aparecía cortado / fuera del modal. Reportado por JL (JL 2 · obs
+  4): "el paso 6 es como que está fuera del Wizard… es un tema de cómo se ve".
+- **Causa raíz:** `Stepper.tsx` renderizaba `[círculo] ETIQUETA` por paso, cada `<li>` con
+  `flex-1` y sin `min-w-0` → los flex items no encogen bajo su contenido (min-width auto). Con
+  5 pasos la suma de anchos entraba en el modal de 820px; con 6 (Campus) la superaba y el
+  último se clippeaba. En mobile (360px) ni 5 entraban.
+- **Fix (commit `0283bf6` + hardening):** nuevo modo `compact` en el Stepper (prop opt-in,
+  scopeado al wizard): círculos numerados + conector en una fila y el nombre del paso activo
+  abajo ("Paso 3 de 6 · Comprobante"). Escala a cualquier cantidad de pasos y a 360px. Los
+  otros 5 usos del Stepper (drawers de 3-5 pasos: cobranza, comprobante, emisores, cliente,
+  consorcio) no pasan `compact` → quedan idénticos (regresión cero, verificado por agente).
+  La auditoría §6 sumó `aria-current="step"` en el paso activo (ambos modos) + clamp defensivo
+  del índice del caption.
+- **Verificado en vivo:** wizard de curso (6 pasos, 6º visible, "PASO 1 DE 6" + progresión con
+  check verde al avanzar) y wizard no-curso (5 pasos). Solicitudes sintéticas QA por SQL,
+  residuo 0.
+- **Prevención:** un Stepper horizontal con etiqueta por paso no escala; para N pasos o anchos
+  chicos usar el modo compacto (círculos + nombre del activo). Todo flex con contenido que
+  pueda desbordar necesita `min-w-0`/estrategia de shrink, o un layout que no dependa del
+  ancho total.
+- **Fecha / módulo:** 2026-06-12 · components/common/Stepper + solicitudes/wizard · commit
+  `0283bf6`.
