@@ -661,7 +661,13 @@ function EncuestaRespuestas({ encuesta }: { encuesta: CursoEncuestaRow }) {
       const map = (r.respuestas ?? {}) as Record<string, unknown>;
       for (const q of schema.preguntas) {
         const v = map[q.id];
-        if (v !== undefined && v !== null && v !== '') s[q.id]!.values.push(v);
+        if (
+          v !== undefined &&
+          v !== null &&
+          v !== '' &&
+          !(Array.isArray(v) && v.length === 0)
+        )
+          s[q.id]!.values.push(v);
       }
     }
     return s;

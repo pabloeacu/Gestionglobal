@@ -2751,3 +2751,27 @@ El usuario lo pidió en dos requerimientos simultáneos.
   (Pablo editando en la sesión compartida, página cacheada) — data verificada + render del alumno
   ya refleja los CVs.
 - **Fecha:** 2026-06-12. Commit `87b41fa`. Sin migración (`docente_cv_url` ya existía).
+
+## DGG-74 · Tipo de pregunta "casillas" (multi-respuesta) + encuesta del Curso de Actualización 2026
+
+- **Pedido (Pablo):** cargar la encuesta de satisfacción de un docx en el "Curso de Actualización
+  2026 (RPAC-PBA)" (488b58c3), sin duplicar datos del alumno ni secciones ya cubiertas.
+- **Mapeo (con Pablo):** el docx tenía 11 preguntas. **Descartadas** Q1 (Nombre) + Q2 (Mail) = datos
+  del alumno que ya tenemos, y Q9-Q11 (¿publicar?/frase/foto) = ya cubiertas por la **sección
+  testimonio** integrada (comentario + foto + permite_publicar). Quedaron 6 (Q3-Q8). Q5/Q6 (escala
+  lineal 1-5 con etiquetas) → `escala_10` con etiquetas como ayuda (elección de Pablo). Q7 ("marcá
+  todos") → multi-select, que el motor NO tenía → **se extendió el motor**.
+- **Feature `casillas` (commit `26248d8`):** nuevo `PreguntaTipo='casillas'` (valor = string[]).
+  `EncuestaAlumnoCard`/PreguntaRunner: checkboxes multi-select (toggle inmutable; la validación
+  required ya trataba array vacío como vacío). `EncuestaTab`: palette + addPregunta + editor de
+  opciones (reusa el de 'multiple') + StatCard (cuenta cada opción aplanando arrays, % sobre
+  respondientes) + renderRespuesta (join). El RPC `encuesta_responder` y `encuesta_emular_de_curso`
+  guardan/copian el array sin tocar backend (jsonb). Hardening: la agregación ignora arrays vacíos.
+- **Carga (datos):** encuesta del curso 488b58c3, título "Queremos saber TU OPINIÓN", descripción del
+  docx, **publicada**, no obligatoria para cert. 6 preguntas: 2 estrellas (audio/video, docentes),
+  2 escala_10 (interés, aplicación —etiquetas en ayuda), 1 casillas (beneficios, 5 opc), 1 multiple
+  (curso previo, 3 opc).
+- **§6:** auditoría estática APROBADA (único `Record<PreguntaTipo>` exhaustivo actualizado; sin
+  colisión con el PreguntaTipo de exámenes; regresión de los 4 tipos previos OK; tsc exit 0). Browser
+  del render alumno (checkboxes) pendiente (Pablo editando en la sesión compartida, página cacheada).
+- **Fecha:** 2026-06-12. Commit `26248d8`. Sin migración (schema jsonb).
