@@ -2720,3 +2720,34 @@ El usuario lo pidió en dos requerimientos simultáneos.
   muestra (regla "≥1 ítem" en vivo); consola limpia; render OK en columna ~300px. Todo el QA
   (usuario + identidad + sesión + matrícula + materiales) borrado → residuo 0 verificado.
 - **Fecha:** 2026-06-12. Migs 0232 (tabla) + 0233 (Duplicar). Commits `68549bc` + `e201144`.
+
+## DGG-73 · Banco de CV de docentes (espejo del banco de fotos) + poblado de fotos y CVs
+
+- **Pedido (Pablo):** generar un "banco de CV" de docentes igual que el banco de imágenes
+  (DGG-71): crear la feature, subir los CVs, y asignarlos a los docentes de TODOS los cursos.
+- **Feature (commit `87b41fa`):** `listDocentesCvBanco()` + `DocenteCvBancoItem` en campus.ts
+  (agrega `docente_cv_url` de `curso_modulos` + `curso_condiciones_config` — cursos/webinars no
+  tienen CV); `FileUploader` gana `bankEnabled`/`onPickBank` + un `CvBankModal` (lista de docentes
+  con su CV, porteado a `document.body` por E-GG-65, búsqueda si >6); picker "Elegir del banco"
+  cableado en los 2 uploaders de CV (`modulo-docente-cv` en ContenidoTab, `encuentro-docente-cv`
+  en EncuentrosTab; `onPickBank` setea docente_nombre + docente_cv_url). Reusa los scopes -cv
+  (no re-sube). La vista del alumno ya refleja `docente_cv_url` (link "CV").
+- **Datos del mismo turno (fotos + CVs):**
+  - **Fotos (banco DGG-71):** 14 fotos (13 de un collage 1080×1350 + Chiesa) recortadas
+    circulares con fondo transparente (Python/PIL, detección por proyecciones) → **20/20 módulos
+    de f76f9ab3 con foto**; banco de imágenes con 10 docentes nuevos.
+  - **CVs:** 15 subidos (13 PDF + Biel jpeg + Bercovsky png → PDF) a
+    `campus-media/modulo-docente-cv/banco-formacion/`; **11 asignados** a sus docentes en los 2
+    cursos (incl. Mayra Lucero + Ximena González de "Actualización 2026"). Banco de CV = 11.
+  - Subida a storage (write staff-only): edge function efímera con secreto + service-role, usada
+    y **borrada** (no había service key local; la CLI no autenticaba storage). Patrón reusable.
+- **Sin CV provisto:** Castro, Tamara Suken, Fabián Beuchel, Martín Saveriano. **Extras (no
+  docentes, subidos/disponibles):** Antonela Peralta, Gerardo Rodríguez Arauco, Bercovsky
+  (tarjeta de contacto, no CV) + el 2º CV de Ortiz de Zárate (se usó el "SOZ feb 2025" reciente
+  para Soledad).
+- **§6 + verificación:** doble auditoría (feature/regresiones del FileUploader compartido +
+  datos/identidad de los CVs); e2e SQL (banco CV=11, asignaciones correctas, PDFs 200/
+  application-pdf); R20 slugs safe; edge fn borrada. Browser: el picker visual quedó pendiente
+  (Pablo editando en la sesión compartida, página cacheada) — data verificada + render del alumno
+  ya refleja los CVs.
+- **Fecha:** 2026-06-12. Commit `87b41fa`. Sin migración (`docente_cv_url` ya existía).
