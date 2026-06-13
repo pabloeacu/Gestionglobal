@@ -2871,3 +2871,38 @@ El usuario lo pidió en dos requerimientos simultáneos.
   abrió el comprobante). Limitación conocida (no bug): sólo si el comprobante está en
   `tramites.comprobante_id`; el flujo viejo lo linkea a la solicitud → ese caso no muestra el link.
 - **Fecha:** 2026-06-12. Commit `35c0a97`. Sin migración (reusa `emitir_comprobante_manual` + mig 0207).
+
+## DGG-78 · Carga de contenido del curso Actualización RPA-CABA (Gestar) (mig 0235)
+
+- **Pedido (Pablo):** cargar TODO el contenido del docx en el curso ya creado "Gestar: Curso de
+  Actualización 2026 (RPA - CABA)" (eaafb7af · **NO** el RPAC-PBA, Pablo enfatizó no confundirse):
+  módulos con docente (foto/CV del banco), videos por módulo, bibliografía con links, examen.
+  "Sin redundancias y acorde a nuestro estilo."
+- **Contenido (mig 0235, DO block atómico idempotente con guard anti-duplicado):**
+  - 5 módulos: M1 Administrador/honorarios/expensas/ruidos (Dra. Diana Sevitz), M2 Obligaciones/
+    infracciones/procedimiento (Dra. Silvia Bercovsky), M3 Auditoría interna y externa (Dra.
+    Tamara Suken), M4 Comunicación efectiva (Lic. Ximena González), M5 Traspaso de administración
+    (Dr. Raúl Castro).
+  - 23 clases (videos YouTube + duración en min). Títulos sin el sufijo "- Dra./Lic. X" ni el
+    número (redundantes; el módulo ya muestra el docente): M1/M2 títulos descriptivos por video;
+    M3/M4/M5 "Clase N" (el docx sólo numeraba). 23 URLs YouTube verificadas char-por-char.
+  - Docentes con foto/CV del banco. Huecos (NULL, el banco no los tiene): foto de Bercovsky, CV
+    de Suken, CV de Castro.
+  - 2 bibliografías (carpetas Drive: Material obligatorio + complementario).
+  - Examen "RPA 2026: Examen Curso de Actualización GESTAR": 5 secciones temáticas / 15 preguntas
+    / 100 pts / 60 para aprobar / 1 intento; V/F como `verdadero_falso`, resto `multiple_choice`;
+    justificación en `explicacion`. Se DROPEÓ la sección "Datos del alumno" (redundante: ya
+    tenemos al matriculado; mismo criterio que la encuesta DGG-74).
+- **§6 doble auditoría:** smoke BD (5 mód / 23 clases / 2 biblio / 15 preg / puntaje 100 /
+  exactamente 1 correcta por pregunta) + 3 agentes (examen **CRITICAL PASS** — todas las
+  respuestas correctas coinciden con el docx; módulos/clases fieles; docentes/biblio/estilo OK,
+  sin artefactos del docx, sin cruces tipo E-GG-67) + verificación propia char-por-char de las
+  23 URLs.
+- **Live test:** gerencia (módulo 1 renderiza: título/desc/docente foto+CV, "Visible para los
+  alumnos" ✓) + **vista del alumno** (QA alumno matriculado por SQL, residuo 0): los 5 módulos
+  con docentes (Sevitz foto+CV, Bercovsky "B"+CV, Suken foto, González foto+CV, Castro foto), 23
+  clases con títulos limpios, **el video de YouTube embebe y reproduce**, bibliografía con
+  "Abrir" a los 2 Drive, examen "RPA 2026" como nodo. Curso intacto tras el cleanup.
+- **Huecos flagueados:** foto de Bercovsky, CV de Suken, CV de Castro (el banco no los tiene;
+  cuando Pablo los pase, se asignan como en el flujo Chiesa/Gerardo).
+- **Fecha:** 2026-06-12. Mig 0235. Commit `c3333fc`.
