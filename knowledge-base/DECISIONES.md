@@ -2812,3 +2812,28 @@ El usuario lo pidió en dos requerimientos simultáneos.
   (siempre arranca `soloActivos=true`) → param cosmético/muerto. No molesta (cae igual en el
   default). Se difiere.
 - **Fecha:** 2026-06-12. Commit `a59cef9`. Sin migración (cambio de filtro frontend/API).
+
+## DGG-76 · Datos de pago propios en los forms de curso RPAC (cuenta FU.DE.CO.IN, no Gestión Global) (JL 2 · obs 3)
+
+- **Pedido (JL):** en los forms de curso (formación + actualización RPAC) la cuenta de pago NO
+  es de Gestión Global → el hint "depósito a nombre de Gestión Global" era incorrecto. Poner
+  los datos adecuados y sacar las referencias concretas a GG en estos 2 forms.
+- **Datos (JL + Pablo):** cuenta de **FU.DE.CO.IN - Fundación para el Desarrollo, Conocimiento e
+  Investigación** (titular confirmado por Pablo vía AskUserQuestion): CBU 0140114701205005476802,
+  alias BECADO.PLATO.DIETA, CUIT 30-71753148-1, CC 2050-54768/0.
+- **Mig 0234:** agrega el bloque presentacional `costos_info` ('costos_curso') a la sección
+  "Pago" de los 2 forms con esa cuenta (items:[] — sin precio, se fija en la activación; la CC
+  va en nota_extra) y reemplaza el hint del comprobante por uno sin GG ("…a la cuenta indicada
+  arriba…"). jsonb order-preserving (WITH ORDINALITY), sólo los 2 slugs. **0 referencias GG** en
+  el schema tras el cambio (las de marca/plataforma no existían en estos forms). costos_info NO
+  se valida ni se envía (presentacional, DGG-61 / verificado §6).
+- **Renderer (`CostosInfoCard`):** "CVU" → **"CBU / CVU"** (es un CBU bancario en los cursos y un
+  CVU de MP en los otros 4 forms; el label sirve para ambos) + titular sin `font-mono` (es un
+  nombre, no un número) + wrap de valores largos (min-w-0/break-words, para el titular largo) +
+  skip de filas vacías. No regresiona los otros 4 forms (cuenta MP de GG, intactos).
+- **§6:** 2 agentes (migración/presentacional + renderer/regresión, ambos **PASS**) + smoke BD
+  (Pago=[costos_info, comprobante], cuenta correcta, 0 GG, orden de secciones intacto) + **live
+  test** del form público (curso-formacion: bloque "Datos para realizar el pago" con
+  FU.DE.CO.IN/CBU/alias/CUIT/CC + hint del comprobante sin GG; curso-actualizacion idéntico
+  confirmado por DOM).
+- **Fecha:** 2026-06-12. Commit `e012fbe`. Mig 0234.
