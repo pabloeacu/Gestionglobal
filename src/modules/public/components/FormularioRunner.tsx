@@ -943,30 +943,42 @@ function CostosInfoCard({ field }: { field: FormularioFieldDef }) {
           <p className="kicker mb-2 text-brand-muted">Datos para transferencia</p>
           <dl className="space-y-1.5 rounded-xl border border-slate-200 bg-white p-3">
             {[
-              { k: 'Titular', v: costos.cuenta.titular },
-              { k: 'CVU', v: costos.cuenta.cvu },
-              { k: 'Alias', v: costos.cuenta.alias },
-              { k: 'CUIT/CUIL', v: costos.cuenta.cuit_cuil },
-            ].map(({ k, v }) => (
-              <div
-                key={k}
-                className="flex items-center justify-between gap-2 text-sm"
-              >
-                <dt className="font-medium text-brand-muted">{k}</dt>
-                <dd className="flex items-center gap-2">
-                  <span className="font-mono text-brand-ink">{v}</span>
-                  <button
-                    type="button"
-                    onClick={() => void copiar(v, k)}
-                    className="rounded-md p-1 text-brand-muted transition hover:bg-slate-100 hover:text-brand-cyan"
-                    title={`Copiar ${k}`}
-                    aria-label={`Copiar ${k}`}
-                  >
-                    <Copy size={12} />
-                  </button>
-                </dd>
-              </div>
-            ))}
+              // titular es un nombre (no mono); el resto, datos de cuenta (mono).
+              // 'CBU / CVU' sirve para CBU bancario (cuenta FU.DE.CO.IN de los
+              // cursos RPAC, JL 2 · obs 3) y para CVU de Mercado Pago (otros forms).
+              { k: 'Titular', v: costos.cuenta.titular, mono: false },
+              { k: 'CBU / CVU', v: costos.cuenta.cvu, mono: true },
+              { k: 'Alias', v: costos.cuenta.alias, mono: true },
+              { k: 'CUIT/CUIL', v: costos.cuenta.cuit_cuil, mono: true },
+            ]
+              .filter((r) => r.v)
+              .map(({ k, v, mono }) => (
+                <div
+                  key={k}
+                  className="flex items-start justify-between gap-2 text-sm"
+                >
+                  <dt className="shrink-0 font-medium text-brand-muted">{k}</dt>
+                  <dd className="flex min-w-0 items-start gap-2">
+                    <span
+                      className={cn(
+                        'text-right text-brand-ink',
+                        mono ? 'break-all font-mono' : 'break-words',
+                      )}
+                    >
+                      {v}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => void copiar(v, k)}
+                      className="mt-0.5 shrink-0 rounded-md p-1 text-brand-muted transition hover:bg-slate-100 hover:text-brand-cyan"
+                      title={`Copiar ${k}`}
+                      aria-label={`Copiar ${k}`}
+                    >
+                      <Copy size={12} />
+                    </button>
+                  </dd>
+                </div>
+              ))}
           </dl>
         </div>
       )}
