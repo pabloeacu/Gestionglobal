@@ -2807,10 +2807,10 @@ El usuario lo pidió en dos requerimientos simultáneos.
   'activas' es la página; widget ya consistente) + **live test** (default: derivadas ocultas,
   KPI cards 3→2, "1 solicitudes"; mostrar todo: 6 segmentos, "2 Derivadas", 11 solicitudes;
   segmento Derivadas filtra a las 2 reales). Solicitud recibida sintética QA por SQL, residuo 0.
-- **Pendiente menor (pre-existente, no de este cambio):** el link "Ver todas" del
-  `NuevasSolicitudesWidget` apunta a `?estado=activas` pero la página no lee el query param
-  (siempre arranca `soloActivos=true`) → param cosmético/muerto. No molesta (cae igual en el
-  default). Se difiere.
+- **Follow-up RESUELTO (commit `d7f451f`):** se quitó el `?estado=activas` muerto del link "Ver
+  todas" del `NuevasSolicitudesWidget` → queda `/gerencia/solicitudes` (cae igual en el default
+  activas, alineado con F8 = sin estado en URL). Verificado en vivo (con 6 recibidas: "Ver todas
+  (6)" → href sin param → navega a la lista activa con las 6).
 - **Fecha:** 2026-06-12. Commit `a59cef9`. Sin migración (cambio de filtro frontend/API).
 
 ## DGG-76 · Datos de pago propios en los forms de curso RPAC (cuenta FU.DE.CO.IN, no Gestión Global) (JL 2 · obs 3)
@@ -2864,7 +2864,10 @@ El usuario lo pidió en dos requerimientos simultáneos.
   emite → **comprobante X autorizado $12.000 creado + linkeado**, `comprobante_pendiente`→false,
   botón desaparece; verificado en BD; QA por SQL, **residuo 0**). Hardening de la auditoría:
   `fmtMoney` con `maximumFractionDigits`.
-- **Gap UX Low diferido:** el trámite no muestra aún el "comprobante vinculado" tras emitir (el chip
-  que desaparece + el toast son feedback suficiente; el comprobante se ve en Facturación). Candidato
-  a agregar (lo tenía la página legacy).
+- **Follow-up RESUELTO (commit `d7f451f`):** el trámite ahora muestra "Comprobante" → link a
+  `/gerencia/facturacion/:id` (tipo + punto_venta-numero) cuando `tramites.comprobante_id` está
+  seteado → tras el atajo, el gerente salta al comprobante (ver/registrar cobranza). `getTracking`
+  embebe el comprobante. Verificado en vivo (emitió X 00001-00000027, el link apareció en DATOS y
+  abrió el comprobante). Limitación conocida (no bug): sólo si el comprobante está en
+  `tramites.comprobante_id`; el flujo viejo lo linkea a la solicitud → ese caso no muestra el link.
 - **Fecha:** 2026-06-12. Commit `35c0a97`. Sin migración (reusa `emitir_comprobante_manual` + mig 0207).
