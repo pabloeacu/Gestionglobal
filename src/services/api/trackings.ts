@@ -177,6 +177,14 @@ export interface TrackingDetail extends TrackingRow {
   // JL 2 · obs 1: computed column (mig 0207) — TRUE si el trámite no es terminal
   // y NO tiene comprobante no-anulado vinculado. Habilita el atajo del header.
   comprobante_pendiente: boolean;
+  // JL 2 · obs 1 (follow-up): comprobante vinculado (vía tramites.comprobante_id)
+  // para mostrar el link "Ver comprobante" en el detalle tras emitirlo.
+  comprobante: {
+    id: string;
+    tipo: string;
+    punto_venta: number;
+    numero: number | null;
+  } | null;
 }
 
 export async function getTracking(id: string): Promise<ApiResponse<TrackingDetail>> {
@@ -192,7 +200,8 @@ export async function getTracking(id: string): Promise<ApiResponse<TrackingDetai
        comprobante_pendiente,
        servicio:servicios(id,nombre,codigo,sla_dias,vigencia_meses,precio_base),
        administracion:administraciones(id,nombre,email),
-       consorcio:consorcios(id,nombre)`,
+       consorcio:consorcios(id,nombre),
+       comprobante:comprobantes(id,tipo,punto_venta,numero)`,
     )
     .eq('id', id)
     .single();
@@ -204,6 +213,7 @@ export async function getTracking(id: string): Promise<ApiResponse<TrackingDetai
     consorcio: TrackingDetail['consorcio'];
     parent: TrackingDetail['parent'];
     comprobante_pendiente: boolean;
+    comprobante: TrackingDetail['comprobante'];
   };
 
   // Parent (continuación de tracking previo) — query separada.

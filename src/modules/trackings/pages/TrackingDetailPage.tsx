@@ -778,6 +778,23 @@ export function TrackingDetailPage() {
             <Dl label="Administración" value={data.administracion?.nombre ?? '—'} />
             <Dl label="Consorcio" value={data.consorcio?.nombre ?? '—'} />
             <Dl label="Documento final" value={data.documento_final_url ?? '—'} link={!!data.documento_final_url} />
+            {/* JL 2 · obs 1 (follow-up): link al comprobante vinculado para
+                saltar a Facturación (ver/registrar cobranza) tras emitirlo. */}
+            {data.comprobante && (
+              <div className="flex items-baseline justify-between gap-3 text-sm">
+                <span className="text-brand-muted">Comprobante</span>
+                <Link
+                  to={`/gerencia/facturacion/${data.comprobante.id}`}
+                  className="truncate font-medium text-cyan-700 hover:underline"
+                >
+                  {data.comprobante.tipo}{' '}
+                  {String(data.comprobante.punto_venta).padStart(5, '0')}-
+                  {data.comprobante.numero
+                    ? String(data.comprobante.numero).padStart(8, '0')
+                    : '—'}
+                </Link>
+              </div>
+            )}
           </Panel>
 
           <Panel title="Solicitante">

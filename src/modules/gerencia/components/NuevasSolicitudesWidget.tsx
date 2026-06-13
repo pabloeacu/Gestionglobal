@@ -126,7 +126,7 @@ export function NuevasSolicitudesWidget({ limit = 5 }: { limit?: number }) {
 
       {total > items.length && (
         <Link
-          to="/gerencia/solicitudes?estado=activas"
+          to="/gerencia/solicitudes"
           className="mt-3 inline-block text-xs font-medium text-brand-cyan hover:underline"
         >
           Ver todas ({total}) →
