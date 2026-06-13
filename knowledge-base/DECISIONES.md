@@ -2837,3 +2837,34 @@ El usuario lo pidió en dos requerimientos simultáneos.
   FU.DE.CO.IN/CBU/alias/CUIT/CC + hint del comprobante sin GG; curso-actualizacion idéntico
   confirmado por DOM).
 - **Fecha:** 2026-06-12. Commit `e012fbe`. Mig 0234.
+
+## DGG-77 · Atajo "Generar comprobante" desde el trámite pendiente (JL 2 · obs 1)
+
+- **Pedido (JL):** para emitir el comprobante de un trámite con "Comprobante pendiente" había que
+  volver a Solicitudes, buscar el cliente/trámite y correr el wizard — demasiados pasos. Quiere un
+  atajo directo desde el trámite.
+- **Solución (sin backend nuevo):** botón "Generar comprobante" en el header de `TrackingDetailPage`
+  (visible sólo si `comprobante_pendiente`), abre `GenerarComprobanteTramiteModal` (nuevo) — modal
+  enfocado que emite un comprobante simple (tipo X) prefilleado desde el servicio del trámite
+  (descripción + `precio_base`) y lo vincula con `updateTramite({comprobante_id})` → el computed
+  column `comprobante_pendiente` (mig 0207) se limpia y el botón desaparece. Reusa la RPC tested
+  `emitir_comprobante_manual` (la misma del wizard) + pasa el `consorcio_id` del trámite. La
+  cobranza queda en su flujo existente (el comprobante queda en Facturación).
+- **R15 (lección aplicada):** el detalle del trámite vive en `TrackingDetailPage` (`tramites/:id`
+  redirige a `trackings/:id`); `TramiteDetailPage` es legacy/código muerto → el botón va en el
+  primero. El agente Plan lo cazó antes de tocar el archivo equivocado.
+- **getTracking** ahora expone `comprobante_pendiente` (computed column) + `servicio.precio_base`.
+- **Decisiones (defaults sensatos, no bloquearon):** DDJJ → atajo habilitado con precio manual (+
+  hint); `precio>0` requerido (= modal de solicitudes, no $0 por ahora); alcance = emisión (no
+  cobranza); componente aislado (sin tocar `PanelComprobanteCobranza`).
+- **§6:** 3 agentes (correctitud del modal / getTracking+integración / seguridad-tenancy, todos
+  **PASS**: guards `is_staff` + `assert_administracion_access` + RLS de tramites; consorcio→admin
+  validado por la RPC; sin regresión al flujo de solicitudes) + **e2e en vivo** (trámite sintético
+  `comprobante_pendiente=true`: el botón aparece → modal prefilleado (precio 12000 del servicio) →
+  emite → **comprobante X autorizado $12.000 creado + linkeado**, `comprobante_pendiente`→false,
+  botón desaparece; verificado en BD; QA por SQL, **residuo 0**). Hardening de la auditoría:
+  `fmtMoney` con `maximumFractionDigits`.
+- **Gap UX Low diferido:** el trámite no muestra aún el "comprobante vinculado" tras emitir (el chip
+  que desaparece + el toast son feedback suficiente; el comprobante se ve en Facturación). Candidato
+  a agregar (lo tenía la página legacy).
+- **Fecha:** 2026-06-12. Commit `35c0a97`. Sin migración (reusa `emitir_comprobante_manual` + mig 0207).
