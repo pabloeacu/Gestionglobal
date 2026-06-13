@@ -37,6 +37,7 @@ import {
   Paperclip,
   Pencil,
   Plus,
+  Receipt,
   RotateCcw,
   Settings,
   Share2,
@@ -89,6 +90,7 @@ import { CategoriasConfigManager } from '../components/CategoriasConfigManager';
 import { ProgramarVencimientoModal } from '../components/ProgramarVencimientoModal';
 import { CerrarTramiteDialog } from '../components/CerrarTramiteDialog';
 import { ReabrirTramiteDialog } from '../components/ReabrirTramiteDialog';
+import { GenerarComprobanteTramiteModal } from '../components/GenerarComprobanteTramiteModal';
 import { PedidosDocPanel } from '@/components/common/PedidosDocPanel';
 // DGG-41 (2026-06-02 · José Luis): la tab Documentación debe mostrar
 // también los archivos del flujo PedidoDoc (cliente sube docs por bucket
@@ -130,6 +132,8 @@ export function TrackingDetailPage() {
   // 2.C · estado de generación del PDF (para deshabilitar el botón mientras corre)
   const [pdfBusy, setPdfBusy] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  // JL 2 · obs 1 · atajo "Generar comprobante" del trámite (cuando comprobante_pendiente).
+  const [genCompOpen, setGenCompOpen] = useState(false);
   const [programarOpen, setProgramarOpen] = useState(false);
   // DGG-38 · Modal de cierre con tabs "Subir archivo" / "Pegar URL".
   // Reemplaza el `usePrompt()` simple que sólo aceptaba URL.
@@ -654,6 +658,17 @@ export function TrackingDetailPage() {
             <Button onClick={() => setDrawerOpen(true)}>
               <Plus className="h-4 w-4" /> Agregar línea
             </Button>
+            {/* JL 2 · obs 1 · atajo para emitir el comprobante sin volver a
+                Solicitudes. Visible sólo si el trámite lo tiene pendiente. */}
+            {isStaff && data.comprobante_pendiente && (
+              <Button
+                variant="tonal"
+                onClick={() => setGenCompOpen(true)}
+                title="Emitir el comprobante de este trámite sin volver a Solicitudes"
+              >
+                <Receipt className="h-4 w-4" /> Generar comprobante
+              </Button>
+            )}
             {/* 2.C · Exportar tracking como PDF resumen premium (DGG-31). */}
             <Button
               variant="ghost"
@@ -1058,6 +1073,24 @@ export function TrackingDetailPage() {
         trackingTitulo={data.titulo}
         emailSugerido={data.administracion?.email ?? data.solicitante_email ?? ''}
         onGenerado={() => void load()}
+      />
+
+      {/* JL 2 · obs 1 · atajo "Generar comprobante" desde el trámite pendiente. */}
+      <GenerarComprobanteTramiteModal
+        open={genCompOpen}
+        tramiteId={data.id}
+        tramiteCodigo={data.codigo}
+        administracionId={data.administracion_id}
+        consorcioId={data.consorcio_id}
+        servicioNombre={data.servicio?.nombre ?? data.titulo}
+        servicioPrecioBase={data.servicio?.precio_base ?? null}
+        receptorNombre={data.administracion?.nombre ?? data.solicitante_nombre ?? '—'}
+        esDDJJ={data.categoria === 'dj'}
+        onClose={() => setGenCompOpen(false)}
+        onGenerado={() => {
+          setGenCompOpen(false);
+          void load();
+        }}
       />
 
       {/* J1 · Tour secundario Trámites (1 paso) — primer visit. */}

@@ -163,6 +163,8 @@ export interface TrackingDetail extends TrackingRow {
     codigo: string;
     sla_dias: number | null;
     vigencia_meses: number | null;
+    // JL 2 · obs 1: precio_base para pre-fill del atajo "Generar comprobante".
+    precio_base: number | null;
   } | null;
   administracion: { id: string; nombre: string; email: string | null } | null;
   consorcio: { id: string; nombre: string } | null;
@@ -172,6 +174,9 @@ export interface TrackingDetail extends TrackingRow {
   categorias_disponibles: TrackingCategoriaConfigRow[];
   // 2.G · vencimiento ligado (DGG-07) si existe.
   vencimiento_ligado: TrackingVencimientoLigado | null;
+  // JL 2 · obs 1: computed column (mig 0207) — TRUE si el trámite no es terminal
+  // y NO tiene comprobante no-anulado vinculado. Habilita el atajo del header.
+  comprobante_pendiente: boolean;
 }
 
 export async function getTracking(id: string): Promise<ApiResponse<TrackingDetail>> {
@@ -184,7 +189,8 @@ export async function getTracking(id: string): Promise<ApiResponse<TrackingDetai
     .from('tramites')
     .select(
       `*,
-       servicio:servicios(id,nombre,codigo,sla_dias,vigencia_meses),
+       comprobante_pendiente,
+       servicio:servicios(id,nombre,codigo,sla_dias,vigencia_meses,precio_base),
        administracion:administraciones(id,nombre,email),
        consorcio:consorcios(id,nombre)`,
     )
@@ -197,6 +203,7 @@ export async function getTracking(id: string): Promise<ApiResponse<TrackingDetai
     administracion: TrackingDetail['administracion'];
     consorcio: TrackingDetail['consorcio'];
     parent: TrackingDetail['parent'];
+    comprobante_pendiente: boolean;
   };
 
   // Parent (continuación de tracking previo) — query separada.
