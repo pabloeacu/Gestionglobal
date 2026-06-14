@@ -2906,3 +2906,58 @@ El usuario lo pidió en dos requerimientos simultáneos.
 - **Huecos flagueados:** foto de Bercovsky, CV de Suken, CV de Castro (el banco no los tiene;
   cuando Pablo los pase, se asignan como en el flujo Chiesa/Gerardo).
 - **Fecha:** 2026-06-12. Mig 0235. Commit `c3333fc`.
+
+## DGG-79 · Encuentros sincrónicos COMPARTIDOS entre cursos (F11) — 2026-06-14
+
+**Problema (Pablo):** Gestar (RPA-CABA · `eaafb7af`) y FUNDPLATA (RPAC-PBA ·
+`488b58c3`) dan los mismos encuentros sincrónicos: UNA sola sala Zoom (sin
+conflicto), y el alumno doble-matriculado que se conecta tiene el presente en
+AMBOS cursos. Pueden ser alumnos distintos o el mismo. Excepcional pero real.
+
+**Las 4 decisiones que definió Pablo:**
+1. Presente **por persona** (profile/email), en TODOS sus cursos enganchados.
+2. Alcance: compartir **encuentros puntuales** que elige el gerente (no el curso
+   entero).
+3. Requisito de asistencia **independiente por curso** (cada uno su modalidad).
+4. Vista del alumno: en cada curso, con **sello "Compartido · tu presente cuenta
+   en ambos"**.
+
+**Modelo: "sesión compartida desacoplada" (aditivo, retrocompatible).**
+- `encuentro_sesiones_compartidas` = LA sesión real (UNA sala Zoom + fecha +
+  duración + docente). Verdad única, sin curso "dueño" (simétrico).
+- `curso_encuentros.sesion_compartida_id` (nullable) = cada curso engancha su
+  participación, conserva su `condicion_id` (modalidad propia), su `curso_id` y
+  SUS asistencias. NULL = encuentro normal de hoy → **cero cambio para lo
+  existente** (las 4 filas previas quedaron intactas, verificado).
+- **Descartado** el modelo "espejo" (dos encuentros sincronizados): choca con el
+  índice UNIQUE de `zoom_meeting_id`, obliga a un dueño y duplica la verdad.
+- **La sala SIEMPRE nace en un encuentro** (flujo existente); "compartir" la
+  MUEVE a la sesión (DB pura, sin llamar a la API de Zoom). "Descompartir" con 1
+  curso restante hace **demote** (le devuelve la sala) y disuelve la sesión; si el
+  módulo clonado queda sin encuentros se borra (un módulo obligatorio vacío
+  bloquearía el certificado).
+- **Presente por persona:** el webhook resuelve la matrícula (`customer_key` del
+  Meeting SDK) → profile → abanica a todas sus matrículas activas en los cursos
+  enganchados. La cadena `asistencia → trigger(0220) → matricula_condiciones →
+  certificado` sigue **por curso sin tocarse**. Más robusto que matchear texto de
+  email; honra "en todos sus cursos".
+- **Coalesce:** `listEncuentros` trae sala/fecha/estado **desde la sesión**
+  (verdad única) para que la UI de display/unirse (gate ±10min) no cambie. La URL
+  de host (`zoom_start_url`) NO viaja al alumno (solo el gerente la pide).
+
+**Entregables:** migs 0236 (modelo) · 0237 (fan-out RPCs) · 0238
+(compartir/descompartir) · 0239 (fixes auditoría). Edge fns: `zoom-webhook` v6 +
+`zoom-sdk-signature` v6. UI: `EncuentrosTab` (botón "Compartir con otro curso",
+modal, sello "Compartido con X", "Quitar de la sesión", edición de fuente única)
++ `EncuentrosEnVivoAlumno` (sello + nota). Funciones `campus.ts` (R4).
+
+**§6 doble auditoría:** e2e en BD por fase (compartir→fan-out→demote, modalidades
+distintas `unico`/`serie`, alumno doble vs único, idempotencia ante reenvío de
+webhook — todo con ROLLBACK) + 3 agentes estáticos. Hallazgos y paridad legacy →
+`E-GG-69`. **Live test (URL Vercel):** gerencia (encuentro con badge COMPARTIDO +
+nota + "Compartir"/modal + crear/eliminar sala oculta) + alumno doble QA (ve
+ambos cursos; sello "Compartido — tu presente cuenta en ambos cursos" + gate "Se
+habilita"). Consola sin errores de app. QA por SQL, **residuo 0**, "Encuentro
+Julio" real intacto.
+
+- **Fecha:** 2026-06-14. Migs 0236-0239. Commit `26dc5e3`.

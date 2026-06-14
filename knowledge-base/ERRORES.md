@@ -2798,3 +2798,45 @@
   ancho total.
 - **Fecha / módulo:** 2026-06-12 · components/common/Stepper + solicitudes/wizard · commit
   `0283bf6`.
+
+## E-GG-69 · Hallazgos de la auditoría §6 de encuentros compartidos (F11/DGG-79) — 2026-06-14
+
+Auditoría §6 (3 agentes estáticos + e2e en BD) del feature DGG-79. Hallazgos y
+tratamiento:
+
+**Corregidos en el mismo chunk (mig 0239 + campus.ts):**
+- **R11 — FK sin índice:** faltaba índice en
+  `encuentro_sesiones_compartidas.created_by` → agregado.
+- **Idempotencia del fan-out:** Zoom entrega webhooks *at-least-once*; un evento
+  reenviado inflaba `tiempo_conectado_seg` (podía flipear `presente`→true). Fix:
+  dedupe exacto `(evento, ocurrido_at)` en el CTE de `encuentro_sesion_zoom_evento`
+  antes de aparear join/leave. Verificado e2e (doble entrega del mismo join+leave →
+  tiempo estable en 2400s).
+- **Coalesce con fecha stale:** `s.fecha_hora ?? row.fecha_hora` podía usar una
+  fecha vieja de la fila de participación al gatear el ±10min. Fix: la sesión es
+  la verdad única → se toma `s.*` directo.
+- **URL host al alumno (widening):** el embed de la sesión traía `zoom_start_url`/
+  `webex_start_url` (link de ANFITRIÓN) al payload del alumno. **Es paridad** con
+  el flujo legacy (`curso_encuentros` ya lo exponía vía RLS + `select('*')`), pero
+  F11 lo ensanchaba a todos los alumnos de los cursos enganchados. Fix:
+  `listEncuentros(cursoId, { incluirHostUrl })` — sólo el gerente lo pide; para
+  alumnos el embed de la sesión NO trae las URLs de host.
+
+**Sin fugas de acceso entre cursos** (verificado e2e): la firma SDK valida contra
+el `curso_id` del encuentro pedido (un alumno necesita su propia matrícula); el
+fan-out sólo marca presente donde la persona tiene matrícula.
+
+**Paridad pre-existente documentada (NO tocada acá — son del pipeline legacy, fix
+en chunk de hardening aparte):**
+1. Mismo bug de idempotencia en `curso_encuentro_zoom_evento` (mig 0047). F11 no
+   lo introduce; aplicar el mismo dedupe.
+2. `curso_encuentros.zoom_start_url` sigue legible por el matriculado de su propio
+   curso (RLS + `select('*')` del flujo standalone). Hardening: vista/columna sin
+   start_url para alumnos en TODO el subsistema de encuentros.
+3. `zoom-sdk-signature` rechaza matrículas `completada` (sólo acepta `activa`),
+   mientras `curso_matriculado` y el fan-out aceptan `activa+completada`. Cierra de
+   más (no es fuga); decidir si los `completada` pueden reconectarse.
+
+- **Fecha / módulo:** 2026-06-14 · F11 encuentros compartidos · mig 0239 +
+  campus.ts/listEncuentros · commit `26dc5e3` (fixes ya incluidos en el commit del
+  feature).
