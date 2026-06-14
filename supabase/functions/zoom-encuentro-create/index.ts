@@ -71,7 +71,7 @@ Deno.serve(async (req) => {
     const hostEmail: string = body?.host_email ?? "me";
     const duracionMin: number = Number(body?.duracion_min ?? 60);
 
-    const encArr = await (await rest(`curso_encuentros?id=eq.${encuentroId}&select=id,titulo,fecha_hora,curso_id,zoom_meeting_id`)).json();
+    const encArr = await (await rest(`curso_encuentros?id=eq.${encuentroId}&select=id,titulo,fecha_hora,curso_id,zoom_meeting_id,condicion_id`)).json();
     const enc = encArr?.[0];
     if (!enc) return json(404, { error: "encuentro_not_found" });
     if (enc.zoom_meeting_id) return json(409, { error: "meeting_already_created", meeting_id: enc.zoom_meeting_id });
@@ -81,11 +81,31 @@ Deno.serve(async (req) => {
       const cArr = await (await rest(`cursos?id=eq.${enc.curso_id}&select=titulo`)).json();
       cursoTitulo = cArr?.[0]?.titulo ?? "Campus";
     }
+    // Prefijo del MÓDULO sincrónico al que pertenece el encuentro
+    // (curso_condiciones_config.etiqueta, p.ej. "Asambleas Virtuales"). Pablo
+    // (DGG-83, 2026-06-14) lo pidió al frente del topic para distinguir de un
+    // vistazo a qué módulo corresponde la sala en el portal Zoom. Si el encuentro
+    // no tiene módulo (condicion_id NULL) NO se antepone nada (igual que antes).
+    // El prefijo del módulo es PURAMENTE cosmético → nunca debe bloquear la
+    // creación de la sala. Si el fetch falla (red / .json()), degradamos a
+    // topic-sin-prefijo en vez de abortar (auditoría §6 DGG-83).
+    let moduloEtiqueta = "";
+    if (enc.condicion_id) {
+      try {
+        const modArr = await (await rest(`curso_condiciones_config?id=eq.${enc.condicion_id}&select=etiqueta`)).json();
+        moduloEtiqueta = String(modArr?.[0]?.etiqueta ?? "").trim();
+      } catch (_) { moduloEtiqueta = ""; }
+    }
     // Topic con el ENCUENTRO primero: en la lista del portal Zoom el texto se
     // trunca al inicio, y dos encuentros del mismo curso se veían idénticos
     // ("Curso… · "). Con el encuentro adelante el host distingue cuál iniciar
-    // (F9-bis · Lista JL · Pablo 2026-06-08).
-    const topic = body?.topic ?? `${enc.titulo} · ${cursoTitulo}`;
+    // (F9-bis · Lista JL · Pablo 2026-06-08). Con el módulo adelante:
+    // "<módulo>: <encuentro> · <curso>" (DGG-83 · Pablo 2026-06-14).
+    const topicBase = `${enc.titulo} · ${cursoTitulo}`;
+    let topic = body?.topic ?? (moduloEtiqueta ? `${moduloEtiqueta}: ${topicBase}` : topicBase);
+    // Zoom rechaza topics > 200 chars (code 300 "Validation Failed") → truncamos
+    // defensivamente preservando el inicio (módulo + encuentro) (auditoría §6 DGG-83).
+    if (topic.length > 200) topic = topic.slice(0, 197) + "…";
     const startTime = enc.fecha_hora ?? new Date().toISOString();
 
     // 4) token Zoom (S2S OAuth)

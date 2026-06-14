@@ -3121,3 +3121,35 @@ por SQL, residuo 0, sesión del navegador cerrada al final. El cambio sin commit
 de `zoom-encuentro-create` se mantuvo intacto (otro agente).
 
 - **Fecha:** 2026-06-14. Migs 0241-0243. Commit `6bb1277`.
+
+## DGG-83 · Nombre de la sala Zoom de encuentros con prefijo del módulo (2026-06-14)
+
+- **Pedido (Pablo):** al crear por API la sala Zoom de un encuentro sincrónico,
+  anteponer el nombre del módulo al nombre de la reunión, para distinguir de un
+  vistazo a qué módulo corresponde en el portal Zoom. Antes: `<encuentro> · <curso>`
+  ("Encuentro Junio · Curso de Actualización 2026 (RPAC - PBA)"). Ahora:
+  `<módulo>: <encuentro> · <curso>` ("Asambleas Virtuales: Encuentro Junio · Curso
+  de Actualización 2026 (RPAC - PBA)"). Aplica SÓLO a salas NUEVAS (las existentes
+  Pablo las edita a mano).
+- **Cambio:** edge fn `zoom-encuentro-create` (v9). El "módulo" de un encuentro
+  sincrónico es su condición de asistencia (`curso_condiciones_config.etiqueta`,
+  vía `curso_encuentros.condicion_id` — modelo F10, mig 0220). La fn ya traía el
+  curso; ahora además resuelve la etiqueta del módulo (fetch service-role) y arma
+  `topic = moduloEtiqueta ? "<mod>: <enc> · <curso>" : "<enc> · <curso>"`. Si el
+  encuentro no tiene módulo (`condicion_id` NULL) → sin prefijo (comportamiento
+  previo). **Sin cambios de frontend ni de types** (el front no pasa `topic`; el
+  default vive en la fn). `verify_jwt=true` preservado.
+- **Hardening de la auditoría §6** (mismo chunk): (1) el fetch del módulo va en
+  `try/catch` local → si falla, degrada a topic-sin-prefijo en vez de abortar la
+  creación (el prefijo es cosmético, nunca debe bloquear la sala); (2) truncado
+  defensivo del topic a ≤200 chars (Zoom rechaza >200 con code 300) preservando el
+  inicio (módulo + encuentro) con "…".
+- **Verificado:** bytes desplegados v9 == repo; **e2e REAL (3 casos, salas Zoom
+  reales creadas+borradas, residuo 0)**: con módulo → prefijo correcto; sin módulo
+  → sin prefijo; título de 224 chars → truncado a 198 con "…" y **Zoom lo aceptó
+  (200)** (sin el fix daría code 300). **§6 (3 agentes):** downstream 0 gaps (nadie
+  parsea el topic; no afecta asistencia/recompute; delete+409 intactos) · seguridad
+  0 riesgos (RLS bypass apropiado por service-role, etiqueta no sensible, gate de
+  gerente intacto y previo, sin inyección, hardening cold-start respetado) ·
+  correctness OK (de ahí los 2 hardenings).
+- **Fecha:** 2026-06-14. Sin migración (sólo edge fn, versionada en repo — R7).
