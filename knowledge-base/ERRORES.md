@@ -2826,17 +2826,20 @@ tratamiento:
 el `curso_id` del encuentro pedido (un alumno necesita su propia matrícula); el
 fan-out sólo marca presente donde la persona tiene matrícula.
 
-**Paridad pre-existente documentada (NO tocada acá — son del pipeline legacy, fix
-en chunk de hardening aparte):**
-1. Mismo bug de idempotencia en `curso_encuentro_zoom_evento` (mig 0047). F11 no
-   lo introduce; aplicar el mismo dedupe.
-2. `curso_encuentros.zoom_start_url` sigue legible por el matriculado de su propio
-   curso (RLS + `select('*')` del flujo standalone). Hardening: vista/columna sin
-   start_url para alumnos en TODO el subsistema de encuentros.
-3. `zoom-sdk-signature` rechaza matrículas `completada` (sólo acepta `activa`),
-   mientras `curso_matriculado` y el fan-out aceptan `activa+completada`. Cierra de
-   más (no es fuga); decidir si los `completada` pueden reconectarse.
+**Paridad pre-existente del pipeline legacy — hardering hecho 2026-06-14 (commit
+`7c5c922`):**
+1. **RESUELTO (mig 0244):** idempotencia en `curso_encuentro_zoom_evento` — dedupe
+   exacto `(evento, ocurrido_at)` en el CTE, igual que el fan-out de sesiones
+   (0239). Smoke e2e: doble entrega del mismo join+leave → tiempo estable (3600s).
+2. **RESUELTO (campus.ts):** `listEncuentros` para alumnos ya NO trae
+   `zoom_start_url`/`webex_start_url` en el select base (standalone), igual que el
+   embed de la sesión. El gerente (`incluirHostUrl`) los sigue recibiendo.
+3. **REENCUADRADO → ciclo de acceso post-finalización:** `zoom-sdk-signature`
+   rechaza `completada`. Pablo lo redefinió: al terminar un curso (cert auto o
+   cierre de trámite por gerencia) el alumno conserva acceso 30 días y luego se
+   desvincula; el guard se alineará a la VENTANA de acceso (no a `completada` a
+   secas) dentro de ese feature. Pendiente de diseño/build.
 
 - **Fecha / módulo:** 2026-06-14 · F11 encuentros compartidos · mig 0239 +
   campus.ts/listEncuentros · commit `26dc5e3` (fixes ya incluidos en el commit del
-  feature).
+  feature). Hardening legacy (ítems 1-2): mig 0244 + campus.ts · commit `7c5c922`.
