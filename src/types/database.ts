@@ -2810,6 +2810,9 @@ export type Database = {
           descripcion_html: string | null
           despublicar_at: string | null
           duracion_horas: number | null
+          enlace_descripcion: string | null
+          enlace_titulo: string | null
+          enlace_url: string | null
           fecha_fin: string | null
           fecha_inicio: string | null
           id: string
@@ -2820,6 +2823,7 @@ export type Database = {
           observaciones: string | null
           precio_lista: number | null
           presencia_minima_pct: number
+          programa_url: string | null
           publicar_at: string | null
           requisitos_html: string | null
           slug: string
@@ -2840,6 +2844,9 @@ export type Database = {
           descripcion_html?: string | null
           despublicar_at?: string | null
           duracion_horas?: number | null
+          enlace_descripcion?: string | null
+          enlace_titulo?: string | null
+          enlace_url?: string | null
           fecha_fin?: string | null
           fecha_inicio?: string | null
           id?: string
@@ -2850,6 +2857,7 @@ export type Database = {
           observaciones?: string | null
           precio_lista?: number | null
           presencia_minima_pct?: number
+          programa_url?: string | null
           publicar_at?: string | null
           requisitos_html?: string | null
           slug: string
@@ -2870,6 +2878,9 @@ export type Database = {
           descripcion_html?: string | null
           despublicar_at?: string | null
           duracion_horas?: number | null
+          enlace_descripcion?: string | null
+          enlace_titulo?: string | null
+          enlace_url?: string | null
           fecha_fin?: string | null
           fecha_inicio?: string | null
           id?: string
@@ -2880,6 +2891,7 @@ export type Database = {
           observaciones?: string | null
           precio_lista?: number | null
           presencia_minima_pct?: number
+          programa_url?: string | null
           publicar_at?: string | null
           requisitos_html?: string | null
           slug?: string

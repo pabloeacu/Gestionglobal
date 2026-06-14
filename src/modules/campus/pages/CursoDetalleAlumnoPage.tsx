@@ -9,6 +9,9 @@ import {
   Circle,
   ClipboardList,
   Download,
+  ExternalLink,
+  FileText,
+  Link2,
   Loader2,
   Lock,
   Paperclip,
@@ -63,6 +66,8 @@ import { humanizeError } from '@/lib/errors';
 // clase — encuentros sincrónicos, bibliografía, examen (último) y certificado.
 type NodoSel =
   | { tipo: 'clase'; id: string }
+  | { tipo: 'programa' }
+  | { tipo: 'enlace' }
   | { tipo: 'sincronico' }
   | { tipo: 'bibliografia' }
   | { tipo: 'examen' }
@@ -396,6 +401,25 @@ export function CursoDetalleAlumnoPage() {
             className="opacity-15"
           />
           <nav className="relative space-y-3">
+            {/* DGG-81 · Recursos del curso ARRIBA DE TODO, solo si tienen contenido. */}
+            {data.curso.programa_url && (
+              <NavNodo
+                icon={<FileText size={15} className="text-brand-cyan" />}
+                label="Programa"
+                sub="Descargar PDF"
+                active={nodoEfectivo.tipo === 'programa'}
+                onClick={() => setNodoSel({ tipo: 'programa' })}
+              />
+            )}
+            {data.curso.enlace_url && (
+              <NavNodo
+                icon={<Link2 size={15} className="text-brand-cyan" />}
+                label={data.curso.enlace_titulo || 'Enlace de conexión'}
+                sub="Acceso directo"
+                active={nodoEfectivo.tipo === 'enlace'}
+                onClick={() => setNodoSel({ tipo: 'enlace' })}
+              />
+            )}
             {modulosVisibles.map((m) => {
               const open = openModuloEfectivo === m.id;
               const tieneActiva =
@@ -658,7 +682,15 @@ export function CursoDetalleAlumnoPage() {
             </button>
           )}
 
-          {nodoEfectivo.tipo === 'sincronico' ? (
+          {nodoEfectivo.tipo === 'programa' ? (
+            <ProgramaPanel url={data.curso.programa_url} />
+          ) : nodoEfectivo.tipo === 'enlace' ? (
+            <EnlacePanel
+              titulo={data.curso.enlace_titulo}
+              descripcion={data.curso.enlace_descripcion}
+              url={data.curso.enlace_url}
+            />
+          ) : nodoEfectivo.tipo === 'sincronico' ? (
             encuentros.length > 0 ? (
               <EncuentrosEnVivoAlumno
                 encuentros={encuentros}
@@ -994,6 +1026,91 @@ function BibliografiaPanel({ items }: { items: CursoBibliografiaRow[] }) {
           </li>
         ))}
       </ul>
+    </section>
+  );
+}
+
+// DGG-81 · Nodo "Programa": el PDF del programa del curso (ver / descargar).
+function ProgramaPanel({ url }: { url: string | null }) {
+  if (!url) {
+    return (
+      <NodoVacio
+        icon={<FileText size={26} />}
+        titulo="Sin programa"
+        mensaje="Este curso todavía no tiene un programa cargado."
+      />
+    );
+  }
+  return (
+    <section className="card-premium p-5">
+      <header className="mb-3 flex items-center gap-2">
+        <FileText size={16} className="text-brand-cyan" />
+        <h2 className="font-display text-lg font-semibold text-brand-ink">
+          Programa
+        </h2>
+      </header>
+      <p className="mb-4 text-sm text-brand-muted">
+        El programa completo del curso, con contenidos y carga horaria.
+      </p>
+      <div className="flex flex-wrap gap-2">
+        <a
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-2 rounded-lg bg-brand-cyan px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-cyan/90"
+        >
+          <ExternalLink size={15} /> Ver programa
+        </a>
+        <a
+          href={url}
+          download
+          className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-brand-ink transition hover:bg-slate-50"
+        >
+          <Download size={15} /> Descargar
+        </a>
+      </div>
+    </section>
+  );
+}
+
+// DGG-81 · Nodo "Enlace de conexión": título + descripción + botón al link.
+function EnlacePanel({
+  titulo,
+  descripcion,
+  url,
+}: {
+  titulo: string | null;
+  descripcion: string | null;
+  url: string | null;
+}) {
+  if (!url) {
+    return (
+      <NodoVacio
+        icon={<Link2 size={26} />}
+        titulo="Sin enlace"
+        mensaje="Este curso todavía no tiene un enlace de conexión configurado."
+      />
+    );
+  }
+  return (
+    <section className="card-premium p-5">
+      <header className="mb-3 flex items-center gap-2">
+        <Link2 size={16} className="text-brand-cyan" />
+        <h2 className="font-display text-lg font-semibold text-brand-ink">
+          {titulo || 'Enlace de conexión'}
+        </h2>
+      </header>
+      {descripcion && (
+        <p className="mb-4 text-sm text-brand-muted">{descripcion}</p>
+      )}
+      <a
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center gap-2 rounded-lg bg-brand-cyan px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-cyan/90"
+      >
+        <ExternalLink size={15} /> Ir al enlace
+      </a>
     </section>
   );
 }

@@ -2329,7 +2329,9 @@ export type CampusMediaScope =
   | 'webinar-docente'
   // F10 · docente del módulo sincrónico (foto + CV), patrón módulos DGG-50/51.
   | 'encuentro-docente'
-  | 'encuentro-docente-cv';
+  | 'encuentro-docente-cv'
+  // DGG-81 · PDF del programa del curso (nodo "Programa" del campus).
+  | 'curso-programa';
 
 /**
  * Sube una imagen al bucket público `campus-media` y devuelve la URL pública.

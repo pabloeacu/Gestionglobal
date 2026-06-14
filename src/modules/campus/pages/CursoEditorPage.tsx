@@ -3,6 +3,8 @@ import { Link, useParams } from 'react-router-dom';
 import {
   ArrowLeft,
   Award,
+  FileText,
+  Link2,
   Loader2,
   Save,
 } from 'lucide-react';
@@ -38,6 +40,7 @@ import { EncuentrosTab } from '../components/EncuentrosTab';
 import { EncuestaTab } from '../components/EncuestaTab';
 import { ContenidoTab } from '../components/ContenidoTab';
 import { ImageUploader } from '../components/ImageUploader';
+import { FileUploader } from '../components/FileUploader';
 import { PublicacionEditor, type PublicacionState } from '../components/PublicacionEditor';
 import { humanizeError } from '@/lib/errors';
 
@@ -192,6 +195,15 @@ function DatosTab({
   const [instructorFoto, setInstructorFoto] = useState<string | null>(
     data.curso.instructor_foto_url ?? null,
   );
+  // DGG-81 · Recursos de curso: Programa (PDF) + Enlace de conexión.
+  const [programaUrl, setProgramaUrl] = useState<string | null>(
+    data.curso.programa_url ?? null,
+  );
+  const [enlaceTitulo, setEnlaceTitulo] = useState(data.curso.enlace_titulo ?? '');
+  const [enlaceDescripcion, setEnlaceDescripcion] = useState(
+    data.curso.enlace_descripcion ?? '',
+  );
+  const [enlaceUrl, setEnlaceUrl] = useState(data.curso.enlace_url ?? '');
   const [pub, setPub] = useState<PublicacionState>({
     publicado: data.curso.activo,
     publicar_at: data.curso.publicar_at,
@@ -228,6 +240,10 @@ function DatosTab({
       instructor_bio: bio || null,
       instructor_foto_url: instructorFoto,
       banner_url: banner || null,
+      programa_url: programaUrl,
+      enlace_titulo: enlaceTitulo.trim() || null,
+      enlace_descripcion: enlaceDescripcion.trim() || null,
+      enlace_url: enlaceUrl.trim() || null,
       activo: pub.publicado,
       publicar_at: pub.publicar_at,
       despublicar_at: pub.despublicar_at,
@@ -412,6 +428,77 @@ function DatosTab({
                 placeholder="https://…"
               />
             </Field>
+          </div>
+        </div>
+
+        {/* DGG-81 · Recursos del curso: Programa (PDF) + Enlace de conexión.
+            Aparecen arriba de todo en el menú del alumno, solo si se cargan. */}
+        <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4">
+          <div className="mb-1 flex items-center gap-2">
+            <FileText size={14} className="text-brand-cyan" />
+            <span className="text-sm font-semibold text-brand-ink">
+              Recursos del curso
+            </span>
+          </div>
+          <p className="mb-3 text-xs text-brand-muted">
+            Aparecen arriba de todo en el menú del alumno, y solo cuando los cargás.
+          </p>
+          <div className="space-y-4">
+            <Field
+              label="Programa (PDF)"
+              hint="El alumno lo ve como nodo «Programa» y lo puede descargar."
+            >
+              <FileUploader
+                value={programaUrl}
+                onChange={setProgramaUrl}
+                onPersist={async (url) => {
+                  const r = await actualizarCurso(data.curso.id, {
+                    programa_url: url,
+                  });
+                  if (!r.ok) toast.error(humanizeError(r.error));
+                  else onChanged();
+                }}
+                scope="curso-programa"
+                ownerId={data.curso.id}
+                label="Archivo del programa (PDF)"
+                hint="≤ 10 MB."
+              />
+            </Field>
+            <div>
+              <div className="mb-2 flex items-center gap-2">
+                <Link2 size={13} className="text-brand-cyan" />
+                <span className="text-xs font-semibold uppercase tracking-wider text-brand-muted">
+                  Enlace de conexión
+                </span>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <Field label="Título">
+                  <Input
+                    value={enlaceTitulo}
+                    onChange={(e) => setEnlaceTitulo(e.target.value)}
+                    placeholder="Sala de encuentros"
+                  />
+                </Field>
+                <Field label="Descripción">
+                  <Input
+                    value={enlaceDescripcion}
+                    onChange={(e) => setEnlaceDescripcion(e.target.value)}
+                    placeholder="Acceso a la videollamada"
+                  />
+                </Field>
+                <Field label="Enlace (URL)">
+                  <Input
+                    value={enlaceUrl}
+                    onChange={(e) => setEnlaceUrl(e.target.value)}
+                    placeholder="https://…"
+                  />
+                </Field>
+              </div>
+              <p className="mt-1.5 text-xs text-brand-muted">
+                Genera el nodo «Enlace de conexión» con un botón al link. Se
+                muestra solo si cargás la URL. (Guardá con el botón de abajo.)
+              </p>
+            </div>
           </div>
         </div>
 
