@@ -3110,10 +3110,14 @@ inconsistencia (no bloqueante); se corrigió igual por calidad.
 → 0 GAP bloqueante; EJERCITAR e2e en BD (`BEGIN/ROLLBACK` vía DO+RAISE): cert→
 completada + completada_at + vigencia=hoyAR+dias; gate activa/dentro=TRUE,
 vencida=FALSE; cron→vencida; re-emisión conserva completada_at. Residuo 0.
-**Live test (preview local, viewport real):** alumno QA (leyenda "12 días" desktop
-+ mobile 360px sin overflow, vencido oculto, guard de detalle, acceso normal dentro
-de ventana, consola limpia) + gerente QA (campo "Acceso post-curso" guarda 45,
-verificado en BD). Cuentas QA por SQL, residuo 0. El cambio sin commitear de
-`zoom-encuentro-create` se mantuvo intacto (otro agente).
+**Live test:** (1) preview local con viewport real 360px y (2) **en vivo sobre
+Vercel producción (`www.gestionglobal.ar`)** con TODAS las variantes: alumno QA con
+las 3 leyendas (12 días / 1 día singular / "hoy es tu último día"), curso activo
+("Continuar"), vencido oculto, guard de detalle del vencido, y el caso borde
+"último día" (vigencia=hoy) dando acceso NORMAL; mobile responsive (columna única
+sin overflow); gerente QA con el campo "Acceso post-curso (días)" renderizado (30)
+y guardado (60, verificado en BD). Consola sin errores en ambos roles. Cuentas QA
+por SQL, residuo 0, sesión del navegador cerrada al final. El cambio sin commitear
+de `zoom-encuentro-create` se mantuvo intacto (otro agente).
 
 - **Fecha:** 2026-06-14. Migs 0241-0243. Commit `6bb1277`.
