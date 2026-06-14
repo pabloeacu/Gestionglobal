@@ -3007,3 +3007,48 @@ servicio aparte. (3) ajeno a esto: hay un cambio sin commitear en
 no es de este chunk — decidir si se commitea/descarta.
 
 - **Fecha:** 2026-06-14. Mig 0240. Commit `de136e2`.
+
+## DGG-81 · Programa + Enlace de conexión en cursos · cuenta+precio en forms — 2026-06-14
+
+**Pedido (Pablo):** (a) cargar el programa de cada curso en su formulario; (b) dos
+nodos de curso nuevos en el campus ("Programa" con archivo, "Enlace de conexión"
+con título+descripción+URL→botón), ARRIBA DE TODO en el menú del alumno y solo
+cuando tienen contenido; + cerrar los flags de DGG-80 (cuenta Gestar + precio).
+
+**Forms de actualización (migs 0241 + 0243):**
+- Cuenta de Gestar (curso-actualizacion-caba) = Mercado Pago · GestionGlobal.ar
+  (CVU 0000003100053534352305, CUIT 27225982746 — la misma de inscripción al
+  RPAC, dato de Pablo). Restaurado el flujo de pago normal (hint + comprobante
+  obligatorio), revirtiendo el "te enviamos por correo" temporal de 0240.
+- Precio $80.000 informado en AMBOS (RPAC/FUNDPLATA + RPA-CABA/Gestar).
+- PDF del programa como descarga en la sección "Programa del curso" de cada form
+  (RPAC ← su programa; RPA-CABA ← el de Gestar). Sin cruces.
+
+**Campus · nodos Programa + Enlace (mig 0242):**
+- 4 columnas en `cursos`: programa_url, enlace_titulo, enlace_descripcion,
+  enlace_url (tabla pre-0130, GRANT ya existía).
+- Gerente: sección "Recursos del curso" en Datos generales (FileUploader PDF →
+  scope curso-programa + onPersist; 3 campos del enlace).
+- Alumno: nodos 'programa' + 'enlace' ARRIBA de los módulos en el menú, cada uno
+  con guard por contenido (`programa_url` / `enlace_url`). ProgramaPanel
+  (ver/descargar) + EnlacePanel (título+descripción+botón "Ir al enlace").
+- Programas subidos a campus-media (curso-programa/{cursoId}/) vía JWT de gerente
+  QA + curl (sin service_role local), y wired en FUNDPLATA 488b58c3 + Gestar
+  eaafb7af + en los 2 forms (mig 0243).
+
+**§6 doble auditoría:** 2 agentes REVISAR (campus + forms → 6/6 OK, 0 GAP/DUDA) +
+EJERCITAR BD (cero fuga de cuenta FUNDPLATA en el form de Gestar — verificado por
+texto y estructura; precio en ambos; cada form/curso con SU programa sin cruces,
+verificado contra storage físico; nodos solo con contenido; sin regresión).
+**Live test (Vercel, en vivo):** ambos forms (precio $80.000 + cuenta correcta +
+programa con tamaño), alumno doble del curso RPAC (nodos Programa + Enlace arriba
+de todo + ambos paneles), gerente (sección "Recursos del curso" con el PDF + los
+3 campos del enlace). QA por SQL, residuo 0 (enlace de prueba limpiado; los 2
+programa_url quedan definitivos).
+
+**FLAGS de DGG-80 resueltos:** cuenta Gestar ✓ (Mercado Pago), precio $80.000 ✓
+(ambos; el servicio sigue compartido entre RPAC y RPA-CABA, mismo valor, Pablo lo
+confirmó). El cambio sin commitear de `zoom-encuentro-create` se dejó intacto
+(otro agente lo retoma — Pablo).
+
+- **Fecha:** 2026-06-14. Migs 0241-0243. Commit `6bb1277`.
