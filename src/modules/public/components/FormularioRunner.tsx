@@ -937,8 +937,16 @@ function CostosInfoCard({ field }: { field: FormularioFieldDef }) {
         </p>
       )}
 
-      {/* Datos de cuenta para transferencia */}
-      {costos.cuenta && (
+      {/* Datos de cuenta para transferencia. Si la cuenta está vacía (ej. un curso
+          cuyo dato de pago aún no se cargó — se envía por correo) NO mostramos el
+          bloque para no dejar un recuadro vacío (DGG-80). */}
+      {costos.cuenta &&
+        [
+          costos.cuenta.titular,
+          costos.cuenta.cvu,
+          costos.cuenta.alias,
+          costos.cuenta.cuit_cuil,
+        ].some((v) => v) && (
         <div className="mt-4">
           <p className="kicker mb-2 text-brand-muted">Datos para transferencia</p>
           <dl className="space-y-1.5 rounded-xl border border-slate-200 bg-white p-3">

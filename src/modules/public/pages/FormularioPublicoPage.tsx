@@ -14,6 +14,34 @@ import {
 } from '@/services/api/formularios';
 import { humanizeError } from '@/lib/errors';
 
+// DGG-80 · Dependencia curso↔alianza: cada formulario de curso muestra el logo
+// COMPLETO de la entidad habilitante + un subtítulo explicando la alianza
+// académica. FUNDPLATA (RPAC) dicta formación + actualización RPAC; GESTAR (RPA)
+// dicta la actualización RPA-CABA. Se resuelve por slug (sin columna nueva).
+const subtituloAlianza = (entidad: string, registro: string) =>
+  `${entidad} es una entidad habilitada para el dictado de cursos por el ${registro} que, en una alianza académica, ha encomendado la coordinación académica a Gestión Global para el desarrollo de las asignaturas con el mayor rigor profesional y estándares de excelencia en la propiedad horizontal.`;
+
+const FORM_ENTIDAD: Record<
+  string,
+  { logo: string; nombre: string; subtitulo: string }
+> = {
+  'curso-formacion': {
+    logo: '/landing/partners/fundplata.png',
+    nombre: 'FundPlata',
+    subtitulo: subtituloAlianza('FUNDPLATA', 'RPAC'),
+  },
+  'curso-actualizacion': {
+    logo: '/landing/partners/fundplata.png',
+    nombre: 'FundPlata',
+    subtitulo: subtituloAlianza('FUNDPLATA', 'RPAC'),
+  },
+  'curso-actualizacion-caba': {
+    logo: '/landing/partners/gestar.png',
+    nombre: 'Gestar Educativa',
+    subtitulo: subtituloAlianza('GESTAR EDUCATIVA', 'RPA'),
+  },
+};
+
 export function FormularioPublicoPage() {
   const { slug } = useParams<{ slug: string }>();
   const [params] = useSearchParams();
@@ -50,6 +78,9 @@ export function FormularioPublicoPage() {
       setPrefillValues(data);
     });
   }, [user, desdePortal]);
+
+  // Entidad aliada del curso (logo + subtítulo de alianza), resuelta por slug.
+  const entidad = formulario ? FORM_ENTIDAD[formulario.slug] : undefined;
 
   return (
     <div className="min-h-screen bg-white font-sans">
@@ -93,6 +124,15 @@ export function FormularioPublicoPage() {
               className="opacity-40"
             />
             <div className="relative mx-auto max-w-3xl px-6">
+              {entidad && (
+                <div className="mb-5 inline-flex items-center gap-3 rounded-xl bg-white px-4 py-2.5 shadow-md ring-1 ring-black/5">
+                  <img
+                    src={entidad.logo}
+                    alt={entidad.nombre}
+                    className="h-9 w-auto object-contain sm:h-10"
+                  />
+                </div>
+              )}
               <p className="kicker text-white/80">{categoriaLabel(formulario.categoria)}</p>
               <h1 className="mt-2 font-display text-3xl font-bold leading-tight sm:text-4xl">
                 {formulario.titulo}
@@ -100,6 +140,11 @@ export function FormularioPublicoPage() {
               {formulario.descripcion && (
                 <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/85 sm:text-base">
                   {formulario.descripcion}
+                </p>
+              )}
+              {entidad && (
+                <p className="mt-4 max-w-2xl border-l-2 border-white/40 pl-3 text-xs leading-relaxed text-white/80 sm:text-sm">
+                  {entidad.subtitulo}
                 </p>
               )}
             </div>

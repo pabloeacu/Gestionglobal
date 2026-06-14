@@ -93,7 +93,7 @@ const SERVICIOS: ServicioGrupo[] = [
         titulo: 'Actualización RPA · CABA',
         descripcion:
           '100% asincrónico · contenido actualizado · a tu ritmo y según tu disponibilidad.',
-        cta: { href: '/formulario/curso-actualizacion', label: 'Inscribirme' },
+        cta: { href: '/formulario/curso-actualizacion-caba', label: 'Inscribirme' },
       },
       {
         icon: PlayCircle,
@@ -431,6 +431,15 @@ function ComoTrabajamos() {
   );
 }
 
+// Isologo de la entidad aliada que dicta cada curso (a la derecha del ícono).
+// FUNDPLATA (RPAC · PBA) dicta formación + actualización RPAC; GESTAR (RPA · CABA)
+// dicta la actualización RPA-CABA. Refuerza la dependencia curso↔alianza.
+const ALIANZA_ISOLOGO: Record<string, { src: string; alt: string }> = {
+  'Curso de formación RPAC': { src: '/landing/partners/fundplata-iso.png', alt: 'FundPlata' },
+  'Actualización RPAC': { src: '/landing/partners/fundplata-iso.png', alt: 'FundPlata' },
+  'Actualización RPA · CABA': { src: '/landing/partners/gestar-iso.png', alt: 'Gestar' },
+};
+
 function Servicios() {
   return (
     <section id="servicios" className="relative bg-white py-24 sm:py-28">
@@ -459,11 +468,22 @@ function Servicios() {
               </div>
               <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
                 {grupo.items.map(({ icon: Icon, titulo, descripcion, cta }) => {
+                  const isologo = ALIANZA_ISOLOGO[titulo];
                   const card = (
                     <>
-                      <span className="grid h-10 w-10 place-items-center rounded-xl bg-brand-cyan-pale/40 text-brand-cyan transition group-hover:bg-brand-cyan group-hover:text-white">
-                        <Icon size={20} />
-                      </span>
+                      <div className="flex items-center gap-3">
+                        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand-cyan-pale/40 text-brand-cyan transition group-hover:bg-brand-cyan group-hover:text-white">
+                          <Icon size={20} />
+                        </span>
+                        {isologo && (
+                          <img
+                            src={isologo.src}
+                            alt={isologo.alt}
+                            className="h-10 w-auto shrink-0 object-contain"
+                            loading="lazy"
+                          />
+                        )}
+                      </div>
                       <h4 className="mt-5 font-display text-lg font-bold">
                         {titulo}
                       </h4>
