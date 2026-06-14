@@ -86,13 +86,27 @@ Deno.serve(async (req) => {
 
     if (!meetingId) return jsonResp(200, { ok: true });
 
-    // Determinar contexto: ¿curso o webinar?
+    // Determinar contexto: ¿curso, webinar o sesión compartida?
     const { data: webinarMatch } = await supabase
       .from("webinars")
       .select("id")
       .eq("zoom_meeting_id", meetingId)
       .maybeSingle();
     const esWebinar = !!webinarMatch;
+
+    // F11/DGG-79: si el meeting es de una SESIÓN compartida (2+ cursos comparten
+    // la sala), el meeting_id vive en encuentro_sesiones_compartidas y NO en
+    // ninguna fila de curso_encuentros. Lo enrutamos a las RPCs de sesión, que
+    // abanican el presente a cada curso enganchado.
+    let esSesionCompartida = false;
+    if (!esWebinar) {
+      const { data: sesMatch } = await supabase
+        .from("encuentro_sesiones_compartidas")
+        .select("id")
+        .eq("zoom_meeting_id", meetingId)
+        .maybeSingle();
+      esSesionCompartida = !!sesMatch;
+    }
 
     if (ev === "meeting.started") {
       if (esWebinar) {
@@ -102,6 +116,12 @@ Deno.serve(async (req) => {
           p_evento: "start",
           p_ocurrido_at: p?.start_time ?? new Date().toISOString(),
           p_payload: p,
+        });
+      } else if (esSesionCompartida) {
+        await supabase.rpc("encuentro_sesion_zoom_estado", {
+          p_meeting_id: meetingId,
+          p_estado: "en_curso",
+          p_ocurrido_at: p?.start_time ?? new Date().toISOString(),
         });
       } else {
         await supabase.rpc("curso_encuentro_zoom_estado", {
@@ -118,6 +138,12 @@ Deno.serve(async (req) => {
           p_evento: "end",
           p_ocurrido_at: p?.end_time ?? new Date().toISOString(),
           p_payload: p,
+        });
+      } else if (esSesionCompartida) {
+        await supabase.rpc("encuentro_sesion_zoom_estado", {
+          p_meeting_id: meetingId,
+          p_estado: "finalizado",
+          p_ocurrido_at: p?.end_time ?? new Date().toISOString(),
         });
       } else {
         await supabase.rpc("curso_encuentro_zoom_estado", {
@@ -153,6 +179,20 @@ Deno.serve(async (req) => {
           p_ocurrido_at: at,
           p_payload: part,
         });
+      } else if (esSesionCompartida) {
+        // F11/DGG-79: el customer_key es la matrícula del curso DESDE EL QUE entró.
+        // La RPC de sesión resuelve la persona (profile) y abanica el presente a
+        // todas sus matrículas activas en los cursos enganchados a la sesión.
+        const matriculaId = part?.customer_key as string | undefined;
+        if (matriculaId && /^[0-9a-f-]{36}$/i.test(matriculaId)) {
+          await supabase.rpc("encuentro_sesion_zoom_evento", {
+            p_meeting_id: meetingId,
+            p_matricula_id: matriculaId,
+            p_evento: evento,
+            p_ocurrido_at: at,
+            p_payload: part,
+          });
+        }
       } else {
         // Cursos: customer_key viene del Meeting SDK (ZoomMtg.join customerKey=matriculaId)
         const matriculaId = part?.customer_key as string | undefined;
@@ -177,6 +217,12 @@ Deno.serve(async (req) => {
             .from("webinars")
             .update({ grabacion_url: playUrl ?? grabacionUrl })
             .eq("zoom_meeting_id", meetingId);
+        } else if (esSesionCompartida) {
+          await supabase.rpc("encuentro_sesion_zoom_grabacion", {
+            p_meeting_id: meetingId,
+            p_grabacion_url: grabacionUrl,
+            p_grabacion_play_url: playUrl,
+          });
         } else {
           await supabase.rpc("curso_encuentro_zoom_grabacion", {
             p_meeting_id: meetingId,

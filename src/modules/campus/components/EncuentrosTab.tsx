@@ -4,12 +4,15 @@ import {
   CalendarClock,
   ExternalLink,
   GraduationCap,
+  Link2,
   Loader2,
   Pencil,
   Plus,
   Radio,
   Save,
+  Share2,
   Trash2,
+  Users,
   Video,
   VideoIcon,
 } from 'lucide-react';
@@ -21,15 +24,20 @@ import { cn } from '@/lib/cn';
 import {
   actualizarEncuentro,
   actualizarModuloSincronico,
+  actualizarSesionCompartida,
   borrarEncuentro,
   borrarModuloSincronico,
+  compartirEncuentro,
   configurarSalaWebex,
   crearEncuentro,
   crearModuloSincronico,
   crearSalaZoom,
+  descompartirEncuentro,
   eliminarSalaZoom,
   fmtFechaHora,
   listAsistencias,
+  listCoCursosDeSesiones,
+  listCursosParaCompartir,
   listEncuentros,
   listMatriculas,
   listModulosSincronicos,
@@ -37,6 +45,7 @@ import {
   MODALIDADES_SINCRONICAS,
   type CursoDetalle,
   type CursoEncuentroRow,
+  type CursoParaCompartir,
   type MatriculaListItem,
   type ModalidadSincronica,
   type ModuloSincronicoRow,
@@ -66,6 +75,8 @@ export function EncuentrosTab({ data }: { data: CursoDetalle }) {
   const [asist, setAsist] = useState<Asist>({});
   const [loading, setLoading] = useState(true);
   const [webexEnc, setWebexEnc] = useState<CursoEncuentroRow | null>(null);
+  // F11: por sesión compartida, qué cursos la comparten (para el sello).
+  const [coCursos, setCoCursos] = useState<Record<string, { id: string; titulo: string }[]>>({});
 
   // Nuevo módulo
   const [nmTitulo, setNmTitulo] = useState('');
@@ -76,7 +87,7 @@ export function EncuentrosTab({ data }: { data: CursoDetalle }) {
     setLoading(true);
     const [mo, e, m] = await Promise.all([
       listModulosSincronicos(data.curso.id),
-      listEncuentros(data.curso.id),
+      listEncuentros(data.curso.id, { incluirHostUrl: true }),
       listMatriculas({ cursoId: data.curso.id }),
     ]);
     if (!mo.ok) {
@@ -92,6 +103,16 @@ export function EncuentrosTab({ data }: { data: CursoDetalle }) {
     setModulos(mo.data);
     setEncuentros(e.data);
     if (m.ok) setMatriculas(m.data);
+    // F11: traer los co-cursos de las sesiones compartidas presentes.
+    const sesionIds = e.data
+      .map((x) => x.sesion_compartida_id)
+      .filter((x): x is string => !!x);
+    if (sesionIds.length) {
+      const cc = await listCoCursosDeSesiones(sesionIds);
+      setCoCursos(cc.ok ? cc.data : {});
+    } else {
+      setCoCursos({});
+    }
     const pares = await Promise.all(
       e.data.map(async (enc) => {
         const a = await listAsistencias(enc.id);
@@ -221,6 +242,7 @@ export function EncuentrosTab({ data }: { data: CursoDetalle }) {
               matriculas={matriculas}
               asist={asist}
               cursoId={data.curso.id}
+              coCursos={coCursos}
               onToggleAsist={toggleAsist}
               onReload={load}
               onWebex={setWebexEnc}
@@ -328,6 +350,7 @@ function ModuloCard({
   matriculas,
   asist,
   cursoId,
+  coCursos,
   onToggleAsist,
   onReload,
   onWebex,
@@ -338,6 +361,7 @@ function ModuloCard({
   matriculas: MatriculaListItem[];
   asist: Asist;
   cursoId: string;
+  coCursos: Record<string, { id: string; titulo: string }[]>;
   onToggleAsist: (encId: string, matId: string) => void;
   onReload: () => void | Promise<void>;
   onWebex: (enc: CursoEncuentroRow) => void;
@@ -571,6 +595,8 @@ function ModuloCard({
               encuentro={enc}
               matriculas={matriculas}
               presentes={asist[enc.id] ?? new Set()}
+              cursoId={cursoId}
+              coCursos={coCursos}
               onToggleAsist={onToggleAsist}
               onReload={onReload}
               onWebex={onWebex}
@@ -630,6 +656,8 @@ function EncuentroRow({
   encuentro,
   matriculas,
   presentes,
+  cursoId,
+  coCursos,
   onToggleAsist,
   onReload,
   onWebex,
@@ -638,6 +666,8 @@ function EncuentroRow({
   encuentro: CursoEncuentroRow;
   matriculas: MatriculaListItem[];
   presentes: Set<string>;
+  cursoId: string;
+  coCursos: Record<string, { id: string; titulo: string }[]>;
   onToggleAsist: (encId: string, matId: string) => void;
   onReload: () => void | Promise<void>;
   onWebex: (enc: CursoEncuentroRow) => void;
@@ -650,6 +680,13 @@ function EncuentroRow({
   const [edDuracion, setEdDuracion] = useState<number>(encuentro.duracion_min ?? 60);
   const [edDesc, setEdDesc] = useState<string>(encuentro.descripcion ?? '');
   const [savingEd, setSavingEd] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
+
+  // F11: ¿este encuentro participa de una sesión compartida entre cursos?
+  const compartido = !!encuentro.sesion_compartida_id;
+  const otrosCursos = encuentro.sesion_compartida_id
+    ? (coCursos[encuentro.sesion_compartida_id] ?? []).filter((c) => c.id !== cursoId)
+    : [];
 
   const isWebex = encuentro.plataforma === 'webex';
   const tieneSala = isWebex ? !!encuentro.webex_meeting_id : !!encuentro.zoom_meeting_id;
@@ -728,19 +765,64 @@ function EncuentroRow({
       return;
     }
     setSavingEd(true);
-    const r = await actualizarEncuentro(encuentro.id, {
-      titulo: edTitulo.trim(),
-      fecha_hora: new Date(edFecha).toISOString(),
-      duracion_min: edDuracion,
-      descripcion: edDesc.trim() || null,
-    });
+    const fechaIso = new Date(edFecha).toISOString();
+    let r;
+    if (compartido && encuentro.sesion_compartida_id) {
+      // F11: fecha/duración viven en la SESIÓN (verdad única → se reflejan en
+      // TODOS los cursos que la comparten); título/descripción quedan por curso.
+      const [re, rs] = await Promise.all([
+        actualizarEncuentro(encuentro.id, {
+          titulo: edTitulo.trim(),
+          descripcion: edDesc.trim() || null,
+        }),
+        actualizarSesionCompartida(encuentro.sesion_compartida_id, {
+          fecha_hora: fechaIso,
+          duracion_min: edDuracion,
+        }),
+      ]);
+      r = re.ok ? rs : re;
+    } else {
+      r = await actualizarEncuentro(encuentro.id, {
+        titulo: edTitulo.trim(),
+        fecha_hora: fechaIso,
+        duracion_min: edDuracion,
+        descripcion: edDesc.trim() || null,
+      });
+    }
     setSavingEd(false);
     if (!r.ok) {
       toast.error(humanizeError(r.error));
       return;
     }
     setEditing(false);
-    toast.success('Encuentro actualizado');
+    toast.success(
+      compartido ? 'Sesión actualizada (en todos los cursos)' : 'Encuentro actualizado',
+    );
+    void onReload();
+  }
+
+  // F11: este curso deja de compartir el encuentro (sale de la sesión).
+  async function dejarDeCompartir() {
+    const otros = otrosCursos.map((c) => c.titulo).join(', ');
+    const ok = await confirm({
+      title: 'Quitar de la sesión compartida',
+      message: `Este curso dejará de compartir "${encuentro.titulo}".${
+        otros
+          ? ` ${otros} conserva${otrosCursos.length > 1 ? 'n' : ''} la sala.`
+          : ''
+      } Se borrará la asistencia registrada en este curso para este encuentro.`,
+      confirmLabel: 'Quitar de la sesión',
+      danger: true,
+    });
+    if (!ok) return;
+    setBusy(true);
+    const r = await descompartirEncuentro(encuentro.id);
+    setBusy(false);
+    if (!r.ok) {
+      toast.error(humanizeError(r.error));
+      return;
+    }
+    toast.success('Encuentro quitado de la sesión compartida');
     void onReload();
   }
 
@@ -790,7 +872,7 @@ function EncuentroRow({
         <>
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <Video size={14} className="text-amber-600" />
                 <h4 className="font-semibold text-brand-ink">{encuentro.titulo}</h4>
                 {tieneSala && (
@@ -803,11 +885,29 @@ function EncuentroRow({
                     {statusBadge.label}
                   </span>
                 )}
+                {compartido && (
+                  <span
+                    className="inline-flex items-center gap-1 rounded-full border border-violet-200 bg-violet-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-violet-700"
+                    title={
+                      otrosCursos.length
+                        ? `Compartido con ${otrosCursos.map((c) => c.titulo).join(', ')}`
+                        : 'Sesión compartida'
+                    }
+                  >
+                    <Users size={10} /> Compartido
+                  </span>
+                )}
               </div>
               <p className="mt-0.5 text-xs text-brand-muted">
                 {encuentro.fecha_hora ? fmtFechaHora(encuentro.fecha_hora) : 'Sin fecha'}
                 {encuentro.duracion_min ? ` · ${encuentro.duracion_min} min` : ''}
               </p>
+              {compartido && otrosCursos.length > 0 && (
+                <p className="mt-0.5 text-[11px] font-medium text-violet-700">
+                  Misma sala que {otrosCursos.map((c) => c.titulo).join(', ')} · el
+                  presente del alumno cuenta en ambos cursos
+                </p>
+              )}
               {encuentro.descripcion && (
                 <p className="mt-1 text-sm text-brand-muted">{encuentro.descripcion}</p>
               )}
@@ -820,13 +920,24 @@ function EncuentroRow({
               >
                 <Pencil size={14} />
               </button>
-              <button
-                onClick={() => void eliminar()}
-                className="rounded-md p-1.5 text-brand-muted transition hover:bg-red-50 hover:text-red-600"
-                title="Eliminar encuentro"
-              >
-                <Trash2 size={14} />
-              </button>
+              {compartido ? (
+                <button
+                  onClick={() => void dejarDeCompartir()}
+                  disabled={busy}
+                  className="rounded-md p-1.5 text-brand-muted transition hover:bg-amber-50 hover:text-amber-700 disabled:opacity-60"
+                  title="Quitar este curso de la sesión compartida"
+                >
+                  <Link2 size={14} />
+                </button>
+              ) : (
+                <button
+                  onClick={() => void eliminar()}
+                  className="rounded-md p-1.5 text-brand-muted transition hover:bg-red-50 hover:text-red-600"
+                  title="Eliminar encuentro"
+                >
+                  <Trash2 size={14} />
+                </button>
+              )}
             </div>
           </div>
 
@@ -842,7 +953,16 @@ function EncuentroRow({
             >
               {isWebex ? 'Webex' : 'Zoom'}
             </span>
-            {!tieneSala && !isWebex && (
+            {tieneSala && (
+              <button
+                onClick={() => setShareOpen(true)}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-violet-200 bg-violet-50 px-3 py-1.5 text-xs font-semibold text-violet-700 shadow-sm transition hover:bg-violet-100"
+                title="Compartir la misma sala con otro curso"
+              >
+                <Share2 size={13} /> Compartir con otro curso
+              </button>
+            )}
+            {!tieneSala && !isWebex && !compartido && (
               <button
                 onClick={() => void crearSala()}
                 disabled={busy}
@@ -852,7 +972,7 @@ function EncuentroRow({
                 Crear sala Zoom
               </button>
             )}
-            {!tieneSala && isWebex && (
+            {!tieneSala && isWebex && !compartido && (
               <button
                 onClick={() => onWebex(encuentro)}
                 className="inline-flex items-center gap-1.5 rounded-lg bg-brand-ink px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-brand-ink/90"
@@ -870,12 +990,14 @@ function EncuentroRow({
                 >
                   <Radio size={13} /> Iniciar host
                 </a>
-                <button
-                  onClick={() => onWebex(encuentro)}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-brand-ink shadow-sm transition hover:bg-slate-50"
-                >
-                  Editar Webex
-                </button>
+                {!compartido && (
+                  <button
+                    onClick={() => onWebex(encuentro)}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-brand-ink shadow-sm transition hover:bg-slate-50"
+                  >
+                    Editar Webex
+                  </button>
+                )}
               </>
             )}
             {tieneSala && !isWebex && (
@@ -910,14 +1032,16 @@ function EncuentroRow({
                     <ExternalLink size={13} /> Grabación
                   </a>
                 )}
-                <button
-                  onClick={() => void eliminarSala()}
-                  disabled={busy}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-600 shadow-sm transition hover:bg-red-50 disabled:opacity-60"
-                >
-                  {busy ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
-                  Eliminar sala
-                </button>
+                {!compartido && (
+                  <button
+                    onClick={() => void eliminarSala()}
+                    disabled={busy}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-600 shadow-sm transition hover:bg-red-50 disabled:opacity-60"
+                  >
+                    {busy ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                    Eliminar sala
+                  </button>
+                )}
               </>
             )}
           </div>
@@ -961,6 +1085,17 @@ function EncuentroRow({
             )}
           </div>
         </>
+      )}
+      {shareOpen && (
+        <CompartirEncuentroModal
+          encuentro={encuentro}
+          excludeCursoIds={[cursoId, ...otrosCursos.map((c) => c.id)]}
+          onClose={() => setShareOpen(false)}
+          onShared={() => {
+            setShareOpen(false);
+            void onReload();
+          }}
+        />
       )}
     </div>
   );
@@ -1066,6 +1201,138 @@ function WebexSetupModal({
           </button>
           <Button onClick={save} loading={saving}>
             Guardar
+          </Button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+// ----------------------------------------------------------------------------
+// F11/DGG-79 · Modal para compartir un encuentro con otro curso.
+// Promueve el encuentro a sesión compartida (misma sala) y engancha el curso
+// destino, que recibe su propio módulo de asistencia (modalidad editable aparte).
+// ----------------------------------------------------------------------------
+function CompartirEncuentroModal({
+  encuentro,
+  excludeCursoIds,
+  onClose,
+  onShared,
+}: {
+  encuentro: CursoEncuentroRow;
+  excludeCursoIds: string[];
+  onClose: () => void;
+  onShared: () => void;
+}) {
+  const [cursos, setCursos] = useState<CursoParaCompartir[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [target, setTarget] = useState('');
+  const [sharing, setSharing] = useState(false);
+  const excludeKey = excludeCursoIds.join(',');
+
+  useEffect(() => {
+    let alive = true;
+    void (async () => {
+      const r = await listCursosParaCompartir(encuentro.curso_id);
+      if (!alive) return;
+      if (r.ok) {
+        const exclude = new Set(excludeKey ? excludeKey.split(',') : []);
+        setCursos(r.data.filter((c) => !exclude.has(c.id)));
+      } else {
+        toast.error(humanizeError(r.error));
+      }
+      setLoading(false);
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [encuentro.curso_id, excludeKey]);
+
+  async function compartir() {
+    if (!target) {
+      toast.error('Elegí el curso con el que compartir.');
+      return;
+    }
+    setSharing(true);
+    const r = await compartirEncuentro(encuentro.id, target);
+    setSharing(false);
+    if (!r.ok) {
+      toast.error(humanizeError(r.error));
+      return;
+    }
+    toast.success(
+      r.data.ya_existia
+        ? 'Ese curso ya compartía este encuentro'
+        : 'Encuentro compartido ✓ — misma sala, presente en ambos cursos',
+    );
+    onShared();
+  }
+
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+      <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
+        <div className="flex items-center gap-2">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-violet-100 text-violet-700">
+            <Share2 size={16} />
+          </span>
+          <div className="min-w-0">
+            <h3 className="font-display text-lg font-bold text-brand-ink">
+              Compartir encuentro con otro curso
+            </h3>
+            <p className="truncate text-xs text-brand-muted">{encuentro.titulo}</p>
+          </div>
+        </div>
+
+        <div className="mt-4 rounded-xl border border-violet-200 bg-violet-50/60 p-3 text-xs text-violet-900">
+          <p className="flex items-start gap-1.5">
+            <Users size={13} className="mt-0.5 shrink-0" />
+            <span>
+              Los dos cursos van a usar <strong>la misma sala</strong> (un solo
+              Zoom, sin conflicto). El alumno que se conecte tendrá{' '}
+              <strong>el presente en ambos cursos</strong> si está matriculado en
+              los dos. El curso destino recibe su propio módulo de asistencia
+              (después podés ajustar su modalidad).
+            </span>
+          </p>
+        </div>
+
+        <div className="mt-4">
+          <Field label="Compartir con el curso" required>
+            {loading ? (
+              <div className="flex h-10 items-center gap-2 px-1 text-sm text-brand-muted">
+                <Loader2 size={14} className="animate-spin" /> Cargando cursos…
+              </div>
+            ) : cursos.length === 0 ? (
+              <p className="text-sm text-brand-muted">
+                No hay otros cursos activos disponibles para compartir.
+              </p>
+            ) : (
+              <Select value={target} onChange={(e) => setTarget(e.target.value)}>
+                <option value="">Elegí un curso…</option>
+                {cursos.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.titulo}
+                  </option>
+                ))}
+              </Select>
+            )}
+          </Field>
+        </div>
+
+        <div className="mt-5 flex justify-end gap-2">
+          <button
+            onClick={onClose}
+            className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-brand-ink hover:bg-slate-50"
+          >
+            Cancelar
+          </button>
+          <Button
+            onClick={compartir}
+            loading={sharing}
+            disabled={loading || cursos.length === 0 || !target}
+          >
+            <Share2 size={14} /> Compartir
           </Button>
         </div>
       </div>

@@ -16,6 +16,7 @@ import {
   LogOut,
   GraduationCap,
   FileText,
+  Users,
 } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import {
@@ -364,12 +365,25 @@ function EncuentroLi({
                         Finalizado
                       </span>
                     )}
+                    {enc.compartido && (
+                      <span
+                        className="inline-flex items-center gap-1 rounded-full border border-violet-200 bg-violet-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-violet-700"
+                        title="Este encuentro es compartido con otro curso: tu presente cuenta en ambos."
+                      >
+                        <Users size={10} /> Compartido
+                      </span>
+                    )}
                   </div>
                   <p className="mt-0.5 flex items-center gap-1.5 text-xs text-brand-muted">
                     <CalendarClock size={12} />
                     {enc.fecha_hora ? fmtFechaHora(enc.fecha_hora) : 'Sin fecha'}
                     {enc.duracion_min ? ` · ${enc.duracion_min} min` : ''}
                   </p>
+                  {enc.compartido && (
+                    <p className="mt-0.5 text-[11px] font-medium text-violet-700">
+                      Encuentro compartido — tu presente cuenta en ambos cursos.
+                    </p>
+                  )}
                   {enc.descripcion && (
                     <p className="mt-1 text-sm text-brand-muted">{enc.descripcion}</p>
                   )}

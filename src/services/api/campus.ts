@@ -37,8 +37,19 @@ export type CursoCondicionConfigRow =
   Database['public']['Tables']['curso_condiciones_config']['Row'];
 export type MatriculaCondicionRow =
   Database['public']['Tables']['matricula_condiciones']['Row'];
+export type EncuentroSesionCompartidaRow =
+  Database['public']['Tables']['encuentro_sesiones_compartidas']['Row'];
+
 export type CursoEncuentroRow =
-  Database['public']['Tables']['curso_encuentros']['Row'];
+  Database['public']['Tables']['curso_encuentros']['Row'] & {
+    /** F11/DGG-79: true si el encuentro participa de una sesión compartida entre
+     *  cursos. Cuando lo es, los campos de sala/fecha/estado/grabación vienen
+     *  coalescidos desde la sesión (verdad única) → la UI de display/unirse no
+     *  cambia. La asistencia y la condición siguen siendo por curso. */
+    compartido?: boolean;
+    /** F11: la sesión compartida embebida (gerencia: edición de fuente única). */
+    sesion?: EncuentroSesionCompartidaRow | null;
+  };
 export type CursoEncuentroAsistenciaRow =
   Database['public']['Tables']['curso_encuentro_asistencias']['Row'];
 
@@ -1359,17 +1370,65 @@ export async function tildarCondicion(
 // ============================================================================
 // Fase 1 · Encuentros sincrónicos + asistencia
 // ============================================================================
+/** F11/DGG-79: cuando un encuentro participa de una sesión compartida, la sala,
+ *  fecha, duración, estado y grabación son la VERDAD de la sesión (no de la fila
+ *  del curso). Coalescemos esos campos para que toda la UI funcione sin cambios:
+ *  alumno (unirse + gate ±10min, "En vivo") y gerencia (estado/grabación). La
+ *  asistencia y la condición del certificado siguen siendo por curso. */
+function coalesceEncuentroSesion(row: any): CursoEncuentroRow {
+  const s = row?.sesion as EncuentroSesionCompartidaRow | null | undefined;
+  if (!s) return { ...row, compartido: false };
+  // La sesión es la VERDAD ÚNICA de estos campos → tomamos su valor directo (sin
+  // fallback al row, que puede tener una copia stale y rompería el gate ±10min).
+  // Las URLs de host (zoom_start_url / webex_start_url) sólo llegan si el embed
+  // las pidió (gerente con incluirHostUrl); para alumnos quedan en null (E-GG-79).
+  return {
+    ...row,
+    fecha_hora: s.fecha_hora,
+    duracion_min: s.duracion_min,
+    plataforma: s.plataforma,
+    zoom_meeting_id: s.zoom_meeting_id,
+    zoom_join_url: s.zoom_join_url,
+    zoom_start_url: s.zoom_start_url ?? null,
+    zoom_password: s.zoom_password,
+    zoom_status: s.zoom_status,
+    iniciado_at: s.iniciado_at,
+    finalizado_at: s.finalizado_at,
+    grabacion_url: s.grabacion_url,
+    grabacion_play_url: s.grabacion_play_url,
+    webex_meeting_id: s.webex_meeting_id,
+    webex_join_url: s.webex_join_url,
+    webex_start_url: s.webex_start_url ?? null,
+    webex_password: s.webex_password,
+    webex_status: s.webex_status,
+    webex_meeting_number: s.webex_meeting_number,
+    compartido: true,
+  };
+}
+
 export async function listEncuentros(
   cursoId: string,
+  opts: { incluirHostUrl?: boolean } = {},
 ): Promise<ApiResponse<CursoEncuentroRow[]>> {
+  // E-GG-79: las URLs de host (zoom_start_url / webex_start_url) son el link de
+  // ANFITRIÓN y no deben viajar al browser del alumno (cualquiera con ese link
+  // podría iniciar la reunión como host). Sólo el gerente pide incluirHostUrl
+  // (para el botón "Iniciar host"). El resto de columnas de la sesión sí van.
+  const sesionCols = opts.incluirHostUrl
+    ? '*'
+    : 'id,titulo,descripcion,fecha_hora,duracion_min,plataforma,' +
+      'zoom_meeting_id,zoom_join_url,zoom_password,zoom_status,' +
+      'iniciado_at,finalizado_at,grabacion_url,grabacion_play_url,' +
+      'webex_meeting_id,webex_join_url,webex_password,webex_status,webex_meeting_number,' +
+      'docente_nombre,docente_foto_url,docente_cv_url,created_by,created_at,updated_at';
   const { data, error } = await supabase
     .from('curso_encuentros')
-    .select('*')
+    .select(`*, sesion:encuentro_sesiones_compartidas(${sesionCols})`)
     .eq('curso_id', cursoId)
     .order('fecha_hora', { ascending: true, nullsFirst: false })
     .order('created_at', { ascending: true });
   if (error) return fail('ENCUENTROS_LIST', error.message, error);
-  return ok(data ?? []);
+  return ok((data ?? []).map(coalesceEncuentroSesion));
 }
 
 export interface EncuentroInput {
@@ -1458,6 +1517,104 @@ export async function actualizarEncuentro(
 export async function borrarEncuentro(id: string): Promise<ApiResponse<true>> {
   const { error } = await supabase.from('curso_encuentros').delete().eq('id', id);
   if (error) return fail('ENCUENTRO_DELETE', error.message, error);
+  return ok(true);
+}
+
+// ============================================================================
+// F11/DGG-79 · Encuentros sincrónicos COMPARTIDOS entre cursos
+// ============================================================================
+export interface CompartirEncuentroResult {
+  sesion_id: string;
+  encuentro_destino_id: string;
+  condicion_destino_id: string;
+  ya_existia: boolean;
+}
+
+/** Comparte un encuentro con otro curso: lo promueve a sesión compartida (mueve
+ *  la sala) y crea en el curso destino su propia participación + módulo de
+ *  asistencia (con su modalidad, editable aparte). Idempotente, N-cursos. */
+export async function compartirEncuentro(
+  encuentroId: string,
+  cursoDestinoId: string,
+): Promise<ApiResponse<CompartirEncuentroResult>> {
+  const { data, error } = await supabase.rpc('encuentro_compartir_con_curso', {
+    p_encuentro_id: encuentroId,
+    p_curso_destino_id: cursoDestinoId,
+  });
+  if (error) return fail('ENCUENTRO_COMPARTIR', error.message, error);
+  return ok(data as unknown as CompartirEncuentroResult);
+}
+
+/** Quita un curso de la sesión compartida (borra ESTA participación). Si queda
+ *  un solo curso, le devuelve la sala y la sesión se disuelve (demote). */
+export async function descompartirEncuentro(
+  encuentroId: string,
+): Promise<ApiResponse<{ demoted: boolean; sesion_borrada?: boolean }>> {
+  const { data, error } = await supabase.rpc('encuentro_descompartir', {
+    p_encuentro_id: encuentroId,
+  });
+  if (error) return fail('ENCUENTRO_DESCOMPARTIR', error.message, error);
+  return ok(data as unknown as { demoted: boolean; sesion_borrada?: boolean });
+}
+
+export interface CursoParaCompartir {
+  id: string;
+  titulo: string;
+  modalidad: string | null;
+}
+
+/** Cursos activos (excepto el actual) candidatos a compartir un encuentro. */
+export async function listCursosParaCompartir(
+  excludeCursoId: string,
+): Promise<ApiResponse<CursoParaCompartir[]>> {
+  const { data, error } = await supabase
+    .from('cursos')
+    .select('id, titulo, modalidad')
+    .eq('activo', true)
+    .neq('id', excludeCursoId)
+    .order('titulo', { ascending: true });
+  if (error) return fail('CURSOS_COMPARTIR', error.message, error);
+  return ok((data ?? []) as CursoParaCompartir[]);
+}
+
+/** Para cada sesión compartida, qué cursos la comparten (para el sello). */
+export async function listCoCursosDeSesiones(
+  sesionIds: string[],
+): Promise<ApiResponse<Record<string, { id: string; titulo: string }[]>>> {
+  const ids = Array.from(new Set(sesionIds.filter(Boolean)));
+  if (ids.length === 0) return ok({});
+  const { data, error } = await supabase
+    .from('curso_encuentros')
+    .select('sesion_compartida_id, curso:cursos(id, titulo)')
+    .in('sesion_compartida_id', ids);
+  if (error) return fail('COCURSOS_LIST', error.message, error);
+  const map: Record<string, { id: string; titulo: string }[]> = {};
+  for (const r of (data ?? []) as Array<{
+    sesion_compartida_id: string | null;
+    curso: { id: string; titulo: string } | null;
+  }>) {
+    const sid = r.sesion_compartida_id;
+    if (!sid || !r.curso) continue;
+    (map[sid] ??= []).push({ id: r.curso.id, titulo: r.curso.titulo });
+  }
+  return ok(map);
+}
+
+/** Edita la sesión compartida (verdad única de fecha/duración/sala/docente).
+ *  Usado por la edición de fuente única: tocar la fecha en un curso la cambia
+ *  para todos los cursos que comparten la sesión. */
+export async function actualizarSesionCompartida(
+  sesionId: string,
+  // Sólo fecha/duración: son los campos de la sesión que la UI coalesce y muestra
+  // (verdad única). El título/descripción son por curso; el docente vive en el
+  // módulo. Mantener el patch acotado evita prometer cambios que no se reflejan.
+  patch: Partial<{ fecha_hora: string | null; duracion_min: number }>,
+): Promise<ApiResponse<true>> {
+  const { error } = await supabase
+    .from('encuentro_sesiones_compartidas')
+    .update(patch)
+    .eq('id', sesionId);
+  if (error) return fail('SESION_UPDATE', error.message, error);
   return ok(true);
 }
 

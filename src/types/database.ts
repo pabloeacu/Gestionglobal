@@ -2187,6 +2187,7 @@ export type Database = {
           link_zoom: string | null
           orden: number
           plataforma: string
+          sesion_compartida_id: string | null
           titulo: string
           updated_at: string
           webex_join_url: string | null
@@ -2216,6 +2217,7 @@ export type Database = {
           link_zoom?: string | null
           orden?: number
           plataforma?: string
+          sesion_compartida_id?: string | null
           titulo: string
           updated_at?: string
           webex_join_url?: string | null
@@ -2245,6 +2247,7 @@ export type Database = {
           link_zoom?: string | null
           orden?: number
           plataforma?: string
+          sesion_compartida_id?: string | null
           titulo?: string
           updated_at?: string
           webex_join_url?: string | null
@@ -2272,6 +2275,13 @@ export type Database = {
             columns: ["curso_id"]
             isOneToOne: false
             referencedRelation: "cursos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "curso_encuentros_sesion_compartida_id_fkey"
+            columns: ["sesion_compartida_id"]
+            isOneToOne: false
+            referencedRelation: "encuentro_sesiones_compartidas"
             referencedColumns: ["id"]
           },
         ]
@@ -3290,6 +3300,104 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      encuentro_sesiones_compartidas: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          descripcion: string | null
+          docente_cv_url: string | null
+          docente_foto_url: string | null
+          docente_nombre: string | null
+          duracion_min: number
+          fecha_hora: string | null
+          finalizado_at: string | null
+          grabacion_play_url: string | null
+          grabacion_url: string | null
+          id: string
+          iniciado_at: string | null
+          plataforma: string
+          titulo: string
+          updated_at: string
+          webex_join_url: string | null
+          webex_meeting_id: string | null
+          webex_meeting_number: string | null
+          webex_password: string | null
+          webex_start_url: string | null
+          webex_status: string | null
+          zoom_join_url: string | null
+          zoom_meeting_id: number | null
+          zoom_password: string | null
+          zoom_start_url: string | null
+          zoom_status: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          descripcion?: string | null
+          docente_cv_url?: string | null
+          docente_foto_url?: string | null
+          docente_nombre?: string | null
+          duracion_min?: number
+          fecha_hora?: string | null
+          finalizado_at?: string | null
+          grabacion_play_url?: string | null
+          grabacion_url?: string | null
+          id?: string
+          iniciado_at?: string | null
+          plataforma?: string
+          titulo: string
+          updated_at?: string
+          webex_join_url?: string | null
+          webex_meeting_id?: string | null
+          webex_meeting_number?: string | null
+          webex_password?: string | null
+          webex_start_url?: string | null
+          webex_status?: string | null
+          zoom_join_url?: string | null
+          zoom_meeting_id?: number | null
+          zoom_password?: string | null
+          zoom_start_url?: string | null
+          zoom_status?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          descripcion?: string | null
+          docente_cv_url?: string | null
+          docente_foto_url?: string | null
+          docente_nombre?: string | null
+          duracion_min?: number
+          fecha_hora?: string | null
+          finalizado_at?: string | null
+          grabacion_play_url?: string | null
+          grabacion_url?: string | null
+          id?: string
+          iniciado_at?: string | null
+          plataforma?: string
+          titulo?: string
+          updated_at?: string
+          webex_join_url?: string | null
+          webex_meeting_id?: string | null
+          webex_meeting_number?: string | null
+          webex_password?: string | null
+          webex_start_url?: string | null
+          webex_status?: string | null
+          zoom_join_url?: string | null
+          zoom_meeting_id?: number | null
+          zoom_password?: string | null
+          zoom_start_url?: string | null
+          zoom_status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "encuentro_sesiones_compartidas_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       errores_runtime: {
         Row: {
@@ -8254,6 +8362,36 @@ export type Database = {
           p_icono_url?: string
           p_titulo: string
           p_user_id: string
+        }
+        Returns: string
+      }
+      encuentro_compartir_con_curso: {
+        Args: { p_curso_destino_id: string; p_encuentro_id: string }
+        Returns: Json
+      }
+      encuentro_descompartir: {
+        Args: { p_encuentro_id: string }
+        Returns: Json
+      }
+      encuentro_sesion_zoom_estado: {
+        Args: { p_estado: string; p_meeting_id: number; p_ocurrido_at?: string }
+        Returns: string
+      }
+      encuentro_sesion_zoom_evento: {
+        Args: {
+          p_evento: string
+          p_matricula_id: string
+          p_meeting_id: number
+          p_ocurrido_at: string
+          p_payload?: Json
+        }
+        Returns: number
+      }
+      encuentro_sesion_zoom_grabacion: {
+        Args: {
+          p_grabacion_play_url?: string
+          p_grabacion_url: string
+          p_meeting_id: number
         }
         Returns: string
       }

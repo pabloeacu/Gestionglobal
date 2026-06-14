@@ -90,13 +90,18 @@ Deno.serve(async (req) => {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 
+  // F11/DGG-79: si el encuentro pertenece a una sesión compartida, el meeting_id
+  // vive en la sesión (no en la fila del encuentro). Resolvemos desde la sesión.
   const { data: enc, error: encErr } = await admin
     .from("curso_encuentros")
-    .select("id, curso_id, zoom_meeting_id, duracion_min")
+    .select("id, curso_id, zoom_meeting_id, duracion_min, sesion_compartida_id, sesion:encuentro_sesiones_compartidas(zoom_meeting_id)")
     .eq("id", encuentroId)
     .maybeSingle();
   if (encErr || !enc) return json(404, { error: "encuentro_not_found" });
-  if (!enc.zoom_meeting_id) return json(409, { error: "meeting_not_created" });
+  const meetingNumber = enc.sesion_compartida_id
+    ? (enc.sesion as { zoom_meeting_id: number | null } | null)?.zoom_meeting_id ?? null
+    : enc.zoom_meeting_id;
+  if (!meetingNumber) return json(409, { error: "meeting_not_created" });
 
   // ¿Es staff?
   const { data: prof } = await admin
@@ -126,15 +131,16 @@ Deno.serve(async (req) => {
   const role = (isStaff ? roleReq : 0) as 0 | 1;
 
   const signature = await signMeetingJWT(
-    String(enc.zoom_meeting_id),
+    String(meetingNumber),
     role,
   );
 
   return json(200, {
     signature,
     sdkKey: SDK_KEY,
-    meetingNumber: String(enc.zoom_meeting_id),
+    meetingNumber: String(meetingNumber),
     role,
-    customerKey: matriculaId, // null si es staff
+    customerKey: matriculaId, // null si es staff. F11: el fan-out resuelve la
+    // persona desde esta matrícula y abanica a sus matrículas en cada curso.
   });
 });
