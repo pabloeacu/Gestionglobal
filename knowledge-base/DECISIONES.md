@@ -2961,3 +2961,49 @@ habilita"). Consola sin errores de app. QA por SQL, **residuo 0**, "Encuentro
 Julio" real intacto.
 
 - **Fecha:** 2026-06-14. Migs 0236-0239. Commit `26dc5e3`.
+
+## DGG-80 · Dependencia curso↔alianza en landing + formularios — 2026-06-14
+
+**Pedido (Pablo):** remarcar qué entidad habilitante dicta cada curso, en la
+landing y en los formularios. Cosmético — no debe romper nada operativo.
+
+**Landing (cards de cursos):** isologo de la entidad a la derecha del ícono
+lucide, mismo alto (h-10), prolijo. FUNDPLATA (rombos) en "Curso de formación
+RPAC" + "Actualización RPAC"; GESTAR (swoosh) en "Actualización RPA·CABA". Los
+isologos se recortaron de los logos completos del banco de alianzas con PIL
+(misma fuente, sin pérdida): `public/landing/partners/fundplata-iso.png` (72×73)
++ `gestar-iso.png` (364×374). Mapa `ALIANZA_ISOLOGO` por título en LandingPage.
+
+**Formularios:** el header público muestra el logo COMPLETO de la entidad en un
+chip blanco (contraste perfecto sobre el gradiente cian) + un subtítulo de
+alianza. Mapa `FORM_ENTIDAD` por slug en FormularioPublicoPage (sin columna
+nueva): curso-formacion + curso-actualizacion → FUNDPLATA (RPAC);
+curso-actualizacion-caba → GESTAR (RPA). Subtítulo: "<ENTIDAD> es una entidad
+habilitada para el dictado de cursos por el <RPAC|RPA> que, en una alianza
+académica, ha encomendado la coordinación académica a Gestión Global…".
+
+**Form propio de Gestar (mig 0240):** las cards "Actualización RPAC" y
+"Actualización RPA·CABA" apuntaban al MISMO `curso-actualizacion` (RPAC). Se
+creó `curso-actualizacion-caba` (clon adaptado a RPA-CABA) y se recableó la card.
+**La cuenta de pago de FUNDPLATA (FU.DE.CO.IN) se DEJÓ EN BLANCO** en el form de
+Gestar — clonarla habría inducido pagos a la cuenta equivocada. Queda "te
+enviamos los datos por correo" + comprobante opcional. `CostosInfoCard` ahora
+oculta el bloque "Datos para transferencia" si la cuenta está vacía (los forms
+con cuenta real no se afectan).
+
+**§6 doble auditoría:** 2 agentes REVISAR (forms + landing → 0 GAP, 0 DUDA) +
+EJERCITAR en BD (los 8 forms con costos_info: solo curso-actualizacion-caba con
+cuenta vacía; el resto intacto → cero fuga de FUNDPLATA, cero regresión).
+**Live test (Vercel, en vivo):** landing con isologos + form Gestar (logo +
+subtítulo RPA) en prod; FUNDPLATA (logo + subtítulo RPAC + cuenta completa) y
+Pago de Gestar (sin recuadro vacío, hint correcto) en preview. Build + consola
+limpios.
+
+**FLAGS pendientes para Pablo:** (1) cargar la cuenta de pago real de Gestar en
+`curso-actualizacion-caba`. (2) ese form comparte `servicio_id` con el de RPAC →
+si la actualización RPA-CABA necesita tarifa/vouchers propios, asignarle un
+servicio aparte. (3) ajeno a esto: hay un cambio sin commitear en
+`zoom-encuentro-create` (prefijo del módulo en el topic Zoom, ~2026-06-09) que
+no es de este chunk — decidir si se commitea/descarta.
+
+- **Fecha:** 2026-06-14. Mig 0240. Commit `de136e2`.
