@@ -2494,6 +2494,7 @@ export type Database = {
       curso_matriculas: {
         Row: {
           administracion_id: string | null
+          completada_at: string | null
           created_at: string
           curso_id: string
           estado: string
@@ -2508,6 +2509,7 @@ export type Database = {
         }
         Insert: {
           administracion_id?: string | null
+          completada_at?: string | null
           created_at?: string
           curso_id: string
           estado?: string
@@ -2522,6 +2524,7 @@ export type Database = {
         }
         Update: {
           administracion_id?: string | null
+          completada_at?: string | null
           created_at?: string
           curso_id?: string
           estado?: string
@@ -2809,6 +2812,7 @@ export type Database = {
           descripcion: string | null
           descripcion_html: string | null
           despublicar_at: string | null
+          dias_acceso_post: number
           duracion_horas: number | null
           enlace_descripcion: string | null
           enlace_titulo: string | null
@@ -2843,6 +2847,7 @@ export type Database = {
           descripcion?: string | null
           descripcion_html?: string | null
           despublicar_at?: string | null
+          dias_acceso_post?: number
           duracion_horas?: number | null
           enlace_descripcion?: string | null
           enlace_titulo?: string | null
@@ -2877,6 +2882,7 @@ export type Database = {
           descripcion?: string | null
           descripcion_html?: string | null
           despublicar_at?: string | null
+          dias_acceso_post?: number
           duracion_horas?: number | null
           enlace_descripcion?: string | null
           enlace_titulo?: string | null

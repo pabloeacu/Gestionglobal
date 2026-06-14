@@ -3051,4 +3051,69 @@ programa_url quedan definitivos).
 confirmó). El cambio sin commitear de `zoom-encuentro-create` se dejó intacto
 (otro agente lo retoma — Pablo).
 
+## DGG-82 · Ciclo de acceso post-finalización de curso (ventana de repaso) — 2026-06-14
+
+**Pedido (Pablo):** al TERMINAR un curso el alumno conserva acceso un tiempo para
+repasar contenido asincrónico / descargar material, y luego se desvincula (deja de
+ver el curso). Aplica a CUALQUIER curso. En el card del curso terminado:
+*"¡Felicitaciones! Ya terminaste el curso. Te quedan XX días para acceder y repasar
+lo que quieras!"*. Origen: reencuadre del ítem 3 del hardening de E-GG-69
+(`zoom-sdk-signature` rechazaba `completada`).
+
+**Decisiones tomadas (Pablo, AskUserQuestion):**
+- **Disparador de finalización** = se emite el certificado. Cubre las DOS vías
+  (emisión automática al cumplir condiciones, y gerencia que adjunta el cert +
+  cierra el trámite): ambas crean fila en `certificados`. El estado `completada`
+  nunca se seteaba antes — este trigger es el primero en usarlo.
+- **Ventana**: configurable por curso, `cursos.dias_acceso_post` (default 30).
+- **El que NO termina**: queda `activa` indefinidamente (el reloj arranca SOLO al
+  finalizar; no se toca `vigencia_hasta` de las activas).
+- **Al vencer**: `estado='vencida'` — se conserva el registro + certificado, oculto
+  del campus del alumno (no se borra).
+- **Recordatorio**: SOLO la leyenda en el card (sin email).
+
+**DB (mig 0245):**
+- `cursos.dias_acceso_post int NOT NULL DEFAULT 30` + `curso_matriculas.completada_at`.
+- Trigger `trg_certificado_marca_completada` (AFTER INSERT en `certificados`,
+  SECURITY DEFINER — R17): setea `estado='completada'`, `completada_at=COALESCE`
+  (re-emitir no reinicia el reloj), `vigencia_hasta = completada_at(AR)::date +
+  dias_acceso_post`. Separado del trigger que cierra el trámite (0181) para no
+  entrelazar responsabilidades. Cert de webinar (matricula_id NULL) → no-op.
+- Gating `private.curso_matriculado`: `activa OR (completada AND (vigencia_hasta IS
+  NULL OR vigencia_hasta >= hoy AR))`. NULL en completada = grandfather (matrículas
+  previas, acceso pleno; SIN backfill — no expiramos retroactivamente).
+- Cron diario `gg-campus-matriculas-vencer` (04:17 UTC = 01:17 AR): completada
+  vencida → `vencida`. Índice parcial `idx_curso_matriculas_vigencia_completada`.
+
+**Frontend:**
+- `campus.ts`: helpers `diasAccesoRestantes` + `matriculaTieneAcceso` (espejo
+  exacto del gate SQL).
+- `MisCursosPage`: filtra a sólo-con-acceso (oculta vencida/anulada/completada-
+  vencida) y muestra la leyenda en completada-en-ventana (variantes 0/1/plural,
+  CTA "Repasar").
+- `CursoDetalleAlumnoPage`: guard "Tu acceso a este curso finalizó" cuando venció
+  (el contenido viene vacío por RLS).
+- `CursoEditorPage`: campo "Acceso post-curso (días)" en Datos generales (R14
+  paridad — la columna nueva tiene control de gerencia).
+
+**Edge fn `zoom-sdk-signature` (v8):** el guard de matrícula pasó de `!= 'activa'`
+a la VENTANA (activa O completada-en-ventana), espejo del gate. Cierra el ítem 3 de
+E-GG-69.
+
+**Zona horaria (capitalizado de §6):** TODA la lógica de la ventana se evalúa en
+`America/Argentina/Buenos_Aires` (no UTC) — trigger, gate, cron, edge fn y frontend
+— para coincidir con la convención del repo (0039/0054) y que la ventana venza a
+medianoche local, no a las 21:00. Los 3 agentes §6 REVISAR lo marcaron como única
+inconsistencia (no bloqueante); se corrigió igual por calidad.
+
+**§6 doble auditoría:** 3 agentes REVISAR (DB / frontend / integraciones-seguridad)
+→ 0 GAP bloqueante; EJERCITAR e2e en BD (`BEGIN/ROLLBACK` vía DO+RAISE): cert→
+completada + completada_at + vigencia=hoyAR+dias; gate activa/dentro=TRUE,
+vencida=FALSE; cron→vencida; re-emisión conserva completada_at. Residuo 0.
+**Live test (preview local, viewport real):** alumno QA (leyenda "12 días" desktop
++ mobile 360px sin overflow, vencido oculto, guard de detalle, acceso normal dentro
+de ventana, consola limpia) + gerente QA (campo "Acceso post-curso" guarda 45,
+verificado en BD). Cuentas QA por SQL, residuo 0. El cambio sin commitear de
+`zoom-encuentro-create` se mantuvo intacto (otro agente).
+
 - **Fecha:** 2026-06-14. Migs 0241-0243. Commit `6bb1277`.

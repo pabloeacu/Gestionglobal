@@ -2834,11 +2834,14 @@ fan-out sólo marca presente donde la persona tiene matrícula.
 2. **RESUELTO (campus.ts):** `listEncuentros` para alumnos ya NO trae
    `zoom_start_url`/`webex_start_url` en el select base (standalone), igual que el
    embed de la sesión. El gerente (`incluirHostUrl`) los sigue recibiendo.
-3. **REENCUADRADO → ciclo de acceso post-finalización:** `zoom-sdk-signature`
-   rechaza `completada`. Pablo lo redefinió: al terminar un curso (cert auto o
-   cierre de trámite por gerencia) el alumno conserva acceso 30 días y luego se
-   desvincula; el guard se alineará a la VENTANA de acceso (no a `completada` a
-   secas) dentro de ese feature. Pendiente de diseño/build.
+3. **RESUELTO → DGG-82 (ciclo de acceso post-finalización, mig 0245):**
+   `zoom-sdk-signature` rechazaba `completada`. Pablo lo reencuadró en un feature:
+   al terminar un curso (se emite el cert — auto o por cierre de trámite de
+   gerencia) la matrícula pasa a `completada` y conserva acceso N días
+   (`cursos.dias_acceso_post`, default 30) para repasar; luego un cron la pasa a
+   `vencida`. El guard de la firma SDK quedó alineado a la VENTANA (activa O
+   completada-en-ventana), espejo de `private.curso_matriculado`. Ver DGG-82 en
+   DECISIONES.md.
 
 - **Fecha / módulo:** 2026-06-14 · F11 encuentros compartidos · mig 0239 +
   campus.ts/listEncuentros · commit `26dc5e3` (fixes ya incluidos en el commit del

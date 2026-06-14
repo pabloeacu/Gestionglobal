@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { GraduationCap } from 'lucide-react';
+import { GraduationCap, PartyPopper } from 'lucide-react';
 import { Skeleton } from '@/components/common';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import { IllustratedEmpty } from '@/components/brand/IllustratedEmpty';
@@ -9,8 +9,10 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
 import { cn } from '@/lib/cn';
 import {
+  diasAccesoRestantes,
   getProgresoResumen,
   listMatriculas,
+  matriculaTieneAcceso,
   MATRICULA_ESTADO_BADGE,
   MATRICULA_ESTADO_LABEL,
   type MatriculaListItem,
@@ -19,6 +21,16 @@ import {
 } from '@/services/api/campus';
 import { ProgresoBar } from '../components/ProgresoBar';
 import { humanizeError } from '@/lib/errors';
+
+// DGG-82: leyenda de felicitaciones en el card cuando el alumno terminó el
+// curso y conserva acceso (ventana post-finalización). dias = vigencia − hoy.
+function leyendaFelicitaciones(dias: number): string {
+  if (dias <= 0)
+    return '¡Felicitaciones! Ya terminaste el curso. Hoy es tu último día para repasar lo que quieras.';
+  if (dias === 1)
+    return '¡Felicitaciones! Ya terminaste el curso. Te queda 1 día para acceder y repasar lo que quieras.';
+  return `¡Felicitaciones! Ya terminaste el curso. Te quedan ${dias} días para acceder y repasar lo que quieras!`;
+}
 
 // "Mis cursos" para el alumno (portal). DGG-10: sin autoservicio — el alumno
 // solo ve los cursos que la gerencia le asignó (no hay catálogo abierto).
@@ -61,6 +73,13 @@ export function MisCursosPage() {
     () => void load(),
   );
 
+  // DGG-82: solo se ven los cursos con acceso vigente (activa o completada
+  // dentro de la ventana). Vencida/anulada/completada-vencida desaparecen.
+  const visibles = useMemo(
+    () => matriculas.filter(matriculaTieneAcceso),
+    [matriculas],
+  );
+
   return (
     <div className="mx-auto max-w-6xl space-y-6">
       <header>
@@ -89,7 +108,7 @@ export function MisCursosPage() {
                 <Skeleton key={i} className="h-28 w-full rounded-2xl" />
               ))}
             </div>
-          ) : matriculas.length === 0 ? (
+          ) : visibles.length === 0 ? (
             <IllustratedEmpty
               illustration="lista"
               title="Todavía no tenés cursos asignados"
@@ -101,8 +120,9 @@ export function MisCursosPage() {
             />
           ) : (
             <ul className="grid gap-3 sm:grid-cols-2">
-              {matriculas.map((m) => {
+              {visibles.map((m) => {
                 const r = progresos[m.id];
+                const diasRestantes = diasAccesoRestantes(m);
                 return (
                   <li key={m.id} className="min-w-0">
                     <Link
@@ -154,9 +174,19 @@ export function MisCursosPage() {
                             {r?.completadas ?? 0}/{r?.total_clases ?? 0} clases
                           </span>
                           <span className="inline-flex items-center gap-1 font-medium text-brand-cyan group-hover:underline">
-                            <GraduationCap size={13} /> Continuar
+                            <GraduationCap size={13} />{' '}
+                            {diasRestantes !== null ? 'Repasar' : 'Continuar'}
                           </span>
                         </footer>
+                        {diasRestantes !== null && (
+                          <div className="mt-auto flex items-start gap-2 rounded-xl border border-brand-cyan/20 bg-brand-cyan/5 p-3 text-xs font-medium leading-snug text-brand-cyan">
+                            <PartyPopper
+                              size={16}
+                              className="mt-0.5 shrink-0"
+                            />
+                            <span>{leyendaFelicitaciones(diasRestantes)}</span>
+                          </div>
+                        )}
                       </div>
                     </Link>
                   </li>

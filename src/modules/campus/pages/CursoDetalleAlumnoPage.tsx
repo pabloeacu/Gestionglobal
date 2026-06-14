@@ -37,6 +37,7 @@ import {
   listMatriculas,
   listModulosSincronicos,
   listProgreso,
+  matriculaTieneAcceso,
   resolverEsquemaParaCert,
   verificacionUrl,
   type CertificadoRow,
@@ -294,6 +295,45 @@ export function CursoDetalleAlumnoPage() {
                 <>
                   El acceso al campus lo habilita la gerencia. Si necesitás
                   cursar “{data.curso.titulo}”, escribile a tu administrador.
+                </>
+              }
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // DGG-82: la matrícula existe pero su ventana de acceso post-finalización
+  // venció (o quedó 'vencida'). El contenido viene vacío por RLS
+  // (private.curso_matriculado), así que mostramos un aviso claro en vez de
+  // un curso en blanco.
+  if (!matriculaTieneAcceso(matricula)) {
+    return (
+      <div className="mx-auto max-w-2xl space-y-6">
+        <Link
+          to="/portal/campus"
+          className="inline-flex items-center gap-1 text-xs font-medium text-brand-muted hover:text-brand-ink"
+        >
+          <ArrowLeft size={13} /> Mis cursos
+        </Link>
+        <div className="card-premium relative overflow-hidden p-8">
+          <TrianglesAccent
+            position="top-right"
+            size={200}
+            tone="cyan"
+            density="rich"
+            className="opacity-25"
+          />
+          <div className="relative">
+            <IllustratedEmpty
+              illustration="lista"
+              title="Tu acceso a este curso finalizó"
+              description={
+                <>
+                  Completaste “{data.curso.titulo}” y ya pasó el período de
+                  repaso. Si necesitás volver a acceder, escribile a tu
+                  administrador.
                 </>
               }
             />

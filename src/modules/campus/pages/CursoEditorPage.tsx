@@ -187,6 +187,10 @@ function DatosTab({
   );
   const [cupo, setCupo] = useState<number | ''>(data.curso.cupo_max ?? '');
   const [vigencia, setVigencia] = useState<number>(data.curso.vigencia_meses);
+  // DGG-82: ventana de acceso del alumno tras finalizar el curso (emisión cert).
+  const [diasAccesoPost, setDiasAccesoPost] = useState<number>(
+    data.curso.dias_acceso_post ?? 30,
+  );
   const [instructor, setInstructor] = useState(
     data.curso.instructor_nombre ?? '',
   );
@@ -236,6 +240,7 @@ function DatosTab({
       precio_lista: precio === '' ? null : Number(precio),
       cupo_max: cupo === '' ? null : Number(cupo),
       vigencia_meses: vigencia,
+      dias_acceso_post: diasAccesoPost,
       instructor_nombre: instructor || null,
       instructor_bio: bio || null,
       instructor_foto_url: instructorFoto,
@@ -349,6 +354,18 @@ function DatosTab({
               max={120}
               value={vigencia}
               onChange={(e) => setVigencia(Number(e.target.value))}
+            />
+          </Field>
+          <Field
+            label="Acceso post-curso (días)"
+            hint="Días que el alumno sigue viendo el curso tras terminarlo. Default 30."
+          >
+            <Input
+              type="number"
+              min={0}
+              max={365}
+              value={diasAccesoPost}
+              onChange={(e) => setDiasAccesoPost(Number(e.target.value))}
             />
           </Field>
         </div>

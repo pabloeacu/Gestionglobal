@@ -369,6 +369,43 @@ export async function listMatriculas(
   return ok(rows);
 }
 
+// DGG-82: ventana de acceso post-finalización. Espejo en memoria del gate
+// `private.curso_matriculado` (mig 0245) para que la UI muestre lo mismo que
+// el backend autoriza, sin un round-trip extra.
+type MatriculaAccesoFields = Pick<CursoMatriculaRow, 'estado' | 'vigencia_hasta'>;
+
+/** Hoy en fecha local Argentina ('YYYY-MM-DD'), independiente de la zona del
+ * visor. Espeja `(now() AT TIME ZONE 'America/Argentina/Buenos_Aires')::date`
+ * del backend (mig 0245), para que el conteo de días coincida con el gate. */
+function hoyArgentinaISO(): string {
+  // 'en-CA' formatea como 'YYYY-MM-DD'.
+  return new Date().toLocaleDateString('en-CA', {
+    timeZone: 'America/Argentina/Buenos_Aires',
+  });
+}
+
+/** Días de acceso restantes de una matrícula completada (vigencia − hoy AR).
+ * `null` si no aplica (no completada, o sin vigencia = grandfather pre-feature).
+ * Puede ser negativo si venció y el cron diario aún no la pasó a 'vencida'. */
+export function diasAccesoRestantes(m: MatriculaAccesoFields): number | null {
+  if (m.estado !== 'completada' || !m.vigencia_hasta) return null;
+  const hoy = new Date(`${hoyArgentinaISO()}T00:00:00`);
+  const vig = new Date(`${m.vigencia_hasta}T00:00:00`);
+  return Math.round((vig.getTime() - hoy.getTime()) / 86_400_000);
+}
+
+/** ¿La matrícula habilita el campus AHORA? Espejo de `private.curso_matriculado`:
+ * activa siempre; completada dentro de la ventana (o grandfather sin vigencia);
+ * vencida/anulada nunca. */
+export function matriculaTieneAcceso(m: MatriculaAccesoFields): boolean {
+  if (m.estado === 'activa') return true;
+  if (m.estado === 'completada') {
+    const d = diasAccesoRestantes(m);
+    return d === null || d >= 0;
+  }
+  return false;
+}
+
 export async function setMatriculaEstado(
   matriculaId: string,
   estado: MatriculaEstado,

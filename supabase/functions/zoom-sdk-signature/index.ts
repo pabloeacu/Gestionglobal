@@ -115,15 +115,27 @@ Deno.serve(async (req) => {
   if (isStaff) {
     // OK, staff puede entrar como host (role=1) o attendant.
   } else {
-    // Validar matrícula al curso
+    // Validar matrícula al curso.
     const { data: mat } = await admin
       .from("curso_matriculas")
-      .select("id, estado")
+      .select("id, estado, vigencia_hasta")
       .eq("curso_id", enc.curso_id)
       .eq("profile_id", userId)
       .maybeSingle();
     if (!mat) return json(403, { error: "not_matriculado" });
-    if (mat.estado && mat.estado !== "activa") return json(403, { error: "matricula_inactiva" });
+    // DGG-82: acceso = activa O completada dentro de la ventana post-finalización
+    // (espejo de private.curso_matriculado). vigencia_hasta NULL en completada =
+    // grandfather (matrículas previas al feature). Fecha de hoy en hora
+    // Argentina ('YYYY-MM-DD' vía 'en-CA'), igual que el gate de la BD
+    // ((now() AT TIME ZONE 'America/Argentina/Buenos_Aires')::date).
+    const hoy = new Date().toLocaleDateString("en-CA", {
+      timeZone: "America/Argentina/Buenos_Aires",
+    });
+    const tieneAcceso =
+      mat.estado === "activa" ||
+      (mat.estado === "completada" &&
+        (mat.vigencia_hasta == null || mat.vigencia_hasta >= hoy));
+    if (!tieneAcceso) return json(403, { error: "matricula_inactiva" });
     matriculaId = mat.id;
   }
 
