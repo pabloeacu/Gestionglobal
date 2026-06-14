@@ -1377,7 +1377,16 @@ export async function tildarCondicion(
  *  asistencia y la condición del certificado siguen siendo por curso. */
 function coalesceEncuentroSesion(row: any): CursoEncuentroRow {
   const s = row?.sesion as EncuentroSesionCompartidaRow | null | undefined;
-  if (!s) return { ...row, compartido: false };
+  // E-GG-69: encuentro standalone. Para alumnos el select base NO trae las URLs de
+  // host (zoom_start_url / webex_start_url) → quedan undefined; las normalizamos a
+  // null para conservar la forma del Row sin filtrar el link de anfitrión.
+  if (!s)
+    return {
+      ...row,
+      zoom_start_url: row.zoom_start_url ?? null,
+      webex_start_url: row.webex_start_url ?? null,
+      compartido: false,
+    };
   // La sesión es la VERDAD ÚNICA de estos campos → tomamos su valor directo (sin
   // fallback al row, que puede tener una copia stale y rompería el gate ±10min).
   // Las URLs de host (zoom_start_url / webex_start_url) sólo llegan si el embed
@@ -1410,10 +1419,18 @@ export async function listEncuentros(
   cursoId: string,
   opts: { incluirHostUrl?: boolean } = {},
 ): Promise<ApiResponse<CursoEncuentroRow[]>> {
-  // E-GG-79: las URLs de host (zoom_start_url / webex_start_url) son el link de
-  // ANFITRIÓN y no deben viajar al browser del alumno (cualquiera con ese link
-  // podría iniciar la reunión como host). Sólo el gerente pide incluirHostUrl
-  // (para el botón "Iniciar host"). El resto de columnas de la sesión sí van.
+  // E-GG-79 + E-GG-69: las URLs de host (zoom_start_url / webex_start_url) son el
+  // link de ANFITRIÓN y no deben viajar al browser del alumno (cualquiera con ese
+  // link podría iniciar la reunión como host). Sólo el gerente pide incluirHostUrl
+  // (para "Iniciar host"). Se excluyen tanto de la fila base del encuentro
+  // (standalone) como del embed de la sesión compartida. El resto de columnas van.
+  const baseCols = opts.incluirHostUrl
+    ? '*'
+    : 'id,curso_id,titulo,descripcion,fecha_hora,link_zoom,orden,created_at,updated_at,' +
+      'zoom_meeting_id,zoom_join_url,zoom_password,duracion_min,zoom_status,iniciado_at,' +
+      'finalizado_at,grabacion_url,grabacion_play_url,plataforma,webex_meeting_id,' +
+      'webex_join_url,webex_password,webex_status,webex_meeting_number,condicion_id,' +
+      'sesion_compartida_id';
   const sesionCols = opts.incluirHostUrl
     ? '*'
     : 'id,titulo,descripcion,fecha_hora,duracion_min,plataforma,' +
@@ -1423,7 +1440,7 @@ export async function listEncuentros(
       'docente_nombre,docente_foto_url,docente_cv_url,created_by,created_at,updated_at';
   const { data, error } = await supabase
     .from('curso_encuentros')
-    .select(`*, sesion:encuentro_sesiones_compartidas(${sesionCols})`)
+    .select(`${baseCols}, sesion:encuentro_sesiones_compartidas(${sesionCols})`)
     .eq('curso_id', cursoId)
     .order('fecha_hora', { ascending: true, nullsFirst: false })
     .order('created_at', { ascending: true });
