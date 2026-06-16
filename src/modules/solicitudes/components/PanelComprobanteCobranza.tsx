@@ -34,10 +34,15 @@ import {
   listCajasActivas,
   listCategoriasIngreso,
   registrarCobranza,
+  cobroInicial,
+  validarCobroEnEmision,
+  registrarCobranzaEnEmision,
   type CajaRow,
   type CategoriaFinanzaRow,
+  type CobroAhoraState,
 } from '@/services/api/cobranzas';
 import { listPartnersActivos, type PartnerOpcion } from '@/services/api/partners';
+import { CobrarAhoraSection } from '@/modules/facturacion/components/CobrarAhoraSection';
 import { setSolicitudComprobante } from '@/services/api/solicitudes';
 import { humanizeError } from '@/lib/errors';
 
@@ -237,6 +242,7 @@ function ModalGenerarComprobante({
   const [fecha, setFecha] = useState(hoy);
   const [vencimiento, setVencimiento] = useState(venceDefault);
   const [observ, setObserv] = useState('');
+  const [cobro, setCobro] = useState<CobroAhoraState>(cobroInicial());
   const [enviando, setEnviando] = useState(false);
 
   const precioNum = Number(precio || 0);
@@ -253,6 +259,11 @@ function ModalGenerarComprobante({
     }
     if (bonifNum < 0 || bonifNum > 100) {
       toast.error('La bonificación debe estar entre 0 y 100%');
+      return;
+    }
+    const cobroErr = validarCobroEnEmision(cobro, total);
+    if (cobroErr) {
+      toast.error(cobroErr);
       return;
     }
     setEnviando(true);
@@ -287,13 +298,28 @@ function ModalGenerarComprobante({
       return;
     }
     const compId = r.data.id;
+    // Cobranza en el mismo acto (si el operador eligió Total/Parcial).
+    let cobroWarn = '';
+    const cr = await registrarCobranzaEnEmision(compId, cobro);
+    if (!cr.ok) {
+      cobroWarn =
+        ' La cobranza no se registró (' +
+        humanizeError(cr.error) +
+        '); registrala desde el detalle del comprobante.';
+    }
     // Vincular a la solicitud (best-effort, no bloquea si falla)
     const v = await setSolicitudComprobante(solicitudId, compId);
     setEnviando(false);
     if (!v.ok) {
-      toast.warning('Comprobante creado pero no quedó vinculado a la solicitud');
+      toast.warning('Comprobante creado pero no quedó vinculado a la solicitud.' + cobroWarn);
+    } else if (cobroWarn) {
+      toast.warning('Comprobante generado.' + cobroWarn);
     } else {
-      toast.success('Comprobante generado');
+      toast.success(
+        cobro.modo === 'sin_cobro'
+          ? 'Comprobante generado'
+          : 'Comprobante generado y cobranza registrada',
+      );
     }
     onCreado(compId);
   }
@@ -371,6 +397,8 @@ function ModalGenerarComprobante({
           <span className="text-brand-muted">Total</span>
           <strong className="text-brand-ink">{fmtMoney(total)}</strong>
         </div>
+
+        <CobrarAhoraSection total={total} value={cobro} onChange={setCobro} />
 
         <div className="flex justify-end gap-2 pt-2">
           <Button variant="ghost" onClick={onClose} disabled={enviando}>

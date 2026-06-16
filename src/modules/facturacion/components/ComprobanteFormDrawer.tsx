@@ -54,6 +54,13 @@ import {
   arcaListo,
   type ArcaConfig,
 } from '@/services/api/arca';
+import {
+  cobroInicial,
+  validarCobroEnEmision,
+  registrarCobranzaEnEmision,
+  type CobroAhoraState,
+} from '@/services/api/cobranzas';
+import { CobrarAhoraSection } from '@/modules/facturacion/components/CobrarAhoraSection';
 import { humanizeError } from '@/lib/errors';
 
 interface ComprobanteFormDrawerProps {
@@ -123,6 +130,7 @@ export function ComprobanteFormDrawer({
   // -------- form state --------
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
+  const [cobro, setCobro] = useState<CobroAhoraState>(cobroInicial());
 
   const [administracionId, setAdministracionId] = useState('');
   const [consorcioId, setConsorcioId] = useState('');
@@ -356,6 +364,15 @@ export function ComprobanteFormDrawer({
       toast.error('Revisá los campos marcados antes de emitir');
       return;
     }
+    // Cobro-al-emitir sólo aplica al path simple (X). Los fiscales (A/B/C) van a
+    // la cola ARCA → la cobranza se registra desde el detalle tras el CAE.
+    if (!esFiscal(tipo)) {
+      const cobroErr = validarCobroEnEmision(cobro, totales.total);
+      if (cobroErr) {
+        toast.error(cobroErr);
+        return;
+      }
+    }
     setSaving(true);
 
     // DGG-24 · Persistir cambios de precio según el alcance elegido por la
@@ -442,12 +459,30 @@ export function ComprobanteFormDrawer({
       items: itemsPayload,
       observaciones: observaciones.trim() || undefined,
     });
-    setSaving(false);
     if (!res.ok) {
+      setSaving(false);
       toast.error('No pudimos emitir el comprobante', { description: humanizeError(res.error) });
       return;
     }
-    toast.success(`Comprobante #${proxNumero ?? '?'} emitido`);
+    // Cobranza en el mismo acto (si el operador eligió Total/Parcial).
+    let cobroWarn = '';
+    const cr = await registrarCobranzaEnEmision(res.data.id, cobro);
+    if (!cr.ok) {
+      cobroWarn =
+        ' La cobranza no se registró (' +
+        humanizeError(cr.error) +
+        '); registrala desde el detalle del comprobante.';
+    }
+    setSaving(false);
+    if (cobroWarn) {
+      toast.warning(`Comprobante #${proxNumero ?? '?'} emitido.` + cobroWarn);
+    } else {
+      toast.success(
+        cobro.modo === 'sin_cobro'
+          ? `Comprobante #${proxNumero ?? '?'} emitido`
+          : `Comprobante #${proxNumero ?? '?'} emitido y cobranza registrada`,
+      );
+    }
     onSaved?.(res.data.id);
     onClose();
   }
@@ -926,6 +961,13 @@ export function ComprobanteFormDrawer({
                     {formatMoney(totales.total)}
                   </p>
                 </div>
+                {!esFiscal(tipo) && (
+                  <CobrarAhoraSection
+                    total={totales.total}
+                    value={cobro}
+                    onChange={setCobro}
+                  />
+                )}
               </div>
             </StepPanel>
           )}

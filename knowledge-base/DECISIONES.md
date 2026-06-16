@@ -3153,3 +3153,49 @@ de `zoom-encuentro-create` se mantuvo intacto (otro agente).
   gerente intacto y previo, sin inyección, hardening cold-start respetado) ·
   correctness OK (de ahí los 2 hardenings).
 - **Fecha:** 2026-06-14. Sin migración (sólo edge fn, versionada en repo — R7).
+
+## DGG-84 · Cobrar (total o parcial) en el mismo acto de emitir un comprobante (JL · 2026-06-16)
+
+- **Pedido (Pablo):** al generar un comprobante, poder elegir la **caja**, la
+  **categoría de ingreso** y la **participación del partner**, y registrar la
+  **cobranza en el mismo acto** — y que esa cobranza pueda ser **parcial** (el
+  comprobante se emite por el total del servicio, pero la cobranza imputada puede
+  ser por un valor menor). Alcance (decisión de Pablo): TODAS las superficies de
+  emisión. Sólo ingresos por ahora (los egresos se cargan como movimientos en
+  Cajas, otra pantalla).
+- **Hallazgo clave:** caja + categoría + partner + cobranza parcial YA existían,
+  pero sólo en el flujo de cobranza (`registrar_cobranza_comprobante`, que soporta
+  parcial nativo: valida `monto ≤ saldo`, deja `estado_cobranza='parcial'`), no en
+  el de emisión (`emitir_comprobante_manual`). El wizard de activación ya
+  encadenaba ambas. Se llevó ese patrón a las 3 superficies, **sin tocar ninguna
+  RPC ni el schema**.
+- **Componente reusable** `CobrarAhoraSection` (facturacion/components): toggle
+  **Sin cobro / Cobrar total / Cobrar parcial** + caja (prefill favorita) +
+  categoría (sugiere "Cobranza/honorario/servicio") + participa partner + monto
+  parcial (max=total, botón "Todo") + referencia + preview "cobrás / queda
+  pendiente". Espeja `RegistrarCobranzaDrawer`.
+- **Helpers** (services/api/cobranzas): `CobroAhoraState` + `cobroInicial()` +
+  `validarCobroEnEmision(cobro,total)` + `registrarCobranzaEnEmision(compId,cobro)`
+  — este último **re-lee el saldo real** del comprobante recién emitido (evita
+  desfasajes de redondeo: total cobra el saldo exacto; parcial clampea a él) y
+  llama la RPC de cobranza. Si la cobranza falla, el comprobante igual queda
+  creado + warning "registrala desde el detalle" (no atómico, recuperable — mismo
+  criterio que el wizard).
+- **Superficies cableadas:** (B) `GenerarComprobanteTramiteModal` (el de la
+  captura de Pablo), (C) `ModalGenerarComprobante` del panel de Solicitud, (A)
+  `ComprobanteFormDrawer` (Nuevo comprobante, paso Confirmar). En (A) el cobro-al-
+  emitir aplica SÓLO al tipo X (autorizado inmediato); los fiscales A/B/C van a la
+  cola ARCA → la cobranza se hace desde el detalle tras el CAE (sección oculta).
+- **§6 / verificación:** build limpio (tsc+vite). **EJERCITAR e2e BD**
+  (BEGIN/ROLLBACK): emitir X $100k → pendiente/saldo 100k; cobranza **parcial**
+  $40k con caja+categoría+partner → estado **parcial**, saldo 60k, movimiento
+  ingreso/origen=facturacion con caja✓ categoría✓ **partner_id_atribucion✓** +
+  imputación $40k; cobranza del resto $60k → **pagado**, saldo 0. **Live (preview,
+  gerente QA):** la sección renderiza completa en el modal del trámite (cajas
+  reales, Cobranza servicios/Cursos/Ingreso vario, Funplata, monto parcial +
+  "Todo", preview) — SIN emitir (no se tocó el trámite real). El drawer de Nuevo
+  comprobante abre sin errores de consola (mismo componente compartido). Residuo 0
+  (gerente QA borrado). A y C usan el componente + helper idénticos a B.
+- **Fecha:** 2026-06-16. Sin migración ni cambio de RPC — reusa
+  `registrar_cobranza_comprobante` (parcial nativo). Archivos: `cobranzas.ts` +
+  `CobrarAhoraSection.tsx` + los 3 emisores.

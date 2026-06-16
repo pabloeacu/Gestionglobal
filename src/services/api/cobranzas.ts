@@ -49,6 +49,85 @@ export async function registrarCobranza(
   return ok({ movimiento_id: data as string });
 }
 
+// ============================================================================
+// Cobrar-al-emitir (JL · 2026-06-16): permitir imputar una cobranza —total o
+// PARCIAL— en el mismo acto de generar el comprobante. Reusa la RPC de cobranza
+// existente (soporta parcial nativo). El comprobante se emite por el total del
+// servicio; la cobranza imputada puede ser menor → estado_cobranza='parcial'.
+// ============================================================================
+export type CobroModo = 'sin_cobro' | 'total' | 'parcial';
+
+export interface CobroAhoraState {
+  modo: CobroModo;
+  cajaId: string;
+  categoriaId: string;
+  fecha: string; // YYYY-MM-DD
+  montoParcial: number; // sólo se usa cuando modo === 'parcial'
+  referencia: string;
+  partnerId: string; // participación del partner (rendición)
+}
+
+export function cobroInicial(): CobroAhoraState {
+  return {
+    modo: 'sin_cobro',
+    cajaId: '',
+    categoriaId: '',
+    fecha: new Date().toISOString().slice(0, 10),
+    montoParcial: 0,
+    referencia: '',
+    partnerId: '',
+  };
+}
+
+/** Valida la config de cobro-al-emitir contra el total del comprobante.
+ * Devuelve un mensaje de error, o null si está OK (incl. modo 'sin_cobro'). */
+export function validarCobroEnEmision(
+  cobro: CobroAhoraState,
+  total: number,
+): string | null {
+  if (cobro.modo === 'sin_cobro') return null;
+  if (!cobro.cajaId) return 'Elegí la caja donde se acreditó el pago';
+  if (!cobro.fecha) return 'Indicá la fecha del pago';
+  if (cobro.modo === 'parcial') {
+    if (!(cobro.montoParcial > 0))
+      return 'El monto del pago parcial debe ser mayor a 0';
+    if (cobro.montoParcial > total + 0.009)
+      return 'El pago parcial no puede superar el total del comprobante';
+  }
+  return null;
+}
+
+/** Tras emitir, registra la cobranza en el mismo acto (si modo != sin_cobro).
+ * Re-lee el saldo REAL del comprobante recién emitido para evitar desfasajes de
+ * redondeo: 'total' cobra el saldo exacto; 'parcial' clampea a ese saldo. */
+export async function registrarCobranzaEnEmision(
+  comprobanteId: string,
+  cobro: CobroAhoraState,
+): Promise<ApiResponse<{ movimiento_id: string } | null>> {
+  if (cobro.modo === 'sin_cobro') return ok(null);
+  const { data: comp, error } = await supabase
+    .from('comprobantes')
+    .select('saldo_pendiente, total')
+    .eq('id', comprobanteId)
+    .single();
+  if (error) return fail('COBRO_SALDO', error.message, error);
+  const saldo = Number(comp?.saldo_pendiente ?? comp?.total ?? 0);
+  const monto =
+    cobro.modo === 'total' ? saldo : Math.min(cobro.montoParcial, saldo);
+  if (!(monto > 0)) return fail('COBRO_MONTO', 'El monto a cobrar debe ser mayor a 0');
+  const r = await registrarCobranza({
+    comprobante_id: comprobanteId,
+    caja_id: cobro.cajaId,
+    fecha: cobro.fecha,
+    monto,
+    referencia: cobro.referencia,
+    categoria_id: cobro.categoriaId || null,
+    partner_id_atribucion: cobro.partnerId || null,
+  });
+  if (!r.ok) return r;
+  return ok(r.data);
+}
+
 export async function desimputarCobranza(
   imputacion_id: string,
 ): Promise<ApiResponse<{ comprobante_id: string }>> {
