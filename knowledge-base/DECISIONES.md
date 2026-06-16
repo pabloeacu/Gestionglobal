@@ -3190,12 +3190,26 @@ de `zoom-encuentro-create` se mantuvo intacto (otro agente).
   (BEGIN/ROLLBACK): emitir X $100k → pendiente/saldo 100k; cobranza **parcial**
   $40k con caja+categoría+partner → estado **parcial**, saldo 60k, movimiento
   ingreso/origen=facturacion con caja✓ categoría✓ **partner_id_atribucion✓** +
-  imputación $40k; cobranza del resto $60k → **pagado**, saldo 0. **Live (preview,
-  gerente QA):** la sección renderiza completa en el modal del trámite (cajas
-  reales, Cobranza servicios/Cursos/Ingreso vario, Funplata, monto parcial +
-  "Todo", preview) — SIN emitir (no se tocó el trámite real). El drawer de Nuevo
-  comprobante abre sin errores de consola (mismo componente compartido). Residuo 0
-  (gerente QA borrado). A y C usan el componente + helper idénticos a B.
+  imputación $40k; cobranza del resto $60k → **pagado**, saldo 0.
+- **Live test EN PRODUCCIÓN (gestionglobal.ar · gerente QA · administración QA
+  aislada):** las **3 superficies con emisión REAL**: (A) Nuevo comprobante X $2.420
+  + cobranza **parcial** $1.000 + **partner Funplata** → parcial/saldo $1.420; (B)
+  modal del trámite X $1.500 + parcial $900 → parcial/saldo $600; (C) panel de
+  solicitud X $3.000 + cobro **total** → pagado/saldo 0. Todas con caja "MP. Gestión
+  Global" + categoría "Cobranza servicios", verificadas en BD. **Limpieza a residuo
+  0**: borrados comprobantes/movimientos/imputaciones + admin/usuario/trámite/
+  solicitud QA, y el **numerador X/PV1 restaurado a 27** (cero rastro en producción).
+- **§6 REVISAR (3 agentes, post-implementación):** 0 GAP bloqueante. Se aplicaron 2
+  fixes de UX detectados: (1) reset de `cobro` al reabrir el modal/drawer en A y B
+  (no arrastrar el cobro de una emisión anterior → evita una cobranza no
+  intencionada; C ya monta condicional, OK); (2) re-clamp de `montoParcial` si el
+  operador baja el precio tras elegir parcial. Sin riesgo de plata mal imputada en
+  ningún caso (el re-read del saldo + `min()` lo evitan). **Punto PRE-EXISTENTE (NO
+  introducido por DGG-84, a confirmar con Pablo):** la rendición de partner atribuye
+  el TOTAL del comprobante aunque la cobranza sea parcial (lógica `EXISTS`, agnóstica
+  al monto, igual que el flujo de cobranza canónico); el cobro-parcial-al-emitir lo
+  vuelve un camino habitual → conviene definir si la participación es sobre lo
+  facturado o lo cobrado.
 - **Fecha:** 2026-06-16. Sin migración ni cambio de RPC — reusa
   `registrar_cobranza_comprobante` (parcial nativo). Archivos: `cobranzas.ts` +
   `CobrarAhoraSection.tsx` + los 3 emisores.

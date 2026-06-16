@@ -78,6 +78,16 @@ export function CobrarAhoraSection({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Si el total baja por debajo del parcial ya elegido (ej. el operador edita el
+  // precio tras elegir "parcial"), re-clampeamos el monto → evita el error
+  // "supera el total" y mantiene el monto coherente con el comprobante.
+  useEffect(() => {
+    if (value.modo === 'parcial' && value.montoParcial > total) {
+      onChange({ ...value, montoParcial: total });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [total]);
+
   const activo = value.modo !== 'sin_cobro';
   const montoEfectivo =
     value.modo === 'total' ? total : Math.min(value.montoParcial || 0, total);

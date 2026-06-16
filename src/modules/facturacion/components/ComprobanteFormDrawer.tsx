@@ -169,6 +169,7 @@ export function ComprobanteFormDrawer({
     setConcepto('servicios');
     setObservaciones('');
     setItems([newItem()]);
+    setCobro(cobroInicial()); // §6: no arrastrar el cobro de una emisión anterior
     setErrors({});
     void loadSources();
     // eslint-disable-next-line react-hooks/exhaustive-deps

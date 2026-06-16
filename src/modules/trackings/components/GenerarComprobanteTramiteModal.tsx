@@ -10,7 +10,7 @@
 // cobranza posterior lo heredan), y (b) linkea al trámite en vez de a la solicitud.
 // Regla 4: queries via services/api/*. Regla 13: toast, sin window.*.
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Percent, Receipt } from 'lucide-react';
 import { Button, Field, Input, Modal, Textarea } from '@/components/common';
 import { toast } from '@/lib/toast';
@@ -79,6 +79,11 @@ export function GenerarComprobanteTramiteModal({
   const [observ, setObserv] = useState('');
   const [cobro, setCobro] = useState<CobroAhoraState>(cobroInicial());
   const [enviando, setEnviando] = useState(false);
+
+  // §6: al reabrir el modal, no arrastrar el cobro de una emisión anterior.
+  useEffect(() => {
+    if (open) setCobro(cobroInicial());
+  }, [open]);
 
   const precioNum = Number(precio || 0);
   const bonifNum = Number(bonif || 0);
