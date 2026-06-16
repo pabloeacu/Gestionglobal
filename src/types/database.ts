@@ -4301,6 +4301,54 @@ export type Database = {
           },
         ]
       }
+      movimiento_adjuntos: {
+        Row: {
+          filename_original: string
+          id: string
+          mime_type: string | null
+          movimiento_id: string
+          size_bytes: number | null
+          storage_path: string
+          subido_por: string | null
+          uploaded_at: string
+        }
+        Insert: {
+          filename_original: string
+          id?: string
+          mime_type?: string | null
+          movimiento_id: string
+          size_bytes?: number | null
+          storage_path: string
+          subido_por?: string | null
+          uploaded_at?: string
+        }
+        Update: {
+          filename_original?: string
+          id?: string
+          mime_type?: string | null
+          movimiento_id?: string
+          size_bytes?: number | null
+          storage_path?: string
+          subido_por?: string | null
+          uploaded_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "movimiento_adjuntos_movimiento_id_fkey"
+            columns: ["movimiento_id"]
+            isOneToOne: false
+            referencedRelation: "movimientos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "movimiento_adjuntos_subido_por_fkey"
+            columns: ["subido_por"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       movimiento_imputaciones: {
         Row: {
           administracion_id: string | null
@@ -8697,6 +8745,7 @@ export type Database = {
           p_tipo?: string
         }
         Returns: {
+          adjuntos_count: number
           administracion_id: string
           administracion_nombre: string
           caja_color: string
@@ -9241,6 +9290,26 @@ export type Database = {
           porcentaje: number
           saldo_running: number
           servicio_nombre: string
+          tipo: string
+        }[]
+      }
+      partner_sabana: {
+        Args: { p_desde?: string; p_hasta?: string; p_partner_id?: string }
+        Returns: {
+          adjuntos_count: number
+          chip: string
+          cliente_nombre: string
+          comprobante_id: string
+          comprobante_label: string
+          comprobante_saldo: number
+          comprobante_total: number
+          descripcion: string
+          fecha: string
+          movimiento_id: string
+          operacion_monto: number
+          participacion_monto: number
+          porcentaje: number
+          saldo_participacion: number
           tipo: string
         }[]
       }
