@@ -3213,3 +3213,66 @@ de `zoom-encuentro-create` se mantuvo intacto (otro agente).
 - **Fecha:** 2026-06-16. Sin migración ni cambio de RPC — reusa
   `registrar_cobranza_comprobante` (parcial nativo). Archivos: `cobranzas.ts` +
   `CobrarAhoraSection.tsx` + los 3 emisores.
+
+## DGG-85 · Sábana / resumen de cuenta del partner (base COBRADO) + adjuntos de constancias en egresos (2026-06-16)
+
+- **Pedido (Pablo):** el partner debe recibir un **resumen de cuenta estilo sábana**
+  con: fecha, descripción del ingreso/egreso, **adjunto** (si posee), total/saldo
+  del comprobante, total de la operación, **chip status** (total/parcial) y **monto
+  de participación**. La suma/resta de la cuenta es **siempre por la participación**;
+  el total de la operación es **informativo**. Parcial = el total del comprobante no
+  se condice con la operación; al completarse el pago se **repite la línea** y el
+  total/saldo refleja lo pendiente. Además: poder **adjuntar constancias** (factura,
+  transferencia…) en los egresos, con un **clip** descargable cuando existan. "Esto
+  no toca las operaciones, es sólo un reporte" — pero sólido y blindado contablemente.
+- **Decisiones (4 preguntas a Pablo):** (1) base = **COBRADO** (una línea por
+  cobranza/imputación atribuida; participación = % vigente × lo cobrado en esa
+  operación; un comprobante cobrado en partes → varias líneas que suman %×total al
+  saldarse). (2) Egresos = **operación completa** (chip `total`); participación =
+  %costos × monto (resta). (3) **Paridad ineludible** gerencia ↔ partner: mismo
+  formato, tabla/grilla con filtros, exportable PDF/XLS. (4) **Extracto corrido +
+  filtro por período**.
+- **Cómo se logró la paridad con cero duplicación:** UNA sola RPC
+  `partner_sabana(p_partner_id, p_desde, p_hasta)` (mig 0248, SECURITY DEFINER): si
+  el caller es partner usa su propio `current_partner_id()` (ignora el arg); si es
+  staff usa `p_partner_id`; si no, 42501. Y UN solo componente
+  `SabanaPartner.tsx` montado en gerencia (`PartnerDetailPage` → tab "Resumen de
+  cuenta", default) y en el portal (`PartnerPortalPage` → "Mi resumen de cuenta",
+  sin prop → JWT). Ven exactamente lo mismo.
+- **Contabilidad de la RPC:** `saldo_after` del comprobante = `c.total − SUM(monto_imputado)`
+  por **window** sobre TODAS las imputaciones (`PARTITION BY c.id ORDER BY fecha,
+  created_at, id`); chip `total` si `saldo_after≤0.009`, si no `parcial`. El % se
+  toma del convenio vigente a la **fecha de cada línea** (LATERAL). Saldo corrido =
+  `SUM(participación × signo)` window (ingreso +, egreso −). **El filtro de período
+  se aplica DESPUÉS del window** → el saldo de participación que ve el partner es
+  **absoluto** (arrastra historia previa), no recalculado sobre el subconjunto.
+  Excluye `estado='anulado'`. Sin convenio a la fecha → % = 0 (no rompe).
+- **Adjuntos (Fase A, mig 0246):** tabla `movimiento_adjuntos` + bucket privado
+  `movimiento-adjuntos` (10MB) + signed URLs + `safeStorageKey` (R20). Múltiples por
+  movimiento. Alta desde el modal de Nuevo movimiento y desde un clip por fila en
+  Cajas (`MovimientoAdjuntosButton`: ver/descargar/agregar/eliminar). El partner
+  sólo descarga los de los egresos/cobranzas donde participa. `fz_listar_movimientos`
+  (mig 0247, DROP+CREATE por R16) suma `adjuntos_count`. Borrar una constancia pide
+  `useConfirm()` (R13 / blindaje: es un comprobante de gasto, borrado irreversible).
+- **Lección capitalizada en el mismo chunk (E-GG-70, mig 0249):** las policies
+  partner de `movimiento_adjuntos` subqueriaban a `movimientos` (RLS staff-only) →
+  el partner no veía/descargaba NI sus propias constancias. Fix: helpers SECURITY
+  DEFINER (`partner_owns_movimiento`/`partner_owns_adjunto_path`). Ver ERRORES.md.
+- **§6 + live test (premisa de cierre):** doble auditoría (3 agentes REVISAR +
+  EJERCITAR e2e) → encontró E-GG-70 (fixeado). Live en prod (gestionglobal.ar, QA
+  aislado, residuo 0): gerencia (sábana 3 líneas: parcial 100k/60k → total 100k/0 +
+  egreso −3k, KPIs 30k/3k/saldo 27k; adjunto subido real → clip 1; delete-confirm) +
+  portal partner (paridad idéntica; **descarga de la constancia OK** = el fix;
+  filtro de período → saldo absoluto 27k; export PDF 184KB + XLS
+  `sabana-partner-2026-06-16.xlsx`); mobile 360 sin overflow (tabla con scroll-x);
+  consola limpia.
+- **PENDIENTE de decisión de Pablo (heredado de DGG-84, NO tocado):** la
+  **rendición** (`partner_crear_rendicion`, mig 0188) atribuye el **TOTAL facturado**
+  del comprobante aunque la cobranza sea parcial; la **sábana** nueva es **COBRADO**.
+  Conviven en el portal (sábana "Mi resumen de cuenta" vs. "Detalle por rendición")
+  con labels y nota al pie aclaratoria, pero son **dos bases contables**. Definir si
+  la rendición debe migrar a cobrado para alinear ambas.
+- **Fecha:** 2026-06-16. Migs 0246/0247/0248 (commit `b1b4798`) + frontend (commit
+  `5e2f828`) + fix RLS 0249 & delete-confirm (commit `05ceb8e`). No toca ninguna
+  operación/rendición existente (aditivo: tabla + RPC nuevas + 1 columna en un
+  RETURNS TABLE).

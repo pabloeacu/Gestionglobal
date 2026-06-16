@@ -2846,3 +2846,43 @@ fan-out sólo marca presente donde la persona tiene matrícula.
 - **Fecha / módulo:** 2026-06-14 · F11 encuentros compartidos · mig 0239 +
   campus.ts/listEncuentros · commit `26dc5e3` (fixes ya incluidos en el commit del
   feature). Hardening legacy (ítems 1-2): mig 0244 + campus.ts · commit `7c5c922`.
+
+## E-GG-70 · El partner no veía ni descargaba sus propias constancias (policy RLS con subquery a `movimientos` staff-only) — 2026-06-16
+
+**Contexto (DGG-85 · Fase A).** Los adjuntos de egresos (`movimiento_adjuntos`,
+mig 0246) deben poder descargarse por el partner desde su sábana. Las policies
+partner — `mov_adj_partner_select` (tabla) y `mov_adj_obj_partner_select`
+(storage.objects) — verificaban la pertenencia con un subquery
+`EXISTS (SELECT 1 FROM public.movimientos m WHERE … m.partner_id_atribucion = private.current_partner_id())`.
+
+**Causa raíz.** Una `USING`-expr de RLS evaluada por el rol del partner ejecuta ese
+subquery **también bajo la RLS de `movimientos`**, que sólo tiene
+`movimientos_select_staff USING is_staff()` — sin policy SELECT para partners. Para
+un partner el subquery devuelve 0 filas ⇒ el predicado da **false siempre**.
+Resultado: el partner NO veía (`fetchAdjuntosMovimiento` → 0 filas pese a
+`adjuntos_count>0`) NI descargaba (`createSignedUrl` denegado) sus PROPIAS
+constancias. Gerencia funcionaba sólo porque `is_staff()` corta por la staff-policy.
+El aislamiento cross-partner SIEMPRE estuvo intacto (A nunca vio lo de B).
+
+**Cómo se encontró.** §6 (agente A, EJERCITAR e2e bajo impersonación real de
+partner): `A_ve_propio=0`, `A_sees_movimiento=0`. Los agentes B/C que sólo
+revisaron lo estático o probaron el caso *deny* (A no ve a B) lo dieron por OK — la
+lección refuerza la premisa §6: **el e2e bajo el rol real es lo que lo cazó**, no la
+lectura estática.
+
+**Fix (mig 0249).** Dos helpers SECURITY DEFINER que resuelven la pertenencia
+esquivando la RLS de `movimientos`, **sin ampliar** el acceso directo del partner a
+esa tabla: `private.partner_owns_movimiento(uuid)` y
+`private.partner_owns_adjunto_path(text)`. Ambas policies partner recreadas para
+llamarlos. Verificado e2e (rollback): A ve su propio adjunto (1), no ve el ajeno
+(0), staff ve ambos (2); helpers own/other = t/f. Live en prod (partner QA): abre el
+clip, lista la constancia y la descarga (signed URL 200, la imagen sirve).
+
+**Regla / smell.** Toda policy RLS cuyo `USING` haga subquery a OTRA tabla con RLS
+restrictiva queda **silenciosamente vacía** para el rol no privilegiado. Si una
+policy depende de leer otra tabla con RLS, envolver el chequeo en un helper
+`SECURITY DEFINER` (patrón `current_partner_id`/`is_staff`), nunca inline.
+
+- **Fecha / módulo:** 2026-06-16 · DGG-85 Fase A · adjuntos del partner · mig 0249 ·
+  commit `05ceb8e` (el mensaje de ese commit y el comentario original de la mig lo
+  rotularon "E-GG-44" por error; el ID correcto es **E-GG-70**).

@@ -1,6 +1,6 @@
 -- ============================================================================
 -- 0249_movimiento_adjuntos_partner_rls_fix.sql
--- E-GG-44 · Las policies partner de movimiento_adjuntos (tabla + storage) hacían
+-- E-GG-70 · Las policies partner de movimiento_adjuntos (tabla + storage) hacían
 -- un subquery a public.movimientos, que tiene RLS staff-only (SELECT = is_staff()).
 -- Una USING-expr evaluada por el rol del partner ejecuta ese subquery TAMBIÉN bajo
 -- la RLS de movimientos → 0 filas → el predicado SIEMPRE da false. Resultado: el
