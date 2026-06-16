@@ -4691,6 +4691,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           id: string
+          imputacion_id: string | null
           monto_atribuido: number
           monto_base: number
           movimiento_id: string | null
@@ -4706,6 +4707,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          imputacion_id?: string | null
           monto_atribuido: number
           monto_base: number
           movimiento_id?: string | null
@@ -4721,6 +4723,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          imputacion_id?: string | null
           monto_atribuido?: number
           monto_base?: number
           movimiento_id?: string | null
@@ -4757,6 +4760,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_atribuciones_imputacion_id_fkey"
+            columns: ["imputacion_id"]
+            isOneToOne: false
+            referencedRelation: "movimiento_imputaciones"
             referencedColumns: ["id"]
           },
           {

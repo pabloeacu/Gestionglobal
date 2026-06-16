@@ -3271,8 +3271,55 @@ de `zoom-encuentro-create` se mantuvo intacto (otro agente).
   del comprobante aunque la cobranza sea parcial; la **sábana** nueva es **COBRADO**.
   Conviven en el portal (sábana "Mi resumen de cuenta" vs. "Detalle por rendición")
   con labels y nota al pie aclaratoria, pero son **dos bases contables**. Definir si
-  la rendición debe migrar a cobrado para alinear ambas.
+  la rendición debe migrar a cobrado para alinear ambas. → **RESUELTO en DGG-86**:
+  Pablo eligió "todo sobre lo cobrado" → la rendición pasó a cobrado, alineada con la sábana.
 - **Fecha:** 2026-06-16. Migs 0246/0247/0248 (commit `b1b4798`) + frontend (commit
   `5e2f828`) + fix RLS 0249 & delete-confirm (commit `05ceb8e`). No toca ninguna
   operación/rendición existente (aditivo: tabla + RPC nuevas + 1 columna en un
   RETURNS TABLE).
+
+## DGG-86 · La rendición del partner pasa a base COBRADO (alinea con la sábana) (2026-06-16)
+
+- **Decisión de Pablo:** ante la pregunta facturado vs cobrado (heredada de DGG-84/85),
+  eligió **"todo sobre lo cobrado"** + el principio **"la rendición debe tener el mismo
+  esquema para ingresos y egresos"**. Antes la rendición era **devengado/facturado**
+  (atribuía `c.total` del comprobante al emitir, cobrado o no — 1 fila por comprobante);
+  la sábana (DGG-85) era cobrado → no coincidían. Ahora ambos son **percibido/cobrado**.
+- **Concepto que se le explicó:** el partner gana su % **cuando entra la plata**, no al
+  emitir. Ejemplo (30%): comprobante $100k cobrado $40k (jun) + $60k (jul) → participación
+  $12k en junio + $18k en julio (no $30k de una al emitir). Los egresos ya eran por su
+  monto (entran pagados) ⇒ ingresos y egresos quedan con el mismo criterio.
+- **Cambio (mig 0250):** `partner_crear_rendicion` reescribe el bloque ingreso: itera
+  `movimiento_imputaciones` (cobranzas del partner) cuya **fecha de cobro** cae en el
+  período; `monto_base = monto_imputado` (lo cobrado), una fila por cobranza. El bloque
+  costo (egreso) queda igual. Nueva columna `partner_atribuciones.imputacion_id`
+  (granularidad/dedup/fecha de cobro). `partner_rendicion_movimientos` deriva la fecha
+  del ingreso desde la cobranza (`COALESCE(cobranza, egreso, emisión)`). Frontend sin
+  cambios (lee `monto_base`/`monto_atribuido`/totales genéricos; headers "Base" neutros).
+- **Histórico NO se recalcula:** la RPC sólo CREA rendiciones nuevas; las atribuciones
+  viejas (base facturado, `imputacion_id` NULL) quedan intactas. Dedup nuevo por
+  `imputacion_id` (no por comprobante) ⇒ soporta cobro parcial multi-período sin doble
+  conteo.
+- **§6 (premisa de cierre) — doble auditoría:** EJERCITAR e2e (jun cobra 40k→12k no 100k;
+  jul 60k→18k; dedup 2 filas sin duplicar) + **REVISAR (agente adversarial) que cazó un
+  GAP crítico**: el índice único `uq_pat_rend_comprobante (rendicion_id, comprobante_id,
+  tipo)` venía del modelo facturado (1 fila/comprobante) y con cobro parcial multi-cobranza
+  en el mismo período disparaba `unique_violation` y abortaba la rendición. **Fix (mig
+  0251):** drop de ese índice + `uq_pat_rend_imputacion (rendicion_id, imputacion_id)` —
+  la unicidad correcta del modelo cobrado. Re-e2e: 2 parciales del mismo comprobante en
+  junio → 2 líneas (70k/21k), sin abortar. (Ver E-GG-71: un índice ÚNICO no aparece en
+  `pg_constraint`, sólo en `pg_indexes` — por eso mi chequeo inicial no lo vio.)
+- **Live test EN PRODUCCIÓN (gestionglobal.ar, gerente+partner QA, residuo 0):** desde la
+  UI de gerencia "Nueva rendición" de junio → la rendición muestra **Ingresos atribuidos
+  $12.000 / base $40.000** (cobrado), NO $30.000/$100.000 (facturado); costos $3.000/$10.000;
+  neto $9.000. Portal partner: sábana ($12k/−$3k) y "Detalle por rendición" (base $40k /
+  atrib $12k) **coinciden** en cobrado. Consola limpia.
+- **Límite de alcance conocido (consistente con la sábana):** la participación se computa
+  sobre cobranzas imputadas a un **comprobante**. Una cobranza imputada sólo a cuenta
+  corriente de la administración (sin comprobante) no se atribuye. Hoy 0 casos; los
+  servicios del partner siempre llevan comprobante.
+- **Derivado a tarea aparte (no de este cambio):** off-by-one de zona horaria en el período
+  de la rendición mostrado en el **portal** ("31 may → 29 jun" en vez de "01 jun → 30 jun");
+  gerencia lo muestra bien. Es display-only.
+- **Fecha:** 2026-06-16. Migs 0250 + 0251. Sin cambios de frontend. Reusa el patrón de
+  imputaciones de la sábana (DGG-85). Resuelve el pendiente facturado-vs-cobrado.

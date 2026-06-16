@@ -2886,3 +2886,38 @@ policy depende de leer otra tabla con RLS, envolver el chequeo en un helper
 - **Fecha / módulo:** 2026-06-16 · DGG-85 Fase A · adjuntos del partner · mig 0249 ·
   commit `05ceb8e` (el mensaje de ese commit y el comentario original de la mig lo
   rotularon "E-GG-44" por error; el ID correcto es **E-GG-70**).
+
+## E-GG-71 · Un índice ÚNICO de un modelo viejo aborta el modelo nuevo (y no aparece en `pg_constraint`) — 2026-06-16
+
+**Contexto (DGG-86).** Al pasar la rendición del partner de FACTURADO (1 fila por
+comprobante) a COBRADO (1 fila por cobranza/imputación), `partner_crear_rendicion`
+empezó a insertar varias filas con el mismo `comprobante_id` cuando un comprobante se
+cobra en partes dentro del mismo período.
+
+**Causa raíz.** Sobrevivía un índice único del modelo viejo:
+`uq_pat_rend_comprobante (rendicion_id, comprobante_id, tipo) WHERE comprobante_id IS NOT NULL`.
+Con cobro parcial multi-cobranza en el período → dos filas `(rend, comprobante, 'ingreso')`
+→ **`unique_violation`** → la RPC entera aborta y **NO crea la rendición**. Es justo el
+caso de cobro parcial (DGG-84), el más común.
+
+**Doble fallo de detección.** (1) Mi chequeo inicial de constraints consultó
+`pg_constraint` — y **un `CREATE UNIQUE INDEX` NO aparece ahí**, sólo en `pg_indexes`
+(las constraints UNIQUE creadas con `ALTER TABLE ADD CONSTRAINT` sí; los índices únicos
+sueltos no). (2) Mi e2e inicial usó **una** cobranza por comprobante **por período**, así
+que nunca chocó el índice. Lo cazó el **agente §6 (REVISAR)** ejercitando dos cobranzas
+parciales del mismo comprobante en el mismo período — antes del merge.
+
+**Fix (mig 0251).** `DROP INDEX uq_pat_rend_comprobante` + `CREATE UNIQUE INDEX
+uq_pat_rend_imputacion (rendicion_id, imputacion_id) WHERE imputacion_id IS NOT NULL` —
+la unicidad correcta del modelo cobrado (una atribución por cobranza por rendición). El
+único de egresos (`uq_pat_rend_movimiento`) queda igual. Re-e2e OK (2 parciales → 2 líneas,
+70k/21k, sin abortar).
+
+**Reglas / smell.** (a) Al cambiar la **cardinalidad** de un modelo (de 1-por-X a
+N-por-X), revisar **TODOS** los índices/constraints ÚNICOS de la tabla, no sólo los CHECK.
+(b) Para listar la unicidad real consultar **`pg_indexes`** (o `\d tabla`), NO sólo
+`pg_constraint`. (c) El e2e debe cubrir la **multiplicidad** (varias filas del mismo
+padre en el mismo lote), no un caso 1:1 — si no, los únicos no se ejercitan.
+
+- **Fecha / módulo:** 2026-06-16 · DGG-86 · rendición a cobrado · migs 0250 (cambio) +
+  0251 (fix del índice). Hallado en §6 antes del merge (no llegó a producción).
