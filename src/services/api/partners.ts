@@ -623,6 +623,73 @@ export async function getRendicion(
 }
 
 // ============================================================================
+// DGG-85 · Sábana / resumen de cuenta del partner (RPC partner_sabana).
+// Base COBRADO. Misma RPC para gerencia (pasa partnerId) y portal (usa su JWT) →
+// paridad garantizada.
+// ============================================================================
+export interface SabanaLinea {
+  fecha: string;
+  tipo: 'ingreso' | 'egreso';
+  descripcion: string;
+  comprobante_id: string | null;
+  comprobante_label: string | null;
+  cliente_nombre: string | null;
+  comprobante_total: number | null;
+  comprobante_saldo: number | null;
+  operacion_monto: number;
+  chip: 'total' | 'parcial';
+  porcentaje: number;
+  participacion_monto: number;
+  saldo_participacion: number;
+  movimiento_id: string | null;
+  adjuntos_count: number;
+}
+
+export async function fetchPartnerSabana(
+  params: { partnerId?: string | null; desde?: string | null; hasta?: string | null } = {},
+): Promise<ApiResponse<SabanaLinea[]>> {
+  const { data, error } = await supabase.rpc('partner_sabana', {
+    p_partner_id: params.partnerId ?? undefined,
+    p_desde: params.desde ?? undefined,
+    p_hasta: params.hasta ?? undefined,
+  });
+  if (error) return fail('PARTNER_SABANA', error.message, error);
+  return ok((data ?? []) as unknown as SabanaLinea[]);
+}
+
+export interface SabanaAdjunto {
+  id: string;
+  filename_original: string;
+  storage_path: string;
+}
+
+// Adjuntos de un movimiento (constancias). RLS: staff ve todo; el partner ve los
+// de movimientos donde participa → sirve a gerencia y portal con la misma fn.
+export async function fetchAdjuntosMovimiento(
+  movimientoId: string,
+): Promise<ApiResponse<SabanaAdjunto[]>> {
+  const { data, error } = await supabase
+    .from('movimiento_adjuntos')
+    .select('id, filename_original, storage_path')
+    .eq('movimiento_id', movimientoId)
+    .order('uploaded_at', { ascending: false });
+  if (error) return fail('SABANA_ADJ', error.message, error);
+  return ok((data ?? []) as SabanaAdjunto[]);
+}
+
+// URL firmada de un adjunto de egreso (constancia) — el partner la usa en su sábana.
+export async function urlAdjuntoMovimientoPartner(
+  storagePath: string,
+  segundos = 600,
+): Promise<ApiResponse<string>> {
+  const { data, error } = await supabase.storage
+    .from('movimiento-adjuntos')
+    .createSignedUrl(storagePath, segundos);
+  if (error) return fail('MOVADJ_SIGN', error.message, error);
+  return ok(data.signedUrl);
+}
+
+// ============================================================================
 // Helpers UI
 // ============================================================================
 export function fmtPct(n: number | null | undefined): string {

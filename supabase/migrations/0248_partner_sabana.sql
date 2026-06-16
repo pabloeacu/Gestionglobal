@@ -60,6 +60,7 @@ BEGIN
       m.fecha AS f, mi.created_at AS ord, mi.monto_imputado AS oper,
       c.id AS comp_id, c.tipo AS ctipo, c.punto_venta AS cpv, c.numero AS cnum,
       c.total AS ctotal, c.administracion_id AS adm_id, m.descripcion AS mdesc,
+      m.id AS mov_id,
       c.total - SUM(mi.monto_imputado) OVER (
         PARTITION BY c.id ORDER BY m.fecha, mi.created_at, mi.id ROWS UNBOUNDED PRECEDING
       ) AS saldo_after,
@@ -90,7 +91,8 @@ BEGIN
       i.oper AS operacion_monto,
       CASE WHEN i.saldo_after <= 0.009 THEN 'total' ELSE 'parcial' END AS chip,
       i.oper AS base, 'ingreso'::text AS conv_tipo, i.f AS conv_fecha,
-      NULL::uuid AS movimiento_id, 0::bigint AS adjuntos_count
+      i.mov_id AS movimiento_id,
+      (SELECT count(*) FROM public.movimiento_adjuntos ma WHERE ma.movimiento_id = i.mov_id) AS adjuntos_count
     FROM imp i
     LEFT JOIN public.administraciones a ON a.id = i.adm_id
     WHERE i.pid = v_partner

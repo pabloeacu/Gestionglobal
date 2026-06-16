@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
+import { Paperclip, X } from 'lucide-react';
 import { Button, Field, Input, Modal, Select, Textarea } from '@/components/common';
 import { toast } from '@/lib/toast';
 import {
-  crearMovimientoManual, listCategoriasFinanzas, buscarAdministraciones,
+  crearMovimientoManual, subirAdjuntoMovimiento, listCategoriasFinanzas, buscarAdministraciones,
   type CajaConSaldoRow, type CategoriaFinanzaRow,
 } from '@/services/api/finanzas';
 import { listPartnersActivos, type PartnerOpcion } from '@/services/api/partners';
@@ -30,6 +31,7 @@ export function NuevoMovimientoModal({ cajas, onClose, onCreated }: Props) {
   // #145 · participa partner
   const [partners, setPartners] = useState<PartnerOpcion[]>([]);
   const [partnerId, setPartnerId] = useState<string>('');
+  const [adjuntos, setAdjuntos] = useState<File[]>([]);
   const [creating, setCreating] = useState(false);
 
   useEffect(() => {
@@ -72,12 +74,23 @@ export function NuevoMovimientoModal({ cajas, onClose, onCreated }: Props) {
       administracionId: adminId,
       partnerIdAtribucion: partnerId || null,
     });
-    setCreating(false);
     if (!res.ok) {
+      setCreating(false);
       toast.error('No pudimos crear el movimiento', { description: humanizeError(res.error) });
       return;
     }
-    toast.success(`${tipo === 'ingreso' ? 'Ingreso' : 'Egreso'} registrado`);
+    // DGG-85 · subir las constancias adjuntas (best-effort; el movimiento ya existe).
+    let adjFallos = 0;
+    for (const f of adjuntos) {
+      const up = await subirAdjuntoMovimiento(res.data, f);
+      if (!up.ok) adjFallos++;
+    }
+    setCreating(false);
+    toast.success(
+      `${tipo === 'ingreso' ? 'Ingreso' : 'Egreso'} registrado` +
+        (adjuntos.length ? ` · ${adjuntos.length - adjFallos}/${adjuntos.length} adjunto(s)` : ''),
+    );
+    if (adjFallos > 0) toast.warning(`${adjFallos} adjunto(s) no se pudieron subir`);
     onCreated();
   }
 
@@ -232,6 +245,41 @@ export function NuevoMovimientoModal({ cajas, onClose, onCreated }: Props) {
                 </ul>
               )}
             </>
+          )}
+        </Field>
+
+        {/* DGG-85 · Adjuntar constancias del gasto (factura, transferencia, etc.) */}
+        <Field label="Adjuntos (constancias)" hint="Factura, transferencia, recibo… PDF o imagen. Opcional.">
+          <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-dashed border-slate-300 px-3 py-2 text-sm font-medium text-brand-cyan transition hover:border-brand-cyan hover:bg-brand-cyan/5">
+            <Paperclip size={15} /> Elegir archivos
+            <input
+              type="file"
+              multiple
+              accept="image/*,application/pdf,.xls,.xlsx,.doc,.docx"
+              className="hidden"
+              onChange={(e) => {
+                const fs = Array.from(e.target.files ?? []);
+                if (fs.length) setAdjuntos((prev) => [...prev, ...fs]);
+                e.target.value = '';
+              }}
+            />
+          </label>
+          {adjuntos.length > 0 && (
+            <ul className="mt-2 space-y-1">
+              {adjuntos.map((f, i) => (
+                <li key={i} className="flex items-center gap-2 rounded-md bg-slate-50 px-2 py-1 text-xs">
+                  <Paperclip size={12} className="text-brand-muted" />
+                  <span className="flex-1 truncate text-brand-ink">{f.name}</span>
+                  <button
+                    type="button"
+                    onClick={() => setAdjuntos((prev) => prev.filter((_, j) => j !== i))}
+                    className="text-brand-muted hover:text-rose-600"
+                  >
+                    <X size={13} />
+                  </button>
+                </li>
+              ))}
+            </ul>
           )}
         </Field>
       </div>

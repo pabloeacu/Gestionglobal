@@ -50,6 +50,7 @@ export interface MovimientoListadoRow {
   revertido_at: string | null;
   transferencia_pair_id: string | null;
   movimiento_revertido_id: string | null;
+  adjuntos_count: number;
   total_count: number;
 }
 
@@ -226,6 +227,85 @@ export async function crearMovimientoManual(
     const err = toApiError(e);
     return fail(err.code, err.message, err.details);
   }
+}
+
+// ────────────────────────────────────────────────────────────────
+// DGG-85 · Adjuntos de movimientos (constancias de gasto: factura, transf., etc.)
+// Patrón clonado de tramite_adjuntos. Bucket privado + signed URL + safeStorageKey.
+// ────────────────────────────────────────────────────────────────
+export type MovimientoAdjuntoRow =
+  Database['public']['Tables']['movimiento_adjuntos']['Row'];
+
+const MOV_ADJ_BUCKET = 'movimiento-adjuntos';
+
+export async function listAdjuntosMovimiento(
+  movimientoId: string,
+): Promise<ApiResponse<MovimientoAdjuntoRow[]>> {
+  const { data, error } = await supabase
+    .from('movimiento_adjuntos')
+    .select('*')
+    .eq('movimiento_id', movimientoId)
+    .order('uploaded_at', { ascending: false });
+  if (error) return fail('MOVADJ_LIST', error.message, error);
+  return ok(data ?? []);
+}
+
+export async function subirAdjuntoMovimiento(
+  movimientoId: string,
+  file: File,
+): Promise<ApiResponse<MovimientoAdjuntoRow>> {
+  const { data: auth } = await supabase.auth.getUser();
+  if (!auth.user) return fail('NO_SESSION', 'Sin sesión activa');
+  const { safeStorageKey } = await import('@/lib/storageKeys'); // R20
+  const storage_path = `${movimientoId}/${Date.now()}_${safeStorageKey(file.name)}`;
+  const upload = await supabase.storage
+    .from(MOV_ADJ_BUCKET)
+    .upload(storage_path, file, {
+      cacheControl: '3600',
+      upsert: false,
+      contentType: file.type || undefined,
+    });
+  if (upload.error) return fail('MOVADJ_UPLOAD', upload.error.message, upload.error);
+  const { data, error } = await supabase
+    .from('movimiento_adjuntos')
+    .insert({
+      movimiento_id: movimientoId,
+      storage_path,
+      filename_original: file.name,
+      mime_type: file.type || null,
+      size_bytes: file.size,
+      subido_por: auth.user.id,
+    })
+    .select()
+    .single();
+  if (error) {
+    await supabase.storage.from(MOV_ADJ_BUCKET).remove([storage_path]); // best-effort
+    return fail('MOVADJ_INSERT', error.message, error);
+  }
+  return ok(data);
+}
+
+export async function urlFirmadaAdjuntoMovimiento(
+  storage_path: string,
+  segundos = 600,
+): Promise<ApiResponse<string>> {
+  const { data, error } = await supabase.storage
+    .from(MOV_ADJ_BUCKET)
+    .createSignedUrl(storage_path, segundos);
+  if (error) return fail('MOVADJ_SIGN', error.message, error);
+  return ok(data.signedUrl);
+}
+
+export async function eliminarAdjuntoMovimiento(
+  adj: MovimientoAdjuntoRow,
+): Promise<ApiResponse<true>> {
+  const { error } = await supabase
+    .from('movimiento_adjuntos')
+    .delete()
+    .eq('id', adj.id);
+  if (error) return fail('MOVADJ_DELETE', error.message, error);
+  await supabase.storage.from(MOV_ADJ_BUCKET).remove([adj.storage_path]); // best-effort
+  return ok(true);
 }
 
 export interface CrearTransferenciaInput {

@@ -16,6 +16,7 @@ import { cn } from '@/lib/cn';
 import { NuevoMovimientoModal } from '../components/NuevoMovimientoModal';
 import { TransferenciaModal } from '../components/TransferenciaModal';
 import { TipoBadge, EstadoBadge, formatMonto, montoColor } from '../components/MovimientoBadges';
+import { MovimientoAdjuntosButton } from '../components/MovimientoAdjuntosButton';
 import { ExportButtons } from '@/components/reports/ExportButtons';
 import { generateReportPdf } from '@/lib/reportPdf';
 import { generateReportXls } from '@/lib/reportXls';
@@ -381,7 +382,10 @@ export function FinanzasDashboardPage() {
                       {formatMonto(m.monto, m.tipo)}
                     </td>
                     <td className="px-4 py-2 text-right">
-                      <div className="inline-flex gap-1">
+                      <div className="inline-flex items-center gap-1">
+                        {m.estado !== 'anulado' && (
+                          <MovimientoAdjuntosButton movimientoId={m.id} initialCount={m.adjuntos_count} />
+                        )}
                         {!m.revertido_at && m.estado !== 'anulado' && m.origen !== 'reversion' && (
                           <button
                             type="button"

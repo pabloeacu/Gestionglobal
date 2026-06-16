@@ -25,6 +25,7 @@ import {
 } from '@/services/api/partners';
 import { toast } from '@/lib/toast';
 import { humanizeError } from '@/lib/errors';
+import { SabanaPartner } from '@/modules/partners/components/SabanaPartner';
 
 export function PartnerPortalPage() {
   const [comps, setComps] = useState<PartnerComprobanteRow[] | null>(null);
@@ -95,12 +96,25 @@ export function PartnerPortalPage() {
 
         {!loading && (
           <>
-            {/* Bloque D / obs 8 — Mi caja con saldo evolutivo */}
+            {/* DGG-85 · Resumen de cuenta (sábana) — IDÉNTICO al de gerencia
+                (misma RPC partner_sabana + mismo componente) → paridad total. */}
+            <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <p className="kicker text-brand-cyan inline-flex items-center gap-2">
+                <Briefcase size={14} /> Mi resumen de cuenta
+              </p>
+              <p className="mb-4 mt-0.5 text-xs text-brand-muted">
+                Tu participación operación por operación, con saldo acumulado y adjuntos.
+                Exportable a PDF / XLS.
+              </p>
+              <SabanaPartner />
+            </section>
+
+            {/* Bloque D / obs 8 — Detalle por rendición (atribuciones cerradas) */}
             <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
               <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
                 <div>
                   <p className="kicker text-brand-cyan inline-flex items-center gap-2">
-                    <Briefcase size={14} /> Mi caja · Movimientos detallados
+                    <Briefcase size={14} /> Detalle por rendición
                   </p>
                   <p className="mt-0.5 text-xs text-brand-muted">
                     Cada operación atribuida al partner con su % de convenio y saldo evolutivo.

@@ -8,6 +8,7 @@ import {
   Percent,
   FileBarChart,
   ListChecks,
+  Wallet,
   Pencil,
   UserPlus,
   Loader2,
@@ -30,6 +31,7 @@ import { cn } from '@/lib/cn';
 import { PartnerFormDrawer } from '../components/PartnerFormDrawer';
 import { ConvenioDrawer } from '../components/ConvenioDrawer';
 import { NuevaRendicionModal } from '../components/NuevaRendicionModal';
+import { SabanaPartner } from '../components/SabanaPartner';
 import {
   getPartner,
   listConvenios,
@@ -50,7 +52,7 @@ import {
 } from '@/services/api/partners';
 import { humanizeError } from '@/lib/errors';
 
-type TabKey = 'convenios' | 'rendiciones' | 'atribuciones';
+type TabKey = 'sabana' | 'convenios' | 'rendiciones' | 'atribuciones';
 
 export function PartnerDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -61,7 +63,7 @@ export function PartnerDetailPage() {
   const [rendiciones, setRendiciones] = useState<RendicionListItem[]>([]);
   const [atribuciones, setAtribuciones] = useState<AtribucionListItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<TabKey>('convenios');
+  const [tab, setTab] = useState<TabKey>('sabana');
   const [editOpen, setEditOpen] = useState(false);
   const [convOpen, setConvOpen] = useState(false);
   const [rendOpen, setRendOpen] = useState(false);
@@ -99,6 +101,11 @@ export function PartnerDetailPage() {
 
   const tabItems = useMemo<TabItem[]>(
     () => [
+      {
+        key: 'sabana',
+        label: 'Resumen de cuenta',
+        icon: <Wallet size={14} />,
+      },
       {
         key: 'convenios',
         label: 'Convenios',
@@ -233,6 +240,12 @@ export function PartnerDetailPage() {
         activeKey={tab}
         onChange={(k) => setTab(k as TabKey)}
       />
+
+      {tab === 'sabana' && partner && (
+        <section className="card-premium p-5">
+          <SabanaPartner partnerId={partner.id} partnerNombre={partner.nombre_legal} />
+        </section>
+      )}
 
       {tab === 'convenios' && (
         <section className="card-premium overflow-hidden p-0">
