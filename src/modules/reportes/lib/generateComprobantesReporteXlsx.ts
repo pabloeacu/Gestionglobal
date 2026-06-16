@@ -4,6 +4,7 @@ import {
   titleStyle, subtitleStyle, moneyStyle, dateStyle, cellStyle, zebraStyle,
 } from './_xlsxStyles';
 import type { ComprobanteReporteRow, ComprobantesReporteFilters } from './generateComprobantesReportePdf';
+import { parseLocalDate } from '@/lib/dates';
 
 // ============================================================================
 // Reporte Excel · Comprobantes.
@@ -50,7 +51,7 @@ export async function generateComprobantesReporteXlsx(
   // Datos
   rows.forEach((r, idx) => {
     const row = ws.addRow([
-      r.fecha ? new Date(r.fecha) : null,
+      r.fecha ? parseLocalDate(r.fecha) : null,
       r.tipo,
       r.numero
         ? `${String(r.punto_venta).padStart(5, '0')}-${String(r.numero).padStart(8, '0')}`

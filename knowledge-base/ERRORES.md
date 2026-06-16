@@ -2942,10 +2942,41 @@ strings ISO ('YYYY-MM-DD'), TZ-safe. Sólo display, no toca datos.
 **Regla / smell.** NUNCA `new Date(str).toLocaleDateString()` sobre un `date` de Postgres:
 usar `parseLocalDate`/`formatDateShort`/`formatDateLong` de `@/lib/dates`, o parsear
 'YYYY-MM-DD' a mano. Los `timestamptz` (con hora/TZ) sí van con `new Date()` directo (o
-`formatDateTime`). **Deuda señalada (no de este fix):** quedan varios módulos con
-`new Date(iso).toLocaleDateString` sobre fechas date-only fuera del portal del partner
-(algunos ya mitigados con `+ 'T00:00:00'`); candidato a un sweep que migre todo a
-`@/lib/dates`.
+`formatDateTime`); y para mostrar SÓLO la fecha de un `timestamptz` en hora local usar el
+nuevo **`formatTimestampDate(ts, 'short'|'long')`** — NO `formatDateShort/Long` (ésos
+cortan a 10 chars = fecha UTC y muestran el día siguiente para registros de la tarde-noche AR).
+
+**Sweep completo (Pablo: "auditá a fondo, que no queden cuestiones pendientes") — 2026-06-16.**
+Auditoría de TODO `src/` con 6 agentes en paralelo (por grupos de módulos disjuntos),
+cruzando cada call-site contra el tipo real de la columna (36 columnas `date` vs 310
+`timestamptz` en el schema). Resultado:
+- **Bug primario (date-only + `new Date` crudo) — 11 fixes en 9 archivos** (todos a
+  `parseLocalDate`, formato preservado): `facturacion/ComprobantesListPage` (export XLS
+  comprobantes.fecha), `campus/GestionMatriculasTab` (curso_matriculas.vigencia_hasta),
+  `vencimientos/MiniMapaVencimientos` (heatmap) + `vencimientos/VencimientosListPage`
+  (export XLS) (fecha_vencimiento), `clientes/AdministracionDetailPage` ×2
+  (matricula_rpac_vencimiento), `configuracion/EmisoresPage` (cert ARCA cert_valido_hasta),
+  `reportes/generateComprobantesReporteXlsx` + `reportes/generateCtaCteReporteXlsx`
+  (celdas XLSX con dateStyle), `portal/PortalHome` ×2 (vencimiento + vigencia_hasta del
+  portal cliente). **Ojo XLS/PDF:** SheetJS/ExcelJS serializan el `Date` por componentes
+  UTC ⇒ un `new Date(date-only)` exporta el día anterior, igual que en pantalla.
+- **Bug secundario (`timestamptz` formateado con `formatDateShort/Long` → un día DESPUÉS
+  para registros de tarde-noche) — 5 fixes** vía el nuevo `formatTimestampDate`:
+  `servicios/VouchersTab` (expira_at, que se guarda 23:59:59 local ⇒ **siempre** salía un
+  día tarde), `servicios/ServicioDetailPage` (precio_audit.created_at),
+  `campus/EncuestaTab` ×2 (created_at), `recupero/AccionRecuperoCard` (enviado_at).
+- **Ya correcto (confirmado, no se tocó):** Finanzas/Conciliación (`+'T00:00:00'`),
+  gerencia rendición + `SabanaPartner` (`@/lib/dates`), PDF fiscal de comprobantes
+  (`generateComprobantePdf` usa un `parseLocalDate` local), agenda (los 3 campos date-only
+  no se formatean con `new Date` crudo; el único uso en cómputo de recurrencia ya es
+  TZ-safe con `T23:59:59`), y todos los `*_at`/`fecha_hora` de webinars/encuentros/exámenes
+  (timestamptz legítimos).
+- **DUDAS resueltas:** `acceso-externo/AccesoExternoPage` mostraba `fecha_solicitud`/
+  `fecha_estimada` que **no existen** en el payload de la edge fn (devuelve
+  fecha_inicio/fecha_fin/vence_at) → `Item` retorna null en undefined ⇒ no se muestran, sin
+  bug TZ (queda como nota: el seguimiento público no muestra las fechas del trámite porque
+  lee campos inexistentes — gap funcional pre-existente, fuera de scope). El ICS cae a
+  `vence_at` (timestamptz) → UTC en ICS es estándar, OK.
 
 - **Fecha / módulo:** 2026-06-16 · portal partner · `PartnerPortalPage.tsx` (fmtDate →
   parseLocalDate). Display-only.

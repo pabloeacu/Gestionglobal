@@ -24,7 +24,7 @@ import {
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import { IllustratedEmpty } from '@/components/brand/IllustratedEmpty';
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
-import { formatDateShort } from '@/lib/dates';
+import { formatDateShort, formatTimestampDate } from '@/lib/dates';
 import {
   getServicio,
   cerrarPrecio,
@@ -357,7 +357,7 @@ export function ServicioDetailPage() {
                       )}
                     </p>
                     <p className="text-xs text-brand-muted">
-                      {formatDateShort(a.created_at)} ·{' '}
+                      {formatTimestampDate(a.created_at)} ·{' '}
                       {a.autor_nombre ?? 'sistema'}
                       {a.motivo ? ` · ${a.motivo}` : ''}
                     </p>

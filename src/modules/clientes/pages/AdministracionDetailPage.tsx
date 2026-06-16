@@ -50,7 +50,7 @@ import {
   listCtaCteAdministracion,
   type CtaCteEntry,
 } from '@/services/api/cobranzas';
-import { formatDateShort } from '@/lib/dates';
+import { formatDateShort, parseLocalDate } from '@/lib/dates';
 import { cn } from '@/lib/cn';
 import { TabWebinars } from '../components/TabWebinars';
 import { humanizeError } from '@/lib/errors';
@@ -413,7 +413,7 @@ function KpiStrip({
       .filter((c) => c.activo)
       .reduce((s, c) => s + Number(c.monto_abono ?? 0), 0);
     const venceRpac = admin.matricula_rpac_vencimiento
-      ? new Date(admin.matricula_rpac_vencimiento)
+      ? parseLocalDate(admin.matricula_rpac_vencimiento)
       : null;
     const today = new Date();
     const dias = venceRpac
@@ -743,7 +743,7 @@ function TabFiscal({
 
 function TabRegistral({ admin }: { admin: AdministracionRow }) {
   const venceRpac = admin.matricula_rpac_vencimiento
-    ? new Date(admin.matricula_rpac_vencimiento)
+    ? parseLocalDate(admin.matricula_rpac_vencimiento)
     : null;
   const today = new Date();
   const diasParaVencer = venceRpac

@@ -48,7 +48,7 @@ import {
   type RespuestaJoinProfile,
 } from '@/services/api/encuestas';
 import { cn } from '@/lib/cn';
-import { formatDateShort } from '@/lib/dates';
+import { formatTimestampDate } from '@/lib/dates';
 import { humanizeError } from '@/lib/errors';
 
 interface EncuestaTabProps {
@@ -774,7 +774,7 @@ function EncuestaRespuestas({ encuesta }: { encuesta: CursoEncuestaRow }) {
                     </p>
                   )}
                   <p className="mt-1 text-xs text-brand-muted">
-                    {r.alumno_nombre ?? '—'} · enviado {formatDateShort(r.created_at)}
+                    {r.alumno_nombre ?? '—'} · enviado {formatTimestampDate(r.created_at)}
                   </p>
                 </div>
                 <label className="ml-2 inline-flex shrink-0 items-center gap-2 text-sm">
@@ -805,7 +805,7 @@ function EncuestaRespuestas({ encuesta }: { encuesta: CursoEncuestaRow }) {
                   {r.alumno_nombre ?? 'Alumno'}
                 </p>
                 <span className="text-xs text-brand-muted">
-                  {formatDateShort(r.created_at)}
+                  {formatTimestampDate(r.created_at)}
                 </span>
                 {r.permite_publicar && (
                   <span className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-semibold text-violet-700">

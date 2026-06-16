@@ -31,6 +31,24 @@ export function formatDateLong(d: string | null | undefined): string {
   });
 }
 
+// Para `timestamptz` cuando sólo querés mostrar la FECHA (sin hora) en horario
+// LOCAL. NO uses formatDateShort/Long con un timestamp: ésos lo tratan como
+// date-only (cortan a 10 chars = fecha UTC) y muestran el día siguiente para
+// registros de la tarde-noche AR (ej. expira_at guardado 23:59:59 local).
+// Acá `new Date()` respeta la TZ del string y se formatea en hora local.
+export function formatTimestampDate(
+  d: string | null | undefined,
+  style: 'short' | 'long' = 'short',
+): string {
+  if (!d) return '—';
+  return new Date(d).toLocaleDateString(
+    'es-AR',
+    style === 'long'
+      ? { day: '2-digit', month: 'long', year: 'numeric' }
+      : { day: '2-digit', month: 'short', year: '2-digit' },
+  );
+}
+
 // Para timestamps con hora (`timestamptz` de Postgres). Acá SÍ se usa
 // `new Date(...)` directo porque el string incluye TZ.
 export function formatDateTime(d: string | null | undefined): string {

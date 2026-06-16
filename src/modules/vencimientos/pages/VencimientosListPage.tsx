@@ -35,6 +35,7 @@ import { VencimientoCard } from '../components/VencimientoCard';
 import { MiniMapaVencimientos } from '../components/MiniMapaVencimientos';
 import { useUrlFilters } from '@/lib/useUrlFilters';
 import { usePullToRefresh } from '@/lib/usePullToRefresh';
+import { parseLocalDate } from '@/lib/dates';
 import { CheckSquare, RefreshCcw as RefreshIcon, Square, X as CloseIcon } from 'lucide-react';
 import {
   getProximosVencimientos,
@@ -311,7 +312,7 @@ export function VencimientosListPage() {
       filtros: exportFiltros,
       columns: [
         { key: 'fecha_vencimiento', label: 'Fecha vencimiento', width: 16,
-          value: (r) => r.fecha_vencimiento ? new Date(r.fecha_vencimiento) : null },
+          value: (r) => r.fecha_vencimiento ? parseLocalDate(r.fecha_vencimiento) : null },
         { key: 'tipo', label: 'Tipo', width: 22,
           value: (r) => VENCIMIENTO_TIPO_LABEL[r.tipo] ?? r.tipo },
         { key: 'descripcion', label: 'Descripción', width: 30,

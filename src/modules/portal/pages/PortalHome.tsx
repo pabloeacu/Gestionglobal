@@ -32,6 +32,7 @@ import {
   X,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { parseLocalDate } from '@/lib/dates';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import { Skeleton } from '@/components/common';
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
@@ -655,11 +656,11 @@ function formatDias(n: number): string {
 }
 
 function formatDateLong(iso: string): string {
-  return new Date(iso).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' });
+  return parseLocalDate(iso).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
 function formatDateShort(iso: string): string {
-  return new Date(iso).toLocaleDateString('es-AR', { day: '2-digit', month: 'short' });
+  return parseLocalDate(iso).toLocaleDateString('es-AR', { day: '2-digit', month: 'short' });
 }
 
 // =========================================================================

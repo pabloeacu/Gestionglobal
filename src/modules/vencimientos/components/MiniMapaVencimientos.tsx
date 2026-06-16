@@ -7,6 +7,7 @@
 
 import { useMemo } from 'react';
 import { Flame } from 'lucide-react';
+import { parseLocalDate } from '@/lib/dates';
 import type { ProximoVencimiento } from '@/services/api/vencimientos';
 
 interface Props {
@@ -46,7 +47,7 @@ export function MiniMapaVencimientos({
   const countPorDia = useMemo(() => {
     const m = new Map<string, number>();
     for (const v of vencimientos) {
-      const fv = new Date(v.fecha_vencimiento);
+      const fv = parseLocalDate(v.fecha_vencimiento);
       if (Number.isNaN(fv.getTime())) continue;
       const key = ymd(fv);
       m.set(key, (m.get(key) ?? 0) + 1);

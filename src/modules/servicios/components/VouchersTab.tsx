@@ -16,7 +16,7 @@ import { toast } from '@/lib/toast';
 import { Button, useConfirm } from '@/components/common';
 import { IllustratedEmpty } from '@/components/brand/IllustratedEmpty';
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
-import { formatDateShort } from '@/lib/dates';
+import { formatTimestampDate } from '@/lib/dates';
 import {
   listVouchersDeServicio,
   actualizarVoucher,
@@ -193,7 +193,7 @@ export function VouchersTab({ servicio_id }: VouchersTabProps) {
                     {v.expira_at ? (
                       <span className="inline-flex items-center gap-1">
                         <Calendar size={12} />
-                        {formatDateShort(v.expira_at)}
+                        {formatTimestampDate(v.expira_at)}
                       </span>
                     ) : (
                       'Nunca'

@@ -43,6 +43,19 @@ import { ExportButtons } from '@/components/reports/ExportButtons';
 import { generateReportPdf } from '@/lib/reportPdf';
 import { generateReportXls } from '@/lib/reportXls';
 import { humanizeError } from '@/lib/errors';
+import { parseLocalDate } from '@/lib/dates';
+
+// `vigencia_hasta` es `date` (date-only) en Postgres. `fmtFecha` usa
+// `new Date(str)` (UTC midnight) y retrocede un día en AR (E-GG-72), así que
+// acá la parseamos como fecha LOCAL preservando el formato dd/mm/yyyy.
+function fmtFechaSoloDia(s: string | null | undefined): string {
+  if (!s) return '—';
+  return parseLocalDate(s).toLocaleDateString('es-AR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
+}
 
 // Tab de gestión de matrículas: lista de alumnos asignados al curso con su
 // checklist de condiciones tildable por staff (DGG-10). El examen aparece
@@ -290,7 +303,7 @@ export function GestionMatriculasTab({ data }: { data: CursoDetalle }) {
                       </p>
                       <p className="text-xs text-brand-muted">
                         {m.administracion_nombre ?? 'Sin administración'} · vigencia{' '}
-                        {fmtFecha(m.vigencia_hasta)}
+                        {fmtFechaSoloDia(m.vigencia_hasta)}
                       </p>
                     </div>
                     {cert ? (

@@ -4,6 +4,7 @@ import {
   titleStyle, subtitleStyle, moneyStyle, dateStyle, cellStyle, zebraStyle,
 } from './_xlsxStyles';
 import type { CtaCteReporteArgs } from './generateCtaCteReportePdf';
+import { parseLocalDate } from '@/lib/dates';
 
 // ============================================================================
 // Reporte Excel · Cuenta corriente por cliente, con saldo corrido.
@@ -46,7 +47,7 @@ export async function generateCtaCteReporteXlsx(
   args.movimientos.forEach((m, idx) => {
     saldo += Number(m.debe ?? 0) - Number(m.haber ?? 0);
     const row = ws.addRow([
-      m.fecha ? new Date(m.fecha) : null,
+      m.fecha ? parseLocalDate(m.fecha) : null,
       m.concepto,
       m.referencia ?? '',
       m.debe ? Number(m.debe) : null,

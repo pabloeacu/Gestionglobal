@@ -1,6 +1,6 @@
 import { AlertTriangle, Mail, User, Building2, FileText } from 'lucide-react';
 import { cn } from '@/lib/cn';
-import { formatDateLong } from '@/lib/dates';
+import { formatTimestampDate } from '@/lib/dates';
 import { formatMoney, comprobanteLabel } from '../lib/format';
 import {
   RECUPERO_NIVEL_LABEL,
@@ -29,7 +29,7 @@ export function AccionRecuperoCard({ accion }: Props) {
           <div className="flex items-center gap-2">
             <Mail size={15} className="shrink-0 text-brand-cyan" aria-hidden />
             <p className="truncate text-[11px] font-semibold uppercase tracking-wider text-brand-muted">
-              {formatDateLong(accion.enviado_at)}
+              {formatTimestampDate(accion.enviado_at, 'long')}
             </p>
           </div>
           <h3 className="mt-1 truncate font-display text-base font-semibold text-brand-ink">

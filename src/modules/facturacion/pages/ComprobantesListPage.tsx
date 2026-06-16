@@ -25,7 +25,7 @@ import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import { IllustratedEmpty } from '@/components/brand/IllustratedEmpty';
 import { ComprobanteFormDrawer } from '../components/ComprobanteFormDrawer';
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
-import { formatDateShort as formatDate } from '@/lib/dates';
+import { formatDateShort as formatDate, parseLocalDate } from '@/lib/dates';
 import {
   listComprobantes,
   type ComprobanteListItem,
@@ -201,7 +201,7 @@ export function ComprobantesListPage() {
             r.numero ? String(r.numero).padStart(8, '0') : ''
           }` },
         { key: 'fecha', label: 'Fecha', width: 14,
-          value: (r) => r.fecha ? new Date(r.fecha) : null },
+          value: (r) => r.fecha ? parseLocalDate(r.fecha) : null },
         { key: 'administracion_nombre', label: 'Administración', width: 28 },
         { key: 'receptor_razon_social', label: 'Receptor', width: 24,
           value: (r) => r.receptor_razon_social ?? '' },

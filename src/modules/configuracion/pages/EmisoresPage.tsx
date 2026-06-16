@@ -57,6 +57,7 @@ import {
   type ArcaEmisor,
 } from '@/services/api/arca';
 import { humanizeError } from '@/lib/errors';
+import { parseLocalDate } from '@/lib/dates';
 
 // ============================================================================
 // Page · lista + alta + drawer de configuración
@@ -272,7 +273,7 @@ function EmisorCard({
   const archivado = !emisor.activo;
   const diasRestantes = (() => {
     if (!emisor.cert_valido_hasta) return null;
-    return Math.floor((new Date(emisor.cert_valido_hasta).getTime() - Date.now()) / 86400000);
+    return Math.floor((parseLocalDate(emisor.cert_valido_hasta).getTime() - Date.now()) / 86400000);
   })();
   return (
     <div className={cn('card-premium relative space-y-3 p-5', archivado && 'opacity-60')}>
