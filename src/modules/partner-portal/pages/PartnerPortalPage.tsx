@@ -25,6 +25,7 @@ import {
 } from '@/services/api/partners';
 import { toast } from '@/lib/toast';
 import { humanizeError } from '@/lib/errors';
+import { parseLocalDate } from '@/lib/dates';
 import { SabanaPartner } from '@/modules/partners/components/SabanaPartner';
 
 export function PartnerPortalPage() {
@@ -586,7 +587,9 @@ function fmtMoney(n: number | string): string {
 
 function fmtDate(iso: string): string {
   try {
-    return new Date(iso).toLocaleDateString('es-AR', {
+    // E-GG-72: `date` de Postgres ('YYYY-MM-DD') se parsea como LOCAL (no UTC)
+    // para no retroceder un día en AR (UTC-3). Ver src/lib/dates.ts.
+    return parseLocalDate(iso).toLocaleDateString('es-AR', {
       day: '2-digit',
       month: 'short',
       year: 'numeric',

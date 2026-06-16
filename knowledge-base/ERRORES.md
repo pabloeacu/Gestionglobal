@@ -2921,3 +2921,31 @@ padre en el mismo lote), no un caso 1:1 — si no, los únicos no se ejercitan.
 
 - **Fecha / módulo:** 2026-06-16 · DGG-86 · rendición a cobrado · migs 0250 (cambio) +
   0251 (fix del índice). Hallado en §6 antes del merge (no llegó a producción).
+
+## E-GG-72 · Fecha date-only corrida un día en el portal del partner (`new Date('YYYY-MM-DD')` parsea UTC) — 2026-06-16
+
+**Síntoma.** En el portal del partner, la tabla "Rendiciones" mostraba el período corrido
+un día: una rendición `periodo_desde=2026-06-01`/`periodo_hasta=2026-06-30` se veía como
+"31 de may de 2026 → 29 de jun de 2026". Gerencia (`RendicionDetailPage`) lo mostraba bien.
+
+**Causa raíz.** `PartnerPortalPage.tsx` tenía un helper LOCAL `fmtDate` que hacía
+`new Date(iso).toLocaleDateString('es-AR', …)`. Para un `date` de Postgres ('YYYY-MM-DD'),
+`new Date('2026-06-01')` se parsea como **UTC medianoche**; al formatear en AR (UTC-3)
+retrocede al día anterior. El repo YA tiene `src/lib/dates.ts` (`parseLocalDate` +
+`formatDateShort/Long`) creado para exactamente esto — gerencia lo usa, el portal no.
+Afectaba 4 campos date-only del portal (período de rendición + 3 `fecha`).
+
+**Fix.** El `fmtDate` local ahora parsea con `parseLocalDate` (mismo formato, sólo el día
+correcto). `SabanaPartner` ya estaba bien (usa `formatDateShort`). `pasaFiltro` compara
+strings ISO ('YYYY-MM-DD'), TZ-safe. Sólo display, no toca datos.
+
+**Regla / smell.** NUNCA `new Date(str).toLocaleDateString()` sobre un `date` de Postgres:
+usar `parseLocalDate`/`formatDateShort`/`formatDateLong` de `@/lib/dates`, o parsear
+'YYYY-MM-DD' a mano. Los `timestamptz` (con hora/TZ) sí van con `new Date()` directo (o
+`formatDateTime`). **Deuda señalada (no de este fix):** quedan varios módulos con
+`new Date(iso).toLocaleDateString` sobre fechas date-only fuera del portal del partner
+(algunos ya mitigados con `+ 'T00:00:00'`); candidato a un sweep que migre todo a
+`@/lib/dates`.
+
+- **Fecha / módulo:** 2026-06-16 · portal partner · `PartnerPortalPage.tsx` (fmtDate →
+  parseLocalDate). Display-only.
