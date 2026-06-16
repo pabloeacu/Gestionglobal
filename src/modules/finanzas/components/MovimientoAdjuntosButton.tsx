@@ -4,6 +4,7 @@
 import { useState } from 'react';
 import { Paperclip, Download, Plus, Trash2, Loader2 } from 'lucide-react';
 import { toast } from '@/lib/toast';
+import { useConfirm } from '@/components/common';
 import { cn } from '@/lib/cn';
 import {
   listAdjuntosMovimiento,
@@ -20,6 +21,7 @@ export function MovimientoAdjuntosButton({
   movimientoId: string;
   initialCount: number;
 }) {
+  const confirm = useConfirm();
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<MovimientoAdjuntoRow[] | null>(null);
   const [count, setCount] = useState(initialCount);
@@ -56,6 +58,13 @@ export function MovimientoAdjuntosButton({
     await reload();
   }
   async function onDelete(a: MovimientoAdjuntoRow) {
+    const ok = await confirm({
+      title: 'Eliminar constancia',
+      message: `¿Eliminar "${a.filename_original}"? Es un comprobante de gasto y la acción no se puede deshacer.`,
+      confirmLabel: 'Eliminar',
+      danger: true,
+    });
+    if (!ok) return;
     setBusy(true);
     const r = await eliminarAdjuntoMovimiento(a);
     setBusy(false);
