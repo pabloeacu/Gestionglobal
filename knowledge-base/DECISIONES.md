@@ -3359,3 +3359,56 @@ de `zoom-encuentro-create` se mantuvo intacto (otro agente).
   360 (botón ok, sin overflow, tabla scroll-x) ✓; consola sin errores ✓.
 - **Fecha:** 2026-06-17. Commit `e802799`. Archivos: `lib/useAvanzarTramite.tsx` (nuevo) +
   `TramitesKanbanPage` (refactor) + `TramitesListPage` (botón).
+
+## DGG-88 · Criterio "resuelto" vs "cerrado" + gate duro: no se cierra impago (2026-06-17)
+
+- **Criterio (definido con Pablo):**
+  - **Resuelto** = el trabajo está hecho / entregamos el resultado. Estado operativo;
+    **puede estar impago**.
+  - **Cerrado** = además **cobrado** y sin pendientes; estado terminal (archivo).
+  - El **cobro es el límite** entre uno y otro. **Regla dura: no se cierra impago.** La
+    excepción (incobrable/bonificado) se ejerce resolviendo la cobranza (anular o bonificar
+    el comprobante → saldo 0 → `cobro_pendiente`=false). Mismo criterio para cualquier
+    trámite, incluidos los de categoría 'curso'.
+- **Implementación (decisión #1, "no cerrar impago"):**
+  - **mig 0252:** trigger `trg_tramite_cerrar_exige_cobrado` BEFORE UPDATE OF estado en
+    `tramites`, acotado por `WHEN (NEW.estado='cerrado' AND OLD.estado IS DISTINCT FROM
+    'cerrado')`, SECURITY DEFINER, que hace `RAISE` si `public.cobro_pendiente(NEW)`. Trigger
+    SEPARADO (no toca el `tramite_on_update` existente). Es el backstop universal: vale para
+    la lista, el kanban, el dropdown del detail y cualquier API/RPC. Smoke e2e (rollback):
+    cerrar impago → bloqueado; tras saldar → cierra.
+  - **UI:** `useAvanzarTramite` (hook compartido lista+kanban) bloquea client-side con un
+    toast claro antes de pegarle a la BD; el detail page muestra el mensaje del trigger vía
+    `humanizeError`. El aviso *soft* DGG-44 ("impago, ¿avanzar igual?") se mantiene para
+    avances intermedios (no-cierre).
+- **Cursos (decisión #2, "cerrar al vencer el acceso") — IMPLEMENTADO (mig 0253):** el nexo
+  cert→trámite SÍ existe (`cert.matricula_id → curso_matriculas.submission_origen →
+  tramites.formulario_submission_id`, categoría 'curso'). Antes, un trigger AFTER INSERT en
+  `certificados` **cerraba** el trámite al emitir el cert. Realineado al criterio:
+  - **(A)** `trg_certificado_cierra_tramite_curso_fn` ahora pone el trámite en **`resuelto`**
+    (no cerrado) + guarda la URL del certificado en `documento_final_url`. → *resuelto = cert
+    emitido*.
+  - **(B)** nueva `gg_campus_vencer_matriculas()`: (1) vence el acceso (igual que el cron
+    DGG-82) y (2) **cierra** el trámite del curso si está `resuelto` **y** `NOT
+    cobro_pendiente` (matrícula ya vencida). El cron diario `gg-campus-matriculas-vencer`
+    pasa a llamarla. → *cerrado = acceso vencido + cobrado*. Si está impago, queda `resuelto`
+    (el gate de #1 lo bloquearía igual). El filtro `NOT cobro_pendiente` es clave: evita que
+    el RAISE del gate aborte el batch.
+  - Dos ejes del curso: **matrícula** (`activa→completada→vencida`, acceso académico, NO se
+    gatea por cobro) y **trámite/expediente** (`…→resuelto→cerrado`, sí gateado por cobro).
+  - **certs_total=0 al aplicar** → sin data que migrar; el realineo entró antes de que se
+    emita ningún certificado.
+- **§6 / verificación (doble auditoría):** build limpio. **EJERCITAR e2e BD** (rollback):
+  #1 gate (cerrar impago bloqueado; tras saldar, cierra); #2 (cert→resuelto; cron cierra el
+  curso cobrado y deja resuelto el impago; la matrícula-vencer intacta). **Live test en prod**
+  (gerente QA, residuo 0): #1 — desde la lista, cerrar un resuelto IMPAGO → bloqueado con
+  toast claro y queda resuelto; resuelto sin deuda → cierra; vía el modal "Cerrar trámite"
+  del tracking, impago → bloqueado por el trigger; consola limpia. **REVISAR** (agentes
+  adversariales): #1 sin GAP (gate sólo en →cerrado, sin bypass en las 3 vías); #2 sin GAP
+  (cert→resuelto conserva todo, cron no aborta por el filtro, sin regresión a DGG-82).
+- **Hallazgo menor (no bloqueante, preexistente):** `_notif_tracking_cerrado_trg` notifica
+  tanto en `resuelto` como en `cerrado`; con el ciclo de curso (resuelto al cert, cerrado al
+  vencer) eso genera **dos** notificaciones "Trámite cerrado" por curso. No corrompe datos.
+  A pulir aparte si molesta (acotar el trigger a `cerrado`).
+- **Fecha:** 2026-06-17. Commits `652291e` (#1: gate, mig 0252 + `useAvanzarTramite.tsx`) +
+  `62ccacb` (#2: cursos, mig 0253).
