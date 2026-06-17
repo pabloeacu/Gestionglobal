@@ -3458,9 +3458,14 @@ de `zoom-encuentro-create` se mantuvo intacto (otro agente).
   cancelado. Distingue curso-formación de curso-actualización (servicio distinto) y reinscripción
   en otro período (período distinto) → sin falsos positivos. Verificado: marca exactamente los 2
   trámites de Lucía, 0 falsos positivos en toda la plataforma.
-- **Verificación:** §6 (2 agentes REVISAR, sin GAP crítico; 2 menores cerrados en mig 0258 +
-  guard de doble-click) + e2e en BD + prueba en vivo (badge en `vafa5532`, sin falso positivo
-  en la Matrícula, consola limpia). El aviso del wizard se verificó por e2e + estático (no se
-  click-eó en vivo para no activar una solicitud real; el render del confirm es determinista).
+- **Verificación (§6 doble, completa):** **3 agentes REVISAR** (A: SQL/gate · B: wiring/vías de
+  activación · C: lateral/downstream/rol) sin GAP crítico; 2 menores cerrados en mig 0258
+  (SECURITY INVOKER explícito) + guard de doble-click. **EJERCITAR e2e sintético `BEGIN/ROLLBACK`**
+  (8 casos borde, residuo 0): par→t/t, único→f, distinto período→f, distinto servicio→f, hermano
+  cancelado→f/f (cancelar uno apaga el badge del otro), email case-insensitive→t, email NULL→f,
+  query del wizard→2 filas. Cross-tenant verificado e2e (un administrador no infiere trámites de
+  otro tenant vía el badge: INVOKER + RLS). **Prueba en vivo** (badge en `vafa5532`, sin falso
+  positivo en la Matrícula, consola limpia). El aviso del wizard se verificó por e2e + estático
+  (no se click-eó en vivo para no activar una solicitud real; el render del confirm es determinista).
 - **Fecha:** 2026-06-17. Commits `572172d` (capas 1+2, mig 0257 + `tramites.ts` +
   `WizardActivacionV2.tsx` + badges) + `afa5532` (§6: mig 0258 SECURITY INVOKER + guard doble-click).
