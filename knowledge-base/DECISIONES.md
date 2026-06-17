@@ -3430,3 +3430,37 @@ de `zoom-encuentro-create` se mantuvo intacto (otro agente).
 - **Fecha:** 2026-06-17. Commits `652291e` (#1: gate, mig 0252 + `useAvanzarTramite.tsx`) +
   `62ccacb` (#2: cursos, mig 0253) + `1fa5f43` (notif una vez, mig 0254) +
   `02ba903`/`ea6e0a0` (E-GG-73: copy parcial vs sin cobranza, migs 0255/0256).
+
+## DGG-89 · Inscripciones duplicadas a cursos (reenvío del formulario) — prevenir + señalar (2026-06-17)
+
+- **Problema (reportado por Pablo):** una alumna con dos inscripciones al mismo curso
+  aparecía **una vez** en el campus del alumno pero **dos** del lado de gerencia
+  (TRM-2026-00037 y -00041). Causa: el alumno impaciente reenvía el formulario público →
+  2 `formulario_submissions` → el trigger crea 2 `solicitudes` → gerencia activa ambas →
+  `solicitud_activar` inserta **2 trámites sin dedup**. El campus deduplica estructuralmente
+  por `uq_curso_matricula(curso_id, profile_id)` (1 matrícula); gerencia lista trámites crudos.
+- **Decisión de Pablo (priorizando MÍNIMO riesgo, plataforma en pulido):** fusionar 2 capas
+  de bajo riesgo, **sin tocar el formulario público ni el trigger** (el camino ya pulido):
+  1. **Aviso al activar (soft gate en el wizard):** antes de "Comenzar proceso", si ya existe
+     un trámite no-cancelado del mismo **servicio + período + solicitante (email)**, se muestra
+     un `useConfirm` "Posible inscripción duplicada · Ya existe TRM-XXXX. ¿Activar igual?".
+     Previene el 2º trámite en el punto donde nace (la activación manual). No aplica al camino
+     terminal (revisión/rechazo/descarte) ni si el trámite ya existe. `buscarTramiteDuplicado`
+     en `tramites.ts`; gate en `WizardActivacionV2.comenzarProceso`. Es la ÚNICA vía de
+     activación (verificado §6: `solicitud_activar` tiene un único caller).
+  2. **Badge "Posible duplicado"** en la lista y el kanban de gerencia, vía computed field
+     `posible_duplicado(tramites)` (misma identidad). Señala (no bloquea, no borra) y cubre el
+     caso ya existente. Read-side puro.
+- **Por qué NO la 3ª opción (idempotencia en el origen):** tocar el form/trigger público es
+  más invasivo y puede bloquear reenvíos legítimos (corrección de datos, otro curso). Pablo la
+  descartó por riesgo.
+- **Identidad de duplicado:** `servicio_id` + `período` + `lower(solicitante_email)`, no
+  cancelado. Distingue curso-formación de curso-actualización (servicio distinto) y reinscripción
+  en otro período (período distinto) → sin falsos positivos. Verificado: marca exactamente los 2
+  trámites de Lucía, 0 falsos positivos en toda la plataforma.
+- **Verificación:** §6 (2 agentes REVISAR, sin GAP crítico; 2 menores cerrados en mig 0258 +
+  guard de doble-click) + e2e en BD + prueba en vivo (badge en `vafa5532`, sin falso positivo
+  en la Matrícula, consola limpia). El aviso del wizard se verificó por e2e + estático (no se
+  click-eó en vivo para no activar una solicitud real; el render del confirm es determinista).
+- **Fecha:** 2026-06-17. Commits `572172d` (capas 1+2, mig 0257 + `tramites.ts` +
+  `WizardActivacionV2.tsx` + badges) + `afa5532` (§6: mig 0258 SECURITY INVOKER + guard doble-click).
