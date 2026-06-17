@@ -3344,11 +3344,18 @@ de `zoom-encuentro-create` se mantuvo intacto (otro agente).
   `<Link>` de navegación. Click → `avanzar(r, nextEst)` → mismo flujo que el kanban.
 - **Sin cambios de BD/RPC:** reusa `updateTramite` (ya existente y e2e-probado). Cambio
   puramente de frontend.
-- **§6 / verificación:** build limpio (tsc strict + vite). REVISAR (agente adversarial):
-  extracción 1:1 sin drift, fuente única, botón gateado y aislado del Link, kanban sin
-  regresión, sin imports muertos — sin GAP. **Prueba en vivo PENDIENTE**: no se pudo correr
-  esta sesión porque el conector de Supabase se desconectó (lo necesito para crear el
-  gerente QA efímero) y se cerró el tab del browser. Queda para correr apenas vuelva el
-  conector (o Pablo puede probarlo directo en la lista deployada).
-- **Fecha:** 2026-06-17. Archivos: `lib/useAvanzarTramite.tsx` (nuevo) + `TramitesKanbanPage`
-  (refactor) + `TramitesListPage` (botón).
+- **§6 / verificación (doble auditoría completa):** build limpio (tsc strict + vite).
+  **REVISAR** (agente adversarial): extracción 1:1 sin drift, fuente única, botón gateado
+  y aislado del Link, kanban sin regresión, sin imports muertos — sin GAP. Seguridad
+  (verificado en BD): RLS de UPDATE en `tramites` = `tramites_staff_all` (USING/WITH CHECK
+  `private.is_staff()`) → sólo staff cambia estado; triggers `tramite_on_update/insert`
+  SECURITY DEFINER (R17, escriben `tramite_eventos` sin 42501). **EJERCITAR e2e EN VIVO**
+  (prod, gerente QA, 4 trámites QA, residuo 0): avance simple sin confirm (cobro_pendiente
+  false) ✓; gate "Trámite impago" → Avanzar (cobro_pendiente true) ✓; persistió en BD
+  (estado + 2 eventos del trigger) ✓; **sync lista→kanban** (2 avanzados desde la lista
+  aparecen en columna En progreso del kanban) ✓; **sync kanban→lista** (avancé uno desde el
+  kanban → la lista lo muestra Resuelto) ✓; edge resuelto→cerrado (sin botón en cerrado,
+  sale de "Solo activos" al recargar) ✓; los 4 estados finales correctos en BD ✓; mobile
+  360 (botón ok, sin overflow, tabla scroll-x) ✓; consola sin errores ✓.
+- **Fecha:** 2026-06-17. Commit `e802799`. Archivos: `lib/useAvanzarTramite.tsx` (nuevo) +
+  `TramitesKanbanPage` (refactor) + `TramitesListPage` (botón).
