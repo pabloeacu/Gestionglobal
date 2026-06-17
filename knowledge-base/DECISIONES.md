@@ -3420,5 +3420,13 @@ de `zoom-encuentro-create` se mantuvo intacto (otro agente).
   la rama de reapertura de ese trigger captura también `resuelto→cancelado` y deja la línea
   "Tu trámite fue reabierto…" (copy impreciso para una cancelación). Anotado para pulir si
   alguna vez se habilita el paso a `cancelado`.
+- **Copy del gate diferenciado (E-GG-73, mig 0255/0256):** el confirm/toast del gate
+  decía siempre "no tiene cobranza registrada", aun con **pago a cuenta**. Se agregó el
+  campo calculado `cobro_estado(tramites)` (`'parcial'`|`'sin_cobranza'`|NULL) y el copy
+  ahora distingue ambos (parcial → "pago a cuenta, queda saldo" / "Completá"; sin pagos →
+  "no tiene ninguna cobranza" / "Registrá"), en el hook (kanban/lista) y en el backstop de
+  cierre en BD (trigger 0252, vía detail page). El gate sigue gobernado por el booleano
+  `cobro_pendiente`; `cobro_estado` es sólo para el texto. Verificado e2e + en vivo.
 - **Fecha:** 2026-06-17. Commits `652291e` (#1: gate, mig 0252 + `useAvanzarTramite.tsx`) +
-  `62ccacb` (#2: cursos, mig 0253) + `1fa5f43` (notif una vez, mig 0254).
+  `62ccacb` (#2: cursos, mig 0253) + `1fa5f43` (notif una vez, mig 0254) +
+  `02ba903`/`ea6e0a0` (E-GG-73: copy parcial vs sin cobranza, migs 0255/0256).

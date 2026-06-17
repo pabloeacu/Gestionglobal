@@ -2980,3 +2980,48 @@ cruzando cada call-site contra el tipo real de la columna (36 columnas `date` vs
 
 - **Fecha / módulo:** 2026-06-16 · portal partner · `PartnerPortalPage.tsx` (fmtDate →
   parseLocalDate). Display-only.
+
+## E-GG-73 · El gate de cobranza decía "no tiene cobranza registrada" aun con pago a cuenta (copy hardcodeado, no miraba el saldo) — 2026-06-17
+
+**Síntoma.** (Reportado por Pablo con captura.) Al avanzar un trámite con cobro pendiente,
+el confirm decía *"Este trámite no tiene cobranza registrada. Por lo tanto, está impago."*
+— pero el caso tenía un **pago a cuenta** (comprobante $410.000, saldo $205.000). La
+reacción (advertir) era correcta; el mensaje era falso: no distinguía "sin ninguna
+cobranza" de "saldo parcial".
+
+**Causa raíz.** El gate (`useAvanzarTramite.tsx`) decide con el booleano `cobro_pendiente`
+(= existe comprobante con `saldo_pendiente>0`), que es TRUE tanto sin pagos como con pago
+parcial — **correcto**. El problema era 100% de **copy**: el string estaba hardcodeado y la
+fila (`TramiteListItem`) sólo traía el booleano, sin el dato para diferenciar. No era un
+error de lectura de datos.
+
+**Fix.** Campo calculado `public.cobro_estado(tramites)` (mig 0255), hermano de
+`cobro_pendiente`, mismo universo de comprobantes (propio o vía `solicitudes`; no anulado;
+total>0; saldo>0): devuelve `'parcial'` (algún `saldo<total` → pago a cuenta),
+`'sin_cobranza'` (todos `saldo=total` → impago sin pagos) o `NULL`. `listTramites` lo trae;
+`TramiteListItem` lo tipa; el hook arma el copy según `cobro_estado` en el confirm de avance
+(parcial → "tiene un pago a cuenta, queda saldo pendiente" / título "Trámite con saldo
+pendiente"; sin pagos → "no tiene ninguna cobranza registrada") y en el toast de cierre
+("Completá" vs "Registrá"). e2e datos reales: 410k/205k → `parcial`; 145k/145k → `sin_cobranza`.
+
+**Hallazgos de la auditoría §6 (cerrados en mig 0256):**
+- *(A)* `cobro_estado` no revocaba `EXECUTE` de `PUBLIC`/`anon` ni lo concedía a
+  `authenticated`, a diferencia de sus hermanas `cobro_pendiente` (0194) y
+  `comprobante_pendiente` (0207). RLS ya impedía el leak (anon sin policy en
+  comprobantes/solicitudes → ve NULL), pero violaba R3 y dispararía el advisor. Alineado:
+  ACL ahora idéntica a las hermanas. (Smell: toda función nueva expuesta a PostgREST debe
+  REVOKE PUBLIC/anon + GRANT authenticated en la MISMA mig.)
+- *(B)* El backstop de cierre en BD (`trg_tramite_cerrar_exige_cobrado`, mig 0252; vía del
+  detail page `CerrarTramiteDialog` → RPC `tracking_cerrar`) mostraba siempre "Registrá la
+  cobranza". Ahora el RAISE distingue parcial ("Completá") de sin cobranza ("Registrá"),
+  espejando el hook. e2e (rollback): RAISE parcial sobre 00041 → "pago a cuenta … Completá";
+  RAISE sin_cobranza sobre 00038 → "no tiene ninguna cobranza … Registrá".
+
+**Regla / smell.** Si el copy de una advertencia afirma un hecho sobre los datos
+("no tiene X", "está vacío", "venció"), ese hecho tiene que salir de los datos, no de un
+string fijo. Si la fila no trae el dato para diferenciar, falta un campo calculado — no un
+texto más prolijo. Prueba en vivo (sesión real de Pablo, sólo-lectura): confirm parcial y
+toast sin_cobranza renderizan el copy correcto en `v02ba903`; consola limpia.
+
+**Fecha / módulo:** 2026-06-17 · trámites · migs 0255/0256 + `tramites.ts` +
+`useAvanzarTramite.tsx`. Capitaliza DGG-88.
