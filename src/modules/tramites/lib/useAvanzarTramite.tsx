@@ -30,6 +30,16 @@ export function useAvanzarTramite(opts: Opts = {}) {
     nuevoEstado: TramiteEstado,
   ): Promise<boolean> {
     if (t.estado === nuevoEstado) return false;
+    // DGG-88 · regla dura: NO se puede CERRAR un trámite impago (resuelto sí puede).
+    // El trigger trg_tramite_cerrar_exige_cobrado es el backstop en BD; acá damos
+    // feedback inmediato sin ida y vuelta.
+    if (nuevoEstado === 'cerrado' && t.cobro_pendiente) {
+      toast.error(
+        'No se puede cerrar: el trámite tiene cobro pendiente. Registrá la cobranza ' +
+          '(o anulá/bonificá el comprobante) antes de cerrar.',
+      );
+      return false;
+    }
     // DGG-44 · gate de cobranza (soft) al AVANZAR un trámite impago.
     if (esAvanceTramite(t.estado as TramiteEstado, nuevoEstado) && t.cobro_pendiente) {
       const ok = await confirm({
