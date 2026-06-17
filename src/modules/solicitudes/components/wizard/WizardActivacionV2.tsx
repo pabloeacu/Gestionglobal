@@ -76,6 +76,9 @@ export function WizardActivacionV2({ open, onClose, solicitud, onActivated }: Pr
   // Mientras el ProcesadorFinal corre, bloqueamos el cierre del modal (X/Escape)
   // para no abandonar el proceso a mitad.
   const [procesando, setProcesando] = useState(false);
+  // DGG-89 · evita doble-click en "Comenzar proceso" mientras corre la verificación
+  // de duplicado (deshabilita el botón durante el await).
+  const [verificandoDup, setVerificandoDup] = useState(false);
   const wiz = useWizardActivacion(solicitud, open);
   const {
     flags,
@@ -112,11 +115,17 @@ export function WizardActivacionV2({ open, onClose, solicitud, onActivated }: Pr
       state.docOutcome === 'rechazo' ||
       state.docOutcome === 'descarte';
     if (!esTerminal && !flags.yaTieneTramite) {
-      const dup = await buscarTramiteDuplicado({
-        servicioId: solicitud.servicio_solicitado_id,
-        periodo: state.periodo,
-        email: solicitud.solicitante_email,
-      });
+      setVerificandoDup(true);
+      let dup;
+      try {
+        dup = await buscarTramiteDuplicado({
+          servicioId: solicitud.servicio_solicitado_id,
+          periodo: state.periodo,
+          email: solicitud.solicitante_email,
+        });
+      } finally {
+        setVerificandoDup(false);
+      }
       if (dup.ok && dup.data) {
         const seguir = await confirm({
           title: 'Posible inscripción duplicada',
@@ -205,7 +214,8 @@ export function WizardActivacionV2({ open, onClose, solicitud, onActivated }: Pr
                 )}
                 <Button
                   onClick={esPasoFinal ? () => void comenzarProceso() : goNext}
-                  disabled={!canAvanzar}
+                  disabled={!canAvanzar || verificandoDup}
+                  loading={verificandoDup}
                 >
                   {esPasoFinal ? (
                     <>
