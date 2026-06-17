@@ -3406,9 +3406,19 @@ de `zoom-encuentro-create` se mantuvo intacto (otro agente).
   del tracking, impago → bloqueado por el trigger; consola limpia. **REVISAR** (agentes
   adversariales): #1 sin GAP (gate sólo en →cerrado, sin bypass en las 3 vías); #2 sin GAP
   (cert→resuelto conserva todo, cron no aborta por el filtro, sin regresión a DGG-82).
-- **Hallazgo menor (no bloqueante, preexistente):** `_notif_tracking_cerrado_trg` notifica
-  tanto en `resuelto` como en `cerrado`; con el ciclo de curso (resuelto al cert, cerrado al
-  vencer) eso genera **dos** notificaciones "Trámite cerrado" por curso. No corrompe datos.
-  A pulir aparte si molesta (acotar el trigger a `cerrado`).
+- **Doble notificación → RESUELTO (mig 0254, decisión de Pablo opción 1):**
+  `_notif_tracking_cerrado_trg` avisaba a gerencia en CADA transición a resuelto O cerrado
+  (doble aviso en resuelto→cerrado; p.ej. cursos: al emitir cert y al vencer acceso) y con
+  título siempre "Trámite cerrado". Ahora avisa **una sola vez al ENTRAR a "terminado"**
+  (`OLD∉done AND NEW∈done`), copy según estado ("Trámite resuelto"/"Trámite cerrado"); NO
+  re-avisa en resuelto→cerrado. La línea visible al cliente toma el copy correcto y se
+  saltea en curso→resuelto (la deja el trigger del cert, sin duplicar). e2e (rollback):
+  resuelto=1 push "resuelto"; resuelto→cerrado=0 push; cerrado-directo=1 push "cerrado";
+  curso→resuelto=sin línea genérica. REVISAR sin GAP. (Sin browser test a propósito: dispararía
+  emails reales a los gerentes; el e2e en BD es la verificación sin efectos.)
+- **Deuda menor latente (NO de DGG-88, preexistente desde mig 0202, hoy inalcanzable por UI):**
+  la rama de reapertura de ese trigger captura también `resuelto→cancelado` y deja la línea
+  "Tu trámite fue reabierto…" (copy impreciso para una cancelación). Anotado para pulir si
+  alguna vez se habilita el paso a `cancelado`.
 - **Fecha:** 2026-06-17. Commits `652291e` (#1: gate, mig 0252 + `useAvanzarTramite.tsx`) +
-  `62ccacb` (#2: cursos, mig 0253).
+  `62ccacb` (#2: cursos, mig 0253) + `1fa5f43` (notif una vez, mig 0254).
