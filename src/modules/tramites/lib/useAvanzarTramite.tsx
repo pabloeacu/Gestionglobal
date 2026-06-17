@@ -30,12 +30,19 @@ export function useAvanzarTramite(opts: Opts = {}) {
     nuevoEstado: TramiteEstado,
   ): Promise<boolean> {
     if (t.estado === nuevoEstado) return false;
+    // DGG-88 · El gate dispara igual con saldo pendiente, pero el copy distingue el
+    // MOTIVO real (cobro_estado): un pago a cuenta NO es lo mismo que "sin cobranza".
+    const cobroParcial = t.cobro_estado === 'parcial';
+    const cobroDetalle = cobroParcial
+      ? 'tiene un pago a cuenta, pero el comprobante todavía no está cancelado (queda saldo pendiente)'
+      : 'no tiene ninguna cobranza registrada (está impago)';
     // DGG-88 · regla dura: NO se puede CERRAR un trámite impago (resuelto sí puede).
     // El trigger trg_tramite_cerrar_exige_cobrado es el backstop en BD; acá damos
     // feedback inmediato sin ida y vuelta.
     if (nuevoEstado === 'cerrado' && t.cobro_pendiente) {
       toast.error(
-        'No se puede cerrar: el trámite tiene cobro pendiente. Registrá la cobranza ' +
+        `No se puede cerrar: el trámite ${cobroDetalle}. ` +
+          `${cobroParcial ? 'Completá' : 'Registrá'} la cobranza ` +
           '(o anulá/bonificá el comprobante) antes de cerrar.',
       );
       return false;
@@ -43,10 +50,10 @@ export function useAvanzarTramite(opts: Opts = {}) {
     // DGG-44 · gate de cobranza (soft) al AVANZAR un trámite impago.
     if (esAvanceTramite(t.estado as TramiteEstado, nuevoEstado) && t.cobro_pendiente) {
       const ok = await confirm({
-        title: 'Trámite impago',
+        title: cobroParcial ? 'Trámite con saldo pendiente' : 'Trámite impago',
         message: (
           <div className="space-y-2">
-            <p>Este trámite no tiene cobranza registrada. Por lo tanto, está impago.</p>
+            <p>Este trámite {cobroDetalle}.</p>
             <p>¿Desea avanzar la gestión de todos modos?</p>
           </div>
         ),

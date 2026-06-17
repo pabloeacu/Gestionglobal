@@ -281,6 +281,10 @@ export interface TramiteListItem extends TramiteRow {
   // comprobante con costo (total>0) e impago (saldo>0). Señal del gate de
   // cobranza al avanzar en el kanban. Sólo lo solicita listTramites.
   cobro_pendiente: boolean;
+  // DGG-88 · computed column (Postgrest). Diferencia el MOTIVO del cobro pendiente
+  // para el copy del gate: 'parcial' (hay pago a cuenta, queda saldo) vs
+  // 'sin_cobranza' (impago, sin ningún pago). NULL si no hay saldo pendiente.
+  cobro_estado: 'parcial' | 'sin_cobranza' | null;
   // DGG-55 · computed column (Postgrest). TRUE si el trámite no es terminal y NO
   // tiene comprobante no-anulado vinculado (capta DDJJ + huecos). Chip + filtro.
   comprobante_pendiente: boolean;
@@ -307,6 +311,7 @@ interface RawListRow extends TramiteRow {
   asignado: { id: string; full_name: string | null } | null;
   servicios?: { id: string; nombre: string } | null; // F8 · sólo en listTramites
   cobro_pendiente?: boolean | null; // DGG-44 · sólo presente en listTramites
+  cobro_estado?: 'parcial' | 'sin_cobranza' | null; // DGG-88 · idem
   comprobante_pendiente?: boolean | null; // DGG-55 · idem
 }
 
@@ -318,6 +323,7 @@ function mapRaw(r: RawListRow): TramiteListItem {
     asignado_nombre: r.asignado?.full_name ?? null,
     servicio_nombre: r.servicios?.nombre ?? null,
     cobro_pendiente: r.cobro_pendiente ?? false,
+    cobro_estado: r.cobro_estado ?? null,
     comprobante_pendiente: r.comprobante_pendiente ?? false,
   };
 }
@@ -333,6 +339,7 @@ export async function listTramites(
     .select(
       `*,
        cobro_pendiente,
+       cobro_estado,
        comprobante_pendiente,
        administraciones(id,nombre),
        consorcios(id,nombre),
