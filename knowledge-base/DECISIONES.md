@@ -3323,3 +3323,32 @@ de `zoom-encuentro-create` se mantuvo intacto (otro agente).
   gerencia lo muestra bien. Es display-only.
 - **Fecha:** 2026-06-16. Migs 0250 + 0251. Sin cambios de frontend. Reusa el patrón de
   imputaciones de la sábana (DGG-85). Resuelve el pendiente facturado-vs-cobrado.
+
+## DGG-87 · Atajo de avance de estado en la LISTA de trámites (hook compartido con el kanban) (2026-06-17)
+
+- **Pedido (Pablo):** en el kanban se cambia el estado (abierto → en progreso → esperando
+  cliente → …) arrastrando/con el botón →, pero en la **lista** no había cómo. Sumar un
+  "pequeño botón de acción" para avanzar. Requisito explícito: **una sola fuente de verdad**
+  — lo que pase en el kanban repercute en la lista y viceversa; el botón es sólo un atajo.
+- **Decisión / cómo se logró la fuente única:** se EXTRAJO el `mover` del kanban a un hook
+  compartido `src/modules/tramites/lib/useAvanzarTramite.tsx` que ahora usan AMBAS vistas.
+  El hook encapsula: gate de cobranza DGG-44 (`esAvanceTramite` + `cobro_pendiente` →
+  `useConfirm` "Trámite impago"), update optimista (callback por vista), la mutación
+  **`updateTramite(id,{estado})`** (la BD es la fuente de verdad) y los toasts. El kanban
+  pasa `onOptimistic=setUniverse`, `onError=load`, `play` (sonidos); la lista pasa
+  `onOptimistic=setUniverse`, `onError=load` (sin sonidos). La reconciliación entre vistas
+  la da `useRealtimeRefresh(['tramites'])` que ya tenían ambas. No hay lógica duplicada que
+  pueda derivar (alineado con R14/R15).
+- **UI lista:** en la columna Estado, si `NEXT_ESTADO[estado]` existe (no en cerrado/
+  cancelado), un botón `→ {siguiente estado}` (mismo de la card del kanban), fuera del
+  `<Link>` de navegación. Click → `avanzar(r, nextEst)` → mismo flujo que el kanban.
+- **Sin cambios de BD/RPC:** reusa `updateTramite` (ya existente y e2e-probado). Cambio
+  puramente de frontend.
+- **§6 / verificación:** build limpio (tsc strict + vite). REVISAR (agente adversarial):
+  extracción 1:1 sin drift, fuente única, botón gateado y aislado del Link, kanban sin
+  regresión, sin imports muertos — sin GAP. **Prueba en vivo PENDIENTE**: no se pudo correr
+  esta sesión porque el conector de Supabase se desconectó (lo necesito para crear el
+  gerente QA efímero) y se cerró el tab del browser. Queda para correr apenas vuelva el
+  conector (o Pablo puede probarlo directo en la lista deployada).
+- **Fecha:** 2026-06-17. Archivos: `lib/useAvanzarTramite.tsx` (nuevo) + `TramitesKanbanPage`
+  (refactor) + `TramitesListPage` (botón).

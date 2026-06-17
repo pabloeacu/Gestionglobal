@@ -2,12 +2,13 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from '@/lib/toast';
 import { Plus, List as ListIcon, AlertTriangle, ArrowRight, GripVertical, Receipt } from 'lucide-react';
-import { Button, SkeletonRow, useConfirm, RefreshIndicator } from '@/components/common';
+import { Button, SkeletonRow, RefreshIndicator } from '@/components/common';
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
 import { useSounds } from '@/contexts/SoundContext';
 import { cn } from '@/lib/cn';
 import { TramiteFormDrawer } from '../components/TramiteFormDrawer';
 import { TramitesSegmentos, TramitesFilterBar } from '../components/TramitesFiltros';
+import { useAvanzarTramite } from '../lib/useAvanzarTramite';
 import {
   ACTIVE_ESTADOS,
   applyTramitesFilters,
@@ -19,10 +20,8 @@ import {
 } from '../components/tramitesFilter';
 import {
   listTramites,
-  updateTramite,
   computeSla,
   NEXT_ESTADO,
-  esAvanceTramite,
   TRAMITE_CATEGORIA_LABEL,
   TRAMITE_PRIORIDAD_LABEL,
   TRAMITE_ESTADO_LABEL,
@@ -61,7 +60,6 @@ export function TramitesKanbanPage() {
   const [dragOverCol, setDragOverCol] = useState<TramiteEstado | null>(null);
   const [f, setF] = useState<TramitesFilterState>(INITIAL_TRAMITES_FILTER);
   const { play } = useSounds();
-  const confirm = useConfirm();
 
   function update(patch: Partial<TramitesFilterState>) {
     setF((prev) => ({ ...prev, ...patch }));
@@ -117,34 +115,13 @@ export function TramitesKanbanPage() {
     return m;
   }, [filtered]);
 
-  async function mover(t: TramiteListItem, nuevoEstado: TramiteEstado) {
-    if (t.estado === nuevoEstado) return;
-    // DGG-44 · gate de cobranza (soft) al AVANZAR un trámite impago.
-    if (esAvanceTramite(t.estado as TramiteEstado, nuevoEstado) && t.cobro_pendiente) {
-      const ok = await confirm({
-        title: 'Trámite impago',
-        message: (
-          <div className="space-y-2">
-            <p>Este trámite no tiene cobranza registrada. Por lo tanto, está impago.</p>
-            <p>¿Desea avanzar la gestión de todos modos?</p>
-          </div>
-        ),
-        confirmLabel: 'Avanzar',
-        cancelLabel: 'Cancelar',
-      });
-      if (!ok) return;
-    }
-    setUniverse((prev) => prev.map((r) => (r.id === t.id ? { ...r, estado: nuevoEstado } : r)));
-    play('click');
-    const res = await updateTramite(t.id, { estado: nuevoEstado });
-    if (!res.ok) {
-      toast.error(`No pudimos mover el trámite: ${humanizeError(res.error)}`);
-      void load();
-      return;
-    }
-    play('success');
-    toast.success(`Trámite ${t.codigo} → ${TRAMITE_ESTADO_LABEL[nuevoEstado]}`);
-  }
+  // DGG-87 · mismo flujo que la lista (gate de cobranza + updateTramite + toasts).
+  const mover = useAvanzarTramite({
+    onOptimistic: (id, nuevoEstado) =>
+      setUniverse((prev) => prev.map((r) => (r.id === id ? { ...r, estado: nuevoEstado } : r))),
+    onError: () => void load(),
+    play,
+  });
 
   return (
     <div className="mx-auto max-w-[1600px] space-y-6">

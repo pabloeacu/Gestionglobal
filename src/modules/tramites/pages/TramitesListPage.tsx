@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { toast } from '@/lib/toast';
-import { Plus, Briefcase, ChevronRight, KanbanSquare, Receipt, AlertTriangle } from 'lucide-react';
+import { Plus, Briefcase, ChevronRight, KanbanSquare, Receipt, AlertTriangle, ArrowRight } from 'lucide-react';
 import {
   Button,
   RefreshIndicator,
@@ -16,6 +16,7 @@ import { formatDateTime } from '@/lib/dates';
 import { cn } from '@/lib/cn';
 import { TramiteFormDrawer } from '../components/TramiteFormDrawer';
 import { TramitesSegmentos, TramitesFilterBar } from '../components/TramitesFiltros';
+import { useAvanzarTramite } from '../lib/useAvanzarTramite';
 import {
   ACTIVE_ESTADOS,
   applyTramitesFilters,
@@ -30,6 +31,7 @@ import {
 import {
   listTramites,
   computeSla,
+  NEXT_ESTADO,
   TRAMITE_CATEGORIA_LABEL,
   TRAMITE_ESTADO_LABEL,
   TRAMITE_PRIORIDAD_LABEL,
@@ -131,6 +133,15 @@ export function TramitesListPage() {
   }, [f.soloActivos]);
 
   useRealtimeRefresh(['tramites', 'tramite_comentarios'], () => void load());
+
+  // DGG-87 · atajo de avance de estado en la lista — MISMO flujo que el kanban
+  // (hook compartido: gate de cobranza + updateTramite + toasts). La BD es la
+  // única fuente de verdad; lo que cambie acá se refleja en el kanban y viceversa.
+  const avanzar = useAvanzarTramite({
+    onOptimistic: (id, nuevoEstado) =>
+      setUniverse((prev) => prev.map((r) => (r.id === id ? { ...r, estado: nuevoEstado } : r))),
+    onError: () => void load(),
+  });
 
   const counts = useMemo(() => countSegments(universe), [universe]);
   const servicioOpts = useMemo(() => servicioOptions(universe), [universe]);
@@ -281,6 +292,7 @@ export function TramitesListPage() {
                 <tbody>
                   {sorted.map((r, idx) => {
                     const sla = computeSla(r);
+                    const nextEst = NEXT_ESTADO[r.estado as TramiteEstado];
                     return (
                       <tr
                         key={r.id}
@@ -331,10 +343,22 @@ export function TramitesListPage() {
                           </span>
                         </td>
                         <td className="px-4 py-3">
-                          <span className={cn('inline-block rounded-full border px-2 py-0.5 text-[11px] font-semibold', ESTADO_BADGES[r.estado as TramiteEstado])}>
-                            {TRAMITE_ESTADO_LABEL[r.estado as TramiteEstado]}
-                          </span>
-                          <span className="ml-2 text-[10px] text-brand-muted">{formatDateTime(r.ultima_actividad_at)}</span>
+                          <div className="flex items-center gap-2">
+                            <span className={cn('inline-block rounded-full border px-2 py-0.5 text-[11px] font-semibold', ESTADO_BADGES[r.estado as TramiteEstado])}>
+                              {TRAMITE_ESTADO_LABEL[r.estado as TramiteEstado]}
+                            </span>
+                            <span className="text-[10px] text-brand-muted">{formatDateTime(r.ultima_actividad_at)}</span>
+                          </div>
+                          {nextEst && (
+                            <button
+                              type="button"
+                              onClick={() => void avanzar(r, nextEst)}
+                              className="mt-1.5 inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-medium text-brand-muted transition hover:border-brand-cyan hover:text-brand-cyan"
+                              title={`Avanzar a ${TRAMITE_ESTADO_LABEL[nextEst]}`}
+                            >
+                              <ArrowRight size={11} /> {TRAMITE_ESTADO_LABEL[nextEst]}
+                            </button>
+                          )}
                         </td>
                         <td className="px-4 py-3">
                           <Link to={`/gerencia/tramites/${r.id}`} className="inline-flex text-brand-muted transition-transform group-hover:translate-x-1 group-hover:text-brand-cyan" aria-label="Abrir trámite">
