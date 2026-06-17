@@ -6,8 +6,13 @@
 import { useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, Sparkles } from 'lucide-react';
-import { Button, Modal, Stepper, type Step } from '@/components/common';
+import { Button, Modal, Stepper, useConfirm, type Step } from '@/components/common';
 import type { SolicitudDetalle } from '@/services/api/solicitudes';
+import {
+  buscarTramiteDuplicado,
+  TRAMITE_ESTADO_LABEL,
+  type TramiteEstado,
+} from '@/services/api/tramites';
 import { useWizardActivacion } from './useWizardActivacion';
 import { ProcesadorFinal } from './ProcesadorFinal';
 import { PasoCliente } from './PasoCliente';
@@ -67,6 +72,7 @@ function validarPaso(key: PasoKey, state: WizardState): boolean {
 
 export function WizardActivacionV2({ open, onClose, solicitud, onActivated }: Props) {
   const navigate = useNavigate();
+  const confirm = useConfirm();
   // Mientras el ProcesadorFinal corre, bloqueamos el cierre del modal (X/Escape)
   // para no abandonar el proceso a mitad.
   const [procesando, setProcesando] = useState(false);
@@ -95,6 +101,43 @@ export function WizardActivacionV2({ open, onClose, solicitud, onActivated }: Pr
 
   const canAvanzar = validarPaso(pasoActual.key, state);
   const pasoProps: PasoProps = { solicitud, flags, state, set };
+
+  // DGG-89 · Antes de lanzar el ProcesadorFinal (que abre el trámite), avisamos si
+  // ya existe un trámite no-cancelado del mismo servicio+período+solicitante: es
+  // casi siempre un reenvío del formulario. Soft gate: gerencia decide. No aplica
+  // al camino terminal (revisión/rechazo/descarte) ni si el trámite ya existe.
+  async function comenzarProceso() {
+    const esTerminal =
+      state.docOutcome === 'revision' ||
+      state.docOutcome === 'rechazo' ||
+      state.docOutcome === 'descarte';
+    if (!esTerminal && !flags.yaTieneTramite) {
+      const dup = await buscarTramiteDuplicado({
+        servicioId: solicitud.servicio_solicitado_id,
+        periodo: state.periodo,
+        email: solicitud.solicitante_email,
+      });
+      if (dup.ok && dup.data) {
+        const seguir = await confirm({
+          title: 'Posible inscripción duplicada',
+          message: (
+            <div className="space-y-2">
+              <p>
+                Ya existe el trámite <strong>{dup.data.codigo}</strong> (
+                {TRAMITE_ESTADO_LABEL[dup.data.estado as TramiteEstado] ?? dup.data.estado}) para
+                este solicitante y servicio — probablemente un reenvío del formulario.
+              </p>
+              <p>¿Activar igual y abrir un trámite nuevo?</p>
+            </div>
+          ),
+          confirmLabel: 'Activar igual',
+          cancelLabel: 'Cancelar',
+        });
+        if (!seguir) return;
+      }
+    }
+    goNext();
+  }
 
   function renderPaso() {
     switch (pasoActual.key) {
@@ -160,7 +203,10 @@ export function WizardActivacionV2({ open, onClose, solicitud, onActivated }: Pr
                     <ArrowLeft size={14} /> Atrás
                   </Button>
                 )}
-                <Button onClick={goNext} disabled={!canAvanzar}>
+                <Button
+                  onClick={esPasoFinal ? () => void comenzarProceso() : goNext}
+                  disabled={!canAvanzar}
+                >
                   {esPasoFinal ? (
                     <>
                       Comenzar proceso <Sparkles size={14} />

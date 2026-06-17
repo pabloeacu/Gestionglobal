@@ -288,6 +288,9 @@ export interface TramiteListItem extends TramiteRow {
   // DGG-55 · computed column (Postgrest). TRUE si el trámite no es terminal y NO
   // tiene comprobante no-anulado vinculado (capta DDJJ + huecos). Chip + filtro.
   comprobante_pendiente: boolean;
+  // DGG-89 · computed column (Postgrest). TRUE si hay otro trámite no-cancelado del
+  // mismo servicio+período+solicitante (email) → probable reenvío. Sólo badge.
+  posible_duplicado: boolean;
 }
 
 export interface ListTramitesParams {
@@ -313,6 +316,7 @@ interface RawListRow extends TramiteRow {
   cobro_pendiente?: boolean | null; // DGG-44 · sólo presente en listTramites
   cobro_estado?: 'parcial' | 'sin_cobranza' | null; // DGG-88 · idem
   comprobante_pendiente?: boolean | null; // DGG-55 · idem
+  posible_duplicado?: boolean | null; // DGG-89 · idem
 }
 
 function mapRaw(r: RawListRow): TramiteListItem {
@@ -325,6 +329,7 @@ function mapRaw(r: RawListRow): TramiteListItem {
     cobro_pendiente: r.cobro_pendiente ?? false,
     cobro_estado: r.cobro_estado ?? null,
     comprobante_pendiente: r.comprobante_pendiente ?? false,
+    posible_duplicado: r.posible_duplicado ?? false,
   };
 }
 
@@ -341,6 +346,7 @@ export async function listTramites(
        cobro_pendiente,
        cobro_estado,
        comprobante_pendiente,
+       posible_duplicado,
        administraciones(id,nombre),
        consorcios(id,nombre),
        servicios(id,nombre),
@@ -379,6 +385,31 @@ export async function listTramites(
     rows: (data as unknown as RawListRow[] | null)?.map(mapRaw) ?? [],
     total: count ?? 0,
   });
+}
+
+// DGG-89 · Detección de inscripción duplicada (reenvío del formulario). Busca un
+// trámite NO cancelado del mismo servicio + período + solicitante (por email,
+// case-insensitive). Lo usa el wizard de activación para AVISAR antes de abrir un
+// 2º trámite. Sólo lectura; identidad alineada con el computed field
+// `posible_duplicado` (mig 0257) que alimenta el badge de la lista.
+export async function buscarTramiteDuplicado(params: {
+  servicioId: string | null | undefined;
+  periodo: string | null | undefined;
+  email: string | null | undefined;
+}): Promise<ApiResponse<{ codigo: string; estado: TramiteEstado } | null>> {
+  if (!params.servicioId || !params.periodo || !params.email) return ok(null);
+  const { data, error } = await supabase
+    .from('tramites')
+    .select('codigo, estado')
+    .eq('servicio_id', params.servicioId)
+    .eq('periodo', params.periodo)
+    .ilike('solicitante_email', params.email)
+    .neq('estado', 'cancelado')
+    .order('created_at', { ascending: true })
+    .limit(1);
+  if (error) return fail('TRAMITE_DUP', error.message, error);
+  const row = (data as Array<{ codigo: string; estado: TramiteEstado }> | null)?.[0];
+  return ok(row ? { codigo: row.codigo, estado: row.estado } : null);
 }
 
 // ============================================================================

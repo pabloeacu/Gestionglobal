@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from '@/lib/toast';
-import { Plus, List as ListIcon, AlertTriangle, ArrowRight, GripVertical, Receipt } from 'lucide-react';
+import { Plus, List as ListIcon, AlertTriangle, ArrowRight, GripVertical, Receipt, Copy } from 'lucide-react';
 import { Button, SkeletonRow, RefreshIndicator } from '@/components/common';
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
 import { useSounds } from '@/contexts/SoundContext';
@@ -243,6 +243,11 @@ export function TramitesKanbanPage() {
                               {t.comprobante_pendiente && (
                                 <span className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-semibold text-violet-700" title="Falta emitir el comprobante (ej. DDJJ)">
                                   <Receipt size={10} /> Comprobante pendiente
+                                </span>
+                              )}
+                              {t.posible_duplicado && (
+                                <span className="mt-1.5 ml-1 inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700" title="Hay otro trámite del mismo solicitante y servicio en el mismo período — posible reenvío del formulario">
+                                  <Copy size={10} /> Posible duplicado
                                 </span>
                               )}
                               <div className="mt-2 flex items-center justify-end gap-2 text-[10px]">
