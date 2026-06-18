@@ -3085,10 +3085,14 @@ el `IF` no dispara → **bypass del guard**. Combinados, un anon con un item_id 
 escribir. Fix: REVOKE anon/PUBLIC + GRANT authenticated + guard robusto (`IF v_user_id IS NULL
 THEN RAISE` + `COALESCE(v_role,'') <> 'gerente'`). e2e: bloqueo sin-auth ✓ y cross-tenant ✓.
 
-**Deuda latente anotada (NO explotable hoy).** Las hermanas `tramite_pedido_doc_subir_item/crear/
-aprobar_item/rechazar_item` comparten el patrón NULL, PERO **no son anon-ejecutables** (ACL sólo
-authenticated) → el bypass es inalcanzable. Sweep preventivo recomendado: agregar el mismo
-`IF auth NULL` + `COALESCE` a las 4 (que el guard no dependa sólo del ACL).
+**Deuda latente → CERRADA (mig 0263, sweep preventivo).** Barrido de TODAS las funciones
+SECURITY DEFINER con el patrón `role ... NOT IN (...)` sin manejo de NULL → **7 funciones**, todas
+NO anon-ejecutables (bypass latente, no explotable). Se endurecieron las 7 con `IF auth.uid() IS
+NULL THEN RAISE` + `COALESCE(v_role,'')`: las 5 de pedidos de doc (subir/crear/aprobar/rechazar +
+`enviar_revision`) + **`actualizar_gerente`** (gestión de roles — la más sensible) +
+`restaurar_formulario_version`. e2e (rollback): no-auth → 7/7 RAISE "No autenticado"; wrong-role
+crear → "Solo gerencia"; correct crear → pedido+2 items; actualizar_gerente op→gerente OK. ACL
+sigue sólo {authenticated, service_role} (sin anon); 0 overloads (R16).
 
 **Regla / smell.** En plpgsql `SECURITY DEFINER`, `x NOT IN (...)` con `x` NULL devuelve NULL
 (el `IF` no entra) → NUNCA confiar sólo en eso para autorizar; abrir con `IF auth.uid() IS NULL
