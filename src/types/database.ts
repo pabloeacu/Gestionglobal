@@ -6563,6 +6563,7 @@ export type Database = {
           observaciones_rev: string | null
           orden: number
           pedido_id: string
+          respuesta_texto: string | null
           revisado_at: string | null
           revisado_por: string | null
           subido_at: string | null
@@ -6579,6 +6580,7 @@ export type Database = {
           observaciones_rev?: string | null
           orden?: number
           pedido_id: string
+          respuesta_texto?: string | null
           revisado_at?: string | null
           revisado_por?: string | null
           subido_at?: string | null
@@ -6595,6 +6597,7 @@ export type Database = {
           observaciones_rev?: string | null
           orden?: number
           pedido_id?: string
+          respuesta_texto?: string | null
           revisado_at?: string | null
           revisado_por?: string | null
           subido_at?: string | null
@@ -8080,6 +8083,10 @@ export type Database = {
         Returns: string
       }
       cliente_webinars_listar: { Args: never; Returns: Json }
+      cobro_estado: {
+        Args: { t: Database["public"]["Tables"]["tramites"]["Row"] }
+        Returns: string
+      }
       cobro_pendiente: {
         Args: { t: Database["public"]["Tables"]["tramites"]["Row"] }
         Returns: boolean
@@ -8995,6 +9002,7 @@ export type Database = {
         Args: { p_curso_id: string }
         Returns: number
       }
+      gg_campus_vencer_matriculas: { Args: never; Returns: undefined }
       gg_profile_marcar_pwa: {
         Args: { p_installed: boolean }
         Returns: undefined
@@ -9327,6 +9335,10 @@ export type Database = {
         Args: { p_punto_venta: number; p_tipo: string }
         Returns: number
       }
+      posible_duplicado: {
+        Args: { t: Database["public"]["Tables"]["tramites"]["Row"] }
+        Returns: boolean
+      }
       postergar_alarma_tracking: {
         Args: { p_dias: number; p_linea_id: string; p_motivo?: string }
         Returns: string
@@ -9630,6 +9642,10 @@ export type Database = {
       }
       tramite_pedido_doc_rechazar_item: {
         Args: { p_item_id: string; p_motivo: string }
+        Returns: undefined
+      }
+      tramite_pedido_doc_responder_texto_item: {
+        Args: { p_item_id: string; p_texto: string }
         Returns: undefined
       }
       tramite_pedido_doc_subir_item: {

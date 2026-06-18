@@ -21,6 +21,7 @@ import {
   CheckCircle2,
   Eye,
   Send,
+  MessageSquareText,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { toast } from '@/lib/toast';
@@ -32,6 +33,7 @@ import {
   listPedidosPorTramite,
   crearPedidoDoc,
   subirArchivoItem,
+  responderTextoItem,
   enviarRevisionPedido,
   aprobarItem,
   rechazarItem,
@@ -120,7 +122,7 @@ export function PedidosDocPanel({ tramiteId, variant, tramiteLabel }: PedidosDoc
             <div>
               <p className="font-semibold">Necesitamos documentación adicional</p>
               <p className="mt-0.5 text-xs">
-                Para avanzar con este trámite, subí los archivos requeridos. Una vez aprobados, el equipo continúa el proceso automáticamente.
+                Para avanzar con este trámite, respondé lo solicitado: subí el archivo o escribí el dato pedido. Una vez aprobado, el equipo continúa el proceso automáticamente.
               </p>
             </div>
           </div>
@@ -190,11 +192,13 @@ function PedidoCard({
   // y aún no se envió este batch (o gerencia rechazó un item y vuelve a estar
   // disponible). enviado_para_revision_at = NULL → todavía no enviado.
   const yaEnviadoParaRevision = pedido.enviado_para_revision_at != null;
-  const todosConArchivo = totales.pendientes === 0 && totales.total > 0;
+  // DGG-89 · un item está "respondido" si pasó de pendiente (subió archivo O
+  // respondió texto → estado 'subido'/'aprobado'/'rechazado').
+  const todosRespondidos = totales.pendientes === 0 && totales.total > 0;
   const puedeEnviarRevision =
     variant === 'cliente'
     && !closed
-    && todosConArchivo
+    && todosRespondidos
     && !yaEnviadoParaRevision;
 
   async function handleEnviarRevision() {
@@ -267,13 +271,13 @@ function PedidoCard({
                 <strong>Documentación enviada.</strong> El equipo está revisando los archivos. Te avisamos por email + portal cuando esté listo.
               </span>
             </p>
-          ) : todosConArchivo ? (
+          ) : todosRespondidos ? (
             <p className="text-xs text-amber-800">
-              Ya subiste todos los archivos. Hacé click en <strong>Enviar a gerencia</strong> para que el equipo los revise.
+              Ya respondiste todo lo pedido. Hacé click en <strong>Enviar a gerencia</strong> para que el equipo lo revise.
             </p>
           ) : (
             <p className="text-xs text-brand-muted">
-              Faltan <strong>{totales.pendientes}</strong> archivo(s) por subir. Cuando los tengas todos, podrás enviar el lote para revisión.
+              Faltan <strong>{totales.pendientes}</strong> ítem(s) por responder — subí el archivo o escribí el dato. Cuando estén todos, podrás enviar el lote para revisión.
             </p>
           )}
           {puedeEnviarRevision && (
@@ -311,6 +315,8 @@ function PedidoItem({
   const fileRef = useRef<HTMLInputElement | null>(null);
   const [uploading, setUploading] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [texto, setTexto] = useState(item.respuesta_texto ?? '');
+  const [savingTexto, setSavingTexto] = useState(false);
   const prompt = usePrompt();
 
   async function handleUpload(file: File) {
@@ -319,6 +325,18 @@ function PedidoItem({
     if (!res.ok) toast.error(humanizeError(res.error));
     else toast.success('Archivo subido · esperando aprobación');
     setUploading(false);
+    void onChange();
+  }
+
+  // DGG-89 · responder el item con un dato (texto) en vez de archivo.
+  async function handleResponderTexto() {
+    const t = texto.trim();
+    if (!t) return;
+    setSavingTexto(true);
+    const res = await responderTextoItem(item.id, t);
+    if (!res.ok) toast.error(humanizeError(res.error));
+    else toast.success('Respuesta enviada · esperando aprobación');
+    setSavingTexto(false);
     void onChange();
   }
 
@@ -374,6 +392,12 @@ function PedidoItem({
               {item.archivo_size_bytes && (<span> · {formatBytes(item.archivo_size_bytes)}</span>)}
             </p>
           )}
+          {item.respuesta_texto && (
+            <p className="mt-0.5 flex items-start gap-1 text-[11px] text-slate-700">
+              <MessageSquareText size={11} className="mt-0.5 flex-none text-brand-cyan" />
+              <span className="whitespace-pre-wrap break-words">{item.respuesta_texto}</span>
+            </p>
+          )}
           {item.observaciones_rev && item.estado === 'rechazado' && (
             <div className="mt-2 rounded-md border border-red-200 bg-red-50 px-2 py-1.5 text-[11px] text-red-700">
               <strong>Motivo del rechazo:</strong> {item.observaciones_rev}
@@ -383,7 +407,7 @@ function PedidoItem({
         <div className="flex flex-col items-end gap-1.5">
           <span className={itemBadge}>
             {item.estado === 'pendiente' && 'Pendiente'}
-            {item.estado === 'subido'    && 'Subido'}
+            {item.estado === 'subido'    && (item.respuesta_texto && !item.archivo_path ? 'Respondido' : 'Subido')}
             {item.estado === 'aprobado'  && 'Aprobado'}
             {item.estado === 'rechazado' && 'Observado'}
           </span>
@@ -447,6 +471,30 @@ function PedidoItem({
           </div>
         </div>
       </div>
+
+      {/* DGG-89 · El cliente puede responder con un DATO (texto) en vez de —o
+          además de— subir un archivo. Nunca queda trabado si le piden un número. */}
+      {variant === 'cliente' && item.estado !== 'aprobado' && (
+        <div className="mt-2 flex items-center gap-2">
+          <input
+            type="text"
+            value={texto}
+            onChange={(e) => setTexto(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void handleResponderTexto(); } }}
+            placeholder="O escribí el dato pedido (ej: número de legajo)"
+            className="min-w-0 flex-1 rounded-md border border-slate-200 px-2.5 py-1.5 text-[12px] focus:border-brand-cyan focus:outline-none focus:ring-2 focus:ring-brand-cyan/30"
+          />
+          <button
+            type="button"
+            disabled={savingTexto || !texto.trim()}
+            onClick={() => void handleResponderTexto()}
+            className="inline-flex flex-none items-center gap-1 rounded-md border border-brand-cyan/30 bg-brand-cyan-pale/40 px-2.5 py-1.5 text-[11px] font-semibold text-brand-cyan hover:bg-brand-cyan-pale disabled:opacity-50"
+          >
+            {savingTexto ? <Loader2 size={11} className="animate-spin" /> : <MessageSquareText size={11} />}
+            {item.respuesta_texto ? 'Actualizar' : 'Responder'}
+          </button>
+        </div>
+      )}
     </li>
   );
 }
@@ -531,7 +579,7 @@ function CrearPedidoModal({
             Items requeridos
           </label>
           <p className="mt-0.5 mb-2 text-[11px] text-brand-muted">
-            Uno por línea. Sé específico — el cliente lo ve textual y debe subir un archivo por cada uno.
+            Uno por línea. Sé específico — el cliente puede responder cada uno con un dato (texto) o subiendo un archivo.
           </p>
           <div className="space-y-2">
             {items.map((it, idx) => (

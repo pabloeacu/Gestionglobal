@@ -94,6 +94,22 @@ export async function subirArchivoItem(
   return ok({ path });
 }
 
+// DGG-89 · Cliente (o gerencia) responde un item con TEXTO en vez de archivo
+// (ej. "número de legajo"). Deja el item en 'subido' igual que una subida de
+// archivo, para que entre en el flujo de aprobación. Cualquier item acepta
+// texto o archivo — el cliente nunca queda trabado.
+export async function responderTextoItem(
+  itemId: string,
+  texto: string,
+): Promise<ApiResponse<true>> {
+  const { error } = await rpc('tramite_pedido_doc_responder_texto_item', {
+    p_item_id: itemId,
+    p_texto: texto,
+  });
+  if (error) return fail('ITEM_RESPONDER_TEXTO', error.message, error);
+  return ok(true);
+}
+
 // Gerencia aprueba un item subido. Si era el último, cierra el pedido auto.
 export async function aprobarItem(
   itemId: string,
