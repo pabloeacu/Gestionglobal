@@ -169,9 +169,22 @@ Deno.serve(async (req) => {
   // 5) Render del subject + html usando layout MANAXER o legacy.
   const vars = (job.variables ?? {}) as Record<string, unknown>;
   const subject = renderVars(tpl.asunto, vars);
-  const html = tpl.layout_version === 'manaxer-v1'
-    ? buildManaxerHtml(tpl, vars, senderEmail, replyToEmail)
-    : renderVars(tpl.body_html, vars);
+  let html: string;
+  if (tpl.layout_version === 'manaxer-v1') {
+    html = buildManaxerHtml(tpl, vars, senderEmail, replyToEmail);
+    // Hardening (E-GG-74): una plantilla manaxer-v1 con `cuerpo_html_visual` vacío
+    // produce un mail "sólo logo" (el dispatcher no mira `body_html` en este layout).
+    // Defensa: si el cuerpo visual renderiza vacío y existe `body_html` legacy,
+    // caemos al render legacy completo (body_html es un documento HTML entero, por
+    // eso NO se inyecta dentro del layout manaxer → se reemplaza todo el html).
+    // Las plantillas manaxer con cuerpo poblado (las ~35 vigentes) no se tocan.
+    const cuerpoVacio = !renderVars(tpl.cuerpo_html_visual ?? '', vars).trim();
+    if (cuerpoVacio && (tpl.body_html ?? '').trim()) {
+      html = renderVars(tpl.body_html, vars);
+    }
+  } else {
+    html = renderVars(tpl.body_html, vars);
+  }
   const text = tpl.body_text ? renderVars(tpl.body_text, vars) : undefined;
 
   // 6) OAuth2 access token.

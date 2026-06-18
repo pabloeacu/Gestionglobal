@@ -3047,8 +3047,16 @@ trámite-resuelto) → mig 0262 puebla sus campos visuales. (Las otras 35 planti
 
 **Regla / smell.** Plantilla `manaxer-v1` ⇒ el cuerpo va en `cuerpo_html_visual`, NO en
 `body_html` (que el dispatcher ignora). Toda plantilla manaxer con `cuerpo_html_visual` vacío
-manda mail vacío. Pendiente recomendado: fallback en `buildManaxerHtml` a `body_html` cuando el
-cuerpo visual queda vacío (blinda contra ediciones del editor de templates).
+manda mail vacío.
+
+**Hardening implementado (2026-06-18, edge fn dispatch-emails v12).** (a) **Fallback en el
+dispatcher:** si una plantilla `manaxer-v1` renderiza `cuerpo_html_visual` vacío Y existe
+`body_html`, cae al render legacy completo (`renderVars(body_html)`) en vez de mandar "sólo
+logo". Sólo se reemplaza todo el html (body_html es un documento entero; no se inyecta en el
+layout). Verificado: unit test del decisor 5/5 + SQL (0 de 37 templates manaxer disparan el
+fallback hoy → cero cambio de comportamiento en los vigentes; es defensa para el futuro). (b)
+**Validación en el editor** (`EmailTemplatesPage.handleSave`): bloquea guardar una plantilla con
+el cuerpo vacío (sin texto tras quitar tags y sin `<img>`).
 
 **Fecha / módulo:** 2026-06-18 · email · migs 0259 + 0262 (datos de email_templates) +
 `solicitud_pedir_docs_revision`.

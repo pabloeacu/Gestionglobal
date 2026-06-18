@@ -288,6 +288,16 @@ function TemplateEditor({ template, userEmail, onSaved }: EditorProps) {
   const fromEmail = casilla?.email ?? 'contacto@gestionglobal.ar';
 
   async function handleSave() {
+    // E-GG-74 · una plantilla manaxer con el cuerpo vacío manda un mail "sólo logo".
+    // Bloqueamos el guardado en el origen (el dispatcher además tiene fallback a
+    // body_html como segunda red). Vacío = sin texto tras quitar tags y sin imagen.
+    const cuerpoVacio = !cuerpo.replace(/<[^>]*>/g, '').trim() && !/<img/i.test(cuerpo);
+    if (cuerpoVacio) {
+      toast.error('El cuerpo del email no puede quedar vacío', {
+        description: 'Escribí el contenido del mensaje: si queda vacío, el email sale sólo con el logo.',
+      });
+      return;
+    }
     setSaving(true);
     const res = await updateTemplateVisual(template.slug, {
       kicker,
