@@ -3025,3 +3025,72 @@ toast sin_cobranza renderizan el copy correcto en `v02ba903`; consola limpia.
 
 **Fecha / módulo:** 2026-06-17 · trámites · migs 0255/0256 + `tramites.ts` +
 `useAvanzarTramite.tsx`. Capitaliza DGG-88.
+
+## E-GG-74 · El mail de "Pedir y dejar en revisión" salía vacío (manaxer-v1 con cuerpo visual vacío ignora el `body_html`) — 2026-06-18
+
+**Síntoma.** (Reporte JL.) Al usar "Pedir y dejar en revisión" en el wizard, al cliente le
+llegaba el mail "Necesitamos algo más para tu solicitud" **vacío (sólo el logo)** — no decía
+qué le faltaba. Y "no se cargaba nada en el portal".
+
+**Causa raíz.** El dispatcher `dispatch-emails` bifurca el render por `layout_version`: para
+`manaxer-v1` arma el cuerpo SÓLO desde los campos `titulo_visual`/`kicker`/`cuerpo_html_visual`
+e **ignora `body_html`**. La plantilla `solicitud-docs-revision` estaba en `manaxer-v1` con esos
+3 campos VACÍOS; el HTML rico con `{{mensaje}}` vivía en `body_html` (código muerto). El
+`mensaje` se pasaba bien desde la RPC; se perdía en el render. (Lo de "nada en el portal" es
+**por diseño**: esa rama NO abre trámite — el canal es el mail/respuesta; sólo el notif/push
+apuntaban a `/portal/solicitudes`, ruta inexistente.)
+
+**Fix.** Mig 0259: poblar los campos visuales del template con el detalle `{{mensaje}}` +
+"respondé este correo"; corregir la ruta del notif/push a `/portal`. **Sweep §6:** se encontró
+la MISMA falla en `gerencia-notif-generica` (alto tráfico: cierre/reapertura/fan-out/moderación/
+trámite-resuelto) → mig 0262 puebla sus campos visuales. (Las otras 35 plantillas manaxer OK.)
+
+**Regla / smell.** Plantilla `manaxer-v1` ⇒ el cuerpo va en `cuerpo_html_visual`, NO en
+`body_html` (que el dispatcher ignora). Toda plantilla manaxer con `cuerpo_html_visual` vacío
+manda mail vacío. Pendiente recomendado: fallback en `buildManaxerHtml` a `body_html` cuando el
+cuerpo visual queda vacío (blinda contra ediciones del editor de templates).
+
+**Fecha / módulo:** 2026-06-18 · email · migs 0259 + 0262 (datos de email_templates) +
+`solicitud_pedir_docs_revision`.
+
+## E-GG-75 · El pedido de documentación era archivo-only: pedir un DATO trababa al cliente — 2026-06-18
+
+**Síntoma.** (Reporte JL.) Gerencia abrió el trámite y pidió el "número de legajo" en un Pedido
+de documentación. El cliente, en el portal, **sólo podía SUBIR un archivo** — no había forma de
+responder con texto el dato pedido → quedaba trabado (el botón "Enviar a gerencia" nunca se
+habilitaba).
+
+**Causa raíz.** El sistema `tramite_pedidos_doc_items` era archivo-only en las 4 capas (modelo,
+RPC, portal, gerencia): un ítem se completaba sólo con `archivo_path`. No existía un campo de
+respuesta de texto del cliente.
+
+**Fix (decisión de Pablo: cualquier ítem se responde con texto O archivo).** Mig 0260: columna
+`respuesta_texto` + RPC `tramite_pedido_doc_responder_texto_item` (deja el ítem en 'subido',
+entra al flujo de aprobación). Frontend `PedidosDocPanel`: input de texto del cliente + render de
+la respuesta (la ve gerencia para aprobar) + badge "Respondido" + gating por respuesta (no sólo
+archivo). Servicio `responderTextoItem`.
+
+**Hallazgo de seguridad (lo cazó el e2e §6) — mig 0261.** La RPC nueva quedó (a) con `EXECUTE`
+para `anon`/PUBLIC (default de `CREATE FUNCTION`; las hermanas sólo lo tienen `authenticated`) y
+(b) con el patrón heredado `v_role NOT IN ('gerente')` que con `auth.uid()` NULL evalúa NULL →
+el `IF` no dispara → **bypass del guard**. Combinados, un anon con un item_id válido podía
+escribir. Fix: REVOKE anon/PUBLIC + GRANT authenticated + guard robusto (`IF v_user_id IS NULL
+THEN RAISE` + `COALESCE(v_role,'') <> 'gerente'`). e2e: bloqueo sin-auth ✓ y cross-tenant ✓.
+
+**Deuda latente anotada (NO explotable hoy).** Las hermanas `tramite_pedido_doc_subir_item/crear/
+aprobar_item/rechazar_item` comparten el patrón NULL, PERO **no son anon-ejecutables** (ACL sólo
+authenticated) → el bypass es inalcanzable. Sweep preventivo recomendado: agregar el mismo
+`IF auth NULL` + `COALESCE` a las 4 (que el guard no dependa sólo del ACL).
+
+**Regla / smell.** En plpgsql `SECURITY DEFINER`, `x NOT IN (...)` con `x` NULL devuelve NULL
+(el `IF` no entra) → NUNCA confiar sólo en eso para autorizar; abrir con `IF auth.uid() IS NULL
+THEN RAISE` y usar `COALESCE`. Y toda función nueva expuesta a PostgREST: REVOKE anon/PUBLIC +
+GRANT authenticated en la misma migración (las hermanas lo tenían; la nueva nació con el default).
+
+**Verificación.** §6 (3 agentes REVISAR sin GAP crítico + EJERCITAR e2e con contexto de rol:
+responder→subido+trim+subido_por admin; bloqueo sin-auth y cross-tenant) + prueba en vivo (cliente
+QA responde "LEGAJO-99887" → "Respondido" + "Enviar a gerencia" habilitado; gerencia ve el dato +
+Aprobar/Rechazar; consola limpia; QA limpiado residuo 0).
+
+**Fecha / módulo:** 2026-06-18 · pedidos de documentación · migs 0260+0261 +
+`tramitePedidosDoc.ts` + `PedidosDocPanel.tsx`. Capitaliza DGG-89.

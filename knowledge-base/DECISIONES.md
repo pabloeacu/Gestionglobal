@@ -3469,3 +3469,23 @@ de `zoom-encuentro-create` se mantuvo intacto (otro agente).
   (no se click-eó en vivo para no activar una solicitud real; el render del confirm es determinista).
 - **Fecha:** 2026-06-17. Commits `572172d` (capas 1+2, mig 0257 + `tramites.ts` +
   `WizardActivacionV2.tsx` + badges) + `afa5532` (§6: mig 0258 SECURITY INVOKER + guard doble-click).
+
+### DGG-89 · Reportes JL: mail de "dejar en revisión" + responder pedido con texto (2026-06-18)
+
+Dos reportes de José Luis sobre "pedir algo al cliente" (ver E-GG-74 y E-GG-75):
+- **#1 (E-GG-74):** "Pedir y dejar en revisión" mandaba mail VACÍO (plantilla manaxer-v1 con
+  cuerpo visual vacío → ignora el `body_html` donde estaba `{{mensaje}}`). Decisión de Pablo:
+  **arreglar el mail** (no abrir portal: esa rama es email-first por diseño). Mig 0259 puebla el
+  template + corrige ruta rota `/portal/solicitudes`→`/portal`. Sweep §6: misma falla en
+  `gerencia-notif-generica` (alto tráfico) → mig 0262.
+- **#2 (E-GG-75):** el pedido de documentación era archivo-only → pedir un dato (legajo) trababa
+  al cliente. Decisión de Pablo: **cualquier ítem se responde con texto O archivo**. Mig 0260
+  (`respuesta_texto` + RPC `responder_texto_item`) + `PedidosDocPanel` (input cliente + ver
+  respuesta en gerencia). §6 e2e cazó un hueco de seguridad (RPC nueva anon-ejecutable + bypass
+  por `v_role NOT IN` con auth NULL) → **mig 0261** (REVOKE anon/PUBLIC + GRANT authenticated +
+  guard `IF auth NULL` + `COALESCE`). Patrón NULL latente en las hermanas (no anon-exec → no
+  explotable) anotado para sweep.
+- **Verificación:** 3 agentes REVISAR + EJERCITAR e2e (role-context, cross-tenant, no-auth) +
+  prueba en vivo (cliente QA responde "LEGAJO-99887" → "Respondido" + "Enviar a gerencia"; gerencia
+  ve el dato + Aprobar/Rechazar; consola limpia; QA residuo 0).
+- **Fecha:** 2026-06-18. Commits `3114f6f` (migs 0259/0260/0261 + frontend) + docs/0262.
