@@ -139,7 +139,7 @@ export function AlarmasHoyWidget() {
           <li key={a.linea_id} className="py-2.5">
             <div className="flex items-start justify-between gap-3">
               <Link
-                to={`/gestion/tracking/${a.tramite_id}`}
+                to={`/gerencia/trackings/${a.tramite_id}`}
                 className="group min-w-0 flex-1"
               >
                 <div className="flex items-center gap-1.5">

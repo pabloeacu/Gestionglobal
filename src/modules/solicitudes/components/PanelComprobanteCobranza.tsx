@@ -140,7 +140,7 @@ export function PanelComprobanteCobranza({
               </p>
             </div>
             <Link
-              to={`/gestion/facturacion/comprobantes/${comp.id}`}
+              to={`/gerencia/facturacion/${comp.id}`}
               className="inline-flex items-center gap-1 text-sm font-medium text-brand-cyan hover:underline"
             >
               Abrir <ExternalLink size={12} />

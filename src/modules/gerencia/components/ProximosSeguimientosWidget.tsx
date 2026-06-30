@@ -72,7 +72,7 @@ export function ProximosSeguimientosWidget({ dias = 7, limit = 8 }: Props) {
           {items.map((it) => (
             <li key={it.linea_id}>
               <Link
-                to={`/gestion/tracking/${it.tramite_id}`}
+                to={`/gerencia/trackings/${it.tramite_id}`}
                 className="group flex items-center gap-3 py-2.5 px-1 transition hover:bg-slate-50 rounded"
               >
                 <span
