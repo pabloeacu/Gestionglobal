@@ -242,8 +242,18 @@ export function CursoDetalleAlumnoPage() {
   useEffect(() => {
     if (!nodoSel || typeof window === 'undefined') return;
     const t = setTimeout(() => {
-      mainRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 60);
+      const el = mainRef.current;
+      if (!el) return;
+      // Scroll DETERMINISTA (no scrollIntoView, que se confunde con el sticky):
+      // traemos el tope del contenido a ~16px del borde superior. Sólo si está
+      // fuera de la zona cómoda: arriba del viewport (sticky agotado cerca del
+      // fondo en desktop) o muy abajo (mobile, apilado). Si ya está visible
+      // arriba, no saltamos.
+      const top = el.getBoundingClientRect().top;
+      if (top < 4 || top > 140) {
+        window.scrollTo({ top: window.scrollY + top - 16, behavior: 'smooth' });
+      }
+    }, 80);
     return () => clearTimeout(t);
   }, [nodoSel]);
 
