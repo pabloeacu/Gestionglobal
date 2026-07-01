@@ -39,6 +39,7 @@ import {
   Plus,
   Receipt,
   RotateCcw,
+  Send,
   Settings,
   Share2,
   Sparkles,
@@ -73,10 +74,13 @@ import {
   colorBadge,
   agregarLinea,
   subirAdjuntoTracking,
+  getDerivacionGestoria,
+  avisarGestoria,
   type TrackingDetail,
   type TrackingLineaRow,
   type TrackingVencimientoLigado,
   type ModeracionPendiente,
+  type DerivacionGestoria,
 } from '@/services/api/trackings';
 import { ModeracionCard } from './ModeracionPage';
 import { LineaTrackingCard } from '../components/LineaTrackingCard';
@@ -157,6 +161,9 @@ export function TrackingDetailPage() {
   const [compartirOpen, setCompartirOpen] = useState(false);
   // 5.C · accesos externos del tracking + sus aperturas.
   const [accesos, setAccesos] = useState<AccesoConAperturas[]>([]);
+  // DGG-90 (JL #2) · derivación a gestoría del trámite (para el botón "Avisar a la gestoría")
+  const [derivacion, setDerivacion] = useState<DerivacionGestoria | null>(null);
+  const [avisandoGestoria, setAvisandoGestoria] = useState(false);
   // Error in-place (no redirigir al listado: enmascara fallos — E-GG-04 bonus).
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -224,6 +231,39 @@ export function TrackingDetailPage() {
     // 5.C · accesos externos generados para este tracking + aperturas.
     const acc = await listAccesosDeRecurso('tramite', id);
     if (acc.ok) setAccesos(acc.data);
+    // DGG-90 · ¿el trámite fue derivado a una gestoría? (para el botón de aviso)
+    const der = await getDerivacionGestoria(id);
+    if (der.ok) setDerivacion(der.data);
+  }
+
+  // DGG-90 (JL #2) · reavisa a la gestoría externa que hay info nueva.
+  async function handleAvisarGestoria() {
+    if (!id || !derivacion) return;
+    const okConfirm = await confirm({
+      title: 'Avisar a la gestoría',
+      message: (
+        <div className="space-y-2 text-sm">
+          <p>
+            Le avisaremos a <strong>{derivacion.destinatario_email}</strong> que hay
+            información nueva y que ya puede retomar el trámite (verá la información anterior y
+            la nueva desde su acceso).
+          </p>
+          <p>¿Enviar el aviso?</p>
+        </div>
+      ),
+      confirmLabel: 'Avisar a la gestoría',
+      cancelLabel: 'Cancelar',
+    });
+    if (!okConfirm) return;
+    setAvisandoGestoria(true);
+    const res = await avisarGestoria(id, null);
+    setAvisandoGestoria(false);
+    if (!res.ok) {
+      toast.error('No pudimos avisar a la gestoría', { description: humanizeError(res.error) });
+      return;
+    }
+    toast.success(`Aviso enviado a ${res.data.email}`);
+    void load();
   }
 
   useEffect(() => {
@@ -692,6 +732,18 @@ export function TrackingDetailPage() {
                 title="Generar y compartir un acceso externo sin login"
               >
                 <Share2 className="h-4 w-4" /> Compartir externo
+              </Button>
+            )}
+            {/* DGG-90 (JL #2) · avisar a la gestoría externa que hay info nueva
+                (sólo si el trámite fue derivado y no está cerrado). */}
+            {isStaff && derivacion && data.estado !== 'cerrado' && (
+              <Button
+                variant="ghost"
+                onClick={() => void handleAvisarGestoria()}
+                loading={avisandoGestoria}
+                title={`Avisar a la gestoría (${derivacion.destinatario_email}) que hay información nueva`}
+              >
+                <Send className="h-4 w-4" /> Avisar a la gestoría
               </Button>
             )}
             {isStaff && data.estado !== 'cerrado' && (

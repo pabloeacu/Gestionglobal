@@ -673,6 +673,52 @@ export async function postergarAlarmaLinea(
   return ok((data ?? '') as string);
 }
 
+// ----------------------------------------------------------------------------
+// DGG-90 (JL #2) · Derivación a gestoría externa: avisar que hay info nueva.
+// La derivación cuelga de la solicitud (solicitud_derivaciones.solicitud_id);
+// se alcanza por solicitudes.tramite_id. RLS staff permite leerlas directo.
+// ----------------------------------------------------------------------------
+export interface DerivacionGestoria {
+  destinatario_email: string;
+  destinatario_nombre: string | null;
+  enviada_at: string;
+}
+
+/** Última derivación a gestoría del trámite (o null si no fue derivado). */
+export async function getDerivacionGestoria(
+  tramiteId: string,
+): Promise<ApiResponse<DerivacionGestoria | null>> {
+  const { data: sols, error: e1 } = await supabase
+    .from('solicitudes')
+    .select('id')
+    .eq('tramite_id', tramiteId);
+  if (e1) return fail('DERIV_GESTORIA_GET', e1.message, e1);
+  if (!sols || sols.length === 0) return ok(null);
+  const { data, error } = await supabase
+    .from('solicitud_derivaciones')
+    .select('destinatario_email, destinatario_nombre, enviada_at')
+    .in('solicitud_id', sols.map((s) => s.id))
+    .order('enviada_at', { ascending: false })
+    .limit(1);
+  if (error) return fail('DERIV_GESTORIA_GET', error.message, error);
+  return ok((data?.[0] as DerivacionGestoria | undefined) ?? null);
+}
+
+/** Reavisa a la gestoría externa que hay info nueva (regenera el link si venció).
+ *  Mensaje opcional; si se omite, va un texto por defecto. */
+export async function avisarGestoria(
+  tramiteId: string,
+  mensaje?: string | null,
+): Promise<ApiResponse<{ email: string }>> {
+  const { data, error } = await supabase.rpc('derivacion_reavisar_gestoria' as never, {
+    p_tramite_id: tramiteId,
+    p_mensaje: mensaje ?? null,
+  } as never);
+  if (error) return fail('AVISAR_GESTORIA', error.message, error);
+  const r = data as { ok?: boolean; email?: string } | null;
+  return ok({ email: r?.email ?? '' });
+}
+
 /** Sube un archivo al bucket `gestor-uploads` para asociarlo a un tracking
  * (drag&drop o picker desde el detail). Devuelve la URL pública. */
 export async function subirAdjuntoTracking(
