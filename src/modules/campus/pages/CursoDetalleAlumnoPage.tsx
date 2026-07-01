@@ -234,30 +234,31 @@ export function CursoDetalleAlumnoPage() {
   // JL #6 (DGG-94) · Al elegir una sección del sidebar, el alumno no veía el
   // contenido nuevo: en mobile (apilado) el viewport queda en el menú; en desktop
   // el sidebar (hasta 20 módulos) es más alto que el contenido, y al elegir una
-  // sección de ABAJO el contenido (arriba) queda fuera de vista (el sticky ya se
-  // agotó cerca del fondo). Fix: scrollear el panel a la vista tras CADA selección
-  // real (nodoSel != null, no en la carga inicial), en AMBOS entornos. Combinado
-  // con el sticky desktop: al navegar el menú el contenido sigue visible, y al
-  // clickear cualquier sección (incluida la última) se garantiza que se vea.
-  useEffect(() => {
-    if (!nodoSel || typeof window === 'undefined') return;
-    const t = setTimeout(() => {
-      // getElementById en vez de la ref: robusto ante cualquier timing de
-      // attach de la ref (el elemento existe siempre en el DOM cuando hay curso).
-      const el = document.getElementById('curso-contenido-panel');
-      if (!el) return;
-      // Scroll DETERMINISTA (no scrollIntoView, que se confunde con el sticky):
-      // traemos el tope del contenido a ~16px del borde superior. Sólo si está
-      // fuera de la zona cómoda: arriba del viewport (sticky agotado cerca del
-      // fondo en desktop) o muy abajo (mobile, apilado). Si ya está visible
-      // arriba, no saltamos.
-      const top = el.getBoundingClientRect().top;
-      if (top < 4 || top > 140) {
-        window.scrollTo({ top: window.scrollY + top - 16, behavior: 'smooth' });
-      }
-    }, 80);
-    return () => clearTimeout(t);
-  }, [nodoSel]);
+  // sección de ABAJO el contenido (arriba/abajo) queda fuera de vista (el sticky
+  // se agota cerca del fondo). Fix: `seleccionar()` — usado por TODOS los ítems
+  // del sidebar — setea el nodo y, tras el render, trae el panel de contenido a
+  // la vista. Se hace en el HANDLER del click (no en un useEffect) para que sea
+  // determinista respecto de la acción. Combinado con el sticky desktop.
+  const seleccionar = useCallback((nodo: NodoSel) => {
+    setNodoSel(nodo);
+    if (typeof window === 'undefined') return;
+    // doble rAF: esperar a que React renderee el contenido nuevo antes de medir.
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => {
+        const el = document.getElementById('curso-contenido-panel');
+        if (!el) return;
+        // Scroll DETERMINISTA (no scrollIntoView, que se confunde con el sticky):
+        // traer el tope del contenido a ~16px del borde superior, sólo si está
+        // fuera de la zona cómoda: arriba del viewport (sticky agotado cerca del
+        // fondo en desktop) o muy abajo (mobile, apilado). Si ya está visible
+        // arriba, no salta.
+        const top = el.getBoundingClientRect().top;
+        if (top < 4 || top > 140) {
+          window.scrollTo({ top: window.scrollY + top - 16, behavior: 'smooth' });
+        }
+      }),
+    );
+  }, []);
 
   // Encuesta de satisfacción: tiene NODO PROPIO (no cuelga del nodo certificado,
   // que sólo aparece con condiciones/cert). Así el alumno la alcanza siempre que
@@ -479,7 +480,7 @@ export function CursoDetalleAlumnoPage() {
                 label="Programa"
                 sub="Descargar PDF"
                 active={nodoEfectivo.tipo === 'programa'}
-                onClick={() => setNodoSel({ tipo: 'programa' })}
+                onClick={() => seleccionar({ tipo: 'programa' })}
               />
             )}
             {data.curso.enlace_url && (
@@ -488,7 +489,7 @@ export function CursoDetalleAlumnoPage() {
                 label={data.curso.enlace_titulo || 'Enlace de conexión'}
                 sub="Acceso directo"
                 active={nodoEfectivo.tipo === 'enlace'}
-                onClick={() => setNodoSel({ tipo: 'enlace' })}
+                onClick={() => seleccionar({ tipo: 'enlace' })}
               />
             )}
             {modulosVisibles.map((m) => {
@@ -586,7 +587,7 @@ export function CursoDetalleAlumnoPage() {
                           <li key={c.id}>
                             <button
                               onClick={() =>
-                                setNodoSel({ tipo: 'clase', id: c.id })
+                                seleccionar({ tipo: 'clase', id: c.id })
                               }
                               className={cn(
                                 'flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm transition',
@@ -677,7 +678,7 @@ export function CursoDetalleAlumnoPage() {
                 label="Encuentros sincrónicos"
                 sub={`${encuentros.length} en vivo`}
                 active={nodoEfectivo.tipo === 'sincronico'}
-                onClick={() => setNodoSel({ tipo: 'sincronico' })}
+                onClick={() => seleccionar({ tipo: 'sincronico' })}
               />
             )}
             {bibliografiaVisible.length > 0 && (
@@ -688,7 +689,7 @@ export function CursoDetalleAlumnoPage() {
                   bibliografiaVisible.length === 1 ? '' : 'es'
                 }`}
                 active={nodoEfectivo.tipo === 'bibliografia'}
-                onClick={() => setNodoSel({ tipo: 'bibliografia' })}
+                onClick={() => seleccionar({ tipo: 'bibliografia' })}
               />
             )}
             {data.examenes.length > 0 && (
@@ -701,7 +702,7 @@ export function CursoDetalleAlumnoPage() {
                 }
                 sub="Examen final"
                 active={nodoEfectivo.tipo === 'examen'}
-                onClick={() => setNodoSel({ tipo: 'examen' })}
+                onClick={() => seleccionar({ tipo: 'examen' })}
               />
             )}
             {encuestaActiva && (
@@ -710,7 +711,7 @@ export function CursoDetalleAlumnoPage() {
                 label="Encuesta de satisfacción"
                 sub="Contanos tu experiencia"
                 active={nodoEfectivo.tipo === 'encuesta'}
-                onClick={() => setNodoSel({ tipo: 'encuesta' })}
+                onClick={() => seleccionar({ tipo: 'encuesta' })}
               />
             )}
             {(condiciones.filter((c) => c.activa).length > 0 || certificado) && (
@@ -724,7 +725,7 @@ export function CursoDetalleAlumnoPage() {
                 label="Mi certificado"
                 sub={certificado ? 'Emitido · descargá' : 'Condiciones'}
                 active={nodoEfectivo.tipo === 'certificado'}
-                onClick={() => setNodoSel({ tipo: 'certificado' })}
+                onClick={() => seleccionar({ tipo: 'certificado' })}
               />
             )}
           </nav>
@@ -744,7 +745,7 @@ export function CursoDetalleAlumnoPage() {
           {/* Aviso fijo: encuentro en vivo AHORA, esté donde esté el alumno */}
           {enVivoAhora && nodoEfectivo.tipo !== 'sincronico' && (
             <button
-              onClick={() => setNodoSel({ tipo: 'sincronico' })}
+              onClick={() => seleccionar({ tipo: 'sincronico' })}
               className="flex w-full items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-left transition hover:bg-amber-100"
             >
               <span className="relative grid h-9 w-9 shrink-0 place-items-center rounded-full bg-amber-100 text-amber-700">
