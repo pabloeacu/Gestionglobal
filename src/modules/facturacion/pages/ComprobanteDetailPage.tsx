@@ -113,11 +113,13 @@ export function ComprobanteDetailPage() {
     if (sentRes.ok) setEnvios(sentRes.data);
   }
 
-  async function onDesimputar(imputacion_id: string) {
+  async function onDesimputar(imputacion_id: string, esCredito = false) {
     const ok = await confirm({
-      title: 'Desimputar cobranza',
-      message: 'Vas a anular este pago del comprobante. El movimiento de caja se borra si solo estaba imputado acá. El saldo del comprobante vuelve a subir.',
-      confirmLabel: 'Desimputar',
+      title: esCredito ? 'Quitar saldo a favor' : 'Desimputar cobranza',
+      message: esCredito
+        ? 'Vas a quitar este saldo a favor del comprobante. El saldo del comprobante vuelve a subir y el crédito queda otra vez disponible para aplicarlo a otra deuda.'
+        : 'Vas a anular este pago del comprobante. El movimiento de caja se borra si solo estaba imputado acá. El saldo del comprobante vuelve a subir.',
+      confirmLabel: esCredito ? 'Quitar' : 'Desimputar',
       cancelLabel: 'Volver',
       danger: true,
     });
@@ -631,20 +633,33 @@ export function ComprobanteDetailPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {cobranzas.map((c, idx) => (
+                  {cobranzas.map((c, idx) => {
+                    // C-3 (§6): fila de "saldo a favor aplicado" — mostrar la fecha
+                    // de aplicación (imputación) y un badge, en vez de la caja/fecha
+                    // del pago original (que confunde).
+                    const esCredito = (c.nota ?? '').startsWith('Saldo a favor aplicado');
+                    return (
                     <tr
                       key={c.id}
                       className="border-b border-slate-100 motion-safe:animate-fade-up"
                       style={{ animationDelay: `${Math.min(idx, 6) * 30}ms` }}
                     >
                       <td className="px-4 py-3 tabular text-brand-muted">
-                        {formatDateShort(c.movimiento.fecha)}
+                        {formatDateShort(esCredito ? c.created_at : c.movimiento.fecha)}
                       </td>
                       <td className="px-4 py-3 text-brand-ink">
-                        {c.movimiento.caja_nombre ?? '—'}
+                        {esCredito ? (
+                          <span className="inline-flex items-center gap-1 rounded-full border border-violet-200 bg-violet-50 px-2 py-0.5 text-[11px] font-semibold text-violet-700">
+                            <PiggyBank size={11} /> Saldo a favor
+                          </span>
+                        ) : (
+                          c.movimiento.caja_nombre ?? '—'
+                        )}
                       </td>
                       <td className="px-4 py-3 text-xs text-brand-muted">
-                        {c.movimiento.categoria_nombre ?? '—'}
+                        {esCredito
+                          ? 'Crédito aplicado'
+                          : c.movimiento.categoria_nombre ?? '—'}
                       </td>
                       <td className="px-4 py-3 text-xs">
                         {c.movimiento.referencia ? (
@@ -659,16 +674,21 @@ export function ComprobanteDetailPage() {
                       <td className="px-4 py-3 text-right">
                         {comp.estado !== 'anulado' && (
                           <button
-                            onClick={() => void onDesimputar(c.id)}
+                            onClick={() => void onDesimputar(c.id, esCredito)}
                             className="rounded-md p-1.5 text-brand-muted hover:bg-red-50 hover:text-red-600"
-                            title="Desimputar (revierte el pago)"
+                            title={
+                              esCredito
+                                ? 'Quitar el saldo a favor (vuelve a quedar disponible)'
+                                : 'Desimputar (revierte el pago)'
+                            }
                           >
                             <XCircle size={14} />
                           </button>
                         )}
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

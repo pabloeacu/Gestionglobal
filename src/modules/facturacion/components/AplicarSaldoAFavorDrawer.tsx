@@ -145,7 +145,7 @@ export function AplicarSaldoAFavorDrawer({
               type="submit"
               form="saldo-favor-form"
               loading={saving}
-              disabled={!sel || loading}
+              disabled={!sel || loading || !(monto > 0) || monto > maxAplicable + 0.009}
             >
               <Check size={15} /> Aplicar {sel ? formatMoney(monto) : ''}
             </Button>
