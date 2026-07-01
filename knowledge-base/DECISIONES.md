@@ -3489,3 +3489,32 @@ Dos reportes de José Luis sobre "pedir algo al cliente" (ver E-GG-74 y E-GG-75)
   prueba en vivo (cliente QA responde "LEGAJO-99887" → "Respondido" + "Enviar a gerencia"; gerencia
   ve el dato + Aprobar/Rechazar; consola limpia; QA residuo 0).
 - **Fecha:** 2026-06-18. Commits `3114f6f` (migs 0259/0260/0261 + frontend) + docs/0262.
+
+### DGG-91 · Reporte JL #3: saldo a favor de un comprobante anulado, imputable a otra deuda (2026-07-01)
+
+**Problema (JL).** Al anular un comprobante YA PAGADO (típico: una inscripción duplicada), el pago
+quedaba como un ingreso sin imputar = saldo a favor del cliente, pero **invisible** y sin forma de
+aplicarlo a otra deuda. JL quería poder tomar ese crédito y aplicarlo a otro comprobante pendiente.
+
+**Decisión (Enfoque A · sin DDL).** El modelo ya soportaba multi-imputación: `movimientos`
+(ingreso) + `movimiento_imputaciones` (N por movimiento, destino XOR comprobante/administración;
+trigger recalcula saldo + estado_cobranza; trigger valida Σ ≤ monto). Sólo faltaba **exponer** el
+crédito y **aplicarlo**: 2 RPCs nuevas (`listar_creditos_administracion` +
+`imputar_credito_a_comprobante`, mig 0265) + drawer `AplicarSaldoAFavorDrawer` con botón en
+`ComprobanteDetailPage` (junto a "Registrar pago", sólo con saldo pendiente). Guards: auth, staff,
+cross-admin, monto ≤ min(crédito, saldo comp), FOR UPDATE (concurrencia).
+
+**Hallazgos de la doble auditoría §6 (todos fixeados en el mismo chunk).** E-GG-76 (el e2e cazó la
+violación del XOR antes de prod), **E-GG-77 (CRÍTICO)**: desimputar un crédito aplicado lo
+destruía (`desimputar_cobranza` borraba el movimiento) → fix por discriminador de destino;
+E-GG-78: guarda en `fz_revertir_movimiento`. Nota A-4b (aceptada, no se cambia): `listar` muestra
+cualquier ingreso con residual = crédito legítimo (anulación **o** pago adelantado); es el
+comportamiento correcto de un "saldo a favor".
+
+**Verificación.** 3 agentes REVISAR + EJERCITAR e2e (happy + guards + regresión) + **prueba en
+vivo** (v68ebc20: crédito $150.000 aplicado a comprobante QA → saldo $500k→$350k, badge "Saldo a
+favor" + fecha de aplicación, toast, consola limpia; luego "quitar saldo a favor" → crédito
+sobrevive y vuelve a estar disponible; QA residuo 0). Mobile: preview a `grid-cols-[1fr_auto_1fr]`.
+
+- **Fecha:** 2026-07-01. Commits `ea75afc` (mig 0265 + drawer + wiring) + `68ebc20` (mig 0266
+  guards §6 + UI) + `4017248` (mobile). Capitaliza reporte JL #3.

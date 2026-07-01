@@ -3106,3 +3106,68 @@ Aprobar/Rechazar; consola limpia; QA limpiado residuo 0).
 
 **Fecha / módulo:** 2026-06-18 · pedidos de documentación · migs 0260+0261 +
 `tramitePedidosDoc.ts` + `PedidosDocPanel.tsx`. Capitaliza DGG-89.
+
+---
+
+## E-GG-76 · Saldo a favor: la 1ª versión violaba `chk_imp_destino_xor` (2026-07-01)
+
+**Contexto (DGG-91 / reporte JL #3).** Al anular un comprobante ya pagado (inscripción duplicada)
+el pago queda como ingreso sin imputar = crédito. La RPC nueva `imputar_credito_a_comprobante`
+(mig 0265) lo aplica a otra deuda insertando en `movimiento_imputaciones`.
+
+**Bug (lo cazó el e2e §6 ANTES de producción).** El INSERT seteaba `administracion_id =
+v_comp.administracion_id` **junto con** `comprobante_id`. Pero el destino de una imputación es un
+XOR: `chk_imp_destino_xor = (comprobante_id NOT NULL AND administracion_id NULL) OR (comprobante_id
+NULL AND administracion_id NOT NULL)`. Setear ambos → violación de check → la RPC fallaba en el
+primer uso real. **Fix:** `administracion_id = NULL` cuando el destino es un comprobante.
+
+**Regla / smell.** Antes de insertar en una tabla con constraints XOR de destino, leer
+`pg_get_constraintdef` y setear SÓLO la columna del destino elegido. El e2e sintético
+(BEGIN/ROLLBACK que ejercita la RPC de verdad) lo encontró en el primer intento; el build limpio
+y el smoke SELECT no lo habrían visto (R18).
+
+**Fecha / módulo:** 2026-07-01 · cobranzas · mig 0265. Nunca llegó a producción.
+
+---
+
+## E-GG-77 · CRÍTICO: desimputar un saldo a favor destruía el crédito (2026-07-01)
+
+**Contexto.** `desimputar_cobranza` (botón XCircle en `ComprobanteDetailPage`) limpiaba el
+movimiento cuando quedaba en 0 imputaciones + `origen='facturacion'` (cleanup legítimo de una
+cobranza registrada por error).
+
+**Bug (lo cazó el agente C de la doble auditoría §6, e2e).** Un CRÉDITO (pago de un comprobante
+anulado, `origen='facturacion'`) aplicado a otro comprobante y luego desimputado caía en esa misma
+rama: `v_remaining=0 AND origen='facturacion'` → **DELETE del movimiento** → se destruía el crédito
+remanente **y** el registro del pago original del comprobante anulado. Pérdida de dato irreversible,
+alcanzable con un click. e2e: `credito sobrevive tras desimputar = false`.
+
+**Fix (mig 0266).** Sólo borrar el movimiento si es una cobranza "fresca" del MISMO comprobante:
+`AND v_mov.comprobante_id IS NOT DISTINCT FROM v_imp.comprobante_id`. Invariante:
+`registrar_cobranza_comprobante` setea `mov.comprobante_id = imp.comprobante_id`; un crédito
+aplicado a otro comprobante los tiene DISTINTOS → se conserva y vuelve a quedar disponible.
+e2e (post-fix): crédito sobrevive ✓ · B restaurado ✓ · crédito disponible de nuevo ✓ · regresión
+(cobranza normal SÍ borra su movimiento) ✓. **Verificado en vivo** (quitar saldo a favor en el
+browser → `credito_movimiento_sobrevive=true`, disponible $150.000).
+
+**Regla / smell.** Antes de un `DELETE` de cleanup condicionado por `origen`, verificar que la fila
+no sea reutilizable/compartida por otro flujo. `origen='facturacion'` no distingue "pago de este
+comprobante" de "crédito aplicado desde otro". El discriminador correcto fue comparar el destino
+(`mov.comprobante_id` vs `imp.comprobante_id`).
+
+**Fecha / módulo:** 2026-07-01 · cobranzas · mig 0266.
+
+---
+
+## E-GG-78 · Reversa de un ingreso con crédito ya aplicado (guarda faltante) (2026-07-01)
+
+**Contexto/Bug (agente C §6).** `fz_revertir_movimiento` no tenía guarda para un ingreso cuyo
+crédito ya fue aplicado a OTRO comprobante: generaba un contrasiento por el monto **total** del
+ingreso (posible descuadre de caja si el crédito estaba parcialmente aplicado) y borraba
+silenciosamente la aplicación al comprobante destino.
+
+**Fix (mig 0266).** Bloquear la reversa si `EXISTS` una imputación a un comprobante distinto del
+propio: exige desimputar esa aplicación primero (que ahora, por E-GG-77, restaura el crédito sin
+destruirlo). e2e: reversa bloqueada ✓.
+
+**Fecha / módulo:** 2026-07-01 · finanzas · mig 0266.
