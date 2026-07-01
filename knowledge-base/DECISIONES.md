@@ -3575,5 +3575,26 @@ El agente A pidió cap diario anti mail-bombing (aplicado). Redirect defensivo p
 EJERCITAR (edge fn HTTP): anti-enumeración + reset_url→/restablecer type=recovery. Live: forgot form
 genérico + /restablecer sin token = enlace inválido (sin desloguear al usuario).
 
-- **Fecha:** 2026-07-01. Migs 0268 + dispatch-emails v13 + enviar-reset-password v2 + frontend.
-  Commits `818f5fc`+`2692738`+`324f58b`. Capitaliza reporte JL #5.
+- **Fecha:** 2026-07-01. Migs 0268 + dispatch-emails v14 + enviar-reset-password v2 + frontend.
+  Commits `818f5fc`+`2692738`+`324f58b`+`87ae71f`. Capitaliza reporte JL #5.
+
+### DGG-94 · Reporte JL #6: autoscroll al elegir sección en el campus del alumno (2026-07-01)
+
+**Problema (JL).** En `CursoDetalleAlumnoPage` (vista del alumno), al elegir una sección del
+sidebar (módulo/clase, bibliografía, examen, encuentros, encuesta, certificado), el viewport no
+cambiaba. En **mobile** (sidebar arriba, contenido abajo) el alumno quedaba mirando el menú sin
+notar que el contenido se actualizó abajo.
+
+**Decisión (UX, sin DB).** `useRef` al `<main>` + `useEffect([nodoSel])` que hace
+`scrollIntoView({behavior:'smooth', block:'start'})` tras una selección. Gates: sólo en mobile
+(`matchMedia('(max-width:1023px)')` — en desktop el contenido ya está al lado del sidebar) y sólo
+tras selección real del usuario (`nodoSel != null`, no en la carga inicial). `scroll-mt-4` para
+respiro superior. Delay de 60ms para que React renderee el contenido nuevo antes de scrollear.
+
+**Verificación.** Build limpio + revisión estática (cambio trivial de 4 líneas, sin lógica de BD →
+no aplica EJERCITAR e2e). **Live test no factible en el entorno:** la vista de alumno es role-gated
+(un gerente es redirigido a `/gerencia`) y el autoscroll es mobile-only (no emulable de forma fiable
+con el viewport del browser MCP en 1440px). Verificación de comportamiento en mobile queda para
+confirmación de JL/Pablo desde el teléfono.
+
+- **Fecha:** 2026-07-01. Commit `a34f43a`. Capitaliza reporte JL #6.
