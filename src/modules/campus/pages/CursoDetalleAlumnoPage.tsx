@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -106,6 +106,9 @@ export function CursoDetalleAlumnoPage() {
   // colapsados; accordionTocado distingue el default del estado elegido.
   const [openModuloId, setOpenModuloId] = useState<string | null>(null);
   const [accordionTocado, setAccordionTocado] = useState(false);
+  // JL #6 (DGG-94) · ref al panel de contenido para autoscrollear al elegir una
+  // sección del sidebar (importa en mobile, donde el sidebar está arriba).
+  const mainRef = useRef<HTMLElement>(null);
 
   const reload = useCallback(async (opts?: { silent?: boolean }) => {
     const silent = opts?.silent === true;
@@ -227,6 +230,20 @@ export function CursoDetalleAlumnoPage() {
     if (primera) return { tipo: 'clase', id: primera.id };
     return { tipo: 'clase', id: '' };
   }, [nodoSel, clases]);
+
+  // JL #6 (DGG-94) · Al elegir una sección del sidebar, en MOBILE (sidebar arriba,
+  // contenido abajo) el viewport quedaba en el menú → el alumno no veía que el
+  // contenido cambió. Scrolleamos el panel a la vista tras la selección. Sólo en
+  // mobile (<lg: en desktop el contenido ya está al lado) y sólo tras una
+  // selección real del usuario (nodoSel != null, no en la carga inicial).
+  useEffect(() => {
+    if (!nodoSel || typeof window === 'undefined') return;
+    if (!window.matchMedia('(max-width: 1023px)').matches) return;
+    const t = setTimeout(() => {
+      mainRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 60);
+    return () => clearTimeout(t);
+  }, [nodoSel]);
 
   // Encuesta de satisfacción: tiene NODO PROPIO (no cuelga del nodo certificado,
   // que sólo aparece con condiciones/cert). Así el alumno la alcanza siempre que
@@ -700,7 +717,7 @@ export function CursoDetalleAlumnoPage() {
         </aside>
 
         {/* Contenido principal — un nodo por vez (DGG-51) */}
-        <main className="space-y-6">
+        <main ref={mainRef} className="space-y-6 scroll-mt-4">
           {/* Aviso fijo: encuentro en vivo AHORA, esté donde esté el alumno */}
           {enVivoAhora && nodoEfectivo.tipo !== 'sincronico' && (
             <button
