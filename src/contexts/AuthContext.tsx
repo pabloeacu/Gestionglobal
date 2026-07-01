@@ -14,6 +14,7 @@ import {
   readStoredSession,
   persistSession,
   clearLegacySupabaseStorage,
+  arrivedWithRecoveryHash,
 } from '@/lib/supabase';
 import { getCurrentProfile, type CurrentProfile, type Role } from '@/services/api/profiles';
 
@@ -216,7 +217,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     clearLegacySupabaseStorage();
 
     (async () => {
-      const stored = readStoredSession();
+      // DGG-93 · Si llegamos por un link de recuperación (hash type=recovery), NO
+      // restauramos la sesión guardada: dejamos que la sesión de recovery (que
+      // setea detectSessionInUrl) sea la autoritativa, para que /restablecer opere
+      // sobre el usuario correcto y no sobre uno ya logueado en el navegador.
+      const stored = arrivedWithRecoveryHash() ? null : readStoredSession();
       let s: Session | null = null;
       if (stored) {
         // Si el access token ya venció, refrescamos con el refresh_token antes
