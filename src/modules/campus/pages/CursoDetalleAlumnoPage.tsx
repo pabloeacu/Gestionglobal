@@ -716,8 +716,16 @@ export function CursoDetalleAlumnoPage() {
           </nav>
         </aside>
 
-        {/* Contenido principal — un nodo por vez (DGG-51) */}
-        <main ref={mainRef} className="space-y-6 scroll-mt-4">
+        {/* Contenido principal — un nodo por vez (DGG-51).
+            JL #6 (DGG-94): en desktop el sidebar (hasta 20 módulos) es mucho más
+            alto que el contenido → al elegir una sección de abajo, el contenido
+            (arriba a la derecha) quedaba fuera de vista y el alumno veía el panel
+            vacío. Fix: sticky en desktop (el contenido sigue el scroll y queda
+            siempre visible) + autoscroll en mobile (una sola columna, apilado). */}
+        <main
+          ref={mainRef}
+          className="space-y-6 scroll-mt-4 lg:sticky lg:top-6 lg:self-start"
+        >
           {/* Aviso fijo: encuentro en vivo AHORA, esté donde esté el alumno */}
           {enVivoAhora && nodoEfectivo.tipo !== 'sincronico' && (
             <button
