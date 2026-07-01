@@ -254,7 +254,10 @@ export function CursoDetalleAlumnoPage() {
         // arriba, no salta.
         const top = el.getBoundingClientRect().top;
         if (top < 4 || top > 140) {
-          window.scrollTo({ top: window.scrollY + top - 16, behavior: 'smooth' });
+          // behavior 'auto' (instantáneo): 'smooth' no se ejecuta en algunos
+          // contextos (reduce-motion, ciertos navegadores) → el scroll no pasaba.
+          // 'auto' es confiable en todos lados; el salto es corto y claro.
+          window.scrollTo({ top: window.scrollY + top - 16, behavior: 'auto' });
         }
       }),
     );
