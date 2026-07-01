@@ -11,6 +11,7 @@ import { ScrollToTopOnRouteChange } from '@/components/common/ScrollToTopOnRoute
 import { ChunkErrorBoundary } from '@/components/common/ChunkErrorBoundary';
 import { LoginPage } from '@/modules/auth/pages/LoginPage';
 import { RestablecerPage } from '@/modules/auth/pages/RestablecerPage';
+import { arrivedWithRecoveryHash, isPasswordRecovery } from '@/lib/supabase';
 import { HealthPage } from '@/modules/public/pages/HealthPage';
 import { GerenciaLayout } from '@/modules/gerencia/components/GerenciaLayout';
 import { GerenciaHome } from '@/modules/gerencia/pages/GerenciaHome';
@@ -105,6 +106,13 @@ function TramiteLegacyRedirect() {
 // Redirección por rol (P-AUTH-01). Sin sesión → landing pública.
 function RoleHomeOrLanding() {
   const { loading, user, session, profileMissing, profileLoadFailed } = useAuth();
+  // DGG-93 (JL #5) · Si se llegó por un link de recuperación pero Supabase Auth
+  // redirigió al Site URL (raíz) en vez de /restablecer (según su allow-list),
+  // lo enrutamos igual a la pantalla de restablecimiento (la sesión de recovery
+  // ya está establecida en memoria por detectSessionInUrl).
+  if (arrivedWithRecoveryHash() || isPasswordRecovery()) {
+    return <Navigate to="/restablecer" replace />;
+  }
   // DGG-27 · cortina pre-lanzamiento. Sólo se evalúa cuando el visitante es
   // anónimo (sin sesión). Los usuarios logueados bypassean siempre.
   //

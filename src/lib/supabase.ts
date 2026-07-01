@@ -7,7 +7,9 @@ import type { Database } from '@/types/database';
 const _initialUrlHash =
   typeof window !== 'undefined' ? window.location.hash : '';
 export function arrivedWithRecoveryHash(): boolean {
-  return /type=recovery|access_token=/.test(_initialUrlHash);
+  // El link de recovery de GOTrue siempre trae `type=recovery` en el hash; es la
+  // señal precisa (evita falsos positivos de otros flujos que dejen access_token).
+  return /type=recovery/.test(_initialUrlHash);
 }
 
 const url = import.meta.env.VITE_SUPABASE_URL;

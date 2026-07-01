@@ -51,23 +51,34 @@ Deno.serve(async (req) => {
   }
 
   const email = (body.email ?? '').trim().toLowerCase();
-  if (!email || !email.includes('@')) {
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
     return json(400, { ok: false, error: 'Ingresá un email válido.' });
   }
 
   const admin = createClient(SUPABASE_URL, SERVICE_KEY);
 
-  // Throttle anti-spam: si ya se encoló un reset a este email hace <3 min, no
-  // reencolar (igual devolvemos ok genérico).
+  // Throttle anti-spam (dos niveles; siempre devolvemos ok genérico):
+  //  (a) 1 cada 3 min por dirección (evita reenvíos por doble-click / impaciencia)
+  //  (b) máx 5 en 24 h por dirección (evita mail-bombing lento espaciado >3 min)
   try {
-    const desde = new Date(Date.now() - 3 * 60 * 1000).toISOString();
-    const { count } = await admin
+    const ahora = Date.now();
+    const desde3m = new Date(ahora - 3 * 60 * 1000).toISOString();
+    const { count: recientes } = await admin
       .from('email_queue')
       .select('id', { count: 'exact', head: true })
       .eq('template_slug', 'password-reset')
       .eq('to_email', email)
-      .gte('created_at', desde);
-    if ((count ?? 0) > 0) return OK();
+      .gte('created_at', desde3m);
+    if ((recientes ?? 0) > 0) return OK();
+
+    const desde24h = new Date(ahora - 24 * 60 * 60 * 1000).toISOString();
+    const { count: delDia } = await admin
+      .from('email_queue')
+      .select('id', { count: 'exact', head: true })
+      .eq('template_slug', 'password-reset')
+      .eq('to_email', email)
+      .gte('created_at', desde24h);
+    if ((delDia ?? 0) >= 5) return OK();
   } catch {
     /* throttle best-effort: si falla el select, seguimos */
   }

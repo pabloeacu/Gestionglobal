@@ -78,7 +78,9 @@ export function RestablecerPage() {
     const res = await actualizarPasswordConRecovery(password);
     setSaving(false);
     if (!res.ok) {
-      setError(humanizeError(res.error));
+      // res.error.message ya viene humanizado desde la capa de servicio (weak /
+      // link vencido / etc.); no lo pisamos con humanizeError sobre el crudo.
+      setError(res.error.message || humanizeError(res.error));
       return;
     }
     setEstado('guardado');

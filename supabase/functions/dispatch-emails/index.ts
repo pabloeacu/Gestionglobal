@@ -185,7 +185,8 @@ Deno.serve(async (req) => {
   } else {
     html = renderVars(tpl.body_html, vars);
   }
-  const text = tpl.body_text ? renderVars(tpl.body_text, vars) : undefined;
+  // E-GG-79: body_text es texto PLANO → no debe HTML-escaparse (rompería URLs).
+  const text = tpl.body_text ? renderVarsRaw(tpl.body_text, vars) : undefined;
 
   // 6) OAuth2 access token.
   let accessToken: string;
@@ -278,7 +279,9 @@ function buildManaxerHtml(
   const cuerpo = renderVars(tpl.cuerpo_html_visual, vars);
   const firma = tpl.firma ? renderVars(tpl.firma, vars) : null;
   const ctaText = tpl.cta_text ? renderVars(tpl.cta_text, vars) : null;
-  const ctaUrl = tpl.cta_url ? renderVars(tpl.cta_url, vars) : null;
+  // E-GG-79: la URL va a un href → escapar UNA sola vez (escapeAttr abajo).
+  // renderVars la escaparía primero → doble-escape que rompe query params.
+  const ctaUrl = tpl.cta_url ? renderVarsRaw(tpl.cta_url, vars) : null;
   const hasCta = !!(ctaText && ctaUrl);
 
   const logoBlock = tpl.mostrar_logo
@@ -413,6 +416,18 @@ function renderVars(tpl: string, vars: Record<string, unknown>): string {
     const v = vars[k];
     if (v === null || v === undefined) return '';
     return escapeHtmlIfNeeded(String(v));
+  });
+}
+
+// E-GG-79 (DGG-93 §6) · Sustitución SIN escapar HTML. Para valores que después
+// pasan por otro escape (href → escapeAttr) o que son texto plano (body_text):
+// escapar acá + escapeAttr = doble-escape (`&` → `&amp;amp;`) que ROMPE las URLs
+// con query params (p. ej. el link de recovery ?token=..&type=recovery&redirect_to=..
+// perdía sus separadores). El caller es responsable del escape del contexto final.
+function renderVarsRaw(tpl: string, vars: Record<string, unknown>): string {
+  return tpl.replace(/\{\{\s*([\w.]+)\s*\}\}/g, (_m, k) => {
+    const v = vars[k];
+    return v === null || v === undefined ? '' : String(v);
   });
 }
 
