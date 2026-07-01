@@ -264,7 +264,7 @@ export function AplicarSaldoAFavorDrawer({
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-3 items-center gap-2 text-center">
+                  <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 text-center">
                     <MiniBox label="Saldo actual" value={saldoComp} tone="muted" />
                     <div className="flex items-center justify-center text-brand-muted">
                       <ArrowRight size={18} />
