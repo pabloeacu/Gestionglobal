@@ -3518,3 +3518,30 @@ sobrevive y vuelve a estar disponible; QA residuo 0). Mobile: preview a `grid-co
 
 - **Fecha:** 2026-07-01. Commits `ea75afc` (mig 0265 + drawer + wiring) + `68ebc20` (mig 0266
   guards §6 + UI) + `4017248` (mobile). Capitaliza reporte JL #3.
+
+### DGG-92 · Reporte JL #4: desasignar (baja manual) alumnos de un curso, reasignable (2026-07-01)
+
+**Problema (JL).** Gerencia sólo podía ASIGNAR alumnos a un curso del campus
+(`curso_asignar_alumno`); no había forma de DESASIGNAR. JL quería poder dar de baja (y
+volver a asignar) alumnos manualmente, sin límite.
+
+**Decisión.** Desasignar = **DELETE físico** de la matrícula (RPC `curso_desasignar_alumno`,
+mig 0267). Las hijas (`curso_progreso`, `examen_intentos`, `matricula_condiciones`,
+`curso_encuentro_asistencias`, `curso_encuentro_zoom_eventos`, `curso_encuesta_respuestas`)
+son `ON DELETE CASCADE` → se limpian solas. `certificados.matricula_id` es `ON DELETE RESTRICT`
+→ si el alumno YA tiene certificado emitido, la RPC lo bloquea con un mensaje claro (anular el
+cert primero) en vez del error críptico de FK. Tras la baja, `uq_curso_matricula` queda libre y
+`curso_asignar_alumno` re-inserta fresh ⇒ **asignar/desasignar sin límite**. UI: botón
+"Desasignar" por fila en `GestionMatriculasTab` con `useConfirm` (R13). Elegí DELETE (no soft
+'anulada') porque el idempotente `curso_asignar_alumno` devolvería la matrícula anulada sin
+reactivarla → el DELETE es lo que hace el re-asignar limpio.
+
+**§6.** El e2e cazó que `private.is_staff()` devuelve **NULL** con `auth.uid()` NULL (misma
+trampa NULL de E-GG-75) → se agregó guard explícito `IF auth.uid() IS NULL THEN RAISE` (no
+explotable: la RPC está REVOKEda de anon, pero defensa en profundidad). e2e (rollback):
+asignar→existe · desasignar→borrada · re-asignar (id nuevo) · guard certificado · guard no-auth.
+**Prueba en vivo** (v066fedc, curso "Formación inicial · Administradores RPAC"): asigné a la
+cuenta de prueba "Paul Test" por SQL, la desasigné desde la UI → roster 4→3, los 3 reales
+intactos, confirm personalizado, consola limpia, BD sin residuo.
+
+- **Fecha:** 2026-07-01. Mig 0267, commit `066fedc`. Capitaliza reporte JL #4.
