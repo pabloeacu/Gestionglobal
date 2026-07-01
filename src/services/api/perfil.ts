@@ -133,3 +133,50 @@ export async function changeMyPassword(
 
   return ok(true);
 }
+
+// ============================================================================
+// DGG-93 (reporte JL #5) · Recuperación de contraseña. Antes no existía: un
+// usuario que olvida su clave quedaba bloqueado (el login falla y changeMyPassword
+// exige estar logueado). Flujo: pedir link → llega por email (pipeline propio,
+// edge fn enviar-reset-password) → /restablecer fija la nueva clave con la sesión
+// de recovery. La respuesta del pedido es genérica (no revela si el email existe).
+// ============================================================================
+export async function enviarResetPassword(email: string): Promise<ApiResponse<true>> {
+  const clean = email.trim().toLowerCase();
+  if (!clean || !clean.includes('@')) {
+    return fail('EMAIL_INVALIDO', 'Ingresá un email válido.');
+  }
+  const { error } = await supabase.functions.invoke('enviar-reset-password', {
+    body: { email: clean },
+  });
+  if (error) {
+    return fail('RESET_ENVIAR', await extractEdgeFnError(error), error);
+  }
+  return ok(true);
+}
+
+// Fija la nueva contraseña usando la sesión de recovery activa (tras clickear el
+// link del email). No requiere la contraseña anterior.
+export async function actualizarPasswordConRecovery(
+  newPassword: string,
+): Promise<ApiResponse<true>> {
+  if (newPassword.length < 8) {
+    return fail('PASSWORD_TOO_SHORT', 'La contraseña debe tener al menos 8 caracteres.');
+  }
+  const { error } = await supabase.auth.updateUser({ password: newPassword });
+  if (error) {
+    const raw = (error.message ?? '').toLowerCase();
+    let msg = 'No pudimos actualizar la contraseña. Probá con otra distinta.';
+    if (raw.includes('known to be weak') || raw.includes('compromised')) {
+      msg = 'La contraseña que elegiste aparece en filtraciones públicas conocidas. Elegí una más original (mayúsculas, minúsculas, números y un símbolo).';
+    } else if (raw.includes('should be different') || raw.includes('same as')) {
+      msg = 'La contraseña nueva tiene que ser distinta a la anterior.';
+    } else if (raw.includes('should be at least') || raw.includes('too short')) {
+      msg = 'La contraseña es muy corta (al menos 8 caracteres).';
+    } else if (raw.includes('session') || raw.includes('jwt') || raw.includes('token') || raw.includes('expired')) {
+      msg = 'El enlace venció o ya se usó. Pedí uno nuevo desde "¿Olvidaste tu contraseña?".';
+    }
+    return fail('PASSWORD_RECOVERY_UPDATE', msg, error);
+  }
+  return ok(true);
+}

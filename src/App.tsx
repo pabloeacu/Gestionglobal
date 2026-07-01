@@ -10,6 +10,7 @@ import { PlataformaMuyProntoPage } from '@/modules/public/pages/PlataformaMuyPro
 import { ScrollToTopOnRouteChange } from '@/components/common/ScrollToTopOnRouteChange';
 import { ChunkErrorBoundary } from '@/components/common/ChunkErrorBoundary';
 import { LoginPage } from '@/modules/auth/pages/LoginPage';
+import { RestablecerPage } from '@/modules/auth/pages/RestablecerPage';
 import { HealthPage } from '@/modules/public/pages/HealthPage';
 import { GerenciaLayout } from '@/modules/gerencia/components/GerenciaLayout';
 import { GerenciaHome } from '@/modules/gerencia/pages/GerenciaHome';
@@ -279,6 +280,8 @@ export function App() {
         {/* `/inicio` también usa el mismo guard que `/` (cortina vs landing). */}
         <Route path="/inicio" element={<RoleHomeOrLanding />} />
         <Route path="/ingresar" element={<LoginPage />} />
+        {/* DGG-93 (JL #5) · Pantalla destino del link de recuperación de contraseña. */}
+        <Route path="/restablecer" element={<RestablecerPage />} />
         <Route path="/health" element={<HealthPage />} />
         <Route path="/formulario/:slug" element={<FormularioPublicoPage />} />
         {/* F6 (DGG-63) · Inscripción condicional a webinars (branded ó texto). */}

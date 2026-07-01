@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { LogIn, ArrowLeft, ShieldCheck, Loader2 } from 'lucide-react';
+import { LogIn, ArrowLeft, ShieldCheck, Loader2, KeyRound, MailCheck } from 'lucide-react';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { Button } from '@/components/common';
 import { BrandBackdrop } from '@/components/brand/BrandBackdrop';
@@ -10,6 +10,7 @@ import {
   getAuthAal,
   listFactors,
 } from '@/services/api/mfa';
+import { enviarResetPassword } from '@/services/api/perfil';
 
 // Login único. Tras autenticar, App.tsx redirige según el rol del profile
 // (gerente → /gerencia, administrador → /portal).
@@ -25,6 +26,21 @@ export function LoginPage() {
   const [mfaStep, setMfaStep] = useState<{ factorId: string } | null>(null);
   const [mfaCode, setMfaCode] = useState('');
   const [verifying, setVerifying] = useState(false);
+
+  // DGG-93 (JL #5) · Recuperar contraseña: un usuario bloqueado pide un link.
+  const [mode, setMode] = useState<'login' | 'forgot'>('login');
+  const [forgotSending, setForgotSending] = useState(false);
+  const [forgotSent, setForgotSent] = useState(false);
+
+  async function onSubmitForgot(e: FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setForgotSending(true);
+    await enviarResetPassword(email);
+    setForgotSending(false);
+    // Respuesta genérica siempre (no revelamos si el email existe).
+    setForgotSent(true);
+  }
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -159,6 +175,75 @@ export function LoginPage() {
                 </button>
               </form>
             </>
+          ) : mode === 'forgot' ? (
+            <>
+              <p className="kicker">Recuperar acceso</p>
+              <h1 className="mt-1 inline-flex items-center gap-2 font-display text-3xl font-bold text-brand-ink">
+                <KeyRound size={26} className="text-brand-cyan" />
+                Restablecer contraseña
+              </h1>
+              {forgotSent ? (
+                <div className="mt-6 space-y-4">
+                  <div className="flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+                    <MailCheck size={18} className="mt-0.5 shrink-0 text-emerald-600" />
+                    <p className="text-sm text-emerald-800">
+                      Si <strong>{email || 'ese email'}</strong> está registrado, te enviamos un
+                      correo con el enlace para crear una contraseña nueva. Revisá tu bandeja
+                      (y la carpeta de spam). El enlace vence en 1 hora.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMode('login');
+                      setForgotSent(false);
+                    }}
+                    className="block w-full text-center text-xs text-brand-muted transition hover:text-brand-ink"
+                  >
+                    ← Volver al login
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <p className="mt-2 text-sm text-brand-muted">
+                    Ingresá tu email y te mandamos un enlace para crear una contraseña
+                    nueva vos mismo.
+                  </p>
+                  <form onSubmit={onSubmitForgot} className="mt-7 space-y-4">
+                    <div className="space-y-1.5">
+                      <label className="kicker block">Email</label>
+                      <input
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        required
+                        autoComplete="email"
+                        autoFocus
+                        className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-cyan focus:ring-4 focus:ring-brand-cyan/10"
+                      />
+                    </div>
+                    {error && <p className="text-sm text-red-600">{error}</p>}
+                    <Button
+                      type="submit"
+                      loading={forgotSending}
+                      className="w-full rounded-xl bg-gradient-to-r from-brand-cyan to-brand-blue py-3 shadow-[0_8px_24px_-8px_rgba(0,158,202,0.6)] hover:from-brand-blue hover:to-brand-blue"
+                    >
+                      <MailCheck size={16} /> Enviarme el enlace
+                    </Button>
+                  </form>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMode('login');
+                      setError(null);
+                    }}
+                    className="mt-4 block w-full text-center text-xs text-brand-muted transition hover:text-brand-ink"
+                  >
+                    ← Volver al login
+                  </button>
+                </>
+              )}
+            </>
           ) : (
           <>
           <p className="kicker">Acceso a la plataforma</p>
@@ -210,7 +295,19 @@ export function LoginPage() {
             </Button>
           </form>
 
-          <p className="mt-8 text-center text-xs text-brand-muted">
+          <button
+            type="button"
+            onClick={() => {
+              setError(null);
+              setForgotSent(false);
+              setMode('forgot');
+            }}
+            className="mt-4 block w-full text-center text-xs font-medium text-brand-cyan transition hover:underline"
+          >
+            ¿Olvidaste tu contraseña?
+          </button>
+
+          <p className="mt-6 text-center text-xs text-brand-muted">
             ¿Todavía no sos cliente?{' '}
             <Link to="/" className="font-medium text-brand-cyan hover:underline">
               Conocé los servicios

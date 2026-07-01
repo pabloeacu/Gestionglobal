@@ -1,6 +1,15 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@/types/database';
 
+// DGG-93 (JL #5) · Snapshot del hash inicial ANTES de que detectSessionInUrl lo
+// consuma. La pantalla /restablecer lo usa para saber que se llegó por un link de
+// recuperación (type=recovery) y no confundirlo con una sesión normal ya activa.
+const _initialUrlHash =
+  typeof window !== 'undefined' ? window.location.hash : '';
+export function arrivedWithRecoveryHash(): boolean {
+  return /type=recovery|access_token=/.test(_initialUrlHash);
+}
+
 const url = import.meta.env.VITE_SUPABASE_URL;
 const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
@@ -30,6 +39,29 @@ export const supabase: SupabaseClient<Database> =
       },
     },
   ));
+
+// DGG-93 · Señal de recovery lo antes posible: supabase-js dispara
+// 'PASSWORD_RECOVERY' cuando procesa el hash de un link de recuperación. La
+// pantalla /restablecer la usa para mostrar el form sólo en un flujo de recovery
+// real (no cuando ya hay una sesión normal). Suscripción registrada acá
+// (inmediatamente tras createClient) para no perder el evento.
+let _pwRecovery = false;
+const _pwRecoveryListeners = new Set<() => void>();
+supabase.auth.onAuthStateChange((event) => {
+  if (event === 'PASSWORD_RECOVERY') {
+    _pwRecovery = true;
+    _pwRecoveryListeners.forEach((l) => l());
+  }
+});
+export function isPasswordRecovery(): boolean {
+  return _pwRecovery;
+}
+export function onPasswordRecovery(cb: () => void): () => void {
+  _pwRecoveryListeners.add(cb);
+  return () => {
+    _pwRecoveryListeners.delete(cb);
+  };
+}
 
 // Persistencia manual de session. supabase-js maneja localStorage solo si
 // `persistSession: true`, pero eso activa locks que se contienden y cuelgan
