@@ -3585,16 +3585,27 @@ sidebar (módulo/clase, bibliografía, examen, encuentros, encuesta, certificado
 cambiaba. En **mobile** (sidebar arriba, contenido abajo) el alumno quedaba mirando el menú sin
 notar que el contenido se actualizó abajo.
 
-**Decisión (UX, sin DB).** `useRef` al `<main>` + `useEffect([nodoSel])` que hace
-`scrollIntoView({behavior:'smooth', block:'start'})` tras una selección. Gates: sólo en mobile
-(`matchMedia('(max-width:1023px)')` — en desktop el contenido ya está al lado del sidebar) y sólo
-tras selección real del usuario (`nodoSel != null`, no en la carga inicial). `scroll-mt-4` para
-respiro superior. Delay de 60ms para que React renderee el contenido nuevo antes de scrollear.
+**Primer intento (incompleto) — corregido por feedback de Pablo.** La v1 (`a34f43a`) hizo el
+autoscroll SÓLO en mobile, asumiendo que en desktop el contenido "ya está al lado". Pablo corrigió:
+el problema **también es de escritorio**. El **QA en vivo lo confirmó**: en el curso más largo
+(`formacion-inicial-administradores-copia`, 20 módulos / 32 clases), el sidebar es MUCHO más alto
+que el contenido; al bajar y elegir la última sección ("Encuesta de satisfacción"), el contenido se
+renderiza arriba a la derecha y el alumno queda mirando **el panel derecho vacío** (screenshot).
 
-**Verificación.** Build limpio + revisión estática (cambio trivial de 4 líneas, sin lógica de BD →
-no aplica EJERCITAR e2e). **Live test no factible en el entorno:** la vista de alumno es role-gated
-(un gerente es redirigido a `/gerencia`) y el autoscroll es mobile-only (no emulable de forma fiable
-con el viewport del browser MCP en 1440px). Verificación de comportamiento en mobile queda para
-confirmación de JL/Pablo desde el teléfono.
+**Decisión final (UX, sin DB) — `c24e8c4`.** Solución por entorno, con resultado consistente
+(el alumno SIEMPRE ve la sección que eligió):
+- **Desktop (≥lg):** panel de contenido **sticky** (`<main lg:sticky lg:top-6 lg:self-start>`): a
+  medida que se scrollea el sidebar largo, el contenido lo sigue y queda siempre visible → clickear
+  cualquier sección la muestra en el acto, sin salto de scroll.
+- **Mobile (<lg, una sola columna apilada):** autoscroll al `<main>` en la selección
+  (`useEffect([nodoSel])` → `scrollIntoView` smooth, gate `matchMedia('(max-width:1023px)')`, sólo
+  tras selección real, delay 60ms).
 
-- **Fecha:** 2026-07-01. Commit `a34f43a`. Capitaliza reporte JL #6.
+**Verificación.** QA en vivo real: para acceder a la vista de alumno (role-gated bajo
+`/portal/campus/:slug`, redirige gerentes) sin tipear contraseña, usé el propio flujo de recovery
+de JL-5 sobre la cuenta de prueba `pabloeacu+test` (administrador) — de paso **confirmó que la
+allow-list de Supabase Auth SÍ incluye `/restablecer`** (resuelve la duda §6 de JL-5). Reproduje el
+bug (panel vacío al elegir la última sección) y validaré el sticky post-deploy. La sesión de Pablo
+se respaldó y restauró; la matrícula QA se limpió.
+
+- **Fecha:** 2026-07-01. Commits `a34f43a` (v1 mobile) + `c24e8c4` (sticky desktop). Capitaliza reporte JL #6.

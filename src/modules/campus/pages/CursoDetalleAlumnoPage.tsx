@@ -231,14 +231,16 @@ export function CursoDetalleAlumnoPage() {
     return { tipo: 'clase', id: '' };
   }, [nodoSel, clases]);
 
-  // JL #6 (DGG-94) · Al elegir una sección del sidebar, en MOBILE (sidebar arriba,
-  // contenido abajo) el viewport quedaba en el menú → el alumno no veía que el
-  // contenido cambió. Scrolleamos el panel a la vista tras la selección. Sólo en
-  // mobile (<lg: en desktop el contenido ya está al lado) y sólo tras una
-  // selección real del usuario (nodoSel != null, no en la carga inicial).
+  // JL #6 (DGG-94) · Al elegir una sección del sidebar, el alumno no veía el
+  // contenido nuevo: en mobile (apilado) el viewport queda en el menú; en desktop
+  // el sidebar (hasta 20 módulos) es más alto que el contenido, y al elegir una
+  // sección de ABAJO el contenido (arriba) queda fuera de vista (el sticky ya se
+  // agotó cerca del fondo). Fix: scrollear el panel a la vista tras CADA selección
+  // real (nodoSel != null, no en la carga inicial), en AMBOS entornos. Combinado
+  // con el sticky desktop: al navegar el menú el contenido sigue visible, y al
+  // clickear cualquier sección (incluida la última) se garantiza que se vea.
   useEffect(() => {
     if (!nodoSel || typeof window === 'undefined') return;
-    if (!window.matchMedia('(max-width: 1023px)').matches) return;
     const t = setTimeout(() => {
       mainRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, 60);
