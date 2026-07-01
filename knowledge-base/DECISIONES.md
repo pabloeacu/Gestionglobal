@@ -3592,14 +3592,17 @@ el problema **también es de escritorio**. El **QA en vivo lo confirmó**: en el
 que el contenido; al bajar y elegir la última sección ("Encuesta de satisfacción"), el contenido se
 renderiza arriba a la derecha y el alumno queda mirando **el panel derecho vacío** (screenshot).
 
-**Decisión final (UX, sin DB) — `c24e8c4`.** Solución por entorno, con resultado consistente
-(el alumno SIEMPRE ve la sección que eligió):
-- **Desktop (≥lg):** panel de contenido **sticky** (`<main lg:sticky lg:top-6 lg:self-start>`): a
-  medida que se scrollea el sidebar largo, el contenido lo sigue y queda siempre visible → clickear
-  cualquier sección la muestra en el acto, sin salto de scroll.
-- **Mobile (<lg, una sola columna apilada):** autoscroll al `<main>` en la selección
-  (`useEffect([nodoSel])` → `scrollIntoView` smooth, gate `matchMedia('(max-width:1023px)')`, sólo
-  tras selección real, delay 60ms).
+**Decisión final (UX, sin DB) — `46a3b2b`.** DOS mecanismos combinados, resultado consistente
+(el alumno SIEMPRE ve la sección que eligió, en cualquier entorno):
+- **Sticky desktop** (`<main lg:sticky lg:top-6 lg:self-start>`): mientras se navega el sidebar
+  largo, el contenido lo sigue y queda a la vista.
+- **Autoscroll en AMBOS entornos** (`useEffect([nodoSel])` → `scrollIntoView({behavior:'smooth',
+  block:'start'})`, sólo tras selección real, delay 60ms): garantiza que al clickear CUALQUIER
+  sección el contenido se traiga a la vista.
+- **Por qué los dos (iteración del QA):** el QA en vivo mostró que el sticky **solo** no alcanza —
+  cerca del fondo del sidebar de 20 módulos el sticky se agota y el contenido vuelve a quedar fuera
+  de vista, justo el caso "última sección" que marcó JL. El autoscroll cubre ese caso; el sticky
+  evita saltos en el medio.
 
 **Verificación.** QA en vivo real: para acceder a la vista de alumno (role-gated bajo
 `/portal/campus/:slug`, redirige gerentes) sin tipear contraseña, usé el propio flujo de recovery
