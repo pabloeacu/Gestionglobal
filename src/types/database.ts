@@ -8253,6 +8253,10 @@ export type Database = {
         }
         Returns: string
       }
+      curso_desasignar_alumno: {
+        Args: { p_matricula_id: string }
+        Returns: string
+      }
       curso_duplicar: { Args: { p_curso_id: string }; Returns: string }
       curso_encuentro_set_zoom: {
         Args: {

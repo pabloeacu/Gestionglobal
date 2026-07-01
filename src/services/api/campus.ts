@@ -1236,6 +1236,19 @@ export async function asignarAlumno(
   return ok(data as string);
 }
 
+// JL #4 (DGG-92): desasignar (baja manual) un alumno de un curso. DELETE físico
+// de la matrícula (las hijas son ON DELETE CASCADE); bloquea si tiene certificado
+// emitido (FK RESTRICT). Devuelve el curso_id afectado. Backend: mig 0267.
+export async function desasignarAlumno(
+  matriculaId: string,
+): Promise<ApiResponse<string>> {
+  const { data, error } = await supabase.rpc('curso_desasignar_alumno', {
+    p_matricula_id: matriculaId,
+  });
+  if (error) return fail('CURSO_DESASIGNAR', error.message, error);
+  return ok(data as string);
+}
+
 // ============================================================================
 // Fase 1 · Condiciones del certificado (config por curso)
 // ============================================================================

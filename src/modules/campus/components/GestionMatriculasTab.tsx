@@ -10,15 +10,17 @@ import {
   Lock,
   Loader2,
   ShieldCheck,
+  UserMinus,
   UserPlus,
   Users,
 } from 'lucide-react';
-import { AnimatedNumber, Button } from '@/components/common';
+import { AnimatedNumber, Button, useConfirm } from '@/components/common';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/cn';
 import {
   CONDICION_TIPO_LABEL,
   certificadoParaPdf,
+  desasignarAlumno,
   emitirCertificado,
   fmtFecha,
   listCertificadosPorCurso,
@@ -74,6 +76,8 @@ export function GestionMatriculasTab({ data }: { data: CursoDetalle }) {
   const [pagoTarget, setPagoTarget] = useState<MatriculaListItem | null>(null);
   const [previewCert, setPreviewCert] = useState<CertificadoParaPdf | null>(null);
   const [previewEsquema, setPreviewEsquema] = useState<EsquemaCertSnapshot | null>(null);
+  const [desasignando, setDesasignando] = useState<string | null>(null);
+  const confirm = useConfirm();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -99,6 +103,29 @@ export function GestionMatriculasTab({ data }: { data: CursoDetalle }) {
     setCertificados(certs.ok ? certs.data : {});
     setLoading(false);
   }, [data.curso.id]);
+
+  // JL #4 · Desasignar (baja manual) del curso. DELETE físico de la matrícula
+  // (progreso/asistencias/exámenes/condiciones caen por CASCADE). Si tiene
+  // certificado emitido, el backend lo bloquea con mensaje claro. Reasignable.
+  async function onDesasignar(m: MatriculaListItem) {
+    const ok = await confirm({
+      title: 'Desasignar del curso',
+      message: `Vas a quitar a ${m.alumno_nombre ?? 'este alumno'} del curso. Se elimina su matrícula y todo su avance (asistencias, exámenes, condiciones tildadas). Si ya tiene certificado emitido, primero hay que anularlo. Podés volver a asignarlo cuando quieras.`,
+      confirmLabel: 'Desasignar',
+      cancelLabel: 'Volver',
+      danger: true,
+    });
+    if (!ok) return;
+    setDesasignando(m.id);
+    const res = await desasignarAlumno(m.id);
+    setDesasignando(null);
+    if (!res.ok) {
+      toast.error('No se pudo desasignar', { description: humanizeError(res.error) });
+      return;
+    }
+    toast.success(`${m.alumno_nombre ?? 'Alumno'} desasignado del curso`);
+    void load();
+  }
 
   async function onEmitir(matriculaId: string) {
     setEmitiendo(matriculaId);
@@ -306,23 +333,39 @@ export function GestionMatriculasTab({ data }: { data: CursoDetalle }) {
                         {fmtFechaSoloDia(m.vigencia_hasta)}
                       </p>
                     </div>
-                    {cert ? (
-                      <span className="inline-flex items-center gap-1 rounded-full border border-brand-cyan/30 bg-brand-cyan/10 px-2.5 py-1 text-[11px] font-semibold text-brand-cyan">
-                        <Award size={12} /> Certificado emitido
-                      </span>
-                    ) : todasOk ? (
-                      <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">
-                        <Award size={12} /> Condiciones cumplidas
-                      </span>
-                    ) : total > 0 ? (
-                      <span className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-700">
-                        {cumplidas}/{total} condiciones
-                      </span>
-                    ) : (
-                      <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-medium text-slate-500">
-                        Sin condiciones
-                      </span>
-                    )}
+                    <div className="flex shrink-0 items-center gap-2">
+                      {cert ? (
+                        <span className="inline-flex items-center gap-1 rounded-full border border-brand-cyan/30 bg-brand-cyan/10 px-2.5 py-1 text-[11px] font-semibold text-brand-cyan">
+                          <Award size={12} /> Certificado emitido
+                        </span>
+                      ) : todasOk ? (
+                        <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">
+                          <Award size={12} /> Condiciones cumplidas
+                        </span>
+                      ) : total > 0 ? (
+                        <span className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-700">
+                          {cumplidas}/{total} condiciones
+                        </span>
+                      ) : (
+                        <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-medium text-slate-500">
+                          Sin condiciones
+                        </span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => void onDesasignar(m)}
+                        disabled={desasignando === m.id}
+                        title="Desasignar del curso"
+                        className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-brand-muted transition hover:border-red-200 hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+                      >
+                        {desasignando === m.id ? (
+                          <Loader2 size={12} className="animate-spin" />
+                        ) : (
+                          <UserMinus size={12} />
+                        )}
+                        Desasignar
+                      </button>
+                    </div>
                   </header>
 
                   {conds.length > 0 && (
