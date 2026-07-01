@@ -3171,3 +3171,52 @@ propio: exige desimputar esa aplicación primero (que ahora, por E-GG-77, restau
 destruirlo). e2e: reversa bloqueada ✓.
 
 **Fecha / módulo:** 2026-07-01 · finanzas · mig 0266.
+
+---
+
+## E-GG-79 · CRÍTICO: el link de recuperación de contraseña llegaba roto (doble-escape) (2026-07-01)
+
+**Contexto (DGG-93 / reporte JL #5).** Nuevo flujo de recuperación de contraseña: la edge fn
+`enviar-reset-password` genera un link (`admin.generateLink` recovery) y lo encola en `email_queue`
+(template `password-reset`, `cta_url='{{reset_url}}'`). El link es una URL de GOTrue con query
+params: `…/verify?token=…&type=recovery&redirect_to=…`.
+
+**Bug (lo cazó el agente C de la doble auditoría §6).** `dispatch-emails.buildManaxerHtml` renderiza
+`cta_url` con `renderVars` (que llama `escapeHtmlIfNeeded` → `&`→`&amp;`) y **luego** lo mete en el
+`href` con `escapeAttr` (que **vuelve** a hacer `&`→`&amp;`). Doble-escape: `&` → `&amp;amp;`.
+Verificado en `sent_emails` real: `href="…verify?token=ac39…&amp;amp;type=recovery&amp;amp;redirect_to=…"`.
+Al parsear el atributo, el navegador ve `&amp;` (literal) como separador → **se pierden
+`type=recovery` y `redirect_to`** → el link NO dispara el recovery. Afecta a **cualquier** `cta_url`
+con query params (los demás templates usaban URLs sin `&`, por eso estaba latente).
+
+**Fix (dispatch-emails v13).** Helper `renderVarsRaw` (sustituye variables SIN escapar HTML). Se
+usa para (a) `cta_url` — va a un `href`, `escapeAttr` hace el ÚNICO escape correcto de atributo; y
+(b) `body_text` — es texto plano, no debe HTML-escaparse nunca. El `cuerpo_html_visual` y demás
+campos HTML siguen con `renderVars` (escape correcto para contexto de texto HTML).
+
+**Regla / smell.** Un valor no debe pasar por dos escapes de HTML. Si un `{{var}}` termina dentro
+de un atributo (`href`, `src`) o en texto plano, NO usar el render que ya escapa + otro escape
+encima. Para URLs en `href`: sustituir crudo + `escapeAttr` una sola vez. Smell: `escapeAttr(renderVars(...))`
+sobre algo que puede contener `&`.
+
+**Extras del chunk (defensa en profundidad).** (1) Redirect defensivo en `RoleHomeOrLanding`: si
+Supabase Auth cae al Site URL (raíz) por la allow-list en vez de `/restablecer`, se enruta igual.
+(2) `enviar-reset-password` v2: cap diario 5/24h por dirección (anti mail-bombing lento, hallazgo
+agente A) + regex de email estricto. (3) `RestablecerPage` respeta el mensaje humanizado del
+servicio. (4) La sesión de recovery es autoritativa (AuthContext no restaura la guardada si se llegó
+por un link de recovery). Efecto conocido/aceptado: si un usuario logueado abre un link de recovery,
+queda deslogueado del navegador tras fijar la clave (comportamiento seguro).
+
+**Gotcha operativo (mismo chunk).** Al redeployar `dispatch-emails` con la MCP
+`deploy_edge_function`, el parámetro **`verify_jwt` DEFAULTEA a `true`**. `dispatch-emails` es
+llamada por `pg_cron` con `Authorization: Bearer <CRON_SECRET>` (NO un JWT) + validación interna →
+requiere **`verify_jwt=false`**. El redeploy sin setear el flag lo puso en `true` → la plataforma
+rechazó al cron con **401** antes de entrar a la función → el dispatch se frenó ~20 min (sólo estaba
+encolado el mail de QA; ningún mail real afectado). Fix: redeploy v14 con `verify_jwt: false`.
+**Regla:** al redeployar por MCP una edge fn cron-authed (CRON_SECRET/webhook), pasar SIEMPRE
+`verify_jwt: false` explícito (las cron-authed: dispatch-*, *-harvester, arca-*). Las llamadas por
+el front con anon key (p. ej. `enviar-reset-password`) sí pueden quedar `verify_jwt: true` (la anon
+key es un JWT válido).
+
+**Fecha / módulo:** 2026-07-01 · emails / auth · dispatch-emails v14 + enviar-reset-password v2 +
+mig 0268 (template) + frontend. Capitaliza reporte JL #5.

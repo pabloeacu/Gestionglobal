@@ -3545,3 +3545,35 @@ cuenta de prueba "Paul Test" por SQL, la desasigné desde la UI → roster 4→3
 intactos, confirm personalizado, consola limpia, BD sin residuo.
 
 - **Fecha:** 2026-07-01. Mig 0267, commit `066fedc`. Capitaliza reporte JL #4.
+
+### DGG-93 · Reporte JL #5: recuperación de contraseña (no existía) (2026-07-01)
+
+**Problema (JL).** El usuario `estudio.saveriano@gmail.com` (= José Luis Saveriano, el propio JL)
+no podía iniciar sesión ni cambiar la contraseña. Diagnóstico: la cuenta está **sana** (confirmada,
+activa, provider email, logueó el 09/06), pero **no existía NINGÚN flujo de recuperación** — ni
+"¿Olvidaste tu contraseña?" en el login, ni pantalla de reset, ni reset desde gerencia. Un usuario
+que olvida su clave queda bloqueado, porque "cambiar contraseña" (`cambiar-mi-password`) exige estar
+logueado. Catch-22.
+
+**Decisión.** Implementar recuperación por **link seguro** (el usuario fija su propia clave; el
+server nunca la ve — no seteamos contraseñas). Como este proyecto NO usa el SMTP de Supabase Auth
+(los users se crean con `email_confirm=true` → `resetPasswordForEmail` nativo no es confiable), se
+usa el **pipeline de email propio** (Google Workspace):
+- Edge fn `enviar-reset-password` (pública): `admin.generateLink(recovery)` + encola el correo
+  (template `password-reset`, mig 0268). Respuesta genérica anti-enumeración + throttle (3 min +
+  5/24h). Link `{{reset_url}}`.
+- Pantalla `/restablecer` (`RestablecerPage`): recibe la sesión de recovery y fija la clave con
+  `updateUser({password})`. Sólo muestra el form ante un link de recovery real (no ante una sesión
+  normal). `supabase.ts` expone `arrivedWithRecoveryHash/isPasswordRecovery`; AuthContext no
+  restaura la sesión guardada en ese caso (la de recovery es autoritativa).
+- `LoginPage`: link "¿Olvidaste tu contraseña?" → email → mensaje genérico.
+
+**§6 (doble auditoría, 3 agentes REVISAR + EJERCITAR + live).** El agente C cazó **E-GG-79 CRÍTICO**:
+`dispatch-emails` doble-escapaba el `&` del link (`renderVars` + `escapeAttr`) → los params del link
+se perdían → correo inútil. Fix: `renderVarsRaw` para `cta_url`/`body_text` (dispatch-emails v13).
+El agente A pidió cap diario anti mail-bombing (aplicado). Redirect defensivo por la allow-list.
+EJERCITAR (edge fn HTTP): anti-enumeración + reset_url→/restablecer type=recovery. Live: forgot form
+genérico + /restablecer sin token = enlace inválido (sin desloguear al usuario).
+
+- **Fecha:** 2026-07-01. Migs 0268 + dispatch-emails v13 + enviar-reset-password v2 + frontend.
+  Commits `818f5fc`+`2692738`+`324f58b`. Capitaliza reporte JL #5.
