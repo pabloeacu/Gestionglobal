@@ -16,12 +16,14 @@ import {
   CreditCard,
   Plus,
   XCircle,
+  PiggyBank,
 } from 'lucide-react';
 import {
   generateComprobantePdf,
 } from '../lib/generateComprobantePdf';
 import { EnviarComprobanteModal } from '../components/EnviarComprobanteModal';
 import { RegistrarCobranzaDrawer } from '../components/RegistrarCobranzaDrawer';
+import { AplicarSaldoAFavorDrawer } from '../components/AplicarSaldoAFavorDrawer';
 import {
   listCobranzasDeComprobante,
   desimputarCobranza,
@@ -88,6 +90,7 @@ export function ComprobanteDetailPage() {
   const [loading, setLoading] = useState(true);
   const [enviarOpen, setEnviarOpen] = useState(false);
   const [cobranzaOpen, setCobranzaOpen] = useState(false);
+  const [saldoFavorOpen, setSaldoFavorOpen] = useState(false);
   const [cobranzas, setCobranzas] = useState<CobranzaListItem[]>([]);
   const [envios, setEnvios] = useState<SentEmailRow[]>([]);
 
@@ -595,9 +598,14 @@ export function ComprobanteDetailPage() {
             </div>
             {Number(comp.saldo_pendiente) > 0 &&
               comp.estado !== 'anulado' && (
-                <Button onClick={() => setCobranzaOpen(true)}>
-                  <Plus size={15} /> Registrar pago
-                </Button>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button variant="secondary" onClick={() => setSaldoFavorOpen(true)}>
+                    <PiggyBank size={15} /> Aplicar saldo a favor
+                  </Button>
+                  <Button onClick={() => setCobranzaOpen(true)}>
+                    <Plus size={15} /> Registrar pago
+                  </Button>
+                </div>
               )}
           </div>
           {cobranzas.length === 0 ? (
@@ -772,6 +780,12 @@ export function ComprobanteDetailPage() {
       <RegistrarCobranzaDrawer
         open={cobranzaOpen}
         onClose={() => setCobranzaOpen(false)}
+        comprobante={comp}
+        onSaved={() => void load()}
+      />
+      <AplicarSaldoAFavorDrawer
+        open={saldoFavorOpen}
+        onClose={() => setSaldoFavorOpen(false)}
         comprobante={comp}
         onSaved={() => void load()}
       />

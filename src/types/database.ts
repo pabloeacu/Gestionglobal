@@ -8338,6 +8338,10 @@ export type Database = {
         Returns: Json
       }
       db_health_metrics: { Args: never; Returns: Json }
+      derivacion_reavisar_gestoria: {
+        Args: { p_mensaje?: string; p_tramite_id: string }
+        Returns: Json
+      }
       desimputar_cobranza: {
         Args: { p_imputacion_id: string }
         Returns: string
@@ -9076,6 +9080,14 @@ export type Database = {
         Args: { p_archivo: string; p_filas: Json }
         Returns: Json
       }
+      imputar_credito_a_comprobante: {
+        Args: {
+          p_comprobante_id: string
+          p_monto: number
+          p_movimiento_id: string
+        }
+        Returns: Json
+      }
       inscribir_a_webinar: {
         Args: {
           p_email: string
@@ -9102,6 +9114,17 @@ export type Database = {
           finalizados: number
           proximos: number
           total_inscriptos: number
+        }[]
+      }
+      listar_creditos_administracion: {
+        Args: { p_administracion_id: string }
+        Returns: {
+          comprobante_origen: string
+          descripcion: string
+          fecha: string
+          monto: number
+          movimiento_id: string
+          saldo_disponible: number
         }[]
       }
       listar_eventos_agenda: {

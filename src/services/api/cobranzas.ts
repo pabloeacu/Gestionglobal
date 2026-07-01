@@ -138,6 +138,64 @@ export async function desimputarCobranza(
   return ok({ comprobante_id: data as string });
 }
 
+// ============================================================================
+// Saldo a favor / crédito (JL #3 · DGG-91): al anular un comprobante ya pagado
+// (p. ej. inscripción duplicada) el pago queda como INGRESO sin imputar = saldo
+// a favor del cliente. Estas RPCs lo exponen y permiten aplicarlo a otra deuda
+// pendiente de la MISMA administración. Backend: mig 0265.
+// ============================================================================
+export interface CreditoDisponible {
+  movimiento_id: string;
+  fecha: string;
+  monto: number;
+  saldo_disponible: number;
+  descripcion: string | null;
+  comprobante_origen: string | null;
+}
+
+/** Lista los saldos a favor (ingresos con crédito no aplicado) de una admin. */
+export async function listarCreditosAdministracion(
+  administracion_id: string,
+): Promise<ApiResponse<CreditoDisponible[]>> {
+  const { data, error } = await supabase.rpc(
+    'listar_creditos_administracion' as never,
+    { p_administracion_id: administracion_id } as never,
+  );
+  if (error) return fail('CRED_LIST', error.message, error);
+  const rows = (data ?? []) as unknown as Array<Record<string, unknown>>;
+  const out: CreditoDisponible[] = rows.map((r) => ({
+    movimiento_id: String(r.movimiento_id),
+    fecha: String(r.fecha),
+    monto: Number(r.monto) || 0,
+    saldo_disponible: Number(r.saldo_disponible) || 0,
+    descripcion: (r.descripcion as string | null) ?? null,
+    comprobante_origen: (r.comprobante_origen as string | null) ?? null,
+  }));
+  return ok(out);
+}
+
+/** Imputa un crédito disponible a un comprobante pendiente (misma admin). */
+export async function imputarCreditoAComprobante(
+  movimiento_id: string,
+  comprobante_id: string,
+  monto: number,
+): Promise<ApiResponse<{ credito_restante: number; comprobante_saldo: number }>> {
+  const { data, error } = await supabase.rpc(
+    'imputar_credito_a_comprobante' as never,
+    {
+      p_movimiento_id: movimiento_id,
+      p_comprobante_id: comprobante_id,
+      p_monto: monto,
+    } as never,
+  );
+  if (error) return fail('CRED_IMPUTAR', error.message, error);
+  const d = (data ?? {}) as Record<string, unknown>;
+  return ok({
+    credito_restante: Number(d.credito_restante) || 0,
+    comprobante_saldo: Number(d.comprobante_saldo) || 0,
+  });
+}
+
 export async function listCajasActivas(): Promise<ApiResponse<CajaRow[]>> {
   const { data, error } = await supabase
     .from('cajas')
