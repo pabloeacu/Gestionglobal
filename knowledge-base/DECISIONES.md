@@ -3608,6 +3608,13 @@ renderiza arriba a la derecha y el alumno queda mirando **el panel derecho vací
   no se movía en otras). El `window.scrollTo` calculado con `getBoundingClientRect` es determinista
   y convive con el sticky. Además hubo que **desregistrar el service worker** (Web Push) para que el
   browser tomara el bundle nuevo — cacheaba los chunks viejos entre deploys.
+- **CAUSA RAÍZ (la que hizo que "nunca funcionara" en la QA):** `window.scrollTo({behavior:'smooth'})`
+  **no se ejecuta** en ciertos contextos (reduce-motion / navegador automatizado); `behavior:'auto'`
+  sí. El autoscroll corría pero el scroll smooth se descartaba silenciosamente. Fix final:
+  `behavior:'auto'` (instantáneo, verificado: el contenido pasa de -1523px a top:16). Además se pasó
+  el scroll de un `useEffect` a un handler compartido `seleccionar()` (determinista respecto del
+  click). E-GG-80 (smell): no asumir que `scrollTo({behavior:'smooth'})` scrollea siempre; para un
+  scroll que DEBE ocurrir, usar `'auto'`.
 
 **Verificación.** QA en vivo real: para acceder a la vista de alumno (role-gated bajo
 `/portal/campus/:slug`, redirige gerentes) sin tipear contraseña, usé el propio flujo de recovery
