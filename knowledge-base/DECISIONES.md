@@ -3596,13 +3596,18 @@ renderiza arriba a la derecha y el alumno queda mirando **el panel derecho vací
 (el alumno SIEMPRE ve la sección que eligió, en cualquier entorno):
 - **Sticky desktop** (`<main lg:sticky lg:top-6 lg:self-start>`): mientras se navega el sidebar
   largo, el contenido lo sigue y queda a la vista.
-- **Autoscroll en AMBOS entornos** (`useEffect([nodoSel])` → `scrollIntoView({behavior:'smooth',
-  block:'start'})`, sólo tras selección real, delay 60ms): garantiza que al clickear CUALQUIER
-  sección el contenido se traiga a la vista.
-- **Por qué los dos (iteración del QA):** el QA en vivo mostró que el sticky **solo** no alcanza —
-  cerca del fondo del sidebar de 20 módulos el sticky se agota y el contenido vuelve a quedar fuera
-  de vista, justo el caso "última sección" que marcó JL. El autoscroll cubre ese caso; el sticky
-  evita saltos en el medio.
+- **Autoscroll en AMBOS entornos** (`useEffect([nodoSel])`, sólo tras selección real, delay 80ms):
+  scroll DETERMINISTA `window.scrollTo({top: scrollY + main.getBoundingClientRect().top - 16})`,
+  sólo si el contenido está fuera de la zona cómoda (`top < 4` = arriba del viewport cuando el
+  sticky se agotó cerca del fondo · `top > 140` = muy abajo en mobile). Si ya está visible arriba,
+  no salta.
+- **Por qué los dos + por qué scrollTo y no scrollIntoView (iteración del QA):** el QA en vivo
+  mostró (1) que el sticky **solo** no alcanza — cerca del fondo del sidebar de 20 módulos se agota
+  y el contenido vuelve a quedar fuera de vista (el caso "última sección" que marcó JL); y (2) que
+  `scrollIntoView` se **confunde con el elemento sticky** (saltaba a la portada en unas secciones,
+  no se movía en otras). El `window.scrollTo` calculado con `getBoundingClientRect` es determinista
+  y convive con el sticky. Además hubo que **desregistrar el service worker** (Web Push) para que el
+  browser tomara el bundle nuevo — cacheaba los chunks viejos entre deploys.
 
 **Verificación.** QA en vivo real: para acceder a la vista de alumno (role-gated bajo
 `/portal/campus/:slug`, redirige gerentes) sin tipear contraseña, usé el propio flujo de recovery

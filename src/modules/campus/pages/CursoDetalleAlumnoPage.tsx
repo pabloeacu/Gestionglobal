@@ -242,7 +242,9 @@ export function CursoDetalleAlumnoPage() {
   useEffect(() => {
     if (!nodoSel || typeof window === 'undefined') return;
     const t = setTimeout(() => {
-      const el = mainRef.current;
+      // getElementById en vez de la ref: robusto ante cualquier timing de
+      // attach de la ref (el elemento existe siempre en el DOM cuando hay curso).
+      const el = document.getElementById('curso-contenido-panel');
       if (!el) return;
       // Scroll DETERMINISTA (no scrollIntoView, que se confunde con el sticky):
       // traemos el tope del contenido a ~16px del borde superior. Sólo si está
@@ -735,6 +737,7 @@ export function CursoDetalleAlumnoPage() {
             vacío. Fix: sticky en desktop (el contenido sigue el scroll y queda
             siempre visible) + autoscroll en mobile (una sola columna, apilado). */}
         <main
+          id="curso-contenido-panel"
           ref={mainRef}
           className="space-y-6 scroll-mt-4 lg:sticky lg:top-6 lg:self-start"
         >
