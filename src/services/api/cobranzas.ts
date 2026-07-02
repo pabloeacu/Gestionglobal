@@ -7,6 +7,14 @@ export type CategoriaFinanzaRow = Database['public']['Tables']['categorias_finan
 export type MovimientoRow = Database['public']['Tables']['movimientos']['Row'];
 export type ImputacionRow = Database['public']['Tables']['movimiento_imputaciones']['Row'];
 
+// DGG-95 (reporte JL 2026-07-02) · Redondeo a centavos en el borde. Un pago de
+// $205.000 se llegó a persistir como $204.999,98 (arrastre de float que entraba por
+// el input y viajaba sin sanear). Todo monto de cobranza pasa por acá antes de la RPC;
+// la RPC además redondea del lado servidor (defensa en profundidad).
+export function round2(n: number): number {
+  return Math.round((Number(n) + Number.EPSILON) * 100) / 100;
+}
+
 export interface CobranzaInput {
   comprobante_id: string;
   caja_id: string;
@@ -25,7 +33,7 @@ export async function registrarCobranza(
     p_comprobante_id: input.comprobante_id,
     p_caja_id: input.caja_id,
     p_fecha: input.fecha,
-    p_monto: input.monto,
+    p_monto: round2(input.monto),
     p_descripcion: input.descripcion ?? '',
     p_referencia: input.referencia ?? '',
     p_categoria_id: input.categoria_id ?? null,
@@ -111,9 +119,9 @@ export async function registrarCobranzaEnEmision(
     .eq('id', comprobanteId)
     .single();
   if (error) return fail('COBRO_SALDO', error.message, error);
-  const saldo = Number(comp?.saldo_pendiente ?? comp?.total ?? 0);
+  const saldo = round2(Number(comp?.saldo_pendiente ?? comp?.total ?? 0));
   const monto =
-    cobro.modo === 'total' ? saldo : Math.min(cobro.montoParcial, saldo);
+    cobro.modo === 'total' ? saldo : round2(Math.min(round2(cobro.montoParcial), saldo));
   if (!(monto > 0)) return fail('COBRO_MONTO', 'El monto a cobrar debe ser mayor a 0');
   const r = await registrarCobranza({
     comprobante_id: comprobanteId,

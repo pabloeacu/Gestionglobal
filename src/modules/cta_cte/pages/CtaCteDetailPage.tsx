@@ -159,13 +159,26 @@ export function CtaCteDetailPage() {
   }, [resumen]);
 
   async function onDesimputar(imp: CobranzaListItem) {
+    // DGG-95 (reporte JL) · Distinguir un pago normal de un SALDO A FAVOR aplicado.
+    // Un pago fresco de facturación (movimiento.comprobante_id === destino) se borra
+    // solo de la caja al desimputar → NO hay "doble operación". Un crédito aplicado
+    // desde otro comprobante se conserva (E-GG-77) y vuelve a quedar disponible.
+    const esCredito = !(
+      imp.movimiento.origen === 'facturacion' &&
+      imp.movimiento.comprobante_id === imp.comprobante_id
+    );
     const okConfirm = await confirm({
-      title: 'Desimputar cobranza',
-      message: `Vas a desimputar ${formatMoney(
-        Number(imp.monto_imputado),
-      )}. El saldo pendiente del comprobante se recalcula automáticamente. ¿Continuar?`,
+      title: esCredito ? 'Quitar saldo a favor' : 'Desimputar cobranza',
+      message: esCredito
+        ? `Vas a quitar ${formatMoney(
+            Number(imp.monto_imputado),
+          )} de saldo a favor de este comprobante. El saldo vuelve a subir y el crédito queda otra vez disponible para aplicarlo a otra deuda (el ingreso NO se borra de la caja).`
+        : `Vas a anular este pago de ${formatMoney(
+            Number(imp.monto_imputado),
+          )}. El movimiento de caja se borra si solo estaba imputado acá — no hace falta anularlo también en la caja. El saldo del comprobante vuelve a subir.`,
       danger: true,
-      confirmLabel: 'Desimputar',
+      confirmLabel: esCredito ? 'Quitar' : 'Desimputar',
+      cancelLabel: 'Volver',
     });
     if (!okConfirm) return;
     const res = await desimputarCobranza(imp.id);

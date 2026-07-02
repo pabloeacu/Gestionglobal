@@ -13,6 +13,7 @@ import { Field, Input, Select } from '@/components/common';
 import {
   listCajasActivas,
   listCategoriasIngreso,
+  round2,
   type CajaRow,
   type CategoriaFinanzaRow,
   type CobroAhoraState,
@@ -156,7 +157,7 @@ export function CobrarAhoraSection({
                   min={0.01}
                   max={total}
                   value={value.montoParcial}
-                  onChange={(e) => set({ montoParcial: Number(e.target.value) })}
+                  onChange={(e) => set({ montoParcial: round2(Number(e.target.value)) })}
                 />
               </Field>
               <div className="flex items-end">

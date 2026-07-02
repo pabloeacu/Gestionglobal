@@ -609,6 +609,65 @@ export async function updateTramite(
 }
 
 // ============================================================================
+// DGG-95 (reporte JL 2026-07-02) · Cancelar trámite con cascada a cta cte.
+// Cancelar un trámite era un UPDATE pelado que NO tocaba el comprobante → al
+// cliente le quedaba deuda en vez de saldo a favor. La RPC `tramite_cancelar`
+// (SECURITY DEFINER) anula atómicamente el/los comprobante(s) vinculados NO
+// fiscales (lo pagado queda como saldo a favor imputable — JL-3) y OMITE los
+// fiscales con CAE (requieren nota de crédito). `tramite_cobro_resumen` alimenta
+// el diálogo (¿cuánto se pagó?, ¿hay CAE?) antes de decidir.
+// ============================================================================
+export interface TramiteCancelarResult {
+  ok: boolean;
+  anulados: string[];
+  omitidos_cae: string[];
+  saldo_a_favor: number;
+}
+export async function tramiteCancelar(
+  tramiteId: string,
+  anularComprobante: boolean,
+  motivo?: string,
+): Promise<ApiResponse<TramiteCancelarResult>> {
+  const { data, error } = await supabase.rpc('tramite_cancelar', {
+    p_tramite_id: tramiteId,
+    p_anular_comprobante: anularComprobante,
+    p_motivo: motivo,
+  });
+  if (error) return fail('TRAMITE_CANCELAR', error.message, error);
+  const d = (data ?? {}) as Partial<TramiteCancelarResult>;
+  return ok({
+    ok: d.ok ?? true,
+    anulados: d.anulados ?? [],
+    omitidos_cae: d.omitidos_cae ?? [],
+    saldo_a_favor: Number(d.saldo_a_favor ?? 0),
+  });
+}
+
+export interface TramiteCobroResumen {
+  tiene_comprobante: boolean;
+  tiene_anulable: boolean;
+  tiene_cae: boolean;
+  pagado_anulable: number;
+  saldo_pendiente: number;
+}
+export async function tramiteCobroResumen(
+  tramiteId: string,
+): Promise<ApiResponse<TramiteCobroResumen>> {
+  const { data, error } = await supabase.rpc('tramite_cobro_resumen', {
+    p_tramite_id: tramiteId,
+  });
+  if (error) return fail('TRAMITE_COBRO_RESUMEN', error.message, error);
+  const d = (data ?? {}) as Partial<TramiteCobroResumen>;
+  return ok({
+    tiene_comprobante: d.tiene_comprobante ?? false,
+    tiene_anulable: d.tiene_anulable ?? false,
+    tiene_cae: d.tiene_cae ?? false,
+    pagado_anulable: Number(d.pagado_anulable ?? 0),
+    saldo_pendiente: Number(d.saldo_pendiente ?? 0),
+  });
+}
+
+// ============================================================================
 // Comentarios
 // ============================================================================
 export async function addComentario(

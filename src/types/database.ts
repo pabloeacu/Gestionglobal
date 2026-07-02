@@ -9651,6 +9651,15 @@ export type Database = {
         }
         Returns: undefined
       }
+      tramite_cancelar: {
+        Args: {
+          p_anular_comprobante?: boolean
+          p_motivo?: string
+          p_tramite_id: string
+        }
+        Returns: Json
+      }
+      tramite_cobro_resumen: { Args: { p_tramite_id: string }; Returns: Json }
       tramite_incrementar_vistas: {
         Args: { p_tramite_id: string }
         Returns: undefined
