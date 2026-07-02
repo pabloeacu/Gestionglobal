@@ -57,6 +57,7 @@ import {
   type TramiteAdjuntoRow,
 } from '@/services/api/tramites';
 import { humanizeError } from '@/lib/errors';
+import { useAvanzarTramite } from '@/modules/tramites/lib/useAvanzarTramite';
 
 type TabKey = 'detalle' | 'comentarios' | 'adjuntos' | 'historial';
 
@@ -114,6 +115,12 @@ export function TramiteDetailPage() {
   );
 
   const sla = useMemo(() => (data ? computeSla(data) : null), [data]);
+
+  // DGG-95 · El cambio de estado desde el detail (incl. CANCELAR) se rutea por el
+  // MISMO hook que el kanban/lista → gate de cerrar-impago (DGG-88) y cascada de
+  // cancelación con saldo a favor (DGG-95). Antes el Select hacía un updateTramite
+  // pelado que salteaba todo (GAP R15 detectado en la §6).
+  const mover = useAvanzarTramite({ onError: () => void load() });
 
   if (loading || !data) {
     return (
@@ -296,7 +303,21 @@ export function TramiteDetailPage() {
             <h3 className="kicker">Estado</h3>
             <Select
               value={data.estado}
-              onChange={(e) => void patch('estado', e.target.value as never)}
+              onChange={async (e) => {
+                const nuevo = e.target.value as TramiteEstado;
+                if (nuevo === data.estado) return;
+                const ok = await mover(
+                  {
+                    id: data.id,
+                    estado: data.estado as TramiteEstado,
+                    codigo: data.codigo,
+                    cobro_estado: data.cobro_estado,
+                    cobro_pendiente: data.cobro_pendiente,
+                  },
+                  nuevo,
+                );
+                if (ok) void load();
+              }}
             >
               {TRAMITE_ESTADOS.map((e) => (
                 <option key={e} value={e}>

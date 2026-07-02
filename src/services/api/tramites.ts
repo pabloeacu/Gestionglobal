@@ -293,6 +293,18 @@ export interface TramiteListItem extends TramiteRow {
   posible_duplicado: boolean;
 }
 
+// DGG-95 · Forma mínima que `useAvanzarTramite` necesita para mover/cancelar un
+// trámite. Así el detail (TramiteDetail) puede rutear su Select de Estado por el
+// mismo hook que el kanban/lista, sin fingir un TramiteListItem completo. Cierra el
+// GAP R15: el detail era una 4ª vía de cambio de estado que saltaba la cascada.
+export interface MovableTramite {
+  id: string;
+  estado: string; // TramiteEstado en la práctica; string por paridad con TramiteListItem/Row
+  codigo: string;
+  cobro_estado?: 'parcial' | 'sin_cobranza' | null;
+  cobro_pendiente?: boolean | null;
+}
+
 export interface ListTramitesParams {
   search?: string;
   estado?: TramiteEstado | 'todos';
@@ -435,6 +447,10 @@ export async function listMisTramites(): Promise<ApiResponse<TramiteListItem[]>>
 // Detalle de un trámite (con relaciones)
 // ============================================================================
 export interface TramiteDetail extends TramiteRow {
+  // DGG-95 · computed columns (PostgREST) — el detail las necesita para gatear el
+  // cambio de estado (cerrar impago / cancelar con comprobante) igual que la lista.
+  cobro_pendiente: boolean;
+  cobro_estado: 'parcial' | 'sin_cobranza' | null;
   administracion: { id: string; nombre: string } | null;
   consorcio: { id: string; nombre: string } | null;
   comprobante: {
@@ -463,6 +479,8 @@ export async function getTramite(id: string): Promise<ApiResponse<TramiteDetail>
     .from('tramites')
     .select(
       `*,
+       cobro_pendiente,
+       cobro_estado,
        administracion:administraciones(id,nombre),
        consorcio:consorcios(id,nombre),
        comprobante:comprobantes(id,tipo,punto_venta,numero,total),
@@ -499,6 +517,8 @@ export async function getTramite(id: string): Promise<ApiResponse<TramiteDetail>
 
   return ok({
     ...(t as unknown as TramiteRow & {
+      cobro_pendiente: boolean;
+      cobro_estado: TramiteDetail['cobro_estado'];
       administracion: TramiteDetail['administracion'];
       consorcio: TramiteDetail['consorcio'];
       comprobante: TramiteDetail['comprobante'];

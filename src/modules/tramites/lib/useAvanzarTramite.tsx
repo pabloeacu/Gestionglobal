@@ -13,7 +13,7 @@ import {
   esAvanceTramite,
   TRAMITE_ESTADO_LABEL,
   type TramiteEstado,
-  type TramiteListItem,
+  type MovableTramite,
 } from '@/services/api/tramites';
 
 const fmtARS = (n: number) =>
@@ -36,7 +36,7 @@ interface Opts {
 export function useAvanzarTramite(opts: Opts = {}) {
   const confirm = useConfirm();
   return async function mover(
-    t: TramiteListItem,
+    t: MovableTramite,
     nuevoEstado: TramiteEstado,
   ): Promise<boolean> {
     if (t.estado === nuevoEstado) return false;
