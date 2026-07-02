@@ -20,6 +20,7 @@ import {
   Briefcase,
   CalendarClock,
   CalendarRange,
+  Ban,
   CheckCircle2,
   Clock,
   Copy,
@@ -93,6 +94,7 @@ import { EstadosConfigManager } from '../components/EstadosConfigManager';
 import { CategoriasConfigManager } from '../components/CategoriasConfigManager';
 import { ProgramarVencimientoModal } from '../components/ProgramarVencimientoModal';
 import { CerrarTramiteDialog } from '../components/CerrarTramiteDialog';
+import { useCancelarTramite } from '@/modules/tramites/lib/useAvanzarTramite';
 import { ReabrirTramiteDialog } from '../components/ReabrirTramiteDialog';
 import { GenerarComprobanteTramiteModal } from '../components/GenerarComprobanteTramiteModal';
 import { PedidosDocPanel } from '@/components/common/PedidosDocPanel';
@@ -118,6 +120,10 @@ export function TrackingDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
   const confirm = useConfirm();
+  // DGG-95 · Cancelar el trámite desde el detalle vivo usa el MISMO diálogo/cascada
+  // que el kanban (anula el comprobante no-fiscal → saldo a favor). Antes sólo se
+  // podía "cancelar" seteando el estado desde una línea (bypass silencioso de la cascada).
+  const cancelarTramite = useCancelarTramite();
 
   const isStaff = user?.role === 'gerente' || user?.role === 'operador';
 
@@ -756,6 +762,21 @@ export function TrackingDetailPage() {
                 {data.servicio?.vigencia_meses
                   ? 'Cerrar trámite y programar próximo vencimiento'
                   : 'Cerrar trámite'}
+              </Button>
+            )}
+            {/* DGG-95 (reporte JL) · Cancelar el trámite con cascada a la cta cte
+                (anula el comprobante no-fiscal → saldo a favor). Reemplaza el bypass
+                silencioso de "cambiar estado a Cancelado" desde una línea de avance. */}
+            {isStaff && data.estado !== 'cerrado' && data.estado !== 'cancelado' && (
+              <Button
+                variant="ghost"
+                onClick={async () => {
+                  const result = await cancelarTramite(data.id, data.codigo);
+                  if (result) void load();
+                }}
+                title="Cancelar el trámite (podés dejar lo pagado como saldo a favor)"
+              >
+                <Ban className="h-4 w-4" /> Cancelar trámite
               </Button>
             )}
             {/* Programar próximo vencimiento — visible cuando el tracking está

@@ -96,14 +96,21 @@ export function AgregarLineaDrawer({
         </Field>
 
         {permiteCambiarEstado && (
-          <Field label="Cambiar estado del tracking (opcional)">
+          <Field
+            label="Cambiar estado del tracking (opcional)"
+            hint="Para CANCELAR el trámite usá el botón “Cancelar trámite” (deja lo pagado como saldo a favor)."
+          >
             <Select value={estadoAsociado} onChange={(e) => setEstadoAsociado(e.target.value)}>
               <option value="">No cambiar</option>
-              {estados.map((e) => (
-                <option key={e.id} value={e.slug}>
-                  {e.label}
-                </option>
-              ))}
+              {/* DGG-95 · 'cancelado' se saca de acá: cancelar debe pasar por la cascada
+                  (anular comprobante → saldo a favor), no ser un efecto lateral de una línea. */}
+              {estados
+                .filter((e) => e.slug !== 'cancelado')
+                .map((e) => (
+                  <option key={e.id} value={e.slug}>
+                    {e.label}
+                  </option>
+                ))}
             </Select>
           </Field>
         )}
