@@ -3624,3 +3624,44 @@ bug (panel vacío al elegir la última sección) y validaré el sticky post-depl
 se respaldó y restauró; la matrícula QA se limpió.
 
 - **Fecha:** 2026-07-01. Commits `a34f43a` (v1 mobile) + `c24e8c4` (sticky desktop). Capitaliza reporte JL #6.
+
+### DGG-95 · Reporte JL (audio 2026-07-02): cancelar trámite → saldo a favor + precisión de cobranza (2026-07-02)
+
+**Contexto.** Segundo reporte de JL (audio + 2 imágenes). Tres problemas de finanzas alrededor de
+cancelar un trámite ya pagado (ver E-GG-81/82/83):
+1. Cancelar un trámite no repercutía en la cta cte → deuda fantasma en vez de saldo a favor.
+2. Desimputar desde la cta cte no dejaba claro el efecto en la caja ("doble operación").
+3. Un pago de $205.000 se registraba como $204.999,98.
+
+**Decisiones de negocio (Pablo, vía pregunta directa).**
+- **Cancelar con comprobante pagado → "preguntar al cancelar":** un diálogo ofrece (a) anular el
+  comprobante y dejar lo pagado como **saldo a favor** reutilizable, o (b) cancelar sin tocar el
+  comprobante (para señas no reembolsables / deuda que se mantiene). No es automático — el gerente
+  elige. Descarta "siempre anular" y "no tocar".
+- **Comprobante fiscal con CAE → "avisar y frenar":** no se puede anular acá (requiere nota de
+  crédito); el diálogo lo avisa y cancela el trámite sin tocar el comprobante fiscal.
+
+**Implementación.**
+- RPC `tramite_cancelar` (mig 0269) + `tramite_cobro_resumen` (mig 0270). Anula no-fiscales → saldo a
+  favor (reusa `anular_comprobante` 0009 + se conecta con `imputar_credito_a_comprobante` de JL-3),
+  omite CAE. Redondeo defensivo de cobranza (round2 en el front + `round(p_monto,2)` + guardia NaN en
+  la RPC, migs 0269+0271).
+- Hook reusable `useCancelarTramite` (diálogo + cascada) compartido por kanban/lista
+  (`useAvanzarTramite`) y el **botón dedicado "Cancelar trámite"** del `TrackingDetailPage` (la página
+  viva; ver E-GG-83). `AgregarLineaDrawer` ya no ofrece 'cancelado' (cancelar dejó de ser un efecto
+  lateral de agregar una línea). **Backstop BD** (mig 0272): las RPCs de tracking redirigen
+  `estado='cancelado'` a `tramite_cancelar` → ningún camino deja deuda silenciosa.
+- Desimputar: `CtaCteDetailPage` ahora distingue pago normal (se borra el ingreso de la caja al
+  desimputar → "no hace falta anularlo también en la caja") vs saldo a favor aplicado (se conserva,
+  E-GG-77) — cierra la confusión de la "doble operación".
+
+**Verificación §6.** Doble auditoría (3 agentes REVISAR + EJERCITAR e2e en BD con `DO/RAISE`): ambos
+branches de `tramite_cancelar` (anular no-fiscal → saldo a favor; omitir CAE), idempotencia, tenancy
+(staff-only), redondeo, y el backstop `tracking_agregar_linea('cancelado')` → todo verde e2e. La §6
+encontró y corrigió: (a) el GAP de la página legacy vs viva (E-GG-83), (b) el guard NaN. GAPs
+documentados sin fix (decisión de negocio pendiente): la matrícula de curso NO se da de baja al
+cancelar el trámite (objetos desacoplados — se usa `curso_desasignar_alumno`/JL-4 aparte); el cliente
+no recibe aviso de la cancelación en su tracking.
+
+- **Fecha:** 2026-07-02. Commits `48b5a32` + `8125107` + `ea7b326`. Migs 0269-0272. Capitaliza el
+  reporte JL por audio del 2026-07-02.

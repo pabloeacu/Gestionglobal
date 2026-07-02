@@ -3220,3 +3220,68 @@ key es un JWT válido).
 
 **Fecha / módulo:** 2026-07-01 · emails / auth · dispatch-emails v14 + enviar-reset-password v2 +
 mig 0268 (template) + frontend. Capitaliza reporte JL #5.
+
+## E-GG-81 · CRÍTICO: cancelar un trámite dejaba deuda fantasma en la cuenta corriente (2026-07-02)
+
+**Síntoma (reporte JL, audio+imágenes).** JL cancela un trámite ya pagado parcialmente (Curso RPAC,
+Saveriano). El trámite pasa a "Cancelado", pero en la cta cte el comprobante ($410.000) y su cobranza
+($205.000) quedan intactos → al cliente le queda una **deuda** por el saldo, en vez de un **saldo a
+favor** por lo ya pagado.
+
+**Causa raíz.** Cambiar el estado de un trámite a `'cancelado'` era un `UPDATE tramites SET estado`
+CRUDO, sin tocar el comprobante vinculado. Varios caminos lo hacían y NINGUNO anulaba el comprobante:
+(1) kanban/lista (`useAvanzarTramite`), (2) **la página viva de detalle** (`TrackingDetailPage` →
+`AgregarLineaDrawer` → RPC `tracking_agregar_linea` con "Cambiar estado = Cancelado"), (3) moderación
+de aportes (`tracking_moderar_gestor_avance`). La maquinaria para dejar saldo a favor YA existía
+(`anular_comprobante` borra imputaciones y deja el ingreso como crédito; `imputar_credito_a_comprobante`
+de JL-3 lo reusa) — sólo faltaba invocarla al cancelar.
+
+**Fix.** Nueva RPC `tramite_cancelar(p_tramite_id, p_anular_comprobante, p_motivo)` (mig 0269,
+SECURITY DEFINER): anula el/los comprobante(s) no-fiscales → lo pagado queda como saldo a favor, y
+**omite** los fiscales con CAE (requieren nota de crédito; decisión Pablo "avisar y frenar"). El
+frontend pregunta al cancelar (decisión Pablo "preguntar al cancelar") vía el hook reusable
+`useCancelarTramite` (lo comparten kanban/lista y el botón dedicado "Cancelar trámite" del tracking
+detail). `AgregarLineaDrawer` ya no ofrece 'cancelado' en el dropdown. **Backstop BD** (mig 0272):
+`tracking_agregar_linea` y `tracking_moderar_gestor_avance` redirigen `estado='cancelado'` a
+`tramite_cancelar` — ningún caller (ni directo) deja deuda silenciosa. e2e verificado: comprobante
+anulado + trámite cancelado + saldo a favor listado en `listar_creditos_administracion`.
+
+**Fecha / módulo:** 2026-07-02 · finanzas / trámites · migs 0269+0270+0272 + frontend. Capitaliza
+reporte JL (audio 2026-07-02). Relacionado con DGG-95, JL-3 (E-GG-77).
+
+## E-GG-82 · Un pago de $205.000 se registraba como $204.999,98 (arrastre de float) (2026-07-02)
+
+**Síntoma (reporte JL).** "El pago fue de $205.000 pero se registró por $204.999,98 (pasó en un par
+de pruebas)". El comprobante quedaba con saldo $205.000,02.
+
+**Causa raíz.** El servidor guarda exacto (verificado e2e: `registrar_cobranza_comprobante(205000)`
+→ 205000.00). El valor **llegaba ya corrupto desde el navegador**: entró por "Cobrar ahora" (modo
+parcial), donde el monto sale de `min(montoParcial, saldo)` y `montoParcial` viene directo del input
+`<input type="number" step="0.01">` con `Number(e.target.value)` — un arrastre de float (o el spinner
+de step 0.01) producía 204999.98 y se persistía sin sanear.
+
+**Fix.** `round2()` en el borde (`cobranzas.ts`: `registrarCobranza` + `registrarCobranzaEnEmision`),
+saneo on-change del input (`CobrarAhoraSection`), y `round(p_monto,2)` + guardia `NOT (p_monto>0)`
+(atrapa NaN/NULL) del lado servidor en `registrar_cobranza_comprobante` (migs 0269+0271) — defensa en
+profundidad. Dato de test corregido (X-1-36: $204.999,98 → $205.000). **Smell:** todo monto que viaja
+del front a una RPC de dinero debe redondearse a centavos en el borde; `Number(input.value)` sin
+`round2` es sospechoso.
+
+**Fecha / módulo:** 2026-07-02 · finanzas · migs 0269+0271 + cobranzas.ts + CobrarAhoraSection.
+
+## E-GG-83 · Meta-lección §6: arreglé la página LEGACY antes que la viva (2026-07-02)
+
+**Síntoma.** En la 1ª pasada del fix de E-GG-81, cablée la cascada de cancelación en
+`TramiteDetailPage.tsx` (por nombre, parecía el detalle del trámite). La §6 (agente de mapeo de
+caminos) reveló que esa página **no se renderiza**: la ruta `/gerencia/tramites/:id` hace
+`<Navigate to="/gerencia/trackings/:id">` → la página viva es `TrackingDetailPage` (módulo trackings),
+con otro modelo de estados (slugs configurables) y otra vía de cambio de estado. El fix inicial era
+inocuo pero estaba en código muerto; el bug real seguía abierto en la página viva.
+
+**Aprendizaje.** Al arreglar una superficie de UI, **confirmar cuál componente se renderiza de verdad**
+(seguir los `<Navigate>`/redirects en `App.tsx` y, si se puede, mirar la URL real en el browser) antes
+de editar — no asumir por el nombre del archivo. La doble auditoría §6 con un agente dedicado a "mapear
+TODOS los caminos" (no sólo revisar el archivo obvio) fue lo que lo detectó. Refuerza regla 15 (diff
+legacy↔nueva al redirigir rutas): acá la "nueva" era TrackingDetail y la "legacy" TramiteDetail.
+
+**Fecha / módulo:** 2026-07-02 · proceso / trámites. Capitaliza la 2ª pasada del fix DGG-95.
