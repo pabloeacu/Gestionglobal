@@ -3665,3 +3665,18 @@ no recibe aviso de la cancelación en su tracking.
 
 - **Fecha:** 2026-07-02. Commits `48b5a32` + `8125107` + `ea7b326`. Migs 0269-0272. Capitaliza el
   reporte JL por audio del 2026-07-02.
+
+**Addendum (mismo día, pedido Pablo sobre los 2 GAPs).** Los 2 GAPs anteriores (matrícula + aviso al
+cliente) se dejan **operativos como OFERTA opt-in tras la cancelación, NO automáticos** (palabras de
+Pablo: "ofrecele a la gerencia proceder a la acción como acto seguido de la cancelación"). En
+`useCancelarTramite`, tras cancelar OK: **(B)** confirm "¿Le enviamos un mail al cliente avisando que
+el trámite se canceló?" → RPC `tramite_avisar_cancelacion` (encola `tramite-cancelado` vía
+`encolar_email`); **(A)** si el solicitante tiene **1 matrícula activa** (resuelta por email vía
+`tramite_post_cancelacion_info` — no hay link estructural trámite→matrícula) → confirm "¿Retirar a
+[alumno] de [curso]?" → `curso_desasignar_alumno` (JL-4); con >1 avisa que lo haga desde Campus. Mig
+0273 (template + 2 RPCs). **§6** (2 agentes REVISAR + e2e): backend sólido (GRANTs, is_staff,
+overloads, email NULL→22403, resolver 0/1 case-insensitive, `completada` excluida); decisión
+documentada: `tramite_post_cancelacion_info` NO scopea por admin (el campus es global, no
+por-administración → gerencia ve el universo, consistente con regla 19); un GAP frontend
+(reentrancy/doble-click) se fixeó con guard `enCurso` (ref + try/finally). Commits `4d0ec25` +
+`eb510a4`. Mig 0273.
