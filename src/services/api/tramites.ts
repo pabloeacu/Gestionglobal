@@ -670,6 +670,46 @@ export interface TramiteCobroResumen {
   pagado_anulable: number;
   saldo_pendiente: number;
 }
+
+// DGG-95 (pedido Pablo) · Info para las 2 ofertas OPT-IN tras cancelar un trámite:
+// (B) avisar al cliente por mail · (A) retirar al alumno de la matrícula. No hay link
+// estructural trámite→matrícula → se resuelven las matrículas ACTIVAS del alumno por su
+// email (el confirm del front muestra alumno+curso para que gerencia valide).
+export interface MatriculaCandidata {
+  matricula_id: string;
+  curso_id: string;
+  curso_nombre: string;
+  alumno_nombre: string | null;
+}
+export interface PostCancelacionInfo {
+  solicitante_email: string | null;
+  solicitante_nombre: string | null;
+  matriculas: MatriculaCandidata[];
+}
+export async function tramitePostCancelacionInfo(
+  tramiteId: string,
+): Promise<ApiResponse<PostCancelacionInfo>> {
+  const { data, error } = await supabase.rpc('tramite_post_cancelacion_info', {
+    p_tramite_id: tramiteId,
+  });
+  if (error) return fail('TRAMITE_POST_CANCEL_INFO', error.message, error);
+  const d = (data ?? {}) as Partial<PostCancelacionInfo>;
+  return ok({
+    solicitante_email: d.solicitante_email ?? null,
+    solicitante_nombre: d.solicitante_nombre ?? null,
+    matriculas: d.matriculas ?? [],
+  });
+}
+export async function tramiteAvisarCancelacion(
+  tramiteId: string,
+): Promise<ApiResponse<{ ok: boolean; email: string }>> {
+  const { data, error } = await supabase.rpc('tramite_avisar_cancelacion', {
+    p_tramite_id: tramiteId,
+  });
+  if (error) return fail('TRAMITE_AVISAR_CANCEL', error.message, error);
+  const d = (data ?? {}) as { ok?: boolean; email?: string };
+  return ok({ ok: d.ok ?? true, email: d.email ?? '' });
+}
 export async function tramiteCobroResumen(
   tramiteId: string,
 ): Promise<ApiResponse<TramiteCobroResumen>> {

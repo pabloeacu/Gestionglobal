@@ -9651,6 +9651,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      tramite_avisar_cancelacion: {
+        Args: { p_tramite_id: string }
+        Returns: Json
+      }
       tramite_cancelar: {
         Args: {
           p_anular_comprobante?: boolean
@@ -9693,6 +9697,10 @@ export type Database = {
           p_item_id: string
         }
         Returns: undefined
+      }
+      tramite_post_cancelacion_info: {
+        Args: { p_tramite_id: string }
+        Returns: Json
       }
       tramix_gate: {
         Args: { p_force?: boolean; p_legajo: string; p_user: string }

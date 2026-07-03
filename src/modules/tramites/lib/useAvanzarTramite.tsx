@@ -3,19 +3,22 @@
 // atajo de la lista hace EXACTAMENTE lo mismo que el kanban: misma mutación
 // (`updateTramite` → la BD es la fuente de verdad), mismo gate de cobranza
 // (DGG-44) y mismos toasts. Cada vista pasa su propio update optimista + recarga.
-import { useConfirm } from '@/components/common';
+import { useConfirm, useAlert } from '@/components/common';
 import { toast } from '@/lib/toast';
 import { humanizeError } from '@/lib/errors';
 import {
   updateTramite,
   tramiteCancelar,
   tramiteCobroResumen,
+  tramitePostCancelacionInfo,
+  tramiteAvisarCancelacion,
   esAvanceTramite,
   TRAMITE_ESTADO_LABEL,
   type TramiteEstado,
   type TramiteCancelarResult,
   type MovableTramite,
 } from '@/services/api/tramites';
+import { desasignarAlumno } from '@/services/api/campus';
 
 const fmtARS = (n: number) =>
   n.toLocaleString('es-AR', {
@@ -33,6 +36,7 @@ const fmtARS = (n: number) =>
 // así ninguna saltea la cascada `tramite_cancelar`.
 export function useCancelarTramite() {
   const confirm = useConfirm();
+  const alert = useAlert();
   return async function cancelarConDialogo(
     tramiteId: string,
     codigo: string,
@@ -117,6 +121,59 @@ export function useCancelarTramite() {
       );
     } else {
       toast.success(`Trámite ${codigo || ''} cancelado`.trim());
+    }
+
+    // DGG-95 (pedido Pablo) · Ofertas OPT-IN (no automáticas) tras cancelar:
+    // (B) avisar al cliente por mail · (A) retirar al alumno de la matrícula del curso.
+    const info = await tramitePostCancelacionInfo(tramiteId);
+    if (info.ok) {
+      // (B) Mail de aviso al cliente.
+      if (info.data.solicitante_email) {
+        const enviar = await confirm({
+          title: 'Avisar al cliente',
+          message: `¿Le enviamos un mail a ${info.data.solicitante_email} avisándole que el trámite se canceló?`,
+          confirmLabel: 'Enviar mail',
+          cancelLabel: 'No hace falta',
+        });
+        if (enviar) {
+          const r = await tramiteAvisarCancelacion(tramiteId);
+          if (r.ok) toast.success('Mail de cancelación enviado al cliente');
+          else toast.error(`No se pudo enviar el mail: ${humanizeError(r.error)}`);
+        }
+      }
+      // (A) Retirar al alumno de la matrícula (si el solicitante tiene matrícula/s activas).
+      const mats = info.data.matriculas;
+      const soloMat = mats.length === 1 ? mats[0] : undefined;
+      if (soloMat) {
+        const m = soloMat;
+        const retirar = await confirm({
+          title: 'Retirar de la matrícula',
+          message: (
+            <div className="space-y-2">
+              <p>
+                {m.alumno_nombre ?? 'El alumno'} está matriculado en{' '}
+                <strong>{m.curso_nombre}</strong>.
+              </p>
+              <p>¿Lo retirás de esa matrícula del campus?</p>
+            </div>
+          ),
+          confirmLabel: 'Retirar de la matrícula',
+          cancelLabel: 'Dejar la matrícula',
+          danger: true,
+        });
+        if (retirar) {
+          const r = await desasignarAlumno(m.matricula_id);
+          if (r.ok) toast.success(`${m.alumno_nombre ?? 'Alumno'} retirado de ${m.curso_nombre}`);
+          else toast.error(humanizeError(r.error));
+        }
+      } else if (mats.length > 1) {
+        await alert({
+          title: 'Retirar de la matrícula',
+          message: `El alumno tiene ${mats.length} matrículas activas (${mats
+            .map((m) => m.curso_nombre)
+            .join(', ')}). Retiralas desde Campus → el curso → pestaña Alumnos.`,
+        });
+      }
     }
     return res.data;
   };
