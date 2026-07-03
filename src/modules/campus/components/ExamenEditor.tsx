@@ -32,6 +32,26 @@ interface ExamenEditorProps {
 
 const SIN_SECCION = '__sin__';
 
+// DGG-96 · Ventana de habilitación del examen. La BD guarda timestamptz (UTC); el
+// <input type="datetime-local"> trabaja en hora local. Vacío = sin límite (NULL).
+function isoToLocalInput(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+}
+function localInputToIso(v: string): string | null {
+  return v ? new Date(v).toISOString() : null;
+}
+function ventanaInvalida(desde: string, hasta: string): boolean {
+  return !!desde && !!hasta && new Date(hasta) < new Date(desde);
+}
+function fmtVentana(iso: string | null): string {
+  if (!iso) return '';
+  return new Date(iso).toLocaleString('es-AR', {
+    day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
+  });
+}
+
 // Editor de exámenes para staff. Soporta secciones temáticas, puntaje y
 // explicación por pregunta, retroalimentación por opción, y edición completa.
 export function ExamenEditor({ cursoId, examenes, onChanged }: ExamenEditorProps) {
@@ -42,11 +62,17 @@ export function ExamenEditor({ cursoId, examenes, onChanged }: ExamenEditorProps
   const [intentos, setIntentos] = useState(1);
   const [mostrar, setMostrar] = useState(true);
   const [mezclar, setMezclar] = useState(false);
+  const [habDesde, setHabDesde] = useState('');
+  const [habHasta, setHabHasta] = useState('');
   const [creating, setCreating] = useState(false);
 
   async function crearNuevo() {
     if (!titulo.trim()) {
       toast.error('Poné un título al examen.');
+      return;
+    }
+    if (ventanaInvalida(habDesde, habHasta)) {
+      toast.error('La fecha de cierre no puede ser anterior a la de habilitación.');
       return;
     }
     setCreating(true);
@@ -58,6 +84,8 @@ export function ExamenEditor({ cursoId, examenes, onChanged }: ExamenEditorProps
       intentos_max: Math.max(1, intentos || 1),
       mostrar_resultados: mostrar,
       mezclar_preguntas: mezclar,
+      fecha_habilitacion: localInputToIso(habDesde),
+      fecha_cierre: localInputToIso(habHasta),
     });
     setCreating(false);
     if (!res.ok) {
@@ -66,6 +94,8 @@ export function ExamenEditor({ cursoId, examenes, onChanged }: ExamenEditorProps
     }
     setTitulo('');
     setDescripcion('');
+    setHabDesde('');
+    setHabHasta('');
     toast.success('Examen creado');
     onChanged();
   }
@@ -110,6 +140,17 @@ export function ExamenEditor({ cursoId, examenes, onChanged }: ExamenEditorProps
               rows={2}
               placeholder="Reglas del examen, condiciones de aprobación, etc."
             />
+          </Field>
+        </div>
+        {/* DGG-96 · ventana de habilitación (opcional). Vacío = disponible ya / sin límite. */}
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <Field label="Habilitado desde (opcional)" hint="Vacío = disponible de inmediato.">
+            <Input type="datetime-local" value={habDesde}
+              onChange={(e) => setHabDesde(e.target.value)} />
+          </Field>
+          <Field label="Habilitado hasta (opcional)" hint="Vacío = sin límite de tiempo.">
+            <Input type="datetime-local" value={habHasta}
+              onChange={(e) => setHabHasta(e.target.value)} />
           </Field>
         </div>
         <div className="mt-3 grid gap-3 sm:grid-cols-[140px_140px_1fr_auto]">
@@ -259,6 +300,15 @@ function ExamenItem({ examen, onDelete, onChanged }: {
             {examen.mezclar_preguntas ? ' · mezcla' : ''}
             {examen.mostrar_resultados ? ' · muestra resultados' : ''}
           </p>
+          {(examen.fecha_habilitacion || examen.fecha_cierre) && (
+            <p className="mt-1 text-xs font-medium text-brand-cyan">
+              {examen.fecha_habilitacion
+                ? `Abre ${fmtVentana(examen.fecha_habilitacion)}`
+                : 'Disponible ya'}
+              {' · '}
+              {examen.fecha_cierre ? `Cierra ${fmtVentana(examen.fecha_cierre)}` : 'Sin límite'}
+            </p>
+          )}
         </div>
         <div className="flex shrink-0 gap-2">
           <Button variant="secondary" onClick={() => setEditandoExamen((v) => !v)}>
@@ -392,10 +442,16 @@ function ExamenMetaForm({ examen, onSaved, onCancel }: {
   const [intentos, setIntentos] = useState(examen.intentos_max);
   const [mostrar, setMostrar] = useState(examen.mostrar_resultados);
   const [mezclar, setMezclar] = useState(examen.mezclar_preguntas);
+  const [habDesde, setHabDesde] = useState(isoToLocalInput(examen.fecha_habilitacion));
+  const [habHasta, setHabHasta] = useState(isoToLocalInput(examen.fecha_cierre));
   const [saving, setSaving] = useState(false);
 
   async function guardar() {
     if (!titulo.trim()) { toast.error('El título no puede quedar vacío.'); return; }
+    if (ventanaInvalida(habDesde, habHasta)) {
+      toast.error('La fecha de cierre no puede ser anterior a la de habilitación.');
+      return;
+    }
     setSaving(true);
     const res = await actualizarExamen(examen.id, {
       titulo: titulo.trim(),
@@ -404,6 +460,8 @@ function ExamenMetaForm({ examen, onSaved, onCancel }: {
       intentos_max: Math.max(1, intentos || 1),
       mostrar_resultados: mostrar,
       mezclar_preguntas: mezclar,
+      fecha_habilitacion: localInputToIso(habDesde),
+      fecha_cierre: localInputToIso(habHasta),
     });
     setSaving(false);
     if (!res.ok) { toast.error(humanizeError(res.error)); return; }
@@ -434,6 +492,17 @@ function ExamenMetaForm({ examen, onSaved, onCancel }: {
           <Toggle checked={mostrar} onChange={setMostrar} label="Mostrar resultados" />
           <Toggle checked={mezclar} onChange={setMezclar} label="Mezclar preguntas" />
         </div>
+      </div>
+      {/* DGG-96 · ventana de habilitación (opcional). Vacío = disponible ya / sin límite. */}
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field label="Habilitado desde (opcional)" hint="Vacío = disponible de inmediato.">
+          <Input type="datetime-local" value={habDesde}
+            onChange={(e) => setHabDesde(e.target.value)} />
+        </Field>
+        <Field label="Habilitado hasta (opcional)" hint="Vacío = sin límite de tiempo.">
+          <Input type="datetime-local" value={habHasta}
+            onChange={(e) => setHabHasta(e.target.value)} />
+        </Field>
       </div>
       <div className="flex justify-end gap-2">
         <Button variant="ghost" onClick={onCancel}><X size={14} /> Cancelar</Button>
