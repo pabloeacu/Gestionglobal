@@ -88,6 +88,7 @@ const HUMAN_BY_CODE: Record<string, string> = {
   '23505': 'Ya existe un registro con esos datos. Revisá los campos únicos (email, CUIT, slug, etc).',
   '23503': 'No se pudo guardar porque falta un dato relacionado (cliente, servicio, etc).',
   '23502': 'Falta completar un campo obligatorio.',
+  '23514': 'Alguno de los valores no cumple una regla del sistema (revisá fechas y rangos).',
   '22023': 'Alguno de los valores está fuera del rango permitido.',
   'P0002': 'No encontramos lo que buscabas. Puede haber sido borrado.',
   'P0001': 'La operación fue rechazada por una regla del sistema.',
