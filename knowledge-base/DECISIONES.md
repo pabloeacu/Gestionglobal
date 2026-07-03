@@ -3680,3 +3680,33 @@ documentada: `tramite_post_cancelacion_info` NO scopea por admin (el campus es g
 por-administración → gerencia ve el universo, consistente con regla 19); un GAP frontend
 (reentrancy/doble-click) se fixeó con guard `enCurso` (ref + try/finally). Commits `4d0ec25` +
 `eb510a4`. Mig 0273.
+
+### DGG-96 · Reporte JL (portal fantasma) + feature Pablo (ventana de exámenes) (2026-07-03)
+
+**Item 1 — reporte JL (E-GG-84):** el portal del cliente mostraba "1 nuevo avance en tus gestiones"
+con todo cerrado/resuelto. Fix (mig 0274): el contador `cliente_tracking_avances_nuevos_count`
+excluye estados terminales (cerrado/resuelto/cancelado) + se corrige la ruta muerta
+`/portal/mis-gestiones` → `/portal/gestiones` (en la función emisora + backfill de 37 notifs). §6
+e2e: count del cliente 1→0, caso activo (abierto/esperando_cliente) intacto, 0 urls muertas.
+**Decisión:** "Resueltos" = no activo → el avance automático de cierre no engancha como novedad de
+gestión activa (sigue visible en la campanita).
+
+**Item 2 — feature Pablo: ventana de habilitación de exámenes.** Pablo pidió fecha de habilitación/
+inhabilitación (inmediata o programada, típ. 1 mes; sin fecha = indeterminado, publicación inmediata
+sin límite). **Hallazgo: el backend ya lo tenía todo** desde mig 0029 (`curso_examenes.
+fecha_habilitacion`/`fecha_cierre` timestamptz NULL, CHECK hasta≥desde, trigger
+`trg_examen_intentos_ventana` que bloquea rendir fuera de ventana server-side, y el alumno ya ve
+banners "abre/cerró" + botón bloqueado). El único hueco (regla 14): el editor de gerencia no exponía
+los inputs. Fix: 2 `<input datetime-local>` en alta y edición del `ExamenEditor` (vacío = disponible
+ya / sin límite) + validación cierre≥inicio + display de la ventana en el header. Sin migración (el
+servicio ya soportaba los campos). §6: enforcement server-side ejercitado e2e (ventana futura/cerrada
+→ 22023); round-trip TZ correcto (10:00 AR → 13:00 UTC → 10:00 AR). Fix menor §6: humanizar 23514 en
+`errors.ts`.
+
+**Prueba en vivo (desktop).** Editor de gerencia: creé un examen con ventana (13/07→13/08 10:00 AR),
+guardó, el header mostró "Abre 13/07/2026, 10:00 · Cierra 13/08/2026, 10:00", el form de edición
+pre-cargó las fechas (round-trip OK); examen QA borrado, Integrador real intacto. Item 1: verificado
+por e2e sobre el cliente real (count 1→0) — la vista del portal no se hijackeó para no tocar la
+sesión de un cliente real.
+
+- **Fecha:** 2026-07-03. Commits `285b4a0` + `37e2b89`. Mig 0274.

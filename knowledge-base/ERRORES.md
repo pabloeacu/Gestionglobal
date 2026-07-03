@@ -3285,3 +3285,26 @@ TODOS los caminos" (no sólo revisar el archivo obvio) fue lo que lo detectó. R
 legacy↔nueva al redirigir rutas): acá la "nueva" era TrackingDetail y la "legacy" TramiteDetail.
 
 **Fecha / módulo:** 2026-07-02 · proceso / trámites. Capitaliza la 2ª pasada del fix DGG-95.
+
+## E-GG-84 · Portal cliente: "1 nuevo avance" fantasma con todas las gestiones cerradas (2026-07-03)
+
+**Síntoma (reporte JL).** En la home del portal de un cliente aparecía "1 nuevo avance en tus
+gestiones" + badge "1 nuevo" en Mis gestiones, aunque TODAS sus gestiones estaban cerradas/resueltas
+(ninguna activa). Engañoso: sugiere una gestión nueva/activa cuando no hay.
+
+**Causa raíz.** `cliente_tracking_avances_nuevos_count()` contaba `notificaciones_internas` tipo
+'tracking_avance' no-leídas SIN filtrar por estado del trámite. Al cerrar un trámite por kanban se
+auto-genera un avance visible "Tu trámite fue resuelto." (mig 0201) → emite la notif → cuenta como
+"novedad". Y NUNCA se marca leída: el único punto que la marca es abrir el detalle del trámite
+(`PortalGestionDetailPage`), y el cliente no reabre trámites cerrados. El eco del cierre queda como
+"novedad" para siempre.
+
+**Fix (mig 0274).** El contador JOINea `tramites` y excluye estados terminales (cerrado/resuelto/
+cancelado) → un cliente sin nada activo deja de ver el enganche; la notif sigue en la campanita.
+e2e: count Expensas Pagas 1→0; caso activo (abierto/esperando_cliente) sigue contando.
+
+**Bug lateral (R15) resuelto en el mismo fix.** La notif/email guardaba url
+`/portal/mis-gestiones/<id>`, ruta que NO existe (la real es `/portal/gestiones/:id`) → el click caía
+en ruta muerta. Corregido en `private.tracking_notificar_avance_cliente` + backfill de 37 notifs.
+
+**Fecha / módulo:** 2026-07-03 · portal cliente / notificaciones · mig 0274. Capitaliza reporte JL.
