@@ -3,6 +3,7 @@
 // atajo de la lista hace EXACTAMENTE lo mismo que el kanban: misma mutación
 // (`updateTramite` → la BD es la fuente de verdad), mismo gate de cobranza
 // (DGG-44) y mismos toasts. Cada vista pasa su propio update optimista + recarga.
+import { useRef } from 'react';
 import { useConfirm, useAlert } from '@/components/common';
 import { toast } from '@/lib/toast';
 import { humanizeError } from '@/lib/errors';
@@ -37,10 +38,17 @@ const fmtARS = (n: number) =>
 export function useCancelarTramite() {
   const confirm = useConfirm();
   const alert = useAlert();
+  // DGG-95 §6 · guard de reentrancy: evita que un doble-click en la ventana async
+  // previa al 1er diálogo dispare la cancelación (y sus ofertas) dos veces —
+  // protege también el `resolver` compartido del DialogProvider.
+  const enCurso = useRef(false);
   return async function cancelarConDialogo(
     tramiteId: string,
     codigo: string,
   ): Promise<TramiteCancelarResult | null> {
+    if (enCurso.current) return null;
+    enCurso.current = true;
+    try {
     const resumenRes = await tramiteCobroResumen(tramiteId);
     const resumen = resumenRes.ok ? resumenRes.data : null;
     let anular = false;
@@ -176,6 +184,9 @@ export function useCancelarTramite() {
       }
     }
     return res.data;
+    } finally {
+      enCurso.current = false;
+    }
   };
 }
 
