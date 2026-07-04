@@ -3308,3 +3308,24 @@ e2e: count Expensas Pagas 1→0; caso activo (abierto/esperando_cliente) sigue c
 en ruta muerta. Corregido en `private.tracking_notificar_avance_cliente` + backfill de 37 notifs.
 
 **Fecha / módulo:** 2026-07-03 · portal cliente / notificaciones · mig 0274. Capitaliza reporte JL.
+
+## E-GG-85 · No se podía guardar una nota interna en una solicitud (2026-07-04)
+
+**Síntoma (reporte JL).** En el detalle de una solicitud nueva (RECIBIDA), escribir en
+"Observaciones internas" y no poder guardarlo: "no me deja guardar una nota interna".
+
+**Causa raíz.** La textarea de observaciones (`SolicitudDetailPage.tsx`) no tenía acción de
+guardado propia. El valor `observ` SÓLO se persistía como efecto lateral de `handleEnRevision`
+→ `marcarEnRevision` (RPC `solicitud_marcar_en_revision`), que además cambia el estado a
+'en_revision'. Un gerente que quería dejar una nota en una solicitud recibida sin cambiarle el
+estado no tenía cómo → "no me deja guardar".
+
+**Fix (mig 0275).** RPC dedicada `solicitud_guardar_observaciones(p_solicitud_id, p_observaciones)`
+(SECURITY DEFINER, staff-only) que guarda SÓLO las observaciones (`NULLIF(btrim(...),'')` → trim
++ vacío=NULL) **sin tocar el estado** + botón "Guardar nota" bajo la textarea (deshabilitado si
+no hay cambios; oculto si la solicitud está activada/descartada). §6 e2e: staff guarda + trim,
+estado sin cambiar (recibida/en_revision/derivada), administrador/partner bloqueado (42501),
+inexistente→P0002, sin overloads. Live: nota guardada en la solicitud del reporte (recibida) →
+estado intacto, consola limpia.
+
+**Fecha / módulo:** 2026-07-04 · solicitudes · mig 0275. Capitaliza reporte JL.

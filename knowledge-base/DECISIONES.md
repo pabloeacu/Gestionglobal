@@ -3710,3 +3710,20 @@ por e2e sobre el cliente real (count 1→0) — la vista del portal no se hijack
 sesión de un cliente real.
 
 - **Fecha:** 2026-07-03. Commits `285b4a0` + `37e2b89`. Mig 0274.
+
+### DGG-97 · Reporte JL: guardar nota interna en una solicitud sin cambiar el estado (2026-07-04)
+
+Reporte JL: "no me deja guardar una nota interna para esta solicitud nueva" (E-GG-85). La textarea
+"Observaciones internas" del detalle de solicitud no tenía guardado propio — la nota sólo se
+persistía al "Marcar en revisión" (que cambia el estado a en_revision). Fix: RPC
+`solicitud_guardar_observaciones` (mig 0275, SECURITY DEFINER staff-only, guarda SÓLO la nota con
+trim + vacío→NULL, sin tocar el estado) + botón "Guardar nota" bajo la textarea (deshabilitado si
+no hay cambios; oculto si la solicitud está activada/descartada). **§6 doble** (REVISAR + EJERCITAR
+e2e): seguridad (staff-only; administrador/partner → 42501), invariancia de estado (recibida/
+en_revision/derivada), trim, vacío→NULL, inexistente→P0002, sin overloads. **Prueba en vivo
+(desktop):** en la solicitud del reporte (RECIBIDA) escribí una nota → "Guardar nota" → persistió
+con estado intacto, consola limpia; nota QA limpiada. **Nota de diseño:** en estado 'rechazada' la
+textarea + botón siguen visibles (permite anotar una solicitud rechazada) aunque las acciones del
+hero no — asimetría deliberada y razonable.
+
+- **Fecha:** 2026-07-04. Commit `0faeba1`. Mig 0275.
