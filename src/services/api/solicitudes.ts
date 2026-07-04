@@ -272,6 +272,21 @@ export async function marcarEnRevision(
   return ok(true);
 }
 
+// DGG-97 (reporte JL) · Guardar SÓLO la nota interna, sin cambiar el estado de la
+// solicitud (antes la nota únicamente se persistía como efecto lateral de "Marcar en
+// revisión" → no había forma de dejar una nota en una solicitud recibida).
+export async function guardarObservacionesSolicitud(
+  id: string,
+  observaciones?: string,
+): Promise<ApiResponse<true>> {
+  const { error } = await rpc('solicitud_guardar_observaciones', {
+    p_solicitud_id: id,
+    p_observaciones: observaciones ?? null,
+  });
+  if (error) return fail('SOL_GUARDAR_OBS', error.message, error);
+  return ok(true);
+}
+
 // Wizard v2 · rama terminal "Pedir documentación y dejar en revisión": deja la
 // solicitud en_revision + mail al cliente (+ campana/push). Mig 0206.
 export async function pedirDocsRevision(

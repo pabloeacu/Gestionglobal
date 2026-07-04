@@ -9503,6 +9503,10 @@ export type Database = {
         Args: { p_motivo: string; p_solicitud_id: string }
         Returns: undefined
       }
+      solicitud_guardar_observaciones: {
+        Args: { p_observaciones?: string; p_solicitud_id: string }
+        Returns: undefined
+      }
       solicitud_marcar_en_revision: {
         Args: { p_observaciones?: string; p_solicitud_id: string }
         Returns: undefined

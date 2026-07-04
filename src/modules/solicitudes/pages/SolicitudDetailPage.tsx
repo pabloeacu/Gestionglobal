@@ -11,6 +11,7 @@ import {
   Paperclip,
   Phone,
   Reply,
+  Save,
   Sparkles,
   Trash2,
   Ban,
@@ -42,6 +43,7 @@ import {
   rechazarSolicitud,
   getSolicitud,
   marcarEnRevision,
+  guardarObservacionesSolicitud,
   responderSolicitud,
   restaurarSolicitud,
   type RespuestaCasilla,
@@ -92,6 +94,7 @@ export function SolicitudDetailPage() {
   const [wizardOpen, setWizardOpen] = useState(false);
   const [observ, setObserv] = useState('');
   const [savingObserv, setSavingObserv] = useState(false);
+  const [guardandoNota, setGuardandoNota] = useState(false);
   // 1.B · lightbox de adjuntos.
   const [lightbox, setLightbox] = useState<{
     url: string;
@@ -139,6 +142,21 @@ export function SolicitudDetailPage() {
       return;
     }
     toast.success('Marcada en revisión');
+    await load();
+  }
+
+  // DGG-97 (reporte JL) · Guardar SÓLO la nota interna, sin cambiar el estado de la
+  // solicitud (antes la nota únicamente se persistía al "Marcar en revisión").
+  async function handleGuardarNota() {
+    if (!data) return;
+    setGuardandoNota(true);
+    const res = await guardarObservacionesSolicitud(data.id, observ.trim() || undefined);
+    setGuardandoNota(false);
+    if (!res.ok) {
+      toast.error(humanizeError(res.error));
+      return;
+    }
+    toast.success('Nota guardada');
     await load();
   }
 
@@ -378,6 +396,18 @@ export function SolicitudDetailPage() {
             disabled={yaActivada || yaDescartada}
           />
         </Field>
+        {!yaActivada && !yaDescartada && (
+          <div className="mt-2 flex justify-end">
+            <Button
+              variant="secondary"
+              onClick={handleGuardarNota}
+              loading={guardandoNota}
+              disabled={observ.trim() === (data.observaciones ?? '').trim()}
+            >
+              <Save size={15} /> Guardar nota
+            </Button>
+          </div>
+        )}
       </section>
 
       {/* Adjuntos del formulario */}
