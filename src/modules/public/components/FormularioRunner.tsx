@@ -29,6 +29,7 @@ import {
 } from '@/services/api/formularios';
 import { cn } from '@/lib/cn';
 import { humanizeError } from '@/lib/errors';
+import { formatCuit, validarCuit, esCampoCuit } from '@/lib/cuit';
 
 interface FormularioRunnerProps {
   formulario: FormularioRow;
@@ -230,6 +231,11 @@ export function FormularioRunner({
         }
         if (field.type === 'number' && isNaN(Number(val))) {
           errors.push(`${field.label}: número inválido`);
+        }
+        // DGG-98 · CUIT/CUIL: cantidad de dígitos (11) + dígito verificador.
+        if (esCampoCuit(field)) {
+          const cuitErr = validarCuit(String(val));
+          if (cuitErr) errors.push(`${field.label}: ${cuitErr}`);
         }
       }
     }
@@ -792,6 +798,22 @@ function FieldRenderer({ field, value, prefilled = false, onChange, files, onFil
               value={String(value ?? '')}
               onChange={(e) => onChange(e.target.value)}
               placeholder={field.placeholder}
+              required={field.required}
+            />
+          </Field>
+        );
+      }
+      // DGG-98 · CUIT/CUIL: autocompleta guiones (XX-XXXXXXXX-X) mientras se tipea,
+      // cap 11 dígitos. La validación (cantidad + verificador) corre en validate().
+      if (esCampoCuit(field)) {
+        return (
+          <Field label={fieldLabel(field, prefilled)} required={field.required} hint={field.hint}>
+            <Input
+              type="text"
+              inputMode="numeric"
+              value={formatCuit(String(value ?? ''))}
+              onChange={(e) => onChange(formatCuit(e.target.value))}
+              placeholder={field.placeholder || 'XX-XXXXXXXX-X'}
               required={field.required}
             />
           </Field>

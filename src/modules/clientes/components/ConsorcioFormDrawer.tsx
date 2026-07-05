@@ -26,6 +26,7 @@ import {
   type ConsorcioRow,
 } from '@/services/api/consorcios';
 import { humanizeError } from '@/lib/errors';
+import { formatCuit, validarCuit } from '@/lib/cuit';
 
 interface ConsorcioFormDrawerProps {
   open: boolean;
@@ -387,7 +388,12 @@ export function ConsorcioFormDrawer({
                   error={errors.numero_documento}
                 >
                   <Input
-                    value={form.numero_documento}
+                    inputMode="numeric"
+                    value={
+                      form.tipo_documento === 'cuit'
+                        ? formatCuit(form.numero_documento)
+                        : form.numero_documento
+                    }
                     onChange={(e) =>
                       setField(
                         'numero_documento',
@@ -395,7 +401,7 @@ export function ConsorcioFormDrawer({
                       )
                     }
                     placeholder={
-                      form.tipo_documento === 'cuit' ? '30712345678' : ''
+                      form.tipo_documento === 'cuit' ? 'XX-XXXXXXXX-X' : ''
                     }
                     disabled={!form.tipo_documento || !!editing}
                   />
@@ -516,8 +522,8 @@ function stepValidations(
   if (!form.codigo.trim()) out[0]!.codigo = 'Requerido';
   if (!form.nombre.trim()) out[0]!.nombre = 'Requerido';
   if (form.tipo_documento === 'cuit') {
-    if (!/^\d{11}$/.test(form.numero_documento))
-      out[2]!.numero_documento = 'El CUIT debe tener 11 dígitos';
+    const cuitErr = validarCuit(form.numero_documento);
+    if (cuitErr) out[2]!.numero_documento = cuitErr;
   } else if (form.tipo_documento === 'dni_ficticio') {
     if (!/^\d{7,8}$/.test(form.numero_documento))
       out[2]!.numero_documento = 'DNI ficticio: 7 u 8 dígitos';

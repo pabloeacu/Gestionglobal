@@ -9,6 +9,7 @@ import {
   Select,
   Textarea,
 } from '@/components/common';
+import { formatCuit, validarCuit, soloDigitosCuit } from '@/lib/cuit';
 import {
   crearPartner,
   actualizarPartner,
@@ -92,11 +93,16 @@ export function PartnerFormDrawer({
       toast.error('Indicá el nombre legal');
       return;
     }
+    const cuitErr = validarCuit(cuit);
+    if (cuitErr) {
+      toast.error(cuitErr);
+      return;
+    }
     setSaving(true);
     if (isEdit && editing) {
       const res = await actualizarPartner(editing.id, {
         nombre_legal: nombreLegal.trim(),
-        cuit: cuit.trim() || null,
+        cuit: soloDigitosCuit(cuit) || null,
         condicion_iva: (condicionIva as CondicionIva) || null,
         email: email.trim() || null,
         telefono: telefono.trim() || null,
@@ -179,9 +185,10 @@ export function PartnerFormDrawer({
         <div className="grid grid-cols-2 gap-3">
           <Field label="CUIT">
             <Input
-              value={cuit}
-              onChange={(e) => setCuit(e.target.value)}
-              placeholder="30-00000000-0"
+              inputMode="numeric"
+              value={formatCuit(cuit)}
+              onChange={(e) => setCuit(formatCuit(e.target.value))}
+              placeholder="XX-XXXXXXXX-X"
             />
           </Field>
           <Field label="Condición IVA">

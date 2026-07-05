@@ -21,6 +21,7 @@ import {
 } from '@/services/api/administraciones';
 import { altaClientePortal } from '@/services/api/usuarios';
 import { humanizeError } from '@/lib/errors';
+import { formatCuit, validarCuit, soloDigitosCuit } from '@/lib/cuit';
 
 interface AdministracionFormDrawerProps {
   open: boolean;
@@ -407,20 +408,16 @@ export function AdministracionFormDrawer({
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field
                   label="CUIT"
-                  hint="11 dígitos sin guiones"
+                  hint="Formato XX-XXXXXXXX-X (los guiones se completan solos)"
                   error={errors.cuit}
                 >
                   <Input
                     inputMode="numeric"
-                    maxLength={11}
-                    value={form.cuit}
+                    value={formatCuit(form.cuit)}
                     onChange={(e) =>
-                      setField(
-                        'cuit',
-                        e.target.value.replace(/\D/g, '').slice(0, 11),
-                      )
+                      setField('cuit', soloDigitosCuit(e.target.value).slice(0, 11))
                     }
-                    placeholder="20123456786"
+                    placeholder="XX-XXXXXXXX-X"
                   />
                 </Field>
                 <Field label="Condición frente a IVA">
@@ -663,8 +660,10 @@ function stepValidations(
   const out: Array<Partial<Record<keyof FormState, string>>> = [{}, {}, {}, {}];
   if (!form.codigo.trim()) out[0]!.codigo = 'Requerido';
   if (!form.nombre.trim()) out[0]!.nombre = 'Requerido';
-  if (form.cuit && !/^\d{11}$/.test(form.cuit))
-    out[1]!.cuit = 'Debe tener 11 dígitos numéricos';
+  if (form.cuit) {
+    const cuitErr = validarCuit(form.cuit);
+    if (cuitErr) out[1]!.cuit = cuitErr;
+  }
   if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))
     out[2]!.email = 'Email inválido';
   return out;

@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import { CheckCircle2, Sparkles, UserPlus, Users } from 'lucide-react';
 import { Field, Input, Select, StepPanel } from '@/components/common';
 import { toast } from '@/lib/toast';
+import { formatCuit, soloDigitosCuit } from '@/lib/cuit';
 import { matchClienteParaSolicitud } from '@/services/api/solicitudes';
 import { quickSearchAdministraciones } from '@/services/api/administraciones';
 import type { PasoProps } from './types';
@@ -148,13 +149,18 @@ export function PasoCliente({ solicitud, flags, state, set }: PasoProps) {
           </Field>
           <Field label="CUIT">
             <Input
-              value={state.nuevoCliente.cuit ?? ''}
+              inputMode="numeric"
+              value={formatCuit(state.nuevoCliente.cuit ?? '')}
               onChange={(e) =>
                 set((s) => ({
                   ...s,
-                  nuevoCliente: { ...s.nuevoCliente, cuit: e.target.value || null },
+                  nuevoCliente: {
+                    ...s.nuevoCliente,
+                    cuit: soloDigitosCuit(e.target.value) || null,
+                  },
                 }))
               }
+              placeholder="XX-XXXXXXXX-X"
             />
           </Field>
           <Field label="Email del cliente">

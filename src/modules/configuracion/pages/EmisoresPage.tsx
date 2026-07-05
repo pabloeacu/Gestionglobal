@@ -57,6 +57,7 @@ import {
   type ArcaEmisor,
 } from '@/services/api/arca';
 import { humanizeError } from '@/lib/errors';
+import { formatCuit, validarCuit } from '@/lib/cuit';
 import { parseLocalDate } from '@/lib/dates';
 
 // ============================================================================
@@ -439,6 +440,11 @@ function AltaEmisorModal({
       toast.error('Nombre y razón social son obligatorios');
       return;
     }
+    const cuitErr = validarCuit(cuit);
+    if (cuitErr) {
+      toast.error(cuitErr);
+      return;
+    }
     setBusy(true);
     const res = await crearEmisor({
       nombre: nombre.trim(),
@@ -486,9 +492,9 @@ function AltaEmisorModal({
         <div className="grid grid-cols-2 gap-3">
           <Field label="CUIT" hint="11 dígitos sin guiones (opcional al alta, requerido para generar CSR).">
             <Input
-              value={cuit}
+              value={formatCuit(cuit)}
               onChange={(e) => setCuit(e.target.value.replace(/\D/g, '').slice(0, 11))}
-              placeholder="20123456789"
+              placeholder="XX-XXXXXXXX-X"
               inputMode="numeric"
             />
           </Field>
@@ -676,8 +682,9 @@ function DatosFiscalesForm({ emisor, onSaved }: { emisor: ArcaEmisor; onSaved: (
 
   async function onSave(e: FormEvent) {
     e.preventDefault();
-    if (cuit && !/^\d{11}$/.test(cuit)) {
-      toast.error('El CUIT debe tener 11 dígitos');
+    const cuitErr = validarCuit(cuit);
+    if (cuitErr) {
+      toast.error(cuitErr);
       return;
     }
     setBusy(true);
@@ -769,9 +776,9 @@ function DatosFiscalesForm({ emisor, onSaved }: { emisor: ArcaEmisor; onSaved: (
       <div className="grid grid-cols-2 gap-3">
         <Field label="CUIT" hint="11 dígitos. Requerido para generar el CSR.">
           <Input
-            value={cuit}
+            value={formatCuit(cuit)}
             onChange={(e) => setCuit(e.target.value.replace(/\D/g, '').slice(0, 11))}
-            placeholder="20123456789"
+            placeholder="XX-XXXXXXXX-X"
             inputMode="numeric"
           />
         </Field>

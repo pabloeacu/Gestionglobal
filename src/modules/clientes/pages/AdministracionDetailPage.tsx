@@ -54,6 +54,7 @@ import { formatDateShort, parseLocalDate } from '@/lib/dates';
 import { cn } from '@/lib/cn';
 import { TabWebinars } from '../components/TabWebinars';
 import { humanizeError } from '@/lib/errors';
+import { validarCuit, soloDigitosCuit } from '@/lib/cuit';
 
 type TabKey = 'general' | 'fiscal' | 'registral' | 'consorcios' | 'ctacte' | 'webinars' | 'emails';
 
@@ -722,8 +723,15 @@ function TabFiscal({
         ) : (
           <InlineEdit
             value={admin.cuit}
-            placeholder="agregar CUIT"
-            onSave={(v) => onPatch('cuit', v)}
+            placeholder="XX-XXXXXXXX-X"
+            onSave={(v) => {
+              const err = validarCuit(v);
+              if (err) {
+                toast.error(err);
+                return;
+              }
+              onPatch('cuit', soloDigitosCuit(v));
+            }}
           />
         )}
       </DataRow>
