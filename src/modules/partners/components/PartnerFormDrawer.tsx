@@ -123,7 +123,7 @@ export function PartnerFormDrawer({
     const res = await crearPartner({
       slug: slug.trim(),
       nombre_legal: nombreLegal.trim(),
-      cuit: cuit.trim() || null,
+      cuit: soloDigitosCuit(cuit) || null,
       condicion_iva: (condicionIva as CondicionIva) || null,
       email: email.trim() || null,
       telefono: telefono.trim() || null,
