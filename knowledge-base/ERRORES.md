@@ -3381,4 +3381,19 @@ Sintético: anular pagado → saldo a favor + CONSISTENCIA (favor=listar=−actu
 crédito a otro comprobante (JL-3); over-impute bloqueado; imputar-a-anulado bloqueado; trigger
 Σ≤total bloqueó INSERT directo; pago-a-cuenta permitido; reversión baja el crédito. Sin overloads (R16).
 
-**Fecha / módulo:** 2026-07-04 · cuenta corriente / finanzas · mig 0276. Capitaliza reporte JL + auditoría doble a fondo (4 agentes) pedida por Pablo.
+**Addendum (mig 0277, decisiones de Pablo sobre los 2 puntos que quedaron abiertos).**
+(1) **Partner — sin cambio de código, verificado e2e.** Pablo: "dejalo como está — si el
+dinero aplica a un comprobante en el que no participa el partner, no debería ser parte de su
+rendición; si se vuelve a aplicar a uno del que sí participa, vuelve a aparecer." El modelo
+atribuye por `movimientos.partner_id_atribucion` (la plata que trajo el partner), y `partner_sabana`
+JOINea imputaciones a comprobantes `<> 'anulado'`. e2e: cobranza tagueada al partner → aparece en su
+sábana → anular el comprobante la saca → re-aplicar el crédito a otro comprobante la reaparece.
+Coincide exactamente con el criterio → no se toca.
+(2) **Analítica — corregida (mig 0277).** Pablo: "cobranza debe significar lo mismo en todos lados."
+`analitica_cobranzas_mensual` sumaba ingresos brutos (contaba saldos a favor y pagos de comprobantes
+anulados como cobranza). Ahora suma `movimiento_imputaciones.monto_imputado` de ingresos vivos
+imputados a comprobantes vigentes = misma definición que `total_cobrado` de la cta cte. e2e: la
+cobranza cuenta al imputar (+100k), deja de contar al anular el comprobante (vuelve a baseline),
+y vuelve a contar al re-aplicar el crédito (+40k).
+
+**Fecha / módulo:** 2026-07-04 · cuenta corriente / finanzas / partners / analítica · migs 0276 + 0277. Capitaliza reporte JL + auditoría doble a fondo (4 agentes) pedida por Pablo.
