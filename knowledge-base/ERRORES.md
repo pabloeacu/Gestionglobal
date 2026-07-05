@@ -3397,3 +3397,34 @@ cobranza cuenta al imputar (+100k), deja de contar al anular el comprobante (vue
 y vuelve a contar al re-aplicar el crédito (+40k).
 
 **Fecha / módulo:** 2026-07-04 · cuenta corriente / finanzas / partners / analítica · migs 0276 + 0277. Capitaliza reporte JL + auditoría doble a fondo (4 agentes) pedida por Pablo.
+
+## E-GG-87 · Cliente duplicado desde formulario público + portal del cliente vacío (2026-07-04)
+
+**Síntoma (reporte JL, 3 capturas = 1 bug).** (A) Se generó un cliente NUEVO "Est Sav." aunque ya
+existía "Estudio Save" con el mismo email. (B) El trámite se autoflageó "Posible duplicado". (C) El
+cliente entra al portal (estudio.saveriano@gmail.com) y **no ve nada** de su trámite/comprobante.
+
+**Causa raíz (una sola).** Al activar la solicitud del Curso RPAC, la gerencia eligió "crear cliente
+nuevo" en vez de "vincular" a "Estudio Save" (02036873, del 02/06, mismo email). `solicitud_activar`,
+en la rama `p_crear_cliente_input`, hacía `INSERT INTO administraciones` **sin ninguna guarda de
+email/CUIT duplicado** → creó "Est Sav." (2e05726b, 04/07). El match SÍ estaba disponible
+(`solicitud_match_cliente` devolvía "Estudio Save" por email) pero el wizard lo mostraba como cartel
+ámbar fácil de ignorar y el default para landing era "nuevo". El trámite + comprobante #38 + el saldo
+a favor de $360k (E-GG-86) quedaron bajo el duplicado. Y como **`auth.users.email` es único**, el
+portal-user del duplicado nunca se creó → el cliente sólo tiene el login del original y no ve lo nuevo.
+
+**Fix.**
+- **Reparación (merge de datos, decisión Pablo "fusionar en Estudio Save"):** se movió el footprint
+  del duplicado (2 comprobantes, 2 movimientos, 1 trámite, 1 solicitud) al original 02036873, con
+  asserts de no-orfandad; el duplicado quedó como tombstone (activo=false, email=NULL, renombrado).
+  Ahora "Estudio Save" tiene 4 trámites (incl. RPAC abierto), 5 comprobantes y `saldo_a_favor=360.000`,
+  y el cliente lo ve en su portal (su login resuelve a 02036873).
+- **Prevención (mig 0278, decisión Pablo "bloqueo duro"):** `solicitud_activar` ahora **rechaza**
+  crear un cliente si ya existe uno ACTIVO con el mismo email o CUIT → obliga a vincular. e2e 3/3:
+  crear con email existente → bloqueado; crear con email fresco → permitido; vincular → permitido.
+- **UI (`PasoCliente`):** ante una coincidencia, deja "vincular" por defecto y muestra el banner como
+  confirmación con escape explícito a "cliente nuevo" (que limpia el vínculo). El backstop es la RPC.
+
+**Nota (era el ÚNICO duplicado del sistema):** barrido de emails/CUITs → 0 otros duplicados.
+
+**Fecha / módulo:** 2026-07-04 · solicitudes / clientes / portal · mig 0278 + merge de datos. Capitaliza reporte JL (3 capturas).

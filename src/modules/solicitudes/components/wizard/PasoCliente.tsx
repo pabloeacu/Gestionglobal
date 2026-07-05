@@ -32,8 +32,21 @@ export function PasoCliente({ solicitud, flags, state, set }: PasoProps) {
     if (solicitud.cliente_id) return;
     if (!solicitud.formulario_submission_id) return;
     void matchClienteParaSolicitud(solicitud.formulario_submission_id).then((res) => {
-      if (res.ok && res.data) setMatchSugerido(res.data as unknown as MatchRow);
+      if (res.ok && res.data) {
+        const m = res.data as unknown as MatchRow;
+        setMatchSugerido(m);
+        // E-GG-87: si hay coincidencia, dejamos "vincular" por defecto (no crear
+        // duplicado). La gerencia puede pasar a "cliente nuevo" a propósito. El
+        // backstop es el bloqueo duro en `solicitud_activar` (mismo email/CUIT).
+        set((s) =>
+          s.clienteIdExistente
+            ? s
+            : { ...s, modoCliente: 'existente', clienteIdExistente: m.administracion_id },
+        );
+      }
     });
+    // `set` es estable (viene del hook); no lo listamos para no re-disparar.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [solicitud.cliente_id, solicitud.formulario_submission_id]);
 
   // Búsqueda de clientes existentes.
@@ -79,37 +92,50 @@ export function PasoCliente({ solicitud, flags, state, set }: PasoProps) {
         </div>
       )}
 
-      {/* Cross-match landing */}
+      {/* Cross-match landing (E-GG-87). Ante coincidencia por email/CUIT dejamos
+          "vincular" por defecto y mostramos el banner como confirmación, con
+          escape explícito a "cliente nuevo". El backstop es el bloqueo duro en
+          la RPC `solicitud_activar`. */}
       {matchSugerido &&
-        !matchIgnorado &&
-        state.clienteIdExistente !== matchSugerido.administracion_id && (
-          <div className="mb-4 rounded-xl border-2 border-amber-300 bg-amber-50 p-3">
-            <p className="text-xs font-semibold uppercase tracking-wider text-amber-700">
-              Coincidencia detectada
-            </p>
-            <p className="mt-1 text-sm text-brand-ink">
-              Coincide por <strong>{matchSugerido.match_por}</strong> con{' '}
-              <strong>{matchSugerido.administracion_nombre}</strong>. ¿Añadir el servicio a
-              esa cuenta en vez de crear un cliente nuevo?
-            </p>
-            <div className="mt-2 flex gap-2">
-              <button
-                type="button"
-                onClick={aceptarMatch}
-                className="inline-flex items-center gap-1 rounded-lg bg-amber-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-800"
-              >
-                Vincular a {matchSugerido.administracion_nombre}
-              </button>
-              <button
-                type="button"
-                onClick={() => setMatchIgnorado(true)}
-                className="rounded-lg border border-amber-300 px-3 py-1.5 text-xs font-medium text-amber-800 hover:bg-amber-100"
-              >
-                Es un cliente nuevo
-              </button>
+        !matchIgnorado && (() => {
+          const vinculado =
+            state.clienteIdExistente === matchSugerido.administracion_id;
+          return (
+            <div className="mb-4 rounded-xl border-2 border-amber-300 bg-amber-50 p-3">
+              <p className="text-xs font-semibold uppercase tracking-wider text-amber-700">
+                {vinculado ? 'Vinculado a cliente existente' : 'Coincidencia detectada'}
+              </p>
+              <p className="mt-1 text-sm text-brand-ink">
+                Coincide por <strong>{matchSugerido.match_por}</strong> con{' '}
+                <strong>{matchSugerido.administracion_nombre}</strong>.{' '}
+                {vinculado
+                  ? 'Dejamos el servicio anexado a esa cuenta para no duplicar el cliente. Si en realidad es un cliente nuevo, cambialo abajo.'
+                  : '¿Añadir el servicio a esa cuenta en vez de crear un cliente nuevo?'}
+              </p>
+              <div className="mt-2 flex gap-2">
+                {!vinculado && (
+                  <button
+                    type="button"
+                    onClick={aceptarMatch}
+                    className="inline-flex items-center gap-1 rounded-lg bg-amber-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-800"
+                  >
+                    Vincular a {matchSugerido.administracion_nombre}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMatchIgnorado(true);
+                    set((s) => ({ ...s, modoCliente: 'nuevo', clienteIdExistente: '' }));
+                  }}
+                  className="rounded-lg border border-amber-300 px-3 py-1.5 text-xs font-medium text-amber-800 hover:bg-amber-100"
+                >
+                  Es un cliente nuevo
+                </button>
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
       {/* Toggle modo */}
       <div className="flex gap-2 rounded-xl border border-slate-200 bg-slate-50 p-1">
