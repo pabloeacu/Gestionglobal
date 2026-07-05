@@ -169,6 +169,25 @@ Deno.serve(async (req) => {
   const userAgent = req.headers.get('user-agent') ?? null;
   const referer = req.headers.get('referer') ?? null;
 
+  // E-GG-88 · Rate-limit anti-spam por IP: máx 12 envíos en 10 min desde la misma
+  // conexión. Generoso para uso legítimo (incluso oficinas detrás de NAT) pero
+  // frena floods automatizados. Usa el service_role (bypassa RLS) sobre la misma
+  // tabla que ya loguea la IP. Si falla el conteo, no bloquea (fail-open).
+  if (ipAddress) {
+    const desde = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+    const { count, error: errRate } = await supabase
+      .from('formulario_submissions')
+      .select('id', { count: 'exact', head: true })
+      .eq('ip_address', ipAddress)
+      .gte('created_at', desde);
+    if (!errRate && (count ?? 0) >= 12) {
+      return jsonError(
+        429,
+        'Recibimos varias solicitudes desde tu conexión en pocos minutos. Esperá unos minutos y volvé a intentarlo.',
+      );
+    }
+  }
+
   const { data: submission, error: errIns } = await supabase
     .from('formulario_submissions')
     .insert({

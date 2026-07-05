@@ -3428,3 +3428,34 @@ portal-user del duplicado nunca se creó → el cliente sólo tiene el login del
 **Nota (era el ÚNICO duplicado del sistema):** barrido de emails/CUITs → 0 otros duplicados.
 
 **Fecha / módulo:** 2026-07-04 · solicitudes / clientes / portal · mig 0278 + merge de datos. Capitaliza reporte JL (3 capturas).
+
+## E-GG-88 · Auditoría de seguridad (reels de influencers) — Etapa 1 de blindaje (2026-07-05)
+
+**Origen.** Pablo mandó 2 reels de "seguridad para apps con IA" (captions: RLS, CORS, Security
+Headers, Rate limiting, API keys en .env, anti SQL-injection) y pidió asegurar que estamos blindados.
+Se auditó cada punto contra base + edge fns + hosting + front (no de memoria).
+
+**Resultado del scorecard.** Sólido en 4/6: **RLS** (0 tablas sin RLS — advisor Supabase; R2),
+**secretos** (.env gitignoreado, sólo anon key en el front, service_role sólo en edge fns; R3),
+**SQL-injection** (RPCs parametrizadas, 1 solo `EXECUTE format()` seguro; R5), **CORS** (edge fns `*`
+es el patrón Supabase; la defensa es JWT+RLS). **2 gaps reales + 1 hallazgo propio:**
+
+1. **Security Headers (gap).** En vivo sólo había HSTS (Vercel). Faltaban X-Frame-Options
+   (anti-clickjacking/embed), nosniff, Referrer-Policy. **Fix:** `vercel.json` → headers
+   `X-Frame-Options: SAMEORIGIN`, `X-Content-Type-Options: nosniff`,
+   `Referrer-Policy: strict-origin-when-cross-origin`, `X-DNS-Prefetch-Control: off`.
+   (CSP queda para Etapa 2 — report-only → medir → bloqueante, porque una CSP mal puesta rompe la app.)
+2. **Rate limiting en formularios públicos (gap).** `submit-formulario` logueaba la IP pero no la
+   limitaba. **Fix:** rate-limit por IP (máx 12 envíos / 10 min) en la edge fn (v12), fail-open.
+3. **Higiene de permisos `anon` (hallazgo propio, mig 0279).** Por el grant por defecto a PUBLIC,
+   ~30 funciones SECURITY DEFINER quedaban invocables por `anon`. La mayoría YA rebotaban (guard
+   is_staff/tenancy/rol), pero 3 mutaciones de bajo impacto estaban sin guard (vencer matrículas ya
+   vencidas, incrementar uso de voucher, webhooks Webex). Se hizo `REVOKE ... FROM PUBLIC` en las
+   no-públicas re-otorgando sólo a `authenticated` (gerencia) / `service_role` (webhooks Webex),
+   dejando intactas las genuinamente públicas (verificar_certificado, voucher_validar, landing,
+   catálogo de forms, webinar, gestoría-por-token). Verificado: anon perdió las no-públicas,
+   authenticated/service_role las mantienen, ninguna pública rota.
+
+**Nota (menor, no fixeado aún):** 4 buckets públicos permiten listar sus archivos (enumerar nombres).
+
+**Fecha / módulo:** 2026-07-05 · seguridad / hosting / edge fns / permisos · mig 0279 + vercel.json + submit-formulario v12. Etapa 1 de 2 (CSP pendiente). Capitaliza auditoría pedida por Pablo.
