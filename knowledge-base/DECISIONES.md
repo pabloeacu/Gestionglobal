@@ -3727,3 +3727,39 @@ textarea + botón siguen visibles (permite anotar una solicitud rechazada) aunqu
 hero no — asimetría deliberada y razonable.
 
 - **Fecha:** 2026-07-04. Commit `0faeba1`. Mig 0275.
+
+### DGG-98 · Validación + formateo de CUIT en TODOS los formularios (2026-07-04)
+
+Pedido Pablo: el campo CUIT debe validarse (formato `XX-XXXXXXXX-X`; autocompletar guiones si
+los ponen sin; validar la cantidad de dígitos con/sin guiones para evitar datos incorrectos —
+la imagen mostró "77-556000051", 11 dígitos mal agrupados + verificador inválido). El campo era
+texto libre sin validación.
+
+**Helper compartido `src/lib/cuit.ts`:** `formatCuit` (autocompleta guiones progresivamente, cap
+11 dígitos, idempotente), `validarCuit` (11 dígitos + **dígito verificador AFIP mód-11** → mensaje
+humano; vacío→null para no romper opcionales), `soloDigitosCuit`, `esCampoCuit` (detección por
+name/label con `\bcui[tl]\b`, sin falsos positivos como "circuito"). El checksum se validó contra
+2,1M CUITs generados (0 auto-rechazos) + reales (ML/YPF/Nación). La rama `10→9` (resto=1) sólo
+amplía aceptación, nunca rechaza de más → cero falsos negativos.
+
+**Aplicado en TODOS los inputs editables de CUIT:** (1) `FormularioRunner` (formularios públicos
+dinámicos — el caso de la imagen): formatea on-input + valida en submit vía `esCampoCuit(field)`;
+(2) drawers de entidad: `AdministracionFormDrawer`, `ConsorcioFormDrawer` (sólo rama
+`tipo_documento='cuit'`; el `dni_ficticio` queda con su `/^\d{7,8}$/` intacto), `PartnerFormDrawer`,
+`EmisoresPage` (alta+edición), wizard `PasoCliente`, inline-edit de `AdministracionDetailPage`.
+Los de sólo-display/búsqueda (ComprobanteFormDrawer, NuevoMovimientoModal, listas) NO se tocaron.
+
+**Persistencia:** entidades → **sólo dígitos** (canónico; los CHECK `^\d{11}$` de administraciones/
+consorcios ya lo exigían; no rompe la búsqueda `cuit.ilike`); submission dinámica → formateado
+(legible, sin búsqueda). Dato legacy de partner con guiones normalizado por SQL.
+
+**§6 doble** (2 agentes REVISAR): helper impecable (checksum exhaustivo, format idempotente,
+esCampoCuit sin falsos positivos, búsquedas no se rompen); 1 GAP fixeado (PartnerFormDrawer CREATE
+persistía formateado → `soloDigitosCuit`). **Prueba en vivo (desktop)** sobre el form público de la
+imagen (`/formulario/curso-formacion`): tipear "20123456786" sin guiones → **"20-12345678-6"**
+autocompletado; CUIT inválido "20-12345678-7" en submit → **"El CUIT no es válido: revisá los
+números (el dígito verificador no coincide)"** → bloqueó el envío (sin solicitud). Nota (pre-existente,
+menor): el inline-edit de AdministracionDetailPage sólo aparece con CUIT vacío (un CUIT ya cargado se
+edita desde el drawer) — R14, no regresión.
+
+- **Fecha:** 2026-07-04. Commits `2bfc674` + `768cc7b`. Helper `src/lib/cuit.ts`.
