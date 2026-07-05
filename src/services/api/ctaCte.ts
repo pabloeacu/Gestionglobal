@@ -36,10 +36,14 @@ export interface CtaCteResumen {
   comprobantes_pendientes: number;
   comprobantes_vencidos: number;
   deuda_total: number;
+  /** E-GG-86 · crédito vigente del cliente (pagos no imputados a deuda). */
+  saldo_a_favor: number;
   proximo_vencimiento: string | null;
 }
 
-export type ExtractoTipo = 'saldo_inicial' | 'cargo' | 'abono';
+// E-GG-86: 'saldo_favor' = fila HABER de un pago que quedó como crédito
+// (anulación de comprobante pagado / pago a cuenta / residual de cobranza).
+export type ExtractoTipo = 'saldo_inicial' | 'cargo' | 'abono' | 'saldo_favor';
 
 export interface ExtractoRow {
   fecha: string;
@@ -69,6 +73,8 @@ export interface ResumenGlobalRow {
   total_facturado: number;
   total_cobrado: number;
   deuda_total: number;
+  /** E-GG-86 · crédito vigente del cliente. */
+  saldo_a_favor: number;
   comprobantes_vencidos: number;
   comprobantes_pendientes: number;
 }
@@ -111,6 +117,7 @@ export async function getResumenAdministracion(
     comprobantes_pendientes: toNum(row['comprobantes_pendientes']),
     comprobantes_vencidos: toNum(row['comprobantes_vencidos']),
     deuda_total: toNum(row['deuda_total']),
+    saldo_a_favor: toNum(row['saldo_a_favor']),
     proximo_vencimiento: (row['proximo_vencimiento'] as string | null) ?? null,
   });
 }
@@ -184,6 +191,7 @@ export async function getResumenGlobal(
       total_facturado: toNum(r['total_facturado']),
       total_cobrado: toNum(r['total_cobrado']),
       deuda_total: toNum(r['deuda_total']),
+      saldo_a_favor: toNum(r['saldo_a_favor']),
       comprobantes_vencidos: toNum(r['comprobantes_vencidos']),
       comprobantes_pendientes: toNum(r['comprobantes_pendientes']),
     };

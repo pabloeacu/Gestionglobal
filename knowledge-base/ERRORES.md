@@ -3329,3 +3329,56 @@ inexistente→P0002, sin overloads. Live: nota guardada en la solicitud del repo
 estado intacto, consola limpia.
 
 **Fecha / módulo:** 2026-07-04 · solicitudes · mig 0275. Capitaliza reporte JL.
+
+## E-GG-86 · Saldo a favor invisible en la cuenta corriente (la plata "no figura en ningún lado") (2026-07-04)
+
+**Síntoma (reporte JL).** Comprobante X-00000037 ("Est Sav", $360.000) anulado tras haber sido
+pagado: "Se anuló pero el dinero ingresado no figura en ningún lado. En nuestra caja está, pero en
+la Cta. Cte. del cliente no lo veo." Pablo pidió auditoría doble a fondo con TODAS las posibilidades
++ emular los asientos en QA, bajo "una sola fuente de verdad y consistencia contable absoluta", sin
+romper lo que funciona.
+
+**Causa raíz.** La cuenta corriente (extracto + resumen + portal + reporte) arma el HABER desde
+`movimiento_imputaciones` (usado como "libro de cobranzas"). Pero `anular_comprobante` **BORRA
+físicamente** las imputaciones del comprobante. El ingreso sobrevive en la caja como crédito
+huérfano, pero **ninguna superficie de cta cte lo representaba** → desaparecía. **3 vías** producen
+el mismo saldo a favor invisible: (a) anular un comprobante ya pagado, (b) pago a cuenta (imputación
+a `administracion_id`), (c) residual de una cobranza parcial. La auditoría §6 (4 agentes + e2e)
+encontró además que **6 superficies mostraban 3 números distintos para la misma plata**: caja +$
+(real) · cta cte/portal $0 (invisible) · reporte PDF −$ (saldo acreedor fantasma, query divergente
+sin join a imputaciones · R15) · analítica lo contaba como cobranza · sábana partner evaporaba la
+línea · `listar_creditos` +$ (correcto).
+
+**Blindaje latente (Audit B, no explotado por bajo volumen):** `fz_crear_movimiento_manual` imputaba
+a un comprobante **sin chequear saldo ni estado** (#8) e `imputar_credito_a_comprobante` leía el
+comprobante destino **sin `FOR UPDATE`** → dos créditos concurrentes al mismo comprobante lo
+sobre-aplicaban y el clamp `GREATEST(0, total−Σimp)` del recálculo lo enmascaraba (#9). No existía el
+trigger simétrico `Σ(imputaciones por comprobante) ≤ total` (sí el del lado movimiento).
+
+**Fix (mig 0276, opción NO destructiva elegida por Pablo).** No se cambia `anular_comprobante` (el
+ingreso sigue quedando como crédito); se lo hace **visible y consistente**:
+- `cuenta_corriente_extracto`: 3ª rama HABER "Saldo a favor" (residual `monto − Σimputado_a_comprobante`
+  de ingreso vivo `identificado + revertido_at IS NULL`) + `saldo_inicial` que netea el crédito
+  previo. Fila con ícono alcancía (violeta) en gerencia y portal.
+- `cuenta_corriente_resumen` / `_resumen_global`: nuevo campo `saldo_a_favor` + `saldo_actual`
+  neteado (puede ser acreedor; la UI ya interpretaba saldo negativo como "acreedor / a tu favor").
+- **Blindaje estructural:** trigger `trg_imp_validar_sum_total` (Σ imputaciones ≤ total) — atrapa de
+  raíz #8/#9 y cualquier vía futura + `FOR UPDATE` del comprobante en `imputar_credito` + guarda de
+  saldo/estado en `fz_crear_movimiento_manual`.
+- **Reporte PDF/XLSX (R15):** `fetchCtaCteData` consume la MISMA RPC del extracto → el PDF == la
+  pantalla (antes: DEBE sólo 'autorizado', HABER ingresos brutos → saldo con signo equivocado).
+- **UX (pedido Pablo):** anular un comprobante con pago abre un diálogo que advierte "ya tiene $X
+  cobrado → queda como saldo a favor del cliente…, el dinero sigue en la caja". `AplicarSaldoAFavorDrawer`
+  (JL-3) ya existía; sólo faltaba que el crédito fuera visible.
+
+**`observado`/`compensado` NO se tocan** (criterio contable de Pablo): el compensado se empata con su
+nota de crédito de signo contrario que también vive en la cta cte; el observado es deuda real sin
+comprobante fiscal. Ambos siguen sumando como deuda.
+
+**§6 e2e (13/13 OK, BEGIN/…/RAISE→rollback).** Caso real Est Sav → `saldo_a_favor=360.000`,
+`saldo_actual=−360.000`, `listar_creditos=360.000`, caja intacta (los 3 números coinciden).
+Sintético: anular pagado → saldo a favor + CONSISTENCIA (favor=listar=−actual=−extracto); aplicar
+crédito a otro comprobante (JL-3); over-impute bloqueado; imputar-a-anulado bloqueado; trigger
+Σ≤total bloqueó INSERT directo; pago-a-cuenta permitido; reversión baja el crédito. Sin overloads (R16).
+
+**Fecha / módulo:** 2026-07-04 · cuenta corriente / finanzas · mig 0276. Capitaliza reporte JL + auditoría doble a fondo (4 agentes) pedida por Pablo.

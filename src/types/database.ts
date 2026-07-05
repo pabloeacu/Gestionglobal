@@ -8227,6 +8227,7 @@ export type Database = {
           comprobantes_vencidos: number
           deuda_total: number
           proximo_vencimiento: string
+          saldo_a_favor: number
           saldo_actual: number
           saldo_inicial: number
           total_cobrado: number
@@ -8241,6 +8242,7 @@ export type Database = {
           comprobantes_pendientes: number
           comprobantes_vencidos: number
           deuda_total: number
+          saldo_a_favor: number
           total_cobrado: number
           total_facturado: number
         }[]

@@ -11,6 +11,7 @@ import {
   Filter,
   Eye,
   Plus,
+  PiggyBank,
 } from 'lucide-react';
 import {
   Field,
@@ -306,6 +307,19 @@ export function CtaCteDetailPage() {
             icon: <TrendingDown size={18} />,
             tone: 'emerald',
           },
+          // E-GG-86: crédito vigente del cliente (pagos no imputados a deuda,
+          // p.ej. de una anulación). Sólo se muestra cuando hay saldo a favor.
+          ...((resumen?.saldo_a_favor ?? 0) > 0
+            ? [
+                {
+                  label: 'Saldo a favor',
+                  value: resumen?.saldo_a_favor ?? 0,
+                  icon: <PiggyBank size={18} />,
+                  tone: 'emerald' as const,
+                  hint: 'crédito disponible del cliente',
+                },
+              ]
+            : []),
           {
             label:
               proximoVencimientoDias !== null

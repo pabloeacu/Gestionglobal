@@ -316,7 +316,8 @@ export async function listCtaCteAdministracion(
 
   type ExtractoRow = {
     fecha: string;
-    tipo: 'saldo_inicial' | 'cargo' | 'abono';
+    // E-GG-86: 'saldo_favor' = pago que quedó como crédito (se muestra como haber).
+    tipo: 'saldo_inicial' | 'cargo' | 'abono' | 'saldo_favor';
     descripcion: string | null;
     debe: number | string;
     haber: number | string;
@@ -335,7 +336,7 @@ export async function listCtaCteAdministracion(
       const haber = Number(r.haber) || 0;
       const isCargo = r.tipo === 'cargo';
       return {
-        id: `${r.tipo[0]}:${r.comprobante_id ?? r.imputacion_id ?? r.fecha}`,
+        id: `${r.tipo}:${r.comprobante_id ?? r.imputacion_id ?? r.movimiento_id ?? r.fecha}`,
         fecha: r.fecha,
         tipo: isCargo ? 'comprobante' : 'cobranza',
         titulo: r.descripcion ?? (isCargo ? 'Comprobante' : 'Cobranza'),

@@ -3763,3 +3763,41 @@ menor): el inline-edit de AdministracionDetailPage sólo aparece con CUIT vacío
 edita desde el drawer) — R14, no regresión.
 
 - **Fecha:** 2026-07-04. Commits `2bfc674` + `768cc7b`. Helper `src/lib/cuit.ts`.
+
+## DGG-90 · Modelo del "saldo a favor" y consistencia contable de la cuenta corriente (E-GG-86)
+
+- **Origen** (Pablo, 2026-07-04): reporte JL del comprobante X-37 anulado cuyo pago "no figuraba en
+  ningún lado". Pedido: auditoría doble a fondo con todas las posibilidades + emular los asientos en
+  QA, bajo "una sola fuente de verdad y consistencia contable absoluta", sin romper lo que funciona.
+
+- **Decisión 1 — saldo a favor NO destructivo, sólo visible** (Pablo, opción elegida): al anular un
+  comprobante pagado (o pago a cuenta / residual parcial) la plata queda como crédito del cliente; NO
+  se cambia `anular_comprobante`. Se lo hace **visible** de forma coherente en toda la cta cte
+  (extracto con fila "Saldo a favor", `saldo_a_favor` en el resumen, `saldo_actual` neteado = puede
+  ser acreedor, reporte PDF alineado a la misma RPC). El crédito se aplica con
+  `imputar_credito_a_comprobante` (JL-3, ya existente). **Además**, al anular un comprobante con pago,
+  un diálogo advierte las consecuencias ("ya tiene $X cobrado → queda como saldo a favor…, el dinero
+  sigue en la caja").
+  - *Residual = `monto − Σ(imputaciones a comprobante)`* (NO resta las imputaciones a `administracion_id`),
+    para que la plata SIEMPRE quede visible aun parkeada como pago a cuenta. Coincide con
+    `listar_creditos` en toda la data real (0 imputaciones a admin hoy). Corner anotado por si se
+    activa el flujo de pago a cuenta vía admin.
+
+- **Decisión 2 — `observado`/`compensado` SIGUEN sumando como deuda** (criterio contable de Pablo,
+  me corrigió): el compensado se **empata** con su nota de crédito de signo contrario que también
+  vive en la cta cte (si el positivo no sumara, quedaría un −$ falso a favor); el observado es deuda
+  real que sólo carece de comprobante fiscal (error de conexión ARCA u otro) → funciona como un
+  comprobante simple mientras tanto. NO se toca el filtro de estado.
+
+- **Decisión 3 — blindaje estructural simétrico:** trigger `Σ(imputaciones por comprobante) ≤ total`
+  (faltaba; sólo existía el del lado movimiento) + `FOR UPDATE` del comprobante destino en
+  `imputar_credito` + guarda de saldo/estado en `fz_crear_movimiento_manual`. El clamp
+  `GREATEST(0, total−Σimp)` del recálculo enmascaraba sobre-aplicaciones; el trigger las hace
+  imposibles de raíz.
+
+- **Alternativas descartadas:** (a) que anular genere un asiento explícito de nota de crédito interna
+  — más ortodoxo pero toca el flujo de anulación (más riesgo), Pablo eligió la vía aditiva; (b) sacar
+  observado/compensado del cargo — contablemente incorrecto según el análisis de Pablo.
+
+- **Fecha:** 2026-07-04. Mig 0276. §6 e2e 13/13 (caso real Est Sav + 6 asientos sintéticos).
+  Ver E-GG-86 en `ERRORES.md`.

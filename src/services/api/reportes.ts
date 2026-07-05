@@ -141,7 +141,7 @@ export interface ReporteCtaCteFilter {
 
 async function fetchCtaCteData(
   filters: ReporteCtaCteFilter,
-): Promise<ApiResponse<{ cliente: CtaCteCliente; movimientos: CtaCteMovimiento[] }>> {
+): Promise<ApiResponse<{ cliente: CtaCteCliente; movimientos: CtaCteMovimiento[]; saldoInicial: number }>> {
   // Cliente
   const { data: admin, error: adminErr } = await supabase
     .from('administraciones')
@@ -166,61 +166,54 @@ async function fetchCtaCteData(
     email: a.email ?? null,
   };
 
-  // Comprobantes (DEBE)
-  let qc = supabase
-    .from('comprobantes')
-    .select('fecha, tipo, punto_venta, numero, total, observaciones, estado')
-    .eq('administracion_id', filters.administracionId)
-    .in('estado', ['autorizado'])
-    .order('fecha', { ascending: true });
-  if (filters.desde) qc = qc.gte('fecha', filters.desde);
-  if (filters.hasta) qc = qc.lte('fecha', filters.hasta);
-  const { data: comps, error: compsErr } = await qc;
-  if (compsErr) return fail('REP_CTACTE_COMPS', compsErr.message, compsErr);
+  // E-GG-86 / R15: UNA SOLA FUENTE DE VERDAD. El reporte consume la MISMA RPC
+  // que la pantalla (`cuenta_corriente_extracto`) en vez de armar su propia query
+  // paralela divergente. La vieja versión tomaba DEBE = comprobantes 'autorizado'
+  // y HABER = ingresos brutos (sin join a imputaciones, sin filtro de reversión):
+  // el PDF mostraba números distintos a la cta cte en pantalla y el saldo a favor
+  // con el signo equivocado (saldo acreedor fantasma). Ahora el extracto incluye
+  // cargos + cobranzas imputadas + saldo a favor, todo coherente con el saldo.
+  const hoy = new Date();
+  const desde = filters.desde
+    ?? new Date(hoy.getTime() - 365 * 24 * 3600 * 1000).toISOString().slice(0, 10);
+  const hasta = filters.hasta ?? hoy.toISOString().slice(0, 10);
 
-  // Movimientos imputados (HABER) — ingresos asociados a admin
-  let qm = supabase
-    .from('movimientos')
-    .select('fecha, monto, tipo, descripcion, referencia, estado')
-    .eq('administracion_id', filters.administracionId)
-    .eq('tipo', 'ingreso')
-    .neq('estado', 'anulado')
-    .order('fecha', { ascending: true });
-  if (filters.desde) qm = qm.gte('fecha', filters.desde);
-  if (filters.hasta) qm = qm.lte('fecha', filters.hasta);
-  const { data: movs, error: movsErr } = await qm;
-  if (movsErr) return fail('REP_CTACTE_MOVS', movsErr.message, movsErr);
-
-  type CompRow = {
-    fecha: string; tipo: string; punto_venta: number; numero: number | null;
-    total: number; observaciones: string | null;
-  };
-  type MovRow = {
-    fecha: string; monto: number; descripcion: string | null; referencia: string | null;
-  };
-
-  const debes: CtaCteMovimiento[] = ((comps ?? []) as unknown as CompRow[]).map((c) => ({
-    fecha: c.fecha,
-    concepto: `Comprobante ${c.tipo} ${c.numero
-      ? `${String(c.punto_venta).padStart(5,'0')}-${String(c.numero).padStart(8,'0')}`
-      : 'sin nº'}`,
-    referencia: c.observaciones ?? null,
-    debe: Number(c.total ?? 0),
-    haber: 0,
-  }));
-  const haberes: CtaCteMovimiento[] = ((movs ?? []) as unknown as MovRow[]).map((m) => ({
-    fecha: m.fecha,
-    concepto: m.descripcion ?? 'Cobranza',
-    referencia: m.referencia ?? null,
-    debe: 0,
-    haber: Number(m.monto ?? 0),
-  }));
-
-  const movimientos = [...debes, ...haberes].sort(
-    (a, b) => a.fecha.localeCompare(b.fecha),
+  const { data: ext, error: extErr } = await supabase.rpc(
+    'cuenta_corriente_extracto' as never,
+    {
+      p_administracion_id: filters.administracionId,
+      p_desde: desde,
+      p_hasta: hasta,
+    } as never,
   );
+  if (extErr) return fail('REP_CTACTE_EXT', extErr.message, extErr);
 
-  return ok({ cliente, movimientos });
+  type ExtRow = {
+    fecha: string;
+    tipo: 'saldo_inicial' | 'cargo' | 'abono' | 'saldo_favor';
+    descripcion: string | null;
+    debe: number | string;
+    haber: number | string;
+    saldo: number | string;
+  };
+
+  let saldoInicial = 0;
+  const movimientos: CtaCteMovimiento[] = [];
+  for (const r of (ext ?? []) as unknown as ExtRow[]) {
+    if (r.tipo === 'saldo_inicial') {
+      saldoInicial = Number(r.saldo) || 0;
+      continue;
+    }
+    movimientos.push({
+      fecha: r.fecha,
+      concepto: r.descripcion ?? '',
+      referencia: null,
+      debe: Number(r.debe) || 0,
+      haber: Number(r.haber) || 0,
+    });
+  }
+
+  return ok({ cliente, movimientos, saldoInicial });
 }
 
 export async function descargarCtaCtePdf(
@@ -231,6 +224,7 @@ export async function descargarCtaCtePdf(
   const doc = await generateCtaCteReportePdf({
     cliente: res.data.cliente,
     movimientos: res.data.movimientos,
+    saldoInicial: res.data.saldoInicial,
     desde: filters.desde,
     hasta: filters.hasta,
   });
@@ -249,6 +243,7 @@ export async function descargarCtaCteXlsx(
   const blob = await generateCtaCteReporteXlsx({
     cliente: res.data.cliente,
     movimientos: res.data.movimientos,
+    saldoInicial: res.data.saldoInicial,
     desde: filters.desde,
     hasta: filters.hasta,
   });

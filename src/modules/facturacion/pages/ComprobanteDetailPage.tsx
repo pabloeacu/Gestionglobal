@@ -155,6 +155,14 @@ export function ComprobanteDetailPage() {
 
   async function onAnular() {
     if (!comp) return;
+    // E-GG-86: si el comprobante ya tiene un pago, anularlo NO borra la plata:
+    // el pago queda como saldo a favor del cliente. Se lo advertimos explícitamente
+    // a la gerencia antes de confirmar (pedido de Pablo).
+    const cobrado = Math.max(
+      0,
+      Number(comp.total ?? 0) - Number(comp.saldo_pendiente ?? 0),
+    );
+    const tienePago = cobrado > 0.001;
     const motivo = await prompt({
       title: 'Anular comprobante',
       message: `Vas a anular ${comp.tipo} #${String(comp.numero ?? 0).padStart(8, '0')}. La numeración no se reutiliza. Si es un comprobante con CAE, no se podrá anular: en su lugar emití una nota de crédito.`,
@@ -164,8 +172,12 @@ export function ComprobanteDetailPage() {
     });
     if (motivo === null) return;
     const ok = await confirm({
-      title: '¿Confirmás la anulación?',
-      message: 'Esta acción no se puede deshacer.',
+      title: tienePago
+        ? 'Atención: este comprobante ya tiene un pago'
+        : '¿Confirmás la anulación?',
+      message: tienePago
+        ? `Este comprobante ya tiene ${formatMoney(cobrado)} cobrado. Si lo anulás, deja de figurar como deuda y ese pago de ${formatMoney(cobrado)} NO se pierde: queda como saldo a favor del cliente en su cuenta corriente, disponible para aplicarlo a otra deuda o devolverlo. El dinero sigue en la caja (no se toca). Esta acción no se puede deshacer.`
+        : 'Esta acción no se puede deshacer.',
       confirmLabel: 'Sí, anular',
       cancelLabel: 'Volver',
       danger: true,

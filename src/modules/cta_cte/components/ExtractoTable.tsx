@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { ExternalLink, FileText, Wallet } from 'lucide-react';
+import { ExternalLink, FileText, PiggyBank, Wallet } from 'lucide-react';
 import type { ExtractoRow } from '@/services/api/ctaCte';
 import { formatDateShort } from '@/lib/dates';
 import { cn } from '@/lib/cn';
@@ -64,6 +64,9 @@ export function ExtractoTable({ rows, emptyHint }: Props) {
                     )}
                     {r.tipo === 'abono' && (
                       <Wallet size={14} className="text-emerald-700" />
+                    )}
+                    {r.tipo === 'saldo_favor' && (
+                      <PiggyBank size={14} className="text-violet-600" />
                     )}
                     <span
                       className={cn(
