@@ -19,6 +19,7 @@ import { formatDateTime } from '@/lib/dates';
 import {
   fetchModeracionPendientes,
   moderarGestorAvance,
+  subirAdjuntoTracking,
   type ModeracionPendiente,
   type ModeracionAccion,
 } from '@/services/api/trackings';
@@ -81,8 +82,23 @@ export function ModeracionCard({ item, onResuelto }: { item: ModeracionPendiente
   const [archivos, setArchivos] = useState<string[]>(item.archivos_urls ?? []);
   const [estado, setEstado] = useState<'' | TramiteEstado>('');
   const [busy, setBusy] = useState<ModeracionAccion | null>(null);
+  // E-GG-91 (d) · gerencia puede adjuntar su propio archivo al aporte antes de publicar.
+  const [subiendo, setSubiendo] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const editado = texto.trim() !== item.descripcion.trim() || archivos.length !== (item.archivos_urls?.length ?? 0);
+
+  async function onAgregarArchivo(file: File) {
+    setSubiendo(true);
+    const r = await subirAdjuntoTracking(item.tramite_id, file);
+    setSubiendo(false);
+    if (!r.ok) {
+      toast.error('No pudimos subir el archivo', { description: humanizeError(r.error) });
+      return;
+    }
+    setArchivos((a) => [...a, r.data]);
+    toast.success('Archivo agregado');
+  }
 
   async function ejecutar(accion: ModeracionAccion, extra: { motivo?: string } = {}) {
     if (accion === 'publicar' && !texto.trim()) { toast.error('El texto no puede quedar vacío'); return; }
@@ -176,6 +192,29 @@ export function ModeracionCard({ item, onResuelto }: { item: ModeracionPendiente
           >
             <Pencil size={13} /> {editando ? 'Cancelar edición' : 'Editar'}
           </button>
+
+          {editando && (
+            <>
+              <input
+                ref={fileRef}
+                type="file"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) void onAgregarArchivo(f);
+                  e.target.value = '';
+                }}
+              />
+              <button
+                type="button"
+                disabled={subiendo || busy !== null}
+                onClick={() => fileRef.current?.click()}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-brand-muted transition hover:border-brand-cyan hover:text-brand-cyan disabled:opacity-50"
+              >
+                <Paperclip size={13} /> {subiendo ? 'Subiendo…' : 'Agregar archivo'}
+              </button>
+            </>
+          )}
 
           <div className="ml-auto flex flex-wrap items-center gap-2">
             <Select value={estado} disabled={busy !== null} onChange={(e) => setEstado(e.target.value as '' | TramiteEstado)} className="h-9 w-auto py-1 text-xs" aria-label="Cambiar estado del trámite al publicar">
