@@ -9470,6 +9470,37 @@ export type Database = {
         Args: { p_dias: number; p_linea_id: string; p_motivo?: string }
         Returns: string
       }
+      prospecto_eventos: {
+        Args: { p_prospecto_id: string }
+        Returns: {
+          asistio: boolean
+          canal: string
+          fecha_hora: string
+          titulo: string
+          webinar_id: string
+        }[]
+      }
+      prospectos_listado: {
+        Args: { p_webinar_id?: string }
+        Returns: {
+          cliente_activo: boolean
+          cliente_estado: string
+          convertido: boolean
+          convertido_a_administracion_id: string
+          convertido_at: string
+          created_at: string
+          email: string
+          eventos_asistidos: number
+          eventos_total: number
+          id: string
+          nombre: string
+          observaciones: string
+          origen: string
+          telefono: string
+          ultimo_evento_at: string
+          updated_at: string
+        }[]
+      }
       proximos_vencimientos: {
         Args: { p_administracion_id?: string; p_dias?: number }
         Returns: {
@@ -9892,6 +9923,10 @@ export type Database = {
           p_webex_meeting_id: string
         }
         Returns: string
+      }
+      webinar_captacion_resumen: {
+        Args: { p_webinar_id: string }
+        Returns: Json
       }
       webinar_duplicar: { Args: { p_webinar_id: string }; Returns: string }
       webinar_inscripcion_activa: { Args: never; Returns: Json }

@@ -523,6 +523,140 @@ export async function convertirProspecto(
   }
 }
 
+// ============================================================================
+// Fase 5 · Capitalización de prospectos (mig 0291).
+// RPCs staff-only para EXPLOTAR los leads captados por eventos: engagement por
+// prospecto (a cuántos eventos vino), historial, y embudo de captación por
+// evento. Todo LECTURA — no toca conversión ni edición.
+// E-GG-90: llamar supabase.rpc('nombre', args) directo (no desacoplar el
+// método a una const, pierde el `this`).
+// ============================================================================
+
+// Fila de la grilla de gerencia con métricas de engagement del lead.
+// cliente_activo/cliente_estado preservan el badge "Cliente de baja" (E-GG-46)
+// que ya mostraba la grilla legacy sobre el cliente al que se convirtió.
+export interface ProspectoCapitalizacionItem {
+  id: string;
+  nombre: string;
+  email: string;
+  telefono: string | null;
+  origen: string;
+  observaciones: string | null;
+  convertido_a_administracion_id: string | null;
+  convertido_at: string | null;
+  created_at: string;
+  updated_at: string;
+  eventos_total: number;
+  eventos_asistidos: number;
+  ultimo_evento_at: string | null;
+  convertido: boolean;
+  cliente_activo: boolean | null;
+  cliente_estado: string | null;
+}
+
+export async function listProspectosCapitalizacion(
+  webinarId?: string,
+): Promise<ApiResponse<ProspectoCapitalizacionItem[]>> {
+  try {
+    const { data, error } = await supabase.rpc('prospectos_listado', {
+      p_webinar_id: webinarId ?? undefined,
+    });
+    if (error) throw error;
+    const rows: ProspectoCapitalizacionItem[] = ((data ?? []) as unknown[]).map((r) => {
+      const row = r as Record<string, unknown>;
+      return {
+        id: String(row.id),
+        nombre: String(row.nombre ?? ''),
+        email: String(row.email ?? ''),
+        telefono: (row.telefono as string | null) ?? null,
+        origen: String(row.origen ?? ''),
+        observaciones: (row.observaciones as string | null) ?? null,
+        convertido_a_administracion_id: (row.convertido_a_administracion_id as string | null) ?? null,
+        convertido_at: (row.convertido_at as string | null) ?? null,
+        created_at: String(row.created_at),
+        updated_at: String(row.updated_at),
+        eventos_total: Number(row.eventos_total ?? 0),
+        eventos_asistidos: Number(row.eventos_asistidos ?? 0),
+        ultimo_evento_at: (row.ultimo_evento_at as string | null) ?? null,
+        convertido: Boolean(row.convertido),
+        cliente_activo: (row.cliente_activo as boolean | null) ?? null,
+        cliente_estado: (row.cliente_estado as string | null) ?? null,
+      };
+    });
+    return ok(rows);
+  } catch (e) {
+    const err = toApiError(e);
+    return fail(err.code, err.message, err.details);
+  }
+}
+
+// Historial de eventos de un prospecto (título + fecha + canal + asistió).
+export interface ProspectoEventoItem {
+  webinar_id: string;
+  titulo: string;
+  fecha_hora: string;
+  canal: string;
+  asistio: boolean;
+}
+
+export async function getProspectoEventos(
+  prospectoId: string,
+): Promise<ApiResponse<ProspectoEventoItem[]>> {
+  try {
+    const { data, error } = await supabase.rpc('prospecto_eventos', {
+      p_prospecto_id: prospectoId,
+    });
+    if (error) throw error;
+    const rows: ProspectoEventoItem[] = ((data ?? []) as unknown[]).map((r) => {
+      const row = r as Record<string, unknown>;
+      return {
+        webinar_id: String(row.webinar_id),
+        titulo: String(row.titulo ?? ''),
+        fecha_hora: String(row.fecha_hora),
+        canal: String(row.canal ?? ''),
+        asistio: Boolean(row.asistio),
+      };
+    });
+    return ok(rows);
+  } catch (e) {
+    const err = toApiError(e);
+    return fail(err.code, err.message, err.details);
+  }
+}
+
+// Embudo de captación de un evento: inscriptos → asistieron → convertidos.
+export interface WebinarCaptacionResumen {
+  inscriptos: number;
+  asistieron: number;
+  prospectos: number;
+  clientes: number;
+  convertidos: number;
+  tasa_asistencia: number;
+}
+
+export async function getWebinarCaptacionResumen(
+  webinarId: string,
+): Promise<ApiResponse<WebinarCaptacionResumen>> {
+  try {
+    const { data, error } = await supabase.rpc('webinar_captacion_resumen', {
+      p_webinar_id: webinarId,
+    });
+    if (error) throw error;
+    const raw = (data ?? {}) as Record<string, unknown>;
+    return ok({
+      inscriptos: Number(raw.inscriptos ?? 0),
+      asistieron: Number(raw.asistieron ?? 0),
+      prospectos: Number(raw.prospectos ?? 0),
+      clientes: Number(raw.clientes ?? 0),
+      convertidos: Number(raw.convertidos ?? 0),
+      tasa_asistencia: Number(raw.tasa_asistencia ?? 0),
+    });
+  } catch (e) {
+    const err = toApiError(e);
+    return fail(err.code, err.message, err.details);
+  }
+}
+
 // Eventos fase 4 · "pasar lista": marcar asistencia manual (presencial/mixto).
 // La asistencia online la sigue computando el webhook de Zoom.
 export async function marcarAsistenciaWebinar(
