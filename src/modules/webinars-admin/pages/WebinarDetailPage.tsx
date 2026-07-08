@@ -32,6 +32,7 @@ import {
   inscribirManual,
   crearReunionZoom,
   actualizarWebinar,
+  marcarAsistenciaWebinar,
   emitirCertificadosWebinarLote,
   parseDocentes,
   type WebinarRow,
@@ -173,7 +174,7 @@ export function WebinarDetailPage() {
       )}
 
       {tab === 'asistencia' && (
-        <AsistenciaTab inscriptos={inscriptos} webinar={webinar} />
+        <AsistenciaTab inscriptos={inscriptos} webinar={webinar} onRecargar={recargar} />
       )}
 
       {inscribirModalOpen && (
@@ -1077,10 +1078,27 @@ function InscriptosTab({ inscriptos, tokens, onAbrirInscribir }: {
   );
 }
 
-function AsistenciaTab({ inscriptos, webinar }: { inscriptos: InscriptoConCanal[]; webinar: WebinarRow }) {
+function AsistenciaTab({ inscriptos, webinar, onRecargar }: {
+  inscriptos: InscriptoConCanal[];
+  webinar: WebinarRow;
+  onRecargar: () => Promise<void>;
+}) {
   const presentes = inscriptos.filter((i) => i.asistio);
   const ausentes = inscriptos.filter((i) => !i.asistio);
   const tasa = inscriptos.length ? Math.round((presentes.length / inscriptos.length) * 100) : 0;
+  const esPresencial = webinar.modalidad !== 'online';
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  async function toggle(i: InscriptoConCanal) {
+    setBusyId(i.id);
+    const res = await marcarAsistenciaWebinar(i.id, !i.asistio);
+    setBusyId(null);
+    if (!res.ok) {
+      toast.error('No pudimos actualizar la asistencia', { description: humanizeError(res.error) });
+      return;
+    }
+    await onRecargar();
+  }
 
   return (
     <div className="space-y-4">
@@ -1099,38 +1117,84 @@ function AsistenciaTab({ inscriptos, webinar }: { inscriptos: InscriptoConCanal[
         </div>
       </div>
 
-      {webinar.status !== 'finalizado' && (
-        <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-brand-muted">
-          La asistencia se computa por webhook de Zoom (match por email) y se cierra cuando el webinar termina.
-          Los inscriptos por YouTube Live no tienen asistencia automática (Zoom es el canal con webhook).
-        </div>
-      )}
+      <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-brand-muted">
+        {esPresencial
+          ? 'Pasá lista marcando quién asistió. Si el evento es mixto, los inscriptos online también quedan registrados por el webhook de Zoom.'
+          : 'La asistencia se computa por webhook de Zoom (match por email) y se cierra cuando el webinar termina. Los inscriptos por YouTube Live no tienen asistencia automática.'}
+      </div>
 
-      {presentes.length > 0 && (
-        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-          <table className="min-w-full divide-y divide-slate-200 text-sm">
-            <thead className="bg-green-50">
-              <tr>
-                <th className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wider text-green-700">Presente</th>
-                <th className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wider text-green-700">Email</th>
-                <th className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wider text-green-700">Canal</th>
-                <th className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wider text-green-700">Tiempo conectado</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {presentes.map((i) => (
-                <tr key={i.id}>
-                  <td className="px-4 py-2 font-medium text-brand-ink">
-                    <CheckCircle2 size={12} className="inline text-green-600" /> {i.nombre_snapshot}
-                  </td>
-                  <td className="px-4 py-2 text-brand-muted">{i.email_snapshot}</td>
-                  <td className="px-4 py-2">{i.canal}</td>
-                  <td className="px-4 py-2 text-brand-muted">{fmtDuracion(i.tiempo_conectado_seg)}</td>
+      {esPresencial ? (
+        inscriptos.length === 0 ? (
+          <p className="rounded-2xl border border-slate-200 bg-white p-6 text-center text-sm text-brand-muted">
+            Todavía no hay inscriptos para pasar lista.
+          </p>
+        ) : (
+          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+            <table className="min-w-full divide-y divide-slate-200 text-sm">
+              <thead className="bg-slate-50">
+                <tr>
+                  <th className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wider text-brand-muted">Asistió</th>
+                  <th className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wider text-brand-muted">Nombre</th>
+                  <th className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wider text-brand-muted">Email</th>
+                  <th className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wider text-brand-muted">Canal</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {inscriptos.map((i) => (
+                  <tr key={i.id} className={i.asistio ? 'bg-green-50/40' : ''}>
+                    <td className="px-4 py-2">
+                      <button
+                        type="button"
+                        disabled={busyId === i.id}
+                        onClick={() => void toggle(i)}
+                        className={cn(
+                          'grid h-6 w-6 place-items-center rounded-md border transition disabled:opacity-50',
+                          i.asistio
+                            ? 'border-green-500 bg-green-500 text-white'
+                            : 'border-slate-300 bg-white text-transparent hover:border-brand-cyan',
+                        )}
+                        aria-label={i.asistio ? 'Marcar ausente' : 'Marcar presente'}
+                        aria-pressed={i.asistio}
+                      >
+                        <CheckCircle2 size={14} />
+                      </button>
+                    </td>
+                    <td className="px-4 py-2 font-medium text-brand-ink">{i.nombre_snapshot}</td>
+                    <td className="px-4 py-2 text-brand-muted">{i.email_snapshot}</td>
+                    <td className="px-4 py-2 text-brand-muted">{i.canal}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )
+      ) : (
+        presentes.length > 0 && (
+          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+            <table className="min-w-full divide-y divide-slate-200 text-sm">
+              <thead className="bg-green-50">
+                <tr>
+                  <th className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wider text-green-700">Presente</th>
+                  <th className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wider text-green-700">Email</th>
+                  <th className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wider text-green-700">Canal</th>
+                  <th className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wider text-green-700">Tiempo conectado</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {presentes.map((i) => (
+                  <tr key={i.id}>
+                    <td className="px-4 py-2 font-medium text-brand-ink">
+                      <CheckCircle2 size={12} className="inline text-green-600" /> {i.nombre_snapshot}
+                    </td>
+                    <td className="px-4 py-2 text-brand-muted">{i.email_snapshot}</td>
+                    <td className="px-4 py-2">{i.canal}</td>
+                    <td className="px-4 py-2 text-brand-muted">{fmtDuracion(i.tiempo_conectado_seg)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )
       )}
     </div>
   );

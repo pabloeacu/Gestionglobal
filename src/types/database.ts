@@ -8265,7 +8265,9 @@ export type Database = {
           p_duracion_min?: number
           p_fecha_hora: string
           p_formulario_id?: string
+          p_modalidad?: string
           p_plataforma?: string
+          p_tipo?: string
           p_titulo: string
           p_youtube_live_url?: string
         }
@@ -9893,6 +9895,10 @@ export type Database = {
       }
       webinar_duplicar: { Args: { p_webinar_id: string }; Returns: string }
       webinar_inscripcion_activa: { Args: never; Returns: Json }
+      webinar_marcar_asistencia: {
+        Args: { p_asistio: boolean; p_inscripto_id: string }
+        Returns: undefined
+      }
       webinar_set_zoom: {
         Args: {
           p_duracion_min?: number

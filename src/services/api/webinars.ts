@@ -523,6 +523,20 @@ export async function convertirProspecto(
   }
 }
 
+// Eventos fase 4 · "pasar lista": marcar asistencia manual (presencial/mixto).
+// La asistencia online la sigue computando el webhook de Zoom.
+export async function marcarAsistenciaWebinar(
+  inscriptoId: string,
+  asistio: boolean,
+): Promise<ApiResponse<true>> {
+  const { error } = await supabase.rpc('webinar_marcar_asistencia', {
+    p_inscripto_id: inscriptoId,
+    p_asistio: asistio,
+  } as never);
+  if (error) return fail('WEBINAR_ASISTENCIA', error.message, error);
+  return ok(true as const);
+}
+
 // DEEP-2 · Edición de prospectos (nombre/email/teléfono). Cierra GAP de
 // captación: cuando un prospecto llega desde un formulario público con email
 // mal escrito o nombre incompleto, la gerencia puede corregirlo sin tener
