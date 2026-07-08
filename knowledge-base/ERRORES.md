@@ -3525,9 +3525,8 @@ ya lo permiten; NO se tocó ninguna policy) y el trámite los muestra con badge 
   aporte vía `moderarGestorAvance.archivosUrls`).
 - **(e)** el mecanismo ya existía (botón "Avisar a la gestoría" → `derivacion_reavisar_gestoria`,
   regenera el token vencido + emailea · JL-2). Se agregó un BANNER de discoverability en el trámite
-  cuando el cliente subió docs de un pedido y el trámite está derivado. **Follow-up (pieza 2, task
-  spawneado):** el panel del gestor no muestra los docs del "Pedido de Documentación"
-  (`pedidos-doc-cliente`), sólo los del formulario original → extender el panel + la edge fn.
+  cuando el cliente subió docs de un pedido y el trámite está derivado. **Pieza 2 HECHA (2026-07-08,
+  ver addendum abajo):** que el gestor VEA en su panel los docs del "Pedido de Documentación".
 - **(f)** en `PasoComprobante` del wizard, si el cliente existente tiene saldo a favor
   (`listar_creditos`), banner "Este cliente tiene $X a favor" + cómo aplicarlo (drawer JL-3).
 - **(g) descartado** por Pablo (tiene que ver con la rendición a partners, sin definir aún).
@@ -3537,4 +3536,35 @@ build no ve: `const rpcAny = supabase.rpc as ...` desacopla el `this` del métod
 ("reading 'rest'"). Regla ya escrita en `ctaCte.ts`; se repitió. Confirma por qué el QA en browser es
 obligatorio y no reemplazable por build+§6.
 
-**Fecha / módulo:** 2026-07-08 · gerencia / trackings / solicitudes / finanzas · migs 0280–0281 + edge fn `gestor-firmar-adjunto`. Auditoría integral pedida por Pablo (PDF + 3 audios de JL). Capitaliza E-GG-89/90/91.
+**Addendum — Pieza 2 de (e): el gestor externo VE los docs del "Pedido de Documentación" (2026-07-08).**
+El panel del gestor (`AccesoExternoPage`, entra como `anon` por token) mostraba SÓLO
+`formulario_adjuntos` (lo del formulario inicial). Cuando gerencia le pide MÁS documentación al cliente
+(`tramite_pedidos_doc` / `_items`, bucket `pedidos-doc-cliente`), esos archivos —justo los que la
+gestoría necesita— no aparecían.
+- **mig 0282**: `gestor_obtener_info_solicitud` suma la clave `pedidos_doc` (items del trámite con
+  `archivo_path` y estado `subido`/`aprobado`; excluye `pendiente`=sin archivo y `rechazado`=invalidado
+  por gerencia, que NO debe ofrecerse a un tercero externo). Misma firma → `CREATE OR REPLACE` sin
+  overload (R16). **Asimetría deliberada** (confirmada §6): gerencia (`listAdjuntosPedidosDocDeTramite`)
+  ve TODOS los items con archivo (incl. rechazado, porque modera); el gestor externo sólo subido/aprobado.
+  No es inconsistencia contable — es control de exposición a un externo.
+- **edge fn `gestor-firmar-adjunto` v2/v3**: firma también `pedidos-doc-cliente` (candado: el path debe
+  pertenecer al trámite del token Y estar subido/aprobado). `.limit(1).maybeSingle()` evita 403
+  falso-negativo ante colisión teórica de path.
+- **frontend**: sección "Documentación pedida al cliente" en el panel + en el PDF descargable
+  (`generateTramitePdf`), para que pantalla y PDF sean consistentes.
+- **mig 0283 (blindaje, hallazgo §6):** `REVOKE ALL … FROM anon` sobre `tramite_pedidos_doc(_items)`.
+  `anon` conservaba el set COMPLETO de privilegios directos por el default PUBLIC pre-0130 (12 grants);
+  no filtraba (RLS sin policy anon), pero era el patrón que E-GG-88/0279 barrió en funciones. El gestor
+  las lee sólo vía la RPC SECURITY DEFINER → verificado e2e que sigue devolviendo `pedidos_doc=1`
+  post-REVOKE. **Pendiente (flag a Pablo):** barrido sistémico del mismo patrón en OTRAS tablas.
+- **mig 0281 (recuperada):** estaba aplicada en la BD pero SIN archivo en el repo (drift R6/R7); se
+  recuperó el SQL exacto (`ALTER PUBLICATION … tracking_lineas`).
+- **§6**: 3 agentes REVISAR (SEGURO / OK / SIN REGRESIONES) + EJERCITAR e2e (RPC: neg=0/pos=1 + post-REVOKE;
+  edge fn HTTP: 200 pedido · 403 cross-trámite · 403 rechazado · 200 regresión form). **Live** (Vercel,
+  desktop): el panel muestra la sección con el doc aprobado, URL firmada real de `pedidos-doc-cliente`,
+  descarga 200 · 64.7 KB · application/pdf; PDF con los 4 `<h2>` (incl. la sección nueva); consola limpia;
+  token QA efímero creado y borrado (residuo 0). **GAP menor documentado (R14):** los tokens
+  `recurso_tipo='tramite'` no ven el panel (gate a `'solicitud'`, pre-existente); el flujo real del gestor
+  usa siempre `'solicitud'` (`solicitud_derivar_v2`), así que no afecta hoy.
+
+**Fecha / módulo:** 2026-07-08 · gerencia / trackings / solicitudes / finanzas / acceso-externo · migs 0280–0283 + edge fn `gestor-firmar-adjunto` v3. Auditoría integral pedida por Pablo (PDF + 3 audios de JL). Capitaliza E-GG-89/90/91.
