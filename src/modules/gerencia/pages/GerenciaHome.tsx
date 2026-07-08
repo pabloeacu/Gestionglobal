@@ -4,6 +4,7 @@ import { ProximosVencimientosWidget } from '@/modules/vencimientos';
 import { MorososWidget } from '@/modules/cta_cte';
 import { ProximosSeguimientosWidget } from '@/modules/gerencia/components/ProximosSeguimientosWidget';
 import { NuevasSolicitudesWidget } from '@/modules/gerencia/components/NuevasSolicitudesWidget';
+import { AportesGestoriaWidget } from '@/modules/gerencia/components/AportesGestoriaWidget';
 import { AlarmasHoyWidget } from '@/modules/gerencia/components/AlarmasHoyWidget';
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
 import { getDashboardGlobal, type DashboardKpis } from '@/services/api/dashboard';
@@ -60,6 +61,10 @@ export function GerenciaHome() {
       {/* F7 (Lista JL · DGG-62): banner de solicitudes nuevas EN TIEMPO REAL,
           arriba de todo para que el gerente no se lo pierda. Slim si no hay nada. */}
       <NuevasSolicitudesWidget />
+
+      {/* E-GG-91 (reporte JL): aportes de la gestoría externa pendientes de
+          moderación — antes sólo se veían en la campanita o dentro del trámite. */}
+      <AportesGestoriaWidget />
 
       {/* J1 · checklist "Primeros 5 minutos" para nuevos gerentes.
           Auto-oculto cuando se completa o el user lo descarta. */}
