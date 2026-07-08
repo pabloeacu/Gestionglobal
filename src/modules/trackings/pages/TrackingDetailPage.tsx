@@ -823,6 +823,34 @@ export function TrackingDetailPage() {
           </div>
         </div>
 
+        {/* E-GG-91 (e · reporte JL) · discoverability: cuando el cliente subió
+            documentación de un pedido y el trámite está derivado a una gestoría,
+            surface el reaviso (el mecanismo ya vive en la toolbar). Cierra el
+            loop "el cliente completó → avisá a la gestoría que puede retomar". */}
+        {isStaff && derivacion && data.estado !== 'cerrado' && adjuntosPedidoDoc.length > 0 && (
+          <div className="mt-4 flex flex-col gap-3 rounded-xl border-2 border-violet-300/70 bg-violet-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-3">
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-violet-100 text-violet-700">
+                <Send size={16} />
+              </span>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-brand-ink">El cliente subió documentación</p>
+                <p className="text-xs text-brand-muted">
+                  Avisá a la gestoría ({derivacion.destinatario_email}) que ya puede retomar el trámite
+                  con la información nueva.
+                </p>
+              </div>
+            </div>
+            <Button
+              onClick={() => void handleAvisarGestoria()}
+              loading={avisandoGestoria}
+              className="shrink-0"
+            >
+              <Send className="h-4 w-4" /> Avisar a la gestoría
+            </Button>
+          </div>
+        )}
+
         {/* KPI strip */}
         <div className="relative mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">
           <KpiTile label="Líneas" value={lineasVisibles.length} icon={<ListChecks />} />
