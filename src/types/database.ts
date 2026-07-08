@@ -9670,6 +9670,15 @@ export type Database = {
         Returns: Json
       }
       tramite_cobro_resumen: { Args: { p_tramite_id: string }; Returns: Json }
+      tramite_docs_cliente: {
+        Args: { p_tramite_id: string }
+        Returns: {
+          bucket: string
+          nombre: string
+          origen: string
+          path: string
+        }[]
+      }
       tramite_incrementar_vistas: {
         Args: { p_tramite_id: string }
         Returns: undefined

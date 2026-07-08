@@ -737,3 +737,50 @@ export async function subirAdjuntoTracking(
   const { data } = supabase.storage.from('gestor-uploads').getPublicUrl(path);
   return ok(data.publicUrl);
 }
+
+// ----------------------------------------------------------------------------
+// E-GG-90 · Documentos del cliente (form-adjuntos) + de derivación
+// (gestoria-adjuntos) asociados a un trámite. Antes sólo se veían en el detalle
+// de la SOLICITUD; gerencia trabaja desde el TRÁMITE y "no los encontraba"
+// (reporte JL). Ambos buckets son privados; se firman con la sesión de staff
+// (las policies `form_adj_select_staff` y `gestoria_adjuntos_gerente_rw` lo
+// permiten). `download:true` fuerza la descarga en vez de previsualizar.
+// ----------------------------------------------------------------------------
+export interface DocClienteTramite {
+  url: string;
+  nombre: string;
+  origen: 'cliente' | 'derivacion';
+}
+
+export async function listDocsClienteDeTramite(
+  tramiteId: string,
+): Promise<ApiResponse<DocClienteTramite[]>> {
+  const rpcAny = supabase.rpc as unknown as (
+    name: string,
+    args: Record<string, unknown>,
+  ) => Promise<{ data: unknown; error: { message: string } | null }>;
+  const { data, error } = await rpcAny('tramite_docs_cliente', {
+    p_tramite_id: tramiteId,
+  });
+  if (error) return fail('TRAMITE_DOCS_CLIENTE', error.message, error);
+  const rows = (data ?? []) as Array<{
+    bucket: string;
+    path: string;
+    nombre: string;
+    origen: string;
+  }>;
+  const out: DocClienteTramite[] = [];
+  for (const r of rows) {
+    const { data: signed } = await supabase.storage
+      .from(r.bucket)
+      .createSignedUrl(r.path, 3600, { download: true });
+    if (signed?.signedUrl) {
+      out.push({
+        url: signed.signedUrl,
+        nombre: r.nombre,
+        origen: r.origen === 'derivacion' ? 'derivacion' : 'cliente',
+      });
+    }
+  }
+  return ok(out);
+}

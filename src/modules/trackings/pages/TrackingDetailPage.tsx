@@ -75,6 +75,8 @@ import {
   colorBadge,
   agregarLinea,
   subirAdjuntoTracking,
+  listDocsClienteDeTramite,
+  type DocClienteTramite,
   getDerivacionGestoria,
   avisarGestoria,
   type TrackingDetail,
@@ -328,14 +330,20 @@ export function TrackingDetailPage() {
   // PedidoDoc (cliente sube docs vía bucket privado). Se cargan paralelamente
   // al detalle, con signed URLs ya resueltas.
   const [adjuntosPedidoDoc, setAdjuntosPedidoDoc] = useState<PedidoDocAdjunto[]>([]);
+  const [docsCliente, setDocsCliente] = useState<DocClienteTramite[]>([]);
   useEffect(() => {
     if (!data?.id) {
       setAdjuntosPedidoDoc([]);
+      setDocsCliente([]);
       return;
     }
     let cancel = false;
     void listAdjuntosPedidosDocDeTramite(data.id).then((r) => {
       if (!cancel && r.ok) setAdjuntosPedidoDoc(r.data);
+    });
+    // E-GG-90 · docs del cliente + de derivación (antes sólo visibles en la solicitud).
+    void listDocsClienteDeTramite(data.id).then((r) => {
+      if (!cancel && r.ok) setDocsCliente(r.data);
     });
     return () => { cancel = true; };
   }, [data?.id]);
@@ -345,7 +353,7 @@ export function TrackingDetailPage() {
     nombre: string;
     fecha: string;
     categoria: string;
-    origen: 'linea' | 'pedido_doc';
+    origen: 'linea' | 'pedido_doc' | 'cliente' | 'derivacion';
     estado?: string;        // solo para pedido_doc: aprobado / subido / etc
   }
   const adjuntosTodos = useMemo<AdjuntoUnif[]>(() => {
@@ -376,10 +384,21 @@ export function TrackingDetailPage() {
         estado: a.estado,
       });
     }
+    // (c) E-GG-90 · Documentos del cliente (form-adjuntos) + reenviados a la
+    // gestoría al derivar (gestoria-adjuntos). Antes no se veían en el trámite.
+    for (const d of docsCliente) {
+      out.push({
+        url: d.url,
+        nombre: d.nombre,
+        fecha: data.created_at,
+        categoria: d.origen === 'derivacion' ? 'Enviado a gestoría' : 'Documento del cliente',
+        origen: d.origen,
+      });
+    }
     // Ordenar más recientes primero
     out.sort((x, y) => +new Date(y.fecha) - +new Date(x.fecha));
     return out;
-  }, [data, adjuntosPedidoDoc]);
+  }, [data, adjuntosPedidoDoc, docsCliente]);
 
   const lineasPendientes = useMemo(
     () => (data?.lineas ?? []).filter((l) => l.alerta_en && new Date(l.alerta_en).getTime() > Date.now()).length,
@@ -1045,14 +1064,22 @@ export function TrackingDetailPage() {
                         {a.categoria} · {formatDateShort(a.fecha)}
                       </p>
                     </div>
-                    {/* DGG-41: badge del origen para que gerencia sepa si el
-                        archivo vino del cliente (PedidoDoc) o de una línea */}
-                    {a.origen === 'pedido_doc' && (
+                    {/* Badge del origen para que gerencia sepa de dónde vino el
+                        archivo (DGG-41 + E-GG-90). */}
+                    {(a.origen === 'pedido_doc' || a.origen === 'cliente') && (
                       <span
                         className="shrink-0 rounded-full bg-brand-cyan-pale/40 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-brand-cyan"
-                        title="Subido por el cliente vía pedido de documentación"
+                        title="Documento aportado por el cliente"
                       >
                         Cliente
+                      </span>
+                    )}
+                    {a.origen === 'derivacion' && (
+                      <span
+                        className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-amber-700"
+                        title="Reenviado a la gestoría al derivar"
+                      >
+                        A gestoría
                       </span>
                     )}
                   </a>

@@ -3487,3 +3487,24 @@ hueco. §6 e2e (curl contra el edge fn real): token+path válidos → firma y el
 **HTTP 200**; path ajeno → **403**; token falso → **401**.
 
 **Fecha / módulo:** 2026-07-08 · acceso externo / gestoría / storage · edge fn `gestor-firmar-adjunto` v1 + `accesoExterno.ts`. Capitaliza reporte JL (PDF + 3 audios). Parte 1 de la auditoría integral de gestoría.
+
+## E-GG-90 · Gerencia "no encuentra" el adjunto en el trámite + gestoria-adjuntos sin lector (2026-07-08)
+
+**Síntoma (reporte JL, audio 2).** "voy a nuestro panel y voy al trámite, no lo encuentro. Dice que
+hay un adjunto pero no encuentro el documento." Gerencia trabaja desde el detalle del TRÁMITE, pero
+el comprobante del cliente sólo se veía en el detalle de la SOLICITUD (otra pantalla).
+
+**Causa raíz.** `TrackingDetailPage` (detalle de trámite) listaba en su sección de adjuntos sólo (a)
+los `archivos_urls` de las líneas (`gestor-uploads`, público) y (b) los del flujo PedidoDoc, pero NO
+(c) los documentos originales del cliente (`form-adjuntos`) ni (d) los que gerencia reenvió a la
+gestoría al derivar (`gestoria-adjuntos`). Además, `gestoria-adjuntos` **no tenía ningún lector** en
+toda la app (barrido de E-GG-89): los docs que gerencia reenvía no se podían reabrir en ningún lado.
+
+**Fix (mig 0280 + frontend).** RPC `tramite_docs_cliente(p_tramite_id)` (staff-only) que junta los
+`form-adjuntos` (via el submission del trámite) + los `gestoria-adjuntos` (via `solicitud_derivaciones.
+adjuntos_jsonb`) y devuelve `{bucket, path, nombre, origen}`. El service `listDocsClienteDeTramite`
+los firma con la sesión de staff (las policies `form_adj_select_staff` y `gestoria_adjuntos_gerente_rw`
+ya lo permiten; NO se tocó ninguna policy) y el trámite los muestra con badge "Cliente" / "A gestoría".
+§6: la RPC devuelve el comprobante reportado ("Transferencia... Carlos A. Líbano") + el de derivación.
+
+**Fecha / módulo:** 2026-07-08 · trackings / gestoría / storage · mig 0280 + `trackings.ts` + `TrackingDetailPage`. Parte 2 (a+b) de la auditoría integral de gestoría.
