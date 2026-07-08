@@ -148,6 +148,12 @@ export async function getWebinar(id: string): Promise<ApiResponse<WebinarRow>> {
   }
 }
 
+// Eventos (2026-07): modalidad + tipo del evento. 'online' es el default y
+// mantiene el comportamiento histórico de webinars.
+export type EventoModalidad = 'online' | 'presencial' | 'mixto';
+export type EventoTipo =
+  | 'webinar' | 'charla' | 'taller' | 'jornada' | 'curso' | 'podcast' | 'otro';
+
 export interface CrearWebinarInput {
   titulo: string;
   descripcion?: string | null;
@@ -157,6 +163,8 @@ export interface CrearWebinarInput {
   formularioId?: string | null;
   youtubeLiveUrl?: string | null;
   plataforma?: 'zoom' | 'webex';
+  modalidad?: EventoModalidad;
+  tipo?: EventoTipo;
 }
 
 export async function crearWebinar(input: CrearWebinarInput): Promise<ApiResponse<string>> {
@@ -170,6 +178,8 @@ export async function crearWebinar(input: CrearWebinarInput): Promise<ApiRespons
       p_formulario_id: input.formularioId ?? null,
       p_youtube_live_url: input.youtubeLiveUrl ?? null,
       p_plataforma: input.plataforma ?? 'zoom',
+      p_modalidad: input.modalidad ?? 'online',
+      p_tipo: input.tipo ?? 'webinar',
     } as unknown as Parameters<typeof supabase.rpc<'crear_webinar'>>[1];
     const { data, error } = await supabase.rpc('crear_webinar', args);
     if (error) throw error;
@@ -195,6 +205,18 @@ export interface ActualizarWebinarInput {
   bannerUrl?: string | null;
   publicado?: boolean;
   docentes?: WebinarDocente[];
+  // Eventos (2026-07): modalidad + ubicación + arancel informativo
+  modalidad?: EventoModalidad;
+  tipo?: EventoTipo;
+  ubicacionLugar?: string | null;
+  ubicacionDireccion?: string | null;
+  ubicacionLocalidad?: string | null;
+  ubicacionMapaUrl?: string | null;
+  ubicacionInstrucciones?: string | null;
+  cupoPresencial?: number | null;
+  esArancelado?: boolean;
+  arancelMonto?: number | null;
+  arancelNota?: string | null;
 }
 
 export async function actualizarWebinar(
@@ -219,6 +241,17 @@ export async function actualizarWebinar(
     if (input.docentes !== undefined) {
       patch.docentes = input.docentes as unknown as WebinarUpdate['docentes'];
     }
+    if (input.modalidad !== undefined) patch.modalidad = input.modalidad;
+    if (input.tipo !== undefined) patch.tipo = input.tipo;
+    if (input.ubicacionLugar !== undefined) patch.ubicacion_lugar = input.ubicacionLugar;
+    if (input.ubicacionDireccion !== undefined) patch.ubicacion_direccion = input.ubicacionDireccion;
+    if (input.ubicacionLocalidad !== undefined) patch.ubicacion_localidad = input.ubicacionLocalidad;
+    if (input.ubicacionMapaUrl !== undefined) patch.ubicacion_mapa_url = input.ubicacionMapaUrl;
+    if (input.ubicacionInstrucciones !== undefined) patch.ubicacion_instrucciones = input.ubicacionInstrucciones;
+    if (input.cupoPresencial !== undefined) patch.cupo_presencial = input.cupoPresencial;
+    if (input.esArancelado !== undefined) patch.es_arancelado = input.esArancelado;
+    if (input.arancelMonto !== undefined) patch.arancel_monto = input.arancelMonto;
+    if (input.arancelNota !== undefined) patch.arancel_nota = input.arancelNota;
     const { error } = await supabase.from('webinars').update(patch).eq('id', id);
     if (error) throw error;
     return ok(true as const);

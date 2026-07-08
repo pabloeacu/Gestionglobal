@@ -75,7 +75,7 @@ const NAV: NavGroup[] = [
     children: [
       { label: 'Solicitudes', to: '/gerencia/solicitudes' },
       { label: 'Formularios', to: '/gerencia/formularios', end: true },
-      { label: 'Webinars', to: '/gerencia/formularios/webinars' },
+      { label: 'Eventos', to: '/gerencia/formularios/webinars' },
       { label: 'Prospectos', to: '/gerencia/formularios/prospectos' },
     ],
   },

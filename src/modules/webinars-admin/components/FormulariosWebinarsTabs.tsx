@@ -9,7 +9,7 @@ import { cn } from '@/lib/cn';
 
 const TABS = [
   { to: '/gerencia/formularios', label: 'Formularios', icon: FileText, match: /^\/gerencia\/formularios\/?$|^\/gerencia\/formularios\/[a-f0-9-]{36}/ },
-  { to: '/gerencia/formularios/webinars', label: 'Webinars', icon: Radio, match: /^\/gerencia\/formularios\/webinars/ },
+  { to: '/gerencia/formularios/webinars', label: 'Eventos', icon: Radio, match: /^\/gerencia\/formularios\/webinars/ },
   { to: '/gerencia/formularios/prospectos', label: 'Prospectos', icon: Users, match: /^\/gerencia\/formularios\/prospectos/ },
 ];
 

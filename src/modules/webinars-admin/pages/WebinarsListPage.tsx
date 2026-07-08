@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, Radio, Users, CheckCircle2, Clock, Copy, Loader2, Video, Youtube } from 'lucide-react';
+import { Plus, Radio, Users, CheckCircle2, Clock, Copy, Loader2, Video, Youtube, MapPin, Globe } from 'lucide-react';
 import { Button, Field, Input, Modal, Select, Textarea, useConfirm } from '@/components/common';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import { IllustratedEmpty } from '@/components/brand/IllustratedEmpty';
@@ -22,6 +22,17 @@ const STATUS_BADGES: Record<string, { label: string; cls: string }> = {
   en_curso: { label: '● En vivo', cls: 'bg-red-100 text-red-700 border-red-200 animate-pulse' },
   finalizado: { label: 'Finalizado', cls: 'bg-green-100 text-green-700 border-green-200' },
   cancelado: { label: 'Cancelado', cls: 'bg-amber-100 text-amber-700 border-amber-200' },
+};
+
+// Eventos (2026-07): modalidad + tipo son sólo etiquetas informativas.
+const MODALIDAD_BADGES: Record<string, { label: string; cls: string }> = {
+  online: { label: 'Online', cls: 'border-sky-200 bg-sky-50 text-sky-700' },
+  presencial: { label: 'Presencial', cls: 'border-violet-200 bg-violet-50 text-violet-700' },
+  mixto: { label: 'Mixto', cls: 'border-teal-200 bg-teal-50 text-teal-700' },
+};
+const TIPO_LABELS: Record<string, string> = {
+  webinar: 'Webinar', charla: 'Charla', taller: 'Taller', jornada: 'Jornada',
+  curso: 'Curso', podcast: 'Podcast', otro: 'Evento',
 };
 
 function fmtFecha(iso: string): string {
@@ -89,15 +100,15 @@ export function WebinarsListPage() {
         <div>
           <p className="kicker">Captación de prospectos</p>
           <h1 className="font-display text-2xl font-bold text-brand-ink sm:text-3xl">
-            Webinars
+            Eventos
           </h1>
           <p className="mt-1 max-w-xl text-sm text-brand-muted">
-            Sesiones públicas con magic-link único por inscripto. Zoom (cupo) + YouTube Live (fallback).
-            Asistencia automática vía webhook.
+            Webinars, charlas y jornadas — online, presenciales o mixtas. Inscripción pública con
+            magic-link único por inscripto y captación de prospectos.
           </p>
         </div>
         <Button onClick={() => setOpenNuevo(true)}>
-          <Plus size={14} /> Nuevo webinar
+          <Plus size={14} /> Nuevo evento
         </Button>
       </header>
 
@@ -130,9 +141,9 @@ export function WebinarsListPage() {
         </div>
       ) : visibles.length === 0 ? (
         <IllustratedEmpty
-          title="Todavía no hay webinars"
-          description="Creá el primer webinar y compartilo desde un formulario tipo evento."
-          action={<Button onClick={() => setOpenNuevo(true)}><Plus size={14} /> Nuevo webinar</Button>}
+          title="Todavía no hay eventos"
+          description="Creá el primer evento (online, presencial o mixto) y compartilo desde un formulario tipo evento."
+          action={<Button onClick={() => setOpenNuevo(true)}><Plus size={14} /> Nuevo evento</Button>}
         />
       ) : (
         <div className="grid gap-3">
@@ -163,6 +174,17 @@ export function WebinarsListPage() {
                       )}>
                         {w.publicado ? 'Publicado' : 'Borrador'}
                       </span>
+                      {/* Eventos: modalidad + tipo */}
+                      <span className={cn(
+                        'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider',
+                        (MODALIDAD_BADGES[w.modalidad ?? 'online'] ?? MODALIDAD_BADGES.online)!.cls,
+                      )}>
+                        {w.modalidad === 'presencial' ? <MapPin size={10} /> : <Globe size={10} />}
+                        {(MODALIDAD_BADGES[w.modalidad ?? 'online'] ?? MODALIDAD_BADGES.online)!.label}
+                      </span>
+                      <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-600">
+                        {TIPO_LABELS[w.tipo ?? 'webinar'] ?? 'Evento'}
+                      </span>
                     </div>
                     {w.descripcion && (
                       <p className="mt-1 line-clamp-2 text-sm text-brand-muted">{w.descripcion}</p>
@@ -191,20 +213,27 @@ export function WebinarsListPage() {
                       )}
                       {duplicatingId === w.id ? 'Duplicando…' : 'Duplicar'}
                     </button>
-                    {tieneZoom && (
+                    {w.modalidad !== 'online' && (w.ubicacion_lugar || w.ubicacion_localidad) && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-2 py-0.5 text-violet-700">
+                        <MapPin size={11} /> {w.ubicacion_lugar || w.ubicacion_localidad}
+                      </span>
+                    )}
+                    {w.modalidad !== 'presencial' && tieneZoom && (
                       <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-blue-700">
                         <Video size={11} /> Zoom (cupo {w.cupo_zoom ?? '∞'})
                       </span>
                     )}
-                    {tieneYoutube && (
+                    {w.modalidad !== 'presencial' && tieneYoutube && (
                       <span className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2 py-0.5 text-red-700">
                         <Youtube size={11} /> YouTube Live
                       </span>
                     )}
-                    {!tieneZoom && !tieneYoutube && (
-                      <span className="text-amber-700">
-                        ⚠ Sin canales configurados
-                      </span>
+                    {/* Aviso de config incompleta según modalidad */}
+                    {w.modalidad !== 'presencial' && !tieneZoom && !tieneYoutube && (
+                      <span className="text-amber-700">⚠ Falta canal online</span>
+                    )}
+                    {w.modalidad !== 'online' && !w.ubicacion_direccion && (
+                      <span className="text-amber-700">⚠ Falta la dirección</span>
                     )}
                   </div>
                 </div>
@@ -252,7 +281,10 @@ function NuevoWebinarModal({ onClose, onCreated }: { onClose: () => void; onCrea
   const [duracion, setDuracion] = useState(60);
   const [cupoZoom, setCupoZoom] = useState(100);
   const [youtubeUrl, setYoutubeUrl] = useState('');
+  const [modalidad, setModalidad] = useState<'online' | 'presencial' | 'mixto'>('online');
+  const [tipo, setTipo] = useState('webinar');
   const [creating, setCreating] = useState(false);
+  const esOnline = modalidad !== 'presencial'; // online o mixto tienen canal online
 
   async function crear() {
     if (!titulo.trim()) {
@@ -270,27 +302,49 @@ function NuevoWebinarModal({ onClose, onCreated }: { onClose: () => void; onCrea
       descripcion: descripcion.trim() || null,
       fechaHora,
       duracionMin: duracion,
-      cupoZoom: cupoZoom > 0 ? cupoZoom : null,
-      youtubeLiveUrl: youtubeUrl.trim() || null,
+      cupoZoom: esOnline && cupoZoom > 0 ? cupoZoom : null,
+      youtubeLiveUrl: esOnline ? youtubeUrl.trim() || null : null,
+      modalidad,
+      tipo: tipo as never,
     });
     setCreating(false);
     if (!res.ok) {
-      toast.error('No pudimos crear el webinar', { description: humanizeError(res.error) });
+      toast.error('No pudimos crear el evento', { description: humanizeError(res.error) });
       return;
     }
-    toast.success('Webinar creado');
+    toast.success('Evento creado');
     onCreated();
   }
 
   return (
-    <Modal open onClose={onClose} title="Nuevo webinar" width={520}>
+    <Modal open onClose={onClose} title="Nuevo evento" width={520}>
       <div className="space-y-3">
         <Field label="Título" required>
           <Input value={titulo} onChange={(e) => setTitulo(e.target.value)} placeholder="Ej. Cómo cumplir con la DDJJ 2026" />
         </Field>
         <Field label="Descripción">
-          <Textarea value={descripcion} onChange={(e) => setDescripcion(e.target.value)} rows={3} placeholder="Resumen del contenido del webinar" />
+          <Textarea value={descripcion} onChange={(e) => setDescripcion(e.target.value)} rows={3} placeholder="Resumen del contenido del evento" />
         </Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Modalidad" required>
+            <Select value={modalidad} onChange={(e) => setModalidad(e.target.value as typeof modalidad)}>
+              <option value="online">Online (Zoom / YouTube)</option>
+              <option value="presencial">Presencial (lugar físico)</option>
+              <option value="mixto">Mixto (el inscripto elige)</option>
+            </Select>
+          </Field>
+          <Field label="Tipo">
+            <Select value={tipo} onChange={(e) => setTipo(e.target.value)}>
+              <option value="webinar">Webinar</option>
+              <option value="charla">Charla</option>
+              <option value="taller">Taller</option>
+              <option value="jornada">Jornada</option>
+              <option value="curso">Curso</option>
+              <option value="podcast">Podcast</option>
+              <option value="otro">Otro</option>
+            </Select>
+          </Field>
+        </div>
         <div className="grid grid-cols-2 gap-3">
           <Field label="Fecha" required>
             <Input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
@@ -299,20 +353,28 @@ function NuevoWebinarModal({ onClose, onCreated }: { onClose: () => void; onCrea
             <Input type="time" value={hora} onChange={(e) => setHora(e.target.value)} />
           </Field>
         </div>
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Duración (min)">
-            <Input type="number" value={duracion} onChange={(e) => setDuracion(Number(e.target.value))} min={15} max={600} step={15} />
-          </Field>
-          <Field label="Cupo Zoom" hint="100 en plan Free">
-            <Input type="number" value={cupoZoom} onChange={(e) => setCupoZoom(Number(e.target.value))} min={0} max={1000} />
-          </Field>
-        </div>
-        <Field label="URL de YouTube Live (fallback opcional)" hint="Cuando el cupo de Zoom se llena, los nuevos inscriptos van a YouTube">
-          <Input value={youtubeUrl} onChange={(e) => setYoutubeUrl(e.target.value)} placeholder="https://www.youtube.com/live/..." />
+        <Field label="Duración (min)">
+          <Input type="number" value={duracion} onChange={(e) => setDuracion(Number(e.target.value))} min={15} max={600} step={15} />
         </Field>
+        {esOnline && (
+          <>
+            <Field label="Cupo Zoom" hint="100 en plan Free">
+              <Input type="number" value={cupoZoom} onChange={(e) => setCupoZoom(Number(e.target.value))} min={0} max={1000} />
+            </Field>
+            <Field label="URL de YouTube Live (fallback opcional)" hint="Cuando el cupo de Zoom se llena, los nuevos inscriptos van a YouTube">
+              <Input value={youtubeUrl} onChange={(e) => setYoutubeUrl(e.target.value)} placeholder="https://www.youtube.com/live/..." />
+            </Field>
+          </>
+        )}
+        {modalidad !== 'online' && (
+          <p className="rounded-lg border border-violet-200 bg-violet-50 p-2.5 text-xs text-violet-700">
+            <MapPin size={12} className="mr-1 inline" />
+            El lugar, la dirección y el cupo presencial se cargan en el detalle del evento, después de crearlo.
+          </p>
+        )}
         <div className="flex items-center justify-end gap-2 pt-2">
           <Button variant="ghost" onClick={onClose}>Cancelar</Button>
-          <Button onClick={crear} loading={creating}>Crear webinar</Button>
+          <Button onClick={crear} loading={creating}>Crear evento</Button>
         </div>
       </div>
     </Modal>

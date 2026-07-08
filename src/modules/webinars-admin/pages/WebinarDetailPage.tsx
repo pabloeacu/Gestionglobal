@@ -18,8 +18,10 @@ import {
   Trash2,
   AlertTriangle,
   Save,
+  MapPin,
+  Ticket,
 } from 'lucide-react';
-import { Button, Field, Input, Modal, Textarea } from '@/components/common';
+import { Button, Field, Input, Modal, Select, Textarea } from '@/components/common';
 import { ImageUploader } from '@/modules/campus/components/ImageUploader';
 import { listarEsquemas } from '@/services/api/certificado-esquemas';
 import { toast } from '@/lib/toast';
@@ -232,10 +234,14 @@ function ConfigTab({ webinar, onCrearZoom, creatingZoom, onRecargar }: {
       {/* F6 (DGG-63) · Publicación + identidad del webinar (esquema tipo curso) */}
       <PublicacionCard webinar={webinar} onRecargar={onRecargar} />
       <DatosWebinarCard webinar={webinar} onRecargar={onRecargar} />
+      <ModalidadCard webinar={webinar} onRecargar={onRecargar} />
+      <ArancelCard webinar={webinar} onRecargar={onRecargar} />
       <BannerCard webinar={webinar} onRecargar={onRecargar} />
       <DocentesCard webinar={webinar} onRecargar={onRecargar} />
 
       <div className="grid gap-4 md:grid-cols-2">
+      {/* Canales online (Zoom + YouTube) — no aplican a eventos presenciales */}
+      {webinar.modalidad !== 'presencial' && (<>
       {/* Canal Zoom */}
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="mb-3 flex items-center gap-2">
@@ -298,6 +304,7 @@ function ConfigTab({ webinar, onCrearZoom, creatingZoom, onRecargar }: {
           </Button>
         )}
       </section>
+      </>)}
 
       {/* Grabación */}
       {webinar.grabacion_url && (
@@ -482,6 +489,193 @@ function DatosWebinarCard({ webinar, onRecargar }: { webinar: WebinarRow; onReca
             <Input type="number" value={duracion} onChange={(e) => setDuracion(Number(e.target.value))} min={15} max={600} step={15} />
           </Field>
         </div>
+      </div>
+      <div className="mt-3 flex justify-end">
+        <Button onClick={guardar} loading={saving} disabled={!dirty}>
+          <Save size={14} /> Guardar cambios
+        </Button>
+      </div>
+    </section>
+  );
+}
+
+// Modalidad + tipo + lugar del evento (online / presencial / mixto).
+function ModalidadCard({ webinar, onRecargar }: { webinar: WebinarRow; onRecargar: () => Promise<void> }) {
+  const [modalidad, setModalidad] = useState<'online' | 'presencial' | 'mixto'>(
+    (webinar.modalidad as 'online' | 'presencial' | 'mixto') ?? 'online',
+  );
+  const [tipo, setTipo] = useState<string>(webinar.tipo ?? 'webinar');
+  const [lugar, setLugar] = useState(webinar.ubicacion_lugar ?? '');
+  const [direccion, setDireccion] = useState(webinar.ubicacion_direccion ?? '');
+  const [localidad, setLocalidad] = useState(webinar.ubicacion_localidad ?? '');
+  const [mapaUrl, setMapaUrl] = useState(webinar.ubicacion_mapa_url ?? '');
+  const [instrucciones, setInstrucciones] = useState(webinar.ubicacion_instrucciones ?? '');
+  const [cupoPresencial, setCupoPresencial] = useState<string>(
+    webinar.cupo_presencial != null ? String(webinar.cupo_presencial) : '',
+  );
+  const [saving, setSaving] = useState(false);
+  const esPresencial = modalidad !== 'online';
+
+  const dirty =
+    modalidad !== ((webinar.modalidad as string) ?? 'online') ||
+    tipo !== (webinar.tipo ?? 'webinar') ||
+    lugar !== (webinar.ubicacion_lugar ?? '') ||
+    direccion !== (webinar.ubicacion_direccion ?? '') ||
+    localidad !== (webinar.ubicacion_localidad ?? '') ||
+    mapaUrl !== (webinar.ubicacion_mapa_url ?? '') ||
+    instrucciones !== (webinar.ubicacion_instrucciones ?? '') ||
+    cupoPresencial !== (webinar.cupo_presencial != null ? String(webinar.cupo_presencial) : '');
+
+  async function guardar() {
+    if (esPresencial && !direccion.trim()) {
+      toast.error('Para eventos presenciales/mixtos cargá la dirección');
+      return;
+    }
+    const cupoNum = cupoPresencial.trim() === '' ? null : Number(cupoPresencial);
+    if (cupoNum != null && (!Number.isFinite(cupoNum) || cupoNum <= 0)) {
+      toast.error('El cupo presencial debe ser un número mayor a 0');
+      return;
+    }
+    setSaving(true);
+    const res = await actualizarWebinar(webinar.id, {
+      modalidad,
+      tipo: tipo as never,
+      ubicacionLugar: esPresencial ? lugar.trim() || null : null,
+      ubicacionDireccion: esPresencial ? direccion.trim() || null : null,
+      ubicacionLocalidad: esPresencial ? localidad.trim() || null : null,
+      ubicacionMapaUrl: esPresencial ? mapaUrl.trim() || null : null,
+      ubicacionInstrucciones: esPresencial ? instrucciones.trim() || null : null,
+      cupoPresencial: esPresencial ? cupoNum : null,
+    });
+    setSaving(false);
+    if (!res.ok) {
+      toast.error('No pudimos guardar', { description: humanizeError(res.error) });
+      return;
+    }
+    toast.success('Modalidad y lugar actualizados');
+    void onRecargar();
+  }
+
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="mb-3 flex items-center gap-2">
+        <MapPin size={18} className="text-violet-600" />
+        <h2 className="font-display text-lg font-bold text-brand-ink">Modalidad y lugar</h2>
+      </div>
+      <div className="space-y-3">
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Modalidad" required>
+            <Select value={modalidad} onChange={(e) => setModalidad(e.target.value as 'online' | 'presencial' | 'mixto')}>
+              <option value="online">Online (Zoom / YouTube)</option>
+              <option value="presencial">Presencial</option>
+              <option value="mixto">Mixto (el inscripto elige)</option>
+            </Select>
+          </Field>
+          <Field label="Tipo">
+            <Select value={tipo} onChange={(e) => setTipo(e.target.value)}>
+              <option value="webinar">Webinar</option>
+              <option value="charla">Charla</option>
+              <option value="taller">Taller</option>
+              <option value="jornada">Jornada</option>
+              <option value="curso">Curso</option>
+              <option value="podcast">Podcast</option>
+              <option value="otro">Otro</option>
+            </Select>
+          </Field>
+        </div>
+        {esPresencial && (
+          <div className="space-y-3 rounded-xl border border-violet-200 bg-violet-50/50 p-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <Field label="Lugar" hint="Ej. Auditorio Central">
+                <Input value={lugar} onChange={(e) => setLugar(e.target.value)} placeholder="Nombre del lugar" />
+              </Field>
+              <Field label="Cupo presencial" hint="Vacío = sin límite">
+                <Input type="number" min={1} value={cupoPresencial} onChange={(e) => setCupoPresencial(e.target.value)} placeholder="—" />
+              </Field>
+            </div>
+            <Field label="Dirección" required>
+              <Input value={direccion} onChange={(e) => setDireccion(e.target.value)} placeholder="Calle, número" />
+            </Field>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <Field label="Localidad">
+                <Input value={localidad} onChange={(e) => setLocalidad(e.target.value)} placeholder="Ciudad / provincia" />
+              </Field>
+              <Field label="Link de Google Maps" hint="Opcional">
+                <Input value={mapaUrl} onChange={(e) => setMapaUrl(e.target.value)} placeholder="https://maps.google.com/..." />
+              </Field>
+            </div>
+            <Field label="Cómo llegar / instrucciones" hint="Opcional">
+              <Textarea rows={2} value={instrucciones} onChange={(e) => setInstrucciones(e.target.value)} placeholder="Estacionamiento, transporte, piso, etc." />
+            </Field>
+          </div>
+        )}
+      </div>
+      <div className="mt-3 flex justify-end">
+        <Button onClick={guardar} loading={saving} disabled={!dirty}>
+          <Save size={14} /> Guardar cambios
+        </Button>
+      </div>
+    </section>
+  );
+}
+
+// Arancel: SÓLO informativo (dato del evento). No hay cobranza online.
+function ArancelCard({ webinar, onRecargar }: { webinar: WebinarRow; onRecargar: () => Promise<void> }) {
+  const [arancelado, setArancelado] = useState<boolean>(webinar.es_arancelado ?? false);
+  const [monto, setMonto] = useState<string>(webinar.arancel_monto != null ? String(webinar.arancel_monto) : '');
+  const [nota, setNota] = useState(webinar.arancel_nota ?? '');
+  const [saving, setSaving] = useState(false);
+
+  const dirty =
+    arancelado !== (webinar.es_arancelado ?? false) ||
+    monto !== (webinar.arancel_monto != null ? String(webinar.arancel_monto) : '') ||
+    nota !== (webinar.arancel_nota ?? '');
+
+  async function guardar() {
+    const montoNum = monto.trim() === '' ? null : Number(monto);
+    if (montoNum != null && (!Number.isFinite(montoNum) || montoNum < 0)) {
+      toast.error('El monto debe ser un número mayor o igual a 0');
+      return;
+    }
+    setSaving(true);
+    const res = await actualizarWebinar(webinar.id, {
+      esArancelado: arancelado,
+      arancelMonto: arancelado ? montoNum : null,
+      arancelNota: arancelado ? nota.trim() || null : null,
+    });
+    setSaving(false);
+    if (!res.ok) {
+      toast.error('No pudimos guardar', { description: humanizeError(res.error) });
+      return;
+    }
+    toast.success('Arancel actualizado');
+    void onRecargar();
+  }
+
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="mb-3 flex items-center gap-2">
+        <Ticket size={18} className="text-amber-600" />
+        <h2 className="font-display text-lg font-bold text-brand-ink">Arancel</h2>
+        <span className="ml-auto text-[11px] text-brand-muted">Sólo informativo · no se cobra online</span>
+      </div>
+      <div className="space-y-3">
+        <Field label="¿El evento tiene costo?">
+          <Select value={arancelado ? 'si' : 'no'} onChange={(e) => setArancelado(e.target.value === 'si')}>
+            <option value="no">Gratuito</option>
+            <option value="si">Arancelado</option>
+          </Select>
+        </Field>
+        {arancelado && (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Field label="Monto (ARS)" hint="Opcional">
+              <Input type="number" min={0} step="0.01" value={monto} onChange={(e) => setMonto(e.target.value)} placeholder="Ej. 5000" />
+            </Field>
+            <Field label="Nota" hint="Ej. se abona en el lugar">
+              <Input value={nota} onChange={(e) => setNota(e.target.value)} placeholder="Cómo / dónde se abona" />
+            </Field>
+          </div>
+        )}
       </div>
       <div className="mt-3 flex justify-end">
         <Button onClick={guardar} loading={saving} disabled={!dirty}>
