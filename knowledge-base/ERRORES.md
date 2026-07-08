@@ -3458,7 +3458,34 @@ es el patrón Supabase; la defensa es JWT+RLS). **2 gaps reales + 1 hallazgo pro
 
 **Nota (menor, no fixeado aún):** 4 buckets públicos permiten listar sus archivos (enumerar nombres).
 
-**Fecha / módulo:** 2026-07-05 · seguridad / hosting / edge fns / permisos · mig 0279 + vercel.json + submit-formulario v12. Etapa 1 de 2 (CSP pendiente). Capitaliza auditoría pedida por Pablo.
+**Addendum — Etapa 2: CSP en modo report-only → medir (2026-07-08).** Se agregó la
+`Content-Security-Policy` PERO en `Content-Security-Policy-Report-Only` (NO bloquea; sólo reporta), que
+es el paso correcto antes de una CSP bloqueante (una mal puesta rompe la app). Infraestructura para MEDIR:
+- **mig 0285**: tabla `csp_reports` (staff-read, sin anon) + RPC `csp_report_registrar` (SECURITY DEFINER,
+  sólo service_role; UPDATE-first con `hits` + INSERT con cap de 5000 filas distintas anti-bloat).
+- **edge fn `csp-report`** (verify_jwt=false): recibe los reportes en ambos formatos (`report-uri`
+  `application/csp-report` y `report-to` `reports+json`), los registra vía la RPC. Alcanzable SIN apikey
+  (como postea el browser). Strip de query (no guarda tokens de URLs firmadas).
+- **vercel.json**: header `Content-Security-Policy-Report-Only` + `Reporting-Endpoints`. Política = mejor
+  estimación de la CSP final: `default-src 'self'`; script `'self' blob:`; style `'self' 'unsafe-inline'
+  fonts.googleapis`; img `'self' data: blob: [supabase] gestionglobal.ar`; font `'self' data: gstatic`;
+  connect `'self' [supabase https + wss]`; frame `'self' youtube`; worker `'self' blob:`; object `'none'`;
+  base-uri/form-action/frame-ancestors `'self'`. Deja FUERA adrede Zoom/Webex y el `<script>` inline del
+  boot-splash → para que el report-only los mida en vivo.
+- **§6 EJERCITAR**: e2e del endpoint (204 sin apikey · dedup hits=2 · strip de query · cap hits=3) + **live
+  en producción**: header presente; gerencia y el formulario público cargan normal (report-only NO bloquea);
+  el browser reportó la 1ra violación real → `script-src-elem / inline / línea 89` = el script del
+  boot-splash (`index.html:88`), aterrizado en `csp_reports`. Fonts/Supabase/wss NO violaron (bien previstos).
+  §6 REVISAR: auditoría liviana (self-review) por ser scaffold NO-bloqueante (imposible que rompa prod);
+  el riesgo del endpoint público está acotado por RPC service_role + dedup + cap + truncado.
+- **Pendiente = Etapa 3 (enforce)**, tras medir unos días con tráfico real (incluye clases en vivo
+  Zoom/Webex, que sólo reportan cuando hay una activa): revisar `csp_reports`, resolver el inline del
+  boot-splash (hashear con `'sha256-...'` o externalizar a `/boot-splash.js`), agregar los orígenes de
+  Zoom/Webex que aparezcan, y recién ahí cambiar el header a `Content-Security-Policy` (bloqueante).
+
+**Fecha / módulo:** 2026-07-05 (Etapa 1) + 2026-07-08 (Etapa 2) · seguridad / hosting / edge fns / permisos ·
+migs 0279 + 0285 + vercel.json + submit-formulario v12 + edge fn csp-report. Etapa 2 de 3 (enforce pendiente).
+Capitaliza auditoría pedida por Pablo.
 
 ## E-GG-89 · El gestor externo no puede abrir los adjuntos del cliente (RLS storage) (2026-07-08)
 
