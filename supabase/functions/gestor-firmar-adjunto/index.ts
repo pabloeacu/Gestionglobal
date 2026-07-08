@@ -90,6 +90,7 @@ Deno.serve(async (req) => {
       .select('storage_path')
       .eq('submission_id', submissionId)
       .eq('storage_path', path)
+      .limit(1)
       .maybeSingle();
     if (adj) bucket = 'form-adjuntos';
   }
@@ -103,6 +104,7 @@ Deno.serve(async (req) => {
       .eq('archivo_path', path)
       .eq('tramite_pedidos_doc.tramite_id', tramiteId)
       .in('estado', ['subido', 'aprobado'])
+      .limit(1)
       .maybeSingle();
     if (ped) bucket = 'pedidos-doc-cliente';
   }

@@ -584,6 +584,12 @@ function PanelGestor({ token }: { token: string }) {
           ...a,
           url_descarga: adjuntosUrls[a.storage_path] ?? undefined,
         })),
+        pedidosDoc: (info.pedidos_doc ?? []).map((p) => ({
+          descripcion: p.descripcion,
+          filename_original: p.filename_original,
+          estado: p.estado,
+          url_descarga: adjuntosUrls[p.storage_path] ?? undefined,
+        })),
         created_at: info.created_at,
       });
       const url = URL.createObjectURL(blob);

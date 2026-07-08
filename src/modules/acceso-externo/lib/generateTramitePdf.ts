@@ -32,6 +32,17 @@ export interface TramitePdfInput {
   solicitante_telefono: string;
   datos: Record<string, unknown>;
   adjuntos: AdjuntoTramite[];
+  /**
+   * Documentos que el cliente subió a los "Pedidos de Documentación"
+   * (bucket pedidos-doc-cliente). E-GG-91 pieza 2: para que el PDF sea
+   * consistente con lo que el gestor ve en pantalla.
+   */
+  pedidosDoc?: Array<{
+    descripcion: string;
+    filename_original: string;
+    estado: string;
+    url_descarga?: string;
+  }>;
   created_at: string;
 }
 
@@ -92,6 +103,29 @@ function buildHtml(input: TramitePdfInput): string {
                 ? `<a href="${escapeHtml(a.url_descarga)}" target="_blank">${escapeHtml(a.filename_original)}</a>`
                 : `<span>${escapeHtml(a.filename_original)}</span>`}
               <span class="adj-campo">· ${escapeHtml(a.label || a.field_name.replace(/_/g, ' '))}</span>
+            </li>
+          `,
+            )
+            .join('')}
+        </ul>`;
+
+  // E-GG-91 pieza 2: documentos que el cliente subió a los pedidos de
+  // documentación. Sólo se renderiza la sección si hay alguno.
+  const pedidosDoc = input.pedidosDoc ?? [];
+  const pedidosDocSection =
+    pedidosDoc.length === 0
+      ? ''
+      : `<h2>Documentación pedida al cliente</h2>
+        <ul class="adjuntos">
+          ${pedidosDoc
+            .map(
+              (p) => `
+            <li>
+              <span class="adj-icon">📄</span>
+              ${p.url_descarga
+                ? `<a href="${escapeHtml(p.url_descarga)}" target="_blank">${escapeHtml(p.filename_original)}</a>`
+                : `<span>${escapeHtml(p.filename_original)}</span>`}
+              <span class="adj-campo">· ${escapeHtml(p.descripcion)}${p.estado === 'aprobado' ? ' · aprobado' : ''}</span>
             </li>
           `,
             )
@@ -281,6 +315,8 @@ function buildHtml(input: TramitePdfInput): string {
 
   <h2>Documentación adjunta</h2>
   ${adjuntosRows}
+
+  ${pedidosDocSection}
 
   <div class="footer">
     Generado el ${fechaHoy} · <strong>Gestión Global</strong> · ${DOMAIN}<br />
