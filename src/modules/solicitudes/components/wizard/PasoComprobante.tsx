@@ -4,11 +4,12 @@
 // ProcesadorFinal. Q3: DDJJ → omitido; gratuito/100% bonif → $0 sin cobranza.
 
 import { useEffect, useState } from 'react';
-import { Banknote, Receipt } from 'lucide-react';
+import { Banknote, Receipt, PiggyBank } from 'lucide-react';
 import { Field, Input, Select, StepPanel } from '@/components/common';
 import {
   listCajasActivas,
   listCategoriasIngreso,
+  listarCreditosAdministracion,
   type CajaRow,
   type CategoriaFinanzaRow,
 } from '@/services/api/cobranzas';
@@ -27,6 +28,25 @@ export function PasoComprobante({ state, set }: PasoProps) {
   const [cajas, setCajas] = useState<CajaRow[]>([]);
   const [categorias, setCategorias] = useState<CategoriaFinanzaRow[]>([]);
   const [partners, setPartners] = useState<PartnerOpcion[]>([]);
+  // E-GG-91 (f · reporte JL): si el cliente ya existe y tiene saldo a favor, se
+  // lo avisamos acá — al cobrar un trámite nuevo antes no se reflejaba (audio 1).
+  const [saldoAFavor, setSaldoAFavor] = useState(0);
+
+  useEffect(() => {
+    const adminId = state.clienteIdExistente;
+    if (!adminId) {
+      setSaldoAFavor(0);
+      return;
+    }
+    let cancel = false;
+    void listarCreditosAdministracion(adminId).then((r) => {
+      if (cancel || !r.ok) return;
+      setSaldoAFavor(
+        r.data.reduce((a, c) => a + Number(c.saldo_disponible ?? 0), 0),
+      );
+    });
+    return () => { cancel = true; };
+  }, [state.clienteIdExistente]);
 
   useEffect(() => {
     void listCajasActivas().then((r) => {
@@ -80,6 +100,20 @@ export function PasoComprobante({ state, set }: PasoProps) {
       title="3 · Comprobante y cobranza"
       subtitle="Configurá el comprobante del servicio y, si corresponde, la cobranza. Nada se emite hasta el paso final."
     >
+      {/* E-GG-91 (f) · aviso de saldo a favor del cliente al cobrar. */}
+      {saldoAFavor > 0 && (
+        <div className="mb-4 rounded-xl border-2 border-violet-300/70 bg-violet-50 p-3">
+          <p className="text-sm font-semibold text-brand-ink">
+            <PiggyBank size={14} className="mr-1 inline text-violet-600" />
+            Este cliente tiene {fmtMoney(saldoAFavor)} a favor
+          </p>
+          <p className="mt-0.5 text-xs text-brand-muted">
+            Podés aplicarlo a este comprobante desde su detalle, apenas se cree (botón
+            "Aplicar saldo a favor").
+          </p>
+        </div>
+      )}
+
       {/* Comprobante */}
       <div className="space-y-3">
         <Field label="Descripción del servicio" required>
