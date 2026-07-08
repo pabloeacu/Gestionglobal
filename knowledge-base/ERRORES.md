@@ -3568,3 +3568,39 @@ gestoría necesita— no aparecían.
   usa siempre `'solicitud'` (`solicitud_derivar_v2`), así que no afecta hoy.
 
 **Fecha / módulo:** 2026-07-08 · gerencia / trackings / solicitudes / finanzas / acceso-externo · migs 0280–0283 + edge fn `gestor-firmar-adjunto` v3. Auditoría integral pedida por Pablo (PDF + 3 audios de JL). Capitaliza E-GG-89/90/91.
+
+## E-GG-92 · Blindaje sistémico: over-grant PUBLIC→anon en TODAS las tablas (2026-07-08)
+
+**Síntoma (hallazgo de la §6 de E-GG-91 pieza 2, ampliado).** Al limpiar el grant de `anon` sobre
+`tramite_pedidos_doc(_items)` (mig 0283) se midió que **`anon` tenía el set COMPLETO de privilegios
+(SELECT/INSERT/UPDATE/DELETE/TRUNCATE/REFERENCES/TRIGGER) concedido DIRECTAMENTE sobre las ~114 tablas
+de `public`** — herencia del default `PUBLIC → anon` de Postgres pre-0130 (el mismo origen que motivó la
+regla 6 y el barrido de funciones de E-GG-88 / mig 0279, que tocó funciones pero NO tablas).
+
+**Riesgo.** HOY no filtra nada en las tablas internas: la RLS está activa y no tienen policy que le
+aplique a `anon` (sin policy → PostgREST le niega las filas). Pero es un grant vivo latente: si mañana
+alguien agrega por error una policy permisiva, o desactiva RLS en una tabla, o se cuela un `USING (true)`,
+el dato queda expuesto al público. Defensa en profundidad = que `anon` no tenga el privilegio en primer
+lugar, no depender sólo de la RLS.
+
+**Fix (mig 0284).** `REVOKE ALL … FROM anon` en toda tabla `public` con RLS activa que NO tenga NINGUNA
+policy aplicable a `anon` (ni directa ni vía rol PUBLIC) → **102 tablas internas**. Loop dinámico +
+idempotente (en una BD nueva post-0130, sin el over-grant, es no-op). **NO toca:** (a) las 6 tablas de
+flujos públicos donde una policy NOMBRA a `anon` (`formularios`/`servicios`/`categorias_servicio`/
+`servicio_vouchers` SELECT + `formulario_submissions`/`formulario_adjuntos` INSERT); (b) las tablas con
+policy de rol PUBLIC gateada por `is_staff()`/owner (audit_log, certificado_esquemas, errores_runtime,
+notificaciones_internas, encuentro_sesiones_compartidas, vistas_guardadas) — anon no las puede usar igual,
+se dejan por cero-riesgo; (c) `authenticated`/`service_role`.
+
+**§6.** Dry-run `BEGIN`/rollback (102 revocadas; los 6 flujos públicos conservan su grant; tramites/
+comprobantes sin anon) + e2e como **rol `anon`** (`SET LOCAL role anon`): `formularios`=10 y `servicios`=11
+legibles; `tramites`/`comprobantes` → **`insufficient_privilege` (rechazo duro, ya no filtrado a 0 filas)**.
+Live: `/formulario/certificado-rpac` carga como anon con 13 campos y sin errores de permiso.
+
+**Lección / pendiente.** El default PUBLIC pre-0130 dejó over-grants en TODA tabla creada antes de 0130;
+la regla 6 ya obliga GRANTs explícitos en tablas nuevas. Las policy-true "gateadas por USING" (grupo b)
+conservan el grant muerto — un endurecimiento futuro podría estrecharlas a least-privilege, pero es marginal
+(la RLS ya protege) y de mayor riesgo. E-GG-88 sigue con la Etapa 2 pendiente (CSP report-only → enforce).
+
+**Fecha / módulo:** 2026-07-08 · seguridad / grants / RLS · mig 0284. Continúa E-GG-88 (0279 funciones) y
+E-GG-91/0283 (pedidos_doc). Barrido pedido por Pablo ("sisi") sobre el hallazgo de la §6.
