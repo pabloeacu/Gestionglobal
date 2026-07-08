@@ -52,9 +52,22 @@ CREATE OR REPLACE FUNCTION public.csp_report_registrar(
 ) RETURNS void
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp
 AS $$
+DECLARE v_updated int;
 BEGIN
   IF COALESCE(p_violated, '') = '' THEN
     RETURN;  -- reporte inválido, se ignora
+  END IF;
+  -- Incrementar si la combinación ya existe (barato, siempre permitido).
+  UPDATE public.csp_reports
+     SET hits = hits + 1, last_seen = now()
+   WHERE violated_directive = LEFT(p_violated, 200)
+     AND blocked_uri = LEFT(COALESCE(p_blocked, ''), 500);
+  GET DIAGNOSTICS v_updated = ROW_COUNT;
+  IF v_updated > 0 THEN RETURN; END IF;
+  -- Combinación nueva: sólo insertar si estamos bajo el cap (anti-bloat: el
+  -- endpoint es público sin auth). Es tabla de medición transitoria.
+  IF (SELECT count(*) FROM public.csp_reports) >= 5000 THEN
+    RETURN;
   END IF;
   INSERT INTO public.csp_reports (
     violated_directive, effective_directive, blocked_uri, document_uri,
