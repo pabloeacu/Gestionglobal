@@ -3459,3 +3459,31 @@ es el patrón Supabase; la defensa es JWT+RLS). **2 gaps reales + 1 hallazgo pro
 **Nota (menor, no fixeado aún):** 4 buckets públicos permiten listar sus archivos (enumerar nombres).
 
 **Fecha / módulo:** 2026-07-05 · seguridad / hosting / edge fns / permisos · mig 0279 + vercel.json + submit-formulario v12. Etapa 1 de 2 (CSP pendiente). Capitaliza auditoría pedida por Pablo.
+
+## E-GG-89 · El gestor externo no puede abrir los adjuntos del cliente (RLS storage) (2026-07-08)
+
+**Síntoma (reporte JL, PDF + audios).** "gestoría no puede abrir el adjunto" — un PDF (comprobante de
+transferencia del certificado de acreditación). El gestor externo ve el nombre del archivo pero no lo
+abre. Latente: es la primera vez que JL probó el circuito de gestoría ("lo primero que estaba anotado
+que no había probado").
+
+**Causa raíz.** El panel del gestor (`/acceso/:token`) corre como **`anon`** (sin login). Para mostrar
+los adjuntos del cliente, `firmarAdjuntoCliente` hacía `supabase.storage.from('form-adjuntos').createSignedUrl(path)`
+**del lado cliente**. Pero `createSignedUrl` respeta la RLS de `storage.objects`, y `form-adjuntos`
+sólo tiene policy de SELECT para **staff logueado** (`form_adj_select_staff`: `is_staff()`). No hay
+policy para `anon` → el `anon` es rechazado → nunca se genera la URL → "no abre". No es regresión de
+E-GG-88 (verificado: las 5 RPCs del gestor siguen `anon`-ejecutables; no se tocó ningún bucket).
+
+**Barrido de patrón (pedido de Pablo).** Se auditaron las 24 superficies de storage de la plataforma:
+**0 casos de bucket privado servido con `getPublicUrl`**. Flancos menores detectados: 2 lugares firman
+al cargar la vista (vencen a la hora — `getSolicitud`, `listAdjuntosPedidosDocDeTramite`) y
+`gestoria-adjuntos` no tiene lector (los docs que gerencia reenvía no se re-abren). Mismo circuito.
+
+**Fix (E-GG-89).** Edge function nueva **`gestor-firmar-adjunto`** (`verify_jwt=false`): valida el
+token de acceso externo, verifica que el path pertenezca a los `formulario_adjuntos` de ESA solicitud
+(candado anti-arbitrario), y firma con `service_role` (que sí bypassa la RLS de storage). El panel la
+llama en vez de firmar del lado cliente. **NO se amplió ninguna policy de storage** → no se abre ningún
+hueco. §6 e2e (curl contra el edge fn real): token+path válidos → firma y el archivo reportado baja
+**HTTP 200**; path ajeno → **403**; token falso → **401**.
+
+**Fecha / módulo:** 2026-07-08 · acceso externo / gestoría / storage · edge fn `gestor-firmar-adjunto` v1 + `accesoExterno.ts`. Capitaliza reporte JL (PDF + 3 audios). Parte 1 de la auditoría integral de gestoría.

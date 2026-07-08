@@ -540,7 +540,7 @@ function PanelGestor({ token }: { token: string }) {
       // attachment para que el browser baje el archivo en vez de previsualizar.
       const signed: Record<string, string> = {};
       for (const a of d.adjuntos) {
-        const sr = await firmarAdjuntoCliente(a.storage_path, 3600);
+        const sr = await firmarAdjuntoCliente(token, a.storage_path);
         if (sr.ok) signed[a.storage_path] = sr.data;
       }
       setAdjuntosUrls(signed);

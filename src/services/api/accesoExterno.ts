@@ -45,21 +45,24 @@ export async function gestorAccesoRef(token: string): Promise<AccesoRef | null> 
   return data[0] as AccesoRef;
 }
 
-/** Devuelve una URL firmada (10 minutos) para descargar un adjunto del
- * cliente desde `form-adjuntos`. El bucket es privado, sólo el gestor con
- * token vigente accede via service en backend RPC; el frontend usa este
- * helper para mostrar el archivo. */
+/** Devuelve una URL firmada para descargar un adjunto del cliente desde
+ * `form-adjuntos`. El bucket es privado y su RLS de storage sólo deja SELECT a
+ * staff → el gestor (anon, por token) NO puede firmar del lado cliente
+ * (E-GG-89). Se firma en el servidor con la edge function `gestor-firmar-adjunto`,
+ * que valida el token + verifica que el path pertenezca a esa solicitud. */
 export async function firmarAdjuntoCliente(
+  token: string,
   path: string,
-  expiresInSeconds = 600,
 ): Promise<ApiResponse<string>> {
-  const { data, error } = await supabase.storage
-    .from(FORM_ADJUNTOS_BUCKET)
-    .createSignedUrl(path, expiresInSeconds);
-  if (error || !data?.signedUrl) {
-    return fail('ACCESO_EXT_FIRMA', error?.message ?? 'no signed url', error);
+  const { data, error } = await supabase.functions.invoke('gestor-firmar-adjunto', {
+    body: { token, path },
+  });
+  if (error) return fail('ACCESO_EXT_FIRMA', error.message, error);
+  const res = (data ?? {}) as { ok?: boolean; url?: string; error?: string };
+  if (!res.ok || !res.url) {
+    return fail('ACCESO_EXT_FIRMA', res.error ?? 'no signed url');
   }
-  return ok(data.signedUrl);
+  return ok(res.url);
 }
 
 /** Sube un archivo del gestor externo al bucket `gestor-uploads`. El path
