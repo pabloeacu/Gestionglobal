@@ -755,11 +755,10 @@ export interface DocClienteTramite {
 export async function listDocsClienteDeTramite(
   tramiteId: string,
 ): Promise<ApiResponse<DocClienteTramite[]>> {
-  const rpcAny = supabase.rpc as unknown as (
-    name: string,
-    args: Record<string, unknown>,
-  ) => Promise<{ data: unknown; error: { message: string } | null }>;
-  const { data, error } = await rpcAny('tramite_docs_cliente', {
+  // OJO: NO desacoplar `supabase.rpc` a una constante — pierde el `this` y
+  // rompe en runtime ("Cannot read properties of undefined (reading 'rest')").
+  // Se llama como método (preserva `this`).
+  const { data, error } = await supabase.rpc('tramite_docs_cliente', {
     p_tramite_id: tramiteId,
   });
   if (error) return fail('TRAMITE_DOCS_CLIENTE', error.message, error);
