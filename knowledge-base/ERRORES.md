@@ -3631,3 +3631,35 @@ conservan el grant muerto — un endurecimiento futuro podría estrecharlas a le
 
 **Fecha / módulo:** 2026-07-08 · seguridad / grants / RLS · mig 0284. Continúa E-GG-88 (0279 funciones) y
 E-GG-91/0283 (pedidos_doc). Barrido pedido por Pablo ("sisi") sobre el hallazgo de la §6.
+
+## E-GG-93 · Eventos (webinars→online/presencial/mixto): hallazgos de la §6 (2026-07-08)
+
+Ver **DGG-99** en DECISIONES para el diseño del feature. Acá los 3 hallazgos que cazó la doble
+auditoría §6 (3 agentes REVISAR + e2e en BD + prueba en vivo), todos fixeados en el mismo chunk:
+
+1. **CRÍTICO (lógica) — mixto con cupo presencial lleno rechazaba en vez de derivar a online.** En
+   `inscribir_a_webinar`, un evento `mixto` donde el inscripto elegía presencial y la sala física ya
+   estaba llena tiraba `webinar_sin_cupo_presencial` aunque el evento tuviera Zoom/YouTube — rompía el
+   principio "un mixto siempre tiene salida". **Fix (mig 0292):** si mixto+presencial sin cupo → cae a
+   online (zoom FCFS → youtube) antes de rechazar. El presencial PURO sigue rechazando (no tiene canal
+   online). e2e: mixto 2°→youtube · presencial puro 2°→rechaza.
+2. **CRÍTICO (seguridad, línea E-GG-88/92) — funciones nuevas con `anon` EXECUTE heredado.**
+   `crear_webinar`, `webinar_marcar_asistencia` (staff-only) e `inscribir_a_webinar` (interna: la usan
+   el trigger SECURITY DEFINER / la edge fn submit-formulario service_role / el portal authenticated)
+   tenían el grant `EXECUTE` a `anon` del default PUBLIC pre-0130 (`REVOKE FROM PUBLIC` no lo saca).
+   Runtime-safe (rebotan por `is_staff()` / tenancy guard), pero se limpió: **`REVOKE EXECUTE … FROM
+   anon`** en las 3 (mig 0292). Lección repetida: TODA función nueva staff/interna necesita `REVOKE
+   FROM anon` explícito, no sólo `FROM PUBLIC`.
+3. **R7 (drift) — 4 migraciones aplicadas sin archivo en el repo.** Las migs 0287/0288/0289/0290 se
+   aplicaron vía `apply_migration` (MCP) pero olvidé escribir el `.sql` en `supabase/migrations/` →
+   el repo no reproducía el schema en un entorno fresco. Se recuperó el SQL exacto de
+   `supabase_migrations.schema_migrations` y se commitearon los 4 archivos. **Smell (repetido de 0281):
+   cada `apply_migration` debe ir acompañado de su Write del archivo en el repo, en el mismo paso.**
+
+**Prueba en vivo (Vercel, sesión gerente):** lista de Eventos con badge Presencial+tipo+lugar; detalle
+con ModalidadCard/ArancelCard y Zoom oculto en presencial; página de acceso `/webinar/:token` de un
+presencial mostrando lugar + "Cómo llegar" (mapa) + countdown, SIN botón de Zoom; sin errores de consola.
+Los eventos ONLINE existentes: comportamiento idéntico (modalidad default 'online').
+
+**Fecha / módulo:** 2026-07-08 · eventos / webinars / seguridad · migs 0286–0292 + edge fn webinar-acceso v5.
+Doble auditoría §6 del paquete Eventos pedido por Pablo.

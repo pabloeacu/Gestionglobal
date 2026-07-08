@@ -3801,3 +3801,40 @@ edita desde el drawer) — R14, no regresión.
 
 - **Fecha:** 2026-07-04. Mig 0276. §6 e2e 13/13 (caso real Est Sav + 6 asientos sintéticos).
   Ver E-GG-86 en `ERRORES.md`.
+
+### DGG-99 · "Eventos": ampliar webinars a online / presencial / mixto (2026-07-08)
+
+**Pedido (Pablo).** El sistema de "webinars" (capacitaciones gratuitas de la landing) servía sólo para
+eventos ONLINE (Zoom + YouTube). Ampliarlo para que sirva TAMBIÉN para encuentros presenciales y mixtos,
+sin romper nada, "ultra premium y versátil", con foco en que la gerencia pueda administrar y CAPITALIZAR
+los inscriptos (que son prospectos, no clientes, y pueden anotarse a varios eventos sin convertirse).
+
+**Decisiones de diseño (validadas con Pablo antes de codear).**
+- **Modelo aditivo, sin renombrar tabla/rutas.** Se mantiene la tabla `webinars` y las rutas
+  (`/gerencia/formularios/webinars`, `/webinars`, `/webinar/:token`) para no romper nada; el relabel a
+  **"Eventos"** es sólo de UI (menú, títulos). Columnas nuevas: `modalidad` (online/presencial/mixto,
+  default 'online' → los eventos existentes quedan idénticos), `tipo` (webinar/charla/taller/jornada/
+  curso/podcast/otro), `ubicacion_*`, `cupo_presencial`, `es_arancelado`/`arancel_monto`/`arancel_nota`.
+- **Mixto: el inscripto ELIGE** cómo asiste (presencial u online) en el formulario público. Se pasa vía
+  `FormularioRunner.extraDatos` (prop opcional retro-compatible) → `datos.modalidad_preferida` → el
+  trigger lo lee y lo pasa a `inscribir_a_webinar`. Si elige presencial y el cupo está lleno, cae a
+  online (fix E-GG-93).
+- **Arancel = SÓLO informativo** (gratuito/arancelado + monto + nota). NO hay cobranza online — es un
+  dato del evento que se muestra en la landing y el alta.
+- **Asistencia presencial = "pasar lista"** (checkboxes en gerencia, RPC `webinar_marcar_asistencia`).
+  El online se sigue computando por webhook de Zoom. QR de check-in → pateado para más adelante (Pablo).
+- **Capitalización de prospectos (mini-CRM):** filtro por evento, engagement (# eventos inscripto/
+  asistió, badge "Caliente" ≥2), historial por prospecto, export CSV, y resumen por evento
+  (embudo inscriptos→asistieron→convertidos). RPCs `prospectos_listado`/`prospecto_eventos`/
+  `webinar_captacion_resumen` (mig 0291). El modelo prospecto↔inscripto ya era correcto; se agregó la
+  herramienta para explotarlo.
+- **Emails modality-aware:** un inscripto presencial recibe "Presencial · lugar (dirección)" (antes
+  caía en "YouTube Live"); la página de acceso `/webinar/:token` muestra el lugar + mapa + "cómo llegar"
+  en vez del botón de Zoom.
+
+**Implementación en 6 fases** (cada una build + §6 e2e + commit): modelo (0286) · gerencia (0287) ·
+público/emails/acceso (0288/0289 + edge fn) · asistencia (0290) · prospectos (0291) · cierre §6 (0292 fix).
+
+- **Fecha:** 2026-07-08. Migs 0286-0292 + edge fn webinar-acceso v5 + frontend (webinars-admin,
+  webinars-publico, FormularioRunner). Doble auditoría §6 (3 agentes + e2e) + prueba en vivo de las 3
+  modalidades. Ver **E-GG-93** en `ERRORES.md`.
