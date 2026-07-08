@@ -1869,6 +1869,54 @@ export type Database = {
           },
         ]
       }
+      csp_reports: {
+        Row: {
+          blocked_uri: string
+          disposition: string | null
+          document_uri: string | null
+          effective_directive: string | null
+          first_seen: string
+          hits: number
+          id: string
+          last_seen: string
+          line_number: number | null
+          sample: Json | null
+          source_file: string | null
+          status_code: number | null
+          violated_directive: string
+        }
+        Insert: {
+          blocked_uri?: string
+          disposition?: string | null
+          document_uri?: string | null
+          effective_directive?: string | null
+          first_seen?: string
+          hits?: number
+          id?: string
+          last_seen?: string
+          line_number?: number | null
+          sample?: Json | null
+          source_file?: string | null
+          status_code?: number | null
+          violated_directive: string
+        }
+        Update: {
+          blocked_uri?: string
+          disposition?: string | null
+          document_uri?: string | null
+          effective_directive?: string | null
+          first_seen?: string
+          hits?: number
+          id?: string
+          last_seen?: string
+          line_number?: number | null
+          sample?: Json | null
+          source_file?: string | null
+          status_code?: number | null
+          violated_directive?: string
+        }
+        Relationships: []
+      }
       curso_bibliografia: {
         Row: {
           archivo_url: string | null
@@ -7389,25 +7437,36 @@ export type Database = {
       }
       webinars: {
         Row: {
+          arancel_monto: number | null
+          arancel_nota: string | null
           banner_url: string | null
           cert_emite: boolean
           cert_esquema_id: string | null
           creado_por: string | null
           created_at: string
+          cupo_presencial: number | null
           cupo_zoom: number | null
           descripcion: string | null
           docentes: Json
           duracion_min: number
+          es_arancelado: boolean
           fecha_hora: string
           finalizado_at: string | null
           formulario_id: string | null
           grabacion_url: string | null
           id: string
           iniciado_at: string | null
+          modalidad: string
           plataforma: string
           publicado: boolean
           status: string
+          tipo: string
           titulo: string
+          ubicacion_direccion: string | null
+          ubicacion_instrucciones: string | null
+          ubicacion_localidad: string | null
+          ubicacion_lugar: string | null
+          ubicacion_mapa_url: string | null
           updated_at: string
           webex_join_url: string | null
           webex_meeting_id: string | null
@@ -7420,25 +7479,36 @@ export type Database = {
           zoom_start_url: string | null
         }
         Insert: {
+          arancel_monto?: number | null
+          arancel_nota?: string | null
           banner_url?: string | null
           cert_emite?: boolean
           cert_esquema_id?: string | null
           creado_por?: string | null
           created_at?: string
+          cupo_presencial?: number | null
           cupo_zoom?: number | null
           descripcion?: string | null
           docentes?: Json
           duracion_min?: number
+          es_arancelado?: boolean
           fecha_hora: string
           finalizado_at?: string | null
           formulario_id?: string | null
           grabacion_url?: string | null
           id?: string
           iniciado_at?: string | null
+          modalidad?: string
           plataforma?: string
           publicado?: boolean
           status?: string
+          tipo?: string
           titulo: string
+          ubicacion_direccion?: string | null
+          ubicacion_instrucciones?: string | null
+          ubicacion_localidad?: string | null
+          ubicacion_lugar?: string | null
+          ubicacion_mapa_url?: string | null
           updated_at?: string
           webex_join_url?: string | null
           webex_meeting_id?: string | null
@@ -7451,25 +7521,36 @@ export type Database = {
           zoom_start_url?: string | null
         }
         Update: {
+          arancel_monto?: number | null
+          arancel_nota?: string | null
           banner_url?: string | null
           cert_emite?: boolean
           cert_esquema_id?: string | null
           creado_por?: string | null
           created_at?: string
+          cupo_presencial?: number | null
           cupo_zoom?: number | null
           descripcion?: string | null
           docentes?: Json
           duracion_min?: number
+          es_arancelado?: boolean
           fecha_hora?: string
           finalizado_at?: string | null
           formulario_id?: string | null
           grabacion_url?: string | null
           id?: string
           iniciado_at?: string | null
+          modalidad?: string
           plataforma?: string
           publicado?: boolean
           status?: string
+          tipo?: string
           titulo?: string
+          ubicacion_direccion?: string | null
+          ubicacion_instrucciones?: string | null
+          ubicacion_localidad?: string | null
+          ubicacion_lugar?: string | null
+          ubicacion_mapa_url?: string | null
           updated_at?: string
           webex_join_url?: string | null
           webex_meeting_id?: string | null
@@ -8189,6 +8270,20 @@ export type Database = {
           p_youtube_live_url?: string
         }
         Returns: string
+      }
+      csp_report_registrar: {
+        Args: {
+          p_blocked: string
+          p_disposition: string
+          p_document: string
+          p_effective: string
+          p_line: number
+          p_sample: Json
+          p_source: string
+          p_status: number
+          p_violated: string
+        }
+        Returns: undefined
       }
       cuenta_corriente_extracto: {
         Args: { p_administracion_id: string; p_desde: string; p_hasta: string }
@@ -9097,6 +9192,7 @@ export type Database = {
       inscribir_a_webinar: {
         Args: {
           p_email: string
+          p_modalidad_preferida?: string
           p_nombre: string
           p_submission_id?: string
           p_telefono?: string
