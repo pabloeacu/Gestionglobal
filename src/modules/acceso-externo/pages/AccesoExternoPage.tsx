@@ -508,6 +508,18 @@ type InfoSolicitud = {
     filename_original: string;
     storage_path: string;
   }>;
+  /**
+   * Documentos que el cliente subió a los "Pedidos de Documentación" del
+   * trámite (bucket pedidos-doc-cliente), aparte del formulario original.
+   * E-GG-91 pieza 2 (mig 0282). Sólo subido/aprobado.
+   */
+  pedidos_doc?: Array<{
+    descripcion: string;
+    filename_original: string;
+    storage_path: string;
+    estado: string;
+    subido_at: string | null;
+  }>;
   created_at: string;
 };
 
@@ -538,10 +550,16 @@ function PanelGestor({ token }: { token: string }) {
       setInfo(d);
       // Firmar URLs de los adjuntos. download:true fuerza Content-Disposition
       // attachment para que el browser baje el archivo en vez de previsualizar.
+      // La edge fn gestor-firmar-adjunto v2 resuelve el bucket (form-adjuntos o
+      // pedidos-doc-cliente) según el path, así que firmamos ambos igual.
       const signed: Record<string, string> = {};
-      for (const a of d.adjuntos) {
-        const sr = await firmarAdjuntoCliente(token, a.storage_path);
-        if (sr.ok) signed[a.storage_path] = sr.data;
+      const paths = [
+        ...d.adjuntos.map((a) => a.storage_path),
+        ...(d.pedidos_doc ?? []).map((p) => p.storage_path),
+      ];
+      for (const p of paths) {
+        const sr = await firmarAdjuntoCliente(token, p);
+        if (sr.ok) signed[p] = sr.data;
       }
       setAdjuntosUrls(signed);
     }
@@ -734,6 +752,41 @@ function PanelGestor({ token }: { token: string }) {
                             )}
                             {a.filename_original}
                           </span>
+                          <UploadCloud size={10} className="rotate-180 text-brand-muted" />
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Documentos que gerencia le pidió al cliente y el cliente subió
+                  (bucket pedidos-doc-cliente). E-GG-91 pieza 2 (mig 0282). Antes
+                  el gestor sólo veía los del formulario original. */}
+              {info.pedidos_doc && info.pedidos_doc.length > 0 && (
+                <div className="mt-3">
+                  <p className="kicker mb-1.5 text-brand-muted">
+                    Documentación pedida al cliente ({info.pedidos_doc.length})
+                  </p>
+                  <ul className="space-y-1">
+                    {info.pedidos_doc.map((p) => (
+                      <li key={p.storage_path}>
+                        <a
+                          href={adjuntosUrls[p.storage_path] ?? '#'}
+                          download={p.filename_original}
+                          className="inline-flex items-center gap-1.5 rounded-lg bg-slate-50 px-2.5 py-1.5 text-xs text-brand-ink hover:bg-brand-cyan/10 hover:text-brand-cyan"
+                          title="Descargar archivo"
+                        >
+                          <FileText size={11} className="shrink-0 text-brand-cyan" />
+                          <span className="min-w-0 break-words">
+                            {p.descripcion && (
+                              <span className="font-semibold">{p.descripcion}: </span>
+                            )}
+                            {p.filename_original}
+                          </span>
+                          {p.estado === 'aprobado' && (
+                            <CheckCircle2 size={10} className="shrink-0 text-emerald-500" />
+                          )}
                           <UploadCloud size={10} className="rotate-180 text-brand-muted" />
                         </a>
                       </li>
