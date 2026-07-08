@@ -11,7 +11,7 @@
 // one-click. El texto de espera es idéntico en ambos.
 
 import { useEffect, useState } from 'react';
-import { CalendarClock, Clock, GraduationCap, Sparkles } from 'lucide-react';
+import { CalendarClock, Clock, GraduationCap, Sparkles, MapPin, Globe, Ticket, ExternalLink } from 'lucide-react';
 import {
   fetchWebinarInscripcionActiva,
   type WebinarInscripcionActiva,
@@ -48,6 +48,11 @@ export function useWebinarVigente() {
 
   return { data, loading, error, reload: () => setReloadKey((k) => k + 1) };
 }
+
+const TIPO_LABEL: Record<string, string> = {
+  webinar: 'Webinar', charla: 'Charla', taller: 'Taller', jornada: 'Jornada',
+  curso: 'Curso', podcast: 'Podcast', otro: 'Evento',
+};
 
 function fmtFechaLarga(iso: string): string {
   try {
@@ -94,7 +99,9 @@ export function WebinarIdentidad({
 
       {/* Título + meta */}
       <div>
-        <p className="kicker text-brand-cyan">Capacitación gratuita · Webinar</p>
+        <p className="kicker text-brand-cyan">
+          {w.es_arancelado ? 'Capacitación' : 'Capacitación gratuita'} · {TIPO_LABEL[w.tipo] ?? 'Evento'}
+        </p>
         <Heading className="mt-1 font-display text-3xl font-extrabold leading-tight tracking-tight text-brand-ink sm:text-4xl">
           {w.titulo}
         </Heading>
@@ -104,8 +111,53 @@ export function WebinarIdentidad({
           <span className="text-slate-300">·</span>
           <Clock size={14} className="text-brand-cyan" />
           {w.duracion_min} min
+          <span className="text-slate-300">·</span>
+          {w.modalidad === 'presencial' ? (
+            <span className="inline-flex items-center gap-1 text-violet-600"><MapPin size={14} /> Presencial</span>
+          ) : w.modalidad === 'mixto' ? (
+            <span className="inline-flex items-center gap-1 text-teal-600"><MapPin size={14} /> Online + presencial</span>
+          ) : (
+            <span className="inline-flex items-center gap-1 text-sky-600"><Globe size={14} /> Online</span>
+          )}
         </p>
       </div>
+
+      {/* Lugar (eventos presenciales/mixtos) */}
+      {w.modalidad !== 'online' && (w.ubicacion_direccion || w.ubicacion_lugar) && (
+        <div className="rounded-2xl border border-violet-200 bg-violet-50/60 p-4">
+          <p className="kicker mb-1 flex items-center gap-1.5 text-violet-700">
+            <MapPin size={14} /> Dónde
+          </p>
+          {w.ubicacion_lugar && <p className="text-sm font-semibold text-brand-ink">{w.ubicacion_lugar}</p>}
+          {w.ubicacion_direccion && <p className="text-sm text-brand-ink/80">{w.ubicacion_direccion}</p>}
+          {w.ubicacion_localidad && <p className="text-sm text-brand-muted">{w.ubicacion_localidad}</p>}
+          {w.ubicacion_instrucciones && (
+            <p className="mt-2 whitespace-pre-wrap text-xs text-brand-muted">{w.ubicacion_instrucciones}</p>
+          )}
+          {w.ubicacion_mapa_url && (
+            <a
+              href={w.ubicacion_mapa_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-violet-700 hover:underline"
+            >
+              <ExternalLink size={13} /> Ver en el mapa
+            </a>
+          )}
+        </div>
+      )}
+
+      {/* Arancel (informativo) */}
+      {w.es_arancelado && (
+        <div className="inline-flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          <Ticket size={15} />
+          <span>
+            Evento arancelado
+            {w.arancel_monto != null && `: $${w.arancel_monto.toLocaleString('es-AR')}`}
+            {w.arancel_nota && ` · ${w.arancel_nota}`}
+          </span>
+        </div>
+      )}
 
       {/* Descripción */}
       {w.descripcion && (

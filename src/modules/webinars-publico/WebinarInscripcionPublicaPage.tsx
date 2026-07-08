@@ -5,7 +5,8 @@
 // la página de texto de espera. Es el destino del CTA de webinar de la landing.
 
 import { useEffect, useState } from 'react';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, MapPin, Globe } from 'lucide-react';
+import { cn } from '@/lib/cn';
 import { BrandLoader } from '@/components/brand/BrandLoader';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import { SiteNav } from '@/components/site/SiteNav';
@@ -33,7 +34,11 @@ export function WebinarInscripcionPublicaPage() {
           </div>
         ) : data ? (
           <WebinarIdentidad w={data}>
-            <WebinarFormInscripcion slug={data.formulario_slug} activo={data.formulario_activo} />
+            <WebinarFormInscripcion
+              slug={data.formulario_slug}
+              activo={data.formulario_activo}
+              modalidad={data.modalidad}
+            />
           </WebinarIdentidad>
         ) : (
           <div className="py-10">
@@ -47,10 +52,20 @@ export function WebinarInscripcionPublicaPage() {
 }
 
 // Embebe el formulario de inscripción (por slug) debajo de la identidad.
-function WebinarFormInscripcion({ slug, activo }: { slug: string | null; activo: boolean | null }) {
+function WebinarFormInscripcion({
+  slug,
+  activo,
+  modalidad,
+}: {
+  slug: string | null;
+  activo: boolean | null;
+  modalidad: 'online' | 'presencial' | 'mixto';
+}) {
   const [form, setForm] = useState<FormularioRow | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Eventos mixtos: el inscripto elige cómo asiste. Default 'online'.
+  const [pref, setPref] = useState<'online' | 'presencial'>('online');
 
   useEffect(() => {
     if (!slug) {
@@ -95,7 +110,43 @@ function WebinarFormInscripcion({ slug, activo }: { slug: string | null; activo:
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
       <p className="kicker mb-4 text-brand-cyan">Inscribite gratis</p>
-      <FormularioRunner formulario={form} origenCanal="publico" />
+      {modalidad === 'mixto' && (
+        <div className="mb-5">
+          <p className="mb-2 text-sm font-semibold text-brand-ink">¿Cómo vas a asistir?</p>
+          <div className="grid grid-cols-2 gap-3">
+            {([
+              { val: 'presencial' as const, icon: MapPin, label: 'Presencial', desc: 'En el lugar' },
+              { val: 'online' as const, icon: Globe, label: 'Online', desc: 'Por Zoom / YouTube' },
+            ]).map((opt) => {
+              const active = pref === opt.val;
+              const Icon = opt.icon;
+              return (
+                <button
+                  key={opt.val}
+                  type="button"
+                  onClick={() => setPref(opt.val)}
+                  className={cn(
+                    'flex flex-col items-start gap-1 rounded-xl border-2 p-3 text-left transition',
+                    active
+                      ? 'border-brand-cyan bg-brand-cyan/5 text-brand-ink'
+                      : 'border-slate-200 bg-white text-brand-muted hover:border-brand-cyan/40',
+                  )}
+                  aria-pressed={active}
+                >
+                  <Icon size={18} className={active ? 'text-brand-cyan' : 'text-slate-400'} />
+                  <span className="text-sm font-semibold">{opt.label}</span>
+                  <span className="text-xs">{opt.desc}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+      <FormularioRunner
+        formulario={form}
+        origenCanal="publico"
+        extraDatos={modalidad === 'mixto' ? { modalidad_preferida: pref } : undefined}
+      />
     </div>
   );
 }

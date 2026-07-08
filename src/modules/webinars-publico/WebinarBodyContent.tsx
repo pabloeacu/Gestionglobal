@@ -7,6 +7,7 @@ import {
   ExternalLink,
   Video,
   Youtube,
+  MapPin,
 } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import type { WebinarAccesoResp } from './useWebinarAcceso';
@@ -23,6 +24,7 @@ export function WebinarBodyContent({ resp, countdown, hideProspectoCta }: Props)
   const isLive = webinar.status === 'en_curso';
   const isFinished = webinar.status === 'finalizado' || acceso.is_past;
   const isCancelled = webinar.status === 'cancelado';
+  const esPresencial = inscripto.canal === 'presencial';
 
   return (
     <>
@@ -39,6 +41,51 @@ export function WebinarBodyContent({ resp, countdown, hideProspectoCta }: Props)
           <p className="mt-1 text-sm text-amber-700">
             Te avisaremos por email cuando se reprograme.
           </p>
+        </div>
+      )}
+
+      {/* Evento PRESENCIAL: lugar + cómo llegar (con countdown o "en curso") */}
+      {esPresencial && !isCancelled && !isFinished && (
+        <div className="rounded-3xl border-2 border-violet-300 bg-gradient-to-br from-violet-50 to-white p-6 shadow-lg">
+          {isLive ? (
+            <div className="mb-3 flex items-center justify-center gap-2 text-violet-700">
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-violet-400 opacity-75"></span>
+                <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-violet-500"></span>
+              </span>
+              <span className="text-sm font-semibold uppercase tracking-wider">Está en curso · te esperamos</span>
+            </div>
+          ) : (
+            <div className="mb-3 text-center">
+              <p className="text-xs uppercase tracking-widest text-brand-muted">Empieza en</p>
+              <p className="mt-1 font-display text-3xl font-bold tabular-nums text-violet-600">{countdown}</p>
+            </div>
+          )}
+          <div className="rounded-xl bg-white/70 p-4 text-center">
+            <MapPin size={22} className="mx-auto mb-1 text-violet-600" />
+            {webinar.ubicacion_lugar && (
+              <p className="font-display text-lg font-bold text-brand-ink">{webinar.ubicacion_lugar}</p>
+            )}
+            {webinar.ubicacion_direccion && (
+              <p className="text-sm text-brand-ink/80">{webinar.ubicacion_direccion}</p>
+            )}
+            {webinar.ubicacion_localidad && (
+              <p className="text-sm text-brand-muted">{webinar.ubicacion_localidad}</p>
+            )}
+            {webinar.ubicacion_instrucciones && (
+              <p className="mt-2 whitespace-pre-wrap text-xs text-brand-muted">{webinar.ubicacion_instrucciones}</p>
+            )}
+            {webinar.ubicacion_mapa_url && (
+              <a
+                href={webinar.ubicacion_mapa_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-700"
+              >
+                <ExternalLink size={14} /> Cómo llegar
+              </a>
+            )}
+          </div>
         </div>
       )}
 
@@ -80,7 +127,7 @@ export function WebinarBodyContent({ resp, countdown, hideProspectoCta }: Props)
         </div>
       )}
 
-      {!isLive && !isFinished && !isCancelled && acceso.is_future && (
+      {!isLive && !isFinished && !isCancelled && acceso.is_future && !esPresencial && (
         <div className="rounded-3xl border border-brand-cyan/30 bg-gradient-to-br from-brand-cyan/5 to-white p-8 text-center shadow-lg">
           <p className="text-xs uppercase tracking-widest text-brand-muted">Empieza en</p>
           <p className="mt-2 font-display text-4xl font-bold tabular-nums text-brand-cyan">{countdown}</p>

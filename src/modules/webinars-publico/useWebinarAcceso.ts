@@ -9,7 +9,7 @@ export interface WebinarAccesoResp {
     id: string;
     nombre: string;
     email: string;
-    canal: 'zoom' | 'youtube';
+    canal: 'zoom' | 'youtube' | 'presencial';
     es_prospecto: boolean;
     es_cliente: boolean;
     asistio: boolean;
@@ -23,10 +23,17 @@ export interface WebinarAccesoResp {
     duracion_min: number;
     status: 'programado' | 'en_curso' | 'finalizado' | 'cancelado';
     plataforma: 'zoom' | 'webex';
+    modalidad: 'online' | 'presencial' | 'mixto';
+    tipo: string | null;
+    ubicacion_lugar: string | null;
+    ubicacion_direccion: string | null;
+    ubicacion_localidad: string | null;
+    ubicacion_mapa_url: string | null;
+    ubicacion_instrucciones: string | null;
     grabacion_url: string | null;
   };
   acceso: {
-    canal: 'zoom' | 'youtube';
+    canal: 'zoom' | 'youtube' | 'presencial';
     join_url: string | null;
     zoom_password: string | null;
     zoom_meeting_number: string | null;

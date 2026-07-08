@@ -55,6 +55,16 @@ export interface WebinarInscripcionActiva {
   fecha_hora: string;
   duracion_min: number;
   plataforma: string;
+  modalidad: EventoModalidad;
+  tipo: string;
+  ubicacion_lugar: string | null;
+  ubicacion_direccion: string | null;
+  ubicacion_localidad: string | null;
+  ubicacion_mapa_url: string | null;
+  ubicacion_instrucciones: string | null;
+  es_arancelado: boolean;
+  arancel_monto: number | null;
+  arancel_nota: string | null;
   formulario_id: string | null;
   formulario_slug: string | null;
   formulario_activo: boolean | null;
@@ -79,6 +89,16 @@ export async function fetchWebinarInscripcionActiva(): Promise<ApiResponse<Webin
       fecha_hora: String(raw.fecha_hora),
       duracion_min: Number(raw.duracion_min ?? 0),
       plataforma: String(raw.plataforma ?? 'zoom'),
+      modalidad: ((raw.modalidad as EventoModalidad | null) ?? 'online'),
+      tipo: String(raw.tipo ?? 'webinar'),
+      ubicacion_lugar: (raw.ubicacion_lugar as string | null) ?? null,
+      ubicacion_direccion: (raw.ubicacion_direccion as string | null) ?? null,
+      ubicacion_localidad: (raw.ubicacion_localidad as string | null) ?? null,
+      ubicacion_mapa_url: (raw.ubicacion_mapa_url as string | null) ?? null,
+      ubicacion_instrucciones: (raw.ubicacion_instrucciones as string | null) ?? null,
+      es_arancelado: Boolean(raw.es_arancelado ?? false),
+      arancel_monto: raw.arancel_monto != null ? Number(raw.arancel_monto) : null,
+      arancel_nota: (raw.arancel_nota as string | null) ?? null,
       formulario_id: (raw.formulario_id as string | null) ?? null,
       formulario_slug: (raw.formulario_slug as string | null) ?? null,
       formulario_activo: (raw.formulario_activo as boolean | null) ?? null,

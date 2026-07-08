@@ -37,7 +37,7 @@ interface InscriptoRow {
   webinar_id: string;
   email_snapshot: string;
   nombre_snapshot: string;
-  canal: 'zoom' | 'youtube';
+  canal: 'zoom' | 'youtube' | 'presencial';
   administracion_id: string | null;
   prospecto_id: string | null;
   asistio: boolean;
@@ -52,6 +52,13 @@ interface WebinarRow {
   duracion_min: number;
   status: 'programado' | 'en_curso' | 'finalizado' | 'cancelado';
   plataforma: 'zoom' | 'webex';
+  modalidad: 'online' | 'presencial' | 'mixto';
+  tipo: string | null;
+  ubicacion_lugar: string | null;
+  ubicacion_direccion: string | null;
+  ubicacion_localidad: string | null;
+  ubicacion_mapa_url: string | null;
+  ubicacion_instrucciones: string | null;
   zoom_join_url: string | null;
   zoom_password: string | null;
   zoom_meeting_number: string | null;
@@ -117,16 +124,18 @@ Deno.serve(async (req) => {
 
   const { data: webinarRow, error: webErr } = await admin
     .from('webinars')
-    .select('id, titulo, descripcion, fecha_hora, duracion_min, status, plataforma, zoom_join_url, zoom_password, zoom_meeting_number, youtube_live_url, grabacion_url')
+    .select('id, titulo, descripcion, fecha_hora, duracion_min, status, plataforma, modalidad, tipo, ubicacion_lugar, ubicacion_direccion, ubicacion_localidad, ubicacion_mapa_url, ubicacion_instrucciones, zoom_join_url, zoom_password, zoom_meeting_number, youtube_live_url, grabacion_url')
     .eq('id', ins.webinar_id)
     .maybeSingle();
   if (webErr || !webinarRow) return errorJson(404, 'Webinar no encontrado');
   const w = webinarRow as WebinarRow;
 
-  // 4) Resolver join_url según canal asignado
+  // 4) Resolver join_url según canal asignado (presencial no tiene link online)
   const joinUrl = ins.canal === 'zoom'
     ? w.zoom_join_url
-    : w.youtube_live_url;
+    : ins.canal === 'youtube'
+      ? w.youtube_live_url
+      : null;
 
   // 5) Calcular ventana del evento (countdown desde cliente)
   const startMs = new Date(w.fecha_hora).getTime();
@@ -155,6 +164,13 @@ Deno.serve(async (req) => {
       duracion_min: w.duracion_min,
       status: w.status,
       plataforma: w.plataforma,
+      modalidad: w.modalidad,
+      tipo: w.tipo,
+      ubicacion_lugar: w.ubicacion_lugar,
+      ubicacion_direccion: w.ubicacion_direccion,
+      ubicacion_localidad: w.ubicacion_localidad,
+      ubicacion_mapa_url: w.ubicacion_mapa_url,
+      ubicacion_instrucciones: w.ubicacion_instrucciones,
       grabacion_url: w.grabacion_url,
     },
     acceso: {

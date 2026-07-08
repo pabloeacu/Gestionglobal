@@ -45,6 +45,13 @@ interface FormularioRunnerProps {
    * qué vouchers son válidos.
    */
   origenCanal?: 'publico' | 'cliente';
+  /**
+   * Datos extra a fusionar en el payload enviado (además de los campos del
+   * schema). Se usa para pasar metadata fuera del formulario, ej. la
+   * preferencia de modalidad (presencial/online) en eventos mixtos. Opcional
+   * → los formularios existentes no cambian.
+   */
+  extraDatos?: Record<string, unknown>;
 }
 
 interface FieldState {
@@ -72,6 +79,7 @@ export function FormularioRunner({
   formulario,
   prefillValues,
   origenCanal = 'publico',
+  extraDatos,
 }: FormularioRunnerProps) {
   // E-GG-48 (2026-06-04 · Pablo): cuando el cliente envía un formulario
   // desde el portal, después del submit ve la pantalla pública sin link de
@@ -260,7 +268,7 @@ export function FormularioRunner({
 
     const res = await submitFormulario({
       slug: formulario.slug,
-      datos: data,
+      datos: extraDatos ? { ...data, ...extraDatos } : data,
       files: flatFiles,
       origen_canal: origenCanal,
       voucher_codigo: voucherValidado?.valido ? voucherValidado.codigo : undefined,
