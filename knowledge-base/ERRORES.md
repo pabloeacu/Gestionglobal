@@ -3508,3 +3508,33 @@ ya lo permiten; NO se tocó ninguna policy) y el trámite los muestra con badge 
 §6: la RPC devuelve el comprobante reportado ("Transferencia... Carlos A. Líbano") + el de derivación.
 
 **Fecha / módulo:** 2026-07-08 · trackings / gestoría / storage · mig 0280 + `trackings.ts` + `TrackingDetailPage`. Parte 2 (a+b) de la auditoría integral de gestoría.
+
+## E-GG-91 · Circuito gestoría ↔ gerencia ↔ cliente incompleto + saldo a favor en el wizard (2026-07-08)
+
+**Síntoma (reporte JL, PDF + audios).** Cuatro huecos del mismo circuito + finanzas:
+(c) el aporte de la gestoría no se ve en el INICIO de gerencia (sólo campanita/trámite);
+(d) gerencia no puede ADJUNTAR un archivo al responder el aporte;
+(e) falta avisar a la gestoría cuando el cliente completa la documentación pedida;
+(f) al cobrar un trámite nuevo desde el wizard, no avisa que el cliente tiene SALDO A FAVOR.
+
+**Fix (parte 3 de la auditoría integral de gestoría).**
+- **(c)** `AportesGestoriaWidget` en `GerenciaHome` (mismo patrón que NuevasSolicitudes, tono violeta,
+  en vivo). Vacío → no renderiza. mig 0281: `tracking_lineas` a la publicación realtime. §6/live:
+  con un aporte pendiente sintético el widget aparece en el inicio ("Gestoría externa · en vivo").
+- **(d)** botón "Agregar archivo" en la card de Moderación (sube a `gestor-uploads`, se publica con el
+  aporte vía `moderarGestorAvance.archivosUrls`).
+- **(e)** el mecanismo ya existía (botón "Avisar a la gestoría" → `derivacion_reavisar_gestoria`,
+  regenera el token vencido + emailea · JL-2). Se agregó un BANNER de discoverability en el trámite
+  cuando el cliente subió docs de un pedido y el trámite está derivado. **Follow-up (pieza 2, task
+  spawneado):** el panel del gestor no muestra los docs del "Pedido de Documentación"
+  (`pedidos-doc-cliente`), sólo los del formulario original → extender el panel + la edge fn.
+- **(f)** en `PasoComprobante` del wizard, si el cliente existente tiene saldo a favor
+  (`listar_creditos`), banner "Este cliente tiene $X a favor" + cómo aplicarlo (drawer JL-3).
+- **(g) descartado** por Pablo (tiene que ver con la rendición a partners, sin definir aún).
+
+**Lección (validada por el QA en vivo).** El browser test cazó un bug de runtime en E-GG-90 que el
+build no ve: `const rpcAny = supabase.rpc as ...` desacopla el `this` del método → rompe en runtime
+("reading 'rest'"). Regla ya escrita en `ctaCte.ts`; se repitió. Confirma por qué el QA en browser es
+obligatorio y no reemplazable por build+§6.
+
+**Fecha / módulo:** 2026-07-08 · gerencia / trackings / solicitudes / finanzas · migs 0280–0281 + edge fn `gestor-firmar-adjunto`. Auditoría integral pedida por Pablo (PDF + 3 audios de JL). Capitaliza E-GG-89/90/91.
