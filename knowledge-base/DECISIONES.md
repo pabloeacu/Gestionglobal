@@ -3908,7 +3908,10 @@ costado. Datos por RPC nueva `cliente_evento_detalle` (mig 0302, SECURITY DEFINE
 inscripto; anon revocado desde el arranque). Wiring: la card "TU EVENTO" del inicio y los títulos de
 "Mis eventos" + "Ver detalle y ubicación" (disponibles) llevan a la ficha. Todo **aditivo** (RPC/página/
 ruta nuevas; el one-click y las listas intactos). Doble auditoría §6 (2 agentes + e2e BD: 3 caminos de
-visibilidad + contexto gerente + no-leak de secretos). **Etapa B pendiente** (certificados): ver memoria
+visibilidad + contexto gerente + no-leak de secretos) + **prueba en vivo con cliente QA efímero**
+(sesión del gerente respaldada/restaurada, QA borrado sin residuos): ficha desktop con banner 3:1 +
+flyer 4:5 al costado + disertantes con foto/bio/"Ver CV" + DÓNDE (lugar+mapa+cómo llegar) + arancel +
+"Ya estás inscripto", consola sin errores de app. **Etapa B pendiente** (certificados): ver memoria
 del proyecto — emisión a prospectos por mail c/PDF server-side, descarga en la ficha, aviso push+banner+
 badge, descarga por gerencia por asistente. **Método canónico** (mandato Pablo 2026-07-09): cada avance
 escala sobre el producto sin romperlo; cirugía + doble auditoría probando hasta lo remoto, 100% certeza.
