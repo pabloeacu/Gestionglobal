@@ -27,11 +27,25 @@ import {
   BookmarkPlus,
   X,
   Upload,
+  Download,
+  Mail,
 } from 'lucide-react';
 import { Button, Field, Input, Modal, Select, Textarea } from '@/components/common';
 import { ImageUploader } from '@/modules/campus/components/ImageUploader';
 import { listarEsquemas } from '@/services/api/certificado-esquemas';
-import { uploadCampusMedia } from '@/services/api/campus';
+import {
+  uploadCampusMedia,
+  emitirCertificadosEvento,
+  getCertCompleto,
+  certificadoParaPdf,
+  resolverEsquemaParaCert,
+  uploadCertificadoPdf,
+  certificadoRegistrarPdf,
+  sendCertificadoEmail,
+  listCertificadosPorEvento,
+  type CertificadoRow,
+} from '@/services/api/campus';
+import { renderCertificadoPdfBlob, generateCertificadoPdf } from '@/modules/campus/lib/generateCertificadoPdf';
 import { toast } from '@/lib/toast';
 import {
   getWebinar,
@@ -41,7 +55,6 @@ import {
   crearReunionZoom,
   actualizarWebinar,
   marcarAsistenciaWebinar,
-  emitirCertificadosWebinarLote,
   parseDocentes,
   listDisertantes,
   crearDisertante,
@@ -1177,12 +1190,67 @@ function CertificadoWebinarSection({
   const [esquemaId, setEsquemaId] = useState<string | null>(webinar.cert_esquema_id ?? null);
   const [esquemas, setEsquemas] = useState<Array<{ id: string; nombre: string; es_default: boolean }>>([]);
   const [saving, setSaving] = useState(false);
+  const [emitiendo, setEmitiendo] = useState(false);
+  const [progreso, setProgreso] = useState<{ done: number; total: number } | null>(null);
 
   useEffect(() => {
     void listarEsquemas().then((r) => {
       if (r.ok) setEsquemas(r.data.map((e) => ({ id: e.id, nombre: e.nombre, es_default: e.es_default })));
     });
   }, []);
+
+  // Etapa B (DGG-100) · Emisión + envío del certificado por email con PDF adjunto.
+  // El PDF se renderiza acá (browser), se sube al bucket `certificados` y se
+  // dispara el mail. Va a TODOS los asistentes (clientes + prospectos).
+  async function emitirYEnviar() {
+    setEmitiendo(true);
+    setProgreso(null);
+    try {
+      const em = await emitirCertificadosEvento(webinar.id);
+      if (!em.ok) {
+        toast.error('No pudimos emitir', { description: humanizeError(em.error) });
+        return;
+      }
+      const ids = em.data;
+      if (ids.length === 0) {
+        toast.success('No había asistentes nuevos para certificar');
+        return;
+      }
+      setProgreso({ done: 0, total: ids.length });
+      let okCount = 0;
+      let failCount = 0;
+      let done = 0;
+      for (const certId of ids) {
+        try {
+          const cr = await getCertCompleto(certId);
+          if (!cr.ok) throw new Error(humanizeError(cr.error));
+          const esquema = await resolverEsquemaParaCert(cr.data);
+          const blob = await renderCertificadoPdfBlob(certificadoParaPdf(cr.data), esquema ?? undefined);
+          const up = await uploadCertificadoPdf(certId, cr.data.codigo, blob);
+          if (!up.ok) throw new Error(humanizeError(up.error));
+          const reg = await certificadoRegistrarPdf(certId, up.data);
+          if (!reg.ok) throw new Error(humanizeError(reg.error));
+          const mail = await sendCertificadoEmail(certId);
+          if (!mail.ok) throw new Error(humanizeError(mail.error));
+          okCount++;
+        } catch (e) {
+          console.error('[cert-evento] falló un certificado', certId, e);
+          failCount++;
+        }
+        done++;
+        setProgreso({ done, total: ids.length });
+      }
+      if (failCount === 0) {
+        toast.success(`${okCount} certificado${okCount === 1 ? '' : 's'} emitido${okCount === 1 ? '' : 's'} y enviado${okCount === 1 ? '' : 's'} por email`);
+      } else {
+        toast.error(`${okCount} enviado${okCount === 1 ? '' : 's'}, ${failCount} con error. Reintentá para completar los pendientes.`);
+      }
+      void onRecargar();
+    } finally {
+      setEmitiendo(false);
+      setProgreso(null);
+    }
+  }
 
   async function guardar() {
     setSaving(true);
@@ -1248,22 +1316,12 @@ function CertificadoWebinarSection({
       </div>
       <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
         {webinar.cert_emite && (
-          <Button
-            variant="ghost"
-            onClick={async () => {
-              const r = await emitirCertificadosWebinarLote(webinar.id);
-              if (!r.ok) {
-                toast.error('No pudimos emitir', { description: humanizeError(r.error) });
-                return;
-              }
-              toast.success(
-                r.data === 0
-                  ? 'No había asistentes nuevos para emitir'
-                  : `${r.data} certificado${r.data === 1 ? '' : 's'} emitido${r.data === 1 ? '' : 's'}`,
-              );
-            }}
-          >
-            Emitir a asistentes
+          <Button variant="ghost" onClick={() => void emitirYEnviar()} loading={emitiendo} disabled={emitiendo}>
+            {emitiendo && progreso
+              ? `Emitiendo… ${progreso.done}/${progreso.total}`
+              : emitiendo
+                ? 'Emitiendo…'
+                : 'Emitir y enviar a asistentes'}
           </Button>
         )}
         <Button onClick={guardar} loading={saving}>
@@ -1393,6 +1451,61 @@ function InscriptosTab({ inscriptos, tokens, onAbrirInscribir }: {
   );
 }
 
+// Etapa B · celda de certificado por asistente (gerencia): descargar el PDF +
+// reenviar por email (por si el asistente reclama que no lo recibió). Reusa el
+// trío de descarga (origen-aware) + la edge fn de envío.
+function CertCell({ cert }: { cert: CertificadoRow | null }) {
+  const [busy, setBusy] = useState<'dl' | 'send' | null>(null);
+  if (!cert) return <span className="text-xs text-brand-muted">—</span>;
+  const c = cert;
+  async function descargar() {
+    setBusy('dl');
+    try {
+      const esquema = await resolverEsquemaParaCert(c);
+      await generateCertificadoPdf(certificadoParaPdf(c), esquema ?? undefined);
+    } catch (e) {
+      console.error('[cert-cell] descargar falló', e);
+      toast.error('No pudimos generar el certificado.');
+    } finally {
+      setBusy(null);
+    }
+  }
+  async function reenviar() {
+    setBusy('send');
+    const r = await sendCertificadoEmail(c.id);
+    setBusy(null);
+    if (!r.ok) {
+      toast.error('No pudimos reenviar', { description: humanizeError(r.error) });
+      return;
+    }
+    toast.success('Certificado reenviado por email');
+  }
+  return (
+    <div className="flex items-center gap-1.5">
+      <button
+        type="button"
+        onClick={() => void descargar()}
+        disabled={busy !== null}
+        title="Descargar certificado (PDF)"
+        aria-label="Descargar certificado"
+        className="grid h-7 w-7 place-items-center rounded-lg border border-slate-200 bg-white text-brand-cyan transition hover:bg-brand-cyan-pale/40 disabled:opacity-50"
+      >
+        {busy === 'dl' ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
+      </button>
+      <button
+        type="button"
+        onClick={() => void reenviar()}
+        disabled={busy !== null}
+        title="Reenviar por email"
+        aria-label="Reenviar certificado por email"
+        className="grid h-7 w-7 place-items-center rounded-lg border border-slate-200 bg-white text-brand-muted transition hover:bg-slate-50 disabled:opacity-50"
+      >
+        {busy === 'send' ? <Loader2 size={13} className="animate-spin" /> : <Mail size={13} />}
+      </button>
+    </div>
+  );
+}
+
 function AsistenciaTab({ inscriptos, webinar, onRecargar }: {
   inscriptos: InscriptoConCanal[];
   webinar: WebinarRow;
@@ -1403,6 +1516,22 @@ function AsistenciaTab({ inscriptos, webinar, onRecargar }: {
   const tasa = inscriptos.length ? Math.round((presentes.length / inscriptos.length) * 100) : 0;
   const esPresencial = webinar.modalidad !== 'online';
   const [busyId, setBusyId] = useState<string | null>(null);
+  // Etapa B · certs emitidos del evento, indexados por email (para el ícono de
+  // descarga/reenvío por asistente — por si reclaman que no lo recibieron).
+  const [certsPorEmail, setCertsPorEmail] = useState<Record<string, CertificadoRow>>({});
+  useEffect(() => {
+    void listCertificadosPorEvento(webinar.id).then((r) => {
+      if (!r.ok) return;
+      const map: Record<string, CertificadoRow> = {};
+      for (const c of r.data) {
+        const snap = (c.payload_snapshot ?? {}) as { email?: string };
+        const email = (snap.email ?? '').toLowerCase().trim();
+        if (email) map[email] = c;
+      }
+      setCertsPorEmail(map);
+    });
+  }, [webinar.id, inscriptos]);
+  const certDe = (email: string) => certsPorEmail[email.toLowerCase().trim()] ?? null;
 
   async function toggle(i: InscriptoConCanal) {
     setBusyId(i.id);
@@ -1452,6 +1581,7 @@ function AsistenciaTab({ inscriptos, webinar, onRecargar }: {
                   <th className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wider text-brand-muted">Nombre</th>
                   <th className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wider text-brand-muted">Email</th>
                   <th className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wider text-brand-muted">Canal</th>
+                  <th className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wider text-brand-muted">Cert.</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -1477,6 +1607,7 @@ function AsistenciaTab({ inscriptos, webinar, onRecargar }: {
                     <td className="px-4 py-2 font-medium text-brand-ink">{i.nombre_snapshot}</td>
                     <td className="px-4 py-2 text-brand-muted">{i.email_snapshot}</td>
                     <td className="px-4 py-2 text-brand-muted">{i.canal}</td>
+                    <td className="px-4 py-2"><CertCell cert={certDe(i.email_snapshot)} /></td>
                   </tr>
                 ))}
               </tbody>
@@ -1493,6 +1624,7 @@ function AsistenciaTab({ inscriptos, webinar, onRecargar }: {
                   <th className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wider text-green-700">Email</th>
                   <th className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wider text-green-700">Canal</th>
                   <th className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wider text-green-700">Tiempo conectado</th>
+                  <th className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wider text-green-700">Cert.</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -1504,6 +1636,7 @@ function AsistenciaTab({ inscriptos, webinar, onRecargar }: {
                     <td className="px-4 py-2 text-brand-muted">{i.email_snapshot}</td>
                     <td className="px-4 py-2">{i.canal}</td>
                     <td className="px-4 py-2 text-brand-muted">{fmtDuracion(i.tiempo_conectado_seg)}</td>
+                    <td className="px-4 py-2"><CertCell cert={certDe(i.email_snapshot)} /></td>
                   </tr>
                 ))}
               </tbody>

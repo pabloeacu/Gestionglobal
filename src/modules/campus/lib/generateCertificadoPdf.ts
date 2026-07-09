@@ -179,10 +179,16 @@ async function esperarRecursos(node: HTMLElement): Promise<void> {
   await new Promise((r) => setTimeout(r, 80));
 }
 
-export async function generateCertificadoPdf(
+/**
+ * Renderiza el certificado y devuelve el PDF como Blob (A4 landscape).
+ * Núcleo compartido: `generateCertificadoPdf` (descarga) y el flujo de emisión
+ * de eventos (sube el Blob al bucket `certificados` para adjuntarlo por mail y
+ * reusarlo en la ficha/gerencia — Etapa B, DGG-100) lo consumen.
+ */
+export async function renderCertificadoPdfBlob(
   cert: CertificadoParaPdf,
   esquema?: EsquemaCert,
-): Promise<void> {
+): Promise<Blob> {
   const url = verificacionUrl(cert.codigo);
   const qrDataUrl = await generarQrDataUrl(url, esquema?.color_acento ?? '#0b1f33');
 
@@ -284,9 +290,31 @@ export async function generateCertificadoPdf(
     const W = doc.internal.pageSize.getWidth(); // 297
     const H = doc.internal.pageSize.getHeight(); // 210
     doc.addImage(dataUrl, 'PNG', 0, 0, W, H, undefined, 'FAST');
-    doc.save(`certificado-${cert.codigo}.pdf`);
+    return doc.output('blob');
   } finally {
     root.unmount();
     host.remove();
+  }
+}
+
+/**
+ * Genera y DESCARGA el certificado (comportamiento histórico). Reusa
+ * `renderCertificadoPdfBlob` + dispara la descarga en el browser.
+ */
+export async function generateCertificadoPdf(
+  cert: CertificadoParaPdf,
+  esquema?: EsquemaCert,
+): Promise<void> {
+  const blob = await renderCertificadoPdfBlob(cert, esquema);
+  const url = URL.createObjectURL(blob);
+  try {
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `certificado-${cert.codigo}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  } finally {
+    URL.revokeObjectURL(url);
   }
 }

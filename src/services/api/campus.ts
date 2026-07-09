@@ -2110,10 +2110,13 @@ export async function resolverEsquemaParaCert(
 export interface CertCelebrarItem {
   cert_id: string;
   codigo: string;
-  curso_id: string;
-  curso_titulo: string;
+  curso_id: string | null;
+  webinar_id: string | null;
+  origen: string; // 'curso' | 'evento'
+  curso_titulo: string; // título del curso O del evento (COALESCE)
   emitido_at: string;
   link_verificacion: string;
+  link_portal: string; // /portal/mis-cursos (curso) o /portal/eventos/:id (evento)
 }
 
 /**
@@ -2152,6 +2155,93 @@ export async function getCertCompleto(certId: string): Promise<ApiResponse<Certi
     .single();
   if (error) return fail('CERT_GET', error.message, error);
   return ok(data as CertificadoRow);
+}
+
+// ============================================================================
+// Etapa B (DGG-100) · Emisión de certificados de EVENTOS a todos los asistentes
+// (clientes + prospectos). El renderer del PDF es 100% browser, así que la
+// gerencia emite: 1) RPC crea las filas → cert_ids; 2) por cada cert, el browser
+// renderiza el PDF (renderCertificadoPdfBlob), lo sube al bucket `certificados`,
+// registra el path y 3) dispara el mail con el PDF adjunto (edge fn).
+// ============================================================================
+
+/** Crea las filas de cert para los asistentes (asistió=true) del evento. */
+export async function emitirCertificadosEvento(
+  webinarId: string,
+): Promise<ApiResponse<string[]>> {
+  const { data, error } = await supabase.rpc('emitir_certificados_evento' as never, {
+    p_webinar_id: webinarId,
+  } as never);
+  if (error) return fail('CERT_EVENTO_EMITIR', error.message, error);
+  return ok(((data as unknown) ?? []) as string[]);
+}
+
+/** Sube el PDF del cert al bucket privado `certificados` y devuelve el path. */
+export async function uploadCertificadoPdf(
+  certId: string,
+  codigo: string,
+  blob: Blob,
+): Promise<ApiResponse<string>> {
+  const { safeStorageKey } = await import('@/lib/storageKeys');
+  const path = `${certId}/certificado-${safeStorageKey(codigo)}.pdf`;
+  const up = await supabase.storage
+    .from('certificados')
+    .upload(path, blob, { upsert: true, contentType: 'application/pdf' });
+  if (up.error) return fail('CERT_PDF_UPLOAD', up.error.message, up.error);
+  return ok(path);
+}
+
+/** Registra el pdf_storage_path del cert (RPC staff, SECURITY DEFINER). */
+export async function certificadoRegistrarPdf(
+  certId: string,
+  path: string,
+): Promise<ApiResponse<true>> {
+  const { error } = await supabase.rpc('certificado_registrar_pdf' as never, {
+    p_cert_id: certId,
+    p_path: path,
+  } as never);
+  if (error) return fail('CERT_PDF_REGISTRAR', error.message, error);
+  return ok(true as const);
+}
+
+/** Dispara el envío del cert por email con el PDF adjunto (edge fn staff-only). */
+export async function sendCertificadoEmail(certId: string): Promise<ApiResponse<true>> {
+  const { data, error } = await supabase.functions.invoke('send-certificado-email', {
+    body: { cert_id: certId },
+  });
+  if (error) return fail('CERT_EMAIL_SEND', error.message, error);
+  const res = (data ?? {}) as { ok?: boolean; error?: string };
+  if (!res.ok) return fail('CERT_EMAIL_SEND', res.error ?? 'No pudimos enviar el email', data);
+  return ok(true as const);
+}
+
+// Certificados de un evento (para la grilla de asistencia de gerencia · B5).
+// Devuelve un mapa por destinatario: key = profile_id o prospecto_id.
+export async function listCertificadosPorEvento(
+  webinarId: string,
+): Promise<ApiResponse<CertificadoRow[]>> {
+  const { data, error } = await supabase
+    .from('certificados')
+    .select('*')
+    .eq('webinar_id', webinarId);
+  if (error) return fail('CERT_EVENTO_LIST', error.message, error);
+  return ok((data ?? []) as CertificadoRow[]);
+}
+
+// Certificado del CLIENTE logueado para un evento (para el botón de descarga de
+// la ficha · B4). RLS deja ver sólo el propio (alumno_profile_id = auth.uid()).
+export async function getCertClienteEvento(
+  webinarId: string,
+): Promise<ApiResponse<CertificadoRow | null>> {
+  const { data, error } = await supabase
+    .from('certificados')
+    .select('*')
+    .eq('webinar_id', webinarId)
+    .order('emitido_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) return fail('CERT_EVENTO_CLIENTE', error.message, error);
+  return ok((data as CertificadoRow | null) ?? null);
 }
 
 /**

@@ -21,6 +21,8 @@ import {
   Sparkles,
   Loader2,
   AlertCircle,
+  Award,
+  Download,
 } from 'lucide-react';
 import { Button, Skeleton, useConfirm } from '@/components/common';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
@@ -32,6 +34,13 @@ import {
   type ClienteEventoDetalle,
 } from '@/services/api/portal-dashboard';
 import { inscribirmeAWebinar, type WebinarInscripcionActiva } from '@/services/api/webinars';
+import {
+  getCertClienteEvento,
+  certificadoParaPdf,
+  resolverEsquemaParaCert,
+  type CertificadoRow,
+} from '@/services/api/campus';
+import { generateCertificadoPdf } from '@/modules/campus/lib/generateCertificadoPdf';
 import {
   WebinarIdentidad,
 } from '@/modules/webinars-publico/WebinarInscripcionShared';
@@ -68,6 +77,8 @@ function toIdentidad(ev: ClienteEventoDetalle): WebinarInscripcionActiva {
 export function PortalEventoDetallePage() {
   const { id } = useParams<{ id: string }>();
   const [ev, setEv] = useState<ClienteEventoDetalle | null>(null);
+  const [cert, setCert] = useState<CertificadoRow | null>(null);
+  const [descargandoCert, setDescargandoCert] = useState(false);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
 
@@ -86,8 +97,25 @@ export function PortalEventoDetallePage() {
       return;
     }
     setEv(res.data);
+    // Etapa B · certificado propio del evento (RLS: sólo el del cliente logueado).
+    const cr = await getCertClienteEvento(id);
+    setCert(cr.ok ? cr.data : null);
   }
   useEffect(() => { void load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [id]);
+
+  async function descargarCert() {
+    if (!cert) return;
+    setDescargandoCert(true);
+    try {
+      const esquema = await resolverEsquemaParaCert(cert);
+      await generateCertificadoPdf(certificadoParaPdf(cert), esquema ?? undefined);
+    } catch (e) {
+      console.error('[ficha-evento] descargar cert falló', e);
+      toast.error('No pudimos generar el certificado. Recargá y reintentá.');
+    } finally {
+      setDescargandoCert(false);
+    }
+  }
 
   return (
     <div className="relative space-y-5 pb-12">
@@ -114,6 +142,7 @@ export function PortalEventoDetallePage() {
           </Link>
         </section>
       ) : (
+        <>
         <section className="card-premium relative overflow-hidden p-5 sm:p-6">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
             <div className="min-w-0 flex-1">
@@ -133,6 +162,31 @@ export function PortalEventoDetallePage() {
             )}
           </div>
         </section>
+
+        {/* Etapa B · Certificado propio del cliente (si ya se emitió). También
+            le llega por email; acá lo puede descargar/re-descargar. */}
+        {cert && (
+          <section className="card-premium relative overflow-hidden border-emerald-200 bg-gradient-to-br from-emerald-50/60 to-white p-5 sm:p-6">
+            <div className="flex flex-wrap items-center gap-4">
+              <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-emerald-100 text-emerald-700">
+                <Award size={22} />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="kicker text-emerald-700">Tu certificado</p>
+                <h2 className="font-display text-lg font-bold text-brand-ink">
+                  Certificado de asistencia disponible
+                </h2>
+                <p className="text-sm text-brand-muted">
+                  Código <span className="font-mono">{cert.codigo}</span>. También te lo enviamos por email.
+                </p>
+              </div>
+              <Button onClick={() => void descargarCert()} loading={descargandoCert}>
+                <Download size={14} /> Descargar mi certificado
+              </Button>
+            </div>
+          </section>
+        )}
+        </>
       )}
     </div>
   );

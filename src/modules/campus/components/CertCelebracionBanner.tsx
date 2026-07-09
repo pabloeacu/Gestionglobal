@@ -128,7 +128,7 @@ export function CertCelebracionBanner({ cursoId }: Props) {
             <div className="min-w-0 flex-1">
               <p className="kicker text-amber-600">Logro alcanzado</p>
               <h3 className="font-display text-xl font-bold text-brand-ink sm:text-2xl">
-                ¡FELICITACIONES! Terminaste el curso<br />
+                ¡FELICITACIONES! {it.origen === 'evento' ? 'Asististe a' : 'Terminaste el curso'}<br />
                 <span className="text-brand-cyan">{it.curso_titulo}</span>
               </h3>
               <blockquote className="mt-3 border-l-4 border-amber-400 bg-amber-50/70 px-4 py-2 text-sm italic leading-relaxed text-amber-900 sm:text-base">

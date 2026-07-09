@@ -1091,7 +1091,7 @@ export type Database = {
       certificados: {
         Row: {
           administracion_id: string | null
-          alumno_profile_id: string
+          alumno_profile_id: string | null
           celebracion_vista_at: string | null
           codigo: string
           created_at: string
@@ -1105,6 +1105,7 @@ export type Database = {
           nota_examen: number | null
           payload_snapshot: Json
           pdf_storage_path: string | null
+          prospecto_id: string | null
           revocado_at: string | null
           revocado_motivo: string | null
           tema: number
@@ -1114,7 +1115,7 @@ export type Database = {
         }
         Insert: {
           administracion_id?: string | null
-          alumno_profile_id: string
+          alumno_profile_id?: string | null
           celebracion_vista_at?: string | null
           codigo: string
           created_at?: string
@@ -1128,6 +1129,7 @@ export type Database = {
           nota_examen?: number | null
           payload_snapshot?: Json
           pdf_storage_path?: string | null
+          prospecto_id?: string | null
           revocado_at?: string | null
           revocado_motivo?: string | null
           tema?: number
@@ -1137,7 +1139,7 @@ export type Database = {
         }
         Update: {
           administracion_id?: string | null
-          alumno_profile_id?: string
+          alumno_profile_id?: string | null
           celebracion_vista_at?: string | null
           codigo?: string
           created_at?: string
@@ -1151,6 +1153,7 @@ export type Database = {
           nota_examen?: number | null
           payload_snapshot?: Json
           pdf_storage_path?: string | null
+          prospecto_id?: string | null
           revocado_at?: string | null
           revocado_motivo?: string | null
           tema?: number
@@ -1185,6 +1188,13 @@ export type Database = {
             columns: ["matricula_id"]
             isOneToOne: true
             referencedRelation: "curso_matriculas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "certificados_prospecto_id_fkey"
+            columns: ["prospecto_id"]
+            isOneToOne: false
+            referencedRelation: "prospectos"
             referencedColumns: ["id"]
           },
           {
@@ -7940,6 +7950,10 @@ export type Database = {
         Args: { p_cert_id: string }
         Returns: undefined
       }
+      certificado_registrar_pdf: {
+        Args: { p_cert_id: string; p_path: string }
+        Returns: undefined
+      }
       cj_documento_actualizar: {
         Args: {
           p_color_acento: string
@@ -8111,7 +8125,10 @@ export type Database = {
           curso_id: string
           curso_titulo: string
           emitido_at: string
+          link_portal: string
           link_verificacion: string
+          origen: string
+          webinar_id: string
         }[]
       }
       cliente_ctacte_extracto: {
@@ -8551,6 +8568,10 @@ export type Database = {
       emitir_certificado_webinar: {
         Args: { p_profile_id: string; p_webinar_id: string }
         Returns: string
+      }
+      emitir_certificados_evento: {
+        Args: { p_webinar_id: string }
+        Returns: string[]
       }
       emitir_certificados_webinar_lote: {
         Args: { p_webinar_id: string }
