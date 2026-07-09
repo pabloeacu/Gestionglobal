@@ -12,17 +12,20 @@ export type EmailTemplateRow = Database['public']['Tables']['email_templates']['
 export type EmailQueueRow    = Database['public']['Tables']['email_queue']['Row'];
 export type SentEmailRow     = Database['public']['Tables']['sent_emails']['Row'];
 
-// Decisión 2026-05-26 v2 (EGG-QA-06): Workspace tiene 4 alias REALES.
-// Las casillas info@/facturacion@/tramites@/recupero@ NO existen → fueron
-// removidas. Las 4 aliases reales mapean 1:1 con las 4 categorías:
-export type FromCasilla = 'cursos' | 'webinar' | 'juridico' | 'general';
+// Decisión 2026-05-26 v2 (EGG-QA-06): Workspace tiene alias REALES; info@/
+// facturacion@/tramites@/recupero@ NO existen → removidas.
+// 2026-07-09 (Pablo · DGG-100): se removió la casilla `webinar` (webinar@).
+// Los emails de eventos ahora salen desde la GENERAL (contacto@, la principal)
+// para evitar confusión y problemas de entrega del alias webinar@. Los 5
+// templates de evento se repuntaron a `general` (mig 0301) y la edge fn ya no
+// mapea 'webinar'/'evento' a webinar@ (caen al default = contacto@).
+export type FromCasilla = 'cursos' | 'juridico' | 'general';
 
 export const CASILLA_GENERAL_EMAIL = 'contacto@gestionglobal.ar';
 
 export const CASILLAS: { value: FromCasilla; label: string; email: string }[] = [
   { value: 'general',   label: 'General',     email: 'contacto@gestionglobal.ar' },
   { value: 'cursos',    label: 'Cursos',      email: 'cursos@gestionglobal.ar' },
-  { value: 'webinar',   label: 'Webinars',    email: 'webinar@gestionglobal.ar' },
   { value: 'juridico',  label: 'Jurídico',    email: 'consultoriajuridica@gestionglobal.ar' },
 ];
 

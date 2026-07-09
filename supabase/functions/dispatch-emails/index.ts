@@ -7,9 +7,9 @@
 // IMPORTANTE (decisión del usuario 2026-05-26 v2): el Workspace tiene 4
 // alias REALES, NO 1:
 //   cursos@gestionglobal.ar                  (cursos y certificados)
-//   webinar@gestionglobal.ar                 (webinars: bienvenida + recordatorios)
 //   consultoriajuridica@gestionglobal.ar     (consultas jurídicas)
-//   contacto@gestionglobal.ar                (todo lo demás — default)
+//   contacto@gestionglobal.ar                (todo lo demás — default; incl. EVENTOS
+//                                             desde 2026-07-09, Pablo · DGG-100)
 // NO existen: info@, facturacion@, tramites@, recupero@ (eran fake).
 // Cualquier email enviado FROM un alias inexistente se descarta silenciosamente
 // (Gmail acepta en API pero no entrega). Por eso se mapea casilla → alias
@@ -37,13 +37,14 @@ const LOGO_URL = `https://www.${DOMAIN}/logo-color.png`;
 
 // Mapeo casilla (metadata semántica del template) → alias REAL.
 // Casillas no listadas caen al default (contacto@).
+// 2026-07-09 (Pablo · DGG-100): 'webinar'/'evento' YA NO mapean a webinar@ —
+// caen al default (contacto@, la principal). webinar@ daba problemas de entrega
+// como "send-as"; los eventos se envían desde contacto@ (templates repuntados a
+// 'general' en mig 0301; casos acá por defensa si quedara metadata vieja).
 function aliasFor(casilla: string | null | undefined): string {
   switch (casilla) {
     case 'cursos':
       return `cursos@${DOMAIN}`;
-    case 'webinar':
-    case 'evento':
-      return `webinar@${DOMAIN}`;
     case 'juridico':
     case 'consultoria':
     case 'consultoria_juridica':
