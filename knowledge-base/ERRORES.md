@@ -3748,3 +3748,98 @@ premisa, ambos llegaban a producción.
 
 **Fecha / módulo:** 2026-07-09 · eventos / disertantes / seguridad / portal · migs
 0293–0300. Doble auditoría §6 (3 agentes + e2e BD) del chunk de refinamientos.
+
+---
+
+## E-GG-95 · Emisión por lote de certificados de evento: el render del PDF se cuelga en la pestaña de fondo (rAF pausado)
+
+**Contexto (DGG-100 Etapa B):** al emitir certificados de un evento, el browser del
+gerente renderiza cada PDF (React `CertificadoPremium` → `html-to-image` → `jsPDF`)
+antes de subirlo al bucket y mailarlo. La emisión es un **loop secuencial** por
+asistente.
+
+**Síntoma (cazado por la QA en vivo):** al tocar "Emitir y enviar a asistentes", la
+barra quedaba en "Emitiendo… 0/N" y algún cert fallaba con `El certificado no se
+renderizó en el DOM`. Se reproducía de forma fiable cuando la pestaña **no estaba en
+foco** durante el lote.
+
+**Causa raíz:** el poll que esperaba a que React montara el nodo y a que las imágenes
+del esquema cargaran usaba **`requestAnimationFrame`**. En una pestaña en segundo plano
+Chrome **pausa por completo los callbacks de rAF** (no los throttlea: los congela).
+Con la pestaña oculta, el render nunca avanzaba → deadline → error. El caso normal
+(una descarga suelta con la pestaña visible) nunca lo mostró; sólo apareció con el
+loop de lote, durante el cual el gerente puede cambiar de pestaña.
+
+**Fix (commit `2f5aeb3`):**
+1. `src/modules/campus/lib/generateCertificadoPdf.ts` — reemplazar TODO el polling y
+   los delays de `requestAnimationFrame` por **`setTimeout`** (se throttlea a ~1s en
+   background pero **no se pausa**), con deadline holgado (3s→10s) + reintento único
+   de `toPng`.
+2. `emitir_certificados_evento` (mig 0305) — el `RETURN` final ahora devuelve **todos**
+   los certs del evento con `pdf_storage_path IS NULL` (nuevos + los que quedaron sin
+   PDF por un fallo previo), para que volver a tocar "Emitir y enviar" **reintente los
+   pendientes** en vez de saltarlos por el dedup `NOT EXISTS`.
+
+**Verificación e2e (prod, cliente QA + prospecto QA):** con la pestaña visible, el lote
+completó render→upload→mail para ambos (PDFs de 963 KB / 975 KB en el bucket
+`certificados`, `application/pdf`; edge fn `send-certificado-email` 200; `enviado_email_at`
+seteado). El re-click levantó el prospecto que había quedado pendiente.
+
+**Lección:** cualquier trabajo que dependa de layout/paint dentro de un loop largo
+(render offscreen, captura a canvas, medición de DOM) **no debe apoyarse en `rAF`**:
+en background se congela. Usar `setTimeout`. Y toda operación por lote que pueda fallar
+parcialmente debe poder **reintentar los pendientes** de forma idempotente.
+
+**Fecha / módulo:** 2026-07-09 · campus / eventos / render PDF · commit 2f5aeb3 + mig 0305.
+
+---
+
+## E-GG-96 · Grilla de Inscriptos/Asistencia de gerencia vacía: join embebido a columna inexistente (`administraciones.razon_social`)
+
+**Síntoma (cazado por la QA en vivo de Etapa B):** en la página de un evento con
+inscriptos reales, las pestañas **Inscriptos (0)** y **Asistencia** mostraban
+"Todavía no hay inscriptos para pasar lista" pese a que la BD tenía 2 inscriptos con
+`asistio=true` (el RPC de emisión SÍ los veía y emitía sus certs). Como el ícono de
+descarga/reenvío de cert (CertCell) vive en esa grilla, el bug **bloqueaba B5**.
+
+**Causa raíz (R8/E43 — naming híbrido de tabla pre-existente):** `listInscriptos`
+(`src/services/api/webinars.ts`) hacía el join embebido PostgREST
+`administraciones:administracion_id(razon_social)`, pero la tabla `administraciones`
+**no tiene `razon_social`** — su columna de nombre es **`nombre`** (`razon_social`
+existe sólo en `arca_emisores`/`comprobantes`). PostgREST valida las columnas del
+recurso embebido contra el schema cache → devolvía **400 `column
+administraciones_1.razon_social does not exist` (42703)** → `listInscriptos` fallaba
+y la UI caía al estado vacío (sin toast). Bug **pre-existente desde la Fase 4** de
+DGG-99: nunca se había visto la grilla con un inscripto que tuviera `administracion_id`.
+
+**Fix (E-GG-96):** `razon_social` → `nombre` en `listInscriptos` (3 sitios: select,
+cast, mapeo). Verificado con fetch PostgREST crudo (token gerente): `razon_social` →
+400; `nombre` → 200 con las 2 filas (`{nombre:"QA Cert Test"}` para el cliente, `null`
+para el prospecto).
+
+**Barrido de regresión (§6 Agente B):** cero otros usos vivos de
+`administraciones.razon_social` en `src/`; todos los `razon_social` restantes son de
+`arca_emisores`/`comprobantes`, tablas que sí la tienen.
+
+**Hardenings §6 del mismo chunk (preventivos, no bugs manifestados):**
+- **Dedup idempotente (mig 0306):** el dedup de `emitir_certificados_evento` era sólo
+  `NOT EXISTS` + `disabled` del botón. Dos emisiones concurrentes podían duplicar el
+  cert (y el email) del mismo asistente. Se agregaron **índices únicos parciales**
+  `uq_cert_evento_cliente (webinar_id, alumno_profile_id)` y `uq_cert_evento_prospecto
+  (webinar_id, prospecto_id)` (sólo `webinar_id NOT NULL`, para no tocar certs de
+  curso) + `ON CONFLICT DO NOTHING` en el loop. Verificado e2e: el índice rechaza el
+  duplicado y el ON CONFLICT lo vuelve no-op sin error.
+- **Match CertCell por id (no email):** el ícono de cert por asistente se indexaba por
+  `payload_snapshot.email`; dos inscriptos con el mismo email colapsaban al mismo cert.
+  Se cambió a match por `alumno_profile_id`/`prospecto_id` (se expuso `profile_id` en
+  `listInscriptos`), con email sólo como fallback.
+
+**Lección (R8/E43 recapitulada):** antes de un join embebido PostgREST
+`tabla:fk(col)` sobre una tabla pre-existente, verificar `col` con
+`information_schema.columns` — el 400 sale como grilla vacía sin pista. Y una grilla
+que sólo se probó sin cierto tipo de fila (acá, inscripto con `administracion_id`)
+puede esconder el bug por meses (R14/R15: probar la grilla con datos reales de cada
+tipo).
+
+**Fecha / módulo:** 2026-07-09 · eventos / gerencia / naming · fix en `webinars.ts` +
+mig 0306. Cazado por la QA en vivo mandada por §5 (no lo agarra build ni smoke SELECT).

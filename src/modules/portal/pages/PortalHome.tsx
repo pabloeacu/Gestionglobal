@@ -50,6 +50,7 @@ import {
 } from '@/services/api/tramitePedidosDoc';
 import { ActivarPushAssistant } from '@/components/common/ActivarPushAssistant';
 import { CertCelebracionBanner } from '@/modules/campus/components/CertCelebracionBanner';
+import { listCertsCelebrarCliente } from '@/services/api/campus';
 import { NovedadesBanner } from '../components/NovedadesBanner';
 import { PortalOnboardingTour, tourCompletado } from '../components/PortalOnboardingTour';
 import { PortalPwaAssistant } from '../components/PortalPwaAssistant';
@@ -60,15 +61,19 @@ export function PortalHome() {
   const { user } = useAuth();
   const [data, setData] = useState<ClientePortalDashboard | null>(null);
   const [avancesNuevos, setAvancesNuevos] = useState(0);
+  // B6 · badge de certificados nuevos (sin celebrar), por origen. Mismo universo
+  // que el banner de celebración (listCertsCelebrarCliente) contado en memoria (R19).
+  const [certsNuevos, setCertsNuevos] = useState<{ curso: number; evento: number }>({ curso: 0, evento: 0 });
   const [pedidosAbiertos, setPedidosAbiertos] = useState<PedidoAbiertoResumen[]>([]);
   const [loading, setLoading] = useState(true);
   const [showTour, setShowTour] = useState(false);
 
   async function load() {
-    const [res, count, pedidos] = await Promise.all([
+    const [res, count, pedidos, certs] = await Promise.all([
       fetchClientePortalDashboard(),
       fetchTrackingAvancesNuevosCount(),
       listPedidosAbiertosCliente(),
+      listCertsCelebrarCliente(),
     ]);
     setLoading(false);
     if (res.ok && !res.data.error) {
@@ -83,6 +88,12 @@ export function PortalHome() {
     }
     setAvancesNuevos(count);
     if (pedidos.ok) setPedidosAbiertos(pedidos.data);
+    if (certs.ok) {
+      setCertsNuevos({
+        curso: certs.data.filter((c) => c.origen !== 'evento').length,
+        evento: certs.data.filter((c) => c.origen === 'evento').length,
+      });
+    }
   }
 
   // DGG-45 · "Recordar después": pospone un banner suave 30 días.
@@ -170,7 +181,7 @@ export function PortalHome() {
         deuda={data.deuda}
       />
 
-      <Atajos avancesNuevos={avancesNuevos} />
+      <Atajos avancesNuevos={avancesNuevos} certsNuevos={certsNuevos} />
 
       <Assistants />
 
@@ -446,11 +457,17 @@ function iconForOportunidad(name: string): React.ReactNode {
 // Atajos principales (grid 2x2 mobile, 4 col desktop)
 // Si "Mis gestiones" tiene tracking_avances no leídos, mostramos badge "X nuevos"
 // =========================================================================
-function Atajos({ avancesNuevos }: { avancesNuevos: number }) {
+function Atajos({
+  avancesNuevos,
+  certsNuevos,
+}: {
+  avancesNuevos: number;
+  certsNuevos: { curso: number; evento: number };
+}) {
   const items = [
-    { to: '/portal/campus',     icon: GraduationCap, label: 'Mis cursos',   sub: 'Clases y certificados', badge: 0 },
+    { to: '/portal/campus',     icon: GraduationCap, label: 'Mis cursos',   sub: 'Clases y certificados', badge: certsNuevos.curso },
     { to: '/portal/gestiones',  icon: FileText,      label: 'Mis gestiones', sub: 'Trámites en curso',     badge: avancesNuevos },
-    { to: '/portal/webinars',   icon: Video,         label: 'Mis eventos',   sub: 'Próximos y pasados',    badge: 0 },
+    { to: '/portal/webinars',   icon: Video,         label: 'Mis eventos',   sub: 'Próximos y pasados',    badge: certsNuevos.evento },
     { to: '/portal/nuevo',      icon: PlusCircle,    label: 'Nuevo servicio', sub: 'Iniciar trámite',      badge: 0 },
   ];
   return (

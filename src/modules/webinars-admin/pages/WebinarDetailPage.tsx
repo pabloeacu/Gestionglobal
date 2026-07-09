@@ -1518,20 +1518,34 @@ function AsistenciaTab({ inscriptos, webinar, onRecargar }: {
   const [busyId, setBusyId] = useState<string | null>(null);
   // Etapa B · certs emitidos del evento, indexados por email (para el ícono de
   // descarga/reenvío por asistente — por si reclaman que no lo recibieron).
-  const [certsPorEmail, setCertsPorEmail] = useState<Record<string, CertificadoRow>>({});
+  const [certIndex, setCertIndex] = useState<{
+    byProfile: Record<string, CertificadoRow>;
+    byProspecto: Record<string, CertificadoRow>;
+    byEmail: Record<string, CertificadoRow>;
+  }>({ byProfile: {}, byProspecto: {}, byEmail: {} });
   useEffect(() => {
     void listCertificadosPorEvento(webinar.id).then((r) => {
       if (!r.ok) return;
-      const map: Record<string, CertificadoRow> = {};
+      const byProfile: Record<string, CertificadoRow> = {};
+      const byProspecto: Record<string, CertificadoRow> = {};
+      const byEmail: Record<string, CertificadoRow> = {};
       for (const c of r.data) {
+        if (c.alumno_profile_id) byProfile[c.alumno_profile_id] = c;
+        if (c.prospecto_id) byProspecto[c.prospecto_id] = c;
         const snap = (c.payload_snapshot ?? {}) as { email?: string };
         const email = (snap.email ?? '').toLowerCase().trim();
-        if (email) map[email] = c;
+        if (email) byEmail[email] = c;
       }
-      setCertsPorEmail(map);
+      setCertIndex({ byProfile, byProspecto, byEmail });
     });
   }, [webinar.id, inscriptos]);
-  const certDe = (email: string) => certsPorEmail[email.toLowerCase().trim()] ?? null;
+  // Match robusto por id (profile/prospecto); email sólo como fallback. Evita
+  // que dos inscriptos con el mismo email colapsen al mismo cert (hallazgo §6 A#11).
+  const certDe = (i: InscriptoConCanal): CertificadoRow | null =>
+    (i.profile_id ? certIndex.byProfile[i.profile_id] : undefined) ??
+    (i.prospecto_id ? certIndex.byProspecto[i.prospecto_id] : undefined) ??
+    certIndex.byEmail[i.email_snapshot.toLowerCase().trim()] ??
+    null;
 
   async function toggle(i: InscriptoConCanal) {
     setBusyId(i.id);
@@ -1607,7 +1621,7 @@ function AsistenciaTab({ inscriptos, webinar, onRecargar }: {
                     <td className="px-4 py-2 font-medium text-brand-ink">{i.nombre_snapshot}</td>
                     <td className="px-4 py-2 text-brand-muted">{i.email_snapshot}</td>
                     <td className="px-4 py-2 text-brand-muted">{i.canal}</td>
-                    <td className="px-4 py-2"><CertCell cert={certDe(i.email_snapshot)} /></td>
+                    <td className="px-4 py-2"><CertCell cert={certDe(i)} /></td>
                   </tr>
                 ))}
               </tbody>
@@ -1636,7 +1650,7 @@ function AsistenciaTab({ inscriptos, webinar, onRecargar }: {
                     <td className="px-4 py-2 text-brand-muted">{i.email_snapshot}</td>
                     <td className="px-4 py-2">{i.canal}</td>
                     <td className="px-4 py-2 text-brand-muted">{fmtDuracion(i.tiempo_conectado_seg)}</td>
-                    <td className="px-4 py-2"><CertCell cert={certDe(i.email_snapshot)} /></td>
+                    <td className="px-4 py-2"><CertCell cert={certDe(i)} /></td>
                   </tr>
                 ))}
               </tbody>

@@ -495,6 +495,7 @@ export interface InscriptoConCanal {
   canal: 'zoom' | 'youtube' | 'presencial';
   administracion_id: string | null;
   prospecto_id: string | null;
+  profile_id: string | null;
   asistio: boolean;
   tiempo_conectado_seg: number;
   inscripto_at: string;
@@ -510,9 +511,9 @@ export async function listInscriptos(
       .from('webinar_inscriptos')
       .select(`
         id, webinar_id, email_snapshot, nombre_snapshot, telefono_snapshot, canal,
-        administracion_id, prospecto_id, asistio, tiempo_conectado_seg, inscripto_at,
+        administracion_id, prospecto_id, profile_id, asistio, tiempo_conectado_seg, inscripto_at,
         prospectos:prospecto_id(nombre),
-        administraciones:administracion_id(razon_social)
+        administraciones:administracion_id(nombre)
       `)
       .eq('webinar_id', webinarId)
       .order('inscripto_at', { ascending: false });
@@ -520,7 +521,7 @@ export async function listInscriptos(
     const out: InscriptoConCanal[] = (data ?? []).map((r) => {
       const row = r as unknown as Record<string, unknown>;
       const prospecto = row.prospectos as { nombre?: string | null } | null;
-      const admin = row.administraciones as { razon_social?: string | null } | null;
+      const admin = row.administraciones as { nombre?: string | null } | null;
       return {
         id: String(row.id),
         webinar_id: String(row.webinar_id),
@@ -530,11 +531,12 @@ export async function listInscriptos(
         canal: row.canal as 'zoom' | 'youtube' | 'presencial',
         administracion_id: (row.administracion_id as string | null) ?? null,
         prospecto_id: (row.prospecto_id as string | null) ?? null,
+        profile_id: (row.profile_id as string | null) ?? null,
         asistio: !!row.asistio,
         tiempo_conectado_seg: Number(row.tiempo_conectado_seg ?? 0),
         inscripto_at: String(row.inscripto_at),
         prospecto_nombre: prospecto?.nombre ?? null,
-        administracion_nombre: admin?.razon_social ?? null,
+        administracion_nombre: admin?.nombre ?? null,
       };
     });
     return ok(out);

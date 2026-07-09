@@ -3916,3 +3916,36 @@ del proyecto — emisión a prospectos por mail c/PDF server-side, descarga en l
 badge, descarga por gerencia por asistente. **Método canónico** (mandato Pablo 2026-07-09): cada avance
 escala sobre el producto sin romperlo; cirugía + doble auditoría probando hasta lo remoto, 100% certeza.
 - **Fecha:** 2026-07-09. Migs 0301–0302 + edge fn dispatch-emails v15. Etapa A cerrada (build + §6 + e2e).
+
+**Addendum 3 (mismo día) · Etapa B: certificados de asistencia a eventos.** Decisiones de
+Pablo: emitir **sólo a quien asistió** (`asistio=true`); los **prospectos** (sin portal) reciben el
+cert **por mail con el PDF adjunto**; **sin** link público de descarga; el **cliente** lo descarga desde
+la ficha "TU EVENTO"; la **gerencia** tiene un ícono de descarga+reenvío **por asistente** (por si
+reclaman no haberlo recibido — genérico, sirve igual para cursos del campus); aviso al cliente por
+**push + banner + badge** (los tres). Arquitectura clave: el certificado es **100% render de browser**
+(React `CertificadoPremium` → `html-to-image` → `jsPDF`), así que no hay generación server-side posible
+→ el **browser del gerente** renderiza el PDF al emitir, lo **sube al bucket `certificados`** y registra
+el `pdf_storage_path`; una **edge fn nueva `send-certificado-email`** (clon de `cj-enviar-pdf`) baja el
+PDF del bucket y lo manda por Gmail adjunto (desde `contacto@`), resolviendo destinatario por
+cliente-auth-email / prospecto.email / snapshot. DB: mig 0303 (cert a prospectos: `alumno_profile_id`
+nullable + `prospecto_id` + CHECK destinatario + RPCs `emitir_certificados_evento` y
+`certificado_registrar_pdf`), 0304 (celebración **origen-aware**: el trigger, si es evento, encola push
+con copy de evento y link a la ficha y **NO** manda el email "curso-felicitacion" — el PDF va por la edge
+fn; rama curso **intacta**; `cliente_certs_celebrar` pasa a LEFT JOIN cursos+webinars con DROP+CREATE por
+cambio de firma, R16), 0305 (E-GG-95: reintento de pendientes), 0306 (§6: dedup idempotente).
+Frontend: banner `CertCelebracionBanner` con copy "Asististe a {evento}" vs "Terminaste el curso"; panel
+"Tu certificado" en la ficha; `CertCell` (descargar+reenviar) en la grilla de Asistencia de gerencia;
+**badge** de certs nuevos por origen en los tiles "Mis cursos"/"Mis eventos" del inicio (B6, contado en
+memoria sobre el universo de `listCertsCelebrarCliente`, R19). **Doble auditoría §6 (3 agentes + e2e BD)
++ prueba en vivo** (cliente QA + prospecto QA): emisión e2e verificada en prod para ambos (PDFs 963/975 KB
+en el bucket, edge fn 200, `enviado_email_at` seteado); banner "Asististe a", descarga de ficha y de banner
+OK con la pestaña visible. La §6 **encontró 2 bugs reales** (E-GG-95 render que se cuelga en pestaña de
+fondo por rAF; **E-GG-96** grilla de inscriptos vacía por join a `administraciones.razon_social`
+inexistente — bug pre-existente de Fase 4 que bloqueaba B5) **+ 2 hardenings** (dedup idempotente 0306;
+match CertCell por id en vez de email). **Aprendizaje de método (E-GG-95):** la pestaña de fondo pausa
+`requestAnimationFrame` → nunca usar rAF para esperar layout/paint dentro de un loop largo; usar
+`setTimeout`. La QA en vivo con la pestaña **traída al frente** (des-minimizar Chrome) es lo que destrabó
+el render y validó el flujo real del gerente.
+- **Fecha:** 2026-07-09. Migs 0303–0306 + edge fn `send-certificado-email` v1 + `dispatch-emails` v15.
+  Etapa B cerrada (build + doble §6 + live QA cliente/prospecto + docs). Certificados de evento a
+  prospectos por mail c/PDF, descarga cliente (ficha+banner), descarga/reenvío gerencia, push+banner+badge.
