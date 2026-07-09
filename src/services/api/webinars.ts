@@ -467,44 +467,10 @@ export async function listInscriptoTokens(
 
 // Prospectos
 
-// E-GG-46 (2026-06-04 · auditoría E-GG-45): patrón estado-derivado-vs-propagado.
-// Un prospecto convertido a cliente queda con `convertido_at` y
-// `convertido_a_administracion_id`. Si después esa administración se da de
-// baja (administraciones.activo=false / estado='baja') el prospecto sigue
-// figurando como "Convertido ✓" en la grilla sin pista de que el cliente
-// ya no está activo. Misma raíz que E-GG-45: la baja del cliente no propaga
-// al prospecto (es por diseño — el prospecto es registro histórico de la
-// captación). Para no engañar al gerente, devolvemos el estado del cliente
-// vinculado y la UI muestra un badge "Cliente de baja" cuando corresponde.
-export interface ProspectoListItem extends ProspectoRow {
-  cliente_activo: boolean | null;
-  cliente_estado: string | null;
-}
-
-export async function listProspectos(): Promise<ApiResponse<ProspectoListItem[]>> {
-  try {
-    const { data, error } = await supabase
-      .from('prospectos')
-      .select('*, administraciones:convertido_a_administracion_id(activo,estado)')
-      .order('created_at', { ascending: false });
-    if (error) throw error;
-    type Joined = ProspectoRow & {
-      administraciones: { activo: boolean; estado: string } | null;
-    };
-    const rows: ProspectoListItem[] = ((data ?? []) as Joined[]).map((raw) => {
-      const { administraciones, ...rest } = raw;
-      return {
-        ...(rest as ProspectoRow),
-        cliente_activo: administraciones?.activo ?? null,
-        cliente_estado: administraciones?.estado ?? null,
-      };
-    });
-    return ok(rows);
-  } catch (e) {
-    const err = toApiError(e);
-    return fail(err.code, err.message, err.details);
-  }
-}
+// Nota (E-GG-46): el estado del cliente vinculado (activo/baja) para el badge
+// "Cliente de baja" ahora lo devuelve la RPC `prospectos_listado` (mig 0291) en
+// `cliente_activo`/`cliente_estado`. El viejo `listProspectos` quedó sin uso tras
+// la reescritura de la pantalla (capitalización · DGG-99) y se removió.
 
 export async function convertirProspecto(
   prospectoId: string,

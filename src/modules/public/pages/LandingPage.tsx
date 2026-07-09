@@ -97,10 +97,10 @@ const SERVICIOS: ServicioGrupo[] = [
       },
       {
         icon: PlayCircle,
-        titulo: 'Capacitaciones gratuitas',
+        titulo: 'Capacitaciones y encuentros',
         descripcion:
-          'Webinars, podcasts y charlas con especialistas — una comunidad que aprende y crece.',
-        cta: { href: '/webinars', label: 'Sumarme gratis' },
+          'Webinars, charlas y encuentros presenciales con especialistas — online y presencial, para una comunidad que aprende y crece.',
+        cta: { href: '/eventos', label: 'Ver próximo encuentro' },
       },
     ],
   },

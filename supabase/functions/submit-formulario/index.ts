@@ -11,6 +11,22 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
+// R20 (E-GG-40): normaliza el nombre para la key de Storage. Espejo de
+// src/lib/storageKeys.ts (los edge fns no pueden importar de src/): NFKD +
+// remueve diacríticos + sólo [a-zA-Z0-9._-]. El replace(/[^\w.\-]/) anterior
+// dejaba pasar acentos en algunos runtimes de Deno → key inválida.
+function safeStorageKey(filename: string): string {
+  if (!filename) return 'archivo';
+  const clean = filename
+    .normalize('NFKD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-zA-Z0-9._-]+/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 200);
+  return clean || 'archivo';
+}
+
 interface FieldDef {
   name: string;
   type: string;
@@ -215,7 +231,7 @@ Deno.serve(async (req) => {
         const bin = atob(f.base64);
         const bytes = new Uint8Array(bin.length);
         for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-        const cleanName = f.filename.replace(/[^\w.\-]/g, '_').slice(0, 80);
+        const cleanName = safeStorageKey(f.filename);
         const path = `${formulario.slug}/${submission.id}/${f.field}-${cleanName}`;
         const { error: errUp } = await supabase.storage
           .from('form-adjuntos')

@@ -292,7 +292,10 @@ export function App() {
         <Route path="/restablecer" element={<RestablecerPage />} />
         <Route path="/health" element={<HealthPage />} />
         <Route path="/formulario/:slug" element={<FormularioPublicoPage />} />
-        {/* F6 (DGG-63) · Inscripción condicional a webinars (branded ó texto). */}
+        {/* F6 (DGG-63) · Inscripción condicional a eventos (branded ó texto).
+            /eventos es el nombre nuevo (online/presencial/mixto · DGG-99);
+            /webinars se mantiene como alias para no romper links viejos. */}
+        <Route path="/eventos" element={<WebinarInscripcionPublicaPage />} />
         <Route path="/webinars" element={<WebinarInscripcionPublicaPage />} />
         {/* E-GG-32 (Jose Luis): CTAs "Conocer/Probar la plataforma" del landing
             apuntan acá hasta que se lance la plataforma SaaS para administradores
