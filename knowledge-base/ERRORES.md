@@ -3661,5 +3661,20 @@ con ModalidadCard/ArancelCard y Zoom oculto en presencial; página de acceso `/w
 presencial mostrando lugar + "Cómo llegar" (mapa) + countdown, SIN botón de Zoom; sin errores de consola.
 Los eventos ONLINE existentes: comportamiento idéntico (modalidad default 'online').
 
-**Fecha / módulo:** 2026-07-08 · eventos / webinars / seguridad · migs 0286–0292 + edge fn webinar-acceso v5.
-Doble auditoría §6 del paquete Eventos pedido por Pablo.
+**Addendum (mismo día, pedido Pablo "no dejar nada pendiente").**
+- **Landing:** la card de la home ("Capacitaciones gratuitas") seguía siendo webinar-only y no reflejaba
+  los encuentros presenciales. Se cambió a "Capacitaciones y encuentros" (copy: online y presencial),
+  CTA → `/eventos` (ruta nueva, alias de `/webinars` que se mantiene). La página de inscripción ya
+  muestra por evento: banner/flyer + modalidad + lugar + arancel (fase 3).
+- **Banner/flyer (consulta Pablo):** ya existía — `webinars.banner_url` (card "Banner" del detalle) se
+  muestra arriba del formulario en `/eventos` y `/portal/webinars` (ambos usan `WebinarIdentidad`).
+  Verificado por RPC (`webinar_inscripcion_activa` devuelve banner_url + modalidad + ubicación + arancel).
+- **Limpieza:** borrado `listProspectos`/`ProspectoListItem` (código muerto tras la reescritura); **R20**
+  cerrado en `submit-formulario` v13 (safeStorageKey inline NFKD; verificado: "Inscripción Ñoño.pdf" →
+  "Inscripcion_Nono.pdf").
+- **Re-auditoría consolidada:** 7 funciones del feature SECURITY DEFINER, `anon` sólo en la pública
+  `webinar_inscripcion_activa`, staff/internas con anon revocado; 0 overloads (R16); RLS activa en las 5
+  tablas; canal CHECK con 'presencial'. Todos los archivos de migración (0286-0292) en el repo (sin drift).
+
+**Fecha / módulo:** 2026-07-08 · eventos / webinars / landing / seguridad · migs 0286–0292 + edge fns
+webinar-acceso v5 + submit-formulario v13. Doble auditoría §6 del paquete Eventos pedido por Pablo.
