@@ -45,8 +45,8 @@ interface ImageUploaderProps {
   onPersist?: (url: string | null) => void | Promise<void>;
   scope: CampusMediaScope;
   ownerId: string;
-  /** circle = avatar, square = ícono, wide = banner (3:1). */
-  shape?: 'circle' | 'square' | 'wide';
+  /** circle = avatar, square = ícono, wide = banner (3:1), portrait = flyer (4:5). */
+  shape?: 'circle' | 'square' | 'wide' | 'portrait';
   /** Tamaño visual del preview. `sm` para usos densos junto a inputs,
    *  `md` para cards independientes. Default `md`. */
   size?: 'sm' | 'md';
@@ -88,6 +88,15 @@ const SHAPE_CFG = {
     round: false,
     md: { w: 264, h: 88 },
     sm: { w: 180, h: 60 },
+  },
+  // Flyer promocional vertical (1080×1350 ⇒ 4:5 = 0.8). Va al costado del
+  // formulario de inscripción en la página pública del evento.
+  portrait: {
+    aspect: 0.8,
+    classes: 'rounded-xl',
+    round: false,
+    md: { w: 176, h: 220 },
+    sm: { w: 128, h: 160 },
   },
 } as const;
 

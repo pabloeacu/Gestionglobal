@@ -222,7 +222,7 @@ export function AdministracionDetailPage() {
           { key: 'registral', label: 'Registral' },
           { key: 'consorcios', label: 'Consorcios', badge: consorcios.length || undefined },
           { key: 'ctacte', label: 'Cta. corriente' },
-          { key: 'webinars', label: 'Webinars' },
+          { key: 'webinars', label: 'Eventos' },
           { key: 'emails', label: 'Emails' },
         ]}
         activeKey={tab}

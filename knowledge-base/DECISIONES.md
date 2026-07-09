@@ -3838,3 +3838,53 @@ público/emails/acceso (0288/0289 + edge fn) · asistencia (0290) · prospectos 
 - **Fecha:** 2026-07-08. Migs 0286-0292 + edge fn webinar-acceso v5 + frontend (webinars-admin,
   webinars-publico, FormularioRunner). Doble auditoría §6 (3 agentes + e2e) + prueba en vivo de las 3
   modalidades. Ver **E-GG-93** en `ERRORES.md`.
+
+### DGG-100 · "Eventos" refinamientos: banco de disertantes + flyer + vigencia presencial + copy sweep (2026-07-09)
+
+**Pedido (Pablo), sobre DGG-99.** Cinco refinamientos + una duda de arquitectura:
+1. Copy sweep: TODO texto user-facing "webinar" → "evento" (abarcativo a cualquier tipo).
+2. Módulo docentes → **"Docentes / Disertantes"** con **banco reutilizable** (elegir de disertantes
+   ya cargados + sus CV, y guardar el nuevo al banco).
+3. Banner: agregar opción de **flyer 1080×1350** (vertical) al costado del formulario.
+4. Vigencia: para **presenciales** la lista cierra al **horario de inicio** (no inicio+duración);
+   el cupo sigue siendo tope aparte.
+5. Form slug `webinarios` → mostrar `/eventos`.
+6. (Duda, no código) cómo se enlaza el formulario al evento vigente.
+
+**Decisiones de diseño.**
+- **Banco de disertantes = catálogo `public.disertantes` (staff-only) + snapshot al evento.** El
+  catálogo (foto+CV pdf+bio) es la fuente reutilizable; el evento **snapshotea** nombre/foto/cv/bio en
+  `webinars.docentes` (jsonb). Doble beneficio: (a) la página pública NO lee el catálogo (que es
+  staff-only con RLS `is_staff`), sólo el snapshot → no hay leak ni permiso público sobre el banco;
+  (b) editar/borrar un disertante del banco NO rompe eventos pasados (el snapshot está congelado).
+  `bancoId` en la fila de UI (session-only, no se snapshotea) evita duplicar al "guardar en el banco":
+  si vino del banco o ya se guardó, actualiza en vez de crear. **Elección de Pablo: "banco completo"**
+  (catálogo global con foto + CV + bio, no por-evento).
+- **Flyer**: columna `webinars.flyer_url` + shape `portrait` (4:5) nuevo en `ImageUploader`. Se muestra
+  en un `<aside>` al costado del formulario en `/eventos` (`md:flex-row`, stack en mobile). El banner
+  3:1 sigue arriba. Ambos van a `campus-media` (público) vía `uploadCampusMedia`→`safeStorageKey` (R20).
+  CV es PDF (scope `webinar-disertante-cv`), subido con un file-input aparte (el cropper es sólo imagen).
+- **Vigencia presencial cierra al inicio.** `private.webinar_vigente_id()` e `inscribir_a_webinar` usan
+  `cierre = CASE WHEN modalidad='presencial' THEN fecha_hora ELSE fecha_hora + duracion END`. El front
+  (`esWebinarVigente`) espeja la misma regla. Racional: a un presencial no tiene sentido anotarse una
+  vez empezado (hay que estar en el lugar); un online/mixto sí admite entrar mientras transcurre.
+- **Form ↔ evento (respuesta a la duda 6, decisión de Pablo).** UN solo formulario compartido
+  (slug `eventos`, categoria `evento`, sin `webinar_id`). NO se crea un form por evento. La URL pública
+  es siempre la misma (`/formulario/eventos` → redirige a `/eventos`); si hay un evento **vigente**,
+  la página muestra su identidad (banner/flyer/disertantes/lugar/arancel) + el form embebido; si no hay
+  ninguno, muestra el texto de espera ("Estate atento…"). El vínculo lo resuelve
+  `webinar_vigente_id()` (el más próximo gana), NO el slug — por eso renombrar el slug no rompe nada.
+- **Copy sweep** de ~28 strings user-facing (gerencia + portal cliente + páginas públicas + wizard +
+  emails vía `regexp_replace` con word-boundary que respeta `{{webinar_titulo}}`). Se preservan como
+  legítimos: el **tipo** `webinar` (una charla online ES un webinar), rutas, nombres de tabla/RPC, y la
+  casilla de email `webinar@` (DUDA para Pablo).
+
+**Implementación.** Migs 0293-0300 (catálogo+flyer · vigencia · form rename · emails · revoke anon ·
+search_path · arancel portal · duplicar). Frontend: `webinars.ts` (+disertantes CRUD, +cv/bio/flyer),
+`ImageUploader` (portrait), `WebinarDetailPage` (DocentesCard con banco+CV+bio, BannerCard+flyer),
+`WebinarInscripcionShared`/`PublicaPage` (CV/bio/flyer render), `FormularioPublicoPage` (redirect a
+/eventos), + copy sweep en 15 archivos.
+
+- **Fecha:** 2026-07-09. Migs 0293–0300. Doble auditoría §6 (3 agentes + e2e BD) encontró 2 bugs
+  críticos (over-grant anon en disertantes; `webinar_duplicar` perdía columnas nuevas) + 5 menores,
+  todos fixeados en el mismo chunk. Ver **E-GG-94** en `ERRORES.md`.

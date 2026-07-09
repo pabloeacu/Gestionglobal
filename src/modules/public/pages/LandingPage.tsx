@@ -99,7 +99,7 @@ const SERVICIOS: ServicioGrupo[] = [
         icon: PlayCircle,
         titulo: 'Capacitaciones y encuentros',
         descripcion:
-          'Webinars, charlas y encuentros presenciales con especialistas — online y presencial, para una comunidad que aprende y crece.',
+          'Capacitaciones, charlas y encuentros presenciales con especialistas — online y presencial, para una comunidad que aprende y crece.',
         cta: { href: '/eventos', label: 'Ver próximo encuentro' },
       },
     ],

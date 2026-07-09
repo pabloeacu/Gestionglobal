@@ -276,7 +276,7 @@ function ContextoHeader({
         {solicitud.voucher_codigo && <Badge tone="cyan">Voucher {solicitud.voucher_codigo}</Badge>}
         {flags.esDDJJ && <Badge tone="amber">DDJJ</Badge>}
         {flags.esCurso && <Badge tone="cyan">Curso</Badge>}
-        {flags.esWebinar && <Badge tone="cyan">Webinar</Badge>}
+        {flags.esWebinar && <Badge tone="cyan">Evento</Badge>}
       </div>
       <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-0.5 text-xs text-brand-muted">
         <span>

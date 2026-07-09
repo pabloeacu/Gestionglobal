@@ -44,7 +44,7 @@ const NAV: NavItem[] = [
   { to: '/portal', label: 'Inicio', icon: Home, end: true },
   { to: '/portal/campus', label: 'Mis cursos', icon: GraduationCap },
   { to: '/portal/gestiones', label: 'Mis gestiones', icon: FileText },
-  { to: '/portal/webinars', label: 'Mis webinars', icon: Video },
+  { to: '/portal/webinars', label: 'Mis eventos', icon: Video },
   { to: '/portal/nuevo', label: 'Solicitar', icon: PlusCircle },
   { to: '/portal/mi-cuenta', label: 'Mi cuenta', icon: Wallet },
   { to: '/portal/consorcios', label: 'Consorcios', icon: Building2 },

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams, useSearchParams, Link } from 'react-router-dom';
+import { useParams, useSearchParams, Link, Navigate } from 'react-router-dom';
 import { AlertCircle, ShieldCheck } from 'lucide-react';
 import { BrandLoader } from '@/components/brand/BrandLoader';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
@@ -81,6 +81,15 @@ export function FormularioPublicoPage() {
 
   // Entidad aliada del curso (logo + subtítulo de alianza), resuelta por slug.
   const entidad = formulario ? FORM_ENTIDAD[formulario.slug] : undefined;
+
+  // Eventos (Pablo · Q2): el formulario compartido de eventos NO se muestra
+  // "crudo". Su URL (/formulario/eventos) redirige a /eventos, que muestra la
+  // identidad del evento vigente + el mismo formulario embebido (o el texto de
+  // espera si no hay evento vigente). Así las personas entran siempre a la misma
+  // dirección y ven el evento al que va direccionado el formulario.
+  if (!loading && formulario?.categoria === 'evento') {
+    return <Navigate to="/eventos" replace />;
+  }
 
   return (
     <div className="min-h-screen bg-white font-sans">

@@ -313,7 +313,7 @@ function HotCards({
     cards.push(
       <HotCard
         key="webinar"
-        kicker={webinar.status === 'en_curso' ? 'WEBINAR EN VIVO' : 'TU WEBINAR'}
+        kicker={webinar.status === 'en_curso' ? 'EVENTO EN VIVO' : 'TU EVENTO'}
         titulo={webinar.titulo}
         descripcion={
           webinar.status === 'en_curso'
@@ -446,7 +446,7 @@ function Atajos({ avancesNuevos }: { avancesNuevos: number }) {
   const items = [
     { to: '/portal/campus',     icon: GraduationCap, label: 'Mis cursos',   sub: 'Clases y certificados', badge: 0 },
     { to: '/portal/gestiones',  icon: FileText,      label: 'Mis gestiones', sub: 'Trámites en curso',     badge: avancesNuevos },
-    { to: '/portal/webinars',   icon: Video,         label: 'Mis webinars',  sub: 'Próximos y pasados',    badge: 0 },
+    { to: '/portal/webinars',   icon: Video,         label: 'Mis eventos',   sub: 'Próximos y pasados',    badge: 0 },
     { to: '/portal/nuevo',      icon: PlusCircle,    label: 'Nuevo servicio', sub: 'Iniciar trámite',      badge: 0 },
   ];
   return (

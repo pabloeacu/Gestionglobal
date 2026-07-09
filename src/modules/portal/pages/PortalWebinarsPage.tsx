@@ -46,7 +46,7 @@ export function PortalWebinarsPage() {
     const res = await fetchClienteWebinars();
     setLoading(false);
     if (!res.ok) {
-      toast.error('No pudimos cargar webinars', { description: humanizeError(res.error) });
+      toast.error('No pudimos cargar los eventos', { description: humanizeError(res.error) });
       return;
     }
     setMis(res.data.mis_webinars ?? []);
@@ -64,7 +64,7 @@ export function PortalWebinarsPage() {
   async function handleInscribirVigente() {
     if (!user || !vigente) return;
     const ok = await confirm({
-      title: 'Inscribirme al webinar',
+      title: 'Inscribirme al evento',
       message: `¿Confirmás tu inscripción a "${vigente.titulo}"? Te vamos a enviar el link unas horas antes.`,
       confirmLabel: 'Inscribirme',
     });
@@ -84,7 +84,7 @@ export function PortalWebinarsPage() {
   async function handleInscribir(w: ClienteWebinarItem) {
     if (!user) return;
     const ok = await confirm({
-      title: 'Inscribirme al webinar',
+      title: 'Inscribirme al evento',
       message: `¿Confirmás tu inscripción a "${w.titulo}"? Te vamos a enviar el link unas horas antes.`,
       confirmLabel: 'Inscribirme',
     });
@@ -111,10 +111,10 @@ export function PortalWebinarsPage() {
         <div className="relative p-5 sm:p-6">
           <p className="kicker text-brand-cyan">PORTAL · CAPACITACIÓN</p>
           <h1 className="font-display text-2xl font-bold text-brand-ink sm:text-3xl">
-            Mis webinars
+            Mis eventos
           </h1>
           <p className="mt-1 max-w-2xl text-sm text-brand-muted">
-            Capacitaciones online gratuitas de Gestión Global. Te enviamos recordatorios automáticos antes de cada evento.
+            Capacitaciones de Gestión Global — online y presenciales. Te enviamos recordatorios automáticos antes de cada evento.
           </p>
         </div>
       </section>
@@ -170,7 +170,7 @@ export function PortalWebinarsPage() {
           {dispSinVigente.length > 0 && (
             <section>
               <header className="mb-3 flex items-center justify-between px-1">
-                <p className="kicker text-brand-muted">{vigente ? 'OTROS PRÓXIMOS WEBINARS' : 'PRÓXIMOS WEBINARS'}</p>
+                <p className="kicker text-brand-muted">{vigente ? 'OTROS PRÓXIMOS EVENTOS' : 'PRÓXIMOS EVENTOS'}</p>
                 <span className="text-[11px] font-medium text-brand-muted">
                   {dispSinVigente.length} disponible{dispSinVigente.length === 1 ? '' : 's'}
                 </span>
@@ -262,7 +262,7 @@ function WebinarMyCard({ w }: { w: ClienteWebinarItem }) {
               rel="noopener noreferrer"
               className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-brand-cyan px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-cyan/90"
             >
-              <PlayCircle size={14} /> Unirme al webinar
+              <PlayCircle size={14} /> Unirme al evento
             </a>
           )}
           {showRecording && (
@@ -293,7 +293,11 @@ function WebinarAvailCard({ w, inscribing, onInscribir }: {
           <Sparkles size={16} />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="kicker text-violet-700 opacity-80">GRATUITO</p>
+          <p className="kicker text-violet-700 opacity-80">
+            {w.es_arancelado
+              ? (w.arancel_monto != null ? `ARANCELADO · $${w.arancel_monto.toLocaleString('es-AR')}` : 'ARANCELADO')
+              : 'GRATUITO'}
+          </p>
           <h3 className="line-clamp-2 font-semibold leading-tight text-brand-ink">{w.titulo}</h3>
           <p className="mt-1 inline-flex items-center gap-1 text-[11px] text-brand-muted">
             <Clock size={11} /> {formatFecha(w.fecha_hora)}

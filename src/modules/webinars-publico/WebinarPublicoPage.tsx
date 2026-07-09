@@ -31,7 +31,7 @@ export function WebinarPublicoPage() {
       <div className="grid min-h-screen place-items-center bg-gradient-to-br from-slate-50 to-brand-cyan/5 p-6">
         <div className="flex items-center gap-2 text-brand-muted">
           <Loader2 size={20} className="animate-spin" />
-          <span>Cargando webinar…</span>
+          <span>Cargando evento…</span>
         </div>
       </div>
     );
@@ -42,7 +42,7 @@ export function WebinarPublicoPage() {
       <div className="grid min-h-screen place-items-center bg-gradient-to-br from-slate-50 to-red-50 p-6">
         <div className="max-w-md rounded-3xl border border-red-200 bg-white p-8 text-center shadow-xl">
           <AlertCircle size={40} className="mx-auto mb-3 text-red-500" />
-          <h1 className="font-display text-xl font-bold text-brand-ink">No pudimos abrir el webinar</h1>
+          <h1 className="font-display text-xl font-bold text-brand-ink">No pudimos abrir el evento</h1>
           <p className="mt-2 text-sm text-brand-muted">{acceso.message}</p>
           <p className="mt-4 text-xs text-brand-muted">
             Si recibiste un link reciente y no funciona, contactanos a{' '}
@@ -61,7 +61,7 @@ export function WebinarPublicoPage() {
         <TrianglesAccent position="top-right" tone="cyan" className="opacity-20" />
         <div className="mx-auto max-w-3xl">
           <div className="flex items-center gap-2 text-xs uppercase tracking-widest text-brand-cyan/80">
-            <Radio size={14} /> Webinar de Gestión Global
+            <Radio size={14} /> Evento de Gestión Global
           </div>
           <h1 className="mt-2 font-display text-3xl font-bold sm:text-4xl">{webinar.titulo}</h1>
           {webinar.descripcion && (

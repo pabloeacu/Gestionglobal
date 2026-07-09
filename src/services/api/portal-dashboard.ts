@@ -217,6 +217,9 @@ export interface ClienteWebinarItem {
   grabacion_url?: string | null;
   inscripto_at?: string;
   asistio?: boolean;
+  // Sólo en `disponibles` (mig 0299): el arancel es informativo para la card.
+  es_arancelado?: boolean;
+  arancel_monto?: number | null;
 }
 
 export interface ClienteWebinarsResponse {

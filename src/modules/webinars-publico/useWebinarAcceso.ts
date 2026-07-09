@@ -78,7 +78,7 @@ export function useWebinarAcceso(token: string | undefined): WebinarAccesoState 
         setS({ state: 'ok', resp: j });
       } catch {
         if (cancelled) return;
-        setS({ state: 'error', message: 'No pudimos cargar el webinar. Probá de nuevo en unos minutos.' });
+        setS({ state: 'error', message: 'No pudimos cargar el evento. Probá de nuevo en unos minutos.' });
       }
     })();
     return () => {

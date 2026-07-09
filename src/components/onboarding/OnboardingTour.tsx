@@ -260,7 +260,7 @@ export const STEPS_GERENCIA: TourStep[] = [
     description: (
       <p>
         Acá llegan las <strong>solicitudes nuevas</strong>, formularios públicos
-        y webinars. El radar comercial de Gestión Global.
+        y eventos. El radar comercial de Gestión Global.
       </p>
     ),
   },

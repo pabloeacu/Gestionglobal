@@ -369,7 +369,7 @@ function construirOps(
     const webinarId = state.campus.webinarId;
     ops.push({
       key: 'webinar',
-      label: 'Inscribir al webinar',
+      label: 'Inscribir al evento',
       bestEffort: true,
       run: async () => {
         const email = (
@@ -381,7 +381,7 @@ function construirOps(
           (state.modoCliente === 'nuevo' ? state.nuevoCliente.nombre : solicitud.cliente_nombre) ??
           solicitud.solicitante_nombre ??
           'Cliente';
-        if (!email) throw new Error('Falta email para inscribir al webinar');
+        if (!email) throw new Error('Falta email para inscribir al evento');
         const r = await inscribirManual({
           webinarId,
           email,
@@ -389,7 +389,7 @@ function construirOps(
           telefono: solicitud.solicitante_telefono ?? undefined,
         });
         if (!r.ok) throw new Error(humanizeError(r.error));
-        return 'Inscripto al webinar';
+        return 'Inscripto al evento';
       },
     });
   }

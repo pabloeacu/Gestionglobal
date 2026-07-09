@@ -881,14 +881,14 @@ function AjustesModal({
 
         {esEvento && (
           <Field
-            label="Webinar destino"
+            label="Evento destino"
             hint="DGG-11/15: el inscripto recibe magic-link automáticamente al enviar el formulario."
           >
             <Select
               value={webinarId ?? ''}
               onChange={(e) => setWebinarId(e.target.value || null)}
             >
-              <option value="">— Sin webinar vinculado —</option>
+              <option value="">— Sin evento vinculado —</option>
               {webinars.map((w) => (
                 <option key={w.id} value={w.id}>
                   {w.titulo} · {new Date(w.fecha_hora).toLocaleDateString('es-AR')}

@@ -78,8 +78,8 @@ export function TabWebinars({ administracionId }: Props) {
   if (rows.length === 0) {
     return (
       <IllustratedEmpty
-        title="Sin inscripciones a webinars"
-        description="Cuando el cliente se inscriba a un webinar, va a quedar registrado acá como histórico — útil para medir fidelización y para retomar contacto."
+        title="Sin inscripciones a eventos"
+        description="Cuando el cliente se inscriba a un evento, va a quedar registrado acá como histórico — útil para medir fidelización y para retomar contacto."
       />
     );
   }
@@ -107,7 +107,7 @@ export function TabWebinars({ administracionId }: Props) {
       </div>
 
       <p className="text-xs text-slate-500">
-        Histórico de servicios gratuitos prestados a este cliente vía webinars.
+        Histórico de servicios gratuitos prestados a este cliente vía eventos.
         Útil para mostrar el valor agregado de la relación.
       </p>
 

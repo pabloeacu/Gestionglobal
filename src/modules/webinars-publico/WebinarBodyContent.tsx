@@ -37,7 +37,7 @@ export function WebinarBodyContent({ resp, countdown, hideProspectoCta }: Props)
       {isCancelled && (
         <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6 text-center">
           <AlertCircle size={28} className="mx-auto mb-2 text-amber-600" />
-          <p className="font-semibold text-amber-900">Este webinar fue cancelado</p>
+          <p className="font-semibold text-amber-900">Este evento fue cancelado</p>
           <p className="mt-1 text-sm text-amber-700">
             Te avisaremos por email cuando se reprograme.
           </p>
@@ -109,7 +109,7 @@ export function WebinarBodyContent({ resp, countdown, hideProspectoCta }: Props)
           >
             <span className="inline-flex items-center gap-2">
               {acceso.canal === 'zoom' ? <Video size={20} /> : <Youtube size={20} />}
-              Unirme al webinar
+              Unirme al evento
               <ExternalLink size={16} />
             </span>
           </a>
@@ -148,7 +148,7 @@ export function WebinarBodyContent({ resp, countdown, hideProspectoCta }: Props)
         <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="mb-4 text-center">
             <CheckCircle2 size={32} className="mx-auto mb-2 text-green-600" />
-            <p className="font-display text-lg font-semibold text-brand-ink">El webinar finalizó</p>
+            <p className="font-display text-lg font-semibold text-brand-ink">El evento finalizó</p>
             {inscripto.asistio && (
               <p className="mt-1 text-sm text-green-700">¡Gracias por participar!</p>
             )}
@@ -175,7 +175,7 @@ export function WebinarBodyContent({ resp, countdown, hideProspectoCta }: Props)
             Servicios para administradores de consorcios
           </h3>
           <p className="mt-2 text-sm text-brand-muted">
-            Si te resultó útil este webinar, te interesará conocer todo lo que hacemos: matriculación RPAC,
+            Si te resultó útil este evento, te interesará conocer todo lo que hacemos: matriculación RPAC,
             DDJJ, jurídico, Administración Global SaaS y más.
           </p>
           <a

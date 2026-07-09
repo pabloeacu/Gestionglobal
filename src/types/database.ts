@@ -2970,6 +2970,42 @@ export type Database = {
           },
         ]
       }
+      disertantes: {
+        Row: {
+          activo: boolean
+          bio: string | null
+          created_at: string
+          created_by: string | null
+          cv_url: string | null
+          foto_url: string | null
+          id: string
+          nombre: string
+          updated_at: string
+        }
+        Insert: {
+          activo?: boolean
+          bio?: string | null
+          created_at?: string
+          created_by?: string | null
+          cv_url?: string | null
+          foto_url?: string | null
+          id?: string
+          nombre: string
+          updated_at?: string
+        }
+        Update: {
+          activo?: boolean
+          bio?: string | null
+          created_at?: string
+          created_by?: string | null
+          cv_url?: string | null
+          foto_url?: string | null
+          id?: string
+          nombre?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       dispatch_recupero_log: {
         Row: {
           corrida_at: string
@@ -7452,6 +7488,7 @@ export type Database = {
           es_arancelado: boolean
           fecha_hora: string
           finalizado_at: string | null
+          flyer_url: string | null
           formulario_id: string | null
           grabacion_url: string | null
           id: string
@@ -7494,6 +7531,7 @@ export type Database = {
           es_arancelado?: boolean
           fecha_hora: string
           finalizado_at?: string | null
+          flyer_url?: string | null
           formulario_id?: string | null
           grabacion_url?: string | null
           id?: string
@@ -7536,6 +7574,7 @@ export type Database = {
           es_arancelado?: boolean
           fecha_hora?: string
           finalizado_at?: string | null
+          flyer_url?: string | null
           formulario_id?: string | null
           grabacion_url?: string | null
           id?: string

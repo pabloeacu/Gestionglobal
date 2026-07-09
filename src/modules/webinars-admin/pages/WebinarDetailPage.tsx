@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, useParams } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -20,10 +21,17 @@ import {
   Save,
   MapPin,
   Ticket,
+  FileText,
+  Library,
+  Loader2,
+  BookmarkPlus,
+  X,
+  Upload,
 } from 'lucide-react';
 import { Button, Field, Input, Modal, Select, Textarea } from '@/components/common';
 import { ImageUploader } from '@/modules/campus/components/ImageUploader';
 import { listarEsquemas } from '@/services/api/certificado-esquemas';
+import { uploadCampusMedia } from '@/services/api/campus';
 import { toast } from '@/lib/toast';
 import {
   getWebinar,
@@ -35,19 +43,28 @@ import {
   marcarAsistenciaWebinar,
   emitirCertificadosWebinarLote,
   parseDocentes,
+  listDisertantes,
+  crearDisertante,
+  actualizarDisertante,
   type WebinarRow,
   type WebinarDocente,
+  type DisertanteRow,
   type InscriptoConCanal,
 } from '@/services/api/webinars';
 import { cn } from '@/lib/cn';
 import { humanizeError } from '@/lib/errors';
 
-// F6 (DGG-63) · ¿el webinar está "vigente" para inscripción? Espeja la regla
-// SQL de webinar_inscripcion_activa(): no cancelado y now() < inicio+duración.
+// F6 (DGG-63) · ¿el evento está "vigente" para inscripción? Espeja la regla
+// SQL de private.webinar_vigente_id() (mig 0294): no cancelado y now() < cierre,
+// donde cierre = inicio para presencial (la lista se arma hasta que empieza) e
+// inicio+duración para online/mixto (se puede entrar mientras transcurre).
 function esWebinarVigente(w: WebinarRow): boolean {
   if (w.status === 'cancelado') return false;
-  const fin = new Date(w.fecha_hora).getTime() + (w.duracion_min ?? 0) * 60_000;
-  return Date.now() < fin;
+  const inicio = new Date(w.fecha_hora).getTime();
+  const cierre = w.modalidad === 'presencial'
+    ? inicio
+    : inicio + (w.duracion_min ?? 0) * 60_000;
+  return Date.now() < cierre;
 }
 
 // ISO almacenado → partes locales para los inputs date/time (mismo criterio
@@ -122,7 +139,7 @@ export function WebinarDetailPage() {
   if (loading || !webinar) {
     return (
       <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center text-sm text-brand-muted">
-        Cargando webinar…
+        Cargando evento…
       </div>
     );
   }
@@ -132,7 +149,7 @@ export function WebinarDetailPage() {
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <Link to="/gerencia/formularios/webinars" className="inline-flex items-center gap-1 text-xs text-brand-muted hover:text-brand-cyan">
-            <ArrowLeft size={12} /> Volver a Webinars
+            <ArrowLeft size={12} /> Volver a Eventos
           </Link>
           <h1 className="mt-1 font-display text-2xl font-bold text-brand-ink sm:text-3xl">
             {webinar.titulo}
@@ -360,7 +377,7 @@ function PublicacionCard({ webinar, onRecargar }: { webinar: WebinarRow; onRecar
       toast.error('No pudimos actualizar la publicación', { description: humanizeError(res.error) });
       return;
     }
-    toast.success(next ? 'Webinar publicado' : 'Webinar despublicado');
+    toast.success(next ? 'Evento publicado' : 'Evento despublicado');
     void onRecargar();
   }
 
@@ -405,8 +422,10 @@ function PublicacionCard({ webinar, onRecargar }: { webinar: WebinarRow; onRecar
       </div>
 
       <p className="mt-3 text-xs text-brand-muted">
-        Sólo un webinar <strong>publicado y vigente</strong> aparece en la inscripción (landing y
-        portal). Vigencia = hasta el inicio + la duración. Si hay varios, se muestra el más próximo
+        Sólo un evento <strong>publicado y vigente</strong> aparece en la inscripción (landing y
+        portal). Vigencia: los <strong>presenciales</strong> cierran la lista al <strong>horario de
+        inicio</strong>; los <strong>online / mixtos</strong> siguen abiertos hasta inicio + duración
+        (se puede entrar mientras transcurre). Si hay varios, se muestra el más próximo
         («el más próximo gana») — podés publicar más de uno sin problema.
       </p>
 
@@ -462,7 +481,7 @@ function DatosWebinarCard({ webinar, onRecargar }: { webinar: WebinarRow; onReca
       toast.error('No pudimos guardar los cambios', { description: humanizeError(res.error) });
       return;
     }
-    toast.success('Datos del webinar actualizados');
+    toast.success('Datos del evento actualizados');
     void onRecargar();
   }
 
@@ -470,14 +489,14 @@ function DatosWebinarCard({ webinar, onRecargar }: { webinar: WebinarRow; onReca
     <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
       <div className="mb-3 flex items-center gap-2">
         <Clock size={18} className="text-brand-cyan" />
-        <h2 className="font-display text-lg font-bold text-brand-ink">Datos del webinar</h2>
+        <h2 className="font-display text-lg font-bold text-brand-ink">Datos del evento</h2>
       </div>
       <div className="space-y-3">
         <Field label="Título" required>
           <Input value={titulo} onChange={(e) => setTitulo(e.target.value)} placeholder="Ej. Cómo cumplir con la DDJJ 2026" />
         </Field>
         <Field label="Descripción">
-          <Textarea value={descripcion} onChange={(e) => setDescripcion(e.target.value)} rows={3} placeholder="Resumen del contenido del webinar" />
+          <Textarea value={descripcion} onChange={(e) => setDescripcion(e.target.value)} rows={3} placeholder="Resumen del contenido del evento" />
         </Field>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           <Field label="Fecha" required>
@@ -687,15 +706,26 @@ function ArancelCard({ webinar, onRecargar }: { webinar: WebinarRow; onRecargar:
   );
 }
 
-// Banner: imagen ancha (3:1) que encabeza la página de inscripción. Sube al
-// bucket campus-media (scope webinar-banner) vía ImageUploader (R20).
+// Banner + flyer: el banner es la imagen ancha (3:1) que encabeza la página de
+// inscripción; el flyer es el arte vertical (1080×1350) que va al costado del
+// formulario. Ambos suben al bucket campus-media vía ImageUploader (R20).
 function BannerCard({ webinar, onRecargar }: { webinar: WebinarRow; onRecargar: () => Promise<void> }) {
   const [banner, setBanner] = useState<string | null>(webinar.banner_url);
+  const [flyer, setFlyer] = useState<string | null>(webinar.flyer_url);
 
-  async function persist(url: string | null) {
+  async function persistBanner(url: string | null) {
     const res = await actualizarWebinar(webinar.id, { bannerUrl: url });
     if (!res.ok) {
       toast.error('No pudimos guardar el banner', { description: humanizeError(res.error) });
+      return;
+    }
+    await onRecargar();
+  }
+
+  async function persistFlyer(url: string | null) {
+    const res = await actualizarWebinar(webinar.id, { flyerUrl: url });
+    if (!res.ok) {
+      toast.error('No pudimos guardar el flyer', { description: humanizeError(res.error) });
       return;
     }
     await onRecargar();
@@ -705,45 +735,81 @@ function BannerCard({ webinar, onRecargar }: { webinar: WebinarRow; onRecargar: 
     <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
       <div className="mb-3 flex items-center gap-2">
         <ImageIcon size={18} className="text-brand-cyan" />
-        <h2 className="font-display text-lg font-bold text-brand-ink">Banner</h2>
+        <h2 className="font-display text-lg font-bold text-brand-ink">Banner y flyer</h2>
       </div>
-      <p className="mb-3 text-xs text-brand-muted">
-        Imagen que encabeza la página de inscripción (landing y portal). Recomendado 3:1 (ej. 1200×400).
-      </p>
-      <ImageUploader
-        value={banner}
-        onChange={setBanner}
-        onPersist={(url) => persist(url)}
-        scope="webinar-banner"
-        ownerId={webinar.id}
-        shape="wide"
-        label="Banner del webinar"
-        hint="Hasta 5 MB · se recorta en 3:1"
-      />
+      <div className="grid gap-5 sm:grid-cols-2">
+        <div>
+          <p className="mb-3 text-xs text-brand-muted">
+            <strong>Banner</strong> — encabeza la página de inscripción (landing y portal).
+            Recomendado 3:1 (ej. 1200×400).
+          </p>
+          <ImageUploader
+            value={banner}
+            onChange={setBanner}
+            onPersist={(url) => persistBanner(url)}
+            scope="webinar-banner"
+            ownerId={webinar.id}
+            shape="wide"
+            label="Banner del evento"
+            hint="Hasta 5 MB · se recorta en 3:1"
+          />
+        </div>
+        <div>
+          <p className="mb-3 text-xs text-brand-muted">
+            <strong>Flyer</strong> — arte vertical que se muestra al costado del formulario.
+            Formato 1080×1350 (4:5). Opcional.
+          </p>
+          <ImageUploader
+            value={flyer}
+            onChange={setFlyer}
+            onPersist={(url) => persistFlyer(url)}
+            scope="webinar-flyer"
+            ownerId={webinar.id}
+            shape="portrait"
+            label="Flyer promocional"
+            hint="Hasta 5 MB · se recorta en 4:5 (1080×1350)"
+          />
+        </div>
+      </div>
     </section>
   );
 }
 
-// Docentes: roster [{nombre, foto_url}]. Agregar / quitar / nombre + foto de
-// cada uno. La foto sube al bucket campus-media (scope webinar-docente, R20);
-// el array completo se persiste en webinars.docentes.
+// Docentes / Disertantes: roster [{nombre, foto_url, cv_url, bio}] snapshoteado
+// en webinars.docentes. La foto sube al bucket campus-media (scope
+// webinar-docente) y el CV (PDF) a scope webinar-disertante-cv, ambos R20. Se
+// puede (refinamientos Pablo · 0293):
+//   · "Elegir del banco" → traer un disertante ya cargado (foto + CV + bio) del
+//     catálogo reutilizable public.disertantes y snapshotearlo al evento.
+//   · "Agregar nuevo" → cargarlo a mano y, con "Guardar en el banco", dejarlo
+//     disponible para el próximo evento.
+// El público lee SIEMPRE el snapshot del evento (no el catálogo, que es
+// staff-only) → editar el banco luego no rompe eventos pasados.
 //
 // §6 (Agente A) · cada docente lleva un id estable de sesión (NO se persiste):
 //   · key={id} → React no reasigna el estado interno del ImageUploader a la
 //     fila equivocada al quitar uno del medio (evita aplicar una foto en vuelo
 //     a otro docente).
 //   · rowsRef siempre tiene el último estado → las mutaciones (foto/quitar/
-//     nombre) parten de lo último, sin races al subir 2 fotos seguidas.
+//     nombre/cv) parten de lo último, sin races al subir 2 fotos seguidas.
 //   · persist deduplica contra el último array guardado (lastPersisted) → el
 //     blur del nombre no dispara writes redundantes y es correcto sin importar
 //     el índice.
+//   · bancoId (session-only, NO se snapshotea): si el disertante vino del banco
+//     o ya se guardó, "Guardar en el banco" actualiza en vez de duplicar.
 interface DocenteRow extends WebinarDocente {
   id: string;
+  bancoId?: string | null;
 }
 let _docSeq = 0;
 const nextDocId = () => `doc-${++_docSeq}`;
 const stripDocentes = (rows: DocenteRow[]): WebinarDocente[] =>
-  rows.map(({ nombre, foto_url }) => ({ nombre, foto_url }));
+  rows.map(({ nombre, foto_url, cv_url, bio }) => ({
+    nombre,
+    foto_url,
+    cv_url: cv_url ?? null,
+    bio: bio ?? null,
+  }));
 
 function DocentesCard({ webinar, onRecargar }: { webinar: WebinarRow; onRecargar: () => Promise<void> }) {
   const [rows, setRowsState] = useState<DocenteRow[]>(() =>
@@ -751,6 +817,12 @@ function DocentesCard({ webinar, onRecargar }: { webinar: WebinarRow; onRecargar
   );
   const rowsRef = useRef(rows);
   const lastPersisted = useRef(JSON.stringify(stripDocentes(rows)));
+  const [cvBusy, setCvBusy] = useState<string | null>(null);
+  const [bancoBusy, setBancoBusy] = useState<string | null>(null);
+  // Banco de disertantes (catálogo reutilizable). Se carga perezoso al abrir.
+  const [bancoOpen, setBancoOpen] = useState(false);
+  const [bancoItems, setBancoItems] = useState<DisertanteRow[] | null>(null);
+  const [bancoLoading, setBancoLoading] = useState(false);
 
   function setRows(next: DocenteRow[]) {
     rowsRef.current = next;
@@ -763,7 +835,7 @@ function DocentesCard({ webinar, onRecargar }: { webinar: WebinarRow; onRecargar
     if (json === lastPersisted.current) return; // sin cambios reales → no escribe
     const res = await actualizarWebinar(webinar.id, { docentes: stripped });
     if (!res.ok) {
-      toast.error('No pudimos guardar los docentes', { description: humanizeError(res.error) });
+      toast.error('No pudimos guardar los disertantes', { description: humanizeError(res.error) });
       return;
     }
     lastPersisted.current = json;
@@ -771,7 +843,7 @@ function DocentesCard({ webinar, onRecargar }: { webinar: WebinarRow; onRecargar
   }
 
   function addDocente() {
-    const next = [...rowsRef.current, { id: nextDocId(), nombre: '', foto_url: null }];
+    const next = [...rowsRef.current, { id: nextDocId(), nombre: '', foto_url: null, cv_url: null, bio: null }];
     setRows(next);
     void persist(next);
   }
@@ -788,35 +860,114 @@ function DocentesCard({ webinar, onRecargar }: { webinar: WebinarRow; onRecargar
   function setNombre(id: string, v: string) {
     setRows(rowsRef.current.map((r) => (r.id === id ? { ...r, nombre: v } : r)));
   }
+  function setBio(id: string, v: string) {
+    setRows(rowsRef.current.map((r) => (r.id === id ? { ...r, bio: v } : r)));
+  }
+  function setCv(id: string, url: string | null) {
+    const next = rowsRef.current.map((r) => (r.id === id ? { ...r, cv_url: url } : r));
+    setRows(next);
+    void persist(next);
+  }
+
+  async function uploadCv(id: string, file: File) {
+    if (file.type !== 'application/pdf') { toast.error('El CV debe ser un PDF'); return; }
+    if (file.size > 10 * 1024 * 1024) { toast.error('El CV no puede pesar más de 10 MB'); return; }
+    setCvBusy(id);
+    const res = await uploadCampusMedia('webinar-disertante-cv', webinar.id, file);
+    setCvBusy(null);
+    if (!res.ok) {
+      toast.error('No pudimos subir el CV', { description: humanizeError(res.error) });
+      return;
+    }
+    setCv(id, res.data);
+    toast.success('CV cargado');
+  }
+
+  // Guarda/actualiza el disertante en el catálogo reutilizable (banco). NO toca
+  // el snapshot del evento (ese ya se persiste solo). Marca bancoId para no
+  // duplicar en el próximo "guardar".
+  async function guardarEnBanco(id: string) {
+    const row = rowsRef.current.find((r) => r.id === id);
+    if (!row) return;
+    if (!row.nombre.trim()) { toast.error('Poné el nombre antes de guardar en el banco'); return; }
+    setBancoBusy(id);
+    const payload = {
+      nombre: row.nombre.trim(),
+      foto_url: row.foto_url,
+      cv_url: row.cv_url ?? null,
+      bio: row.bio ?? null,
+    };
+    const res = row.bancoId
+      ? await actualizarDisertante(row.bancoId, payload)
+      : await crearDisertante(payload);
+    setBancoBusy(null);
+    if (!res.ok) {
+      toast.error('No pudimos guardar en el banco', { description: humanizeError(res.error) });
+      return;
+    }
+    setRows(rowsRef.current.map((r) => (r.id === id ? { ...r, bancoId: res.data.id } : r)));
+    setBancoItems(null); // invalida cache → próxima apertura relee el catálogo
+    toast.success(row.bancoId ? 'Actualizado en el banco' : 'Guardado en el banco');
+  }
+
+  async function openBanco() {
+    setBancoOpen(true);
+    if (bancoItems !== null) return; // ya cargado en esta sesión
+    setBancoLoading(true);
+    const res = await listDisertantes();
+    setBancoLoading(false);
+    if (!res.ok) {
+      toast.error('No pudimos cargar el banco', { description: humanizeError(res.error) });
+      setBancoItems([]);
+      return;
+    }
+    setBancoItems(res.data);
+  }
+
+  function addFromBanco(d: DisertanteRow) {
+    const next = [
+      ...rowsRef.current,
+      { id: nextDocId(), bancoId: d.id, nombre: d.nombre, foto_url: d.foto_url, cv_url: d.cv_url, bio: d.bio },
+    ];
+    setRows(next);
+    void persist(next);
+    setBancoOpen(false);
+    toast.success(`${d.nombre} agregado al evento`);
+  }
 
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <GraduationCap size={18} className="text-brand-cyan" />
-          <h2 className="font-display text-lg font-bold text-brand-ink">Docentes</h2>
+          <h2 className="font-display text-lg font-bold text-brand-ink">Docentes / Disertantes</h2>
           {rows.length > 0 && (
             <span className="rounded-full bg-brand-cyan/10 px-2 py-0.5 text-[11px] font-semibold text-brand-cyan">
               {rows.length}
             </span>
           )}
         </div>
-        <Button variant="secondary" onClick={addDocente}>
-          <Plus size={13} /> Agregar docente
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" onClick={() => void openBanco()}>
+            <Library size={13} /> Elegir del banco
+          </Button>
+          <Button variant="secondary" onClick={addDocente}>
+            <Plus size={13} /> Agregar nuevo
+          </Button>
+        </div>
       </div>
 
       {rows.length === 0 ? (
         <p className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4 text-center text-xs text-brand-muted">
-          Sin docentes cargados. Agregá al menos uno (nombre + foto) para que la página de
-          inscripción muestre quién dicta el webinar.
+          Sin disertantes cargados. Agregá al menos uno (nombre + foto) o elegilo del banco para que
+          la página de inscripción muestre quién dicta el evento.
         </p>
       ) : (
         <ul className="space-y-3">
           {rows.map((r) => (
             <li
               key={r.id}
-              className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-slate-50/60 p-3 sm:flex-nowrap"
+              className="flex flex-wrap items-start gap-3 rounded-xl border border-slate-200 bg-slate-50/60 p-3 sm:flex-nowrap"
             >
               <ImageUploader
                 value={r.foto_url}
@@ -827,8 +978,8 @@ function DocentesCard({ webinar, onRecargar }: { webinar: WebinarRow; onRecargar
                 shape="circle"
                 size="sm"
               />
-              <div className="min-w-0 flex-1">
-                <Field label="Nombre del docente">
+              <div className="min-w-0 flex-1 space-y-2">
+                <Field label="Nombre del disertante">
                   <Input
                     value={r.nombre}
                     onChange={(e) => setNombre(r.id, e.target.value)}
@@ -836,20 +987,182 @@ function DocentesCard({ webinar, onRecargar }: { webinar: WebinarRow; onRecargar
                     placeholder="Ej. Dra. María González"
                   />
                 </Field>
+                <Field label="Bio" hint="Opcional · una línea">
+                  <Input
+                    value={r.bio ?? ''}
+                    onChange={(e) => setBio(r.id, e.target.value)}
+                    onBlur={() => void persist(rowsRef.current)}
+                    placeholder="Ej. Contadora, especialista en propiedad horizontal"
+                  />
+                </Field>
+                {/* CV (PDF) */}
+                <div className="flex flex-wrap items-center gap-2">
+                  {r.cv_url ? (
+                    <>
+                      <a
+                        href={r.cv_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-brand-cyan hover:bg-brand-cyan-pale/30"
+                      >
+                        <FileText size={12} /> Ver CV
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() => setCv(r.id, null)}
+                        className="text-xs text-red-600 hover:underline"
+                      >
+                        Quitar CV
+                      </button>
+                    </>
+                  ) : (
+                    <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-brand-ink shadow-sm hover:border-brand-cyan/40 hover:bg-brand-cyan-pale/30">
+                      {cvBusy === r.id ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
+                      Subir CV (PDF)
+                      <input
+                        type="file"
+                        accept="application/pdf"
+                        className="hidden"
+                        onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          e.target.value = '';
+                          if (f) void uploadCv(r.id, f);
+                        }}
+                      />
+                    </label>
+                  )}
+                </div>
               </div>
-              <button
-                type="button"
-                onClick={() => removeDocente(r.id)}
-                aria-label="Quitar docente"
-                className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-slate-200 bg-white text-red-600 hover:bg-red-50"
-              >
-                <Trash2 size={15} />
-              </button>
+              <div className="flex shrink-0 gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => void guardarEnBanco(r.id)}
+                  disabled={bancoBusy === r.id}
+                  aria-label={r.bancoId ? 'Actualizar en el banco' : 'Guardar en el banco'}
+                  title={r.bancoId ? 'Actualizar en el banco' : 'Guardar en el banco'}
+                  className="grid h-9 w-9 place-items-center rounded-lg border border-brand-cyan/30 bg-brand-cyan-pale/40 text-brand-cyan hover:bg-brand-cyan-pale/70 disabled:opacity-60"
+                >
+                  {bancoBusy === r.id ? <Loader2 size={15} className="animate-spin" /> : <BookmarkPlus size={15} />}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => removeDocente(r.id)}
+                  aria-label="Quitar disertante"
+                  title="Quitar del evento"
+                  className="grid h-9 w-9 place-items-center rounded-lg border border-slate-200 bg-white text-red-600 hover:bg-red-50"
+                >
+                  <Trash2 size={15} />
+                </button>
+              </div>
             </li>
           ))}
         </ul>
       )}
+
+      {bancoOpen && (
+        <DisertantesBancoModal
+          items={bancoItems}
+          loading={bancoLoading}
+          onClose={() => setBancoOpen(false)}
+          onPick={addFromBanco}
+        />
+      )}
     </section>
+  );
+}
+
+// Modal del banco de disertantes · grilla del catálogo reutilizable (foto +
+// nombre + CV + bio). Elegir uno lo snapshotea al evento.
+function DisertantesBancoModal({
+  items,
+  loading,
+  onClose,
+  onPick,
+}: {
+  items: DisertanteRow[] | null;
+  loading: boolean;
+  onClose: () => void;
+  onPick: (d: DisertanteRow) => void;
+}) {
+  const [q, setQ] = useState('');
+  const visibles = (items ?? []).filter((it) =>
+    q.trim() ? it.nombre.toLowerCase().includes(q.trim().toLowerCase()) : true,
+  );
+  return createPortal(
+    <div className="fixed inset-0 z-[60] grid place-items-center bg-brand-ink/60 p-4">
+      <div className="card-premium relative flex max-h-[80vh] w-full max-w-lg flex-col gap-3 p-4">
+        <header className="flex items-center justify-between">
+          <h3 className="inline-flex items-center gap-2 font-display text-base font-semibold text-brand-ink">
+            <Library size={16} className="text-brand-cyan" /> Banco de disertantes
+          </h3>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Cerrar"
+            className="rounded-md p-1 text-brand-muted hover:bg-slate-100"
+          >
+            <X size={16} />
+          </button>
+        </header>
+        {items && items.length > 6 && (
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Buscar disertante…"
+            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm outline-none focus:border-brand-cyan focus:ring-4 focus:ring-brand-cyan/10"
+          />
+        )}
+        <div className="min-h-[120px] overflow-y-auto">
+          {loading ? (
+            <div className="grid h-32 place-items-center text-brand-muted">
+              <Loader2 size={20} className="animate-spin" />
+            </div>
+          ) : visibles.length === 0 ? (
+            <p className="grid h-32 place-items-center px-4 text-center text-sm text-brand-muted">
+              {items && items.length === 0
+                ? 'Todavía no hay disertantes en el banco. Cargá el primero con "Agregar nuevo" y tocá "Guardar en el banco".'
+                : 'Ningún disertante coincide con la búsqueda.'}
+            </p>
+          ) : (
+            <ul className="space-y-2">
+              {visibles.map((d) => (
+                <li key={d.id}>
+                  <button
+                    type="button"
+                    onClick={() => onPick(d)}
+                    className="flex w-full items-center gap-3 rounded-xl border border-slate-200 bg-white p-2.5 text-left transition hover:border-brand-cyan hover:shadow-sm"
+                    title={`Agregar a ${d.nombre} al evento`}
+                  >
+                    {d.foto_url ? (
+                      <img
+                        src={d.foto_url}
+                        alt={d.nombre}
+                        loading="lazy"
+                        className="h-12 w-12 shrink-0 rounded-full border border-slate-200 object-cover"
+                      />
+                    ) : (
+                      <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full border border-slate-200 bg-brand-cyan/10 text-sm font-semibold text-brand-cyan">
+                        {d.nombre.slice(0, 1).toUpperCase() || '?'}
+                      </span>
+                    )}
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-semibold text-brand-ink">{d.nombre}</span>
+                      {d.bio && <span className="block truncate text-xs text-brand-muted">{d.bio}</span>}
+                    </span>
+                    {d.cv_url && (
+                      <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-brand-cyan-pale/50 px-2 py-0.5 text-[10px] font-semibold text-brand-cyan">
+                        <FileText size={10} /> CV
+                      </span>
+                    )}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -882,7 +1195,7 @@ function CertificadoWebinarSection({
       toast.error('No pudimos guardar', { description: humanizeError(res.error) });
       return;
     }
-    toast.success('Certificado del webinar actualizado');
+    toast.success('Certificado del evento actualizado');
     void onRecargar();
   }
 
@@ -1051,6 +1364,8 @@ function InscriptosTab({ inscriptos, tokens, onAbrirInscribir }: {
                   <td className="px-4 py-2">
                     {i.canal === 'zoom' ? (
                       <span className="inline-flex items-center gap-1 text-blue-700"><Video size={11} /> Zoom</span>
+                    ) : i.canal === 'presencial' ? (
+                      <span className="inline-flex items-center gap-1 text-violet-700"><MapPin size={11} /> Presencial</span>
                     ) : (
                       <span className="inline-flex items-center gap-1 text-red-700"><Youtube size={11} /> YouTube</span>
                     )}
@@ -1120,7 +1435,7 @@ function AsistenciaTab({ inscriptos, webinar, onRecargar }: {
       <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-brand-muted">
         {esPresencial
           ? 'Pasá lista marcando quién asistió. Si el evento es mixto, los inscriptos online también quedan registrados por el webhook de Zoom.'
-          : 'La asistencia se computa por webhook de Zoom (match por email) y se cierra cuando el webinar termina. Los inscriptos por YouTube Live no tienen asistencia automática.'}
+          : 'La asistencia se computa por webhook de Zoom (match por email) y se cierra cuando el evento termina. Los inscriptos por YouTube Live no tienen asistencia automática.'}
       </div>
 
       {esPresencial ? (

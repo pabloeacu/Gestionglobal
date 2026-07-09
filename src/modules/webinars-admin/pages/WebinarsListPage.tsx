@@ -71,10 +71,10 @@ export function WebinarsListPage() {
 
   async function handleDuplicate(w: WebinarRow) {
     const okc = await confirm({
-      title: 'Duplicar webinar',
+      title: 'Duplicar evento',
       message:
-        `Se creará una copia BORRADOR de "${w.titulo}" (descripción, fecha, docentes, ` +
-        'banner, certificado y formulario de inscripción). NO se copian la sala Zoom ' +
+        `Se creará una copia BORRADOR de "${w.titulo}" (descripción, fecha, disertantes, ` +
+        'banner, flyer, certificado y formulario de inscripción). NO se copian la sala Zoom ' +
         'ni los inscriptos. Después la editás y la publicás.',
       confirmLabel: 'Duplicar',
     });
@@ -83,10 +83,10 @@ export function WebinarsListPage() {
     const res = await duplicarWebinar(w.id);
     setDuplicatingId(null);
     if (!res.ok) {
-      toast.error('No pudimos duplicar el webinar', { description: humanizeError(res.error) });
+      toast.error('No pudimos duplicar el evento', { description: humanizeError(res.error) });
       return;
     }
-    toast.success('Webinar duplicado. Abriendo la copia…');
+    toast.success('Evento duplicado. Abriendo la copia…');
     window.location.assign(`/gerencia/formularios/webinars/${res.data}`);
   }
 
@@ -103,7 +103,7 @@ export function WebinarsListPage() {
             Eventos
           </h1>
           <p className="mt-1 max-w-xl text-sm text-brand-muted">
-            Webinars, charlas y jornadas — online, presenciales o mixtas. Inscripción pública con
+            Charlas, talleres, jornadas y webinars — online, presenciales o mixtos. Inscripción pública con
             magic-link único por inscripto y captación de prospectos.
           </p>
         </div>
@@ -137,7 +137,7 @@ export function WebinarsListPage() {
 
       {loading ? (
         <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center text-sm text-brand-muted">
-          Cargando webinars…
+          Cargando eventos…
         </div>
       ) : visibles.length === 0 ? (
         <IllustratedEmpty
@@ -202,8 +202,8 @@ export function WebinarsListPage() {
                         e.stopPropagation();
                         if (duplicatingId !== w.id) void handleDuplicate(w);
                       }}
-                      title="Duplicar webinar (copia borrador, sin inscriptos)"
-                      aria-label="Duplicar webinar"
+                      title="Duplicar evento (copia borrador, sin inscriptos)"
+                      aria-label="Duplicar evento"
                       className="relative z-10 inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-brand-ink shadow-sm ring-1 ring-slate-200 transition hover:text-brand-cyan disabled:cursor-not-allowed disabled:opacity-70"
                     >
                       {duplicatingId === w.id ? (

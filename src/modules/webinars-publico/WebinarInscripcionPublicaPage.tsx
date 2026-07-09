@@ -1,8 +1,10 @@
-// F6 (DGG-63) · Página pública de inscripción a webinars (ruta /webinars).
+// F6 (DGG-63) · Página pública de inscripción a eventos (ruta /eventos; /webinars
+// queda como alias legacy).
 //
-// Disposición condicional: si hay webinar publicado+vigente → identidad branded
-// + el formulario vinculado/compartido embebido (FormularioRunner). Si no →
-// la página de texto de espera. Es el destino del CTA de webinar de la landing.
+// Disposición condicional: si hay evento publicado+vigente → identidad branded
+// + el formulario vinculado/compartido embebido (FormularioRunner) con el flyer
+// vertical al costado (si lo hay). Si no → la página de texto de espera. Es el
+// destino del CTA de eventos de la landing.
 
 import { useEffect, useState } from 'react';
 import { AlertCircle, MapPin, Globe } from 'lucide-react';
@@ -34,11 +36,25 @@ export function WebinarInscripcionPublicaPage() {
           </div>
         ) : data ? (
           <WebinarIdentidad w={data}>
-            <WebinarFormInscripcion
-              slug={data.formulario_slug}
-              activo={data.formulario_activo}
-              modalidad={data.modalidad}
-            />
+            <div className="flex flex-col gap-6 md:flex-row md:items-start">
+              <div className="min-w-0 flex-1">
+                <WebinarFormInscripcion
+                  slug={data.formulario_slug}
+                  activo={data.formulario_activo}
+                  modalidad={data.modalidad}
+                />
+              </div>
+              {data.flyer_url && (
+                <aside className="md:w-60 md:shrink-0">
+                  <img
+                    src={data.flyer_url}
+                    alt={`Flyer de ${data.titulo}`}
+                    className="mx-auto w-full max-w-[16rem] rounded-2xl border border-slate-200 shadow-[0_18px_44px_-24px_rgba(0,93,105,0.4)]"
+                    loading="lazy"
+                  />
+                </aside>
+              )}
+            </div>
           </WebinarIdentidad>
         ) : (
           <div className="py-10">

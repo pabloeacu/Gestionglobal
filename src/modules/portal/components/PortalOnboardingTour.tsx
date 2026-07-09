@@ -98,14 +98,14 @@ const STEPS: Step[] = [
     kicker: 'BIENVENIDO',
     titulo: 'Tu portal de servicios',
     descripcion:
-      'Acá tenés todo lo que contrataste con Gestión Global: cursos, trámites, webinars, comprobantes y más. Te lo presentamos en pocos pasos.',
+      'Acá tenés todo lo que contrataste con Gestión Global: cursos, trámites, eventos, comprobantes y más. Te lo presentamos en pocos pasos.',
   },
   {
     icon: Home,
     kicker: 'INICIO',
     titulo: 'Acceso inteligente',
     descripcion:
-      'La pantalla principal te muestra lo más importante del día: tus clases próximas, webinars de hoy, vencimientos urgentes y oportunidades para vos.',
+      'La pantalla principal te muestra lo más importante del día: tus clases próximas, eventos de hoy, vencimientos urgentes y oportunidades para vos.',
   },
   {
     icon: GraduationCap,
@@ -116,10 +116,10 @@ const STEPS: Step[] = [
   },
   {
     icon: Video,
-    kicker: 'WEBINARS',
-    titulo: 'Capacitaciones gratuitas',
+    kicker: 'EVENTOS',
+    titulo: 'Capacitaciones y encuentros',
     descripcion:
-      'Anotate a webinars formativos sin costo. Te avisamos antes de cada evento por mail y notificación push.',
+      'Anotate a eventos formativos de Gestión Global — online y presenciales. Te avisamos antes de cada uno por mail y notificación push.',
   },
   {
     icon: FileText,
@@ -143,14 +143,14 @@ const STEPS: Step[] = [
       if (!ctx.notifSupported) {
         return (
           <span>
-            Tu navegador no soporta notificaciones push. Probá desde Chrome, Safari moderno o Firefox para recibir avisos antes de cada clase, webinar y vencimiento.
+            Tu navegador no soporta notificaciones push. Probá desde Chrome, Safari moderno o Firefox para recibir avisos antes de cada clase, evento y vencimiento.
           </span>
         );
       }
       if (ctx.notifPermission === 'granted') {
         return (
           <span>
-            Ya tenés las notificaciones <strong>activadas</strong>. Te vamos a avisar antes de cada clase, webinar y vencimiento importante. Sin spam.
+            Ya tenés las notificaciones <strong>activadas</strong>. Te vamos a avisar antes de cada clase, evento y vencimiento importante. Sin spam.
           </span>
         );
       }
@@ -178,7 +178,7 @@ const STEPS: Step[] = [
       // default
       return (
         <span>
-          Te avisamos antes de cada clase, webinar y vencimiento importante. Sin spam, sólo lo necesario. La activás desde el banner verde del inicio · un toque y listo.
+          Te avisamos antes de cada clase, evento y vencimiento importante. Sin spam, sólo lo necesario. La activás desde el banner verde del inicio · un toque y listo.
         </span>
       );
     },

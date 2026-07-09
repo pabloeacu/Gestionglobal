@@ -221,7 +221,7 @@ export function CertificadoPlantillasPage() {
             Plantillas de certificado
           </h1>
           <p className="mt-1 max-w-2xl text-sm text-brand-muted">
-            Cada esquema deriva de la plantilla base. Asignalo a un curso o webinar y se aplica
+            Cada esquema deriva de la plantilla base. Asignalo a un curso o evento y se aplica
             automáticamente cuando el alumno egresa.
           </p>
         </div>
@@ -361,12 +361,12 @@ export function CertificadoPlantillasPage() {
                       </span>
                     </header>
                     <p className="mb-3 text-[11px] text-brand-muted">
-                      Se completan al emitir el certificado, desde el curso/webinar al que está vinculado este esquema y los datos del alumno.
+                      Se completan al emitir el certificado, desde el curso/evento al que está vinculado este esquema y los datos del alumno.
                     </p>
                     <ul className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
                       {[
                         { l: 'Nombre del alumno', o: 'Desde la matrícula' },
-                        { l: 'Nombre del curso o webinar', o: 'Desde el curso/webinar vinculado' },
+                        { l: 'Nombre del curso o evento', o: 'Desde el curso/evento vinculado' },
                         { l: 'Fecha de emisión', o: 'Mes y año del egreso' },
                         { l: 'Duración en horas', o: 'Desde el curso' },
                         { l: 'Calificación', o: 'Si corresponde (examen)' },

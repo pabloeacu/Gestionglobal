@@ -10,12 +10,18 @@ export type WebinarRow = Database['public']['Tables']['webinars']['Row'];
 export type WebinarInscriptoRow = Database['public']['Tables']['webinar_inscriptos']['Row'];
 export type ProspectoRow = Database['public']['Tables']['prospectos']['Row'];
 
-// F6 (DGG-63) · Roster de docentes del webinar (esquema tipo curso). Se
-// persiste en webinars.docentes (jsonb [{nombre,foto_url}]). foto_url puede
-// ser null → la UI muestra la inicial del nombre (igual que campus).
+// F6 (DGG-63) · Roster de docentes/disertantes del evento (esquema tipo curso).
+// Se persiste como SNAPSHOT en webinars.docentes (jsonb
+// [{nombre,foto_url,cv_url,bio}]). foto_url puede ser null → la UI muestra la
+// inicial del nombre (igual que campus). cv_url (PDF público) alimenta el
+// "Ver CV" en la página pública. Snapshot ⇒ la página pública NO lee el
+// catálogo `disertantes` (staff-only) y el evento no se rompe si se edita el
+// banco luego (0293 · refinamientos Pablo).
 export interface WebinarDocente {
   nombre: string;
   foto_url: string | null;
+  cv_url?: string | null;
+  bio?: string | null;
 }
 
 /**
@@ -31,9 +37,104 @@ export function parseDocentes(value: WebinarRow['docentes']): WebinarDocente[] {
       const rec = d as Record<string, unknown>;
       const nombre = typeof rec.nombre === 'string' ? rec.nombre : '';
       const foto = typeof rec.foto_url === 'string' ? rec.foto_url : null;
-      return { nombre, foto_url: foto } as WebinarDocente;
+      const cv = typeof rec.cv_url === 'string' ? rec.cv_url : null;
+      const bio = typeof rec.bio === 'string' ? rec.bio : null;
+      return { nombre, foto_url: foto, cv_url: cv, bio } as WebinarDocente;
     })
     .filter((d): d is WebinarDocente => d !== null);
+}
+
+// ============================================================================
+// Banco de disertantes (catálogo reutilizable · mig 0293). Staff-only
+// (tabla con RLS is_staff + GRANT sólo a authenticated, sin anon). La gerencia
+// elige de acá o carga uno nuevo que queda guardado para el próximo evento.
+// El evento snapshotea nombre/foto/cv en webinars.docentes (arriba).
+// ============================================================================
+export type DisertanteRow = Database['public']['Tables']['disertantes']['Row'];
+
+export async function listDisertantes(): Promise<ApiResponse<DisertanteRow[]>> {
+  try {
+    const { data, error } = await supabase
+      .from('disertantes')
+      .select('*')
+      .eq('activo', true)
+      .order('nombre', { ascending: true });
+    if (error) throw error;
+    return ok(data ?? []);
+  } catch (e) {
+    const err = toApiError(e);
+    return fail(err.code, err.message, err.details);
+  }
+}
+
+export interface GuardarDisertanteInput {
+  nombre: string;
+  foto_url?: string | null;
+  cv_url?: string | null;
+  bio?: string | null;
+}
+
+/** Alta en el banco. Devuelve la fila creada (para snapshotear al evento). */
+export async function crearDisertante(
+  input: GuardarDisertanteInput,
+): Promise<ApiResponse<DisertanteRow>> {
+  try {
+    const { data, error } = await supabase
+      .from('disertantes')
+      .insert({
+        nombre: input.nombre.trim(),
+        foto_url: input.foto_url ?? null,
+        cv_url: input.cv_url ?? null,
+        bio: input.bio ?? null,
+      })
+      .select()
+      .single();
+    if (error) throw error;
+    return ok(data);
+  } catch (e) {
+    const err = toApiError(e);
+    return fail(err.code, err.message, err.details);
+  }
+}
+
+export async function actualizarDisertante(
+  id: string,
+  input: GuardarDisertanteInput,
+): Promise<ApiResponse<DisertanteRow>> {
+  try {
+    type DisertanteUpdate = Database['public']['Tables']['disertantes']['Update'];
+    const patch: DisertanteUpdate = {};
+    if (input.nombre !== undefined) patch.nombre = input.nombre.trim();
+    if (input.foto_url !== undefined) patch.foto_url = input.foto_url;
+    if (input.cv_url !== undefined) patch.cv_url = input.cv_url;
+    if (input.bio !== undefined) patch.bio = input.bio;
+    const { data, error } = await supabase
+      .from('disertantes')
+      .update(patch)
+      .eq('id', id)
+      .select()
+      .single();
+    if (error) throw error;
+    return ok(data);
+  } catch (e) {
+    const err = toApiError(e);
+    return fail(err.code, err.message, err.details);
+  }
+}
+
+/** Baja lógica del banco (no borra; preserva snapshots ya tomados). */
+export async function desactivarDisertante(id: string): Promise<ApiResponse<true>> {
+  try {
+    const { error } = await supabase
+      .from('disertantes')
+      .update({ activo: false })
+      .eq('id', id);
+    if (error) throw error;
+    return ok(true as const);
+  } catch (e) {
+    const err = toApiError(e);
+    return fail(err.code, err.message, err.details);
+  }
 }
 
 export interface WebinarKpis {
@@ -51,6 +152,7 @@ export interface WebinarInscripcionActiva {
   titulo: string;
   descripcion: string | null;
   banner_url: string | null;
+  flyer_url: string | null;
   docentes: WebinarDocente[];
   fecha_hora: string;
   duracion_min: number;
@@ -85,6 +187,7 @@ export async function fetchWebinarInscripcionActiva(): Promise<ApiResponse<Webin
       titulo: String(raw.titulo),
       descripcion: (raw.descripcion as string | null) ?? null,
       banner_url: (raw.banner_url as string | null) ?? null,
+      flyer_url: (raw.flyer_url as string | null) ?? null,
       docentes: parseDocentes(raw.docentes as WebinarRow['docentes']),
       fecha_hora: String(raw.fecha_hora),
       duracion_min: Number(raw.duracion_min ?? 0),
@@ -223,6 +326,7 @@ export interface ActualizarWebinarInput {
   certEmite?: boolean;
   // F6 (DGG-63)
   bannerUrl?: string | null;
+  flyerUrl?: string | null;
   publicado?: boolean;
   docentes?: WebinarDocente[];
   // Eventos (2026-07): modalidad + ubicación + arancel informativo
@@ -257,6 +361,7 @@ export async function actualizarWebinar(
     if (input.certEsquemaId !== undefined) patch.cert_esquema_id = input.certEsquemaId;
     if (input.certEmite !== undefined) patch.cert_emite = input.certEmite;
     if (input.bannerUrl !== undefined) patch.banner_url = input.bannerUrl;
+    if (input.flyerUrl !== undefined) patch.flyer_url = input.flyerUrl;
     if (input.publicado !== undefined) patch.publicado = input.publicado;
     if (input.docentes !== undefined) {
       patch.docentes = input.docentes as unknown as WebinarUpdate['docentes'];
@@ -387,7 +492,7 @@ export interface InscriptoConCanal {
   email_snapshot: string;
   nombre_snapshot: string;
   telefono_snapshot: string | null;
-  canal: 'zoom' | 'youtube';
+  canal: 'zoom' | 'youtube' | 'presencial';
   administracion_id: string | null;
   prospecto_id: string | null;
   asistio: boolean;
@@ -422,7 +527,7 @@ export async function listInscriptos(
         email_snapshot: String(row.email_snapshot),
         nombre_snapshot: String(row.nombre_snapshot),
         telefono_snapshot: (row.telefono_snapshot as string | null) ?? null,
-        canal: row.canal as 'zoom' | 'youtube',
+        canal: row.canal as 'zoom' | 'youtube' | 'presencial',
         administracion_id: (row.administracion_id as string | null) ?? null,
         prospecto_id: (row.prospecto_id as string | null) ?? null,
         asistio: !!row.asistio,
@@ -681,7 +786,7 @@ export interface InscribirManualInput {
 
 export async function inscribirManual(
   input: InscribirManualInput,
-): Promise<ApiResponse<{ token: string; canal: 'zoom' | 'youtube' }>> {
+): Promise<ApiResponse<{ token: string; canal: 'zoom' | 'youtube' | 'presencial' }>> {
   try {
     const { data, error } = await supabase.rpc('inscribir_a_webinar', {
       p_webinar_id: input.webinarId,
@@ -691,7 +796,7 @@ export async function inscribirManual(
       p_submission_id: undefined,
     });
     if (error) throw error;
-    const result = data as { token: string; canal: 'zoom' | 'youtube' };
+    const result = data as { token: string; canal: 'zoom' | 'youtube' | 'presencial' };
     return ok({ token: result.token, canal: result.canal });
   } catch (e) {
     const err = toApiError(e);

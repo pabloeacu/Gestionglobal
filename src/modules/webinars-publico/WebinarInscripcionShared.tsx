@@ -11,7 +11,7 @@
 // one-click. El texto de espera es idéntico en ambos.
 
 import { useEffect, useState } from 'react';
-import { CalendarClock, Clock, GraduationCap, Sparkles, MapPin, Globe, Ticket, ExternalLink } from 'lucide-react';
+import { CalendarClock, Clock, GraduationCap, Sparkles, MapPin, Globe, Ticket, ExternalLink, FileText } from 'lucide-react';
 import {
   fetchWebinarInscripcionActiva,
   type WebinarInscripcionActiva,
@@ -90,7 +90,7 @@ export function WebinarIdentidad({
         <div className="overflow-hidden rounded-3xl border border-slate-200 shadow-[0_24px_60px_-30px_rgba(0,93,105,0.35)]">
           <img
             src={w.banner_url}
-            alt={`Banner del webinar ${w.titulo}`}
+            alt={`Banner del evento ${w.titulo}`}
             className="block h-auto w-full object-cover"
             loading="lazy"
           />
@@ -166,19 +166,32 @@ export function WebinarIdentidad({
         </p>
       )}
 
-      {/* Docentes */}
+      {/* Disertantes */}
       {w.docentes.length > 0 && (
         <div>
           <p className="kicker mb-3 flex items-center gap-1.5 text-brand-muted">
-            <GraduationCap size={14} /> {w.docentes.length === 1 ? 'Docente' : 'Docentes'}
+            <GraduationCap size={14} /> {w.docentes.length === 1 ? 'Disertante' : 'Disertantes'}
           </p>
-          <ul className="flex flex-wrap gap-x-6 gap-y-3">
+          <ul className="flex flex-wrap gap-x-6 gap-y-4">
             {w.docentes.map((d, i) => (
-              <li key={i} className="flex items-center gap-3">
+              <li key={i} className="flex items-start gap-3">
                 <DocenteAvatar nombre={d.nombre} foto={d.foto_url} />
-                <span className="text-sm font-semibold text-brand-ink">
-                  {d.nombre || 'Docente'}
-                </span>
+                <div className="min-w-0">
+                  <span className="block text-sm font-semibold text-brand-ink">
+                    {d.nombre || 'Disertante'}
+                  </span>
+                  {d.bio && <span className="block max-w-xs text-xs text-brand-muted line-clamp-3">{d.bio}</span>}
+                  {d.cv_url && (
+                    <a
+                      href={d.cv_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-0.5 inline-flex items-center gap-1 text-xs font-semibold text-brand-cyan hover:underline"
+                    >
+                      <FileText size={11} /> Ver CV
+                    </a>
+                  )}
+                </div>
               </li>
             ))}
           </ul>

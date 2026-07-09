@@ -55,7 +55,7 @@ export function CampusWebinarPage() {
       <div className="grid min-h-screen place-items-center bg-gradient-to-br from-slate-50 via-white to-brand-cyan/5 p-6">
         <div className="flex items-center gap-2 text-brand-muted">
           <Loader2 size={20} className="animate-spin" />
-          <span>Cargando webinar…</span>
+          <span>Cargando evento…</span>
         </div>
       </div>
     );
@@ -68,7 +68,7 @@ export function CampusWebinarPage() {
         <div className="max-w-md rounded-3xl border border-red-200 bg-white p-8 text-center shadow-xl">
           <AlertCircle size={40} className="mx-auto mb-3 text-red-500" />
           <h1 className="font-display text-xl font-bold text-brand-ink">
-            No pudimos abrir el webinar
+            No pudimos abrir el evento
           </h1>
           <p className="mt-2 text-sm text-brand-muted">{acceso.message}</p>
           <p className="mt-4 text-xs text-brand-muted">
@@ -96,7 +96,7 @@ export function CampusWebinarPage() {
           </Link>
           <div className="flex items-center gap-2 text-[11px] uppercase tracking-wider text-slate-500">
             <GraduationCap size={14} className="text-brand-cyan" />
-            <span className="hidden font-semibold text-slate-700 sm:inline">Campus · Webinar invitado</span>
+            <span className="hidden font-semibold text-slate-700 sm:inline">Campus · Evento invitado</span>
             <span className="font-semibold text-slate-700 sm:hidden">Campus</span>
           </div>
         </div>
@@ -108,7 +108,7 @@ export function CampusWebinarPage() {
         <TrianglesAccent position="bottom-left" tone="cyan" className="opacity-15" />
         <div className="relative mx-auto max-w-3xl">
           <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-[11px] uppercase tracking-widest text-brand-cyan-pale ring-1 ring-white/20">
-            <Radio size={11} /> Webinar de Gestión Global
+            <Radio size={11} /> Evento de Gestión Global
           </div>
           <h1 className="mt-3 font-display text-2xl font-bold sm:text-4xl">{webinar.titulo}</h1>
           {webinar.descripcion && (

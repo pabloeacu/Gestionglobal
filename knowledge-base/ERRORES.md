@@ -3678,3 +3678,73 @@ Los eventos ONLINE existentes: comportamiento idéntico (modalidad default 'onli
 
 **Fecha / módulo:** 2026-07-08 · eventos / webinars / landing / seguridad · migs 0286–0292 + edge fns
 webinar-acceso v5 + submit-formulario v13. Doble auditoría §6 del paquete Eventos pedido por Pablo.
+
+## E-GG-94 · Refinamientos "Eventos" (banco disertantes + flyer + vigencia presencial + copy sweep): hallazgos de la doble auditoría §6
+
+Chunk de refinamientos pedido por Pablo sobre DGG-99 (ver **DGG-100** en `DECISIONES.md`):
+banco reutilizable de disertantes (foto+CV+bio), flyer 1080×1350 al costado del
+formulario, vigencia presencial que cierra al inicio, copy sweep webinar→evento,
+form slug 'webinarios'→'eventos'. La **doble auditoría §6 (3 agentes + e2e en BD)**
+encontró y fixeó, en el mismo chunk, 5 bugs — 2 críticos:
+
+1. **CRÍTICO (seguridad, línea E-GG-88/92 otra vez) — `public.disertantes` con `anon`
+   full-grant heredado.** La tabla nueva (mig 0293) se creó con `GRANT … TO
+   authenticated`, pero como el proyecto es **pre-0130** el `CREATE TABLE` ya había
+   concedido TODO a `PUBLIC` (que incluye `anon`) → `anon` quedó con
+   SELECT/INSERT/UPDATE/DELETE. RLS la tapaba (única policy `FOR ALL TO
+   authenticated`), pero es la sobre-exposición exacta que el sweep 0284 (E-GG-92)
+   vino a erradicar. **Fix:** `REVOKE ALL … FROM anon, PUBLIC` (mig 0297). Verificado
+   e2e: `role_table_grants` de anon = ninguno. **Lección (3ª vez): toda `CREATE TABLE`
+   pre-0130 necesita `REVOKE FROM anon` explícito además del `GRANT TO authenticated`
+   — el grant no revierte el default. Agregar al checklist de cierre de migración.**
+
+2. **CRÍTICO (pérdida de datos) — `webinar_duplicar` (mig 0224) no copiaba las columnas
+   nuevas.** Al agregar `flyer_url` (0293) y, antes, toda la data de Eventos de DGG-99
+   (`modalidad`, `tipo`, `ubicacion_*`, `cupo_presencial`, `es_arancelado`,
+   `arancel_monto`, `arancel_nota`), nadie actualizó el `INSERT … SELECT` de la RPC de
+   duplicado. Duplicar un evento **presencial arancelado con flyer daba un online
+   gratuito sin lugar ni flyer, en silencio**. El botón "Duplicar evento" está wired y
+   visible en la lista. **Fix:** mig 0300 agrega las 12 columnas al `INSERT/SELECT`
+   (misma firma → `CREATE OR REPLACE`, R16). Verificado e2e (BEGIN/rollback, contexto
+   gerente): la copia preserva flyer+banner+modalidad+tipo+arancel+ubicación+cupo+
+   docentes y queda `publicado=false`. **Lección (R14 aplicada a RPCs de copia):
+   cuando se agrega una columna persistida a una entidad, revisar TODA RPC que la
+   INSERT/SELECT en bloque — duplicar/importar/snapshot — no sólo el alta.**
+
+3. **Menor — `canal='presencial'` se renderizaba como "YouTube".** El tipo
+   `InscriptoConCanal.canal` era `'zoom' | 'youtube'` (heredado de la fase online); un
+   inscripto presencial (canal `'presencial'`, válido desde DGG-99 fase 3/4) caía al
+   `else` del render y mostraba el ícono/label de YouTube en la grilla de inscriptos.
+   **Fix:** ampliar el union a `… | 'presencial'` (4 sitios en `webinars.ts`) + rama
+   `MapPin`/"Presencial" en el render (`WebinarDetailPage`).
+
+4. **Menor (engaña al cliente) — card "Otros próximos eventos" del portal mostraba
+   "GRATUITO" hardcodeado.** `WebinarAvailCard` tenía el kicker literal; la RPC
+   `cliente_webinars_listar` no traía el arancel en `disponibles`. Un evento arancelado
+   se anunciaba gratis. **Fix:** mig 0299 agrega `es_arancelado`+`arancel_monto` a
+   `disponibles` (misma firma, `CREATE OR REPLACE`) + kicker condicional
+   ("ARANCELADO · $X" / "GRATUITO").
+
+5. **Menor (hardening) — `tg_disertantes_updated_at` sin `search_path`.** Advisor de
+   Supabase "Function Search Path Mutable". Sólo hace `NEW.updated_at:=now()` (riesgo
+   nulo), pero el estándar del repo es pinnearlo. **Fix:** `SET search_path = ''` (mig
+   0298) + re-`REVOKE` de PUBLIC (el `CREATE OR REPLACE` re-concede).
+
+**Copy sweep — 12 strings user-facing "webinar" sin migrar** (Agentes B+C): se
+detectaron con 3 métodos independientes (grep dirigido + sweep por-línea + barrido
+full-tree). Clúster: onboarding tour (gerencia + portal), landing card, WebinarsListPage
+(subtítulo + loading), h1 de error público, toasts push del portal, certificados,
+label de op del wizard, tab histórico del cliente. Todos corregidos. Se dejó SIN tocar
+(legítimo): la opción de **tipo** `<option value="webinar">Webinar</option>`, rutas
+(`/webinars`, `/webinar/:token`), nombres de tabla/columna/RPC, y el label de la casilla
+de email `webinar@gestionglobal.ar` (**DUDA para Pablo**: la dirección real es `webinar@`,
+renombrar sólo el label a "Eventos" podría confundir).
+
+**Método que lo encontró:** la premisa §5 (doble auditoría **+ ejercitar en BD**). Los 2
+críticos NO los agarra un build limpio ni un smoke SELECT: el over-grant sólo se ve
+mirando `role_table_grants`, y la pérdida de datos de `webinar_duplicar` sólo se ve
+ejecutando la RPC y comparando la copia contra el original (e2e con rollback). Sin la
+premisa, ambos llegaban a producción.
+
+**Fecha / módulo:** 2026-07-09 · eventos / disertantes / seguridad / portal · migs
+0293–0300. Doble auditoría §6 (3 agentes + e2e BD) del chunk de refinamientos.

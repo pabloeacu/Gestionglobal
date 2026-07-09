@@ -96,7 +96,7 @@ export async function eliminarEsquema(id: string): Promise<ApiResponse<void>> {
   if ((cursos.count ?? 0) > 0 || (webinars.count ?? 0) > 0) {
     return fail(
       'IN_USE',
-      'Este esquema está asignado a cursos o webinars. Reasignelos antes de eliminar.',
+      'Este esquema está asignado a cursos o eventos. Reasignelos antes de eliminar.',
     );
   }
   const { error } = await supabase.from('certificado_esquemas').delete().eq('id', id);

@@ -65,7 +65,7 @@ export function PortalPushAssistant() {
     }
     setSubscribed(true);
     setShouldShow(false);
-    toast.success('¡Notificaciones activadas!', { description: 'Te avisaremos antes de cada clase, webinar y vencimiento.' });
+    toast.success('¡Notificaciones activadas!', { description: 'Te avisaremos antes de cada clase, evento y vencimiento.' });
   }
 
   return (
@@ -89,7 +89,7 @@ export function PortalPushAssistant() {
             Activá la campanita
           </h3>
           <p className="mt-0.5 text-xs text-brand-muted">
-            Te avisamos antes de cada clase, webinar y vencimiento importante. Sin spam, sólo lo necesario.
+            Te avisamos antes de cada clase, evento y vencimiento importante. Sin spam, sólo lo necesario.
           </p>
         </div>
 

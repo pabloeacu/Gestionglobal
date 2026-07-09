@@ -2394,6 +2394,10 @@ export type CampusMediaScope =
   // uploadCampusMedia → safeStorageKey.
   | 'webinar-banner'
   | 'webinar-docente'
+  // Eventos (refinamientos Pablo · 0293): flyer vertical 1080×1350 al costado
+  // del formulario + CV (PDF) del disertante para el banco reutilizable.
+  | 'webinar-flyer'
+  | 'webinar-disertante-cv'
   // F10 · docente del módulo sincrónico (foto + CV), patrón módulos DGG-50/51.
   | 'encuentro-docente'
   | 'encuentro-docente-cv'

@@ -33,7 +33,7 @@ export function PasoCampus({ flags, state, set }: PasoProps) {
     <StepPanel
       stepKey="campus"
       title="6 · Campus"
-      subtitle="Opcional. Matriculá al cliente para que tenga el curso o webinar habilitado en su portal apenas se active."
+      subtitle="Opcional. Matriculá al cliente para que tenga el curso o evento habilitado en su portal apenas se active."
     >
       {flags.esCurso && (
         <Field label="Curso a matricular" hint="Opcional. Dejalo vacío si lo asignás después.">
@@ -53,7 +53,7 @@ export function PasoCampus({ flags, state, set }: PasoProps) {
         </Field>
       )}
       {flags.esWebinar && (
-        <Field label="Webinar a inscribir" hint="Opcional.">
+        <Field label="Evento a inscribir" hint="Opcional.">
           <Select
             value={state.campus.webinarId ?? ''}
             onChange={(e) =>

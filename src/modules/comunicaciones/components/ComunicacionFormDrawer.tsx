@@ -352,7 +352,7 @@ export function ComunicacionFormDrawer({ open, onClose, editing, onSaved }: Prop
             <Input
               value={titulo}
               onChange={(e) => setTitulo(e.target.value)}
-              placeholder="Ej: Nuevo módulo de Webinars en el portal"
+              placeholder="Ej: Nuevo módulo de Eventos en el portal"
               disabled={isReadonly}
               maxLength={140}
             />
@@ -363,7 +363,7 @@ export function ComunicacionFormDrawer({ open, onClose, editing, onSaved }: Prop
               onChange={(e) => setCuerpo(e.target.value)}
               rows={4}
               disabled={isReadonly}
-              placeholder="A partir de hoy podés inscribir matriculados a los webinars semanales desde…"
+              placeholder="A partir de hoy podés inscribir matriculados a los eventos desde…"
             />
           </Field>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
