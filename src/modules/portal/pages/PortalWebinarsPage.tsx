@@ -5,6 +5,7 @@
 // Citas: regla 4 (queries en services/), regla 13 (sin window.confirm).
 
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   Video,
   CalendarClock,
@@ -13,6 +14,7 @@ import {
   CheckCircle2,
   Clock,
   Loader2,
+  ChevronRight,
 } from 'lucide-react';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import { Skeleton, useConfirm, Button } from '@/components/common';
@@ -245,7 +247,11 @@ function WebinarMyCard({ w }: { w: ClienteWebinarItem }) {
               <CheckCircle2 size={10} /> Inscripto
             </span>
           </div>
-          <h3 className="mt-1 line-clamp-2 font-semibold leading-tight text-brand-ink">{w.titulo}</h3>
+          <h3 className="mt-1 line-clamp-2 font-semibold leading-tight text-brand-ink">
+            <Link to={`/portal/eventos/${w.webinar_id}`} className="transition hover:text-brand-cyan">
+              {w.titulo}
+            </Link>
+          </h3>
           <p className="mt-1 inline-flex items-center gap-1 text-[11px] text-brand-muted">
             <CalendarClock size={11} /> {formatFecha(w.fecha_hora)}
             {w.duracion_min ? ` · ${w.duracion_min} min` : ''}
@@ -298,7 +304,11 @@ function WebinarAvailCard({ w, inscribing, onInscribir }: {
               ? (w.arancel_monto != null ? `ARANCELADO · $${w.arancel_monto.toLocaleString('es-AR')}` : 'ARANCELADO')
               : 'GRATUITO'}
           </p>
-          <h3 className="line-clamp-2 font-semibold leading-tight text-brand-ink">{w.titulo}</h3>
+          <h3 className="line-clamp-2 font-semibold leading-tight text-brand-ink">
+            <Link to={`/portal/eventos/${w.webinar_id}`} className="transition hover:text-brand-cyan">
+              {w.titulo}
+            </Link>
+          </h3>
           <p className="mt-1 inline-flex items-center gap-1 text-[11px] text-brand-muted">
             <Clock size={11} /> {formatFecha(w.fecha_hora)}
             {w.duracion_min ? ` · ${w.duracion_min} min` : ''}
@@ -306,7 +316,13 @@ function WebinarAvailCard({ w, inscribing, onInscribir }: {
           {w.descripcion && <p className="mt-1 line-clamp-2 text-xs text-brand-muted">{w.descripcion}</p>}
         </div>
       </div>
-      <div className="mt-auto">
+      <div className="mt-auto space-y-2">
+        <Link
+          to={`/portal/eventos/${w.webinar_id}`}
+          className="inline-flex items-center gap-1 text-xs font-semibold text-brand-cyan hover:underline"
+        >
+          Ver detalle y ubicación <ChevronRight size={12} />
+        </Link>
         <Button onClick={onInscribir} disabled={inscribing} className="w-full">
           {inscribing ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
           {inscribing ? 'Inscribiendo…' : 'Inscribirme'}

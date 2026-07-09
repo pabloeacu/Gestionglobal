@@ -4,6 +4,7 @@
 
 import { supabase } from '@/lib/supabase';
 import { ok, fail, type ApiResponse } from '@/lib/errors';
+import { parseDocentes, type WebinarDocente, type EventoModalidad } from './webinars';
 
 // =========================================================================
 // Tipos del dashboard del cliente
@@ -232,6 +233,82 @@ export async function fetchClienteWebinars(): Promise<ApiResponse<ClienteWebinar
   const { data, error } = await supabase.rpc('cliente_webinars_listar');
   if (error) return fail('CLIENTE_WEBINARS', error.message, error);
   return ok(data as unknown as ClienteWebinarsResponse);
+}
+
+// Etapa A (DGG-100) · Ficha del evento en el portal: info pública completa
+// (banner/flyer/disertantes/ubicación/mapa/arancel/grabación) + estado de
+// inscripción del cliente. RPC cliente_evento_detalle (mig 0302, SD + tenancy;
+// nunca expone secretos Zoom). Devuelve null si el evento no existe o no es
+// visible para el cliente (no publicado y no inscripto).
+export interface ClienteEventoDetalle {
+  id: string;
+  titulo: string;
+  descripcion: string | null;
+  banner_url: string | null;
+  flyer_url: string | null;
+  docentes: WebinarDocente[];
+  fecha_hora: string;
+  duracion_min: number;
+  plataforma: string;
+  modalidad: EventoModalidad;
+  tipo: string;
+  status: string;
+  ubicacion_lugar: string | null;
+  ubicacion_direccion: string | null;
+  ubicacion_localidad: string | null;
+  ubicacion_mapa_url: string | null;
+  ubicacion_instrucciones: string | null;
+  es_arancelado: boolean;
+  arancel_monto: number | null;
+  arancel_nota: string | null;
+  grabacion_url: string | null;
+  inscripto: boolean;
+  canal: string | null;
+  asistio: boolean;
+  join_url: string | null;
+}
+
+export async function fetchClienteEventoDetalle(
+  webinarId: string,
+): Promise<ApiResponse<ClienteEventoDetalle | null>> {
+  try {
+    const { data, error } = await supabase.rpc('cliente_evento_detalle', {
+      p_webinar_id: webinarId,
+    });
+    if (error) throw error;
+    const raw = (data ?? {}) as Record<string, unknown>;
+    if (!raw.id || raw.error) return ok(null); // no encontrado / no visible / sin contexto
+    return ok({
+      id: String(raw.id),
+      titulo: String(raw.titulo),
+      descripcion: (raw.descripcion as string | null) ?? null,
+      banner_url: (raw.banner_url as string | null) ?? null,
+      flyer_url: (raw.flyer_url as string | null) ?? null,
+      docentes: parseDocentes(raw.docentes as never),
+      fecha_hora: String(raw.fecha_hora),
+      duracion_min: Number(raw.duracion_min ?? 0),
+      plataforma: String(raw.plataforma ?? 'zoom'),
+      modalidad: ((raw.modalidad as EventoModalidad | null) ?? 'online'),
+      tipo: String(raw.tipo ?? 'webinar'),
+      status: String(raw.status ?? 'programado'),
+      ubicacion_lugar: (raw.ubicacion_lugar as string | null) ?? null,
+      ubicacion_direccion: (raw.ubicacion_direccion as string | null) ?? null,
+      ubicacion_localidad: (raw.ubicacion_localidad as string | null) ?? null,
+      ubicacion_mapa_url: (raw.ubicacion_mapa_url as string | null) ?? null,
+      ubicacion_instrucciones: (raw.ubicacion_instrucciones as string | null) ?? null,
+      es_arancelado: Boolean(raw.es_arancelado ?? false),
+      arancel_monto: raw.arancel_monto != null ? Number(raw.arancel_monto) : null,
+      arancel_nota: (raw.arancel_nota as string | null) ?? null,
+      grabacion_url: (raw.grabacion_url as string | null) ?? null,
+      inscripto: Boolean(raw.inscripto ?? false),
+      canal: (raw.canal as string | null) ?? null,
+      asistio: Boolean(raw.asistio ?? false),
+      join_url: (raw.join_url as string | null) ?? null,
+    });
+  } catch (e) {
+    const err = e as { code?: string; message?: string };
+    return fail(err.code ?? 'CLIENTE_EVENTO_DETALLE', err.message ?? 'Error', e);
+  }
 }
 
 // =========================================================================

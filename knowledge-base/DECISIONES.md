@@ -3888,3 +3888,28 @@ search_path · arancel portal · duplicar). Frontend: `webinars.ts` (+disertante
 - **Fecha:** 2026-07-09. Migs 0293–0300. Doble auditoría §6 (3 agentes + e2e BD) encontró 2 bugs
   críticos (over-grant anon en disertantes; `webinar_duplicar` perdía columnas nuevas) + 5 menores,
   todos fixeados en el mismo chunk. Ver **E-GG-94** en `ERRORES.md`.
+
+**Addendum 1 (mismo día) · emails de eventos desde `contacto@`.** Los emails de inscripción/recordatorio
+salían con From/Reply-To = `webinar@gestionglobal.ar`. Pablo pidió enviarlos desde la casilla GENERAL
+(`contacto@`, la principal): evita confusión + problemas de entrega (webinar@ dependía de estar alineada
+como "send-as" en Gmail). Mig 0301 repunta los 5 templates a `general`; se removió la casilla `webinar`
+del selector (`emails.ts`) y del tipo `FromCasilla`; la edge fn `dispatch-emails` (v15) ya no mapea
+`webinar`/`evento` a webinar@ (caen al default = contacto@).
+
+**Addendum 2 (mismo día) · Etapa A: ficha del evento en el portal del cliente.** Pablo confirmó: la
+inscripción del cliente queda **one-click** (ya tenemos sus datos; se registra como cliente en la lista
+de inscriptos, listo para "tomar lista") — impecable, se deja así. **Pero** el cliente necesita ver la
+info del evento ANTES ("no sabe ni dónde es"). Se agrega una **ficha** (`/portal/eventos/:id`,
+`PortalEventoDetallePage`) con TODA la info: banner + flyer, descripción, disertantes con "Ver CV",
+modalidad, **lugar + mapa + cómo llegar**, arancel, y el estado de inscripción/acceso (unirse / grabación).
+Reusa `<WebinarIdentidad>` (misma identidad branded del público → consistencia total) + el flyer al
+costado. Datos por RPC nueva `cliente_evento_detalle` (mig 0302, SECURITY DEFINER + tenancy por
+`current_administracion_id`; arma el jsonb a mano → NUNCA expone secretos Zoom; visible si publicado o
+inscripto; anon revocado desde el arranque). Wiring: la card "TU EVENTO" del inicio y los títulos de
+"Mis eventos" + "Ver detalle y ubicación" (disponibles) llevan a la ficha. Todo **aditivo** (RPC/página/
+ruta nuevas; el one-click y las listas intactos). Doble auditoría §6 (2 agentes + e2e BD: 3 caminos de
+visibilidad + contexto gerente + no-leak de secretos). **Etapa B pendiente** (certificados): ver memoria
+del proyecto — emisión a prospectos por mail c/PDF server-side, descarga en la ficha, aviso push+banner+
+badge, descarga por gerencia por asistente. **Método canónico** (mandato Pablo 2026-07-09): cada avance
+escala sobre el producto sin romperlo; cirugía + doble auditoría probando hasta lo remoto, 100% certeza.
+- **Fecha:** 2026-07-09. Migs 0301–0302 + edge fn dispatch-emails v15. Etapa A cerrada (build + §6 + e2e).

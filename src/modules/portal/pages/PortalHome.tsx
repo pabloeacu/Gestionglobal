@@ -323,7 +323,11 @@ function HotCards({
               : `En ${formatDias(Math.round(horas / 24))}`
         }
         ctaLabel={webinar.status === 'en_curso' ? 'Unirme' : 'Ver detalle'}
-        ctaHref={webinar.link ?? '/portal/webinars'}
+        ctaHref={
+          webinar.status === 'en_curso' && webinar.link
+            ? webinar.link
+            : `/portal/eventos/${webinar.webinar_id}`
+        }
         ctaExternal={!!webinar.link && webinar.status === 'en_curso'}
         icon={<Video size={22} />}
         tone={webinar.status === 'en_curso' ? 'urgente' : 'alto'}

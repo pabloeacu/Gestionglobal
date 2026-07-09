@@ -8138,6 +8138,7 @@ export type Database = {
           vencidos_count: number
         }[]
       }
+      cliente_evento_detalle: { Args: { p_webinar_id: string }; Returns: Json }
       cliente_listar_pagos_comprobante: {
         Args: { p_comprobante_id: string }
         Returns: {
