@@ -172,11 +172,11 @@ async function esperarRecursos(node: HTMLElement): Promise<void> {
         }),
     ),
   );
-  // 3 frames + 80ms para que SVG conic-gradient/drop-shadows asienten.
-  for (let i = 0; i < 3; i++) {
-    await new Promise((r) => requestAnimationFrame(() => r(null)));
-  }
-  await new Promise((r) => setTimeout(r, 80));
+  // Delay con setTimeout (NO requestAnimationFrame): rAF se throttlea/pausa en
+  // tabs en segundo plano, lo que colgaba el render durante la emisión por lote
+  // de certificados de evento (E-GG-95). ~180ms asienta SVG conic-gradient/
+  // drop-shadows sin depender del foco de la pestaña.
+  await new Promise((r) => setTimeout(r, 180));
 }
 
 /**
@@ -228,11 +228,13 @@ export async function renderCertificadoPdfBlob(
     // requestAnimationFrame no alcanza para garantizar que el DOM esté.
     // Hacemos polling por el nodo + dimensiones, con timeout 3s.
     let target: HTMLElement | null = null;
-    const deadline = performance.now() + 3000;
+    // Poll con setTimeout (no rAF): en emisión por lote la tab puede no estar
+    // en foco y rAF se pausa → el render se colgaba (E-GG-95). Deadline holgado.
+    const deadline = performance.now() + 10000;
     while (performance.now() < deadline) {
       target = host.firstElementChild as HTMLElement | null;
       if (target && target.offsetWidth > 0 && target.offsetHeight > 0) break;
-      await new Promise<void>((r) => requestAnimationFrame(() => r()));
+      await new Promise<void>((r) => setTimeout(r, 50));
     }
     if (!target) {
       throw new Error('El certificado no se renderizó en el DOM. Recargá la página y reintentá.');
