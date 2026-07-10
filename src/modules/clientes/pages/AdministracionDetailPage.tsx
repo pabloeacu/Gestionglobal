@@ -19,6 +19,7 @@ import {
   EyeOff,
   KeyRound,
   ShieldCheck,
+  RotateCcw,
 } from 'lucide-react';
 import {
   Button,
@@ -37,6 +38,7 @@ import { ConsorcioFormDrawer } from '../components/ConsorcioFormDrawer';
 import {
   getAdministracion,
   archiveAdministracion,
+  reactivarAdministracion,
   updateAdministracion,
   type AdministracionRow,
   type AdministracionEstado,
@@ -117,6 +119,17 @@ export function AdministracionDetailPage() {
       return;
     }
     toast.success('Administración dada de baja');
+    void load();
+  }
+
+  async function onReactivar() {
+    if (!admin) return;
+    const res = await reactivarAdministracion(admin.id);
+    if (!res.ok) {
+      toast.error(humanizeError(res.error));
+      return;
+    }
+    toast.success('Cliente reactivado — su acceso al portal fue restablecido');
     void load();
   }
 
@@ -210,6 +223,7 @@ export function AdministracionDetailPage() {
         onCrearAcceso={() => void onCrearAcceso()}
         onEdit={() => setEditOpen(true)}
         onArchive={() => void onArchive()}
+        onReactivar={() => void onReactivar()}
       />
 
       {/* KPI strip */}
@@ -301,6 +315,7 @@ function FichaCover({
   onCrearAcceso,
   onEdit,
   onArchive,
+  onReactivar,
 }: {
   admin: AdministracionRow;
   badge: { label: string; cls: string };
@@ -309,6 +324,7 @@ function FichaCover({
   onCrearAcceso: () => void;
   onEdit: () => void;
   onArchive: () => void;
+  onReactivar: () => void;
 }) {
   const initials = (admin.nombre ?? '?')
     .split(/\s+/)
@@ -387,9 +403,13 @@ function FichaCover({
             <Button variant="secondary" onClick={onEdit}>
               <Pencil size={14} /> Editar
             </Button>
-            {admin.estado !== 'baja' && (
+            {admin.estado !== 'baja' ? (
               <Button variant="ghost" onClick={onArchive}>
                 <Trash2 size={14} /> Dar de baja
+              </Button>
+            ) : (
+              <Button variant="secondary" onClick={onReactivar}>
+                <RotateCcw size={14} /> Reactivar
               </Button>
             )}
           </div>

@@ -40,6 +40,13 @@ interface AuthState {
    * engaña la UX; fallback honesto = sin sesión + mensaje claro.
    */
   profileLoadFailed: boolean;
+  /**
+   * El profile existe pero es un administrador cuyo cliente fue dado de baja
+   * (profile.activo=false). Se hizo signOut automático; la UI muestra un
+   * mensaje honesto "tu acceso fue dado de baja" (Gap 1 / mig 0318). Evita el
+   * "portal fantasma": entrar a un portal que carga vacío por la RLS gateada.
+   */
+  accesoRevocado: boolean;
   signOut: () => Promise<void>;
   reloadProfile: () => Promise<void>;
 }
@@ -68,6 +75,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<CurrentUser | null>(null);
   const [profileMissing, setProfileMissing] = useState(false);
   const [profileLoadFailed, setProfileLoadFailed] = useState(false);
+  const [accesoRevocado, setAccesoRevocado] = useState(false);
   // E-GG-07 · timer de refresh manual. Como autoRefreshToken=false (los locks
   // de supabase-js cuelgan bajo StrictMode/HMR), refrescamos el token a mano
   // ~60s antes de que venza, así la sesión no muere cada ~1h.
@@ -130,6 +138,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(null);
       setProfileMissing(false);
       setProfileLoadFailed(false);
+      setAccesoRevocado(false);
       return;
     }
 
@@ -152,9 +161,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           lastError = r.error;
           attempted = 'error';
         } else if (r.data) {
+          // Gap 1 (mig 0318): un administrador cuyo cliente fue dado de baja
+          // tiene su profile deshabilitado (activo=false). No lo dejamos entrar
+          // a un portal que la RLS ya vació — signOut + mensaje honesto.
+          if (r.data.role === 'administrador' && !r.data.activo) {
+            setUser(null);
+            setProfileMissing(false);
+            setProfileLoadFailed(false);
+            setAccesoRevocado(true);
+            try {
+              if (isSupabaseConfigured) await supabase.auth.signOut();
+            } catch { /* limpiamos storage local igual */ }
+            return;
+          }
           setUser({ ...r.data, email: s.user.email ?? '' });
           setProfileMissing(false);
           setProfileLoadFailed(false);
+          setAccesoRevocado(false);
           return;
         } else {
           nullCount++;
@@ -293,6 +316,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
     setProfileMissing(false);
     setProfileLoadFailed(false);
+    setAccesoRevocado(false);
   }, []);
 
   const reloadProfile = useCallback(async () => {
@@ -308,6 +332,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         configured: isSupabaseConfigured,
         profileMissing,
         profileLoadFailed,
+        accesoRevocado,
         signOut,
         reloadProfile,
       }}

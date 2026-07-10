@@ -150,8 +150,29 @@ export async function updateAdministracion(
   return ok(data);
 }
 
+// Baja transaccional vía RPC (mig 0318): además de marcar la admin de baja,
+// DESHABILITA los usuarios de portal (profiles administradores) para cortarles
+// el acceso — antes un UPDATE directo dejaba al cliente pudiendo loguearse y
+// ver su portal (Gap 1, hueco de seguridad). El helper current_administracion_id
+// también lo blinda a nivel RLS, esto es la señal para el signOut del front.
 export async function archiveAdministracion(
   id: string,
-): Promise<ApiResponse<AdministracionRow>> {
-  return updateAdministracion(id, { estado: 'baja', activo: false });
+): Promise<ApiResponse<null>> {
+  const { error } = await supabase.rpc('administracion_dar_de_baja', {
+    p_administracion_id: id,
+  });
+  if (error) return fail('ADMIN_BAJA', error.message, error);
+  return ok(null);
+}
+
+// Reactiva un cliente dado de baja: revierte estado/activo + rehabilita sus
+// usuarios de portal (mig 0318).
+export async function reactivarAdministracion(
+  id: string,
+): Promise<ApiResponse<null>> {
+  const { error } = await supabase.rpc('administracion_reactivar', {
+    p_administracion_id: id,
+  });
+  if (error) return fail('ADMIN_REACTIVAR', error.message, error);
+  return ok(null);
 }

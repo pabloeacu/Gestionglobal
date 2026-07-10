@@ -7773,6 +7773,14 @@ export type Database = {
         Args: { p_full_name: string; p_role: string; p_user_id: string }
         Returns: string
       }
+      administracion_dar_de_baja: {
+        Args: { p_administracion_id: string }
+        Returns: undefined
+      }
+      administracion_reactivar: {
+        Args: { p_administracion_id: string }
+        Returns: undefined
+      }
       administracion_webinars: {
         Args: { p_administracion_id: string }
         Returns: {
