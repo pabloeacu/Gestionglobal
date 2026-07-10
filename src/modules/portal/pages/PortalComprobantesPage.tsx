@@ -67,20 +67,22 @@ export function PortalComprobantesPage() {
   const [cobranza, setCobranza] = useState<CobranzaFilter>('todos');
   const [periodo, setPeriodo] = useState<string>('');
   const [rows, setRows] = useState<ComprobanteListItem[]>([]);
-  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // R19 (hermano de E-GG-43): traemos el UNIVERSO COMPLETO de la administración
+  // (sin filtros de backend) y filtramos en memoria. Antes se pasaban
+  // estado/cobranza/periodo/search al backend → `rows` quedaba parcial y los
+  // KPIs financieros (Pagado/Pendiente/Vencido) se calculaban sobre ese parcial:
+  // un cliente que filtraba "Pagado" veía Pendiente/Vencido en $0 pese a tener
+  // deuda real. El portal es de UNA administración → el universo es acotado.
   async function load() {
     if (!user?.administracionId) return;
     setLoading(true);
     setError(null);
     const res = await listComprobantes({
-      search,
-      estado,
-      estadoCobranza: cobranza,
-      periodo: periodo || undefined,
       administracionId: user.administracionId,
+      limit: 1000,
     });
     setLoading(false);
     if (!res.ok) {
@@ -89,22 +91,16 @@ export function PortalComprobantesPage() {
       return;
     }
     setRows(res.data.rows);
-    setTotal(res.data.total);
   }
 
   useEffect(() => {
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [estado, cobranza, periodo, user?.administracionId]);
-
-  useEffect(() => {
-    const t = setTimeout(() => void load(), 320);
-    return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search]);
+  }, [user?.administracionId]);
 
   useRealtimeRefresh(['comprobantes', 'items_comprobantes'], () => void load());
 
+  // KPIs SIEMPRE sobre el universo completo (`rows`), nunca sobre lo filtrado.
   const kpis = useMemo(() => {
     const emitidos = rows.filter((r) => r.estado === 'autorizado').length;
     const totalPendiente = rows
@@ -118,6 +114,23 @@ export function PortalComprobantesPage() {
       .reduce((s, r) => s + Number(r.total ?? 0), 0);
     return { emitidos, totalPendiente, totalVencido, totalPagado };
   }, [rows]);
+
+  // Filtros de UI en memoria (mismos criterios que antes iban al backend).
+  const visibleRows = useMemo(() => {
+    const s = search.trim().toLowerCase();
+    return rows.filter((r) => {
+      if (estado !== 'todos' && r.estado !== estado) return false;
+      if (cobranza !== 'todos' && r.estado_cobranza !== cobranza) return false;
+      if (periodo && r.periodo !== periodo) return false;
+      if (s) {
+        const hay =
+          (r.receptor_razon_social ?? '').toLowerCase().includes(s) ||
+          (r.receptor_numero_documento ?? '').toLowerCase().includes(s);
+        if (!hay) return false;
+      }
+      return true;
+    });
+  }, [rows, estado, cobranza, periodo, search]);
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
@@ -138,7 +151,7 @@ export function PortalComprobantesPage() {
           icon={Receipt}
           label="Emitidos"
           value={<AnimatedNumber value={kpis.emitidos} />}
-          hint={`${total} en la vista`}
+          hint={`${visibleRows.length} en pantalla`}
           tone="cyan"
           delay={0}
         />
@@ -254,7 +267,7 @@ export function PortalComprobantesPage() {
             </div>
           ) : error ? (
             <div className="p-8 text-center text-sm text-red-600">{error}</div>
-          ) : rows.length === 0 ? (
+          ) : visibleRows.length === 0 ? (
             <IllustratedEmpty
               illustration="lista"
               title="Sin comprobantes"
@@ -280,7 +293,7 @@ export function PortalComprobantesPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((r, idx) => {
+                  {visibleRows.map((r, idx) => {
                     const estadoBadge = ESTADO_BADGES[r.estado as ComprobanteEstado];
                     const cobranzaBadge = COBRANZA_BADGES[r.estado_cobranza as CobranzaEstado];
                     return (
