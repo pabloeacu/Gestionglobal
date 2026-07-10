@@ -117,6 +117,10 @@ const HUMAN_BY_MESSAGE: Array<{ re: RegExp; human: string }> = [
   // Reporte JL / auditoría §6 dedup · mensajes específicos por constraint, antes
   // de la regla genérica de duplicate-key para matchear primero.
   { re: /uq_admin_dni_activo/i, human: 'Ya existe un cliente activo (sin CUIT) con ese DNI. Buscalo en la lista de clientes y editá o vinculá ese, en vez de crear uno nuevo.' },
+  // Reactivar un cliente de baja cuando ya existe otro activo con el mismo CUIT
+  // (reingreso donde se eligió "crear cuenta nueva"). Mensaje accionable en vez
+  // del 23505 crudo del índice uq_admin_cuit_activo.
+  { re: /reactivar_cuit_duplicado_activo/i, human: 'No se puede reactivar: ya existe otro cliente activo con el mismo CUIT. Revisá cuál corresponde (o fusionalos) antes de reactivar el anterior.' },
   { re: /prospectos_email_key/i, human: 'Ese email ya pertenece a otro prospecto. Buscalo en la lista de prospectos en vez de crear uno nuevo.' },
   { re: /webinar_inscriptos_unique_email/i, human: 'Esa persona ya figura inscripta a este evento.' },
   { re: /uq_curso_matricula/i, human: 'Este alumno ya está inscripto en este curso.' },
