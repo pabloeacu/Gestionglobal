@@ -3998,3 +3998,31 @@ del saldo con gerente QA efímero. **Follow-ups (no bloqueantes, anotados):** in
 (R14) para editar responsable/padre/madre; RPC de fusión de duplicados; cerrar pedidos_doc
 huérfanos al cancelar; barrer los demás mails de trámite que usan `solicitante_email`.
 - **Fecha:** 2026-07-09. Raíz sistémica cerrada de cara al lanzamiento con 1000 clientes.
+
+**Addendum 2026-07-10 — 2ª ola de blindaje pre-lanzamiento (migs 0313–0320 + front).**
+Pablo pidió "atacá todo, nada pendiente; JL mañana revisa de nuevo". Doble auditoría §6 (4
+agentes en paralelo) sobre las variables NO planteadas explícitamente. Decisiones nuevas de Pablo:
+(1) **CUIT obligatorio** en alta/edición de clientes (`stepValidations` + índice `uq_admin_cuit_activo`
+0311 + mensaje humano) — cierra la dedup de identidad de punta a punta; (2) anular un comprobante
+**no se bloquea** pero el modal **ofrece el paquete de blindaje contable** (mig 0317): el RPC
+auto-cancela emisiones ARCA + avisos de recupero pendientes, y `anular_comprobante_preview` reporta
+el impacto (saldo a favor, ARCA, recupero, atribuciones a partner en borrador vs. ya pagada) línea
+por línea, con ⚠️ para la atribución a partner ya cobrada (ajuste manual).
+
+Huecos sistémicos cerrados (todos verificados e2e en BD, rollback):
+- **E-GG-101** baja/deprovision: `current_administracion_id()` gateado por estado → un cliente de
+  baja ve 0 filas en todo el portal (mig 0318). Baja/reactivar como RPC transaccional + signOut
+  honesto en el front.
+- **E-GG-102** mails de trámite: helper `admin_login_email()` + prioridad login en los 5 sitios que
+  faltaban tras el 0309 (mig 0319).
+- **E-GG-103** KPIs del portal de comprobantes sobre el universo completo (R19, frontend).
+- **E-GG-104** inscripción a evento idempotente por email (mig 0320/0320b) + mensajes por constraint.
+- Netting de morosos/KPIs por saldo a favor (0314), RPC de fusión de duplicados (0313), cierre de
+  pedidos_doc huérfanos (0315), gate de matrícula vigente en el write-side del campus (0316).
+
+**Follow-ups de PRODUCTO (decisión de Pablo, no bloqueantes — anotados):** (a) **reingreso de un
+cliente dado de baja con el mismo CUIT** — hoy el índice único es sólo entre activos, así que un
+baja'd puede recrear una cuenta nueva con el mismo CUIT; definir si debe **reactivar** la existente
+(recomendado) en vez de crear. (b) **Dedup por DNI de personas físicas sin CUIT** (leads/prospectos)
+— hoy dedup sólo por email; es capa de leads, no de facturación, por eso menor. (c) el 23505 crudo de
+`solicitud_activar` sólo en carrera concurrente (pre-check + `errors.ts` ya lo cubren en el 99%).

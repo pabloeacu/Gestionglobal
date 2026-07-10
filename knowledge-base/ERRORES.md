@@ -3973,3 +3973,88 @@ real: TRM-2026-00071 pasa de `luciafotos` → `luciafotos4` (la cuenta que sí v
 E-GG-99, los trámites nuevos quedan bajo la cuenta correcta → el mail y la sesión coinciden de raíz.
 
 **Fecha / módulo:** 2026-07-09 · trámites / mails · mig 0309. Verificado e2e con datos reales.
+
+---
+
+## E-GG-101 · Un cliente dado de baja seguía pudiendo loguearse y ver TODO su portal (Gap 1)
+
+**Síntoma:** al dar de baja un cliente (`estado='baja'`, `activo=false`), su usuario de
+portal seguía entrando y viendo comprobantes, trámites, cuenta corriente, etc. Latente hoy
+(0 víctimas) pero abierto de par en par para el lanzamiento con 1000 clientes.
+
+**Causa raíz:** ninguna capa miraba el estado del cliente. Login (`signInWithPassword`) sólo
+valida credenciales; el guard de ruta sólo chequea rol; y **las 16 tablas del cliente cuelgan
+de `private.current_administracion_id()`**, que devolvía el `administracion_id` del profile sin
+gatear por `activo`/`estado`. `archiveAdministracion` era un `UPDATE` directo que no tocaba los
+`profiles`. Confirmado por 2 análisis independientes (estático + barrido RLS en vivo: las 16
+policies filtran sólo por `administracion_id`, ninguna por estado) + e2e real.
+
+**Fix (mig 0318):** gatear el helper en una línea → `current_administracion_id()` devuelve NULL
+si `p.activo=false` **o** `a.activo=false` **o** `estado='baja'`. Como todo (policies + 
+`assert_administracion_access`) cuelga de él, el baja'd client pasa a ver 0 filas en todo el
+portal. `SECURITY DEFINER` ⇒ sin recursión al leer `administraciones`. Baja/reactivar pasan a
+RPC transaccional que además (des)habilita los `profiles`; el front hace `signOut` de un
+administrador con `profile.activo=false` y muestra "tu acceso fue dado de baja" (no el portal
+fantasma vacío) + botón Reactivar. e2e (rollback): cliente activo intacto, baja→NULL + profile
+deshabilitado, reactivar→vuelve; 0 admins activos bloqueados por error.
+
+**Fecha / módulo:** 2026-07-10 · seguridad / RLS / auth · mig 0318. Verificado e2e.
+
+---
+
+## E-GG-102 · Mails de trámite al `solicitante_email` en 5 sitios más (blast radius de E-GG-100)
+
+**Síntoma:** el mismo síntoma de E-GG-100 (el cliente recibe el aviso en otra casilla y no ve el
+trámite en el portal), pero repetido en TODO el circuito de trámites, no sólo en el pedido de docs.
+
+**Causa raíz:** el 0309 arregló SÓLO `tramite_pedido_doc_crear`. La auditoría §6 (agente A)
+encontró 5 sitios más que resolvían el destinatario del cliente como `solicitante_email` (o
+`administraciones.email` de la ficha) en vez del email de **login**: `tramite_pedido_doc_enviar_revision`
+(CRÍTICO, acción del portal), `tracking_notificar_avance_cliente` (CRÍTICO, emisor central de
+avances+cierre+resuelto), `tramite_avisar_cancelacion`, `tracking_reabrir` (usaba
+`administraciones.email`), y la rama recordatorio de `tracking_linea_on_insert`.
+
+**Fix (mig 0319):** helper único `public.admin_login_email(administracion_id)` (mata el drift de
+inlinear el join en cada caller) con prioridad login → `solicitante_email` → `administraciones.email`,
+aplicado a los 5 sitios. e2e (rollback): con `solicitante_email` forzado a otra casilla, el fan-out
+central Y `avisar_cancelacion` encolan al LOGIN; helper correcto para los 5 admins; R16 sin overloads.
+Trámites sin admin-portal / personas sin cuenta caen al `solicitante_email` (correcto por diseño).
+
+**Fecha / módulo:** 2026-07-10 · trámites / mails · mig 0319. Verificado e2e.
+
+---
+
+## E-GG-103 · KPIs del portal de comprobantes en $0 al filtrar (hermano de E-GG-43, R19)
+
+**Síntoma:** en "Mis comprobantes" del portal, si el cliente filtraba Cobranza="Pagado", los KPIs
+"Pendiente" y "Vencido" pasaban a **$0** aunque tuviera deuda real (igual que "Resueltos: 0" del
+E-GG-43, pero con plata).
+
+**Causa raíz:** `PortalComprobantesPage` pasaba estado/cobranza/período/búsqueda al backend
+(`.eq()` encadenado en el service) y calculaba los KPIs financieros sobre `rows`, que ya venía
+parcial. El grep transversal de E-GG-43 no lo cubrió porque acá el filtro no era un booleano sino
+parámetros que la capa de servicio traducía a `.eq()`.
+
+**Fix (R19):** traer el universo completo de la administración (es de UN cliente → acotado), KPIs
+sobre el crudo, filtros en memoria con `useMemo`. Frontend-only.
+
+**Fecha / módulo:** 2026-07-10 · portal / facturación · `PortalComprobantesPage.tsx`.
+
+---
+
+## E-GG-104 · Inscribirse a un evento desde el portal chocaba 23505 si ya eras prospecto
+
+**Síntoma:** un cliente que ya figuraba como prospecto de un evento (por el form público, mismo
+email) y luego se inscribía desde el portal recibía un error confuso ("ya existe un registro").
+
+**Causa raíz:** `cliente_webinar_inscribirme` chequeaba idempotencia por `administracion_id`, pero
+la clave única es `(webinar_id, email_snapshot)`. La fila del prospecto (admin NULL) no matcheaba
+el chequeo → el INSERT chocaba `webinar_inscriptos_unique_email` (23505).
+
+**Fix (mig 0320+0320b):** `ON CONFLICT (webinar_id, email_snapshot) DO UPDATE` adopta la fila del
+prospecto (fija administracion_id+profile_id, **limpia prospecto_id** para respetar el XOR de
+identidad) → idempotencia real + cubre la carrera de doble submit. El e2e cazó un bug propio (no
+limpiaba `prospecto_id`, violaba `webinar_inscriptos_identidad_xor`) antes de producción. Además,
+mensajes humanos por constraint en `errors.ts`.
+
+**Fecha / módulo:** 2026-07-10 · eventos / inscripción · mig 0320/0320b. Verificado e2e.
