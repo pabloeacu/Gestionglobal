@@ -3949,3 +3949,17 @@ el render y validó el flujo real del gerente.
 - **Fecha:** 2026-07-09. Migs 0303–0306 + edge fn `send-certificado-email` v1 + `dispatch-emails` v15.
   Etapa B cerrada (build + doble §6 + live QA cliente/prospecto + docs). Certificados de evento a
   prospectos por mail c/PDF, descarga cliente (ficha+banner), descarga/reenvío gerencia, push+banner+badge.
+
+**Addendum 3b (cierre de nits §6 postergados, pedido Pablo "cerrá todo").** Los 3 hallazgos
+menores que habían quedado anotados sin tocar se cerraron: (1) **R11** — índice faltante en
+`webinar_inscriptos.profile_id` (mig 0307, parcial `WHERE profile_id IS NOT NULL`); Postgres no
+crea índices de FK. (2) **verify_jwt** de `send-certificado-email` — se declaró en `config.toml`
+con `verify_jwt = true` (EXCEPCIÓN justificada a la convención false: la fn se dispara SÓLO desde
+la UI del gerente, que siempre manda JWT → el gateway rechaza sin-JWT antes de ejecutar; adentro
+igual valida staff) + comentario de cabecera corregido. La lógica del edge fn no cambió → NO se
+redeployó (no perforar lo que funciona; R7 funcional intacto). (3) **`link_portal`** — la §6 lo
+marcó como "campo muerto en el banner", pero NO es muerto: el trigger `trg_certificado_celebrar_fn`
+(0304) lo usa como `click_url` del **push** (al tocar la notificación, el cliente cae en la ficha
+del evento / mis-cursos según origen). El banner descarga directo por decisión de Pablo; que el RPC
+lo devuelva es el record completo. Sin cambio de código, DUDA resuelta. **Fecha:** 2026-07-09,
+mig 0307 + config.toml.

@@ -8,10 +8,18 @@
 //      attachment, lo manda por Gmail (OAuth de contacto@ — la casilla GENERAL,
 //      DGG-100) y marca certificados.enviado_email_at.
 //
-// Seguridad: SÓLO staff (gerencia) puede dispararla — se valida el JWT del
-// caller (getUser) contra profiles.role. verify_jwt=true además exige un JWT.
+// Seguridad (doble capa): esta fn se dispara SÓLO desde la UI del gerente, que
+// siempre manda el JWT del usuario. Por eso corre con `verify_jwt = true`
+// (declarado en config.toml) — el gateway de Supabase rechaza cualquier request
+// sin JWT válido ANTES de ejecutar el body. Es una EXCEPCIÓN justificada a la
+// convención del proyecto (verify_jwt=false para fns de cron/pg_net/públicas,
+// que no pueden mandar un JWT de usuario): acá el caller SIEMPRE es un humano
+// logueado. Además, adentro se valida `getUser(bearer)` contra
+// `profiles.role IN ('gerente','operador')` → un authenticated no-staff igual
+// se rechaza. Defensa en profundidad.
 //
-// Citas: regla 7 (edge fn versionada), reuso de cj-enviar-pdf / dispatch-emails.
+// Citas: regla 7 (edge fn versionada), P-API-05/E14 (verify_jwt), reuso de
+// cj-enviar-pdf / dispatch-emails.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.46.1';
 

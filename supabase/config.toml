@@ -25,3 +25,10 @@ site_url = "http://localhost:5173"
 # Ejemplo:
 # [functions.arca-autorizar-comprobante]
 # verify_jwt = false
+
+# send-certificado-email (DGG-100 Etapa B): EXCEPCIÓN justificada a la convención
+# verify_jwt=false. Se dispara SÓLO desde la UI del gerente (siempre manda JWT),
+# así que el gateway rechaza requests sin JWT antes de ejecutar; adentro además
+# valida profiles.role staff. Ver comentario de cabecera del index.ts.
+[functions.send-certificado-email]
+verify_jwt = true
