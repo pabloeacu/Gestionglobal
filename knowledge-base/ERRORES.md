@@ -4058,3 +4058,42 @@ limpiaba `prospecto_id`, violaba `webinar_inscriptos_identidad_xor`) antes de pr
 mensajes humanos por constraint en `errors.ts`.
 
 **Fecha / módulo:** 2026-07-10 · eventos / inscripción · mig 0320/0320b. Verificado e2e.
+
+---
+
+## E-GG-105 · REGRESIÓN: activar una inscripción con CUIT en el formulario rompía toda la activación
+
+**Síntoma (reporte JL, nueva tanda):** al activar una inscripción (RPAC/curso) desde el wizard de
+activación, el proceso cortaba con **"Se detuvo el proceso: Alta del cliente + apertura del trámite"**
+y el error `new row for relation "administraciones" violates check constraint "administraciones_cuit_check"`.
+"Antes funcionaba" → clásica regresión.
+
+**Causa raíz (migs 0310 y 0312, propias):** los triggers `sync_submission_a_administracion` (0310) y
+`backfill_admin_desde_tramite_submission` (0312) —agregados para propagar los datos del formulario a
+la administración— tomaban el CUIT de la submission con sólo `trim()`, **sin normalizar**, y hacían
+`cuit = COALESCE(cuit, v_cuit)`. Cuando el solicitante cargaba el CUIT CON GUIONES en el form público
+(ej. `30-64788883-2`), lo escribían tal cual → viola el check `administraciones_cuit_check (^\d{11}$)`.
+Y como el **backfill dispara AL CREAR EL TRÁMITE dentro de `solicitud_activar`**, la violación abortaba
+toda la RPC de activación. Antes de 0310/0312 no se backfilleaba el CUIT → no ocurría.
+
+**Fix (mig 0322) en dos capas:**
+1. **Normalizar** el CUIT a 11 dígitos (`regexp_replace(...,'[^0-9]','')`, basura → NULL) y el DNI a
+   7-8 dígitos, en AMBOS triggers, antes de escribir.
+2. **Best-effort:** el `UPDATE` de backfill/sync va envuelto en `EXCEPTION WHEN OTHERS THEN NULL` — un
+   dato del formulario NUNCA debe romper el flujo padre (la creación de la submission o el trámite).
+   Esto además blinda contra cualquier futura violación de check/unique (ej. el índice `uq_admin_dni_activo`
+   de 0321) desde estos triggers de propagación.
+
+**Frontend (reporte JL, mismo circuito):** el wizard de activación ahora (B) **pre-llena el CUIT** que
+cargó el solicitante en el form (normalizado a dígitos), en vez de dejarlo vacío; y (C) usa **Consumidor
+Final** como condición IVA por defecto cuando el formulario no la provee (antes Monotributo).
+
+**Verificación:** e2e (rollback) del trigger (submission con `30-64788883-2` ya no rompe, guarda
+`30647888832`; DNI `12.345.678`→`12345678`; CUIT basura→NULL) + **e2e end-to-end de `solicitud_activar`**:
+crea cliente + trámite sin error, CUIT backfilleado normalizado.
+
+**Lección:** todo trigger de propagación que escriba en una tabla con CHECK/UNIQUE debe (a) normalizar
+al formato que exige el constraint y (b) ser best-effort (no romper el statement padre). Emparienta con
+R17 (triggers y RLS) — acá el riesgo no era permisos sino un check de formato.
+
+**Fecha / módulo:** 2026-07-10 · solicitudes / activación · mig 0322 + wizard. Regresión de 0310/0312.
