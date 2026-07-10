@@ -1,7 +1,9 @@
-// submit-formulario v9: presentacionales (file_download/costos_info) excluidos de
-// la validación, en sync con el runner (F5 · consistencia de skip-lists).
-// Historia: v8 condition.equals acepta string|string[] (mig 0141); v7 origen_canal +
-// voucher_codigo; voucher 100% saltea el required de campos file.
+// submit-formulario v10 (reporte JL · puntos 2/4/5): si es un CLIENTE LOGUEADO
+// (origen_canal='cliente' + JWT), la submission se liga a SU administración por
+// identidad (JWT), no por el email tipeado → dispara el sync de datos y liga el
+// trámite a su cuenta (sin cliente-fantasma, sin datos perdidos, trámite visible).
+// Historia: v9 presentacionales excluidos de validación; v8 condition.equals
+// string|string[] (mig 0141); v7 origen_canal + voucher_codigo.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.46.1';
 
@@ -204,6 +206,37 @@ Deno.serve(async (req) => {
     }
   }
 
+  // Reporte JL (puntos 2/4/5) · Si es un CLIENTE LOGUEADO (portal), ligar la
+  // submission a SU administración por IDENTIDAD (el JWT), no por el email que
+  // haya tipeado en el form. Esto: (a) dispara `sync_submission_a_administracion`
+  // (propaga padre/madre/dni/dirección/etc. a su ficha), y (b) hace que
+  // `crear_tramite_desde_submission_auto` ligue el trámite a su cuenta (solicitud
+  // cliente_id ← administracion_id) → el trámite aparece en SU portal y NO se
+  // crea un cliente-fantasma nuevo. Antes la submission nacía huérfana (0/24 con
+  // administracion_id) → duplicación + datos perdidos + trámite invisible.
+  let adminIdCliente: string | null = null;
+  if (payload.origen_canal === 'cliente') {
+    const jwt = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '').trim();
+    if (jwt) {
+      try {
+        const { data: userData } = await supabase.auth.getUser(jwt);
+        const uid = userData?.user?.id;
+        if (uid) {
+          const { data: prof } = await supabase
+            .from('profiles')
+            .select('administracion_id, role')
+            .eq('id', uid)
+            .single();
+          if (prof?.role === 'administrador' && prof.administracion_id) {
+            adminIdCliente = prof.administracion_id as string;
+          }
+        }
+      } catch (e) {
+        console.error('[submit-formulario] no se pudo resolver el cliente logueado:', e);
+      }
+    }
+  }
+
   const { data: submission, error: errIns } = await supabase
     .from('formulario_submissions')
     .insert({
@@ -214,7 +247,9 @@ Deno.serve(async (req) => {
       telefono_contacto: telefono_contacto ?? null,
       cuit_detectado,
       tipo_persona,
-      origen: 'publico',
+      // Cliente logueado → ligada a su admin (identidad por JWT); público → NULL.
+      administracion_id: adminIdCliente,
+      origen: adminIdCliente ? 'portal' : 'publico',
       ip_address: ipAddress,
       user_agent: userAgent,
       referer_url: referer,
