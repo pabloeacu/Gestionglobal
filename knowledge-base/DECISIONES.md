@@ -4026,3 +4026,15 @@ baja'd puede recrear una cuenta nueva con el mismo CUIT; definir si debe **react
 (recomendado) en vez de crear. (b) **Dedup por DNI de personas físicas sin CUIT** (leads/prospectos)
 — hoy dedup sólo por email; es capa de leads, no de facturación, por eso menor. (c) el 23505 crudo de
 `solicitud_activar` sólo en carrera concurrente (pre-check + `errors.ts` ya lo cubren en el 99%).
+
+**Resolución de (a) y (b) — decisiones de Pablo (2026-07-10, mig 0321):**
+- **(a) Reingreso con mismo CUIT → el GERENTE decide** (no reactivar automático: "la baja pudo ser
+  por un problema que no se quiera heredar"). Al crear un cliente cuyo CUIT coincide con uno dado de
+  baja, el drawer ofrece **reactivar el existente** (conserva historial + cta cte) o **crear una
+  cuenta nueva y separada**, con confirmación explícita para crear (default seguro = abortar).
+- **(b) Dedup por DNI en DOS niveles:** duro (índice único `uq_admin_dni_activo` entre activos SIN
+  CUIT — dup inequívoco; no falso-bloquea a un responsable de varias administraciones porque cada una
+  tiene su CUIT) + blando (al crear/editar, si el DNI coincide con cualquier cliente activo se avisa
+  "puede ser la misma persona" y el gerente decide — caza el caso mismo-DNI-CUIT-distinto/tipeado).
+  RPC unificada `admin_precheck_identidad`. Verificado e2e (rollback) + **prueba en vivo con gerente
+  QA**: ambos diálogos aparecen con el copy correcto y el aborto de 2 pasos no crea ni reactiva nada.
