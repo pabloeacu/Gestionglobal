@@ -176,3 +176,25 @@ export async function reactivarAdministracion(
   if (error) return fail('ADMIN_REACTIVAR', error.message, error);
   return ok(null);
 }
+
+// Precheck de identidad antes de crear/editar un cliente (mig 0321, decisiones
+// Pablo). Devuelve el gemelo por CUIT (para ofrecer reactivar si está de baja) y
+// el gemelo por DNI activo (para avisar "puede ser la misma persona").
+export interface IdentidadPrecheck {
+  cuit_twin: { id: string; nombre: string; activo: boolean; estado: string } | null;
+  dni_twin: { id: string; nombre: string } | null;
+}
+
+export async function adminPrecheckIdentidad(
+  cuit: string | null,
+  dni: string | null,
+  excluirId: string | null,
+): Promise<ApiResponse<IdentidadPrecheck>> {
+  const { data, error } = await supabase.rpc('admin_precheck_identidad' as never, {
+    p_cuit: cuit,
+    p_dni: dni,
+    p_excluir_id: excluirId,
+  } as never);
+  if (error) return fail('ADMIN_PRECHECK', error.message, error);
+  return ok(data as IdentidadPrecheck);
+}

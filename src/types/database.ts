@@ -7777,6 +7777,10 @@ export type Database = {
         Args: { p_administracion_id: string }
         Returns: string
       }
+      admin_precheck_identidad: {
+        Args: { p_cuit?: string; p_dni?: string; p_excluir_id?: string }
+        Returns: Json
+      }
       administracion_dar_de_baja: {
         Args: { p_administracion_id: string }
         Returns: undefined

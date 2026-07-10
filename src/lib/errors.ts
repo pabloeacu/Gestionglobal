@@ -116,6 +116,7 @@ const HUMAN_BY_MESSAGE: Array<{ re: RegExp; human: string }> = [
   { re: /uq_admin_cuit_activo/i, human: 'Ya existe un cliente activo con ese CUIT. Buscalo en la lista de clientes y editá o vinculá ese, en vez de crear uno nuevo.' },
   // Reporte JL / auditoría §6 dedup · mensajes específicos por constraint, antes
   // de la regla genérica de duplicate-key para matchear primero.
+  { re: /uq_admin_dni_activo/i, human: 'Ya existe un cliente activo (sin CUIT) con ese DNI. Buscalo en la lista de clientes y editá o vinculá ese, en vez de crear uno nuevo.' },
   { re: /prospectos_email_key/i, human: 'Ese email ya pertenece a otro prospecto. Buscalo en la lista de prospectos en vez de crear uno nuevo.' },
   { re: /webinar_inscriptos_unique_email/i, human: 'Esa persona ya figura inscripta a este evento.' },
   { re: /uq_curso_matricula/i, human: 'Este alumno ya está inscripto en este curso.' },

@@ -11,12 +11,15 @@ import {
   Textarea,
   Stepper,
   StepPanel,
+  useConfirm,
   type Step,
 } from '@/components/common';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import {
   createAdministracion,
   updateAdministracion,
+  reactivarAdministracion,
+  adminPrecheckIdentidad,
   type AdministracionRow,
 } from '@/services/api/administraciones';
 import { altaClientePortal } from '@/services/api/usuarios';
@@ -146,6 +149,7 @@ export function AdministracionFormDrawer({
   const [saving, setSaving] = useState(false);
   const [step, setStep] = useState(0);
   const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>({});
+  const confirm = useConfirm();
 
   // P-FE-02: resetear form local on-open
   useEffect(() => {
@@ -197,7 +201,6 @@ export function AdministracionFormDrawer({
       setStep(2);
       return;
     }
-    setSaving(true);
     const payload = {
       codigo: form.codigo.trim(),
       nombre: form.nombre.trim(),
@@ -228,6 +231,68 @@ export function AdministracionFormDrawer({
       observaciones: form.observaciones.trim() || null,
     };
 
+    // ── Blindaje de identidad (decisiones Pablo, mig 0321) ──────────────────
+    // Antes de crear/editar, chequeamos gemelos por CUIT y DNI en la BD.
+    const cuitDigits = soloDigitosCuit(form.cuit);
+    const dniDigits = form.responsable_dni.replace(/\D/g, '');
+    if (cuitDigits.length === 11 || (dniDigits.length >= 7 && dniDigits.length <= 8)) {
+      const pre = await adminPrecheckIdentidad(
+        form.cuit.trim() || null,
+        form.responsable_dni.trim() || null,
+        editing?.id ?? null,
+      );
+      if (pre.ok) {
+        const { cuit_twin: cuitTwin, dni_twin: dniTwin } = pre.data;
+        // (1) CUIT de un cliente DADO DE BAJA → el gerente decide (reactivar vs crear).
+        if (!editing && cuitTwin && cuitTwin.activo === false) {
+          const reactivar = await confirm({
+            title: 'Ya existe un cliente dado de baja con este CUIT',
+            message: `"${cuitTwin.nombre}" está dado de baja con este mismo CUIT. La baja pudo deberse a un problema que quizá no quieras heredar. ¿Reactivás ese cliente (conserva su historial y cuenta corriente) o creás una cuenta nueva y separada?`,
+            confirmLabel: 'Reactivar el existente',
+            cancelLabel: 'Crear una cuenta nueva',
+          });
+          if (reactivar) {
+            setSaving(true);
+            const re = await reactivarAdministracion(cuitTwin.id);
+            if (!re.ok) {
+              setSaving(false);
+              toast.error('No pudimos reactivar el cliente', { description: humanizeError(re.error) });
+              return;
+            }
+            const upd = await updateAdministracion(cuitTwin.id, payload);
+            setSaving(false);
+            if (!upd.ok) {
+              toast.error('Reactivado, pero no pudimos aplicar los datos nuevos', { description: humanizeError(upd.error) });
+              return;
+            }
+            toast.success(`Cliente "${cuitTwin.nombre}" reactivado y actualizado`);
+            onSaved?.(upd.data);
+            onClose();
+            return;
+          }
+          // Eligió "crear nueva" (o cerró): confirmamos explícito para no crear por accidente.
+          const crearNueva = await confirm({
+            title: 'Crear una cuenta nueva',
+            message: 'Se creará una cuenta NUEVA y separada con el mismo CUIT. El cliente dado de baja queda como está.',
+            confirmLabel: 'Sí, crear nueva',
+            cancelLabel: 'Cancelar',
+          });
+          if (!crearNueva) return;
+        }
+        // (2) DNI ya presente en un cliente ACTIVO → aviso (puede ser la misma persona).
+        if (dniTwin) {
+          const seguir = await confirm({
+            title: 'Ya existe un cliente con este DNI',
+            message: `El DNI ${form.responsable_dni.trim()} ya figura en "${dniTwin.nombre}". Si es la misma persona, mejor editá ese cliente en vez de duplicarlo. ¿Continuar igual?`,
+            confirmLabel: 'Continuar igual',
+            cancelLabel: 'Cancelar',
+          });
+          if (!seguir) return;
+        }
+      }
+    }
+
+    setSaving(true);
     const res = editing
       ? await updateAdministracion(editing.id, payload)
       : await createAdministracion(payload);
