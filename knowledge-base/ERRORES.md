@@ -3843,3 +3843,47 @@ tipo).
 
 **Fecha / módulo:** 2026-07-09 · eventos / gerencia / naming · fix en `webinars.ts` +
 mig 0306. Cazado por la QA en vivo mandada por §5 (no lo agarra build ni smoke SELECT).
+
+---
+
+## E-GG-97 · Barrido sistémico del over-grant a `anon` (cierre del linaje E-GG-88/89/90/91/92)
+
+**Contexto:** PROJECT_STATUS tenía flageado "barrido sistémico del over-grant a anon en
+OTRAS tablas" (deuda de los E-GG-88/92). Pre-0130, `CREATE TABLE public.*` concede el set
+completo (SELECT/INSERT/UPDATE/DELETE/TRUNCATE/REFERENCES/TRIGGER) a anon por default; la
+RLS tapa el acceso real, pero el grant es la sobre-exposición.
+
+**Auditoría (2026-07-09):** 18 tablas/vistas tenían privilegios de anon. Triaje:
+- **5 vistas** (`cajas_con_saldo`, `vw_comprobantes_para_avisar`, `vw_agenda_unificada`,
+  `vw_administracion_webinars`, `vw_accesos_externos_aperturas`) — TODAS `security_invoker`
+  → anon ya no leía los datos subyacentes (test: `permission denied for table cajas`). El
+  grant sobraba igual.
+- **7 tablas internas** (`audit_log`, `certificado_esquemas`, `csp_reports`,
+  `encuentro_sesiones_compartidas`, `errores_runtime`, `notificaciones_internas`,
+  `vistas_guardadas`) — 0 uso directo en el front, o gerencia-only, o mediadas por RPC (la
+  verificación PÚBLICA de cert usa la RPC `verificar_certificado` SECURITY DEFINER, NO lee
+  `certificado_esquemas` directo).
+- **6 tablas de flujo público** (`formularios`, `formulario_submissions`,
+  `formulario_adjuntos`, `servicios`, `categorias_servicio`, `servicio_vouchers`) — anon SÍ
+  las necesita, pero sólo con un privilegio (el que su policy RLS define: SELECT o INSERT).
+
+**Fix (mig 0308):** `REVOKE ALL … FROM anon` en las 12 internas; en las 6 públicas
+`REVOKE ALL` + `GRANT <mínimo>` (SELECT para render/catálogo, INSERT para submit/upload).
+Como los grants eran explícitos por rol (anon/authenticated/service_role separados, NO vía
+PUBLIC), revocar anon NO tocó a authenticated/service_role (gerencia/cliente intactos).
+
+**Verificación e2e (rol anon puro, sólo apikey sin bearer):** público OK (`formularios`,
+`servicios`, `categorias_servicio` → 200 con filas); interno BLOQUEADO (`audit_log`,
+`cajas_con_saldo`, `certificado_esquemas` → 401). `authenticated`/`service_role` conservan
+6/6 grants. Post-barrido la superficie anon queda: formularios(SELECT),
+formulario_submissions(INSERT), formulario_adjuntos(INSERT), servicios(SELECT),
+categorias_servicio(SELECT), servicio_vouchers(SELECT) — y nada más.
+
+**Lección (reforzada):** toda `CREATE TABLE` pre-0130 necesita `REVOKE FROM anon` explícito
+(el `GRANT TO authenticated` no revierte el default). Ahora la superficie anon es un
+allow-list mínimo y auditable. Chequeo de regresión futuro:
+`SELECT table_name FROM information_schema.role_table_grants WHERE grantee='anon' AND
+table_schema='public'` no debe crecer sin justificación de flujo público.
+
+**Fecha / módulo:** 2026-07-09 · seguridad / RLS-grants · mig 0308. Cierre del flag de
+PROJECT_STATUS pedido por Pablo ("cerrá todo, incluso lo postergado").
