@@ -214,7 +214,7 @@ export function PasoCliente({ solicitud, flags, state, set }: PasoProps) {
           </Field>
           <Field label="Condición IVA">
             <Select
-              value={state.nuevoCliente.condicion_iva ?? 'monotributo'}
+              value={state.nuevoCliente.condicion_iva ?? 'consumidor_final'}
               onChange={(e) =>
                 set((s) => ({
                   ...s,

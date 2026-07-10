@@ -45,8 +45,18 @@ function clasificar(sol: SolicitudDetalle): SolicitudFlags {
 // ---------------------------------------------------------------------------
 // Estado inicial (pre-fill desde la solicitud)
 // ---------------------------------------------------------------------------
+const IVA_VALIDAS = ['responsable_inscripto', 'monotributo', 'exento', 'consumidor_final'];
+
 function estadoInicial(sol: SolicitudDetalle, flags: SolicitudFlags): WizardState {
   const nombre = sol.solicitante_nombre ?? '';
+  // Pre-fill del cliente desde lo que cargó el solicitante en el formulario
+  // (reporte JL): CUIT normalizado a dígitos (el check de la BD exige 11) y
+  // condición IVA — si el form no la trae, va Consumidor Final (no Monotributo).
+  const payload = (sol.submission_payload ?? {}) as Record<string, unknown>;
+  const cuitDigits = String(payload.cuit ?? '').replace(/\D/g, '');
+  const cuitPrefill = cuitDigits.length === 11 ? cuitDigits : null;
+  const ivaForm = String(payload.condicion_iva ?? '').trim().toLowerCase();
+  const ivaPrefill = IVA_VALIDAS.includes(ivaForm) ? ivaForm : 'consumidor_final';
   // Pre-fill comprobante evitando doble descuento: si conocemos precio base +
   // voucher, los mandamos separados (precio base + bonificación %); si sólo hay
   // precio_final, va ese con 0% (el descuento ya viene aplicado).
@@ -72,10 +82,10 @@ function estadoInicial(sol: SolicitudDetalle, flags: SolicitudFlags): WizardStat
       nombre,
       email: sol.solicitante_email ?? null,
       telefono: sol.solicitante_telefono ?? null,
-      cuit: null,
+      cuit: cuitPrefill,
       responsable_nombre: nombre.split(' ')[0] ?? null,
       responsable_apellido: nombre.split(' ').slice(1).join(' ') || null,
-      condicion_iva: 'monotributo',
+      condicion_iva: ivaPrefill,
     },
     docChecks: {},
     docOutcome: 'completa',
