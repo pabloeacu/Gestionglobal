@@ -3887,3 +3887,89 @@ table_schema='public'` no debe crecer sin justificación de flujo público.
 
 **Fecha / módulo:** 2026-07-09 · seguridad / RLS-grants · mig 0308. Cierre del flag de
 PROJECT_STATUS pedido por Pablo ("cerrá todo, incluso lo postergado").
+
+---
+
+## E-GG-98 · Ficha del cliente mostraba un saldo distinto al de la cuenta corriente (reporte JL, 2026-07-09)
+
+**Síntoma (JL, con capturas):** para "Saveriano Lucia", la ficha (Clientes → Cta corriente)
+mostraba SALDO ACTUAL **$410.000**, pero Facturación → Cuenta corriente del MISMO cliente
+mostraba **$205.000** (el correcto). Inconsistencia contable entre superficies.
+
+**Causa raíz:** `AdministracionDetailPage.tsx` (TabCtaCte) tomaba `rows[0].saldo` del array
+del extracto. El extracto viene **ASC** (más viejo primero) y ya filtra `saldo_inicial`, así
+que `rows[0]` es el **primer movimiento** (saldo tras el 1er cargo = $410k), NO el saldo
+actual (última fila = $205k). El mismo bug **ya se había arreglado en el portal**
+(`PortalCtaCtePage` usa `rows[último]`, con comentario que lo documenta) pero **no se propagó
+a la ficha de gerencia** — regresión de paridad (R14/R15). Bonus: la cajita "Cobranzas" sumaba
+las filas `saldo_favor` como si fueran cobranzas → inflaba (Estudio Save: $1.634.000 vs
+$774.000 reales).
+
+**Fix:** la ficha ahora consume `cuenta_corriente_resumen` (la MISMA RPC que Facturación) para
+saldo_actual/total_facturado/total_cobrado/saldo_a_favor; el extracto queda SÓLO para la tabla
+de movimientos, nunca para calcular subtotales. **Fuente única** → imposible que vuelvan a
+diferir. **Live-verificado** con gerente QA efímero: la ficha ahora muestra $205.000 = igual
+que Facturación. **Lección: ninguna superficie recalcula el saldo desde el array del extracto;
+todas usan la RPC resumen.** Blast radius barrido: sólo la ficha estaba mal (portal ok,
+Facturación ok).
+
+**Fecha / módulo:** 2026-07-09 · facturación / cta cte · `AdministracionDetailPage`, commit b248354.
+
+---
+
+## E-GG-99 · Submission huérfana → duplicación de clientes + datos no propagados + trámite invisible (raíz sistémica, reporte JL)
+
+**Síntomas (JL):** (a) "se crearon 3 cuentas de Lucía" (1 persona con 5 administraciones por
+usar mails distintos); (b) "los datos que carga el cliente no aparecen en la ficha" (responsable,
+padre, madre, dirección = "Sin asignar", en TODOS los clientes); (c) el cliente no ve su trámite
+abierto en el portal.
+
+**Causa raíz (UNA rompe las tres):** `submit-formulario` insertaba la submission SIEMPRE con
+`administracion_id NULL` (0/24). De ahí: `sync_submission_a_administracion` short-circuita en
+`IF administracion_id IS NULL RETURN` (nunca propaga datos), y `crear_tramite_desde_submission_auto`
+deja `solicitudes.cliente_id NULL` (el trámite nace huérfano → cliente-fantasma nuevo + invisible
+en el portal del cliente logueado). Además el sync sólo mapeaba 7 campos (faltaban responsable/
+dni/dirección/whatsapp), y `solicitud_activar` (path público) tampoco copiaba esos campos.
+
+**Fix (verificado e2e BEGIN/rollback):**
+- `submit-formulario` v10: si es cliente logueado (origen_canal='cliente' + JWT), liga la
+  submission a SU administración por **identidad (JWT)**, no por el email tipeado → dispara el
+  sync + liga el trámite. e2e: propaga padre/madre/cuit/tel + `solicitudes.cliente_id` = admin.
+- mig 0310: `sync_submission_a_administracion` extendido a los 12 campos (responsable_nombre/
+  apellido/dni, dirección armada de calle+nro+piso+depto, whatsapp).
+- mig 0312: trigger AFTER INSERT en `tramites` que backfillea la ficha desde la submission
+  ligada (COALESCE) → cubre el **path público** (activación de submission sin admin_id).
+- mig 0311: índice único parcial sobre CUIT normalizado en admins activos → **un CUIT = una
+  cuenta activa** (decisión Pablo), backstop sistémico contra duplicar por "misma persona,
+  otro email" en cualquier vía. (dups viejos de Lucía tienen cuit NULL → excluidos; "prevenir
+  nuevos, no tocar viejos".)
+
+**Lección: toda vía de ingest debe resolver la identidad del cliente logueado por JWT (no por
+el email del form), y el CUIT es la clave de dedup, no el email.** Follow-ups anotados (no
+bloqueantes): inputs del wizard para editar responsable/padre/madre a mano (R14); RPC de fusión
+para consolidar dups existentes; cerrar pedidos_doc huérfanos al cancelar trámite.
+
+**Fecha / módulo:** 2026-07-09 · formularios / clientes / identidad · submit-formulario v10 +
+migs 0310/0311/0312. Verificado e2e.
+
+---
+
+## E-GG-100 · Mail de "pedido de documentación" al email equivocado → el cliente no ve/actúa su trámite (JL puntos 1/5)
+
+**Síntoma (JL, reiterado):** el cliente recibe el mail "Subir documentación" con link al portal,
+entra, y ve **"No encontramos este trámite"** — el trámite abierto no aparece.
+
+**Causa raíz:** `tramite_pedido_doc_crear` mandaba el mail a `tramites.solicitante_email` (texto
+libre capturado en el alta), que puede diferir del email de **login** de la administración dueña
+del trámite. Con la duplicación de cuentas (E-GG-99), TRM-2026-00071 vive bajo el login
+`luciafotos4` pero el solicitante_email era `luciafotos` → Lucía recibe el mail en `luciafotos`,
+entra con esa sesión, y el portal (que filtra por `current_administracion_id`) correctamente no
+ve un trámite de otra cuenta. La notif interna y el push YA iban bien (por administracion_id);
+sólo el mail estaba desacoplado.
+
+**Fix (mig 0309):** el mail se dirige al email de **login real** de la administración dueña
+(`profiles`→`auth.users` por administracion_id); fallback a solicitante_email. e2e con el caso
+real: TRM-2026-00071 pasa de `luciafotos` → `luciafotos4` (la cuenta que sí ve el trámite). Con
+E-GG-99, los trámites nuevos quedan bajo la cuenta correcta → el mail y la sesión coinciden de raíz.
+
+**Fecha / módulo:** 2026-07-09 · trámites / mails · mig 0309. Verificado e2e con datos reales.

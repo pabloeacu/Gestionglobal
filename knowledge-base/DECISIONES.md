@@ -3963,3 +3963,38 @@ marcó como "campo muerto en el banner", pero NO es muerto: el trigger `trg_cert
 del evento / mis-cursos según origen). El banner descarga directo por decisión de Pablo; que el RPC
 lo devuelva es el record completo. Sin cambio de código, DUDA resuelta. **Fecha:** 2026-07-09,
 mig 0307 + config.toml.
+
+### DGG-101 · Reporte JL (7 cuestiones) — consistencia contable + identidad de cliente + portal (2026-07-09)
+
+Documento de JL con 7 cuestiones (varias reiteradas, "presuntamente resueltas"). Pablo pidió
+método canónico + **blast radius sistémico** ("no te acotes a los casos; 100% de certeza punta a
+punta; lanzamos mañana con 1000 clientes"). Doble auditoría §6 (3 agentes en paralelo + e2e BD).
+**Descubrimiento clave: los 7 síntomas cuelgan de 2 raíces**, no de 7 bugs sueltos.
+
+**Decisiones de Pablo (AskUserQuestion):** (1) **una persona = una cuenta, deduplicada por
+CUIT** (no modelo multi-administración/membership); (2) **ofrecer aplicar el saldo a favor al
+crear** el comprobante; (3) **sólo prevenir duplicados nuevos** (los 5 de Lucía son data de
+prueba; dejo herramienta de fusión como follow-up, no la corro).
+
+**Raíz A — identidad fragmentada:** `submit-formulario` no ligaba la submission al cliente
+logueado → duplicación por email + datos no propagados + trámite huérfano/invisible. Fix:
+resolver identidad por **JWT** (no por el email tipeado) + dedup por **CUIT** (índice único
+0311) + propagación completa (sync 0310 + backfill 0312). Ver **E-GG-99**.
+
+**Raíz B — saldo recalculado a mano por superficie:** la ficha usaba `rows[0]` del extracto en
+vez de la RPC resumen → saldo distinto al de Facturación. Fix: **toda superficie usa
+`cuenta_corriente_resumen`** (fuente única). Ver **E-GG-98**.
+
+**Los 7 puntos:** (1/5) mail de pedido de docs al login correcto (mig 0309, **E-GG-100**); (2)
+dedup por CUIT + identidad por JWT (**E-GG-99**); (3) saldo de la ficha desde la RPC resumen
+(**E-GG-98**, live-verificado $205k); (4) propagación completa de datos del cliente (0310 logueado
++ 0312 público); (6) columna + KPI + filtro "Saldo a favor" en la cuenta corriente global (la RPC
+ya lo traía); (7) banner proactivo "aplicar saldo a favor" en el detalle del comprobante.
+
+**Migs 0309–0312 + submit-formulario v10 + 3 archivos de front** (AdministracionDetailPage,
+CtaCteListPage, ComprobanteDetailPage). Commits b248354 + c2257fa + 7aa7bab. **Verificación:**
+e2e BD (BEGIN/rollback) de cada trigger/RPC + smoke del edge fn (forms públicos intactos) + live
+del saldo con gerente QA efímero. **Follow-ups (no bloqueantes, anotados):** inputs del wizard
+(R14) para editar responsable/padre/madre; RPC de fusión de duplicados; cerrar pedidos_doc
+huérfanos al cancelar; barrer los demás mails de trámite que usan `solicitante_email`.
+- **Fecha:** 2026-07-09. Raíz sistémica cerrada de cara al lanzamiento con 1000 clientes.
