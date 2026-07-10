@@ -421,6 +421,7 @@ export function AdministracionFormDrawer({
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field
                   label="CUIT"
+                  required
                   hint="Formato XX-XXXXXXXX-X (los guiones se completan solos)"
                   error={errors.cuit}
                 >
@@ -673,7 +674,12 @@ function stepValidations(
   const out: Array<Partial<Record<keyof FormState, string>>> = [{}, {}, {}, {}];
   if (!form.codigo.trim()) out[0]!.codigo = 'Requerido';
   if (!form.nombre.trim()) out[0]!.nombre = 'Requerido';
-  if (form.cuit) {
+  // CUIT OBLIGATORIO (decisión Pablo): identifica al cliente y es la clave de
+  // deduplicación (un CUIT = una cuenta). Aplica a alta y edición (fuerza el
+  // backfill de los clientes viejos con CUIT NULL).
+  if (!form.cuit || !form.cuit.trim()) {
+    out[1]!.cuit = 'El CUIT es obligatorio: identifica al cliente y evita cuentas duplicadas.';
+  } else {
     const cuitErr = validarCuit(form.cuit);
     if (cuitErr) out[1]!.cuit = cuitErr;
   }

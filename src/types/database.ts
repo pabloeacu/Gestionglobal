@@ -7850,6 +7850,10 @@ export type Database = {
         Args: { p_comprobante_id: string; p_motivo: string }
         Returns: string
       }
+      anular_comprobante_preview: {
+        Args: { p_comprobante_id: string }
+        Returns: Json
+      }
       apply_resend_event: {
         Args: {
           p_data: Json
@@ -8703,6 +8707,10 @@ export type Database = {
         }[]
       }
       errores_marcar_resuelto: { Args: { p_id: string }; Returns: boolean }
+      fusionar_administraciones: {
+        Args: { p_destino: string; p_origen: string }
+        Returns: Json
+      }
       fz_anular_movimiento: {
         Args: { p_motivo?: string; p_movimiento_id: string }
         Returns: undefined

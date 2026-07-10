@@ -51,6 +51,7 @@ import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import {
   getComprobante,
   anularComprobante,
+  anularComprobantePreview,
   transformarComprobanteAFiscal,
   type ComprobanteRow,
   type ComprobanteItemRow,
@@ -181,13 +182,38 @@ export function ComprobanteDetailPage() {
       confirmLabel: 'Anular',
     });
     if (motivo === null) return;
+
+    // Paquete de blindaje contable (decisión Pablo): traemos el impacto de la
+    // anulación y lo OFRECEMOS en el modal antes de confirmar. El RPC auto-corrige
+    // ARCA + recupero; partner se informa (borrador se regenera, pagada = ajuste).
+    const prev = await anularComprobantePreview(comp.id);
+    const p = prev.ok ? prev.data : null;
+    const lineas: string[] = [];
+    if (tienePago) {
+      lineas.push(
+        `• El pago de ${formatMoney(cobrado)} NO se pierde: queda como saldo a favor del cliente (aplicable a otra deuda o devolución). El dinero sigue en la caja.`,
+      );
+    }
+    if (p && p.arca_pendientes > 0) {
+      lineas.push(`• Se cancela ${p.arca_pendientes} emisión ARCA pendiente (no se le estampa CAE a un anulado).`);
+    }
+    if (p && p.recupero_pendientes > 0) {
+      lineas.push(`• Se cancela ${p.recupero_pendientes} aviso de recupero pendiente (no se intima por este comprobante).`);
+    }
+    if (p && p.partner_borrador && p.partner_borrador.count > 0) {
+      lineas.push(`• ${p.partner_borrador.count} atribución a partner en rendición borrador (${formatMoney(p.partner_borrador.monto)}): se excluye al regenerar esa rendición.`);
+    }
+    const hayPagada = !!(p && p.partner_pagada && p.partner_pagada.count > 0);
+    if (hayPagada) {
+      lineas.push(`⚠️ ${p!.partner_pagada.count} atribución a partner en rendición YA PAGADA (${formatMoney(p!.partner_pagada.monto)}): el partner ya cobró — registrá el ajuste en su próxima rendición.`);
+    }
+    const paquete = lineas.length > 0 ? '\n\nAl anular:\n' + lineas.join('\n') : '';
+
     const ok = await confirm({
-      title: tienePago
-        ? 'Atención: este comprobante ya tiene un pago'
+      title: (tienePago || hayPagada)
+        ? 'Revisá el impacto antes de anular'
         : '¿Confirmás la anulación?',
-      message: tienePago
-        ? `Este comprobante ya tiene ${formatMoney(cobrado)} cobrado. Si lo anulás, deja de figurar como deuda y ese pago de ${formatMoney(cobrado)} NO se pierde: queda como saldo a favor del cliente en su cuenta corriente, disponible para aplicarlo a otra deuda o devolverlo. El dinero sigue en la caja (no se toca). Esta acción no se puede deshacer.`
-        : 'Esta acción no se puede deshacer.',
+      message: 'Esta acción no se puede deshacer.' + paquete,
       confirmLabel: 'Sí, anular',
       cancelLabel: 'Volver',
       danger: true,

@@ -266,6 +266,29 @@ export async function anularComprobante(
   return ok({ id: data as string });
 }
 
+// Paquete de blindaje al anular (decisión Pablo): el modal ofrece las
+// correcciones. El RPC auto-cancela ARCA + recupero; el preview reporta el
+// impacto (incl. partner borrador/pagada) para mostrarlo antes de confirmar.
+export interface AnularPreview {
+  tiene_cae: boolean;
+  cobrado_a_credito: number;
+  arca_pendientes: number;
+  recupero_pendientes: number;
+  partner_borrador: { count: number; monto: number };
+  partner_pagada: { count: number; monto: number };
+}
+
+export async function anularComprobantePreview(
+  id: string,
+): Promise<ApiResponse<AnularPreview>> {
+  const { data, error } = await supabase.rpc(
+    'anular_comprobante_preview' as never,
+    { p_comprobante_id: id } as never,
+  );
+  if (error) return fail('COMP_ANULAR_PREVIEW', error.message, error);
+  return ok(data as AnularPreview);
+}
+
 export async function peekProximoNumero(
   puntoVenta: number,
   tipo: ComprobanteTipo,
