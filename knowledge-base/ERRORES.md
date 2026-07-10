@@ -4097,3 +4097,18 @@ al formato que exige el constraint y (b) ser best-effort (no romper el statement
 R17 (triggers y RLS) — acá el riesgo no era permisos sino un check de formato.
 
 **Fecha / módulo:** 2026-07-10 · solicitudes / activación · mig 0322 + wizard. Regresión de 0310/0312.
+
+**Barrido integral de regresión (migs 0306–0322, §6 · 3 agentes + e2e):** a raíz de esta regresión
+se auditó TODA la ventana buscando el mismo patrón y vecinos. Resultado — **verificado LIMPIO:** las 5
+funciones de mail reescritas en 0319 (side-effects idénticos, fan-out intacto), el gate de tenant de
+0318 (sólo excluye baja; todo alta crea `activo=true/estado='activo'`), el índice DNI de 0321 (sólo lo
+escriben los 2 triggers, ya best-effort), sin overloads (R16, 0 filas). **Hallazgos:**
+- **#1 (regresión real, mig 0323):** `administracion_reactivar` (0318) podía tirar un 23505 crudo del
+  índice `uq_admin_cuit_activo` al reactivar un cliente si ya existía otro activo con el mismo CUIT
+  (reingreso "crear cuenta nueva"). Fix: guard que detecta el gemelo activo y avisa con mensaje humano.
+- **#2 (blindaje, mig 0323):** trigger BEFORE en `administraciones` que normaliza `cuit`→11 dígitos y
+  `responsable_dni`→dígitos. Cierra de raíz la familia E-GG-105 para CUALQUIER path (incl. el INSERT
+  crudo latente de `solicitud_activar`/0278).
+- **#8 (follow-up inerte):** `fusionar_administraciones` (0313) no reasigna 4 tablas de config per-admin
+  (`patrones_conciliacion`, `recupero_config`, `vencimientos_config`, `tabulador_precios`) — todas con
+  0 filas hoy, así que no orfana nada; agregar los 4 `UPDATE` si empiezan a usarse per-admin.
