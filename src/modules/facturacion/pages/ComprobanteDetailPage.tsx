@@ -24,6 +24,7 @@ import {
 import { EnviarComprobanteModal } from '../components/EnviarComprobanteModal';
 import { RegistrarCobranzaDrawer } from '../components/RegistrarCobranzaDrawer';
 import { AplicarSaldoAFavorDrawer } from '../components/AplicarSaldoAFavorDrawer';
+import { getResumenAdministracion } from '@/services/api/ctaCte';
 import {
   listCobranzasDeComprobante,
   desimputarCobranza,
@@ -93,6 +94,9 @@ export function ComprobanteDetailPage() {
   const [saldoFavorOpen, setSaldoFavorOpen] = useState(false);
   const [cobranzas, setCobranzas] = useState<CobranzaListItem[]>([]);
   const [envios, setEnvios] = useState<SentEmailRow[]>([]);
+  // Punto 7 (pedido Pablo): saldo a favor disponible del cliente → banner/CTA
+  // proactivo para aplicarlo apenas se crea/ve el comprobante.
+  const [saldoAFavorCliente, setSaldoAFavorCliente] = useState(0);
 
   async function load() {
     if (!id) return;
@@ -111,6 +115,12 @@ export function ComprobanteDetailPage() {
     setItems(res.data.items);
     if (cobRes.ok) setCobranzas(cobRes.data);
     if (sentRes.ok) setEnvios(sentRes.data);
+    // Crédito disponible del cliente (para ofrecer aplicarlo — punto 7 JL).
+    const adminId = res.data.comprobante.administracion_id;
+    if (adminId) {
+      const rr = await getResumenAdministracion(adminId, '2000-01-01', '2100-12-31');
+      if (rr.ok) setSaldoAFavorCliente(rr.data.saldo_a_favor);
+    }
   }
 
   async function onDesimputar(imputacion_id: string, esCredito = false) {
@@ -610,6 +620,21 @@ export function ComprobanteDetailPage() {
                 </h3>
               </div>
             </div>
+            {saldoAFavorCliente > 0 &&
+              Number(comp.saldo_pendiente) > 0 &&
+              comp.estado !== 'anulado' && (
+                <div className="mb-3 flex flex-col gap-2 rounded-xl border border-emerald-300/60 bg-emerald-50 p-3 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-sm text-emerald-900">
+                    <PiggyBank size={14} className="mr-1 inline" />
+                    Este cliente tiene{' '}
+                    <strong>${Math.round(saldoAFavorCliente).toLocaleString('es-AR')}</strong>{' '}
+                    a favor. ¿Aplicarlo a este comprobante?
+                  </p>
+                  <Button variant="secondary" onClick={() => setSaldoFavorOpen(true)}>
+                    <PiggyBank size={15} /> Aplicar ahora
+                  </Button>
+                </div>
+              )}
             {Number(comp.saldo_pendiente) > 0 &&
               comp.estado !== 'anulado' && (
                 <div className="flex flex-wrap items-center gap-2">

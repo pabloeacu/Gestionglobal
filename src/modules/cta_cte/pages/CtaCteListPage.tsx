@@ -46,7 +46,7 @@ export function CtaCteListPage() {
   const [hasta, setHasta] = useState<string>(defaultHasta());
   const [search, setSearch] = useState('');
   const [estadoFilter, setEstadoFilter] =
-    useState<'todos' | 'con_deuda' | 'con_vencidos' | 'al_dia'>('con_deuda');
+    useState<'todos' | 'con_deuda' | 'con_favor' | 'con_vencidos' | 'al_dia'>('con_deuda');
   const [sortKey, setSortKey] = useState<SortKey>('deuda');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
 
@@ -79,6 +79,7 @@ export function CtaCteListPage() {
         if (s && !r.administracion_nombre.toLowerCase().includes(s))
           return false;
         if (estadoFilter === 'con_deuda' && r.deuda_total <= 0) return false;
+        if (estadoFilter === 'con_favor' && !((r.saldo_a_favor ?? 0) > 0)) return false;
         if (estadoFilter === 'con_vencidos' && r.comprobantes_vencidos === 0)
           return false;
         if (estadoFilter === 'al_dia' && r.deuda_total > 0) return false;
@@ -114,6 +115,7 @@ export function CtaCteListPage() {
       facturado: sum('total_facturado'),
       cobrado: sum('total_cobrado'),
       pendiente: sum('deuda_total'),
+      saldo_favor: sum('saldo_a_favor'),
       vencidos,
     };
   }, [rows]);
@@ -137,6 +139,7 @@ export function CtaCteListPage() {
       value:
         estadoFilter === 'todos' ? 'Todos'
         : estadoFilter === 'con_deuda' ? 'Con deuda'
+        : estadoFilter === 'con_favor' ? 'Con saldo a favor'
         : estadoFilter === 'con_vencidos' ? 'Con vencidos'
         : 'Al día',
     });
@@ -259,6 +262,13 @@ export function CtaCteListPage() {
             hint: `${rows.filter((r) => r.deuda_total > 0).length} admins con deuda`,
           },
           {
+            label: 'Saldo a favor',
+            value: kpis.saldo_favor,
+            icon: <TrendingDown size={18} />,
+            tone: 'emerald',
+            hint: `${rows.filter((r) => (r.saldo_a_favor ?? 0) > 0).length} admins con crédito`,
+          },
+          {
             label: 'Vencidos',
             value: kpis.vencidos,
             icon: <AlertCircle size={18} />,
@@ -294,6 +304,7 @@ export function CtaCteListPage() {
           >
             <option value="todos">Todas</option>
             <option value="con_deuda">Con deuda</option>
+            <option value="con_favor">Con saldo a favor</option>
             <option value="con_vencidos">Con vencidos</option>
             <option value="al_dia">Al día</option>
           </Select>
@@ -390,6 +401,7 @@ export function CtaCteListPage() {
                       onClick={toggleSort}
                       align="right"
                     />
+                    <th className="px-4 py-2.5 text-right">Saldo a favor</th>
                     <th className="px-4 py-2.5 text-center">Pendientes</th>
                     <th className="px-4 py-2.5 text-center">Vencidos</th>
                     <th className="px-4 py-2.5 text-right"></th>
@@ -399,7 +411,7 @@ export function CtaCteListPage() {
                   {loading && rows.length === 0
                     ? Array.from({ length: 5 }).map((_, i) => (
                         <tr key={i} className="border-b border-slate-100">
-                          <td colSpan={7} className="p-3">
+                          <td colSpan={8} className="p-3">
                             <Skeleton className="h-8 w-full rounded" />
                           </td>
                         </tr>
@@ -435,6 +447,16 @@ export function CtaCteListPage() {
                             )}
                           >
                             {formatMoney(r.deuda_total, 0)}
+                          </td>
+                          <td
+                            className={cn(
+                              'px-4 py-3 text-right tabular font-semibold',
+                              (r.saldo_a_favor ?? 0) > 0
+                                ? 'text-emerald-700'
+                                : 'text-brand-muted',
+                            )}
+                          >
+                            {(r.saldo_a_favor ?? 0) > 0 ? formatMoney(r.saldo_a_favor, 0) : '—'}
                           </td>
                           <td className="px-4 py-3 text-center tabular text-xs text-brand-muted">
                             {r.comprobantes_pendientes}

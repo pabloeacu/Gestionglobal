@@ -50,6 +50,7 @@ import {
   listCtaCteAdministracion,
   type CtaCteEntry,
 } from '@/services/api/cobranzas';
+import { getResumenAdministracion, type CtaCteResumen } from '@/services/api/ctaCte';
 import { formatDateShort, parseLocalDate } from '@/lib/dates';
 import { cn } from '@/lib/cn';
 import { TabWebinars } from '../components/TabWebinars';
@@ -947,19 +948,28 @@ function TabConsorcios({
 
 function TabCtaCte({ administracionId }: { administracionId: string }) {
   const [rows, setRows] = useState<CtaCteEntry[]>([]);
+  const [resumen, setResumen] = useState<CtaCteResumen | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     setLoading(true);
     setError(null);
-    void listCtaCteAdministracion(administracionId).then((res) => {
+    // Fuente ÚNICA de saldo/totales = RPC `cuenta_corriente_resumen` (la misma que
+    // usa Facturación → CtaCteDetailPage). El extracto queda SÓLO para la tabla de
+    // movimientos, nunca para calcular el saldo (bug histórico: rows[0] = mov más
+    // viejo; JL — ficha 410k vs cta cte 205k). Rango amplio = todo el histórico.
+    void Promise.all([
+      listCtaCteAdministracion(administracionId),
+      getResumenAdministracion(administracionId, '2000-01-01', '2100-12-31'),
+    ]).then(([ext, res]) => {
       setLoading(false);
-      if (!res.ok) {
-        setError(humanizeError(res.error));
+      if (!ext.ok) {
+        setError(humanizeError(ext.error));
         return;
       }
-      setRows(res.data);
+      setRows(ext.data);
+      if (res.ok) setResumen(res.data);
     });
   }, [administracionId]);
 
@@ -990,9 +1000,14 @@ function TabCtaCte({ administracionId }: { administracionId: string }) {
     );
   }
 
-  const saldoActual = rows[0]?.saldo ?? 0;
-  const totalCargos = rows.filter((r) => r.signo === 1).reduce((s, r) => s + r.monto, 0);
-  const totalAbonos = rows.filter((r) => r.signo === -1).reduce((s, r) => s + r.monto, 0);
+  // Todo desde el resumen (fuente única). Fallback defensivo al extracto SÓLO si
+  // el resumen no cargó: saldo = ÚLTIMA fila (la más reciente), nunca rows[0].
+  const saldoActual = resumen?.saldo_actual ?? (rows[rows.length - 1]?.saldo ?? 0);
+  const totalCargos = resumen?.total_facturado
+    ?? rows.filter((r) => r.signo === 1).reduce((s, r) => s + r.monto, 0);
+  const totalAbonos = resumen?.total_cobrado
+    ?? rows.filter((r) => r.tipo === 'cobranza').reduce((s, r) => s + r.monto, 0);
+  const saldoAFavor = resumen?.saldo_a_favor ?? 0;
 
   return (
     <div className="space-y-5">
@@ -1009,18 +1024,27 @@ function TabCtaCte({ administracionId }: { administracionId: string }) {
             $<AnimatedNumber value={Math.round(totalAbonos)} />
           </p>
         </div>
-        <div className={`rounded-xl border-2 p-3 text-center ${
-          saldoActual > 0
-            ? 'border-amber-300/60 bg-amber-50'
-            : 'border-emerald-300/60 bg-emerald-50'
-        }`}>
-          <p className="kicker text-brand-muted">Saldo actual</p>
-          <p className={`mt-0.5 font-display text-lg font-bold tabular ${
-            saldoActual > 0 ? 'text-amber-700' : 'text-emerald-700'
+        {saldoAFavor > 0 ? (
+          <div className="rounded-xl border-2 border-emerald-300/60 bg-emerald-50 p-3 text-center">
+            <p className="kicker text-brand-muted">Saldo a favor</p>
+            <p className="mt-0.5 font-display text-lg font-bold tabular text-emerald-700">
+              $<AnimatedNumber value={Math.round(saldoAFavor)} />
+            </p>
+          </div>
+        ) : (
+          <div className={`rounded-xl border-2 p-3 text-center ${
+            saldoActual > 0
+              ? 'border-amber-300/60 bg-amber-50'
+              : 'border-emerald-300/60 bg-emerald-50'
           }`}>
-            $<AnimatedNumber value={Math.round(saldoActual)} />
-          </p>
-        </div>
+            <p className="kicker text-brand-muted">Saldo actual</p>
+            <p className={`mt-0.5 font-display text-lg font-bold tabular ${
+              saldoActual > 0 ? 'text-amber-700' : 'text-emerald-700'
+            }`}>
+              $<AnimatedNumber value={Math.round(saldoActual)} />
+            </p>
+          </div>
+        )}
       </div>
 
       <div className="overflow-hidden rounded-xl border border-slate-200">
