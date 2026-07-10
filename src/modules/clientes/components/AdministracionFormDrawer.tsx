@@ -35,6 +35,7 @@ type FormState = {
   nombre: string;
   responsable_nombre: string;
   responsable_apellido: string;
+  responsable_dni: string;
   estado: 'prospecto' | 'activo' | 'suspendido' | 'baja';
   cuit: string;
   condicion_iva: '' | 'consumidor_final' | 'responsable_inscripto' | 'monotributo' | 'exento';
@@ -67,6 +68,7 @@ const EMPTY: FormState = {
   nombre: '',
   responsable_nombre: '',
   responsable_apellido: '',
+  responsable_dni: '',
   estado: 'activo',
   cuit: '',
   condicion_iva: '',
@@ -98,6 +100,7 @@ function rowToForm(r: AdministracionRow): FormState {
     nombre: r.nombre,
     responsable_nombre: r.responsable_nombre ?? '',
     responsable_apellido: r.responsable_apellido ?? '',
+    responsable_dni: (r as { responsable_dni?: string | null }).responsable_dni ?? '',
     estado: r.estado as FormState['estado'],
     cuit: r.cuit ?? '',
     condicion_iva: (r.condicion_iva as FormState['condicion_iva']) ?? '',
@@ -200,6 +203,7 @@ export function AdministracionFormDrawer({
       nombre: form.nombre.trim(),
       responsable_nombre: form.responsable_nombre.trim() || null,
       responsable_apellido: form.responsable_apellido.trim() || null,
+      responsable_dni: form.responsable_dni.trim() || null,
       cuit: form.cuit.trim() || null,
       condicion_iva: form.condicion_iva || null,
       domicilio_fiscal: form.domicilio_fiscal.trim() || null,
@@ -396,6 +400,15 @@ export function AdministracionFormDrawer({
                   />
                 </Field>
               </div>
+              <Field label="Responsable · DNI" className="mt-4">
+                <Input
+                  inputMode="numeric"
+                  value={form.responsable_dni}
+                  onChange={(e) =>
+                    setField('responsable_dni', e.target.value.replace(/\D/g, '').slice(0, 10))
+                  }
+                />
+              </Field>
             </StepPanel>
           )}
 

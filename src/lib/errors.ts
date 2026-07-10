@@ -110,6 +110,10 @@ const HUMAN_BY_MESSAGE: Array<{ re: RegExp; human: string }> = [
   { re: /failed to fetch|networkerror|err_network/i, human: 'No pudimos conectar con el servidor. Verificá tu conexión a internet y reintentá.' },
   { re: /timeout|timed out/i, human: 'El servidor tardó demasiado en responder. Reintentá en unos segundos.' },
   { re: /jwt expired|invalid jwt|jwt is invalid/i, human: 'Tu sesión expiró. Volvé a ingresar.' },
+  // Reporte JL / DGG-101 · el índice único uq_admin_cuit_activo (un CUIT = una
+  // cuenta activa) debe dar un mensaje accionable, no el genérico. Va ANTES de la
+  // regla genérica de duplicate-key para matchear primero.
+  { re: /uq_admin_cuit_activo/i, human: 'Ya existe un cliente activo con ese CUIT. Buscalo en la lista de clientes y editá o vinculá ese, en vez de crear uno nuevo.' },
   { re: /duplicate key value violates unique constraint/i, human: 'Ya existe un registro con esos datos. Revisá los campos únicos.' },
   { re: /violates foreign key constraint/i, human: 'No se pudo guardar porque falta un dato relacionado.' },
   { re: /violates not-null constraint/i, human: 'Falta completar un campo obligatorio.' },
