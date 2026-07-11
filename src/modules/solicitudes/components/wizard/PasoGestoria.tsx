@@ -4,11 +4,15 @@
 // (diferido, no inmediato como en el wizard viejo). Los adjuntos sí se suben al
 // bucket ahora (para tener el path), igual que antes.
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Send } from 'lucide-react';
 import { Field, Input, Select, StepPanel, Textarea } from '@/components/common';
 import { toast } from '@/lib/toast';
-import { uploadAdjuntoGestoria } from '@/services/api/solicitudes';
+import {
+  uploadAdjuntoGestoria,
+  listGestoriaDestinatarios,
+  type GestoriaDestinatario,
+} from '@/services/api/solicitudes';
 import { getCajasConSaldo, type CajaConSaldoRow } from '@/services/api/finanzas';
 import { humanizeError } from '@/lib/errors';
 import type { GestoriaState, PasoProps } from './types';
@@ -17,6 +21,12 @@ export function PasoGestoria({ solicitud, state, set }: PasoProps) {
   const g = state.gestoria;
   const [cajas, setCajas] = useState<CajaConSaldoRow[]>([]);
   const [subiendo, setSubiendo] = useState(false);
+  // Finding D (JL): memoria de gestorías usadas antes → autocompletar el email.
+  const [destinatarios, setDestinatarios] = useState<GestoriaDestinatario[]>([]);
+  // Último nombre que auto-rellenamos: si el nombre actual sigue siendo ese,
+  // es "auto" y podemos re-alinearlo al cambiar de gestoría; si el gerente lo
+  // editó a mano, quedará distinto y nunca lo pisamos.
+  const autoNombreRef = useRef('');
 
   useEffect(() => {
     void getCajasConSaldo().then((r) => {
@@ -30,6 +40,7 @@ export function PasoGestoria({ solicitud, state, set }: PasoProps) {
         return def ? { ...s, gestoria: { ...s.gestoria, cajaId: def.caja_id } } : s;
       });
     });
+    void listGestoriaDestinatarios().then(setDestinatarios);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -68,10 +79,41 @@ export function PasoGestoria({ solicitud, state, set }: PasoProps) {
           <Field label="Email del gestor" required>
             <Input
               type="email"
+              list="gestoria-destinatarios"
               value={g.email}
-              onChange={(e) => patchG({ email: e.target.value })}
+              onChange={(e) => {
+                const email = e.target.value;
+                const hit = destinatarios.find(
+                  (d) => d.email.toLowerCase() === email.trim().toLowerCase(),
+                );
+                // Rellenamos/re-alineamos el nombre si eligió una gestoría
+                // conocida y el nombre está vacío o sigue siendo el que
+                // pusimos automáticamente. Si lo editó a mano, no lo tocamos.
+                const nombreEsAutoOVacio =
+                  !g.nombre.trim() || g.nombre === autoNombreRef.current;
+                if (hit?.nombre && nombreEsAutoOVacio) {
+                  autoNombreRef.current = hit.nombre;
+                  patchG({ email, nombre: hit.nombre });
+                } else {
+                  patchG({ email });
+                }
+              }}
               placeholder="gestoria@ejemplo.com"
             />
+            {destinatarios.length > 0 && (
+              <>
+                <datalist id="gestoria-destinatarios">
+                  {destinatarios.map((d) => (
+                    <option key={d.email} value={d.email}>
+                      {d.nombre || ''}
+                    </option>
+                  ))}
+                </datalist>
+                <p className="mt-1 text-[11px] text-brand-muted">
+                  Sugerencias: gestorías que ya usaste antes.
+                </p>
+              </>
+            )}
           </Field>
           <Field label="Nombre del gestor (opcional)">
             <Input

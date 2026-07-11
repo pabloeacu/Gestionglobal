@@ -4038,3 +4038,22 @@ baja'd puede recrear una cuenta nueva con el mismo CUIT; definir si debe **react
   "puede ser la misma persona" y el gerente decide — caza el caso mismo-DNI-CUIT-distinto/tipeado).
   RPC unificada `admin_precheck_identidad`. Verificado e2e (rollback) + **prueba en vivo con gerente
   QA**: ambos diálogos aparecen con el copy correcto y el aborto de 2 pasos no crea ni reactiva nada.
+
+### DGG-102 · Memoria de destinatarios de gestoría (finding D · reporte JL) — 2026-07-11
+- **Pedido JL** (paso 4 del wizard de activación · "Derivación a gestoría"): *"Si no es
+  complicado estaría bueno que recuerde los mails del Gestor."*
+- **Hallazgo**: la memoria YA existía en datos — cada derivación persiste
+  `destinatario_email` + `destinatario_nombre` en `solicitud_derivaciones` (lo insertan
+  las 3 RPCs `solicitud_derivar/_v2/_v3`). Sólo faltaba exponerla.
+- **Decisión**: RPC nueva `gestoria_destinatarios_recientes()` (mig 0324, **staff-only**
+  `private.is_staff()`, SECURITY DEFINER) que devuelve los destinatarios distintos
+  (email normalizado por `lower`, nombre más reciente, más recientes primero, LIMIT 30).
+  Frontend: `<datalist>` de autocompletado en el campo "Email del gestor" + auto-relleno
+  del nombre al elegir una gestoría conocida (con `useRef` para no pisar lo tipeado a
+  mano y re-alinear si cambia de gestoría). Best-effort absoluto: cualquier error del
+  service → lista vacía, jamás rompe la activación (try/catch + `?? []`).
+- **Verificación**: e2e BD (staff devuelve la gestoría; cliente → 42501) + doble §6
+  (3 agentes, todo OK salvo 2 huecos menores ya fixeados) + build limpio + prueba en
+  vivo con gerente QA en el wizard real. Reglas: R5, R11, R16 (nombre único, sin
+  overload), R19 no aplica. Sin regresión (estado `destinatarios` es local, fuera de
+  `WizardState`/draft — no PII al storage).

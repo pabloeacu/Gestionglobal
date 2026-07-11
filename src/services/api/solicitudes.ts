@@ -353,6 +353,29 @@ export async function uploadAdjuntoGestoria(
   });
 }
 
+export interface GestoriaDestinatario {
+  email: string;
+  nombre: string | null;
+}
+
+// Finding D (reporte JL · 2026-07-11): "que recuerde los mails del Gestor".
+// La memoria ya existe — cada derivación persiste destinatario_email/nombre
+// en solicitud_derivaciones. La RPC `gestoria_destinatarios_recientes`
+// (mig 0324, staff-only) devuelve los distintos, más recientes primero, para
+// autocompletar el paso 4 del wizard. Best-effort: cualquier error → lista
+// vacía; el autocompletado es un plus, jamás debe romper la activación.
+export async function listGestoriaDestinatarios(): Promise<GestoriaDestinatario[]> {
+  try {
+    const { data, error } = await rpc('gestoria_destinatarios_recientes', {});
+    if (error) return [];
+    return (data as GestoriaDestinatario[] | null) ?? [];
+  } catch {
+    // Best-effort absoluto: incluso si la promesa se rechaza (throw de red),
+    // el autocompletado nunca debe romper el wizard → lista vacía.
+    return [];
+  }
+}
+
 export async function derivar(
   id: string,
   input: DerivarInput,
