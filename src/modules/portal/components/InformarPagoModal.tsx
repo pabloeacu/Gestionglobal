@@ -1,7 +1,7 @@
 // #1/#2 (reporte JL) · Modal para que el cliente INFORME un pago desde el portal.
 // No mueve el saldo: crea un "pago reportado" que gerencia concilia después.
 // Simple a propósito (usuarios no técnicos): monto, fecha, medio, referencia.
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Wallet, Loader2, Paperclip, X } from 'lucide-react';
 import { Modal, Field, Input, Select, Textarea, Button } from '@/components/common';
 import { toast } from '@/lib/toast';
@@ -65,6 +65,21 @@ export function InformarPagoModal({
   const fileRef = useRef<HTMLInputElement>(null);
   const [saving, setSaving] = useState(false);
 
+  // Auditoría §6 (#8): el modal vive montado — al REABRIR para informar otro
+  // pago, el estado del anterior (sobre todo el archivo adjunto) quedaba
+  // pegado y se re-subía a un pago que no correspondía. Reset al abrir.
+  useEffect(() => {
+    if (!open) return;
+    setMonto(montoSugerido ? String(montoSugerido) : '');
+    setFecha(hoyISO());
+    setMedio('transferencia');
+    setReferencia('');
+    setNota('');
+    setArchivo(null);
+    if (fileRef.current) fileRef.current.value = '';
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
   const montoNum = parseMontoAR(monto);
   const montoValido = !isNaN(montoNum) && montoNum > 0;
 
@@ -107,6 +122,10 @@ export function InformarPagoModal({
     });
     setSaving(false);
     if (!res.ok) {
+      // Auditoría §6 (#9): si el reporte falla después de subir el archivo,
+      // el objeto queda huérfano en el bucket. Decisión documentada: aceptable
+      // (nombres únicos por timestamp, bucket con límite de 10 MB, y el
+      // cliente NO tiene permiso de borrado — su evidencia es inmutable).
       toast.error('No pudimos registrar el aviso', { description: humanizeError(res.error) });
       return;
     }
