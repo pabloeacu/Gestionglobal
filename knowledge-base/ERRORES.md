@@ -4112,3 +4112,32 @@ escriben los 2 triggers, ya best-effort), sin overloads (R16, 0 filas). **Hallaz
 - **#8 (follow-up inerte):** `fusionar_administraciones` (0313) no reasigna 4 tablas de config per-admin
   (`patrones_conciliacion`, `recupero_config`, `vencimientos_config`, `tabulador_precios`) — todas con
   0 filas hoy, así que no orfana nada; agregar los 4 `UPDATE` si empiezan a usarse per-admin.
+
+## E-GG-106 · Botón "Siguiente" que GUARDA/EMITE sin querer (reconciliación React) — 2026-07-12
+**Reporte JL (docx2 #3):** al editar un cliente para cargar la matrícula, el drawer llega al paso 3
+(Contacto) y al hacer "Siguiente" para ir al paso 4 "se guarda y se cierra". **Causa raíz (reproducida
+en vivo + instrumentada con un listener de `submit`):** en los drawers multi-paso, "Siguiente" y el
+botón submit final (`Guardar`/`Emitir`/`Registrar`) ocupan la MISMA posición del condicional
+`{!isLast ? <Siguiente> : <Submit form="x-form">}`, así que React **reusa el mismo nodo `<button>`**.
+Al cliquear "Siguiente" en el PENÚLTIMO paso, `onClick={next}` hace `setStep` → `isLast` pasa a true →
+React muta ese mismo botón en el submit (le agrega `form="x-form"`) ANTES de que el browser ejecute la
+acción por defecto del click → **submitea el form**. El listener capturó `submitter="Guardar",
+form="admin-form"`. Por eso SÓLO ocurría en el penúltimo paso. **Latente/pre-existente**, no lo
+introdujo ningún cambio reciente; afloró al editar un cliente completo (validación pasa → guarda).
+**Sistémico:** el mismo patrón estaba en 4 drawers, 2 financieros (`ComprobanteFormDrawer` "Emitir",
+`RegistrarCobranzaDrawer` "Registrar" → riesgo de emitir/cobrar sin querer). **Fix:** (a) `Button.tsx`
+default `type="button"` (red global; también arregló la fragilidad de `EmisoresPage:809`); (b) `key`
+distinta (`wiz-next`/`wiz-submit`) en el par condicional de los 4 drawers → React ya no reusa el nodo,
+no puede mutarlo a submit. Verificado en vivo: "Siguiente" avanza al paso 4, `Guardar` sigue guardando
+(1 solo submit). **Lección/regla:** en un condicional que alterna entre un botón de navegación y uno de
+submit en la misma posición, SIEMPRE `key` distinta + `type="button"` explícito en el de navegación.
+
+## E-GG-107 · Aviso mudo tras rechazar documentación (docs en tandas) — 2026-07-12
+**Reporte JL (docx2 #5):** cuando a un cliente se le piden 2 constancias y no las envía juntas, o cuando
+se le rechaza un item y lo re-sube, gerencia no se re-entera. **Causa raíz:** `tramite_pedido_doc_
+rechazar_item` marcaba el item 'rechazado' pero NO limpiaba `tramite_pedidos_doc.enviado_para_revision_at`
+(drift de la mig 0130 (e)). El botón "Enviar a gerencia" del portal exige `enviado_para_revision_at IS
+NULL`; con el flag seteado, tras corregir y re-subir, el cliente no podía re-enviar → aviso mudo. **Fix
+(mig 0325):** al rechazar un item, reabrir el pedido (`enviado_para_revision_at = NULL`). Además (#4, mig
+0327) el widget de docs pendientes del Inicio keyea por item `subido`, así que la subida parcial/en
+tandas aparece aunque el cliente aún no apriete "Enviar". e2e verificado (item rechazado + flag limpio).

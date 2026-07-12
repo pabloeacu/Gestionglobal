@@ -4057,3 +4057,34 @@ baja'd puede recrear una cuenta nueva con el mismo CUIT; definir si debe **react
   vivo con gerente QA en el wizard real. Reglas: R5, R11, R16 (nombre único, sin
   overload), R19 no aplica. Sin regresión (estado `destinatarios` es local, fuera de
   `WizardState`/draft — no PII al storage).
+
+### DGG-103 · Barrido integral 2ª tanda JL (docx2) + "informar pago" — 2026-07-12
+- **Contexto:** JL reportó 7 hallazgos (2ª tanda). Revisión integral (no sólo lo que el
+  doc dice) con 4 agentes §6 en paralelo + e2e. Resultado por hallazgo:
+  - **#3** bug de submit por reconciliación → **E-GG-106** (sistémico, 4 drawers, 2
+    financieros). Fix keys + `Button` default `type="button"`.
+  - **#7** los nombres de cursos NUNCA se alinearon a los oficiales (eran del seed 0023,
+    ninguna mig los cambió). Rename consistente en formularios/cursos/servicios (mig 0326).
+    **Decisión:** la landing de marketing mantiene labels cortos + logos de partner
+    (`ALIANZA_ISOLOGO` indexado por título) — NO se toca para no romper el mapeo; queda
+    flaggeado a Pablo por si quiere alinearla también.
+  - **#4** doc del cliente no aparecía en el Inicio (sí campanita/trámite): el Inicio son
+    widgets sobre tablas de dominio, no lee `notificaciones_internas`. Nuevo widget
+    `DocsClientePendientesWidget` + RPC `docs_cliente_pendientes` (mig 0327) + publicación
+    realtime (mig 0329). Keyea por item `subido` → cubre subida parcial.
+  - **#5** rechazo de doc mudo → **E-GG-107** (mig 0325).
+  - **#6** copy "Actualizar"→"Enviar" en el portal de docs.
+  - **★** aguja pre-existente: form CABA apuntaba al servicio RPAC (mig 0326).
+- **#1/#2 · Informar pago (diseño confirmado por Pablo):** el cliente INFORMA un pago
+  (intención), NO mueve el saldo. Crea fila en `pagos_reportados` (estado `reportado`) +
+  avisa a gerencia (campanita + push). El saldo se mueve RECIÉN cuando un gerente
+  **concilia**, y la conciliación pasa SIEMPRE por `registrar_cobranza_comprobante` (única
+  escritora del asiento → una sola fuente de verdad, canon contable). Mig 0328 (tabla + 3
+  RPCs) + 0329 (guard de atribución: el comprobante a imputar debe ser de la misma admin
+  que el pago). Front: `InformarPagoModal` (cliente, en la cta. corriente) + `PagosInformados
+  Page` (gerencia: conciliar/rechazar). e2e completo: reportar avisa a 3 gerentes; conciliar
+  baja el saldo del comprobante exactamente por el monto (rollback contra data real);
+  guards (no-staff 42501 / cross-admin bloqueado). Reglas: R2/R5/R6/R11/R12/R17/R19.
+- **Follow-ups menores** (documentados, no bloqueantes): override de monto al conciliar,
+  FKs uuid de `pagos_reportados`, dedup/throttle de reportes, límite 100 comprobantes en el
+  picker, upload opcional del comprobante de transferencia, email a gerencia (hoy campanita+push).
