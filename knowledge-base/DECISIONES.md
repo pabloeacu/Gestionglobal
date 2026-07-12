@@ -4115,3 +4115,41 @@ baja'd puede recrear una cuenta nueva con el mismo CUIT; definir si debe **react
   renderiza cuando el payload no trae recurso (era vestigial en tokens de solicitud).
 - **Pendiente-decisión (menor):** en modo "requiere respuesta" no se cambia el estado del
   trámite en la misma acción (2 pasos si se quiere `esperando_cliente`). Documentado.
+
+### DGG-105 · W4 — Barrido QA exhaustivo de hipótesis (2026-07-12)
+- **Mandato Pablo:** "prueba online de todas las hipótesis… que JL no encuentre más nada".
+- **Método:** baterías e2e en BD con ROLLBACK (DO $$ … RAISE) ejercitando las RPCs reales
+  con JWT de gerente real y de clientes QA sintéticos; edge functions por HTTP real con
+  limpieza total posterior (emails cancelados ANTES del cron, storage via Storage API con
+  gerente efímero, contadores decrementados). 0 residuos verificado; data real intacta.
+- **Resultado: ~30 hipótesis, TODAS EN VERDE. 0 bugs.** Matriz:
+  - **C·Contable:** emitir X (total/saldo/pendiente) ✓ · pago parcial→`parcial` ✓ ·
+    **sobrepago BLOQUEADO** ✓ · pago total→`pagado` con `sum(imputaciones)=total` ✓ ·
+    impago→saldo=total ✓ · `anular_comprobante_preview` reporta impacto ✓ · anulación de
+    pagado→crédito exacto ✓ · imputación parcial de crédito ✓ · **imputar > disponible
+    BLOQUEADO** ✓.
+  - **G·Identidad/Bajas:** baja→portal gated (current_administracion_id NULL) ✓ ·
+    reactivar→restaura ✓ · reactivar con CUIT dup activo→`reactivar_cuit_duplicado_activo` ✓ ·
+    precheck detecta twin de baja ✓.
+  - **B·Activación:** `solicitud_activar` con CUIT "20-30405060-7" → normalizado
+    `20304050607` + trámite ✓ (E-GG-105 firme).
+  - **E·Docs en tandas:** subida parcial visible en widget Inicio ✓ · envío incompleto
+    BLOQUEADO con mensaje ✓ · envío completo notifica (2 gerentes) ✓ · rechazo REABRE
+    (E-GG-107 firme) ✓ · re-envío re-notifica ✓ · aprobación total→`completo` y el widget
+    lo suelta ✓.
+  - **D·Gestoría:** derivar→token+email+memoria finding-D ✓ · gestor carga avance→
+    moderación `pendiente` no-visible ✓ · cola de moderación ✓ · publicar→visible cliente ✓ ·
+    **token vencido BLOQUEADO** ✓.
+  - **A·Inscripción pública (edge fn real):** incompleta→**422** con campos faltantes en
+    castellano ✓ · email inválido→422 ✓ · slug inexistente→404 ✓ · voucher trucho→
+    `valido:false` con mensaje ✓ · evento 2×→idempotente (misma fila, E-GG-104 firme) ✓ ·
+    **válida→200 con cadena completa**: submission + solicitud `recibida` + acuse email +
+    aviso a 2 gerentes (campanita+email) + adjunto **sanitizado R20**
+    ("comprobante pagó ñandú QA.pdf" → `comprobante_pago_nandu_QA.pdf`) ✓.
+  - **F·Campus:** asignar alumno→matrícula ✓ · desasignar→baja sin huérfanos ✓.
+- **Cobertura previa que completa la matriz:** informar-pago (reportar/conciliar/rechazar/
+  cross-admin/doble-conciliación) e2e en DGG-103/104; wizard/pedido-desde-línea e2e en DGG-104.
+- **Declarado honesto:** las superficies UI auth-gated nuevas (modal informar-pago con
+  adjunto, página Pagos informados) quedaron verificadas por código+RPC+policy e2e; la
+  sesión QA inyectada en browser sigue inestable (el bootstrap del AuthContext la limpia) —
+  verlas en pantalla toma 1 minuto con un login real. Follow-up de tooling QA, no de producto.
