@@ -88,6 +88,7 @@ const NAV: NavGroup[] = [
     icon: FileText,
     children: [
       { label: 'Comprobantes', to: '/gerencia/facturacion', end: true },
+      { label: 'Pagos informados', to: '/gerencia/facturacion/pagos-informados' },
       { label: 'Cuenta corriente', to: '/gerencia/cuenta-corriente' },
       { label: 'Recupero', to: '/gerencia/recupero', end: true },
     ],

@@ -24,6 +24,7 @@ const AdministracionesListPage = lazy(() => import('@/modules/clientes/pages/Adm
 const AdministracionDetailPage = lazy(() => import('@/modules/clientes/pages/AdministracionDetailPage').then(m => ({ default: m.AdministracionDetailPage })));
 const ComprobantesListPage = lazy(() => import('@/modules/facturacion/pages/ComprobantesListPage').then(m => ({ default: m.ComprobantesListPage })));
 const ComprobanteDetailPage = lazy(() => import('@/modules/facturacion/pages/ComprobanteDetailPage').then(m => ({ default: m.ComprobanteDetailPage })));
+const PagosInformadosPage = lazy(() => import('@/modules/facturacion/pages/PagosInformadosPage').then(m => ({ default: m.PagosInformadosPage })));
 const ConfiguracionLayout = lazy(() => import('@/modules/configuracion/components/ConfiguracionLayout').then(m => ({ default: m.ConfiguracionLayout })));
 const EmisoresPage = lazy(() => import('@/modules/configuracion/pages/EmisoresPage').then(m => ({ default: m.EmisoresPage })));
 const ArcaQueuePage = lazy(() => import('@/modules/configuracion/pages/ArcaQueuePage').then(m => ({ default: m.ArcaQueuePage })));
@@ -351,6 +352,7 @@ export function App() {
           <Route path="clientes" element={<AdministracionesListPage />} />
           <Route path="clientes/:id" element={<AdministracionDetailPage />} />
           <Route path="facturacion" element={<ComprobantesListPage />} />
+          <Route path="facturacion/pagos-informados" element={<PagosInformadosPage />} />
           <Route path="facturacion/:id" element={<ComprobanteDetailPage />} />
           <Route path="solicitudes" element={<SolicitudesListPage />} />
           <Route path="solicitudes/:id" element={<SolicitudDetailPage />} />

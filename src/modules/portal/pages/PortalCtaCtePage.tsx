@@ -12,6 +12,7 @@ import {
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
 import { formatDateShort } from '@/lib/dates';
 import { cn } from '@/lib/cn';
+import { InformarPagoModal } from '@/modules/portal/components/InformarPagoModal';
 
 // Cuenta corriente del administrador en su portal. Mismo formato que el tab
 // Cta. corriente de la ficha de administración (gerencia), pero sin
@@ -24,6 +25,7 @@ export function PortalCtaCtePage() {
   const [error, setError] = useState<string | null>(null);
   const [desde, setDesde] = useState<string>('');
   const [hasta, setHasta] = useState<string>('');
+  const [informarOpen, setInformarOpen] = useState(false);
 
   async function load() {
     if (!user?.administracionId) return;
@@ -145,13 +147,29 @@ export function PortalCtaCtePage() {
                   : 'cuenta saldada'}
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
+            {stats.saldoActual > 0 && (
+              <button
+                type="button"
+                onClick={() => setInformarOpen(true)}
+                className="inline-flex items-center gap-2 rounded-xl bg-brand-cyan px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-blue"
+              >
+                <Wallet size={16} /> Informar un pago
+              </button>
+            )}
             <span className="grid h-16 w-16 place-items-center rounded-2xl bg-brand-cyan-pale/40 text-brand-cyan">
               <Wallet size={28} />
             </span>
           </div>
         </div>
       </section>
+
+      <InformarPagoModal
+        open={informarOpen}
+        onClose={() => setInformarOpen(false)}
+        montoSugerido={stats.saldoActual > 0 ? Math.round(stats.saldoActual) : null}
+        onReported={() => void load()}
+      />
 
       {/* Stats secundarios */}
       <section className="grid grid-cols-1 gap-3 sm:grid-cols-3">

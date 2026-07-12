@@ -5,6 +5,7 @@ import { MorososWidget } from '@/modules/cta_cte';
 import { ProximosSeguimientosWidget } from '@/modules/gerencia/components/ProximosSeguimientosWidget';
 import { NuevasSolicitudesWidget } from '@/modules/gerencia/components/NuevasSolicitudesWidget';
 import { AportesGestoriaWidget } from '@/modules/gerencia/components/AportesGestoriaWidget';
+import { DocsClientePendientesWidget } from '@/modules/gerencia/components/DocsClientePendientesWidget';
 import { AlarmasHoyWidget } from '@/modules/gerencia/components/AlarmasHoyWidget';
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
 import { getDashboardGlobal, type DashboardKpis } from '@/services/api/dashboard';
@@ -65,6 +66,10 @@ export function GerenciaHome() {
       {/* E-GG-91 (reporte JL): aportes de la gestoría externa pendientes de
           moderación — antes sólo se veían en la campanita o dentro del trámite. */}
       <AportesGestoriaWidget />
+
+      {/* #4 (reporte JL docx2): doc del cliente esperando revisión — antes sólo
+          en la campanita/trámite, no en el Inicio. Espejo del de gestoría. */}
+      <DocsClientePendientesWidget />
 
       {/* J1 · checklist "Primeros 5 minutos" para nuevos gerentes.
           Auto-oculto cuando se completa o el user lo descarta. */}

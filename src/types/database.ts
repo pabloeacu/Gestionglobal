@@ -4778,6 +4778,101 @@ export type Database = {
         }
         Relationships: []
       }
+      pagos_reportados: {
+        Row: {
+          administracion_id: string
+          archivo_path: string | null
+          comprobante_id: string | null
+          created_at: string
+          estado: string
+          fecha_pago: string
+          id: string
+          medio: string
+          monto: number
+          motivo_rechazo: string | null
+          movimiento_id: string | null
+          nota: string | null
+          referencia: string | null
+          reportado_por: string | null
+          revisado_at: string | null
+          revisado_por: string | null
+          tracking_linea_id: string | null
+          tramite_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          administracion_id: string
+          archivo_path?: string | null
+          comprobante_id?: string | null
+          created_at?: string
+          estado?: string
+          fecha_pago: string
+          id?: string
+          medio?: string
+          monto: number
+          motivo_rechazo?: string | null
+          movimiento_id?: string | null
+          nota?: string | null
+          referencia?: string | null
+          reportado_por?: string | null
+          revisado_at?: string | null
+          revisado_por?: string | null
+          tracking_linea_id?: string | null
+          tramite_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          administracion_id?: string
+          archivo_path?: string | null
+          comprobante_id?: string | null
+          created_at?: string
+          estado?: string
+          fecha_pago?: string
+          id?: string
+          medio?: string
+          monto?: number
+          motivo_rechazo?: string | null
+          movimiento_id?: string | null
+          nota?: string | null
+          referencia?: string | null
+          reportado_por?: string | null
+          revisado_at?: string | null
+          revisado_por?: string | null
+          tracking_linea_id?: string | null
+          tramite_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pagos_reportados_administracion_id_fkey"
+            columns: ["administracion_id"]
+            isOneToOne: false
+            referencedRelation: "administraciones"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pagos_reportados_comprobante_id_fkey"
+            columns: ["comprobante_id"]
+            isOneToOne: false
+            referencedRelation: "comprobantes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pagos_reportados_comprobante_id_fkey"
+            columns: ["comprobante_id"]
+            isOneToOne: false
+            referencedRelation: "vw_comprobantes_para_avisar"
+            referencedColumns: ["comprobante_id"]
+          },
+          {
+            foreignKeyName: "pagos_reportados_tramite_id_fkey"
+            columns: ["tramite_id"]
+            isOneToOne: false
+            referencedRelation: "tramites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       partner_atribuciones: {
         Row: {
           comprobante_id: string | null
@@ -8534,6 +8629,18 @@ export type Database = {
         }
         Returns: string
       }
+      docs_cliente_pendientes: {
+        Args: never
+        Returns: {
+          cliente_nombre: string
+          creado_at: string
+          descripcion: string
+          items_subidos: number
+          pedido_id: string
+          tramite_codigo: string
+          tramite_id: string
+        }[]
+      }
       email_template_actualizar_visual: {
         Args: {
           p_asunto?: string
@@ -9149,6 +9256,13 @@ export type Database = {
         Returns: Json
       }
       gestor_upload_path_ok: { Args: { p_name: string }; Returns: boolean }
+      gestoria_destinatarios_recientes: {
+        Args: never
+        Returns: {
+          email: string
+          nombre: string
+        }[]
+      }
       get_landing_cover_status: { Args: never; Returns: boolean }
       get_public_whatsapp: { Args: never; Returns: string }
       gg_agenda_listar_unificada: {
@@ -9455,6 +9569,34 @@ export type Database = {
       onboarding_checklist_set: {
         Args: { p_key: string; p_value: boolean }
         Returns: Json
+      }
+      pago_conciliar: {
+        Args: {
+          p_caja_id: string
+          p_categoria_id: string
+          p_comprobante_id?: string
+          p_fecha?: string
+          p_pago_id: string
+        }
+        Returns: string
+      }
+      pago_rechazar: {
+        Args: { p_motivo: string; p_pago_id: string }
+        Returns: undefined
+      }
+      pago_reportar: {
+        Args: {
+          p_archivo_path: string
+          p_comprobante_id: string
+          p_fecha_pago: string
+          p_medio: string
+          p_monto: number
+          p_nota: string
+          p_referencia: string
+          p_tracking_linea_id: string
+          p_tramite_id: string
+        }
+        Returns: string
       }
       partner_anular_rendicion: {
         Args: { p_motivo: string; p_rendicion_id: string }

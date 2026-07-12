@@ -660,6 +660,23 @@ export async function fetchModeracionPendientes(): Promise<ApiResponse<Moderacio
   return ok((data ?? []) as unknown as ModeracionPendiente[]);
 }
 
+// #4 (JL): doc del cliente esperando revisión, para el widget del Inicio.
+export interface DocPendienteCliente {
+  pedido_id: string;
+  tramite_id: string;
+  tramite_codigo: string;
+  cliente_nombre: string | null;
+  descripcion: string;
+  items_subidos: number;
+  creado_at: string;
+}
+
+export async function fetchDocsClientePendientes(): Promise<ApiResponse<DocPendienteCliente[]>> {
+  const { data, error } = await supabase.rpc('docs_cliente_pendientes' as never);
+  if (error) return fail('DOCS_CLIENTE_PENDIENTES', error.message, error);
+  return ok((data ?? []) as unknown as DocPendienteCliente[]);
+}
+
 /** Posterga la alarma de una línea de tracking N días hábiles. */
 export async function postergarAlarmaLinea(
   lineaId: string,
