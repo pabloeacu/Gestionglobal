@@ -199,12 +199,15 @@ export function RegistrarCobranzaDrawer({
                 <ArrowLeft size={14} /> Atrás
               </Button>
             )}
+            {/* E-GG-106: `key` distinta — evita que "Siguiente" en el penúltimo
+                paso se mute en "Registrar" (form="cobranza-form") a mitad del
+                click y registre la cobranza sin querer. */}
             {!isLast ? (
-              <Button onClick={next} disabled={saving}>
+              <Button key="wiz-next" type="button" onClick={next} disabled={saving}>
                 Siguiente <ArrowRight size={14} />
               </Button>
             ) : (
-              <Button type="submit" form="cobranza-form" loading={saving}>
+              <Button key="wiz-submit" type="submit" form="cobranza-form" loading={saving}>
                 <Save size={15} /> Registrar
               </Button>
             )}

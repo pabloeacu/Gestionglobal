@@ -244,12 +244,14 @@ export function ConsorcioFormDrawer({
                 <ArrowLeft size={14} /> Atrás
               </Button>
             )}
+            {/* E-GG-106: `key` distinta — evita el submit accidental por
+                reconciliación al avanzar al penúltimo paso. */}
             {!isLast ? (
-              <Button onClick={next} disabled={saving}>
+              <Button key="wiz-next" type="button" onClick={next} disabled={saving}>
                 Siguiente <ArrowRight size={14} />
               </Button>
             ) : (
-              <Button type="submit" form="cons-form" loading={saving}>
+              <Button key="wiz-submit" type="submit" form="cons-form" loading={saving}>
                 <Save size={15} /> Guardar
               </Button>
             )}

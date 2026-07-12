@@ -370,12 +370,17 @@ export function AdministracionFormDrawer({
                 <ArrowLeft size={14} /> Atrás
               </Button>
             )}
+            {/* E-GG-106: `key` distinta para que React NO reuse el mismo <button>
+                entre "Siguiente" y "Guardar". Sin esto, al hacer click en
+                "Siguiente" en el penúltimo paso, React muta ese mismo nodo en el
+                botón submit (form="admin-form") antes de la acción por defecto
+                del click → submitea y guarda sin querer. */}
             {!isLast ? (
-              <Button onClick={next} disabled={saving}>
+              <Button key="wiz-next" type="button" onClick={next} disabled={saving}>
                 Siguiente <ArrowRight size={14} />
               </Button>
             ) : (
-              <Button type="submit" form="admin-form" loading={saving}>
+              <Button key="wiz-submit" type="submit" form="admin-form" loading={saving}>
                 <Save size={15} /> Guardar
               </Button>
             )}

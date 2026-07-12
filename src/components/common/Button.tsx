@@ -28,10 +28,16 @@ export function Button({
   disabled,
   children,
   className,
+  // E-GG-106: default seguro `type="button"`. En HTML, un <button> sin type
+  // hereda `type="submit"` y, dentro de un <form>, submitea al hacer click.
+  // Los CTAs que SÍ deben submitear pasan `type="submit"` explícito (gana sobre
+  // este default). Evita submits accidentales en toda la app.
+  type = 'button',
   ...rest
 }: ButtonProps) {
   return (
     <button
+      type={type}
       className={cn(
         'inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-60',
         styles[variant],

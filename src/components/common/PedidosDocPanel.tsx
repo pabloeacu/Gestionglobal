@@ -491,7 +491,9 @@ function PedidoItem({
             className="inline-flex flex-none items-center gap-1 rounded-md border border-brand-cyan/30 bg-brand-cyan-pale/40 px-2.5 py-1.5 text-[11px] font-semibold text-brand-cyan hover:bg-brand-cyan-pale disabled:opacity-50"
           >
             {savingTexto ? <Loader2 size={11} className="animate-spin" /> : <MessageSquareText size={11} />}
-            {item.respuesta_texto ? 'Actualizar' : 'Responder'}
+            {/* #6 (JL): "Enviar" es más claro que "Actualizar/Responder" para el
+                cliente (usuarios no técnicos). Sólo se ve en variant='cliente'. */}
+            Enviar
           </button>
         </div>
       )}

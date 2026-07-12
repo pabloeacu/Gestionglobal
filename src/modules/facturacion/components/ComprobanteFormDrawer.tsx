@@ -537,12 +537,15 @@ export function ComprobanteFormDrawer({
                 <ArrowLeft size={14} /> Atrás
               </Button>
             )}
+            {/* E-GG-106: `key` distinta — evita que "Siguiente" en el penúltimo
+                paso se mute en "Emitir" (form="comp-form") a mitad del click y
+                emita el comprobante sin querer. */}
             {!isLast ? (
-              <Button onClick={next} disabled={saving}>
+              <Button key="wiz-next" type="button" onClick={next} disabled={saving}>
                 Siguiente <ArrowRight size={14} />
               </Button>
             ) : (
-              <Button type="submit" form="comp-form" loading={saving}>
+              <Button key="wiz-submit" type="submit" form="comp-form" loading={saving}>
                 <Save size={15} /> Emitir
               </Button>
             )}
