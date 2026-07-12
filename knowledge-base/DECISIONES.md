@@ -4088,3 +4088,30 @@ baja'd puede recrear una cuenta nueva con el mismo CUIT; definir si debe **react
 - **Follow-ups menores** (documentados, no bloqueantes): override de monto al conciliar,
   FKs uuid de `pagos_reportados`, dedup/throttle de reportes, límite 100 comprobantes en el
   picker, upload opcional del comprobante de transferencia, email a gerencia (hoy campanita+push).
+
+### DGG-104 · Google Doc vivo de JL — wave 3 + respuestas en el doc (2026-07-12)
+- **Método nuevo:** el reporte de JL ahora es un Google Doc vivo con comentarios; las
+  respuestas se publican EN el doc a nombre de Pablo (mandato explícito), con el estilo
+  qué pasó / por qué / cómo se resolvió. Hoy: 2 respuestas en hilos + 4 comentarios
+  nuevos anclados (N1–N4).
+- **Hilo 6 · adjunto de pago (caso Fundación):** el cliente adjunta foto/PDF del
+  comprobante al informar un pago. Bucket privado `pagos-reportados` (mig 0330) con
+  path `<administracion_id>/…` (R20); hardening (mig 0332): 10 MB + allowlist MIME,
+  cliente sólo INSERT+SELECT (evidencia inmutable), `pago_reportar` valida que el path
+  cuelgue de la carpeta del propio admin. Gerencia: botón "Ver comprobante" (URL firmada
+  1 h) en Pagos informados. Huérfano post-fallo: aceptado y documentado.
+- **Hilo 5 + N1 · responder/adjuntar lo pedido por línea:** checkbox "El cliente debe
+  responder o adjuntar algo" en Agregar línea → crea un Pedido de documentación (RPC
+  existente `tramite_pedido_doc_crear`: línea visible + campanita + push + email +
+  panel de respuesta + re-aviso + widget Inicio). Una sola fuente de verdad. La RPC
+  ahora acepta staff (gerente|operador, mig 0332) y la categoría `documentacion_
+  incompleta` tiene label humano ("Documentación solicitada"). e2e completo verificado.
+- **N2 · orden del catálogo:** `cliente_catalogo_formularios` ordenaba por título
+  (CABA primero); ahora respeta `formularios.orden` (mig 0331): RPAC (PBA) →
+  Capacitación Inicial (PBA) → RPA (CABA) último, como pidió JL.
+- **N3 · landing:** cards/bullets PBA con "(Pcia. de Bs. As.)" + claves ALIANZA_ISOLOGO
+  sincronizadas (verificado live: isologos OK). Resuelve la decisión pendiente de DGG-103.
+- **N4 · gestor:** el bloque "Detalle · Sin datos disponibles" del acceso externo no se
+  renderiza cuando el payload no trae recurso (era vestigial en tokens de solicitud).
+- **Pendiente-decisión (menor):** en modo "requiere respuesta" no se cambia el estado del
+  trámite en la misma acción (2 pasos si se quiere `esperando_cliente`). Documentado.
