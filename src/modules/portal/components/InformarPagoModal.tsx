@@ -1,12 +1,17 @@
 // #1/#2 (reporte JL) · Modal para que el cliente INFORME un pago desde el portal.
 // No mueve el saldo: crea un "pago reportado" que gerencia concilia después.
 // Simple a propósito (usuarios no técnicos): monto, fecha, medio, referencia.
-import { useState } from 'react';
-import { Wallet, Loader2 } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { Wallet, Loader2, Paperclip, X } from 'lucide-react';
 import { Modal, Field, Input, Select, Textarea, Button } from '@/components/common';
 import { toast } from '@/lib/toast';
 import { humanizeError } from '@/lib/errors';
-import { reportarPago, type PagoMedio } from '@/services/api/pagosReportados';
+import { useAuth } from '@/contexts/AuthContext';
+import {
+  reportarPago,
+  uploadComprobantePago,
+  type PagoMedio,
+} from '@/services/api/pagosReportados';
 
 interface Props {
   open: boolean;
@@ -48,11 +53,16 @@ export function InformarPagoModal({
   montoSugerido,
   onReported,
 }: Props) {
+  const { user } = useAuth();
   const [monto, setMonto] = useState(montoSugerido ? String(montoSugerido) : '');
   const [fecha, setFecha] = useState(hoyISO());
   const [medio, setMedio] = useState<PagoMedio>('transferencia');
   const [referencia, setReferencia] = useState('');
   const [nota, setNota] = useState('');
+  // Doc JL 2026-07-12: adjuntar el comprobante de la transferencia (clave
+  // cuando se paga a la cuenta de la Fundación, que no vemos en nuestro banco).
+  const [archivo, setArchivo] = useState<File | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
   const [saving, setSaving] = useState(false);
 
   const montoNum = parseMontoAR(monto);
@@ -64,6 +74,26 @@ export function InformarPagoModal({
       return;
     }
     setSaving(true);
+
+    // 1) Subir el comprobante si lo adjuntó. Si falla, avisamos y NO
+    //    perdemos el reporte en silencio: el cliente decide reintentar.
+    let archivoPath: string | null = null;
+    if (archivo) {
+      const adminId = user?.administracionId;
+      if (!adminId) {
+        setSaving(false);
+        toast.error('No pudimos identificar tu cuenta. Recargá la página e intentá de nuevo.');
+        return;
+      }
+      const up = await uploadComprobantePago(adminId, archivo);
+      if (!up.ok) {
+        setSaving(false);
+        toast.error('No pudimos subir el comprobante', { description: humanizeError(up.error) });
+        return;
+      }
+      archivoPath = up.data.path;
+    }
+
     const res = await reportarPago({
       comprobanteId: comprobanteId ?? null,
       tramiteId: tramiteId ?? null,
@@ -72,6 +102,7 @@ export function InformarPagoModal({
       fechaPago: fecha || hoyISO(),
       medio,
       referencia: referencia.trim() || null,
+      archivoPath,
       nota: nota.trim() || null,
     });
     setSaving(false);
@@ -143,6 +174,47 @@ export function InformarPagoModal({
           />
         </Field>
       </div>
+
+      <Field
+        label="Comprobante de la transferencia (opcional)"
+        className="mt-3"
+        hint="Muy recomendado si pagaste a la cuenta de la Fundación (cursos): nos permite verificar tu pago al instante."
+      >
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/*,.pdf"
+          className="hidden"
+          onChange={(e) => setArchivo(e.target.files?.[0] ?? null)}
+        />
+        {archivo ? (
+          <div className="flex items-center justify-between gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm">
+            <span className="inline-flex min-w-0 items-center gap-2 text-emerald-800">
+              <Paperclip size={14} className="shrink-0" />
+              <span className="truncate">{archivo.name}</span>
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                setArchivo(null);
+                if (fileRef.current) fileRef.current.value = '';
+              }}
+              className="shrink-0 rounded p-1 text-emerald-700 hover:bg-emerald-100"
+              aria-label="Quitar archivo"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => fileRef.current?.click()}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-slate-300 px-3 py-2.5 text-sm font-medium text-brand-muted transition hover:border-brand-cyan/50 hover:text-brand-cyan"
+          >
+            <Paperclip size={14} /> Adjuntar foto o PDF del comprobante
+          </button>
+        )}
+      </Field>
 
       <Field label="Nota (opcional)" className="mt-3">
         <Textarea

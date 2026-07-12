@@ -76,14 +76,14 @@ const SERVICIOS: ServicioGrupo[] = [
     items: [
       {
         icon: GraduationCap,
-        titulo: 'Curso de formación RPAC',
+        titulo: 'Curso de formación RPAC (Pcia. de Bs. As.)',
         descripcion:
           'Curso obligatorio de inscripción · sincrónico · con docentes expertos y campus propio.',
         cta: { href: '/formulario/curso-formacion', label: 'Inscribirme al curso' },
       },
       {
         icon: BookOpen,
-        titulo: 'Actualización RPAC',
+        titulo: 'Actualización RPAC (Pcia. de Bs. As.)',
         descripcion:
           'Para renovación: clases asincrónicas con tutorías sincrónicas, pensadas para la práctica real.',
         cta: { href: '/formulario/curso-actualizacion', label: 'Inscribirme' },
@@ -435,8 +435,8 @@ function ComoTrabajamos() {
 // FUNDPLATA (RPAC · PBA) dicta formación + actualización RPAC; GESTAR (RPA · CABA)
 // dicta la actualización RPA-CABA. Refuerza la dependencia curso↔alianza.
 const ALIANZA_ISOLOGO: Record<string, { src: string; alt: string }> = {
-  'Curso de formación RPAC': { src: '/landing/partners/fundplata-iso.png', alt: 'FundPlata' },
-  'Actualización RPAC': { src: '/landing/partners/fundplata-iso.png', alt: 'FundPlata' },
+  'Curso de formación RPAC (Pcia. de Bs. As.)': { src: '/landing/partners/fundplata-iso.png', alt: 'FundPlata' },
+  'Actualización RPAC (Pcia. de Bs. As.)': { src: '/landing/partners/fundplata-iso.png', alt: 'FundPlata' },
   'Actualización RPA · CABA': { src: '/landing/partners/gestar-iso.png', alt: 'Gestar' },
 };
 
@@ -763,14 +763,14 @@ function Cursos() {
             <li className="flex items-start gap-3">
               <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-brand-cyan" />
               <span>
-                <strong className="font-semibold">Curso de Formación RPAC</strong>{' '}
+                <strong className="font-semibold">Curso de Formación RPAC (Pcia. de Bs. As.)</strong>{' '}
                 · sincrónico · con clases en vivo y campus propio.
               </span>
             </li>
             <li className="flex items-start gap-3">
               <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-brand-cyan" />
               <span>
-                <strong className="font-semibold">Actualización RPAC</strong> ·
+                <strong className="font-semibold">Actualización RPAC (Pcia. de Bs. As.)</strong> ·
                 asincrónico con tutorías sincrónicas.
               </span>
             </li>

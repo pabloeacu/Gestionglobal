@@ -182,11 +182,17 @@ export function AccesoExternoPage() {
               <FileText size={14} /> Imprimir / Guardar PDF
             </button>
 
-            {/* Recurso */}
-            <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-              <div className="kicker mb-3 text-brand-cyan">Detalle</div>
-              <RecursoView payload={data} />
-            </section>
+            {/* Recurso. N4 (doc JL 2026-07-12): si el payload no trae recurso
+                (típico en el acceso del gestor, donde la info real la muestra
+                el PanelGestor de abajo), NO renderizamos la caja — antes
+                quedaba un bloque "Detalle · Sin datos disponibles" vacío que
+                confundía al gestor. */}
+            {data.recurso != null && (
+              <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                <div className="kicker mb-3 text-brand-cyan">Detalle</div>
+                <RecursoView payload={data} />
+              </section>
+            )}
 
             {/* #147 · Perfil Gestor: si el token es de una solicitud, mostramos
                 timeline + formulario de carga de avance.

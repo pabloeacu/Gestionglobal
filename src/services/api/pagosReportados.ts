@@ -16,6 +16,7 @@ export interface PagoReportado {
   fecha_pago: string;
   medio: PagoMedio;
   referencia: string | null;
+  archivo_path: string | null;
   nota: string | null;
   estado: PagoEstado;
   motivo_rechazo: string | null;
@@ -60,7 +61,7 @@ export async function reportarPago(input: ReportarPagoInput): Promise<ApiRespons
 export async function listPagosReportadosCliente(): Promise<ApiResponse<PagoReportado[]>> {
   const { data, error } = await supabase
     .from('pagos_reportados')
-    .select('id, administracion_id, comprobante_id, tramite_id, monto, fecha_pago, medio, referencia, nota, estado, motivo_rechazo, created_at, revisado_at')
+    .select('id, administracion_id, comprobante_id, tramite_id, monto, fecha_pago, medio, referencia, archivo_path, nota, estado, motivo_rechazo, created_at, revisado_at')
     .order('created_at', { ascending: false });
   if (error) return fail('PAGOS_CLIENTE', error.message, error);
   return ok((data ?? []) as unknown as PagoReportado[]);
@@ -74,7 +75,7 @@ export interface PagoReportadoGerencia extends PagoReportado {
 export async function listPagosReportadosGerencia(estado: PagoEstado = 'reportado'): Promise<ApiResponse<PagoReportadoGerencia[]>> {
   const { data, error } = await supabase
     .from('pagos_reportados')
-    .select('id, administracion_id, comprobante_id, tramite_id, monto, fecha_pago, medio, referencia, nota, estado, motivo_rechazo, created_at, revisado_at, administraciones(nombre)')
+    .select('id, administracion_id, comprobante_id, tramite_id, monto, fecha_pago, medio, referencia, archivo_path, nota, estado, motivo_rechazo, created_at, revisado_at, administraciones(nombre)')
     .eq('estado', estado)
     .order('created_at', { ascending: true });
   if (error) return fail('PAGOS_GERENCIA', error.message, error);
@@ -106,4 +107,31 @@ export async function rechazarPago(pagoId: string, motivo: string): Promise<ApiR
   const { error } = await rpc('pago_rechazar', { p_pago_id: pagoId, p_motivo: motivo });
   if (error) return fail('PAGO_RECHAZAR', error.message, error);
   return ok(true);
+}
+
+// ── Adjunto del comprobante de transferencia (doc JL 2026-07-12) ─────────────
+// Caso Fundación: los cursos se transfieren a una cuenta ajena, gerencia no ve
+// la acreditación y necesita el comprobante. Bucket privado `pagos-reportados`
+// (mig 0330): path <administracion_id>/<ts>-<archivo> — el cliente sólo puede
+// escribir bajo su carpeta; staff lee todo.
+const BUCKET_PAGOS = 'pagos-reportados';
+
+export async function uploadComprobantePago(
+  administracionId: string,
+  file: File,
+): Promise<ApiResponse<{ path: string }>> {
+  const { buildStorageKey } = await import('@/lib/storageKeys'); // R20
+  const path = buildStorageKey(administracionId, file.name);
+  const { error } = await supabase.storage
+    .from(BUCKET_PAGOS)
+    .upload(path, file, { upsert: false, contentType: file.type || 'application/octet-stream' });
+  if (error) return fail('PAGO_UPLOAD', error.message, error);
+  return ok({ path });
+}
+
+// URL firmada (1 h) para ver/descargar el comprobante (gerencia y el dueño).
+export async function getComprobantePagoUrl(path: string): Promise<ApiResponse<string>> {
+  const { data, error } = await supabase.storage.from(BUCKET_PAGOS).createSignedUrl(path, 3600);
+  if (error || !data?.signedUrl) return fail('PAGO_URL', error?.message ?? 'Sin URL', error);
+  return ok(data.signedUrl);
 }

@@ -2,7 +2,7 @@
 // El cliente informa un pago (no mueve saldo); acá el gerente lo CONCILIA
 // (→ registrar_cobranza_comprobante, única escritora) o lo RECHAZA.
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Wallet, Check, X, Loader2, Inbox } from 'lucide-react';
+import { Wallet, Check, X, Loader2, Inbox, Paperclip } from 'lucide-react';
 import { Modal, Field, Select, Button, usePrompt } from '@/components/common';
 import { BrandLoader } from '@/components/brand/BrandLoader';
 import { toast } from '@/lib/toast';
@@ -13,6 +13,7 @@ import {
   listPagosReportadosGerencia,
   conciliarPago,
   rechazarPago,
+  getComprobantePagoUrl,
   type PagoReportadoGerencia,
 } from '@/services/api/pagosReportados';
 import { getCajasConSaldo, type CajaConSaldoRow } from '@/services/api/finanzas';
@@ -54,6 +55,18 @@ export function PagosInformadosPage() {
   }, [load]);
 
   useRealtimeRefresh(['pagos_reportados'], load);
+
+  // Doc JL: ver el comprobante de transferencia que adjuntó el cliente
+  // (clave para verificar pagos a la cuenta de la Fundación).
+  async function verComprobante(p: PagoReportadoGerencia) {
+    if (!p.archivo_path) return;
+    const res = await getComprobantePagoUrl(p.archivo_path);
+    if (!res.ok) {
+      toast.error('No pudimos abrir el comprobante', { description: humanizeError(res.error) });
+      return;
+    }
+    window.open(res.data, '_blank', 'noopener,noreferrer');
+  }
 
   async function onRechazar(p: PagoReportadoGerencia) {
     const motivo = await prompt({
@@ -126,6 +139,11 @@ export function PagosInformadosPage() {
                 </p>
               </div>
               <div className="flex shrink-0 items-center gap-2">
+                {p.archivo_path && (
+                  <Button variant="tonal" onClick={() => void verComprobante(p)}>
+                    <Paperclip size={14} /> Ver comprobante
+                  </Button>
+                )}
                 <Button variant="secondary" onClick={() => void onRechazar(p)}>
                   <X size={14} /> Rechazar
                 </Button>
