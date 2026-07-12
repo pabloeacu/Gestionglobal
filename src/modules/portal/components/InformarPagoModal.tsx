@@ -24,6 +24,21 @@ function hoyISO(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+// Parseo robusto de importe en formato argentino (auditoría §6 A#9):
+// "10.000" → 10000, "1.234.567" → 1234567, "10.000,50" → 10000.50,
+// "10000,50" → 10000.50, "10.5" → 10.5. Evita que parseFloat("10.000") dé 10.
+function parseMontoAR(s: string): number {
+  const t = (s || '').trim().replace(/\s/g, '');
+  if (!t) return NaN;
+  if (t.includes(',')) {
+    // coma = decimal · puntos = separador de miles
+    return parseFloat(t.replace(/\./g, '').replace(',', '.'));
+  }
+  // sin coma: puntos como miles sólo si son grupos de 3 (10.000 / 1.234.567)
+  if (/^\d{1,3}(\.\d{3})+$/.test(t)) return parseFloat(t.replace(/\./g, ''));
+  return parseFloat(t);
+}
+
 export function InformarPagoModal({
   open,
   onClose,
@@ -40,7 +55,7 @@ export function InformarPagoModal({
   const [nota, setNota] = useState('');
   const [saving, setSaving] = useState(false);
 
-  const montoNum = parseFloat((monto || '').replace(',', '.'));
+  const montoNum = parseMontoAR(monto);
   const montoValido = !isNaN(montoNum) && montoNum > 0;
 
   async function enviar() {
