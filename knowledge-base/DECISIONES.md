@@ -4175,3 +4175,14 @@ baja'd puede recrear una cuenta nueva con el mismo CUIT; definir si debe **react
   exacto + atribuye al partner; el gestor recibe el texto "15635"; el health
   check da OK. Migs 0333-0335 aplicadas; 2 edge fns deployadas (verify_jwt=false,
   auth propia por CRON_SECRET).
+- **Doble auditoría §6 (2 agentes) → 1 hallazgo crítico + menores, todos cerrados:**
+  la mig 0334 (DROP+CREATE) perdió el REVOKE → `pago_conciliar` quedó ejecutable
+  por anon (E-GG-88 auto-grant) y el guard `IF NOT is_staff()` falla-abierto ante
+  NULL. Fix mig 0336: `REVOKE … FROM PUBLIC, anon` + guard `IS NOT TRUE`
+  (verificado: anon→42501, staff OK). Menores: botón Conciliar gateado en compSel;
+  nota+archivo no excluyentes en el panel/PDF del gestor; comentario/narrativa
+  corregidos (el banner de JL fue el falso-positivo del throttle, no el status).
+- **Prueba en vivo (URL Vercel):** panel del gestor con token efímero →
+  "DOCUMENTACIÓN PEDIDA AL CLIENTE (1) · Envianos el Número de Legajo: El Número
+  de Legajo es 15635 ✓", consola sin errores, y el bloque "Detalle · Sin datos"
+  ya no aparece (fix N4 confirmado). Fixture QA limpiado a 0 residuo.
