@@ -3,7 +3,7 @@
 // (→ registrar_cobranza_comprobante, única escritora) o lo RECHAZA.
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Wallet, Check, X, Loader2, Inbox, Paperclip } from 'lucide-react';
-import { Modal, Field, Select, Button, usePrompt } from '@/components/common';
+import { Modal, Field, Input, Select, Button, usePrompt } from '@/components/common';
 import { BrandLoader } from '@/components/brand/BrandLoader';
 import { toast } from '@/lib/toast';
 import { humanizeError } from '@/lib/errors';
@@ -19,6 +19,7 @@ import {
 import { getCajasConSaldo, type CajaConSaldoRow } from '@/services/api/finanzas';
 import { listCategoriasIngreso } from '@/services/api/cobranzas';
 import { listComprobantes, type ComprobanteListItem } from '@/services/api/comprobantes';
+import { listPartnersActivos, type PartnerOpcion } from '@/services/api/partners';
 
 const MEDIO_LABEL: Record<string, string> = {
   transferencia: 'Transferencia',
@@ -30,6 +31,16 @@ const MEDIO_LABEL: Record<string, string> = {
 
 function money(n: number): string {
   return '$' + n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+// Parseo de importe en formato argentino (mismo criterio que InformarPagoModal):
+// "205.000" → 205000, "205.000,50" → 205000.50, "50000" → 50000.
+function parseMontoAR(s: string): number {
+  const t = (s || '').trim().replace(/\s/g, '');
+  if (!t) return NaN;
+  if (t.includes(',')) return parseFloat(t.replace(/\./g, '').replace(',', '.'));
+  if (/^\d{1,3}(\.\d{3})+$/.test(t)) return parseFloat(t.replace(/\./g, ''));
+  return parseFloat(t);
 }
 
 export function PagosInformadosPage() {
@@ -190,6 +201,11 @@ function ConciliarModal({
   const [compId, setCompId] = useState<string>(pago.comprobante_id ?? '');
   const [cajaId, setCajaId] = useState<string>('');
   const [catId, setCatId] = useState<string>('');
+  // E-GG-109 (doc JL): monto editable (pago parcial) + atribución al partner,
+  // en paridad con el flujo Cta.Cte. Default = lo que informó el cliente.
+  const [monto, setMonto] = useState<string>(String(pago.monto));
+  const [partners, setPartners] = useState<PartnerOpcion[]>([]);
+  const [partnerId, setPartnerId] = useState<string>('');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -200,11 +216,21 @@ function ConciliarModal({
       setComprobantes(pend);
       if (!pago.comprobante_id && pend.length === 1) setCompId(pend[0]!.id);
     });
+    void listPartnersActivos().then((r) => r.ok && setPartners(r.data));
     const def = cajas.find((c) => (c as unknown as { es_default?: boolean }).es_default);
     if (def) setCajaId(def.caja_id);
   }, [pago.administracion_id, pago.comprobante_id, cajas]);
 
-  const puede = useMemo(() => compId && cajaId && catId && !saving, [compId, cajaId, catId, saving]);
+  const compSel = comprobantes.find((c) => c.id === compId);
+  const saldoComp = Number(compSel?.saldo_pendiente ?? 0);
+  const montoNum = parseMontoAR(monto);
+  const montoValido = !Number.isNaN(montoNum) && montoNum > 0;
+  const excedeSaldo = montoValido && saldoComp > 0 && montoNum > saldoComp;
+  const saldoDespues = saldoComp - (montoValido ? montoNum : 0);
+  const puede = useMemo(
+    () => Boolean(compId && cajaId && catId && montoValido && !excedeSaldo && !saving),
+    [compId, cajaId, catId, montoValido, excedeSaldo, saving],
+  );
 
   async function confirmar() {
     if (!puede) return;
@@ -214,6 +240,8 @@ function ConciliarModal({
       cajaId,
       categoriaId: catId,
       comprobanteId: compId,
+      monto: montoNum,
+      partnerId: partnerId || null,
     });
     setSaving(false);
     if (!res.ok) {
@@ -284,9 +312,68 @@ function ConciliarModal({
         </Field>
       </div>
 
+      <Field label="Importe a conciliar" required className="mt-3">
+        <Input
+          inputMode="decimal"
+          value={monto}
+          onChange={(e) => setMonto(e.target.value)}
+          placeholder="0,00"
+        />
+        {excedeSaldo && (
+          <p className="mt-1 text-xs text-amber-700">
+            El importe supera el saldo del comprobante ({money(saldoComp)}). Ajustá el
+            monto o elegí otro comprobante.
+          </p>
+        )}
+        {!excedeSaldo && Number(pago.monto) !== montoNum && montoValido && (
+          <p className="mt-1 text-xs text-brand-muted">
+            El cliente informó {money(Number(pago.monto))}. Vas a registrar {money(montoNum)}.
+          </p>
+        )}
+      </Field>
+
+      {/* Preview del saldo — misma lectura que el flujo de Cta. Cte. */}
+      {compId && (
+        <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-2">
+            <p className="text-[10px] uppercase tracking-wide text-brand-muted">Saldo actual</p>
+            <p className="text-sm font-semibold text-brand-ink">{money(saldoComp)}</p>
+          </div>
+          <div className="rounded-lg border border-brand-cyan/30 bg-brand-cyan-pale/30 p-2">
+            <p className="text-[10px] uppercase tracking-wide text-brand-cyan">Este pago</p>
+            <p className="text-sm font-semibold text-brand-ink">{money(montoValido ? montoNum : 0)}</p>
+          </div>
+          <div
+            className={`rounded-lg border p-2 ${
+              saldoDespues <= 0 ? 'border-emerald-200 bg-emerald-50' : 'border-amber-200 bg-amber-50'
+            }`}
+          >
+            <p className="text-[10px] uppercase tracking-wide text-brand-muted">Saldo después</p>
+            <p className="text-sm font-semibold text-brand-ink">{money(saldoDespues)}</p>
+          </div>
+        </div>
+      )}
+
+      {partners.length > 0 && (
+        <Field
+          label="Participa partner"
+          className="mt-3"
+          hint="Si lo marcás, este pago entra en la rendición del partner."
+        >
+          <Select value={partnerId} onChange={(e) => setPartnerId(e.target.value)}>
+            <option value="">— No participa —</option>
+            {partners.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.nombre}
+              </option>
+            ))}
+          </Select>
+        </Field>
+      )}
+
       <p className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-800">
         Al confirmar registramos la cobranza real contra el comprobante (baja el
-        saldo) y le avisamos al cliente que confirmamos su pago.
+        saldo por el importe indicado) y le avisamos al cliente que confirmamos su pago.
       </p>
     </Modal>
   );

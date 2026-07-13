@@ -42,6 +42,8 @@ export interface TramitePdfInput {
     filename_original: string;
     estado: string;
     url_descarga?: string;
+    /** Nota de texto del cliente cuando no adjuntó archivo (E-GG-110). */
+    respuesta_texto?: string | null;
   }>;
   created_at: string;
 }
@@ -121,8 +123,10 @@ function buildHtml(input: TramitePdfInput): string {
             .map(
               (p) => `
             <li>
-              <span class="adj-icon">📄</span>
-              ${p.url_descarga
+              <span class="adj-icon">${p.respuesta_texto && !p.url_descarga ? '📝' : '📄'}</span>
+              ${p.respuesta_texto && !p.url_descarga
+                ? `<span>${escapeHtml(p.respuesta_texto)}</span>`
+                : p.url_descarga
                 ? `<a href="${escapeHtml(p.url_descarga)}" target="_blank">${escapeHtml(p.filename_original)}</a>`
                 : `<span>${escapeHtml(p.filename_original)}</span>`}
               <span class="adj-campo">· ${escapeHtml(p.descripcion)}${p.estado === 'aprobado' ? ' · aprobado' : ''}</span>

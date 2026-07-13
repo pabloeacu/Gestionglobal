@@ -49,29 +49,60 @@ function jsonResp(status: number, body: unknown): Response {
 // ----------------------------------------------------------------------------
 
 async function check_email_queue_atascada(admin: ReturnType<typeof createClient>): Promise<CheckResult> {
-  // Buscamos rows en email_queue con programado_para >30min de antigüedad,
-  // sin enviado_at, y con intento < max_intentos. Esos son los que deberían
-  // haberse enviado y no fueron procesados.
-  const cutoff = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+  // E-GG-108: el dispatcher de emails envía CON throttle global de 5 min (1
+  // por corrida, decisión E42/D05). Por eso una cola de emails esperando NO es
+  // "cron caído": es el throttle drenando de a uno (un burst de N tarda N×5min).
+  // La versión anterior gritaba "crítico" ante cualquier backlog de +30min y
+  // daba falsas alarmas constantes. Señal REAL de caída: hay cola due-sin-enviar
+  // Y (a) el más viejo lleva esperando > una ventana holgada de throttle Y
+  // (b) el dispatcher no marcó ningún envío en ese lapso (last_sent_at stale).
+  // Ambas condiciones evitan el falso positivo del período quieto (cola recién
+  // llegada con last_sent_at viejo) y el del throttle drenando (last_sent_at fresco).
+  const STALE_MS = 20 * 60 * 1000; // 4 ventanas de throttle (5 min c/u)
   const { data, error } = await admin
     .from('email_queue')
-    .select('id, intento, max_intentos, programado_para', { count: 'exact', head: false })
-    .lt('programado_para', cutoff)
+    .select('id, intento, max_intentos, programado_para')
+    .lte('programado_para', new Date().toISOString())
     .is('enviado_at', null)
-    .limit(50);
+    .order('programado_para', { ascending: true })
+    .limit(200);
 
   if (error) {
     return { status: 'critical', detail: `No se pudo consultar email_queue: ${error.message}` };
   }
 
-  const pendientes = (data ?? []).filter((r: { intento: number; max_intentos: number }) =>
+  const retryable = (data ?? []).filter((r: { intento: number; max_intentos: number }) =>
     r.intento < r.max_intentos
   );
-  const count = pendientes.length;
+  const backlog = retryable.length;
+  if (backlog === 0) return { status: 'ok', detail: 'Cola de emails al día', metric: 0 };
 
-  if (count === 0) return { status: 'ok', detail: 'Sin emails atascados', metric: 0 };
-  if (count <= 3) return { status: 'warning', detail: `${count} email(s) pendientes hace +30min`, metric: count };
-  return { status: 'critical', detail: `${count} emails atascados (cron caído?)`, metric: count };
+  // ¿El dispatcher dio señales de vida? last_sent_at fresco = está drenando.
+  const { data: thr } = await admin
+    .from('email_throttle').select('last_sent_at').eq('key', 'global').maybeSingle();
+  const lastSentMs = thr?.last_sent_at
+    ? Date.now() - new Date((thr as { last_sent_at: string }).last_sent_at).getTime()
+    : Infinity;
+  const oldestDueMs = Date.now() - new Date(
+    (retryable[0] as { programado_para: string }).programado_para,
+  ).getTime();
+
+  if (oldestDueMs > STALE_MS && lastSentMs > STALE_MS) {
+    const mins = Number.isFinite(lastSentMs) ? Math.round(lastSentMs / 60000) : null;
+    return {
+      status: 'critical',
+      detail: `${backlog} email(s) en cola y el dispatcher no envía hace ${mins ?? '∞'} min (cron caído?)`,
+      metric: backlog,
+    };
+  }
+  if (backlog > 40) {
+    return {
+      status: 'warning',
+      detail: `${backlog} emails en cola (throttle 5 min; ~${Math.round((backlog * 5) / 60)}h para drenar)`,
+      metric: backlog,
+    };
+  }
+  return { status: 'ok', detail: `${backlog} email(s) en cola, drenando con throttle`, metric: backlog };
 }
 
 async function check_push_queue_atascada(admin: ReturnType<typeof createClient>): Promise<CheckResult> {

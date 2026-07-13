@@ -522,7 +522,10 @@ type InfoSolicitud = {
   pedidos_doc?: Array<{
     descripcion: string;
     filename_original: string;
-    storage_path: string;
+    /** Null cuando el cliente respondió con una Nota de texto (E-GG-110). */
+    storage_path: string | null;
+    /** Respuesta de texto del cliente (Nota) cuando no adjuntó archivo (E-GG-110). */
+    respuesta_texto?: string | null;
     estado: string;
     subido_at: string | null;
   }>;
@@ -562,7 +565,7 @@ function PanelGestor({ token }: { token: string }) {
       const paths = [
         ...d.adjuntos.map((a) => a.storage_path),
         ...(d.pedidos_doc ?? []).map((p) => p.storage_path),
-      ];
+      ].filter((p): p is string => Boolean(p)); // items de sólo-texto no tienen path
       for (const p of paths) {
         const sr = await firmarAdjuntoCliente(token, p);
         if (sr.ok) signed[p] = sr.data;
@@ -594,7 +597,8 @@ function PanelGestor({ token }: { token: string }) {
           descripcion: p.descripcion,
           filename_original: p.filename_original,
           estado: p.estado,
-          url_descarga: adjuntosUrls[p.storage_path] ?? undefined,
+          respuesta_texto: p.respuesta_texto ?? null,
+          url_descarga: p.storage_path ? adjuntosUrls[p.storage_path] ?? undefined : undefined,
         })),
         created_at: info.created_at,
       });
@@ -781,28 +785,53 @@ function PanelGestor({ token }: { token: string }) {
                     Documentación pedida al cliente ({info.pedidos_doc.length})
                   </p>
                   <ul className="space-y-1">
-                    {info.pedidos_doc.map((p) => (
-                      <li key={p.storage_path}>
-                        <a
-                          href={adjuntosUrls[p.storage_path] ?? '#'}
-                          download={p.filename_original}
-                          className="inline-flex items-center gap-1.5 rounded-lg bg-slate-50 px-2.5 py-1.5 text-xs text-brand-ink hover:bg-brand-cyan/10 hover:text-brand-cyan"
-                          title="Descargar archivo"
-                        >
-                          <FileText size={11} className="shrink-0 text-brand-cyan" />
-                          <span className="min-w-0 break-words">
-                            {p.descripcion && (
-                              <span className="font-semibold">{p.descripcion}: </span>
+                    {info.pedidos_doc.map((p, idx) =>
+                      p.storage_path ? (
+                        // Respuesta con archivo → link de descarga
+                        <li key={p.storage_path}>
+                          <a
+                            href={adjuntosUrls[p.storage_path] ?? '#'}
+                            download={p.filename_original}
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-slate-50 px-2.5 py-1.5 text-xs text-brand-ink hover:bg-brand-cyan/10 hover:text-brand-cyan"
+                            title="Descargar archivo"
+                          >
+                            <FileText size={11} className="shrink-0 text-brand-cyan" />
+                            <span className="min-w-0 break-words">
+                              {p.descripcion && (
+                                <span className="font-semibold">{p.descripcion}: </span>
+                              )}
+                              {p.filename_original}
+                            </span>
+                            {p.estado === 'aprobado' && (
+                              <CheckCircle2 size={10} className="shrink-0 text-emerald-500" />
                             )}
-                            {p.filename_original}
-                          </span>
-                          {p.estado === 'aprobado' && (
-                            <CheckCircle2 size={10} className="shrink-0 text-emerald-500" />
-                          )}
-                          <UploadCloud size={10} className="rotate-180 text-brand-muted" />
-                        </a>
-                      </li>
-                    ))}
+                            <UploadCloud size={10} className="rotate-180 text-brand-muted" />
+                          </a>
+                        </li>
+                      ) : (
+                        // Respuesta con Nota de texto (E-GG-110) → mostrar el texto
+                        <li
+                          key={`nota-${idx}`}
+                          className="rounded-lg bg-slate-50 px-2.5 py-1.5 text-xs text-brand-ink"
+                        >
+                          <div className="flex items-start gap-1.5">
+                            <FileText size={11} className="mt-0.5 shrink-0 text-brand-cyan" />
+                            <span className="min-w-0 break-words">
+                              {p.descripcion && (
+                                <span className="font-semibold">{p.descripcion}: </span>
+                              )}
+                              <span className="whitespace-pre-wrap">{p.respuesta_texto}</span>
+                              {p.estado === 'aprobado' && (
+                                <CheckCircle2
+                                  size={10}
+                                  className="ml-1 inline shrink-0 text-emerald-500"
+                                />
+                              )}
+                            </span>
+                          </div>
+                        </li>
+                      ),
+                    )}
                   </ul>
                 </div>
               )}

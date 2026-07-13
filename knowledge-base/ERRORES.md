@@ -14,6 +14,74 @@
 - **Fecha / módulo:**
 -->
 
+## E-GG-108 · "N emails atascados (cron caído?)" — envío exitoso no avanzaba `status`
+- **Síntoma:** José (2026-07-13, doc wave 5) ve el banner de salud en el Inicio:
+  *"Alerta crítica · Cola de emails: 5 emails atascados (cron caído?)"*. Al
+  investigar había **101** filas `email_queue.status='pending'` acumuladas
+  desde el 10/07, la más vieja de 3 días.
+- **Causa raíz:** el cron `dispatch-emails-1min` corría OK (2880 corridas
+  exitosas en 2 días, HTTP 200) y **los emails SÍ se entregaban** (los 101
+  tenían su registro real en `sent_emails`). Pero el path de éxito del edge
+  function (`dispatch-emails`, líneas 235-240) actualizaba `enviado_at` (la
+  marca que usa el propio dispatcher para no reprocesar) **sin avanzar
+  `status` a 'sent'** (ni `sent_at`). Idéntico olvido en `failJob` al agotar
+  reintentos (seteaba `enviado_at` pero no `status='failed'`). Resultado: cada
+  email entregado quedaba `'pending'` para siempre, y el contador de la alarma
+  crecía con cada envío. Deriva de columnas duplicadas (`status`/`enviado_at`,
+  R8): el dispatcher usa `enviado_at IS NULL` como gate real, `status` quedó
+  como bookkeeping secundario que nadie avanzaba.
+- **Fix:** (a) dispatch-emails éxito → `status='sent', sent_at=now`;
+  failJob agotado → `status='failed'`. (b) Backfill mig 0333: las 101 con
+  registro en `sent_emails` → 'sent' (con verdad); agotadas sin entrega →
+  'failed'. (c) La alarma (`health-flows-check`) además era **inconsistente
+  con el throttle**: el dispatcher envía 1 email cada 5 min (E42/D05), así que
+  un backlog de +30min es NORMAL, no "cron caído". Se reescribió para gritar
+  crítico SÓLO si hay cola due-sin-enviar Y el más viejo espera >20min Y el
+  dispatcher no marcó ningún envío en ese lapso (`email_throttle.last_sent_at`
+  stale) — así distingue "throttle drenando" (ok) de "cron realmente caído".
+- **Prevención:** en tablas con columnas duplicadas legacy/nuevas (R8), toda
+  transición de estado debe tocar AMBAS mitades; una alarma cuyo umbral no
+  contempla el throttle del sistema que vigila da falsos positivos crónicos.
+- **Decisión de Pablo (2026-07-13):** NO tocar la tasa de envío (throttle
+  heredado intacto), sólo la alarma. Verificado en vivo: health check → email
+  OK "Cola de emails al día".
+- **Fecha / módulo:** 2026-07-13 · emails · `dispatch-emails` + `health-flows-check` + mig 0333.
+
+## E-GG-109 · Conciliar pago sin monto parcial ni atribución al partner
+- **Síntoma:** José (2026-07-13, doc wave 5): al conciliar un pago informado
+  desde "Pagos informados", el modal sólo mostraba el comprobante con su saldo
+  total; *"si hace un pago parcial por acá no lo podemos imputar y tampoco
+  aparece si Participa el partner"*. En cambio el flujo Cta.Cte.
+  (RegistrarCobranzaDrawer) sí ofrece pago parcial + "Participa partner".
+- **Causa raíz:** `pago_conciliar` imputaba `v_pago.monto` (correcto) pero el
+  modal no lo mostraba ni permitía ajustarlo, y pasaba `NULL` al partner; sin
+  paridad con el único otro writer de cobranzas.
+- **Fix:** mig 0334 (DROP+CREATE por R16, +`p_monto` +`p_partner_id_atribucion`
+  cableados a `registrar_cobranza_comprobante`, que valida monto≤saldo) +
+  ConciliarModal con importe editable, preview saldo actual→este pago→saldo
+  después, y selector "Participa partner". e2e: informar no mueve saldo →
+  conciliar parcial $50k baja 205k→155k exacto, movimiento atribuido al partner.
+- **Prevención:** consistencia contable — cada superficie que registra cobranza
+  ofrece los mismos controles (parcial + partner) y pasa por el mismo writer.
+- **Fecha / módulo:** 2026-07-13 · facturación · `pago_conciliar` + PagosInformadosPage.
+
+## E-GG-110 · Gestoría no veía la Nota de texto que respondió el cliente
+- **Síntoma:** José (2026-07-13, doc wave 5): el cliente responde un pedido de
+  documentación con una **Nota de texto** (no archivo); al gestor le llega el
+  mail "info nueva disponible" pero *"a gestoría no le aparece lo que completó
+  el cliente (era una Nota, no era un archivo adjunto)"*.
+- **Causa raíz:** `gestor_obtener_info_solicitud` agregaba los items del pedido
+  con `AND it.archivo_path IS NOT NULL` → sólo los que tenían archivo; las
+  respuestas de texto (`respuesta_texto`, sin archivo) quedaban excluidas del
+  payload que ve el gestor.
+- **Fix:** mig 0335 (CREATE OR REPLACE, misma firma): incluir items con archivo
+  O `respuesta_texto`, y devolver el texto. AccesoExternoPage + generateTramitePdf
+  renderizan la nota (📝) cuando no hay archivo. e2e: cliente responde
+  "El Número de Legajo es 15635" → el RPC del gestor ahora devuelve el texto.
+- **Prevención:** cuando un flujo acepta 2 formas de respuesta (archivo O texto),
+  toda vista downstream debe contemplar ambas — no filtrar por una sola.
+- **Fecha / módulo:** 2026-07-13 · gestoría · `gestor_obtener_info_solicitud` + AccesoExternoPage.
+
 ## E-GG-49 · Adjunto del gestor no abre ("Bucket not found")
 - **Síntoma**: Pablo (2026-06-04 captura): la línea de tracking "Aporte de
   gestoría externa" con un adjunto (el certificado del trámite). Al abrir

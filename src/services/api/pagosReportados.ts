@@ -88,8 +88,11 @@ export async function listPagosReportadosGerencia(estado: PagoEstado = 'reportad
 }
 
 // Gerencia concilia (→ registrar_cobranza_comprobante).
+// E-GG-109 (doc JL): monto editable (pago parcial) + atribución al partner,
+// para dar paridad con el flujo Cta.Cte. (RegistrarCobranzaDrawer).
 export async function conciliarPago(input: {
-  pagoId: string; cajaId: string; categoriaId: string; comprobanteId?: string | null; fecha?: string | null;
+  pagoId: string; cajaId: string; categoriaId: string; comprobanteId?: string | null;
+  fecha?: string | null; monto?: number | null; partnerId?: string | null;
 }): Promise<ApiResponse<string>> {
   const { data, error } = await rpc('pago_conciliar', {
     p_pago_id: input.pagoId,
@@ -97,6 +100,8 @@ export async function conciliarPago(input: {
     p_categoria_id: input.categoriaId,
     p_comprobante_id: input.comprobanteId ?? null,
     p_fecha: input.fecha ?? null,
+    p_monto: input.monto ?? null,
+    p_partner_id_atribucion: input.partnerId ?? null,
   });
   if (error) return fail('PAGO_CONCILIAR', error.message, error);
   return ok(data as string);

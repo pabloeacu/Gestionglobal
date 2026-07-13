@@ -233,9 +233,14 @@ Deno.serve(async (req) => {
   }
 
   // 8) Marcar enviado + sent_emails + throttle.
+  // E-GG-108: además de enviado_at (marca del dispatcher para no reprocesar),
+  // avanzar el status a 'sent' + sent_at. Sin esto el email entregado quedaba
+  // 'pending' para siempre → inflaba el health check ("N emails atascados").
   const nowIso = new Date().toISOString();
   await admin.from('email_queue').update({
     enviado_at: nowIso,
+    sent_at: nowIso,
+    status: 'sent',
     ultimo_error: null,
   }).eq('id', job.id);
 
@@ -398,10 +403,13 @@ async function failJob(admin: ReturnType<typeof createClient>, job: QueueRow, ms
   const nextSchedule = new Date(Date.now() + backoffMin * 60 * 1000).toISOString();
 
   if (exhausted) {
+    // E-GG-108: además de enviado_at (stop marker), avanzar status a 'failed'
+    // para que no quede 'pending' contando como "atascado" tras agotar reintentos.
     await admin.from('email_queue').update({
       intento: nextIntento,
       ultimo_error: msg,
       enviado_at: new Date().toISOString(),
+      status: 'failed',
     }).eq('id', job.id);
   } else {
     await admin.from('email_queue').update({

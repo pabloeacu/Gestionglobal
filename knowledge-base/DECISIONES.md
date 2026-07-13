@@ -4153,3 +4153,25 @@ baja'd puede recrear una cuenta nueva con el mismo CUIT; definir si debe **react
   adjunto, página Pagos informados) quedaron verificadas por código+RPC+policy e2e; la
   sesión QA inyectada en browser sigue inestable (el bootstrap del AuthContext la limpia) —
   verlas en pantalla toma 1 minuto con un login real. Follow-up de tooling QA, no de producto.
+
+### DGG-106 · Google Doc de JL — wave 5 (págs. 5-6): emails, conciliación, gestoría (2026-07-13)
+- **Método:** mismo que DGG-104/105 (doc vivo). JL agregó 5 ítems tras leer el
+  reporte W4: 1 confirmación (aviso de pago en campanita) + 4 hallazgos.
+- **E-GG-108 · alarma "emails atascados":** el envío exitoso no avanzaba
+  `status` a 'sent' → 101 emails ENTREGADOS quedaban 'pending' e inflaban el
+  health check. Fix en dispatch-emails + backfill (mig 0333) + alarma reescrita
+  para no confundir el throttle (1 email/5 min, E42/D05) con "cron caído".
+  **Decisión Pablo:** no tocar la tasa de envío, sólo la alarma. Live: health OK.
+- **E-GG-109 · Conciliar con parcial + partner:** paridad del modal de Pagos
+  informados con el flujo Cta.Cte. — importe editable (default = reportado),
+  preview de saldo, y "Participa partner", cableados a
+  `registrar_cobranza_comprobante` (mig 0334, DROP+CREATE R16). Consistencia
+  contable: mismo writer, mismos controles en toda superficie de cobranza.
+- **E-GG-110 · gestoría ve la Nota de texto:** `gestor_obtener_info_solicitud`
+  filtraba items del pedido por `archivo_path IS NOT NULL`, ocultando las
+  respuestas de sólo-texto. Ahora incluye archivo O `respuesta_texto` y lo
+  renderiza en el panel + PDF del gestor (mig 0335).
+- **e2e (rollback) verificado** para los 3: conciliar parcial baja el saldo
+  exacto + atribuye al partner; el gestor recibe el texto "15635"; el health
+  check da OK. Migs 0333-0335 aplicadas; 2 edge fns deployadas (verify_jwt=false,
+  auth propia por CRON_SECRET).
