@@ -14,38 +14,37 @@
 - **Fecha / módulo:**
 -->
 
-## E-GG-108 · "N emails atascados (cron caído?)" — envío exitoso no avanzaba `status`
+## E-GG-108 · "N emails atascados (cron caído?)" — dos bugs distintos detrás de un banner
 - **Síntoma:** José (2026-07-13, doc wave 5) ve el banner de salud en el Inicio:
-  *"Alerta crítica · Cola de emails: 5 emails atascados (cron caído?)"*. Al
-  investigar había **101** filas `email_queue.status='pending'` acumuladas
-  desde el 10/07, la más vieja de 3 días.
-- **Causa raíz:** el cron `dispatch-emails-1min` corría OK (2880 corridas
-  exitosas en 2 días, HTTP 200) y **los emails SÍ se entregaban** (los 101
-  tenían su registro real en `sent_emails`). Pero el path de éxito del edge
-  function (`dispatch-emails`, líneas 235-240) actualizaba `enviado_at` (la
-  marca que usa el propio dispatcher para no reprocesar) **sin avanzar
-  `status` a 'sent'** (ni `sent_at`). Idéntico olvido en `failJob` al agotar
-  reintentos (seteaba `enviado_at` pero no `status='failed'`). Resultado: cada
-  email entregado quedaba `'pending'` para siempre, y el contador de la alarma
-  crecía con cada envío. Deriva de columnas duplicadas (`status`/`enviado_at`,
-  R8): el dispatcher usa `enviado_at IS NULL` como gate real, `status` quedó
-  como bookkeeping secundario que nadie avanzaba.
-- **Fix:** (a) dispatch-emails éxito → `status='sent', sent_at=now`;
-  failJob agotado → `status='failed'`. (b) Backfill mig 0333: las 101 con
-  registro en `sent_emails` → 'sent' (con verdad); agotadas sin entrega →
-  'failed'. (c) La alarma (`health-flows-check`) además era **inconsistente
-  con el throttle**: el dispatcher envía 1 email cada 5 min (E42/D05), así que
-  un backlog de +30min es NORMAL, no "cron caído". Se reescribió para gritar
-  crítico SÓLO si hay cola due-sin-enviar Y el más viejo espera >20min Y el
-  dispatcher no marcó ningún envío en ese lapso (`email_throttle.last_sent_at`
-  stale) — así distingue "throttle drenando" (ok) de "cron realmente caído".
-- **Prevención:** en tablas con columnas duplicadas legacy/nuevas (R8), toda
-  transición de estado debe tocar AMBAS mitades; una alarma cuyo umbral no
-  contempla el throttle del sistema que vigila da falsos positivos crónicos.
+  *"Alerta crítica · Cola de emails: 5 emails atascados (cron caído?)"*.
+- **Causa raíz (dos cosas independientes, no confundir):**
+  1. **El banner en sí = falso positivo del throttle.** El dispatcher envía 1
+     email cada 5 min (throttle global hard, E42/D05). Un burst de N emails
+     legítimos tarda N×5 min en drenar, así que emails esperando +30min son
+     NORMALES. El health check (`check_email_queue_atascada`) gritaba "crítico"
+     ante cualquier backlog de +30min → falsa alarma recurrente. El check keyea
+     `enviado_at IS NULL` (no `status`).
+  2. **Bug latente separado de `status` (no era lo que veía JL).** El cron
+     corría OK (2880 corridas 200) y los emails SÍ se entregaban (101 con
+     registro real en `sent_emails`), pero el path de éxito de dispatch-emails
+     seteaba `enviado_at` **sin avanzar `status` a 'sent'/`sent_at`** (ídem
+     `failJob` agotado sin `status='failed'`). 101 emails entregados quedaban
+     `'pending'` — invisible para JL (ni el health check ni EmailQueuePage leen
+     `status`), pero deuda de reporting. Deriva de columnas duplicadas (R8).
+- **Fix:** (a) **health-flows-check reescrito** — crítico SÓLO si hay cola
+  due-sin-enviar Y el más viejo espera >20min Y el dispatcher no marcó envíos
+  en ese lapso (`email_throttle.last_sent_at` stale). Distingue "throttle
+  drenando" (ok) de "cron caído real". **Esto arregla el banner.** (b)
+  dispatch-emails éxito → `status='sent', sent_at`; failJob agotado →
+  `status='failed'` + backfill mig 0333 (las 101 → 'sent' con verdad). **Esto
+  arregla la higiene de `status`, no el banner.**
+- **Prevención:** una alarma cuyo umbral no contempla el throttle del sistema
+  que vigila da falsos positivos crónicos. En tablas con columnas duplicadas
+  legacy/nuevas (R8), toda transición de estado debe tocar AMBAS mitades.
 - **Decisión de Pablo (2026-07-13):** NO tocar la tasa de envío (throttle
   heredado intacto), sólo la alarma. Verificado en vivo: health check → email
   OK "Cola de emails al día".
-- **Fecha / módulo:** 2026-07-13 · emails · `dispatch-emails` + `health-flows-check` + mig 0333.
+- **Fecha / módulo:** 2026-07-13 · emails · `health-flows-check` + `dispatch-emails` + mig 0333.
 
 ## E-GG-109 · Conciliar pago sin monto parcial ni atribución al partner
 - **Síntoma:** José (2026-07-13, doc wave 5): al conciliar un pago informado
@@ -63,7 +62,19 @@
   conciliar parcial $50k baja 205k→155k exacto, movimiento atribuido al partner.
 - **Prevención:** consistencia contable — cada superficie que registra cobranza
   ofrece los mismos controles (parcial + partner) y pasa por el mismo writer.
-- **Fecha / módulo:** 2026-07-13 · facturación · `pago_conciliar` + PagosInformadosPage.
+- **Regresión de permisos (E-GG-109b, misma auditoría §6):** la mig 0334 usó
+  `DROP FUNCTION` + `CREATE FUNCTION`. Como el proyecto tiene `ALTER DEFAULT
+  PRIVILEGES` que auto-otorga EXECUTE a anon/PUBLIC en toda función nueva
+  (E-GG-88), la nueva `pago_conciliar` quedó ejecutable por **anon** con la
+  anon-key pública — el `DROP` borró el `REVOKE` que traía la versión original.
+  Peor: el guard `IF NOT private.is_staff()` **falla-abierto para anon**
+  (auth.uid()=NULL → is_staff()=NULL → `NOT NULL`=NULL → el IF no dispara).
+  Fix mig 0336: `REVOKE ALL … FROM PUBLIC, anon` + guard endurecido a
+  `IS NOT TRUE` (rebota NULL además de false). Verificado: anon → 42501.
+  **Regla nueva de higiene:** toda mig que haga `DROP+CREATE` de una función
+  staff-only debe re-emitir el `REVOKE ALL … FROM PUBLIC, anon` (no alcanza el
+  GRANT); y los guards `is_staff()` deben usar `IS NOT TRUE`, no `NOT`.
+- **Fecha / módulo:** 2026-07-13 · facturación · `pago_conciliar` + PagosInformadosPage + mig 0336.
 
 ## E-GG-110 · Gestoría no veía la Nota de texto que respondió el cliente
 - **Síntoma:** José (2026-07-13, doc wave 5): el cliente responde un pedido de

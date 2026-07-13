@@ -227,9 +227,12 @@ function ConciliarModal({
   const montoValido = !Number.isNaN(montoNum) && montoNum > 0;
   const excedeSaldo = montoValido && saldoComp > 0 && montoNum > saldoComp;
   const saldoDespues = saldoComp - (montoValido ? montoNum : 0);
+  // Gateamos en compSel (no compId): si el comprobante preseleccionado ya no
+  // tiene saldo (no entra en la lista filtrada), compSel es undefined → botón
+  // deshabilitado, en vez de habilitarse con saldoComp=0 (auditoría §6 A#4).
   const puede = useMemo(
-    () => Boolean(compId && cajaId && catId && montoValido && !excedeSaldo && !saving),
-    [compId, cajaId, catId, montoValido, excedeSaldo, saving],
+    () => Boolean(compSel && cajaId && catId && montoValido && !excedeSaldo && !saving),
+    [compSel, cajaId, catId, montoValido, excedeSaldo, saving],
   );
 
   async function confirmar() {

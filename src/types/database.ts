@@ -9576,7 +9576,9 @@ export type Database = {
           p_categoria_id: string
           p_comprobante_id?: string
           p_fecha?: string
+          p_monto?: number
           p_pago_id: string
+          p_partner_id_atribucion?: string
         }
         Returns: string
       }

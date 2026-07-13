@@ -123,12 +123,13 @@ function buildHtml(input: TramitePdfInput): string {
             .map(
               (p) => `
             <li>
-              <span class="adj-icon">${p.respuesta_texto && !p.url_descarga ? '📝' : '📄'}</span>
-              ${p.respuesta_texto && !p.url_descarga
-                ? `<span>${escapeHtml(p.respuesta_texto)}</span>`
-                : p.url_descarga
+              <span class="adj-icon">${p.url_descarga ? '📄' : p.respuesta_texto ? '📝' : '📄'}</span>
+              ${p.url_descarga
                 ? `<a href="${escapeHtml(p.url_descarga)}" target="_blank">${escapeHtml(p.filename_original)}</a>`
+                : p.respuesta_texto
+                ? ''
                 : `<span>${escapeHtml(p.filename_original)}</span>`}
+              ${p.respuesta_texto ? `<span>${escapeHtml(p.respuesta_texto)}</span>` : ''}
               <span class="adj-campo">· ${escapeHtml(p.descripcion)}${p.estado === 'aprobado' ? ' · aprobado' : ''}</span>
             </li>
           `,
