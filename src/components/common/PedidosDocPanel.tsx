@@ -473,12 +473,14 @@ function PedidoItem({
       </div>
 
       {/* DGG-89 · El cliente puede responder con un DATO (texto) en vez de —o
-          además de— subir un archivo. Nunca queda trabado si le piden un número.
-          E-GG-117 (P6-C JL): si el ítem YA quedó satisfecho por un adjunto
-          (estado 'subido' con archivo_path), ocultamos el input de texto vacío —
-          confundía al cliente haciéndole creer que también debía escribir algo. */}
-      {variant === 'cliente' && item.estado !== 'aprobado'
-        && !(item.estado === 'subido' && !!item.archivo_path) && (
+          ADEMÁS de— subir un archivo (el ítem admite archivo Y dato a la vez:
+          responder_texto_item no pisa archivo_path). Nunca queda trabado si le
+          piden un número.
+          E-GG-121 (wave 7 · pág. 5 JL): revierte E-GG-117. El input de dato
+          debe quedar SIEMPRE disponible mientras el ítem no esté aprobado —
+          antes se ocultaba tras subir el adjunto y el cliente ya no podía cargar
+          el dato pedido (ej: número de legajo) salvo que lo escribiera ANTES. */}
+      {variant === 'cliente' && item.estado !== 'aprobado' && (
         <div className="mt-2 flex items-center gap-2">
           <input
             type="text"

@@ -74,7 +74,11 @@ export async function subirArchivoItem(
   pedidoId: string,
   file: File,
 ): Promise<ApiResponse<{ path: string }>> {
-  const ext = file.name.split('.').pop() ?? 'bin';
+  // R20 (E-GG-125): extensión SEGURA. file.name.split('.').pop() metía la key con
+  // espacios/acentos cuando el archivo no tenía extensión (todo el nombre pasaba a
+  // ser "ext"). Extraemos sólo una extensión alfanumérica corta o 'bin'.
+  const extMatch = file.name.match(/\.([a-zA-Z0-9]{1,8})$/);
+  const ext = extMatch?.[1]?.toLowerCase() ?? 'bin';
   const path = `${tramiteId}/${pedidoId}/${itemId}/${Date.now()}.${ext}`;
 
   const { error: upErr } = await supabase.storage

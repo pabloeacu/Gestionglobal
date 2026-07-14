@@ -43,7 +43,12 @@ export function ExtractoTable({ rows, emptyHint }: Props) {
           </tr>
         </thead>
         <tbody>
-          {rows.map((r, idx) => {
+          {/* E-GG-122 (wave 7 · JL): lo más reciente arriba (igual que Cajas).
+              Las filas llegan ASC (para el saldo running de la RPC); el saldo por
+              fila ya es el acumulado a esa fecha, así que sólo invertimos la
+              presentación (copia con spread, sin recalcular). El "Saldo anterior"
+              queda abajo (lo más viejo). */}
+          {[...rows].reverse().map((r, idx) => {
             const isInicial = r.tipo === 'saldo_inicial';
             return (
               <tr

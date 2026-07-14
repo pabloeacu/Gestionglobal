@@ -1079,7 +1079,10 @@ function TabCtaCte({ administracionId }: { administracionId: string }) {
             </tr>
           </thead>
           <tbody>
-            {rows.map((r, idx) => (
+            {/* E-GG-122 (wave 7 · JL): lo más reciente arriba (como Cajas). El
+                saldo por fila es el acumulado a esa fecha; sólo se invierte la
+                presentación (copia con spread, no muta el estado ni el saldo). */}
+            {[...rows].reverse().map((r, idx) => (
               <tr
                 key={r.id}
                 className="border-b border-slate-100 hover:bg-brand-zebra/30 motion-safe:animate-fade-up"

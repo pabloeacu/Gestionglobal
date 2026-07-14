@@ -79,6 +79,13 @@ export function PortalCtaCtePage() {
     return { saldoActual, totalCargos, totalAbonos };
   }, [filtered, rows]);
 
+  // E-GG-122 (wave 7 · pág. 4 JL): el extracto se muestra con lo MÁS RECIENTE
+  // arriba (igual que la vista de Cajas). Las filas vienen ASC de la RPC (para
+  // el saldo acumulado); acá sólo invertimos la PRESENTACIÓN. El saldo por fila
+  // ya es el acumulado a esa fecha → la primera fila (más reciente) muestra el
+  // saldo actual. Los cálculos (saldoActual, totales) siguen usando el orden ASC.
+  const displayRows = useMemo(() => [...filtered].reverse(), [filtered]);
+
   if (!user?.administracionId) {
     return (
       <div className="mx-auto max-w-md p-12 text-center text-sm text-brand-muted">
@@ -261,7 +268,7 @@ export function PortalCtaCtePage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map((r, idx) => (
+                  {displayRows.map((r, idx) => (
                     <tr
                       key={r.id}
                       className="border-b border-slate-100 hover:bg-brand-zebra/30 motion-safe:animate-fade-up"

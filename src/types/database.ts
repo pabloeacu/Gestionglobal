@@ -7876,6 +7876,10 @@ export type Database = {
         Args: { p_cuit?: string; p_dni?: string; p_excluir_id?: string }
         Returns: Json
       }
+      administracion_credito_disponible: {
+        Args: { p_admin_id: string }
+        Returns: number
+      }
       administracion_dar_de_baja: {
         Args: { p_administracion_id: string }
         Returns: undefined
@@ -7900,6 +7904,7 @@ export type Database = {
           webinar_status: string
         }[]
       }
+      administraciones_con_deuda: { Args: never; Returns: string[] }
       ajuste_masivo_precios: {
         Args: {
           p_categoria_codigo?: string
@@ -9769,6 +9774,7 @@ export type Database = {
           p_fecha: string
           p_monto: number
           p_partner_id_atribucion?: string
+          p_permitir_excedente?: boolean
           p_referencia: string
         }
         Returns: string

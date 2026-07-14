@@ -4363,3 +4363,104 @@ comprobante (la banner del portal ya usa `total>0`, no se muestran). **Follow-up
 de `kpis_dashboard_global` usa `m.estado<>'anulado'` en vez de `='identificado'` (métrica de período, no
 saldo). Verificación e2e final: KPI home = morosos = lista neta = **$175.000**; chip "Con Deuda" = 2 admins;
 R16=0, R17=0.
+
+## WAVE 7 · Blindaje integral (auditoría exhaustiva de 8 circuitos) — E-GG-121..126
+
+Origen: Pablo — "cada vez que JL revisa encuentra 10 cosas; blindar TODOS los circuitos,
+única fuente de verdad, 100% de certeza sobre cada rol". Se corrió un workflow de 8 agentes
+(landing/forms, portal, gerencia, gestor, partner, storage, contable, emails), cada uno
+generando hipótesis por rol/operación y verificando en BD (rollback). Doble §6 adversarial.
+
+### E-GG-121 · (pág.5 JL) El campo de "dato" del pedido de docs desaparecía al subir el adjunto
+Regresión de [E-GG-117]: se ocultaba el input de texto cuando el ítem tenía archivo, pero un
+pedido puede necesitar archivo Y dato (ej: subí el DNI y escribí el legajo). El cliente que
+subía primero el archivo ya no podía cargar el dato. Fix (PedidosDocPanel): el input queda
+disponible mientras el ítem no esté 'aprobado' (responder_texto_item no pisa archivo_path,
+coexisten).
+
+### E-GG-122 · (pág.4 JL) El extracto de Cta.Cte ordenaba lo más viejo arriba
+Las Cajas ya mostraban lo último arriba (E-GG-115) pero el extracto del cliente (portal + ficha
++ gerencia) seguía ASC. Fix: invertir la PRESENTACIÓN (PortalCtaCtePage/AdministracionDetailPage/
+ExtractoTable) — lo más reciente arriba; el saldo por fila (acumulado) y el saldoActual no
+cambian (siguen calculándose sobre el orden cronológico).
+
+### E-GG-123 · CRÍTICA · `private.is_staff()` falla-abierto para anon (sistémico) + fuga de mail del gestor
+CAUSA RAÍZ: is_staff() = get_user_role() IN (...) devolvía NULL para anon (auth.uid()=NULL). Decenas
+de RPC usan `IF NOT is_staff() THEN RAISE` que con NULL NO dispara → un ANÓNIMO con la anon-key podía
+(confirmado e2e): leer los datos financieros de TODOS los clientes (cuenta_corriente_resumen_global),
+CERRAR y REABRIR cualquier trámite (tracking_cerrar/reabrir). Fix de mayor palanca (mig 0346):
+`is_staff() = COALESCE(get_user_role() IN ('gerente','operador'), false)` → nunca NULL, cierra TODOS
+los call-sites `IF NOT is_staff()` de una vez (estrictamente más seguro). + defensa en profundidad:
+REVOKE anon en resumen_global/resumen/tracking_cerrar/reabrir + REVOKE INSERT anon en
+formulario_submissions/adjuntos (el alta pública va por el edge service_role; el INSERT directo
+bypasseaba validación+rate-limit y permitía envenenar la ficha ajena). FUGA de email (lo que JL vio
+en "otros mails", pág.2): solicitud_derivar insertaba la línea "Envío a sector de gestoría —
+destinatario: <mail del gestor>" con visible_cliente=TRUE → se filtraba al cliente. [E-GG-111] tapó
+sólo el recordatorio; ésta es OTRA ruta. Fix: visible_cliente=false + backfill. e2e: is_staff()_anon=
+false; tracking_cerrar anon→42501; staff intacto; anon_exec revocado.
+
+### E-GG-124 · Partner (sábana $0 tras cerrar convenio), fusión (huérfanos), ARCA rota, flujo de caja (revertidos)
+mig 0347: (a) partner_sabana resolvía el convenio con `pc.activo` → tras cerrar/renovar el convenio,
+TODA la historia del partner quedaba 0%; fix: resolver por rango de fechas (el que regía a esa fecha).
+(b) fusionar_administraciones no movía pagos_reportados (pago del cliente imposible de conciliar),
+profiles (el usuario seguía logueando contra una admin en baja) ni patrones_conciliacion; fix: se
+agregan al fan-out. (c) arca_emisor_default/set_default referenciaban `public.is_staff()` (inexistente)
+→ RPC ROTAS; fix: private.is_staff(). (d) fz_reporte_flujo_caja: un ingreso REVERTIDO seguía contando
+(filtraba origen<>'reversion' pero no revertido_at); fix: + revertido_at IS NULL.
+
+### E-GG-125 · R20 en subirArchivoItem (pedidos de doc)
+La storage key usaba file.name.split('.').pop() → sin extensión, todo el nombre (con espacios/acentos)
+pasaba a la key. Fix: extraer sólo extensión alfanumérica corta o 'bin'.
+
+### E-GG-126 · FOLLOW-UPS DIFERIDOS (documentados, NO resueltos en wave 7 por riesgo/alcance)
+- **Buckets públicos con docs privados** (partner-facturas, tramite-documento-final, gestor-uploads,
+  encuesta-testimonios): son public=true → legibles por cualquiera con la URL. El fix correcto
+  (private + URL firmada on-demand) exige refactor: guardar el PATH (no la URL pública, que hoy se
+  persiste) y firmar en cada punto de descarga (partners.ts, tramites.ts, accesoExterno.ts,
+  trackings.ts + sus vistas). Hacerlo a medias ROMPE las descargas (URLs guardadas → 403). Se difiere
+  a un chunk dedicado con testing completo. **PRIORIDAD #1 de seguridad pendiente.**
+- **voucher_incrementar_uso / voucher_validar** anon: incrementar_uso no tiene guarda (anon con un
+  voucher_id podría agotar un voucher); validar es un oráculo de enumeración. El fix limpio es mover
+  el incremento server-side (edge submit) — refactor del flujo público. Mitigación actual: los ids son
+  UUID no enumerables y los códigos deben ser de alta entropía. Diferido.
+- **tramite_pedido_doc_subir_item**: no valida que archivo_path arranque con <tramite_id>/ (un cliente
+  podría apuntar el ítem a un path de otro trámite dentro del mismo bucket privado). Guard barato,
+  diferido al chunk de storage.
+- **tracking_moderar_gestor_avance 'publicar'**: manda la descripción cruda del gestor al cliente si el
+  gerente no la edita (por diseño hoy; el gerente revisa). Se documenta como decisión de producto.
+- **crédito gateado por administraciones.user_id** vs tenancy canónica profiles.administracion_id
+  (latente): riesgo teórico de divergencia Inicio(bruto)/Cta.Cte(neto) si difieren; hoy coinciden.
+
+### E-GG-127 · REGRESIONES del propio wave 7 (capitalizadas por la doble auditoría §6)
+La doble auditoría §6 de cierre (mandato Pablo) del wave 7 encontró que el root-fix de
+[E-GG-123] (is_staff() NULL→false, mig 0346) — correcto y necesario para cerrar el fail-open de
+anon — CERRÓ sin querer el "fail-open de service_role" del que dependían tres callers de confianza
+que corren con SERVICE_ROLE_KEY y SIN JWT de usuario (auth.uid()=NULL → is_staff()=false → los
+guards `IF NOT is_staff()` ahora DISPARAN 42501). Lección: al endurecer un helper de autz. usado
+por edges/crons, verificar TODOS los call-sites service_role, no sólo los del front. Fix mig 0348:
+- **CRÍTICA (cron cobranza muerto)**: edge `dispatch-recupero` (cron diario 12:30) llama
+  `comprobantes_morosos(NULL)` + `disparar_recupero_manual(...)` con service_role → 42501 → la
+  cobranza automática (recupero R1/R2/R3) dejaba de enviarse en silencio.
+- **ALTA (meeting Zoom huérfano)**: edge `zoom-webinar-create` llama `webinar_set_zoom(...)` con
+  service_role → el meeting se creaba en Zoom pero el INSERT fallaba → sala huérfana no persistida.
+- **MEDIA (monitoreo caído)**: edge `db-health-alert-check` (cron diario 12:00) llama
+  `db_health_metrics()` con service_role (su comentario dice "bypassa is_staff") → 42501.
+Fix de mayor palanca: helper `private.is_staff_or_service()` = `is_staff() OR COALESCE(auth.role()=
+'service_role', false)` (COALESCE para no reintroducir NULL; el service_role sólo vive server-side
+—R3— y ya tiene god-mode, así que NO abre superficie: discrimina de anon, que es auth.role()='anon').
+Los 4 gates pasan a usarlo. Verificado e2e: service_role pasa los 4 (llega a la lógica: P0002/OK),
+anon sigue BLOQUEADO en los 4 (42501), staff intacto (morosos all=2/scoped=1).
+Además, dos hallazgos adyacentes del mismo audit:
+- **cert_marcar_celebracion_vista** (fail-open PRE-EXISTENTE, no regresión): la comparación
+  `auth.uid()=v_alumno` propaga NULL para anon → cualquier anónimo podía marcar la celebración de
+  un certificado como vista. Bajo impacto (un timestamp) pero es fail-open. Fix: `COALESCE(auth.uid()
+  =v_alumno,false)` + REVOKE anon (verificado: anon sin EXECUTE; authenticated OK).
+- **fusionar_administraciones** (regresión de mig 0347): la UPDATE de patrones_conciliacion que se
+  sumó al fan-out abortaba con 23505 (patrones_unique) si origen y destino comparten un patrón (muy
+  probable: ambos tienen "TRANSFERENCIA", etc.) → la fusión ENTERA se caía. Fix: dedupe-delete de los
+  patrones del origen que colisionan (categoria_id nullable → IS NOT DISTINCT FROM) antes del move
+  (patrones no tiene FKs entrantes, verificado). e2e: fusión OK, moved=1/descartados=1, destino=2/
+  origen=0. (Los demás UNIQUE que incluyen administracion_id en fusionar —administracion_emails,
+  cliente_oportunidad_eventos, comunicaciones_destinatarios, consorcios— son PRE-EXISTENTES y abortan
+  limpio en 1 sola transacción sin corromper datos; se dejan como GAP conocido: consorcios no se puede
+  dedupe-delete sin orfanar FKs, requiere resolución manual del código. Diferido con [E-GG-126].)
