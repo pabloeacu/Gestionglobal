@@ -6,6 +6,7 @@ import { ProximosSeguimientosWidget } from '@/modules/gerencia/components/Proxim
 import { NuevasSolicitudesWidget } from '@/modules/gerencia/components/NuevasSolicitudesWidget';
 import { AportesGestoriaWidget } from '@/modules/gerencia/components/AportesGestoriaWidget';
 import { DocsClientePendientesWidget } from '@/modules/gerencia/components/DocsClientePendientesWidget';
+import { PagosInformadosWidget } from '@/modules/gerencia/components/PagosInformadosWidget';
 import { AlarmasHoyWidget } from '@/modules/gerencia/components/AlarmasHoyWidget';
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
 import { getDashboardGlobal, type DashboardKpis } from '@/services/api/dashboard';
@@ -70,6 +71,10 @@ export function GerenciaHome() {
       {/* #4 (reporte JL docx2): doc del cliente esperando revisión — antes sólo
           en la campanita/trámite, no en el Inicio. Espejo del de gestoría. */}
       <DocsClientePendientesWidget />
+
+      {/* E-GG-116 · P5-A (reporte JL wave 6): pagos que el cliente informó,
+          pendientes de conciliar — antes sólo en la campanita. Tono ámbar. */}
+      <PagosInformadosWidget />
 
       {/* J1 · checklist "Primeros 5 minutos" para nuevos gerentes.
           Auto-oculto cuando se completa o el user lo descarta. */}

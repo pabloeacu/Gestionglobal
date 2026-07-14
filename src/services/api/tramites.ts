@@ -291,6 +291,9 @@ export interface TramiteListItem extends TramiteRow {
   // DGG-89 · computed column (Postgrest). TRUE si hay otro trámite no-cancelado del
   // mismo servicio+período+solicitante (email) → probable reenvío. Sólo badge.
   posible_duplicado: boolean;
+  // E-GG-116 · P7-A (JL wave 6). TRUE si la administración tiene deuda NETA>0 en su
+  // Cta.Cte (misma fórmula que la ficha/morosos). Se resuelve batched en listTramites.
+  tiene_deuda: boolean;
 }
 
 // DGG-95 · Forma mínima que `useAvanzarTramite` necesita para mover/cancelar un
@@ -342,6 +345,7 @@ function mapRaw(r: RawListRow): TramiteListItem {
     cobro_estado: r.cobro_estado ?? null,
     comprobante_pendiente: r.comprobante_pendiente ?? false,
     posible_duplicado: r.posible_duplicado ?? false,
+    tiene_deuda: false, // se completa batched en listTramites (E-GG-116)
   };
 }
 
@@ -393,10 +397,23 @@ export async function listTramites(
 
   const { data, error, count } = await q;
   if (error) return fail('TRAMITES_LIST', error.message, error);
-  return ok({
-    rows: (data as unknown as RawListRow[] | null)?.map(mapRaw) ?? [],
-    total: count ?? 0,
-  });
+  const rows = (data as unknown as RawListRow[] | null)?.map(mapRaw) ?? [];
+
+  // E-GG-116 · P7-A (JL): chip "Con Deuda". Una sola llamada batched a la RPC de
+  // deuda neta (misma fórmula que la ficha/morosos → consistencia contable),
+  // Set en memoria, y marca cada trámite. Degrada a false si falla: nunca rompe
+  // la lista (aislado con try/catch, no un .select() acoplado — evita 500 R18).
+  try {
+    const { data: deudaIds } = await supabase.rpc('administraciones_con_deuda' as never);
+    const deudaSet = new Set<string>((deudaIds as unknown as string[] | null) ?? []);
+    for (const r of rows) {
+      r.tiene_deuda = !!r.administracion_id && deudaSet.has(r.administracion_id);
+    }
+  } catch {
+    /* si falla, tiene_deuda queda false — no bloqueamos la lista */
+  }
+
+  return ok({ rows, total: count ?? 0 });
 }
 
 // DGG-89 · Detección de inscripción duplicada (reenvío del formulario). Busca un

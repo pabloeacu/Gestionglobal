@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { toast } from '@/lib/toast';
-import { Plus, Briefcase, ChevronRight, KanbanSquare, Receipt, AlertTriangle, ArrowRight, Copy } from 'lucide-react';
+import { Plus, Briefcase, ChevronRight, KanbanSquare, Receipt, AlertTriangle, ArrowRight, Copy, Wallet } from 'lucide-react';
 import {
   Button,
   RefreshIndicator,
@@ -318,6 +318,12 @@ export function TramitesListPage() {
                               {r.posible_duplicado && (
                                 <span className="mt-1 ml-1 inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700" title="Hay otro trámite del mismo solicitante y servicio en el mismo período — posible reenvío del formulario">
                                   <Copy size={10} /> Posible duplicado
+                                </span>
+                              )}
+                              {/* E-GG-116 · P7-A (JL): el cliente tiene saldo pendiente (deuda neta) en su Cta.Cte. */}
+                              {r.tiene_deuda && (
+                                <span className="mt-1 ml-1 inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-semibold text-rose-700" title="Este cliente tiene saldo pendiente en su Cuenta Corriente">
+                                  <Wallet size={10} /> Con Deuda
                                 </span>
                               )}
                             </span>

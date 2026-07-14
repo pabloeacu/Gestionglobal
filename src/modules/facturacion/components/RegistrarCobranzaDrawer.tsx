@@ -57,6 +57,9 @@ export function RegistrarCobranzaDrawer({
   // que ya tenía Participa Partner. El partner_id_atribucion entra en la
   // rendición del partner (#145).
   const [partnerId, setPartnerId] = useState('');
+  // E-GG-113 (P10-A JL): el cliente pagó de más → dejar el excedente como saldo
+  // a favor en vez de bloquear. Opt-in explícito del gerente.
+  const [permitirExcedente, setPermitirExcedente] = useState(false);
 
   const [cajas, setCajas] = useState<CajaRow[]>([]);
   const [categorias, setCategorias] = useState<CategoriaFinanzaRow[]>([]);
@@ -114,7 +117,7 @@ export function RegistrarCobranzaDrawer({
     }
     if (s === 1) {
       if (monto <= 0) e['monto'] = 'El monto debe ser mayor a 0';
-      if (monto > saldo) e['monto'] = `El monto supera el saldo (${formatMoney(saldo)})`;
+      if (monto > saldo && !permitirExcedente) e['monto'] = `El monto supera el saldo (${formatMoney(saldo)})`;
     }
     return e;
   }
@@ -148,13 +151,18 @@ export function RegistrarCobranzaDrawer({
       referencia,
       categoria_id: categoriaId || null,
       partner_id_atribucion: partnerId || null, // DGG-39 (JL emparejamiento)
+      permitir_excedente: permitirExcedente, // E-GG-113 (P10-A): sobrepago → saldo a favor
     });
     setSaving(false);
     if (!res.ok) {
       toast.error('No pudimos registrar la cobranza', { description: humanizeError(res.error) });
       return;
     }
-    toast.success(`Cobranza registrada: ${formatMoney(monto)}`);
+    toast.success(
+      permitirExcedente && monto > saldo
+        ? `Cobranza registrada: ${formatMoney(saldo)} imputados + ${formatMoney(monto - saldo)} a favor`
+        : `Cobranza registrada: ${formatMoney(monto)}`,
+    );
     onSaved?.();
     onClose();
   }
@@ -288,7 +296,7 @@ export function RegistrarCobranzaDrawer({
                     type="number"
                     step="0.01"
                     min={0.01}
-                    max={saldo}
+                    max={permitirExcedente ? undefined : saldo}
                     value={monto}
                     onChange={(e) => setMonto(Number(e.target.value))}
                     required
@@ -346,13 +354,32 @@ export function RegistrarCobranzaDrawer({
                 </Field>
               )}
 
+              {/* E-GG-113 (P10-A · JL): el cliente transfirió de más → saldo a favor. */}
+              <label className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                <input
+                  type="checkbox"
+                  checked={permitirExcedente}
+                  onChange={(e) => setPermitirExcedente(e.target.checked)}
+                  className="mt-0.5 shrink-0"
+                />
+                <span>
+                  El cliente pagó de más → dejar el excedente como <strong>saldo a favor</strong>.
+                  {permitirExcedente && monto > saldo && (
+                    <>
+                      {' '}Se imputan {formatMoney(saldo)} al comprobante y quedan{' '}
+                      <strong>{formatMoney(monto - saldo)}</strong> a favor del cliente.
+                    </>
+                  )}
+                </span>
+              </label>
+
               {/* Preview live de cómo queda el saldo */}
               <div className="grid gap-3 sm:grid-cols-3">
                 <PreviewBox label="Saldo actual" value={saldo} tone="muted" />
                 <PreviewBox label="Este pago" value={monto} tone="cyan" />
                 <PreviewBox
-                  label="Saldo después"
-                  value={restante}
+                  label={permitirExcedente && monto > saldo ? 'A favor' : 'Saldo después'}
+                  value={permitirExcedente && monto > saldo ? monto - saldo : restante}
                   tone={totalCompleto ? 'green' : restante <= 0 ? 'green' : 'amber'}
                 />
               </div>

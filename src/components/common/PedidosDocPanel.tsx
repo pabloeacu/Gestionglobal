@@ -473,8 +473,12 @@ function PedidoItem({
       </div>
 
       {/* DGG-89 · El cliente puede responder con un DATO (texto) en vez de —o
-          además de— subir un archivo. Nunca queda trabado si le piden un número. */}
-      {variant === 'cliente' && item.estado !== 'aprobado' && (
+          además de— subir un archivo. Nunca queda trabado si le piden un número.
+          E-GG-117 (P6-C JL): si el ítem YA quedó satisfecho por un adjunto
+          (estado 'subido' con archivo_path), ocultamos el input de texto vacío —
+          confundía al cliente haciéndole creer que también debía escribir algo. */}
+      {variant === 'cliente' && item.estado !== 'aprobado'
+        && !(item.estado === 'subido' && !!item.archivo_path) && (
         <div className="mt-2 flex items-center gap-2">
           <input
             type="text"
@@ -492,8 +496,10 @@ function PedidoItem({
           >
             {savingTexto ? <Loader2 size={11} className="animate-spin" /> : <MessageSquareText size={11} />}
             {/* #6 (JL): "Enviar" es más claro que "Actualizar/Responder" para el
-                cliente (usuarios no técnicos). Sólo se ve en variant='cliente'. */}
-            Enviar
+                cliente (usuarios no técnicos). Sólo se ve en variant='cliente'.
+                E-GG-118 (P9-A JL): "Enviar dato" desambigua del botón grande
+                "Enviar a gerencia" — este guarda ESTE dato, aquél manda todo a revisión. */}
+            Enviar dato
           </button>
         </div>
       )}

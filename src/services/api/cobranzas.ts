@@ -24,6 +24,7 @@ export interface CobranzaInput {
   referencia?: string;
   categoria_id?: string | null;
   partner_id_atribucion?: string | null; // #145 · flag "participa partner"
+  permitir_excedente?: boolean; // E-GG-113 (P10-A) · sobrepago → saldo a favor
 }
 
 export async function registrarCobranza(
@@ -40,6 +41,9 @@ export async function registrarCobranza(
   } as Record<string, unknown>;
   if (input.partner_id_atribucion) {
     baseArgs.p_partner_id_atribucion = input.partner_id_atribucion;
+  }
+  if (input.permitir_excedente) {
+    baseArgs.p_permitir_excedente = true;
   }
   const { data, error } = await supabase.rpc(
     'registrar_cobranza_comprobante',
@@ -330,10 +334,30 @@ export async function listCtaCteAdministracion(
 
   const rows = (data ?? []) as unknown as ExtractoRow[];
   const out: CtaCteEntry[] = rows
-    .filter((r) => r.tipo !== 'saldo_inicial')
+    // E-GG-112 (consistencia): antes se descartaba SIEMPRE el saldo_inicial, así
+    // que si toda la actividad quedaba fuera de la ventana de 1 año (ej. un
+    // comprobante impago de +12 meses), la lista quedaba vacía y el "Saldo actual"
+    // del portal caía a $0 aunque el cliente adeudaba. Ahora se conserva cuando
+    // arrastra un balance ≠ 0, como fila informativa (monto 0 para no doble-contar
+    // en los totales del período; su `saldo` = balance de arranque).
+    .filter((r) => r.tipo !== 'saldo_inicial' || (Number(r.saldo) || 0) !== 0)
     .map((r) => {
       const debe = Number(r.debe) || 0;
       const haber = Number(r.haber) || 0;
+      if (r.tipo === 'saldo_inicial') {
+        return {
+          id: `saldo_inicial:${r.fecha}`,
+          fecha: r.fecha,
+          tipo: 'comprobante' as const,
+          titulo: 'Saldo de períodos anteriores',
+          detalle: null,
+          signo: 1 as const,
+          monto: 0,
+          saldo: Number(r.saldo) || 0,
+          comprobante_id: null,
+          consorcio_nombre: null,
+        };
+      }
       const isCargo = r.tipo === 'cargo';
       return {
         id: `${r.tipo}:${r.comprobante_id ?? r.imputacion_id ?? r.movimiento_id ?? r.fecha}`,

@@ -4186,3 +4186,33 @@ baja'd puede recrear una cuenta nueva con el mismo CUIT; definir si debe **react
   "DOCUMENTACIÓN PEDIDA AL CLIENTE (1) · Envianos el Número de Legajo: El Número
   de Legajo es 15635 ✓", consola sin errores, y el bloque "Detalle · Sin datos"
   ya no aparece (fix N4 confirmado). Fixture QA limpiado a 0 residuo.
+
+## DGG-107 · JL wave 6 (Doc pp.5-10) — 9 reportes + barridos exhaustivos (2026-07-14)
+- **Método:** lectura integral pp.5-10 del Doc vivo de JL + workflow de investigación
+  (24 agentes: root-cause × 9 + verificación adversarial × 9 + 4 barridos de fallas
+  NO denunciadas). Cada fix con e2e en BD (rollback) + build limpio + doble smoke
+  (R16=0 overloads, R17=0 triggers RLS sin definer) + revisión adversarial del diff.
+- **9 reportes de JL resueltos:** E-GG-111 (fuga email gestor/notas al cliente — la
+  más grave, ya en prod), E-GG-112 (fecha futura desincroniza cta.cte + "+12 meses
+  cuenta saldada $0"), E-GG-113 (sobrepago→saldo a favor), E-GG-114 (matrícula + 6
+  campos perdidos del form), E-GG-115 (orden movimientos por created_at), E-GG-116
+  (chip "Con Deuda" + widget pagos informados en el Inicio), E-GG-117/118 (UX portal
+  docs). Migs 0337-0342.
+- **Barridos (lo que JL NO vio):** (1) CONSISTENCIA CONTABLE — 4 superficies calculan
+  el saldo distinto → mismo cliente, 4 números en casos borde; se arreglaron los bugs
+  concretos, la unificación canónica se DIFIERE (decisión Pablo: bugs concretos ahora,
+  unificación después, para no tocar lecturas ya probadas antes de salir al mercado).
+  (2) MAPEO form→ficha: además de matrícula, CUIT jurídica / cond. IVA / dom. fiscal /
+  localidad-provincia-CP / representante legal se perdían (todos fixeados en 0340).
+  (3) ORDEN temporal: fz_listar_movimientos + listar_creditos (fixeados); historico_
+  banco + listComprobantes quedan como follow-up menor. (4) FUGAS email: E-GG-111
+  cubre el canal confirmado; bienvenida-administracion manda contraseña en claro y
+  comprobante-emitido renderiza `observaciones` — follow-ups menores documentados.
+- **Decisión contable clave (P10-A/E-GG-113):** el sobrepago es OPT-IN explícito del
+  gerente (checkbox); por default el bloqueo de monto>saldo se mantiene byte-idéntico
+  para no crear créditos gigantes por fat-finger. La transferencia entra completa a la
+  caja (1 transferencia = 1 movimiento) y se imputa sólo el saldo → residual = crédito,
+  reusando la infra de saldo a favor existente (única fuente de verdad contable intacta).
+- **W5 ya estaba cerrado y deployado** al iniciar wave 6 (migs 0333-0336 + edge fns
+  live; email_queue confirmó status='sent' en envíos recientes). El "punto 2 pendiente"
+  de la conversación era stale.

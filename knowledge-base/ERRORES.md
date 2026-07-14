@@ -4220,3 +4220,102 @@ NULL`; con el flag seteado, tras corregir y re-subir, el cliente no podía re-en
 (mig 0325):** al rechazar un item, reabrir el pedido (`enviado_para_revision_at = NULL`). Además (#4, mig
 0327) el widget de docs pendientes del Inicio keyea por item `subido`, así que la subida parcial/en
 tandas aparece aunque el cliente aún no apriete "Enviar". e2e verificado (item rechazado + flag limpio).
+
+## E-GG-111 · FUGA: el mail de recordatorio al cliente filtraba el email del gestor + notas internas
+**Reporte JL (Doc wave 6 · P8-A):** el mail "TRACKING RECORDATORIO" que recibe el CLIENTE mostraba
+"Envío a sector de gestoría — destinatario: adm.global.laplata@gmail.com". **Causa raíz:**
+`tracking_linea_on_insert()` disparaba `encolar_email('tracking-recordatorio', v_to_email=login del
+cliente, ..., 'descripcion', NEW.descripcion)` para CUALQUIER línea con `alerta_en > now()`, IGNORANDO
+`visible_cliente`. La derivación (solicitud_derivar_v2/v3) crea una línea INTERNA (visible_cliente=false)
+con alarma futura de seguimiento y descripción que embebe el email del gestor + las Observaciones
+internas → el cliente recibía ambos. **Materializado en producción** (email_queue 2026-07-11/13). Mismo
+trigger filtraba una "nota interna del equipo" si el gerente le ponía "alerta futura". **Fix (mig 0337):**
+`AND NEW.visible_cliente = true` en la rama de recordatorio. Se preserva el recordatorio legítimo (línea
+client-visible con alarma futura sigue avisando). e2e: derivación interna → 0 mails al cliente; línea
+visible con alarma → 1 mail. Forward-only (los mails ya enviados son históricos).
+
+## E-GG-112 · Cta.Cte del portal ocultaba movimientos con fecha futura → desincronizada del inicio
+**Reporte JL (P5-B):** un pago con fecha 14/07 (futura) se reflejaba en el saldo del inicio del portal
+pero NO en la Cta.Cte que ve el cliente. **Causa raíz:** `cliente_ctacte_extracto` capaba el extracto con
+`v_hasta := COALESCE(p_hasta, CURRENT_DATE)`; un movimiento con fecha futura quedaba excluido, pero
+`cliente_deuda_neta` (saldo del inicio) baja sin filtro de fecha al imputarse. **Fix (mig 0338):**
+`v_hasta := COALESCE(p_hasta, 'infinity')` — sólo aplica cuando el portal/ficha no pasan tope; para fechas
+pasadas/actuales 'infinity' >= la fecha, así el resultado es idéntico. e2e: pago futuro → abono visible +
+saldo final reconcilia con la deuda del inicio. **Adyacente:** el saldo del portal derivaba de la última
+fila de un extracto recortado a 1 año, así que un comprobante impago de +12 meses mostraba "cuenta saldada
+$0" — se corrigió en `cobranzas.ts` conservando el `saldo_inicial` como fila "Saldo de períodos anteriores"
+(monto 0, saldo = balance de arranque) en vez de descartarlo.
+
+## E-GG-113 · Sobrepago no tenía destino: no se podía dejar saldo a favor en la cobranza
+**Reporte JL (P10-A):** el cliente transfirió $85.000 y debía $75.000; no había forma de registrar los
+$10.000 a favor. **Causa raíz:** `registrar_cobranza_comprobante` bloqueaba incondicionalmente
+`p_monto > saldo` e imputaba el monto completo → nunca dejaba residual (la infra de crédito ya existía,
+pero esa vía era inalcanzable). **Fix (mig 0339, R16 DROP+CREATE):** 9º param `p_permitir_excedente
+boolean DEFAULT false`; con excedente, la transferencia entra completa a la caja pero se imputa sólo el
+saldo → residual = saldo a favor automático. Default false → todos los callers actuales byte-idénticos
+(fat-finger sigue dando error). Frontend: checkbox "El cliente pagó de más → saldo a favor" en el drawer
+de cobranza. e2e: sin flag bloquea; con flag comprobante pagado + $10.000 a favor; 0 overloads.
+
+## E-GG-114 · Campos del formulario que no llegaban a la ficha del cliente
+**Reporte JL (P6-B) + barrido:** el N° de matrícula (y más) no se cargaba en el detalle del cliente.
+**Causa raíz:** mismatch de claves form↔trigger. `certificado-rpac` guarda la matrícula bajo `matricula`
+pero los triggers leían sólo `matricula_rpac`. Además: `cuit_persona_juridica` (una jurídica quedaba SIN
+CUIT), `representante_legal_nombre/dni`, `condicion_iva` (relevante para emitir), `domicilio_fiscal`,
+`localidad/provincia/codigo_postal` — ninguno se persistía. **Fix (mig 0340):** fallbacks COALESCE en los
+DOS triggers (backfill sobre tramites + sync sobre la submission), + condicion_iva/domicilio_fiscal en el
+INSERT de `solicitud_activar`, + backfill de lo ya activado. Aditivo/idempotente (nunca pisa valor
+cargado). e2e: 7/7 campos persisten desde una submission de prueba.
+
+## E-GG-115 · Movimientos ordenaban por UUID aleatorio, no por hora de carga
+**Reporte JL (P6-A) + barrido:** en Cajas/Cta.Cte el último movimiento del día no quedaba arriba. **Causa
+raíz:** `fz_listar_movimientos` ordenaba `fecha DESC, id DESC` donde `id` es un UUID v4 aleatorio → orden
+intra-día arbitrario, aunque existe `created_at`. Mismo patrón en `listar_creditos_administracion`
+(`ORDER BY fecha DESC` sin desempate). **Fix (mig 0341):** agregar `created_at DESC` al ORDER BY (con
+SELECT explícito de las 20 columnas del RETURNS TABLE, respetando el orden exacto). e2e: columnas
+alineadas + orden por created_at.
+
+## E-GG-116 · Feature: "Con Deuda" en la lista + widget de pagos informados en el Inicio
+**Reporte JL (P7-A/P5-A):** no había forma de ver de un vistazo qué cliente adeuda, ni aviso de pagos
+informados en el Inicio. **Fix (mig 0342 + frontend):** RPC batched `administraciones_con_deuda()` (deuda
+NETA, misma fórmula que `cuenta_corriente_morosos` → consistente con la ficha) → chip "Con Deuda" en la
+lista de trámites; `PagosInformadosWidget` (tono ámbar, realtime) en el Inicio + `ALTER PUBLICATION` para
+que `pagos_reportados` refresque en vivo. e2e: `administraciones_con_deuda` = morosos.
+
+## E-GG-117 / E-GG-118 · UX del portal de documentación (P6-C / P9-A)
+**Reporte JL:** (P6-C) si el cliente sólo adjunta el archivo sin escribir texto, "no lo deja enviar";
+(P9-A) los dos botones "Enviar" confunden. **Causa raíz:** NO era bug funcional (adjunto-sin-texto SÍ se
+envía, verificado en prod). El input de texto residual seguía visible tras subir el archivo (confundía), y
+el "Enviar" por-ítem compartía verbo con "Enviar a gerencia". **Fix (frontend):** ocultar el input de texto
+cuando el ítem ya está satisfecho por adjunto (estado 'subido' + archivo_path); relabel "Enviar" →
+"Enviar dato". Cero cambio de lógica/RPC.
+
+## Barrido de consistencia contable (detectado, NO reportado por JL) · pendiente-decisión
+El barrido §6 encontró que las 4 superficies de saldo (inicio portal / cta.cte portal / cta.cte gerencia /
+ficha) usan horizontes de fecha y neteo distintos → el MISMO cliente puede mostrar hasta 4 números en
+casos borde. Se corrigieron los bugs CONCRETOS que el cliente ve (fecha futura E-GG-112, +12 meses cuenta
+saldada, sobrepago E-GG-113). La **unificación canónica** (una sola función de saldo para todas las
+superficies) se difirió a una pasada dedicada por decisión de Pablo (toca lecturas ya probadas en más
+lugares; merece su propio §6 + live sin apurar la salida al mercado). GAP documentado.
+
+## E-GG-119 · REGRESIÓN: `anon` recuperó EXECUTE sobre `registrar_cobranza_comprobante` + guard falla-abierto (idéntico a E-GG-109b)
+**Detección:** auditoría adversarial del diff de wave 6 (agente de revisión de regresiones), NO reportado por
+JL. **Causa raíz (misma que [E-GG-109b], mig 0336):** la mig 0339 reescribió
+`registrar_cobranza_comprobante` con `DROP FUNCTION` + `CREATE FUNCTION`, y la 0342 creó
+`administraciones_con_deuda` nueva. El schema `public` tiene `ALTER DEFAULT PRIVILEGES` que auto-otorga
+EXECUTE a `anon`/PUBLIC en toda función nueva → ambas quedaron ejecutables por `anon` con la anon-key
+pública. Ambas migraciones sólo hicieron `REVOKE … FROM PUBLIC`, que **NO** saca el grant explícito de
+`anon` (hay que nombrar `anon` explícito). **Agravante (por qué era crítico, no "postura"):** el backstop
+de ambas era `IF NOT private.is_staff()`, que **falla-abierto** para anon —
+`auth.uid()=NULL → is_staff()=NULL → NOT NULL = NULL → el IF no dispara el RAISE/RETURN`. Verificado en
+vivo: `private.is_staff()` sin auth devuelve NULL, y un `PERFORM registrar_cobranza_comprobante(...)` sin
+JWT **pasaba el guard** (antes del fix). Como ambas son SECURITY DEFINER (bypassa RLS), un caller anónimo
+con un comprobante_id+caja_id conocidos podría escribir un asiento contable (único writer contable) y
+enumerar el set de administraciones morosas. **Fix (mig 0343, doble, patrón 0336):** (1) guard
+`private.is_staff() IS NOT TRUE` (rebota NULL/anon además de false) — defensa en profundidad safe-by-default
+ante futuros DROP+CREATE; (2) `REVOKE ALL … FROM PUBLIC, anon` + `GRANT … TO authenticated, service_role`.
+**Verificación e2e (BEGIN/RAISE-rollback):** anon → SQLSTATE 42501 "Solo gerencia…" (bloqueado); staff →
+default 400/400/saldo 600 y excedente 700/imput 600/saldo 0/a-favor 100 (writer intacto). R16 smoke = 0
+overloads. **Lección grabada:** en este proyecto `REVOKE … FROM PUBLIC` **nunca** alcanza para sacar a
+`anon` (por el `ALTER DEFAULT PRIVILEGES`) → **siempre** `FROM PUBLIC, anon`; y `IF NOT is_staff()`
+falla-abierto para anon → **siempre** `IS NOT TRUE`. Todo `DROP+CREATE` de una función staff-only debe
+re-aplicar ambos en la misma migración. (Ver [E-GG-109b].)
