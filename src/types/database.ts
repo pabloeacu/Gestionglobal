@@ -9584,6 +9584,7 @@ export type Database = {
           p_monto?: number
           p_pago_id: string
           p_partner_id_atribucion?: string
+          p_permitir_excedente?: boolean
         }
         Returns: string
       }

@@ -4464,3 +4464,18 @@ Además, dos hallazgos adyacentes del mismo audit:
   cliente_oportunidad_eventos, comunicaciones_destinatarios, consorcios— son PRE-EXISTENTES y abortan
   limpio en 1 sola transacción sin corromper datos; se dejan como GAP conocido: consorcios no se puede
   dedupe-delete sin orfanar FKs, requiere resolución manual del código. Diferido con [E-GG-126].)
+
+### E-GG-128 · (pág.4 JL) Conciliar pago > saldo del comprobante: faltaba "dejar el excedente a favor"
+JL (captura pág.4): informó $85.000 contra un comprobante de saldo $75.000; el modal Conciliar (de
+"Pagos informados") mostraba SÓLO el warning "El importe supera el saldo… Ajustá el monto o elegí otro"
+y deshabilitaba el botón — sin la opción de dejar los $10.000 a favor. En el cierre de wave 6 afirmé que
+el sobrepago→saldo a favor "andaba", pero eso era el flujo **Cobrar** (RegistrarCobranzaDrawer, [E-GG-113]);
+el flujo **Conciliar** (`pago_conciliar`) NO exponía el opt-in → hueco real (mi claim no cubría este
+camino). Causa: `pago_conciliar` llamaba a `registrar_cobranza_comprobante` (único writer contable, que
+ya soporta el excedente) SIN pasarle el flag; y el modal `ConciliarModal` gateaba el botón con
+`!excedeSaldo`. Fix (mig 0349 + front): `pago_conciliar` gana `p_permitir_excedente boolean DEFAULT false`
+(R16: DROP firma vieja 7-args + CREATE 8-args, no CREATE OR REPLACE) que pasa al writer; el modal suma el
+checkbox "dejar el excedente como saldo a favor" (paridad visual con Cobrar), des-gatea `puede` cuando se
+marca, y muestra "A favor $X" en el preview. e2e (rollback): SIN opt-in sigue rechazando ("$85.000 supera
+$75.000"); CON opt-in → comprobante saldo→$0 + `administracion_credito_disponible` 0→$10.000. El crédito
+queda disponible para imputar a futuro (misma fuente de verdad que [E-GG-120]).

@@ -207,6 +207,9 @@ function ConciliarModal({
   const [partners, setPartners] = useState<PartnerOpcion[]>([]);
   const [partnerId, setPartnerId] = useState<string>('');
   const [saving, setSaving] = useState(false);
+  // E-GG-128 (pág.4 JL): el cliente informó más que el saldo del comprobante →
+  // dejar el excedente como saldo a favor (paridad con el flujo Cobrar, E-GG-113).
+  const [permitirExcedente, setPermitirExcedente] = useState(false);
 
   useEffect(() => {
     // Comprobantes del cliente con saldo pendiente, para elegir a cuál imputar.
@@ -226,13 +229,16 @@ function ConciliarModal({
   const montoNum = parseMontoAR(monto);
   const montoValido = !Number.isNaN(montoNum) && montoNum > 0;
   const excedeSaldo = montoValido && saldoComp > 0 && montoNum > saldoComp;
+  // E-GG-128: sólo bloquea el sobrepago si el gerente NO optó por dejarlo a favor.
+  const bloqueaExcedente = excedeSaldo && !permitirExcedente;
+  const excedente = excedeSaldo ? montoNum - saldoComp : 0;
   const saldoDespues = saldoComp - (montoValido ? montoNum : 0);
   // Gateamos en compSel (no compId): si el comprobante preseleccionado ya no
   // tiene saldo (no entra en la lista filtrada), compSel es undefined → botón
   // deshabilitado, en vez de habilitarse con saldoComp=0 (auditoría §6 A#4).
   const puede = useMemo(
-    () => Boolean(compSel && cajaId && catId && montoValido && !excedeSaldo && !saving),
-    [compSel, cajaId, catId, montoValido, excedeSaldo, saving],
+    () => Boolean(compSel && cajaId && catId && montoValido && !bloqueaExcedente && !saving),
+    [compSel, cajaId, catId, montoValido, bloqueaExcedente, saving],
   );
 
   async function confirmar() {
@@ -245,13 +251,18 @@ function ConciliarModal({
       comprobanteId: compId,
       monto: montoNum,
       partnerId: partnerId || null,
+      permitirExcedente, // E-GG-128: sobrepago → saldo a favor
     });
     setSaving(false);
     if (!res.ok) {
       toast.error('No pudimos conciliar', { description: humanizeError(res.error) });
       return;
     }
-    toast.success('Pago conciliado. Cobranza registrada y cliente avisado.');
+    toast.success(
+      permitirExcedente && excedeSaldo
+        ? `Pago conciliado: ${money(saldoComp)} imputados + ${money(excedente)} a favor. Cliente avisado.`
+        : 'Pago conciliado. Cobranza registrada y cliente avisado.',
+    );
     onDone();
   }
 
@@ -322,11 +333,31 @@ function ConciliarModal({
           onChange={(e) => setMonto(e.target.value)}
           placeholder="0,00"
         />
+        {/* E-GG-128 (pág.4 JL): sobrepago → opt-in "dejar el excedente como saldo
+            a favor", en vez de sólo bloquear con "ajustá el monto". */}
         {excedeSaldo && (
-          <p className="mt-1 text-xs text-amber-700">
-            El importe supera el saldo del comprobante ({money(saldoComp)}). Ajustá el
-            monto o elegí otro comprobante.
-          </p>
+          <label className="mt-2 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-2.5 text-xs text-amber-900">
+            <input
+              type="checkbox"
+              checked={permitirExcedente}
+              onChange={(e) => setPermitirExcedente(e.target.checked)}
+              className="mt-0.5 shrink-0"
+            />
+            <span>
+              El importe supera el saldo del comprobante ({money(saldoComp)}).{' '}
+              {permitirExcedente ? (
+                <>
+                  Se imputan {money(saldoComp)} y quedan{' '}
+                  <strong>{money(excedente)}</strong> como saldo a favor del cliente.
+                </>
+              ) : (
+                <>
+                  Marcá acá para <strong>dejar el excedente como saldo a favor</strong>, o
+                  ajustá el monto / elegí otro comprobante.
+                </>
+              )}
+            </span>
+          </label>
         )}
         {!excedeSaldo && Number(pago.monto) !== montoNum && montoValido && (
           <p className="mt-1 text-xs text-brand-muted">
@@ -348,11 +379,19 @@ function ConciliarModal({
           </div>
           <div
             className={`rounded-lg border p-2 ${
-              saldoDespues <= 0 ? 'border-emerald-200 bg-emerald-50' : 'border-amber-200 bg-amber-50'
+              permitirExcedente && excedeSaldo
+                ? 'border-violet-200 bg-violet-50'
+                : saldoDespues <= 0
+                  ? 'border-emerald-200 bg-emerald-50'
+                  : 'border-amber-200 bg-amber-50'
             }`}
           >
-            <p className="text-[10px] uppercase tracking-wide text-brand-muted">Saldo después</p>
-            <p className="text-sm font-semibold text-brand-ink">{money(saldoDespues)}</p>
+            <p className="text-[10px] uppercase tracking-wide text-brand-muted">
+              {permitirExcedente && excedeSaldo ? 'A favor' : 'Saldo después'}
+            </p>
+            <p className="text-sm font-semibold text-brand-ink">
+              {money(permitirExcedente && excedeSaldo ? excedente : saldoDespues)}
+            </p>
           </div>
         </div>
       )}

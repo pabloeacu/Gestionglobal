@@ -93,6 +93,9 @@ export async function listPagosReportadosGerencia(estado: PagoEstado = 'reportad
 export async function conciliarPago(input: {
   pagoId: string; cajaId: string; categoriaId: string; comprobanteId?: string | null;
   fecha?: string | null; monto?: number | null; partnerId?: string | null;
+  // E-GG-128 (pág.4 JL): el pago informado supera el saldo → dejar el excedente
+  // como saldo a favor (paridad con el flujo Cobrar). Opt-in explícito del gerente.
+  permitirExcedente?: boolean;
 }): Promise<ApiResponse<string>> {
   const { data, error } = await rpc('pago_conciliar', {
     p_pago_id: input.pagoId,
@@ -102,6 +105,7 @@ export async function conciliarPago(input: {
     p_fecha: input.fecha ?? null,
     p_monto: input.monto ?? null,
     p_partner_id_atribucion: input.partnerId ?? null,
+    p_permitir_excedente: input.permitirExcedente ?? false,
   });
   if (error) return fail('PAGO_CONCILIAR', error.message, error);
   return ok(data as string);
