@@ -4216,3 +4216,31 @@ baja'd puede recrear una cuenta nueva con el mismo CUIT; definir si debe **react
 - **W5 ya estaba cerrado y deployado** al iniciar wave 6 (migs 0333-0336 + edge fns
   live; email_queue confirmó status='sent' en envíos recientes). El "punto 2 pendiente"
   de la conversación era stale.
+
+## DGG-108 · Atajo Moderación→Pedido de Doc + unificación canónica del saldo (2026-07-14)
+Cierre de los 2 pendientes que Pablo dejó anotados al cerrar wave 6.
+
+**1) Atajo "Pedir doc al cliente" desde Moderación (frontend puro).** El gap que JL
+encontró: publicar un avance del gestor desde Moderación le muestra el texto al cliente
+pero NO le abre la casilla de subida; para eso había que ir a Trámites → Pedido de
+Documentación. Ahora `ModeracionPage` tiene un botón que reusa la RPC existente
+`tramite_pedido_doc_crear` (vía `crearPedidoDoc(item.tramite_id, texto, [texto])`) — misma
+que Trámites, atómica: pedido + item (casilla) + campanita + push + email al cliente +
+línea visible. Luego marca el aporte original del gestor como `interno` para vaciar la
+cola (decisión: 'interno', no 'publicar' → una sola línea visible al cliente, la del
+pedido). Guard anti-doble-click (`creandoPedido`) + validación de texto no vacío (evita
+pedido huérfano sin casilla). Cero SQL — reusa RPC probada.
+
+**2) Saldo canónico (una sola fuente de verdad).** Capitaliza el GAP de consistencia de
+wave 6. Ver [E-GG-120]: la única superficie desalineada era el Portal Inicio
+(`cliente_deuda_neta` daba bruto sin netear crédito → 410k vs 205k). Canon:
+`saldo_neto = Σ saldo_pendiente(vivos) − Σ créditos_residuales`. Mig 0344: helper único
+`administracion_credito_disponible(uuid)`; `cliente_deuda_neta` → neto (floor 0) + excluye
+borrador; `administraciones_con_deuda`/`cuenta_corriente_morosos` usan el helper
+(idempotente). Frontend gerencia-módulo: "Saldo actual" = `deuda_total − saldo_a_favor`
+(all-time neto), preservando los KPIs "en período" y el ledger con su filtro de fecha.
+**Principio (Pablo, consistencia contable absoluta):** en el caso normal (sin crédito) el
+neto == bruto → NINGÚN número cambia; sólo se corrige el sobre-reporte cuando hay saldo a
+favor real. e2e: las 4 superficies convergen a $205.000 en el escenario con crédito; los
+clientes reales (100k/75k) intactos. Follow-up documentado: plegar al helper las adyacentes
+`kpis_dashboard_global` (filtra estado='autorizado') y `comprobantes_morosos`.

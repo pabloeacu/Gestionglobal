@@ -190,7 +190,10 @@ export async function getResumenGlobal(
       administracion_nombre: toStr(r['administracion_nombre']),
       total_facturado: toNum(r['total_facturado']),
       total_cobrado: toNum(r['total_cobrado']),
-      deuda_total: toNum(r['deuda_total']),
+      // DGG-108 · deuda NETA (bruta − crédito), floor 0 — consistente con el detalle,
+      // el portal y la home. La RPC devuelve la bruta + saldo_a_favor por separado;
+      // acá netea en un solo lugar para la columna, los filtros, el orden y los KPIs.
+      deuda_total: Math.max(0, toNum(r['deuda_total']) - toNum(r['saldo_a_favor'])),
       saldo_a_favor: toNum(r['saldo_a_favor']),
       comprobantes_vencidos: toNum(r['comprobantes_vencidos']),
       comprobantes_pendientes: toNum(r['comprobantes_pendientes']),

@@ -7,7 +7,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  ShieldCheck, Send, EyeOff, Trash2, Pencil, X, Paperclip, Briefcase, Clock,
+  ShieldCheck, Send, EyeOff, Trash2, Pencil, X, Paperclip, Briefcase, Clock, FileInput,
 } from 'lucide-react';
 import { Button, Select, Textarea, Skeleton, useConfirm, usePrompt, RefreshIndicator } from '@/components/common';
 import { IllustratedEmpty } from '@/components/brand/IllustratedEmpty';
@@ -24,6 +24,7 @@ import {
   type ModeracionAccion,
 } from '@/services/api/trackings';
 import { TRAMITE_ESTADOS, TRAMITE_ESTADO_LABEL, type TramiteEstado } from '@/services/api/tramites';
+import { crearPedidoDoc } from '@/services/api/tramitePedidosDoc';
 
 export function ModeracionPage() {
   const [items, setItems] = useState<ModeracionPendiente[]>([]);
@@ -82,6 +83,12 @@ export function ModeracionCard({ item, onResuelto }: { item: ModeracionPendiente
   const [archivos, setArchivos] = useState<string[]>(item.archivos_urls ?? []);
   const [estado, setEstado] = useState<'' | TramiteEstado>('');
   const [busy, setBusy] = useState<ModeracionAccion | null>(null);
+  // DGG-108 · convertir el aporte del gestor en un Pedido de Documentación accionable
+  // (le abre la casilla de subida al cliente) sin salir de Moderación.
+  const [creandoPedido, setCreandoPedido] = useState(false);
+  // Idempotencia: si el pedido ya se creó y sólo falló sacar el aporte de la cola,
+  // un reintento NO debe crear un 2º pedido (evita doble email/push/casilla al cliente).
+  const pedidoCreadoRef = useRef(false);
   // E-GG-91 (d) · gerencia puede adjuntar su propio archivo al aporte antes de publicar.
   const [subiendo, setSubiendo] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -136,6 +143,45 @@ export function ModeracionCard({ item, onResuelto }: { item: ModeracionPendiente
     });
     if (!ok) return;
     await ejecutar('interno');
+  }
+
+  // DGG-108 · atajo: convierte el aporte del gestor en un Pedido de Documentación
+  // (misma RPC que Trámites → le abre al cliente la casilla de subida + aviso por
+  // portal/push/email). Luego deja el aporte original como interno para vaciar la cola.
+  async function onConvertirEnPedido() {
+    const desc = texto.trim();
+    if (!desc) { toast.error('Escribí qué le pedís al cliente antes de convertir'); return; }
+    setCreandoPedido(true);
+    const ok = await confirm({
+      title: 'Pedir documentación al cliente',
+      message: 'Se le abre al cliente una casilla para subir lo pedido y se le avisa por portal, push y email. ¿Confirmás?',
+      confirmLabel: 'Pedir al cliente',
+    });
+    if (!ok) { setCreandoPedido(false); return; }
+    // Si un intento previo ya creó el pedido (y sólo falló sacar el aporte de la cola),
+    // NO lo volvemos a crear: reintentamos únicamente el paso 'interno'.
+    if (!pedidoCreadoRef.current) {
+      const res = await crearPedidoDoc(item.tramite_id, desc, [desc]);
+      if (!res.ok) {
+        setCreandoPedido(false);
+        toast.error('No pudimos crear el pedido', { description: humanizeError(res.error) });
+        return;
+      }
+      pedidoCreadoRef.current = true;
+    }
+    // Sacar el aporte original de la cola: ya lo transformamos en un pedido accionable
+    // (el pedido genera su propia línea visible al cliente).
+    const mod = await moderarGestorAvance(item.linea_id, 'interno', editado ? { descripcion: desc, archivosUrls: archivos } : undefined);
+    setCreandoPedido(false);
+    if (!mod.ok) {
+      // El pedido ya se creó y cumplió su objetivo; sólo quedó el aporte en la cola.
+      // El botón puede reintentarse sin duplicar (pedidoCreadoRef ya está en true).
+      toast.warning('Pedido enviado, pero el aporte quedó en la cola', { description: 'Tocá "Pedir doc al cliente" de nuevo (no se duplica) o marcalo Interno.' });
+      onResuelto();
+      return;
+    }
+    toast.success('Pedido enviado al cliente', { description: 'Le avisamos por portal, push y email. Puede subir o responder desde su gestión.' });
+    onResuelto();
   }
 
   return (
@@ -217,17 +263,20 @@ export function ModeracionCard({ item, onResuelto }: { item: ModeracionPendiente
           )}
 
           <div className="ml-auto flex flex-wrap items-center gap-2">
-            <Select value={estado} disabled={busy !== null} onChange={(e) => setEstado(e.target.value as '' | TramiteEstado)} className="h-9 w-auto py-1 text-xs" aria-label="Cambiar estado del trámite al publicar">
+            <Select value={estado} disabled={busy !== null || creandoPedido} onChange={(e) => setEstado(e.target.value as '' | TramiteEstado)} className="h-9 w-auto py-1 text-xs" aria-label="Cambiar estado del trámite al publicar">
               <option value="">Estado: sin cambio</option>
               {TRAMITE_ESTADOS.map((e) => <option key={e} value={e}>Pasar a: {TRAMITE_ESTADO_LABEL[e]}</option>)}
             </Select>
-            <Button variant="ghost" onClick={onDescartar} loading={busy === 'descartar'} disabled={busy !== null} className="text-red-600 hover:bg-red-50">
+            <Button variant="secondary" onClick={onConvertirEnPedido} loading={creandoPedido} disabled={busy !== null || creandoPedido} title="Convierte este aporte en un pedido de documentación: al cliente se le abre una casilla para subir lo pedido">
+              <FileInput size={14} /> Pedir doc al cliente
+            </Button>
+            <Button variant="ghost" onClick={onDescartar} loading={busy === 'descartar'} disabled={busy !== null || creandoPedido} className="text-red-600 hover:bg-red-50">
               <Trash2 size={14} /> Descartar
             </Button>
-            <Button variant="secondary" onClick={onInterno} loading={busy === 'interno'} disabled={busy !== null}>
+            <Button variant="secondary" onClick={onInterno} loading={busy === 'interno'} disabled={busy !== null || creandoPedido}>
               <EyeOff size={14} /> Interno
             </Button>
-            <Button onClick={() => void ejecutar('publicar')} loading={busy === 'publicar'} disabled={busy !== null}>
+            <Button onClick={() => void ejecutar('publicar')} loading={busy === 'publicar'} disabled={busy !== null || creandoPedido}>
               <Send size={14} /> {editado || estado ? 'Publicar (editado)' : 'Publicar'}
             </Button>
           </div>

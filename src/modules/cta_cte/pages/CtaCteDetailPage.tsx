@@ -230,6 +230,13 @@ export function CtaCteDetailPage() {
     },
   ];
 
+  // DGG-108 · Saldo actual CANÓNICO = deuda bruta all-time − crédito disponible.
+  // resumen.saldo_actual está acotado por el rango de fechas (hasta=fin de año);
+  // deuda_total y saldo_a_favor son all-time, así el KPI coincide con la ficha y el
+  // portal (mismo número en todas las superficies). Los KPIs "en período" y el ledger
+  // siguen respetando el filtro de fechas.
+  const saldoActualNeto = (resumen?.deuda_total ?? 0) - (resumen?.saldo_a_favor ?? 0);
+
   return (
     <div className="mx-auto max-w-7xl space-y-6">
       <Link
@@ -280,18 +287,18 @@ export function CtaCteDetailPage() {
         items={[
           {
             label: 'Saldo actual',
-            value: resumen?.saldo_actual ?? 0,
+            value: saldoActualNeto,
             icon: <Wallet size={18} />,
             tone:
-              (resumen?.saldo_actual ?? 0) > 0
+              saldoActualNeto > 0
                 ? 'amber'
-                : (resumen?.saldo_actual ?? 0) < 0
+                : saldoActualNeto < 0
                   ? 'emerald'
                   : 'slate',
             hint:
-              (resumen?.saldo_actual ?? 0) > 0
+              saldoActualNeto > 0
                 ? 'saldo deudor'
-                : (resumen?.saldo_actual ?? 0) < 0
+                : saldoActualNeto < 0
                   ? 'saldo acreedor'
                   : 'cuenta saldada',
           },

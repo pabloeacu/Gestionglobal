@@ -4319,3 +4319,47 @@ overloads. **Lección grabada:** en este proyecto `REVOKE … FROM PUBLIC` **nun
 `anon` (por el `ALTER DEFAULT PRIVILEGES`) → **siempre** `FROM PUBLIC, anon`; y `IF NOT is_staff()`
 falla-abierto para anon → **siempre** `IS NOT TRUE`. Todo `DROP+CREATE` de una función staff-only debe
 re-aplicar ambos en la misma migración. (Ver [E-GG-109b].)
+
+## E-GG-120 · Portal Inicio mostraba DEUDA BRUTA (no neteaba el saldo a favor) → inconsistente con la Cta.Cte.
+**Detección:** unificación canónica de saldo (DGG-108), capitalizando el GAP de consistencia documentado en
+wave 6. **Síntoma (ya visto por JL, comentario en `AdministracionDetailPage.tsx`):** un cliente con un
+comprobante impago de $410.000 y un crédito/saldo a favor de $205.000 (p.ej. de una anulación) mostraba
+**"$410.000 a regularizar" en el Inicio del portal** pero **"$205.000" en la Cta.Cte./ficha/gerencia**.
+**Causa raíz:** de las 4 superficies de saldo, la única desalineada era el Portal Inicio, que usaba
+`cliente_deuda_neta` devolviendo `Σ saldo_pendiente` (DEUDA BRUTA) **sin restar el crédito**; las otras 3 ya
+netean (`cuenta_corriente_extracto`/`_resumen`). Además la gerencia-módulo cortaba el saldo en 31/12 del año
+en curso (excluía comprobantes futuros del año próximo, divergiendo de portal/ficha que son all-time), y
+`cliente_deuda_neta` no excluía `borrador`. **Canon definido:** `saldo_neto = Σ saldo_pendiente(comprobantes
+vivos) − Σ créditos_residuales(ingresos no imputados)`. En el caso NORMAL (toda cobranza imputada completa)
+el crédito es 0 → **neto == bruto → ningún número cambia**; sólo se corrige cuando hay saldo a favor real.
+**Fix (mig 0344 + frontend):** (1) NUEVO helper canónico único `administracion_credito_disponible(uuid)`
+(guard staff-o-dueño → 0 si no autorizado, sin filtrar a terceros); (2) `cliente_deuda_neta.total` =
+`GREATEST(0, bruto − helper)` + excluye borrador; (3) `administraciones_con_deuda` y `cuenta_corriente_morosos`
+usan el helper (refactor idempotente, mismos números, una sola fuente de verdad); (4) frontend gerencia-módulo
+(`CtaCteDetailPage`): KPI "Saldo actual" = `deuda_total − saldo_a_favor` (all-time neto, ya expuestos por
+`cuenta_corriente_resumen`) en vez del `saldo_actual` acotado por fecha → los KPIs "en período" y el ledger
+siguen respetando el filtro. **Verificación e2e (BEGIN/RAISE-rollback):** clientes reales sin crédito
+(Saveriano 100.000 / Pagas 75.000) **idénticos a antes**; escenario sintético con crédito (410k impago + 205k
+no imputado) → `cliente_deuda_neta` = `cuenta_corriente_resumen(deuda_total−saldo_favor)` = `morosos` =
+`cuenta_corriente_extracto` = **$205.000 en las 4 superficies** (antes el Inicio decía $410.000). R16 = 0
+overloads; helper anon=false. **Lección:** el crédito/saldo-a-favor tenía 3 definiciones inline idénticas;
+ahora hay UNA (`administracion_credito_disponible`). Toda superficie nueva de saldo debe consumir el helper y
+mostrar el NETO. (Ver [feedback consistencia contable].)
+
+**Addendum (revisión adversarial de 0344 → mig 0345 + frontend).** La doble auditoría §6 (3 agentes,
+todo en BD con rollback) confirmó las 4 superficies convergiendo y destapó adyacencias de severidad baja,
+todas cerradas: **(U2)** el KPI "Saldo actual" de la gerencia-módulo (all-time) no cuadraba con el ledger
+(rango hasta 31/dic) si había un comprobante del año próximo → `defaultHasta` ampliado a fin del año
+siguiente. **(U3, mig 0345/E-GG-120b)** `kpis_dashboard_global` (KPI "Deuda total" del Inicio de gerencia)
+usaba universo `estado='autorizado'`, más angosto que el canon → alineado a `NOT IN ('anulado','borrador')`
+(latente: 0 cambio de dato hoy, e2e home=175.000 intacto). **(U4)** la LISTA de cta.cte de gerencia
+(`cuenta_corriente_resumen_global`) exponía `deuda_total` BRUTA → el frontend (`getResumenGlobal`) ahora
+netea `GREATEST(0, deuda_total − saldo_a_favor)` en un solo lugar (columna+filtros+orden+KPI). **Moderación**
+(atajo pedir-doc): blindado contra pedido duplicado si el paso 'interno' falla y se reintenta
+(`pedidoCreadoRef`). **Asimetrías ACEPTADAS (no bugs):** (a) el Portal Inicio y la lista pisan el saldo a 0
+en caso acreedor (widget de "deuda a regularizar"; el crédito se muestra por separado) — el detalle sí
+muestra el acreedor negativo; (b) `cliente_deuda_neta` netea el total pero los counts siguen a nivel
+comprobante (la banner del portal ya usa `total>0`, no se muestran). **Follow-up documentado:** el `cobrado`
+de `kpis_dashboard_global` usa `m.estado<>'anulado'` en vez de `='identificado'` (métrica de período, no
+saldo). Verificación e2e final: KPI home = morosos = lista neta = **$175.000**; chip "Con Deuda" = 2 admins;
+R16=0, R17=0.

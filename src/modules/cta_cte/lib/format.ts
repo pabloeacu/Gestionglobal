@@ -21,8 +21,10 @@ export function defaultDesde(): string {
 }
 
 export function defaultHasta(): string {
-  // Fin del año actual (asegura ver cargos futuros emitidos adelantados).
+  // DGG-108 · fin del AÑO SIGUIENTE: el ledger incluye los cargos futuros
+  // (adelantados a este año o al próximo) que el KPI "Saldo actual" (all-time neto)
+  // ya cuenta → el saldo grande cuadra con la suma del extracto de abajo.
   const d = new Date();
-  d.setMonth(11, 31);
+  d.setFullYear(d.getFullYear() + 1, 11, 31);
   return d.toISOString().slice(0, 10);
 }
