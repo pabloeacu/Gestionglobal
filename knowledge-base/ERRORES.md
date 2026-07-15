@@ -4583,3 +4583,37 @@ aparece con vencidos=1, mayor_dias_vencido=**14**; deuda neta $20k, saldo a favo
 GAP registrado (no en scope 136): la lista de comprobantes de GERENCIA calcula sus KPIs sobre el subset
 paginado/filtrado del backend (mismo anti-patrón R19/E-GG-43 que ya se corrigió en el portal) — latente
 mientras haya ≤ límite comprobantes; a corregir aparte.
+
+### E-GG-137 · (loop de corrección de docs) el cliente reenviaba observaciones sin corregir + rechazo sin guard
+**Descubierto en el mapeo doble §6 del subsistema Pedido de Documentación (tanda DOCUMENTACIÓN).** Dos huecos
+en el circuito de revisión de documentos (gerencia observa → cliente corrige → reenvía → gerencia aprueba):
+1. **Reenvío con observación viva.** `tramite_pedido_doc_enviar_revision` bloqueaba SÓLO ítems `pendiente`.
+   Tras un rechazo (E-GG-107 resetea `enviado_para_revision_at=NULL`), un ítem quedaba `rechazado` pero
+   `pendientes=0` → el front (`PedidosDocPanel.todosRespondidos = pendientes===0`) contaba `rechazado` como
+   "respondido", habilitaba **"Enviar a gerencia"**, y el RPC lo dejaba pasar. Gerencia recibía "cliente envió
+   documentación" con la observación sin resolver → ping-pong / estado confuso. El loop de corrección no se forzaba.
+2. **`tramite_pedido_doc_rechazar_item` sin guard de estado** (a diferencia de `aprobar_item`, que sí valida).
+   Se podía "observar" un ítem `pendiente` (que el cliente nunca subió → notificación de observación fantasma)
+   o un `aprobado` (des-aprobándolo en silencio y dejando el pedido `completo` con un ítem `rechazado` →
+   estado inconsistente, porque `rechazar` no reabre un pedido ya cerrado).
+
+**Fix (mig 0354 + front):**
+- `enviar_revision`: además de `pendiente`, bloquea si hay ítems `rechazado` ("Tenés N ítem(s) observado(s) sin
+  corregir. Volvé a subir lo observado antes de reenviar."). CREATE OR REPLACE, misma firma → R16 sin DROP.
+- `rechazar_item`: guard `IF v_item.estado NOT IN ('subido','rechazado')` → bloquea `pendiente`/`aprobado`.
+- `PedidosDocPanel.tsx`: `todosRespondidos` exige también `rechazados===0`; footer suma rama roja "Tenés N
+  observado(s), corregí para reenviar".
+- `PortalHome.tsx` (DocsPendientesBanner): usa `enviado_para_revision_at` (ya venía en el resumen,
+  tramitePedidosDoc.ts:296) para distinguir 3 estados — antes decía "Ya enviaste — el equipo está revisando"
+  apenas `pendientes+rechazados===0`, aunque el cliente NO hubiera apretado "Enviar" → trámite estancado.
+  Ahora: "Tenés N para completar" / "Ya subiste todo — falta enviar" / "Ya enviaste — en revisión"
+  (+ kicker "En revisión" y sin wiggle cuando no hay acción del cliente).
+
+e2e (BEGIN/DO + RAISE rollback, sobre el pedido real sin persistir): A) enviar con rechazado → BLOQUEA; B)
+rechazar un aprobado → BLOQUEA ("estado actual: aprobado"); C) rechazar un subido → funciona. Build limpio, R16=0.
+Contradicción de agentes resuelta e2e: el estado de pedido `cancelado` NO está muerto (trigger
+`trg_tramite_cerrar_pedidos`→`cerrar_pedidos_doc_al_cerrar_tramite`, mig 0315, lo setea al cerrar el trámite).
+Notas/GAPs registrados aparte (no en scope 137, latentes/diseño): rol `operador` gateado a `gerente` en RLS
+(0 operadores hoy); banner "avisá a gestoría" no dispara con respuestas sólo-texto (archivo_path NULL);
+alarma gerencia no cubre "cliente no responde" (sólo "esperando revisión"); pedido `cancelado` sin acción de
+cancelar manual desde UI.

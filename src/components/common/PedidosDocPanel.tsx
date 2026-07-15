@@ -193,8 +193,13 @@ function PedidoCard({
   // disponible). enviado_para_revision_at = NULL → todavía no enviado.
   const yaEnviadoParaRevision = pedido.enviado_para_revision_at != null;
   // DGG-89 · un item está "respondido" si pasó de pendiente (subió archivo O
-  // respondió texto → estado 'subido'/'aprobado'/'rechazado').
-  const todosRespondidos = totales.pendientes === 0 && totales.total > 0;
+  // respondió texto → estado 'subido'/'aprobado').
+  // E-GG-137: un ítem 'rechazado' (observado) NO cuenta como respondido — hay que
+  // corregirlo (re-subir → 'subido') antes de poder reenviar. Antes se contaba como
+  // respondido y habilitaba "Enviar a gerencia" con la observación sin resolver, y
+  // el RPC lo dejaba pasar (sólo bloqueaba 'pendiente').
+  const todosRespondidos =
+    totales.pendientes === 0 && totales.rechazados === 0 && totales.total > 0;
   const puedeEnviarRevision =
     variant === 'cliente'
     && !closed
@@ -270,6 +275,11 @@ function PedidoCard({
               <span>
                 <strong>Documentación enviada.</strong> El equipo está revisando los archivos. Te avisamos por email + portal cuando esté listo.
               </span>
+            </p>
+          ) : totales.rechazados > 0 ? (
+            /* E-GG-137: hay ítems observados sin corregir → NO se puede reenviar. */
+            <p className="text-xs text-red-700">
+              Tenés <strong>{totales.rechazados}</strong> ítem(s) observado(s). Corregí lo pedido (volvé a subir el archivo o el dato) para poder reenviar a gerencia.
             </p>
           ) : todosRespondidos ? (
             <p className="text-xs text-amber-800">

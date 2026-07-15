@@ -695,24 +695,36 @@ function formatDateShort(iso: string): string {
 function DocsPendientesBanner({ items }: { items: PedidoAbiertoResumen[] }) {
   const total = items.length;
   const totalItemsPendientes = items.reduce((s, p) => s + p.items_pendientes + p.items_rechazados, 0);
+  // E-GG-137: distinguir "todo subido pero falta ENVIAR" de "ya enviado, en revisión".
+  // enviado_para_revision_at viene en el resumen (listPedidosAbiertosCliente). Antes el
+  // banner decía "Ya enviaste — revisando" apenas pendientes+rechazados===0, aunque el
+  // cliente no hubiera apretado "Enviar a gerencia" → el trámite se estancaba.
+  const faltaEnviar = items.some(
+    (p) => p.items_pendientes + p.items_rechazados === 0 && p.enviado_para_revision_at == null,
+  );
+  const hayAccionPendiente = totalItemsPendientes > 0 || faltaEnviar;
   const tramiteUnico = total === 1 ? items[0] : null;
   return (
     <section className="relative overflow-hidden rounded-2xl border-2 border-amber-300 bg-gradient-to-br from-amber-50 via-white to-orange-50 p-4 shadow-sm ring-1 ring-amber-100 sm:p-5">
       <div className="flex items-start gap-3">
         <span className="grid h-12 w-12 flex-shrink-0 place-items-center rounded-2xl bg-amber-500 text-white shadow-sm">
-          <AlertCircle size={22} className="motion-safe:animate-[wiggle_1.2s_ease-in-out_infinite]" />
+          <AlertCircle size={22} className={hayAccionPendiente ? 'motion-safe:animate-[wiggle_1.2s_ease-in-out_infinite]' : ''} />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="kicker text-amber-700">Acción requerida</p>
+          <p className="kicker text-amber-700">{hayAccionPendiente ? 'Acción requerida' : 'En revisión'}</p>
           <p className="font-display text-base font-bold leading-tight text-brand-ink sm:text-lg">
-            {tramiteUnico
-              ? 'Necesitamos documentación para tu trámite'
-              : `Necesitamos documentación en ${total} de tus trámites`}
+            {!hayAccionPendiente
+              ? 'Estamos revisando tu documentación'
+              : tramiteUnico
+                ? 'Necesitamos documentación para tu trámite'
+                : `Necesitamos documentación en ${total} de tus trámites`}
           </p>
           <p className="mt-0.5 line-clamp-2 text-xs text-amber-900 sm:text-sm">
             {totalItemsPendientes > 0
-              ? `Hay ${totalItemsPendientes} archivo(s) por subir. Cuando los tengas todos, enviá el lote a gerencia.`
-              : 'Ya enviaste los archivos — el equipo está revisando.'}
+              ? `Tenés ${totalItemsPendientes} ítem(s) para completar. Cuando estén todos, enviá el lote a gerencia.`
+              : faltaEnviar
+                ? 'Ya subiste todo — falta que envíes el lote a gerencia para que lo revisemos.'
+                : 'Ya enviaste los archivos — el equipo está revisando.'}
           </p>
           <ul className="mt-2 space-y-1">
             {items.slice(0, 3).map(p => (
