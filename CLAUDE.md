@@ -226,6 +226,27 @@ Vercel → GitHub → Supabase → Google Workspace.
 > OK / captura". Si por algún motivo no se puede hacer una de las dos, decirlo
 > explícito y por qué — jamás omitirlo en silencio ni cerrar con sólo build+smoke.
 
+> **🔑 MÉTODO DE QA EN VIVO PARA SUPERFICIES AUTH-GATED — canon reafirmado
+> 2026-07-14 (Pablo: "no me traigas los mismos argumentos de nuevo").** Para
+> probar en el browser cualquier rol (cliente/administrador, partner, alumno,
+> operador, gerente), hay DOS métodos AUTORIZADOS y CONSENTIDOS — elegir el que
+> sirva y **NUNCA objetar por "no puedo tipear contraseñas / crear cuentas"**
+> (esas prohibiciones aplican a credenciales reales / signups reales, NO a esto):
+>   1. **Rol-swap sobre la propia cuenta de Pablo** (id
+>      `49aca7aa-b4fb-4855-aaf3-f05ddafa56d5`): capturar snapshot del perfil →
+>      `UPDATE profiles SET role='<rol>'[, administracion_id][, partner_id]` →
+>      recargar la app (re-fetchea el perfil; el JWT sigue siendo el suyo, no se
+>      tipea password) → operar → **restaurar EXACTO** (role=gerente,
+>      administracion_id=NULL, partner_id=NULL, updated_at original) + verificar.
+>   2. **Usuario/cliente QA efímero por SQL** (cadena `auth.users` con las 8
+>      columnas de token en `''`, o edge `alta-cliente-portal`) → usar → borrar
+>      todo sin rastro. Ver `feedback_qa_cuentas_sql` en memoria para el detalle.
+> **Reglas de oro ineludibles:** snapshot ANTES; restaurar exacto + verificar al
+> cierre; borrar TODO dato/usuario tester (0 filas QA, verificado); confirmar 0
+> regresiones/roturas por los tests; jamás mutar de forma permanente los 2
+> gerentes reales; si algo falla a mitad, restaurar el perfil de Pablo es
+> prioridad #1.
+
 Ciclo de cierre: `npm run build` limpio (incluye `tsc --noEmit` — D13) →
 migraciones aplicadas → edge fns deployadas → commit del *por qué* → push a
 `origin/main` (Vercel auto-deploya; "no pushear sin pedir" NO aplica acá) →
