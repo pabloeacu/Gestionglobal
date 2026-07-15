@@ -761,7 +761,7 @@ export function TrackingDetailPage() {
             )}
             {/* DGG-90 (JL #2) · avisar a la gestoría externa que hay info nueva
                 (sólo si el trámite fue derivado y no está cerrado). */}
-            {isStaff && derivacion && data.estado !== 'cerrado' && (
+            {isStaff && derivacion && data.estado !== 'cerrado' && data.estado !== 'cancelado' && (
               <Button
                 variant="ghost"
                 onClick={() => void handleAvisarGestoria()}
@@ -827,7 +827,7 @@ export function TrackingDetailPage() {
             documentación de un pedido y el trámite está derivado a una gestoría,
             surface el reaviso (el mecanismo ya vive en la toolbar). Cierra el
             loop "el cliente completó → avisá a la gestoría que puede retomar". */}
-        {isStaff && derivacion && data.estado !== 'cerrado' && adjuntosPedidoDoc.length > 0 && (
+        {isStaff && derivacion && data.estado !== 'cerrado' && data.estado !== 'cancelado' && adjuntosPedidoDoc.length > 0 && (
           <div className="mt-4 flex flex-col gap-3 rounded-xl border-2 border-violet-300/70 bg-violet-50 p-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-start gap-3">
               <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-violet-100 text-violet-700">

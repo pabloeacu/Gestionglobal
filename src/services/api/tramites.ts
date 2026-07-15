@@ -937,7 +937,8 @@ export function computeSla(t: TramiteRow): SlaInfo {
   const dias = Math.ceil(diff / (1000 * 60 * 60 * 24));
   return {
     diasRestantes: dias,
-    vencido: diff < 0 && t.estado !== 'resuelto' && t.estado !== 'cerrado',
+    // E-GG-138: 'cancelado' también es terminal → no cuenta como vencido.
+    vencido: diff < 0 && t.estado !== 'resuelto' && t.estado !== 'cerrado' && t.estado !== 'cancelado',
     diasAbierto,
   };
 }

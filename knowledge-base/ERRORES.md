@@ -4617,3 +4617,44 @@ Notas/GAPs registrados aparte (no en scope 137, latentes/diseño): rol `operador
 (0 operadores hoy); banner "avisá a gestoría" no dispara con respuestas sólo-texto (archivo_path NULL);
 alarma gerencia no cubre "cliente no responde" (sólo "esperando revisión"); pedido `cancelado` sin acción de
 cancelar manual desde UI.
+
+### E-GG-139 · (CRÍTICA · contable) el gate de cierre-con-comprobante era bypasseable por el kanban
+**Descubierto en el mapeo doble §6 de GESTORÍA/KANBAN + e2e.** El trigger `tramite_cerrar_exige_cobrado`
+rama (b) (E-GG-132) exigía comprobante sólo si `COALESCE(NEW.cierre_satisfactorio,false)=true`. Pero el
+**cierre rápido del kanban** (`updateTramite` en useAvanzarTramite) y `tracking_moderar_gestor_avance`
+(publicar + estado_asociado='cerrado') hacen un `UPDATE tramites SET estado='cerrado'` **pelado** que
+NUNCA setea `cierre_satisfactorio` → queda NULL → `COALESCE=false` → la rama NO dispara → un servicio
+**ARANCELADO se cerraba SIN comprobante** (ingreso sin registrar). e2e (rollback, servicio matrícula
+$>0, sin comprobante): bare-close NULL **PASA (BUG)**, abandono false PASA (ok), satisfactorio true
+BLOQUEA (ok). Fix (mig 0355): rama (b) `NEW.cierre_satisfactorio IS DISTINCT FROM false` → sólo un
+abandono/rechazo **explícito** (=false, vía `tracking_cerrar`) cierra un arancelado sin comprobante;
+NULL (cierre pelado ambiguo) y true exigen comprobante; un arancelado CON comprobante cierra igual.
+e2e post-fix: bare-close NULL BLOQUEA, abandono PASA, satisfactorio BLOQUEA. Cierra el hueco tanto del
+kanban como de la moderación de aportes de gestoría (ambos pegan al mismo trigger).
+
+### E-GG-138 · (CRÍTICA · seguridad/consistencia) el reaviso a la gestoría revivía un token sobre trámite terminal
+`derivacion_reavisar_gestoria` no validaba `tramites.estado` y, además de encolar el mail, **REGENERA
+un token de acceso externo vivo (14 días)** si el anterior venció/estaba revocado → una llamada sobre un
+trámite CERRADO o CANCELADO revivía la capacidad de subida del gestor externo. Y la UI
+(`TrackingDetailPage`) escondía el botón/banner "Avisar a la gestoría" sólo con `estado !== 'cerrado'`,
+sin excluir 'cancelado' (los terminales son cerrado **y** cancelado). Fix (mig 0355 + front): la RPC
+bloquea si `estado IN ('cerrado','cancelado')`; los 2 gates de UI del reaviso excluyen 'cancelado'.
+También `computeSla().vencido` (front) excluye 'cancelado' (antes un cancelado con vence_at pasado
+contaba como vencido, inconsistente con `gerencia_alarmas_hoy`).
+
+### E-GG-140 · (menor · alarma pegada) docs del cliente de trámites cerrados seguían en el Inicio de gerencia
+`docs_cliente_pendientes` (widget "Documentación del cliente · en vivo") no filtraba el estado del
+trámite: como el cierre del trámite NO cierra los pedidos (E-GG-46, por diseño), un pedido 'abierto' con
+ítems 'subido' sobre un trámite ya cerrado/cancelado seguía apareciendo en el Inicio del gerente = alarma
+que no se limpia. Espejo del fix E-GG-46 que sólo se había aplicado del lado portal. Fix (mig 0355):
+`AND t.estado NOT IN ('cerrado','cancelado')`.
+
+**GAPs/dudas de diseño registrados (no fixeados en scope 138-140, para decidir con Pablo):** el kanban no
+valida transiciones (drag arbitrario abierto→cerrado o regresiones) y la reapertura por drag-out saltea
+`tracking_reabrir` (borra metadata de cierre y no audita `reabierto_count`); "devolución de gestoría SIN
+info" no está modelada (el gestor sólo puede cargar un avance con descripción); KPI 'derivadas' cuenta un
+estado 'pegajoso' (nunca se limpia); `gerencia_proximos_seguimientos` no excluye 'resuelto' (inconsistente
+con `gerencia_alarmas_hoy`); `requiere_docs_cliente` es un flag que el trigger mantiene pero ningún UI lee
+(R14); rama 'solicitud' de la edge fn acceso-externo devuelve recurso null (enmascarado por diseño N4);
+crons jobid 7/16/17 dependen de GUCs (app.service_role_key/app.supabase_url/app.cron_secret) no seteados
+a nivel rol → verificar si Supabase los inyecta por otra vía antes de accionar (health-alert no es JL-facing).
