@@ -251,7 +251,42 @@ export function useAvanzarTramite(opts: Opts = {}) {
     }
     opts.onOptimistic?.(t.id, nuevoEstado);
     opts.play?.('click');
-    const res = await updateTramite(t.id, { estado: nuevoEstado });
+    let res = await updateTramite(t.id, { estado: nuevoEstado });
+
+    // E-GG-139 (decisión Pablo · "advertir, no limitar"): si el gate de BD frena el
+    // cierre de un servicio arancelado sin comprobante, NO lo trabamos. Le avisamos a
+    // la gerencia que quedaría un ingreso sin registrar y, si confirma, lo cerramos
+    // como cierre NO satisfactorio ("cerrado sin cobrar") — para que no se le escape
+    // la tortuga, pero sin limitar la operación del kanban.
+    if (
+      !res.ok &&
+      nuevoEstado === 'cerrado' &&
+      /arancelado sin emitir el comprobante|ingreso sin registrar/i.test(res.error.message ?? '')
+    ) {
+      const seguir = await confirm({
+        title: 'Trámite arancelado sin comprobante',
+        message: (
+          <div className="space-y-2">
+            <p>
+              Este trámite es <strong>arancelado</strong> y todavía no tiene comprobante emitido.
+            </p>
+            <p>
+              Si lo cerrás así, queda un <strong>ingreso sin registrar</strong>. Lo ideal es
+              emitir (y cobrar) el comprobante antes de cerrar.
+            </p>
+            <p>¿Cerrarlo igual, sin cobrar?</p>
+          </div>
+        ),
+        confirmLabel: 'Cerrar sin cobrar',
+        cancelLabel: 'Volver',
+      });
+      if (!seguir) {
+        opts.onError?.();
+        return false;
+      }
+      res = await updateTramite(t.id, { estado: 'cerrado', cierre_satisfactorio: false });
+    }
+
     if (!res.ok) {
       toast.error(`No pudimos mover el trámite: ${humanizeError(res.error)}`);
       opts.onError?.();

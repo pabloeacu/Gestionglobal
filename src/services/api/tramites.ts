@@ -609,6 +609,10 @@ export type UpdateTramitePatch = Partial<{
   comprobante_id: string | null;
   // DGG-33: removido asignado_a.
   vence_at: string | null;
+  // E-GG-139 (decisión Pablo: advertir, no limitar) · permite cerrar un arancelado
+  // sin comprobante como cierre NO satisfactorio ("cerrado sin cobrar") cuando el
+  // gerente lo confirma tras la advertencia. Sin esto, el gate de BD lo frena.
+  cierre_satisfactorio: boolean | null;
   // DEEP-1: datos del solicitante editables post-alta (drawer
   // TrackingMetadataDrawer). Antes solo se podían setear en createTramite.
   solicitante_nombre: string | null;

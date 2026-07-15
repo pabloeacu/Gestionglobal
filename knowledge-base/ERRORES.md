@@ -4658,3 +4658,14 @@ con `gerencia_alarmas_hoy`); `requiere_docs_cliente` es un flag que el trigger m
 (R14); rama 'solicitud' de la edge fn acceso-externo devuelve recurso null (enmascarado por diseño N4);
 crons jobid 7/16/17 dependen de GUCs (app.service_role_key/app.supabase_url/app.cron_secret) no seteados
 a nivel rol → verificar si Supabase los inyecta por otra vía antes de accionar (health-alert no es JL-facing).
+
+### E-GG-139 · refinamiento (decisión Pablo, 2026-07-15): "advertir, no limitar"
+El gate de BD (mig 0355) sigue siendo el backstop, pero el kanban NO debe LIMITAR al gerente
+(puede equivocarse, o un documento puede no alcanzar → necesita mover libre adelante/atrás). Regla
+de Pablo: "continuamos advirtiendo cuando un trámite está pendiente de pago y quiere resolverlo/
+finalizarlo — no para limitarlo, sino para que no se le escape la tortuga de quedar algo sin cobrar".
+Fix (front, `useAvanzarTramite.mover`): al cerrar por kanban/lista, si el gate frena el cierre de un
+arancelado sin comprobante, en vez de un error duro mostramos una **advertencia con confirmación**
+("queda un ingreso sin registrar · ¿cerrar sin cobrar?"); si el gerente confirma, cerramos con
+`cierre_satisfactorio=false` (el trigger lo permite). Así: se advierte (anti-tortuga) sin trabar la
+operación. El cierre formal satisfactorio (tracking_cerrar) mantiene el bloqueo+guía a abandono.
