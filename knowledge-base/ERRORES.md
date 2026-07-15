@@ -4479,3 +4479,27 @@ checkbox "dejar el excedente como saldo a favor" (paridad visual con Cobrar), de
 marca, y muestra "A favor $X" en el preview. e2e (rollback): SIN opt-in sigue rechazando ("$85.000 supera
 $75.000"); CON opt-in → comprobante saldo→$0 + `administracion_credito_disponible` 0→$10.000. El crédito
 queda disponible para imputar a futuro (misma fuente de verdad que [E-GG-120]).
+
+### E-GG-129 · CRÍTICA · la cobranza AUTOMÁTICA seguía muerta una capa MÁS adentro que [E-GG-127]
+El QA blast-radius de wave 7 (workflow de 18 agentes, verificación e2e por contraste rol-a-rol)
+descubrió que el cron `dispatch-recupero` (diario 12:30, service_role) SEGUÍA sin encolar nada, pese
+a que [E-GG-127] (mig 0348) había arreglado el guard superior de `disparar_recupero_manual`
+(is_staff→is_staff_or_service). CAUSA: `disparar_recupero_manual` llama a `encolar_email(...,
+administracion_id NO-nulo, ...)` y `encolar_email` ejecuta INCONDICIONALMENTE
+`private.assert_administracion_access(p_admin)` antes de encolar. Ese assert (regla 12) tenía 3 vías
+de escape: `app.skip_admin_assert='on'` | `is_staff()` | `current_administracion_id()=p_admin`. Bajo
+service_role NINGUNA aplicaba (skip sin setear; is_staff()=false tras [E-GG-123] NULL→false;
+current_administracion_id()=NULL sin auth.uid()) → RAISE 42501 adentro de encolar_email. El cron
+devolvía ok:true pero encolados=0, TODOS los morosos en errores[], 0 recupero_acciones, 0 email_queue,
+comprobantes en 'pendiente'. Contraste e2e: con JWT del gerente real la MISMA RPC corría completa
+(recupero_acciones=1, email_queue=1, estado='en_recupero') → el circuito staff/manual estaba OK, sólo
+el service_role/cron roto. LECCIÓN (capitaliza [E-GG-127]): al endurecer un helper de autz, no basta
+con arreglar los guards de PRIMER nivel de las RPC llamadas por edges; hay que seguir la cadena hasta
+las funciones INTERNAS que también gatean (acá encolar_email→assert_administracion_access). Fix de
+mayor palanca (mig 0350): el assert de tenencia reconoce al service_role como servidor de confianza
+(`is_staff()`→`is_staff_or_service()`), igual que ya lo hacen los guards de nivel superior — arregla
+de una TODA la clase de RPC service_role que bajen a assert. e2e verificado: service_role dispara
+end-to-end (acciones=1, email_queue=1, en_recupero); anon SIGUE 42501; cliente tenencia intacta (su
+admin OK, otra admin RAISE). Nota operativa: al deployar, la próxima corrida del cron va a procesar
+los morosos acumulados de los días que estuvo caído (burst de recordatorios paceado por el throttle
+de 5 min).
