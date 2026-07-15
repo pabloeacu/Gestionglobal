@@ -28,6 +28,7 @@ import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
 import { formatDateShort as formatDate, parseLocalDate } from '@/lib/dates';
 import {
   listComprobantes,
+  esComprobanteVencido,
   type ComprobanteListItem,
   type ComprobanteEstado,
   type CobranzaEstado,
@@ -129,8 +130,10 @@ export function ComprobantesListPage() {
     const totalPendiente = rows
       .filter((r) => r.estado_cobranza === 'pendiente' || r.estado_cobranza === 'parcial')
       .reduce((s, r) => s + Number(r.saldo_pendiente ?? 0), 0);
+    // E-GG-136: "vencido" se DERIVA de la fecha (nadie envejece estado_cobranza
+    // a 'vencido' → filtrar por ese valor daba SIEMPRE $0).
     const totalVencido = rows
-      .filter((r) => r.estado_cobranza === 'vencido')
+      .filter((r) => esComprobanteVencido(r))
       .reduce((s, r) => s + Number(r.saldo_pendiente ?? 0), 0);
     return { emitidos, totalEmitido, totalPendiente, totalVencido };
   }, [rows]);
@@ -427,8 +430,12 @@ export function ComprobantesListPage() {
                   {rows.map((r, idx) => {
                     const estadoBadge =
                       ESTADO_BADGES[r.estado as ComprobanteEstado];
-                    const cobranzaBadge =
-                      COBRANZA_BADGES[r.estado_cobranza as CobranzaEstado];
+                    // E-GG-136: si está de-facto vencido (fecha), mostrar el badge
+                    // rojo "Vencido" en vez de "Pendiente/Parcial".
+                    const cobranzaVisible: CobranzaEstado = esComprobanteVencido(r)
+                      ? 'vencido'
+                      : (r.estado_cobranza as CobranzaEstado);
+                    const cobranzaBadge = COBRANZA_BADGES[cobranzaVisible];
                     return (
                       <tr
                         key={r.id}

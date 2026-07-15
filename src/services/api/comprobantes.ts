@@ -23,6 +23,37 @@ export type CobranzaEstado = (typeof COBRANZA_ESTADOS)[number];
 export const ALICUOTAS_IVA = ['0','10.5','21','27','exento','no_gravado'] as const;
 export type AlicuotaIva = (typeof ALICUOTAS_IVA)[number];
 
+/**
+ * ¿El comprobante está VENCIDO? (E-GG-136).
+ *
+ * "Vencido" NO es un valor real de `estado_cobranza` — la columna sólo toma
+ * 'pendiente'/'parcial'/'pagado' (nada lo envejece a 'vencido'). Es una
+ * condición DERIVADA de la fecha, igual que en `comprobantes_morosos` /
+ * `cliente_deuda_neta` (BD) y en `ComprobanteDetailPage` (UI). Cualquier KPI o
+ * badge que filtre `estado_cobranza === 'vencido'` cuenta SIEMPRE 0 (bug).
+ *
+ * Regla canónica (idéntica al SQL): saldo pendiente > 0, comprobante vivo
+ * (no anulado/borrador/rechazado) y `vencimiento < hoy`. Se comparan strings
+ * `YYYY-MM-DD` (orden lexicográfico == cronológico) para evitar corrimientos
+ * de timezone.
+ */
+export function esComprobanteVencido(c: {
+  vencimiento?: string | null;
+  saldo_pendiente?: number | string | null;
+  estado?: string | null;
+}): boolean {
+  if (!c.vencimiento) return false;
+  if (Number(c.saldo_pendiente ?? 0) <= 0) return false;
+  if (c.estado === 'anulado' || c.estado === 'borrador' || c.estado === 'rechazado') {
+    return false;
+  }
+  const now = new Date();
+  const hoy = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(
+    now.getDate(),
+  ).padStart(2, '0')}`;
+  return c.vencimiento.slice(0, 10) < hoy;
+}
+
 export interface ComprobanteListItem extends ComprobanteRow {
   administracion_nombre: string;
   consorcio_nombre: string | null;
@@ -61,7 +92,22 @@ export async function listComprobantes(
     q = q.eq('estado', params.estado);
   }
   if (params.estadoCobranza && params.estadoCobranza !== 'todos') {
-    q = q.eq('estado_cobranza', params.estadoCobranza);
+    if (params.estadoCobranza === 'vencido') {
+      // E-GG-136: 'vencido' NO es un valor real de estado_cobranza (nadie lo
+      // envejece) → `.eq('estado_cobranza','vencido')` devolvía SIEMPRE 0.
+      // Traducimos al predicado derivado por fecha (idéntico a comprobantes_morosos).
+      const now = new Date();
+      const hoy = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(
+        now.getDate(),
+      ).padStart(2, '0')}`;
+      q = q
+        .gt('saldo_pendiente', 0)
+        .not('vencimiento', 'is', null)
+        .lt('vencimiento', hoy)
+        .not('estado', 'in', '(anulado,borrador,rechazado)');
+    } else {
+      q = q.eq('estado_cobranza', params.estadoCobranza);
+    }
   }
   if (params.tipo && params.tipo !== 'todos') {
     q = q.eq('tipo', params.tipo);

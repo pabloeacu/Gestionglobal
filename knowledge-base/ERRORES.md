@@ -4549,3 +4549,37 @@ El Wizard (PasoCliente.tsx) YA invoca `solicitud_match_cliente` (email/CUIT/DNI)
 banner que defaultea a "vincular"; sólo se duplica si el gerente override + tipea otro email. Suficiente.
 
 R16=0/R17=0, mig 0351 aplicada, todos los fixes e2e sin romper cierres legítimos.
+
+### E-GG-136 · (alarma muerta en TODA superficie) "vencido" nunca se derivaba de la fecha
+**Descubierto en la QA en vivo de PAGOS (tanda contratación).** Con un comprobante realmente vencido
+(venc 2026-07-01, hoy 2026-07-15, saldo $30.000), el portal del cliente mostraba **VENCIDO $0** y el
+row salía "Pendiente" (ámbar) en vez de "Vencido" (rojo). La ficha del comprobante en gerencia SÍ lo
+pintaba "vencido" en rojo (deriva por fecha), pero los KPIs/alarmas de morosos NO. Causa raíz: nadie
+**envejece** `comprobantes.estado_cobranza` a `'vencido'` — la columna sólo toma
+`'pendiente'/'parcial'/'pagado'` (el único writer `registrar_cobranza_comprobante`, ningún cron/trigger
+la mueve a 'vencido'; el valor es válido por CHECK pero muerto). Sin embargo, múltiples contadores de
+KPI filtraban `estado_cobranza = 'vencido'` → **SIEMPRE 0**, aun con morosos reales (había 3 comprobantes
+de-facto vencidos impagos en prod sin marcar). Blast radius (todo SOLO lectura/KPI):
+- `cuenta_corriente_morosos` (venc + mayor_dias_vencido) → CtaCte gerencia
+- `cuenta_corriente_resumen` (comprobantes_vencidos) → ficha administración + portal
+- `cuenta_corriente_resumen_global` (comprobantes_vencidos) → lista CtaCte gerencia
+- front `PortalComprobantesPage` y `ComprobantesListPage` (KPI "Vencido" + badge rojo + filtro "Vencido").
+
+**El motor de cobranza/recupero NO estaba afectado**: `comprobantes_morosos` (dunning) y
+`cliente_deuda_neta` (portal home, tono "urgente") YA derivaban por fecha (`vencimiento < current_date
+AND saldo_pendiente > 0`). Sólo los contadores/badges de KPI estaban muertos.
+
+**Fix (mig 0353 + front):** derivar "vencido" por FECHA en todas las superficies, idéntico al criterio
+canónico (`saldo_pendiente>0`, comprobante vivo, `vencimiento < hoy`).
+- mig 0353: reemplazado `estado_cobranza='vencido'` por el predicado de fecha en los 3 RPCs
+  (CREATE OR REPLACE, misma firma → R16 sin DROP, GRANTs preservados).
+- front: helper único `esComprobanteVencido()` en `services/api/comprobantes.ts` (compara strings
+  `YYYY-MM-DD`, sin corrimiento TZ), usado en los KPI/badge/filtro de ambas listas; y en
+  `listComprobantes` el pseudo-filtro `estadoCobranza='vencido'` se traduce al predicado de fecha
+  (`.gt(saldo_pendiente,0).lt(vencimiento,hoy)...`) en vez de `.eq('estado_cobranza','vencido')`.
+
+e2e (JWT staff): `cuenta_corriente_resumen(QA)` → comprobantes_vencidos 0→**1**; `_morosos` → el cliente
+aparece con vencidos=1, mayor_dias_vencido=**14**; deuda neta $20k, saldo a favor $10k. R16=0. Build limpio.
+GAP registrado (no en scope 136): la lista de comprobantes de GERENCIA calcula sus KPIs sobre el subset
+paginado/filtrado del backend (mismo anti-patrón R19/E-GG-43 que ya se corrigió en el portal) — latente
+mientras haya ≤ límite comprobantes; a corregir aparte.
