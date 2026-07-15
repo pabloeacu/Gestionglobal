@@ -251,7 +251,9 @@ function ConciliarModal({
       comprobanteId: compId,
       monto: montoNum,
       partnerId: partnerId || null,
-      permitirExcedente, // E-GG-128: sobrepago → saldo a favor
+      // E-GG-128 (audit §6 #3): gatear a excedeSaldo — si el check quedó tildado
+      // pero el monto/comprobante ya no excede, el flag no debe viajar como true.
+      permitirExcedente: permitirExcedente && excedeSaldo,
     });
     setSaving(false);
     if (!res.ok) {
@@ -287,7 +289,9 @@ function ConciliarModal({
       }
     >
       <Field label="Comprobante a imputar" required>
-        <Select value={compId} onChange={(e) => setCompId(e.target.value)}>
+        {/* E-GG-128 (audit §6 #3): al cambiar de comprobante se resetea el opt-in
+            de excedente — cada comprobante exige su consentimiento fresco. */}
+        <Select value={compId} onChange={(e) => { setCompId(e.target.value); setPermitirExcedente(false); }}>
           <option value="">— Elegí el comprobante —</option>
           {comprobantes.map((c) => (
             <option key={c.id} value={c.id}>

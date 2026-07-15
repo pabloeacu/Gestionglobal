@@ -78,6 +78,9 @@ export function RegistrarCobranzaDrawer({
     setReferencia('');
     setDescripcion('');
     setPartnerId('');
+    // E-GG-128 (audit §6 #3, paridad): resetear el opt-in de excedente al abrir,
+    // que no quede "pegado" de una cobranza anterior.
+    setPermitirExcedente(false);
     setErrors({});
     void (async () => {
       const [cR, gR, pR] = await Promise.all([
