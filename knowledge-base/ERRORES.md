@@ -4503,3 +4503,43 @@ end-to-end (acciones=1, email_queue=1, en_recupero); anon SIGUE 42501; cliente t
 admin OK, otra admin RAISE). Nota operativa: al deployar, la próxima corrida del cron va a procesar
 los morosos acumulados de los días que estuvo caído (burst de recordatorios paceado por el throttle
 de 5 min).
+
+## WAVE 7 · Barrido e2e exhaustivo del circuito de CONTRATACIÓN — E-GG-130..135
+
+Origen: Pablo — "probá la contratación de cada servicio, por ambos canales (landing/portal), cliente
+nuevo/existente/duplicado, los 5 casos de pago, los 3 de doc, gestoría, evolución de estados, kanban y
+alarmas; auditá cada punto de impacto; no presumas nada". Workflow de 46 agentes ejercitó la matriz en
+BD (BEGIN/ROLLBACK, 0 datos persistidos) auditando cada tabla de impacto. NINGÚN escenario cerró OK —
+todos con defecto en `solicitud_activar` o en los gates de cierre/precio. 6 bugs (mig 0351 fixea 5).
+
+### E-GG-130 · (100% de las activaciones) la línea semilla del tracking nacía MUERTA
+`solicitud_activar` sembraba la 1ª línea del timeline con `EXECUTE 'SELECT tracking_agregar_linea($1..$5)'`
+— firma OBSOLETA de 5 args (la vigente es de 7). El 42883 quedaba tragado por `EXCEPTION WHEN OTHERS
+THEN NULL` → la línea NUNCA se creaba → el timeline del cliente arrancaba VACÍO en cada activación
+(anti-patrón R16/R18). Fix: `PERFORM` con firma real, categoría 'seguimiento_interno', visible_cliente=
+true, `RAISE WARNING`. e2e: seed=1.
+
+### E-GG-131 · UNIQUE(nombre) rompe activar un cliente HOMÓNIMO
+`uq_administraciones_nombre` hacía fallar la activación del 2º cliente con igual nombre (23505 crudo); el
+dedup real es por email/CUIT. El nombre no es clave natural. Fix: DROP unique + índice no único. e2e OK.
+
+### E-GG-132 · trámite ARANCELADO se cerraba con CERO facturación (hueco contable)
+`tramite_cerrar_exige_cobrado` sólo bloqueaba si había comprobante IMPAGO; sin comprobante emitido pasaba
+→ matrícula $175.000 cerrada sin registrar el ingreso. Fix: si el servicio es arancelado (precio>0) y no
+hay comprobante no-anulado ligado, bloquear con mensaje accionable. Sin servicio/gratis sigue cerrando.
+e2e: arancelado sin comp→BLOQUEADO; sin servicio→cierra OK.
+
+### E-GG-133 · el email de activación NO se enviaba al cliente NUEVO (caso más común: landing)
+Gate `AND NOT v_es_nuevo` → el cliente creado en la misma activación (landing→nuevo) no recibía la
+confirmación. Fix: quitar la exclusión (email en v_email_admin vía RETURNING). e2e: email=1.
+
+### E-GG-134 · precio/canal desde flag NO autenticado del body (spoofeable)
+`crear_tramite_desde_submission_auto` tomaba canal/precio de `NEW.datos->>'_origen_canal'`. Fix: canal
+'cliente' sólo con identidad verificada (administracion_id NOT NULL); sin admin→'publico'/precio_publico.
+Impacto real $0.01 pero explotable. e2e: spoof sin admin→publico.
+
+### E-GG-135 (mitigado, sin cambio) · duplicado silencioso de cliente
+El Wizard (PasoCliente.tsx) YA invoca `solicitud_match_cliente` (email/CUIT/DNI) y muestra el match en
+banner que defaultea a "vincular"; sólo se duplica si el gerente override + tipea otro email. Suficiente.
+
+R16=0/R17=0, mig 0351 aplicada, todos los fixes e2e sin romper cierres legítimos.
