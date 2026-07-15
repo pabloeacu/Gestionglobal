@@ -4527,7 +4527,13 @@ dedup real es por email/CUIT. El nombre no es clave natural. Fix: DROP unique + 
 `tramite_cerrar_exige_cobrado` sólo bloqueaba si había comprobante IMPAGO; sin comprobante emitido pasaba
 → matrícula $175.000 cerrada sin registrar el ingreso. Fix: si el servicio es arancelado (precio>0) y no
 hay comprobante no-anulado ligado, bloquear con mensaje accionable. Sin servicio/gratis sigue cerrando.
-e2e: arancelado sin comp→BLOQUEADO; sin servicio→cierra OK.
+e2e: arancelado sin comp→BLOQUEADO; sin servicio→cierra OK. **Refinado en la QA en vivo (mig 0352):**
+la 1ª versión bloqueaba TODO cierre arancelado sin comprobante, incluso 'Matrícula rechazada' y
+'Abandono del trámite' (cierres legítimos SIN ingreso) → habría roto ese circuito. `tracking_cerrar`
+setea `cierre_satisfactorio` boolean (otorgada=true, rechazo/abandono=false) en el mismo UPDATE, así
+que el gate ahora sólo exige comprobante si `NEW.cierre_satisfactorio=true`. e2e: otorgada sin
+comp→BLOQUEADO; abandono sin comp→cierra OK. (Lección: verificar en vivo antes de cerrar evita romper
+un flujo hermano no denunciado.)
 
 ### E-GG-133 · el email de activación NO se enviaba al cliente NUEVO (caso más común: landing)
 Gate `AND NOT v_es_nuevo` → el cliente creado en la misma activación (landing→nuevo) no recibía la
