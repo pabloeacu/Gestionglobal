@@ -11,7 +11,7 @@
 //   · <img crossOrigin="anonymous"> en todas las imágenes
 //
 // Estructura (modelo RPAC de Pablo, 2026-07-15):
-//   1. Banda superior finita acento→dorado + motivo de triángulos (identidad)
+//   1. Banda superior finita en celeste degradé + ícono del campus (birrete)
 //   2. Logo emisor centrado (banco de imágenes compartido con el diploma)
 //   3. "{lugar}, {fecha larga}" alineado a la derecha
 //   4. Bloque del destinatario (multilínea, editable al emitir)
@@ -101,11 +101,10 @@ export function ConstanciaPremium({
   const marcaLogoUrl = e.marca_logo_url ?? ESQUEMA_CONST_DEFAULT.marca_logo_url;
   const firma1Url = e.firma_1_img_url ?? ESQUEMA_CONST_DEFAULT.firma_1_img_url;
   const firma2Url = e.firma_2_img_url ?? ESQUEMA_CONST_DEFAULT.firma_2_img_url;
-  const acento = e.color_acento || '#0b1f33';
-  const dorado = e.color_dorado || '#a87f3c';
   const ink = '#0f172a';
   const inkSoft = '#475569';
   const cyanCampus = '#009eca'; // celeste institucional de la plataforma (brand.cyan)
+  const cyanLight = '#7fc3dc'; // celeste claro para el degradé de las bandas (brand.cyan-light)
 
   const parrafos = (datos.texto ?? '')
     .split(/\n{2,}/)
@@ -133,7 +132,7 @@ export function ConstanciaPremium({
         color: ink,
       }}
     >
-      {/* Banda superior acento→dorado */}
+      {/* Banda superior · celeste degradé (brand.cyan → cyan-light) */}
       <div
         style={{
           position: 'absolute',
@@ -141,7 +140,7 @@ export function ConstanciaPremium({
           left: 0,
           width: CONST_W,
           height: 8,
-          background: `linear-gradient(90deg, ${acento} 0%, ${acento} 55%, ${dorado} 100%)`,
+          background: `linear-gradient(90deg, ${cyanCampus} 0%, ${cyanCampus} 55%, ${cyanLight} 100%)`,
         }}
       />
       {/* Marca del campus (birrete · lucide GraduationCap) en el celeste
@@ -267,25 +266,25 @@ export function ConstanciaPremium({
             }}
           >
             {firmas.map((f, i) => (
-              <div key={i} style={{ textAlign: 'center', width: 260 }}>
+              <div key={i} style={{ textAlign: 'center', width: 300 }}>
                 {f.img && (
                   <img
                     src={f.img}
                     crossOrigin="anonymous"
                     alt=""
                     style={{
-                      height: 98,
-                      maxWidth: 252,
+                      height: 147,
+                      maxWidth: 288,
                       objectFit: 'contain',
                       display: 'block',
-                      margin: '0 auto -12px',
+                      margin: '0 auto -16px',
                     }}
                   />
                 )}
                 <div
                   style={{
                     borderTop: `1.4px solid ${inkSoft}`,
-                    width: 230,
+                    width: 260,
                     margin: '0 auto',
                     paddingTop: 7,
                   }}
@@ -345,7 +344,7 @@ export function ConstanciaPremium({
           left: 0,
           width: CONST_W,
           height: 8,
-          background: `linear-gradient(90deg, ${dorado} 0%, ${acento} 45%, ${acento} 100%)`,
+          background: `linear-gradient(90deg, ${cyanLight} 0%, ${cyanCampus} 45%, ${cyanCampus} 100%)`,
         }}
       />
     </div>
