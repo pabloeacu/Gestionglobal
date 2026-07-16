@@ -4669,3 +4669,39 @@ arancelado sin comprobante, en vez de un error duro mostramos una **advertencia 
 ("queda un ingreso sin registrar · ¿cerrar sin cobrar?"); si el gerente confirma, cerramos con
 `cierre_satisfactorio=false` (el trigger lo permite). Así: se advierte (anti-tortuga) sin trabar la
 operación. El cierre formal satisfactorio (tracking_cerrar) mantiene el bloqueo+guía a abandono.
+
+### E-GG-141 · (chunk CONST · doble auditoría §6) grants residuales a anon + fidelidad preview↔PDF de la constancia
+Al cerrar el feature nuevo **Constancias de inscripción** (botón por alumno en Campus → PDF A4 vertical
+gemelo del diploma, a demanda) la doble auditoría §6 (3 agentes + e2e BD) encontró huecos que el build+smoke
+no ven. Fixeados todos en el mismo chunk:
+
+- **(seguridad · GAP) `REVOKE ALL … FROM anon` NO quita el grant default EXECUTE→PUBLIC de Postgres.** Las RPCs
+  `emitir_constancia`/`constancia_registrar_pdf` quedaban con `has_function_privilege('anon',…,'EXECUTE')=true`
+  (PUBLIC lo hereda), a diferencia de las gemelas del diploma. Además los *default privileges* del proyecto
+  le habían dado a anon DML completo sobre la tabla `constancias` y USAGE sobre `constancias_codigo_seq`. **No
+  explotable** (el guard `private.is_staff()` corta con 42501 y RLS es default-deny para anon — verificado e2e),
+  pero rompía la paridad de defensa en profundidad con el diploma (R6: "anon sólo si el flujo público lo
+  necesita"). Fix (mig **0358**): `REVOKE ALL ON FUNCTION … FROM PUBLIC` + `REVOKE ALL ON TABLE/SEQUENCE … FROM
+  anon`, re-`GRANT EXECUTE … TO authenticated, service_role`. Verificado: anon=denegado, authenticated=ok.
+  **Lección**: al crear RPCs privadas, `REVOKE FROM PUBLIC` (no sólo `FROM anon`) + chequear
+  `has_function_privilege`/`role_table_grants` en el smoke de cierre.
+- **(fidelidad · GAP) el preview ocultaba logo/firmas que el PDF sí embebía.** `ConstanciaPremium` hacía
+  `{...ESQUEMA_CONST_DEFAULT, ...esquema}`: un asset `NULL` del esquema le "ganaba" al default por el spread,
+  mientras el PDF los resolvía con `?? '/cert/…'`. Resultado: lo que se veía ≠ lo que se emitía. Fix: coalesce
+  por-asset (`e.marca_logo_url ?? DEFAULT.marca_logo_url`, ídem firmas 1/2) igual que el diploma.
+- **(robustez · GAP) emisión fantasma + upload silencioso.** El modal emitía la fila en BD ANTES de renderizar;
+  si el `toPng` fallaba, quedaba una constancia huérfana sin PDF y un reintento emitía OTRA con código nuevo;
+  y un upload fallido no avisaba nada. Fix: se separa la **emisión** (fila, capturada una sola vez en `emision`)
+  del **blob** (render idempotente sobre la misma emisión); el fallo de upload emite un `toast.warning`
+  explícito; retocar texto/destinatario/plantilla invalida ambos (`invalidarEmision`).
+- **(UX · DUDA) mobile 360px:** el cluster de acciones de la card de alumno no tenía `flex-wrap` → posible
+  overflow horizontal. Fix: `flex-wrap justify-end`.
+- **(hardening · DUDA) `setEsquemaDefault(id, tipo)` no validaba coherencia id↔tipo** (función compartida con el
+  diploma). Un caller futuro con `tipo` equivocado destronaría el default del grupo errado y luego fallaría el
+  índice único parcial. Fix: el `tipoReal` se **deriva del row**, no del caller — imposibilita el mismatch sin
+  cambiar el comportamiento de los callers actuales (verificado e2e: default del diploma intacto al setear una
+  constancia). NO se tocó ni una línea de la emisión de certificados (mandato Pablo).
+
+**Aceptado por diseño (no fix):** una plantilla de constancia con emisiones puede borrarse — `constancias`
+persiste `esquema_snapshot` + `pdf_storage_path` y el historial re-descarga por signed URL, nunca re-renderiza
+desde la plantilla (a diferencia del diploma, que sí referencia por FK).

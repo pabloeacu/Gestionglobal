@@ -94,6 +94,13 @@ export function ConstanciaPremium({
   esquema?: EsquemaConstancia;
 }) {
   const e = { ...ESQUEMA_CONST_DEFAULT, ...(esquema ?? {}) };
+  // §6 (fidelidad preview↔PDF): un asset NULL del esquema NO debe "ganarle" al
+  // default (el spread lo pisaría con null y el preview ocultaría logo/firmas,
+  // mientras el PDF sí los embebe vía `?? '/cert/...'`). Coalescemos por-asset
+  // igual que el diploma para que lo que se ve = lo que se emite.
+  const marcaLogoUrl = e.marca_logo_url ?? ESQUEMA_CONST_DEFAULT.marca_logo_url;
+  const firma1Url = e.firma_1_img_url ?? ESQUEMA_CONST_DEFAULT.firma_1_img_url;
+  const firma2Url = e.firma_2_img_url ?? ESQUEMA_CONST_DEFAULT.firma_2_img_url;
   const acento = e.color_acento || '#0b1f33';
   const dorado = e.color_dorado || '#a87f3c';
   const ink = '#0f172a';
@@ -106,10 +113,10 @@ export function ConstanciaPremium({
 
   const firmas = [
     e.visible_firma_1
-      ? { img: e.firma_1_img_url, nombre: e.firma_1_nombre, cargo: e.firma_1_cargo }
+      ? { img: firma1Url, nombre: e.firma_1_nombre, cargo: e.firma_1_cargo }
       : null,
     e.visible_firma_2
-      ? { img: e.firma_2_img_url, nombre: e.firma_2_nombre, cargo: e.firma_2_cargo }
+      ? { img: firma2Url, nombre: e.firma_2_nombre, cargo: e.firma_2_cargo }
       : null,
   ].filter(Boolean) as Array<{ img: string | null; nombre: string; cargo: string }>;
 
@@ -181,10 +188,10 @@ export function ConstanciaPremium({
         }}
       >
         {/* Logo emisor */}
-        {e.visible_marca_logo && e.marca_logo_url && (
+        {e.visible_marca_logo && marcaLogoUrl && (
           <div style={{ textAlign: 'center' }}>
             <img
-              src={e.marca_logo_url}
+              src={marcaLogoUrl}
               crossOrigin="anonymous"
               alt=""
               style={{ maxHeight: 96, maxWidth: 250, objectFit: 'contain' }}

@@ -167,11 +167,22 @@ export async function setEsquemaDefault(
   id: string,
   tipo: EsquemaTipo = 'certificado',
 ): Promise<ApiResponse<void>> {
+  // §6 hardening (id↔tipo): el tipo REAL lo dicta el row, no el caller. Si un
+  // caller futuro pasara un tipo que no coincide con el del esquema, se
+  // destronaría el default del grupo equivocado y luego fallaría el índice único
+  // parcial, dejando ese grupo sin default. Derivarlo del row lo hace imposible.
+  const { data: row, error: readErr } = await supabase
+    .from('certificado_esquemas')
+    .select('tipo')
+    .eq('id', id)
+    .single();
+  if (readErr) return fail('READ_FAIL', readErr.message, readErr);
+  const tipoReal: EsquemaTipo = (row?.tipo as EsquemaTipo | undefined) ?? tipo;
   await supabase
     .from('certificado_esquemas')
     .update({ es_default: false })
     .eq('es_default', true)
-    .eq('tipo', tipo);
+    .eq('tipo', tipoReal);
   const { error } = await supabase
     .from('certificado_esquemas')
     .update({ es_default: true })

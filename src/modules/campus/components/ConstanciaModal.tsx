@@ -80,11 +80,24 @@ export function ConstanciaModal({
   const [enviarAlAlumno, setEnviarAlAlumno] = useState(true);
   const [extraEmail, setExtraEmail] = useState('');
 
-  // Emisión memoizada: la primera acción (descargar/enviar) emite y sube el PDF;
-  // la segunda reusa. Cualquier retoque posterior invalida y re-emite.
+  // Emisión memoizada. Separamos la EMISIÓN (fila en BD, capturada apenas la RPC
+  // responde) del BLOB (PDF renderizado): así, si el render/upload falla, un
+  // reintento del MISMO contenido reusa la emisión en vez de crear una fila
+  // fantasma nueva (§6). Un retoque de texto/destinatario/plantilla invalida ambos.
+  const [emision, setEmision] = useState<{ id: string; codigo: string } | null>(null);
   const [emitida, setEmitida] = useState<{ id: string; codigo: string; blob: Blob } | null>(null);
   const [descargando, setDescargando] = useState(false);
   const [enviando, setEnviando] = useState(false);
+
+  function invalidarEmision() {
+    setEmision(null);
+    setEmitida(null);
+  }
+
+  async function refreshHistorial() {
+    const hi = await listConstanciasMatricula(matriculaId);
+    if (hi.ok) setHistorial(hi.data);
+  }
 
   const plantilla = useMemo(
     () => plantillas.find((p) => p.id === esquemaId) ?? null,
@@ -94,7 +107,7 @@ export function ConstanciaModal({
   useEffect(() => {
     if (!open) return;
     setLoading(true);
-    setEmitida(null);
+    invalidarEmision();
     setEnviarAlAlumno(true);
     setExtraEmail('');
     void (async () => {
@@ -142,7 +155,7 @@ export function ConstanciaModal({
       setTexto(reemplazarVariablesConstancia(p.texto_cuerpo ?? '', datos));
       setDestinatario(p.destinatario_bloque ?? '');
     }
-    setEmitida(null);
+    invalidarEmision();
   }
 
   const esquemaRender = useMemo(
@@ -169,28 +182,43 @@ export function ConstanciaModal({
       toast.error('El texto de la constancia no puede estar vacío.');
       return null;
     }
-    const res = await emitirConstancia({
-      matriculaId,
-      esquemaId: plantilla.id,
-      textoFinal: texto.trim(),
-      destinatarioFinal: destinatario.trim() || null,
-    });
-    if (!res.ok) {
-      toast.error(`No pudimos emitir la constancia: ${humanizeError(res.error)}`);
-      return null;
+    // 1) Emitir SÓLO una vez: si un intento previo ya creó la fila en BD pero el
+    //    render/upload falló, reusamos esa emisión en lugar de crear otra con
+    //    código nuevo (§6 · evita constancias fantasma en el historial).
+    let em = emision;
+    if (!em) {
+      const res = await emitirConstancia({
+        matriculaId,
+        esquemaId: plantilla.id,
+        textoFinal: texto.trim(),
+        destinatarioFinal: destinatario.trim() || null,
+      });
+      if (!res.ok) {
+        toast.error(`No pudimos emitir la constancia: ${humanizeError(res.error)}`);
+        return null;
+      }
+      em = { id: res.data.id, codigo: res.data.codigo };
+      setEmision(em);
+      void refreshHistorial();
     }
+    // 2) Render + upload sobre la MISMA emisión (idempotente en reintentos).
     const blob = await renderConstanciaPdfBlob(
-      { ...datosRender, codigo: res.data.codigo },
+      { ...datosRender, codigo: em.codigo },
       esquemaRender,
     );
     // Guardar el PDF para historial/re-descarga y para el adjunto del email.
-    const up = await uploadConstanciaPdf(res.data.id, res.data.codigo, blob);
-    if (up.ok) await constanciaRegistrarPdf(res.data.id, up.data);
-    const em = { id: res.data.id, codigo: res.data.codigo, blob };
-    setEmitida(em);
-    const hi = await listConstanciasMatricula(matriculaId);
-    if (hi.ok) setHistorial(hi.data);
-    return em;
+    const up = await uploadConstanciaPdf(em.id, em.codigo, blob);
+    if (up.ok) {
+      await constanciaRegistrarPdf(em.id, up.data);
+    } else {
+      toast.warning(
+        'El PDF se generó y podés descargarlo, pero no se pudo guardar en el archivo — el envío por email y la re-descarga desde el historial pueden fallar. Reintentá si los necesitás.',
+      );
+    }
+    const done = { id: em.id, codigo: em.codigo, blob };
+    setEmitida(done);
+    void refreshHistorial();
+    return done;
   }
 
   async function onDescargar() {
@@ -240,8 +268,7 @@ export function ConstanciaModal({
         return;
       }
       toast.success(`Constancia enviada a ${res.data.to.join(', ')}`);
-      const hi = await listConstanciasMatricula(matriculaId);
-      if (hi.ok) setHistorial(hi.data);
+      void refreshHistorial();
     } catch (e) {
       toast.error(humanizeError(e as { message?: string }));
     } finally {
@@ -325,7 +352,7 @@ export function ConstanciaModal({
                 value={destinatario}
                 onChange={(e) => {
                   setDestinatario(e.target.value);
-                  setEmitida(null);
+                  invalidarEmision();
                 }}
                 className="input-field font-medium"
               />
@@ -340,7 +367,7 @@ export function ConstanciaModal({
                 value={texto}
                 onChange={(e) => {
                   setTexto(e.target.value);
-                  setEmitida(null);
+                  invalidarEmision();
                 }}
                 className="input-field"
               />
