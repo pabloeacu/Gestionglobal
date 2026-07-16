@@ -5,11 +5,19 @@ import type { Database } from '@/types/database';
 export type CertificadoEsquemaRow = Database['public']['Tables']['certificado_esquemas']['Row'];
 export type CertificadoEsquemaUpdate = Database['public']['Tables']['certificado_esquemas']['Update'];
 
-/** Lista todos los esquemas (gerencia · RLS valida staff). */
-export async function listarEsquemas(): Promise<ApiResponse<CertificadoEsquemaRow[]>> {
+// Chunk CONST (mig 0356): la tabla ahora aloja DOS tipos de plantilla. El default
+// del parámetro es 'certificado' para que los callers del diploma queden idénticos
+// (las plantillas constancia no deben aparecer en los selectores de curso/evento).
+export type EsquemaTipo = 'certificado' | 'constancia';
+
+/** Lista los esquemas de un tipo (gerencia · RLS valida staff). */
+export async function listarEsquemas(
+  tipo: EsquemaTipo = 'certificado',
+): Promise<ApiResponse<CertificadoEsquemaRow[]>> {
   const { data, error } = await supabase
     .from('certificado_esquemas')
     .select('*')
+    .eq('tipo', tipo)
     .order('es_default', { ascending: false })
     .order('updated_at', { ascending: false });
   if (error) return fail('LIST_FAIL', error.message, error);
@@ -27,12 +35,15 @@ export async function getEsquema(id: string): Promise<ApiResponse<CertificadoEsq
   return ok((data ?? null) as CertificadoEsquemaRow | null);
 }
 
-/** Devuelve el esquema marcado como default (semilla institucional). */
-export async function getEsquemaDefault(): Promise<ApiResponse<CertificadoEsquemaRow | null>> {
+/** Devuelve el esquema default del tipo (hay UN default por tipo — mig 0356). */
+export async function getEsquemaDefault(
+  tipo: EsquemaTipo = 'certificado',
+): Promise<ApiResponse<CertificadoEsquemaRow | null>> {
   const { data, error } = await supabase
     .from('certificado_esquemas')
     .select('*')
     .eq('es_default', true)
+    .eq('tipo', tipo)
     .maybeSingle();
   if (error) return fail('GET_FAIL', error.message, error);
   return ok((data ?? null) as CertificadoEsquemaRow | null);
@@ -40,13 +51,14 @@ export async function getEsquemaDefault(): Promise<ApiResponse<CertificadoEsquem
 
 /** Crea un nuevo esquema (con todos los defaults institucionales del schema SQL). */
 export async function crearEsquema(
-  input: { nombre: string; descripcion?: string | null },
+  input: { nombre: string; descripcion?: string | null; tipo?: EsquemaTipo },
 ): Promise<ApiResponse<CertificadoEsquemaRow>> {
   const { data, error } = await supabase
     .from('certificado_esquemas')
     .insert({
       nombre: input.nombre,
       descripcion: input.descripcion ?? null,
+      tipo: input.tipo ?? 'certificado',
     })
     .select('*')
     .single();
@@ -148,9 +160,18 @@ export async function subirAssetEsquema(
   }
 }
 
-/** Setea es_default true en este esquema y false en cualquier otro. */
-export async function setEsquemaDefault(id: string): Promise<ApiResponse<void>> {
-  await supabase.from('certificado_esquemas').update({ es_default: false }).eq('es_default', true);
+/** Setea es_default true en este esquema y false en los demás DEL MISMO TIPO
+ *  (hay un default por tipo — mig 0356; sin el filtro, marcar default una
+ *  constancia destronaría al default del diploma). */
+export async function setEsquemaDefault(
+  id: string,
+  tipo: EsquemaTipo = 'certificado',
+): Promise<ApiResponse<void>> {
+  await supabase
+    .from('certificado_esquemas')
+    .update({ es_default: false })
+    .eq('es_default', true)
+    .eq('tipo', tipo);
   const { error } = await supabase
     .from('certificado_esquemas')
     .update({ es_default: true })

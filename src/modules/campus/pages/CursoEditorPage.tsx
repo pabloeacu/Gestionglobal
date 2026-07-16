@@ -533,6 +533,13 @@ function DatosTab({
             >
               Gestionar plantillas →
             </a>
+            {/* Chunk CONST · editor de plantillas de constancia de inscripción */}
+            <a
+              href="/gerencia/campus/plantillas-constancia"
+              className="text-[11px] font-medium text-brand-cyan hover:underline"
+            >
+              Constancias →
+            </a>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <Field

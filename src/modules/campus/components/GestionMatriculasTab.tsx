@@ -7,6 +7,7 @@ import {
   Circle,
   Download,
   Eye,
+  FileBadge,
   Lock,
   Loader2,
   ShieldCheck,
@@ -39,6 +40,7 @@ import {
 import { generateCertificadoPdf } from '../lib/generateCertificadoPdf';
 import { AsignarAlumnoDrawer } from './AsignarAlumnoDrawer';
 import { CertificadoPreviewModal } from './CertificadoPreviewModal';
+import { ConstanciaModal } from './ConstanciaModal';
 import { RegistrarPagoModal } from './RegistrarPagoModal';
 import type { CertificadoParaPdf } from '@/services/api/campus';
 import { ExportButtons } from '@/components/reports/ExportButtons';
@@ -77,6 +79,8 @@ export function GestionMatriculasTab({ data }: { data: CursoDetalle }) {
   const [previewCert, setPreviewCert] = useState<CertificadoParaPdf | null>(null);
   const [previewEsquema, setPreviewEsquema] = useState<EsquemaCertSnapshot | null>(null);
   const [desasignando, setDesasignando] = useState<string | null>(null);
+  // Chunk CONST · constancia de inscripción a demanda por alumno.
+  const [constanciaTarget, setConstanciaTarget] = useState<MatriculaListItem | null>(null);
   const confirm = useConfirm();
 
   const load = useCallback(async () => {
@@ -334,6 +338,16 @@ export function GestionMatriculasTab({ data }: { data: CursoDetalle }) {
                       </p>
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
+                      {/* Chunk CONST · constancia de inscripción a demanda */}
+                      <button
+                        type="button"
+                        onClick={() => setConstanciaTarget(m)}
+                        title="Emitir constancia de inscripción (descargar o enviar por email)"
+                        className="inline-flex items-center gap-1 rounded-lg border border-brand-cyan/30 bg-brand-cyan/5 px-2 py-1 text-[11px] font-semibold text-brand-cyan transition hover:bg-brand-cyan/10"
+                      >
+                        <FileBadge size={12} />
+                        Constancia
+                      </button>
                       {cert ? (
                         <span className="inline-flex items-center gap-1 rounded-full border border-brand-cyan/30 bg-brand-cyan/10 px-2.5 py-1 text-[11px] font-semibold text-brand-cyan">
                           <Award size={12} /> Certificado emitido
@@ -496,6 +510,15 @@ export function GestionMatriculasTab({ data }: { data: CursoDetalle }) {
         onClose={() => setDrawerOpen(false)}
         onAsignado={() => void load()}
       />
+      {/* Chunk CONST · constancia de inscripción a demanda */}
+      {constanciaTarget && (
+        <ConstanciaModal
+          open={constanciaTarget !== null}
+          onClose={() => setConstanciaTarget(null)}
+          matriculaId={constanciaTarget.id}
+          alumnoNombre={constanciaTarget.alumno_nombre ?? 'Alumno'}
+        />
+      )}
       <RegistrarPagoModal
         open={pagoTarget !== null}
         matriculaId={pagoTarget?.id ?? null}

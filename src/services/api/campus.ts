@@ -2100,6 +2100,9 @@ export async function resolverEsquemaParaCert(
     .from('certificado_esquemas')
     .select('*')
     .eq('es_default', true)
+    // mig 0356: hay un default POR TIPO — sin este filtro, maybeSingle vería
+    // 2 filas (diploma + constancia) y fallaría silenciosamente.
+    .eq('tipo', 'certificado')
     .maybeSingle();
   return normalizarEsquema(def);
 }
@@ -2270,6 +2273,9 @@ export async function resolverEsquemaPorCurso(
     .from('certificado_esquemas')
     .select('*')
     .eq('es_default', true)
+    // mig 0356: hay un default POR TIPO — sin este filtro, maybeSingle vería
+    // 2 filas (diploma + constancia) y fallaría silenciosamente.
+    .eq('tipo', 'certificado')
     .maybeSingle();
   return normalizarEsquema(def);
 }

@@ -52,6 +52,7 @@ const MisCursosPage = lazy(() => import('@/modules/campus').then(m => ({ default
 const VerificarCertificadoPage = lazy(() => import('@/modules/campus').then(m => ({ default: m.VerificarCertificadoPage })));
 const CertificadoSandboxPage = lazy(() => import('@/modules/campus').then(m => ({ default: m.CertificadoSandboxPage })));
 const CertificadoPlantillasPage = lazy(() => import('@/modules/campus').then(m => ({ default: m.CertificadoPlantillasPage })));
+const ConstanciaPlantillasPage = lazy(() => import('@/modules/campus').then(m => ({ default: m.ConstanciaPlantillasPage })));
 const ReportesHubPage = lazy(() => import('@/modules/reportes').then(m => ({ default: m.ReportesHubPage })));
 const ImportadorPage = lazy(() => import('@/modules/reportes').then(m => ({ default: m.ImportadorPage })));
 const CtaCteListPage = lazy(() => import('@/modules/cta_cte').then(m => ({ default: m.CtaCteListPage })));
@@ -399,6 +400,7 @@ export function App() {
           <Route path="campus" element={<CampusListPage />} />
           <Route path="campus/sandbox" element={<CertificadoSandboxPage />} />
           <Route path="campus/plantillas" element={<CertificadoPlantillasPage />} />
+          <Route path="campus/plantillas-constancia" element={<ConstanciaPlantillasPage />} />
           <Route path="campus/:id" element={<CursoEditorPage />} />
           <Route path="reportes" element={<ReportesHubPage />} />
           <Route path="reportes/importador" element={<ImportadorPage />} />

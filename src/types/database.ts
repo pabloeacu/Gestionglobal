@@ -999,6 +999,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           descripcion: string | null
+          destinatario_bloque: string | null
           es_default: boolean
           firma_1_cargo: string
           firma_1_img_url: string | null
@@ -1008,11 +1009,14 @@ export type Database = {
           firma_2_nombre: string
           id: string
           leyenda_legal: string
+          lugar: string | null
           marca_logo_url: string | null
           nombre: string
           sello_logo_url: string | null
           sigla_texto: string
+          texto_cuerpo: string | null
           texto_descriptivo: string
+          tipo: string
           updated_at: string
           visible_firma_1: boolean
           visible_firma_2: boolean
@@ -1030,6 +1034,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           descripcion?: string | null
+          destinatario_bloque?: string | null
           es_default?: boolean
           firma_1_cargo?: string
           firma_1_img_url?: string | null
@@ -1039,11 +1044,14 @@ export type Database = {
           firma_2_nombre?: string
           id?: string
           leyenda_legal?: string
+          lugar?: string | null
           marca_logo_url?: string | null
           nombre: string
           sello_logo_url?: string | null
           sigla_texto?: string
+          texto_cuerpo?: string | null
           texto_descriptivo?: string
+          tipo?: string
           updated_at?: string
           visible_firma_1?: boolean
           visible_firma_2?: boolean
@@ -1061,6 +1069,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           descripcion?: string | null
+          destinatario_bloque?: string | null
           es_default?: boolean
           firma_1_cargo?: string
           firma_1_img_url?: string | null
@@ -1070,11 +1079,14 @@ export type Database = {
           firma_2_nombre?: string
           id?: string
           leyenda_legal?: string
+          lugar?: string | null
           marca_logo_url?: string | null
           nombre?: string
           sello_logo_url?: string | null
           sigla_texto?: string
+          texto_cuerpo?: string | null
           texto_descriptivo?: string
+          tipo?: string
           updated_at?: string
           visible_firma_1?: boolean
           visible_firma_2?: boolean
@@ -1875,6 +1887,99 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      constancias: {
+        Row: {
+          administracion_id: string | null
+          alumno_profile_id: string | null
+          codigo: string
+          created_at: string
+          curso_id: string
+          destinatario_final: string | null
+          emitida_por: string | null
+          enviado_a: string | null
+          enviado_email_at: string | null
+          esquema_snapshot: Json
+          id: string
+          matricula_id: string
+          payload_snapshot: Json
+          pdf_storage_path: string | null
+          texto_final: string
+          updated_at: string
+        }
+        Insert: {
+          administracion_id?: string | null
+          alumno_profile_id?: string | null
+          codigo: string
+          created_at?: string
+          curso_id: string
+          destinatario_final?: string | null
+          emitida_por?: string | null
+          enviado_a?: string | null
+          enviado_email_at?: string | null
+          esquema_snapshot?: Json
+          id?: string
+          matricula_id: string
+          payload_snapshot?: Json
+          pdf_storage_path?: string | null
+          texto_final: string
+          updated_at?: string
+        }
+        Update: {
+          administracion_id?: string | null
+          alumno_profile_id?: string | null
+          codigo?: string
+          created_at?: string
+          curso_id?: string
+          destinatario_final?: string | null
+          emitida_por?: string | null
+          enviado_a?: string | null
+          enviado_email_at?: string | null
+          esquema_snapshot?: Json
+          id?: string
+          matricula_id?: string
+          payload_snapshot?: Json
+          pdf_storage_path?: string | null
+          texto_final?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "constancias_administracion_id_fkey"
+            columns: ["administracion_id"]
+            isOneToOne: false
+            referencedRelation: "administraciones"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "constancias_alumno_profile_id_fkey"
+            columns: ["alumno_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "constancias_curso_id_fkey"
+            columns: ["curso_id"]
+            isOneToOne: false
+            referencedRelation: "cursos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "constancias_emitida_por_fkey"
+            columns: ["emitida_por"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "constancias_matricula_id_fkey"
+            columns: ["matricula_id"]
+            isOneToOne: false
+            referencedRelation: "curso_matriculas"
             referencedColumns: ["id"]
           },
         ]
@@ -8406,6 +8511,10 @@ export type Database = {
           visto_at: string
         }[]
       }
+      constancia_registrar_pdf: {
+        Args: { p_constancia_id: string; p_path: string }
+        Returns: undefined
+      }
       convertir_prospecto_a_cliente: {
         Args: { p_administracion_id: string; p_prospecto_id: string }
         Returns: undefined
@@ -8723,6 +8832,15 @@ export type Database = {
           p_vencimiento: string
         }
         Returns: string
+      }
+      emitir_constancia: {
+        Args: {
+          p_destinatario_final?: string
+          p_esquema_id: string
+          p_matricula_id: string
+          p_texto_final: string
+        }
+        Returns: Json
       }
       encolar_email: {
         Args: {
