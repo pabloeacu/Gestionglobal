@@ -332,7 +332,7 @@ export function ConstanciaModal({
               <select
                 value={esquemaId}
                 onChange={(e) => onCambiarPlantilla(e.target.value)}
-                className="input-field"
+                className="input-field w-full"
               >
                 {plantillas.map((p) => (
                   <option key={p.id} value={p.id}>
@@ -354,7 +354,7 @@ export function ConstanciaModal({
                   setDestinatario(e.target.value);
                   invalidarEmision();
                 }}
-                className="input-field font-medium"
+                className="input-field font-medium w-full"
               />
             </label>
 
@@ -369,7 +369,7 @@ export function ConstanciaModal({
                   setTexto(e.target.value);
                   invalidarEmision();
                 }}
-                className="input-field"
+                className="input-field w-full"
               />
             </label>
 
@@ -397,7 +397,7 @@ export function ConstanciaModal({
                 value={extraEmail}
                 onChange={(e) => setExtraEmail(e.target.value)}
                 placeholder="Otro destinatario (opcional) — ej: el RPAC"
-                className="input-field mt-2"
+                className="input-field mt-2 w-full"
               />
             </div>
 
