@@ -105,6 +105,7 @@ export function ConstanciaPremium({
   const dorado = e.color_dorado || '#a87f3c';
   const ink = '#0f172a';
   const inkSoft = '#475569';
+  const cyanCampus = '#009eca'; // celeste institucional de la plataforma (brand.cyan)
 
   const parrafos = (datos.texto ?? '')
     .split(/\n{2,}/)
@@ -143,17 +144,23 @@ export function ConstanciaPremium({
           background: `linear-gradient(90deg, ${acento} 0%, ${acento} 55%, ${dorado} 100%)`,
         }}
       />
-      {/* Motivo de triángulos (identidad de la plataforma) */}
+      {/* Marca del campus (birrete · lucide GraduationCap) en el celeste
+          institucional — reemplaza el motivo de triángulos (pedido Pablo). */}
       <svg
-        width={120}
-        height={60}
-        viewBox="0 0 120 60"
-        style={{ position: 'absolute', top: 26, left: CONST_W - 150, pointerEvents: 'none' }}
+        width={58}
+        height={58}
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke={cyanCampus}
+        strokeWidth={1.75}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        style={{ position: 'absolute', top: 40, left: CONST_W - 86 - 58, pointerEvents: 'none' }}
         aria-hidden
       >
-        <polygon points="0,60 30,10 60,60" fill={acento} opacity={0.14} />
-        <polygon points="35,60 62,18 89,60" fill={dorado} opacity={0.35} />
-        <polygon points="70,60 92,26 114,60" fill={acento} opacity={0.55} />
+        <path d="M21.42 10.922a1 1 0 0 0-.019-1.838L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.832l8.57 3.908a2 2 0 0 0 1.66 0z" />
+        <path d="M22 10v6" />
+        <path d="M6 12.5V16a6 3 0 0 0 12 0v-3.5" />
       </svg>
 
       {/* Watermark opcional */}
@@ -260,25 +267,25 @@ export function ConstanciaPremium({
             }}
           >
             {firmas.map((f, i) => (
-              <div key={i} style={{ textAlign: 'center', width: 250 }}>
+              <div key={i} style={{ textAlign: 'center', width: 260 }}>
                 {f.img && (
                   <img
                     src={f.img}
                     crossOrigin="anonymous"
                     alt=""
                     style={{
-                      height: 78,
-                      maxWidth: 230,
+                      height: 98,
+                      maxWidth: 252,
                       objectFit: 'contain',
                       display: 'block',
-                      margin: '0 auto -8px',
+                      margin: '0 auto -12px',
                     }}
                   />
                 )}
                 <div
                   style={{
                     borderTop: `1.4px solid ${inkSoft}`,
-                    width: 210,
+                    width: 230,
                     margin: '0 auto',
                     paddingTop: 7,
                   }}
