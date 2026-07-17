@@ -21,6 +21,7 @@ import {
   Tag,
 } from 'lucide-react';
 import { toast } from '@/lib/toast';
+import { abrirArchivoProtegido } from '@/lib/storageUrls';
 import { PedidosDocPanel } from '@/components/common/PedidosDocPanel';
 import {
   fetchClienteTramites,
@@ -284,17 +285,16 @@ function TimelineItem({
                       el nombre limpio en el filesystem; target=_blank
                       mantiene la pestaña abierta si el navegador prefiere
                       abrir inline (PDF nativo). */}
-                  <a
-                    href={url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    download={name}
+                  {/* E-GG-126: bucket privado -> firmar on-click */}
+                  <button
+                    type="button"
+                    onClick={() => void abrirArchivoProtegido(url)}
                     title={`Descargar ${name}`}
                     className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-brand-ink hover:bg-slate-200"
                   >
                     <FileText size={11} />
                     {name}
-                  </a>
+                  </button>
                 </li>
               );
             })}

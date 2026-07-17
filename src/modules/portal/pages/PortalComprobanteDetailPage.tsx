@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { toast } from '@/lib/toast';
+import { resolverArchivoProtegido } from '@/lib/storageUrls';
 import {
   ArrowLeft,
   FileText,
@@ -117,7 +118,9 @@ export function PortalComprobanteDetailPage() {
     // simple. El cliente recibe LA FACTURA, no una réplica.
     if (compExt.partner_factura_pdf_url) {
       try {
-        const res = await fetch(compExt.partner_factura_pdf_url);
+        // E-GG-126: bucket privado -> resolver a signed URL antes del fetch
+        const urlFactura = await resolverArchivoProtegido(compExt.partner_factura_pdf_url);
+        const res = await fetch(urlFactura);
         const blob = await res.blob();
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');

@@ -16,6 +16,7 @@ import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
 import { toast } from '@/lib/toast';
 import { humanizeError } from '@/lib/errors';
 import { formatDateTime } from '@/lib/dates';
+import { abrirArchivoProtegido } from '@/lib/storageUrls';
 import {
   fetchModeracionPendientes,
   moderarGestorAvance,
@@ -216,9 +217,10 @@ export function ModeracionCard({ item, onResuelto }: { item: ModeracionPendiente
           <ul className="mt-3 flex flex-wrap gap-2">
             {archivos.map((u, i) => (
               <li key={i} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs text-brand-ink">
-                <a href={u} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 hover:text-brand-cyan">
+                {/* E-GG-126: bucket privado → firmar on-click */}
+                <button type="button" onClick={() => void abrirArchivoProtegido(u)} className="inline-flex items-center gap-1 hover:text-brand-cyan">
                   <Paperclip size={12} /> Adjunto {i + 1}
-                </a>
+                </button>
                 {editando && (
                   <button type="button" onClick={() => setArchivos((a) => a.filter((_, j) => j !== i))} className="text-red-500 hover:text-red-700" aria-label="Quitar adjunto">
                     <X size={11} />

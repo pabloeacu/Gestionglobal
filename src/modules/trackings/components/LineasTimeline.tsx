@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { formatDateTime } from '@/lib/dates';
+import { abrirArchivoProtegido, nombreArchivoStorage } from '@/lib/storageUrls';
 import type {
   TrackingLineaRow,
   TrackingCategoriaConfigRow,
@@ -214,14 +215,13 @@ export function LineasTimeline({ lineas, categoriaConfigMap }: LineasTimelinePro
                         <ul className="mt-2 flex flex-wrap gap-1.5">
                           {linea.archivos_urls!.map((u, i) => (
                             <li key={i}>
-                              <a
-                                href={u}
-                                target="_blank"
-                                rel="noopener noreferrer"
+                              <button
+                                type="button"
+                                onClick={() => void abrirArchivoProtegido(u)}
                                 className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] text-slate-700 hover:border-slate-300"
                               >
-                                <Paperclip size={10} /> {u.split('/').pop()?.slice(0, 28)}
-                              </a>
+                                <Paperclip size={10} /> {nombreArchivoStorage(u).slice(0, 28)}
+                              </button>
                             </li>
                           ))}
                         </ul>

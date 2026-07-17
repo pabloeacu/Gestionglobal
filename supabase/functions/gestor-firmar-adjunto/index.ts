@@ -1,4 +1,4 @@
-// gestor-firmar-adjunto v2 (E-GG-89 + E-GG-91 pieza 2): firma URLs de los
+// gestor-firmar-adjunto v3 (E-GG-89 + E-GG-91 + E-GG-126): firma URLs de los
 // documentos del cliente para el panel del gestor externo, del lado SERVIDOR
 // con service_role.
 //
@@ -13,6 +13,10 @@
 // firma los documentos que el cliente subió a los "Pedidos de Documentación"
 // (bucket pedidos-doc-cliente), acotado al trámite del token y a items
 // subido/aprobado (nunca 'pendiente' ni 'rechazado').
+//
+// v3 (E-GG-126): gestor-uploads pasó a bucket PRIVADO. Fuente 3c: el gestor
+// puede firmar (i) sus propias subidas (path que empieza con su token) y
+// (ii) archivos presentes en líneas de tracking PUBLICADAS de su trámite.
 //
 // verify_jwt = false: la autenticación es el token de acceso externo, no un JWT.
 
@@ -107,6 +111,28 @@ Deno.serve(async (req) => {
       .limit(1)
       .maybeSingle();
     if (ped) bucket = 'pedidos-doc-cliente';
+  }
+
+  //    3c) E-GG-126 · gestor-uploads (privado desde mig 0364): el gestor firma
+  //        (i) sus propias subidas — el path arranca con SU token — o
+  //        (ii) archivos de líneas de tracking PUBLICADAS de su trámite.
+  if (!bucket) {
+    if (path.startsWith(token + '/')) {
+      bucket = 'gestor-uploads';
+    } else if (tramiteId) {
+      const { data: lineas } = await supabase
+        .from('tracking_lineas')
+        .select('archivos_urls')
+        .eq('tramite_id', tramiteId)
+        .eq('moderacion_estado', 'publicado')
+        .not('archivos_urls', 'is', null);
+      const presente = (lineas ?? []).some((l) =>
+        ((l.archivos_urls as string[] | null) ?? []).some(
+          (u) => u === path || u.endsWith('/gestor-uploads/' + path),
+        ),
+      );
+      if (presente) bucket = 'gestor-uploads';
+    }
   }
 
   if (!bucket) return jsonError(403, 'El adjunto no pertenece a esta solicitud');

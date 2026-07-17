@@ -23,6 +23,7 @@ import { cn } from '@/lib/cn';
 import { toast } from '@/lib/toast';
 import { humanizeError } from '@/lib/errors';
 import { formatDateTime } from '@/lib/dates';
+import { abrirArchivoProtegido } from '@/lib/storageUrls';
 import {
   colorBadge,
   type TrackingLineaRow,
@@ -187,15 +188,15 @@ export function LineaTrackingCard({
             <ul className="mt-3 flex flex-wrap gap-2">
               {linea.archivos_urls.map((u, i) => (
                 <li key={i}>
-                  <a
-                    href={u}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  {/* E-GG-126: bucket privado → firmar on-click */}
+                  <button
+                    type="button"
+                    onClick={() => void abrirArchivoProtegido(u)}
                     className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs text-slate-700 hover:bg-slate-100"
                   >
                     <Paperclip className="h-3.5 w-3.5" />
                     Adjunto {i + 1}
-                  </a>
+                  </button>
                 </li>
               ))}
             </ul>

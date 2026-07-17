@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
+import { parsearArchivoStorage } from '@/lib/storageUrls';
 import {
   Loader2,
   ShieldCheck,
@@ -50,6 +51,7 @@ export function AccesoExternoPage() {
   // Pedido Pablo: en el estado de error (token vencido) pre-armamos el mail de
   // "pedir un nuevo enlace" con cliente + trámite. La RPC resuelve aunque venció.
   const [refData, setRefData] = useState<AccesoRef | null>(null);
+
 
   useEffect(() => {
     let cancelled = false;
@@ -533,6 +535,23 @@ type InfoSolicitud = {
 };
 
 function PanelGestor({ token }: { token: string }) {
+  // E-GG-126: gestor-uploads pasó a bucket privado. El gestor (anónimo, por
+  // token) no puede firmar client-side: extrae el path de la URL persistida y
+  // firma vía la edge fn gestor-firmar-adjunto (v3 valida el candado por token).
+  async function abrirAdjuntoGestor(url: string) {
+    const parsed = parsearArchivoStorage(url);
+    if (!parsed) {
+      window.open(url, '_blank', 'noopener');
+      return;
+    }
+    const sr = await firmarAdjuntoCliente(token, parsed.path);
+    if (sr.ok) {
+      window.open(sr.data, '_blank', 'noopener');
+    } else {
+      toast.error('No pudimos abrir el archivo — reintentá o pedí un enlace nuevo.');
+    }
+  }
+
   const [avances, setAvances] = useState<GestorAvanceLinea[] | null>(null);
   const [loadingAvances, setLoadingAvances] = useState(true);
   const [info, setInfo] = useState<InfoSolicitud | null>(null);
@@ -978,14 +997,15 @@ function PanelGestor({ token }: { token: string }) {
                   <ul className="mt-1.5 flex flex-wrap gap-1.5">
                     {a.archivos_urls.map((u, k) => (
                       <li key={k}>
-                        <a
-                          href={u}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                        {/* E-GG-126: gestor-uploads es privado; el gestor
+                            (anonimo, por token) firma via edge fn on-click */}
+                        <button
+                          type="button"
+                          onClick={() => void abrirAdjuntoGestor(u)}
                           className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] text-brand-cyan hover:underline"
                         >
                           <Paperclip size={10} /> {nombreArchivo(u)}
-                        </a>
+                        </button>
                       </li>
                     ))}
                   </ul>

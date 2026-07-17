@@ -99,6 +99,7 @@ import { CerrarTramiteDialog } from '../components/CerrarTramiteDialog';
 import { useCancelarTramite } from '@/modules/tramites/lib/useAvanzarTramite';
 import { ReabrirTramiteDialog } from '../components/ReabrirTramiteDialog';
 import { GenerarComprobanteTramiteModal } from '../components/GenerarComprobanteTramiteModal';
+import { abrirArchivoProtegido } from '@/lib/storageUrls';
 import {
   getSolicitudVinculadaTramite,
   type SolicitudVinculadaTramite,
@@ -937,7 +938,21 @@ export function TrackingDetailPage() {
             <Dl label="Estado" value={estadoConfigActual?.label ?? data.estado} />
             <Dl label="Administración" value={data.administracion?.nombre ?? '—'} />
             <Dl label="Consorcio" value={data.consorcio?.nombre ?? '—'} />
-            <Dl label="Documento final" value={data.documento_final_url ?? '—'} link={!!data.documento_final_url} />
+            {/* E-GG-126: el documento final puede vivir en bucket privado -> firmar on-click */}
+            <div className="flex items-baseline justify-between gap-3 text-sm">
+              <span className="text-brand-muted">Documento final</span>
+              {data.documento_final_url ? (
+                <button
+                  type="button"
+                  onClick={() => void abrirArchivoProtegido(data.documento_final_url!)}
+                  className="max-w-[60%] truncate text-right font-medium text-brand-cyan hover:underline"
+                >
+                  Ver documento
+                </button>
+              ) : (
+                <span className="text-brand-ink">—</span>
+              )}
+            </div>
             {/* JL 2 · obs 1 (follow-up): link al comprobante vinculado para
                 saltar a Facturación (ver/registrar cobranza) tras emitirlo. */}
             {data.comprobante && (
@@ -1113,13 +1128,13 @@ export function TrackingDetailPage() {
             <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {adjuntosTodos.map((a, i) => (
                 <li key={i}>
-                  <a
-                    href={a.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    download={a.nombre}
+                  {/* E-GG-126: los adjuntos de gestor-uploads viven en bucket
+                      privado -> firmar on-click (los ya-firmados pasan tal cual) */}
+                  <button
+                    type="button"
+                    onClick={() => void abrirArchivoProtegido(a.url)}
                     title={`Descargar ${a.nombre}`}
-                    className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-4 transition hover:border-slate-300 hover:shadow-sm"
+                    className="flex w-full items-center gap-3 rounded-xl border border-slate-200 bg-white p-4 text-left transition hover:border-slate-300 hover:shadow-sm"
                   >
                     <span className="grid h-10 w-10 place-items-center rounded-lg bg-slate-100">
                       <FileText className="h-5 w-5 text-slate-500" />
@@ -1150,7 +1165,7 @@ export function TrackingDetailPage() {
                         A gestoría
                       </span>
                     )}
-                  </a>
+                  </button>
                 </li>
               ))}
             </ul>
