@@ -245,28 +245,38 @@ export async function crearMovimientoManual(
 
 export interface IdentificarMovimientoResult {
   movimiento_id: string;
-  administracion_id: string;
+  modo: 'cliente' | 'casa';
+  administracion_id: string | null;
   imputado: number;
   saldo_a_favor_restante: number;
 }
 
-/** Reconoce un ingreso pendiente_id: le asigna el cliente y, opcionalmente,
- *  aplica un monto a un comprobante. NO re-impacta la caja (ya sumó al alta). */
+/** Reconoce un ingreso pendiente_id. Dos caminos (mig 0363):
+ *  - CLIENTE (administracionId seteado): asigna el cliente y opcionalmente
+ *    aplica un monto a un comprobante.
+ *  - CASA (administracionId null): no es de ningún cliente (reintegro bancario,
+ *    ajuste, etc.) — se documenta con categoría y/o descripción y queda como
+ *    ingreso operativo sin tocar la cta.cte de nadie.
+ *  En ningún caso se re-impacta la caja (ya sumó al alta). */
 export async function identificarMovimiento(input: {
   movimientoId: string;
-  administracionId: string;
+  administracionId?: string | null;
   comprobanteId?: string | null;
   montoImputar?: number | null;
   partnerIdAtribucion?: string | null;
+  categoriaId?: string | null;
+  descripcion?: string | null;
 }): Promise<ApiResponse<IdentificarMovimientoResult>> {
   try {
     const args: Record<string, unknown> = {
       p_movimiento_id: input.movimientoId,
-      p_administracion_id: input.administracionId,
     };
+    if (input.administracionId) args.p_administracion_id = input.administracionId;
     if (input.comprobanteId) args.p_comprobante_id = input.comprobanteId;
     if (input.montoImputar != null) args.p_monto_imputar = input.montoImputar;
     if (input.partnerIdAtribucion) args.p_partner_id_atribucion = input.partnerIdAtribucion;
+    if (input.categoriaId) args.p_categoria_id = input.categoriaId;
+    if (input.descripcion?.trim()) args.p_descripcion = input.descripcion.trim();
     const { data, error } = await supabase.rpc(
       'fz_identificar_movimiento' as never,
       args as never,
@@ -275,7 +285,8 @@ export async function identificarMovimiento(input: {
     const r = data as unknown as Record<string, unknown>;
     return ok({
       movimiento_id: String(r.movimiento_id),
-      administracion_id: String(r.administracion_id),
+      modo: (r.modo as 'cliente' | 'casa') ?? 'cliente',
+      administracion_id: (r.administracion_id as string | null) ?? null,
       imputado: Number(r.imputado) || 0,
       saldo_a_favor_restante: Number(r.saldo_a_favor_restante) || 0,
     });
