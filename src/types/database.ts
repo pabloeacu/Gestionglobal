@@ -9095,8 +9095,10 @@ export type Database = {
       }
       fz_identificar_movimiento: {
         Args: {
-          p_administracion_id: string
+          p_administracion_id?: string
+          p_categoria_id?: string
           p_comprobante_id?: string
+          p_descripcion?: string
           p_monto_imputar?: number
           p_movimiento_id: string
           p_partner_id_atribucion?: string

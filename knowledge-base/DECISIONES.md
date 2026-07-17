@@ -4244,3 +4244,26 @@ neto == bruto → NINGÚN número cambia; sólo se corrige el sobre-reporte cuan
 favor real. e2e: las 4 superficies convergen a $205.000 en el escenario con crédito; los
 clientes reales (100k/75k) intactos. Follow-up documentado: plegar al helper las adyacentes
 `kpis_dashboard_global` (filtra estado='autorizado') y `comprobantes_morosos`.
+
+## DGG-109 · Wave 8 (notas JL) · decisiones de Pablo (2026-07-17)
+
+Tras el cierre de la wave 8 (JL-W8-1/2/3, migs 0359-0362, E-GG-142), Pablo resolvió los
+4 pendientes anotados, uno a uno:
+
+1. **Aviso de ingresos sin identificar = universo GLOBAL** (incluye cajas inactivas).
+   Un pendiente es plata sin dueño aunque la caja esté archivada; el aviso insiste hasta
+   resolverlo. **+ FEATURE derivada (mig 0363):** no todo ingreso desconocido es de un
+   cliente — puede ser un reintegro del banco, un ajuste, etc. El modal Identificar ahora
+   tiene dos caminos: "Pago de un cliente" (flujo original) y **"No es de un cliente"**
+   (se documenta con categoría de ingreso y/o descripción y queda como ingreso operativo
+   sin administración: no toca la cta.cte de nadie y la caja no se re-impacta).
+   Verificado e2e + en vivo; el Deshacer funciona para ambos caminos.
+2. **Candado preventivo a las "aplicaciones a cuenta" sin comprobante** (mig 0363,
+   CHECK `chk_imp_comprobante_requerido`): la rama del XOR original (0005) que ningún
+   flujo usa queda deshabilitada hasta diseñar el flujo completo con fórmulas de saldo
+   unificadas (evita la divergencia latente E-GG-142). Reversible con DROP CONSTRAINT.
+3. **Sábana del partner queda como está**: un crédito identificado con partner pero sin
+   aplicar NO figura hasta aplicarse (criterio "todo sobre lo cobrado", DGG-86).
+4. **Comprobantes 'observados' y 'procesando' PUEDEN recibir aplicaciones** (sólo se
+   excluyen anulado/borrador/rechazado/error). Criterio Pablo: la plata del cliente entró
+   igual; si ARCA rechazara un 'procesando' con pago aplicado, se desimputa a mano.
