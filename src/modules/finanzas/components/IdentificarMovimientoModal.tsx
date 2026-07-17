@@ -61,6 +61,7 @@ export function IdentificarMovimientoModal({
   useEffect(() => {
     setCompId('');
     setComprobantes([]);
+    setMontoImputar('');
     if (!adminId) return;
     void listComprobantesConSaldo(adminId).then((r) => {
       if (r.ok) setComprobantes(r.data);
@@ -71,21 +72,38 @@ export function IdentificarMovimientoModal({
     () => comprobantes.find((c) => c.id === compId) ?? null,
     [comprobantes, compId],
   );
-  const montoNum = Number(montoImputar || 0);
+  // §6 E-GG-142: el monto se resetea al cambiar de comprobante (evita stale)
+  useEffect(() => {
+    setMontoImputar('');
+  }, [compId]);
+
+  // §6 E-GG-142: normalizar coma decimal (igual que NuevoMovimientoModal); un
+  // valor tipeado inválido (NaN/0/negativo) se RECHAZA — jamás cae en silencio
+  // a "aplicar el máximo".
+  const montoNum = Number(montoImputar.trim().replace(',', '.'));
+  const montoTipeado = montoImputar.trim().length > 0;
+  const montoInvalido = montoTipeado && (!Number.isFinite(montoNum) || montoNum <= 0);
+  const maxAplicable = comp
+    ? Math.min(movimiento.monto, Number(comp.saldo_pendiente))
+    : 0;
   const aplicar = comp
-    ? montoNum > 0
-      ? Math.min(montoNum, movimiento.monto, Number(comp.saldo_pendiente))
-      : Math.min(movimiento.monto, Number(comp.saldo_pendiente))
+    ? montoTipeado && !montoInvalido
+      ? Math.min(montoNum, maxAplicable)
+      : maxAplicable
     : 0;
   const residual = Math.round((movimiento.monto - aplicar) * 100) / 100;
 
   async function onSubmit() {
     if (!adminId) { toast.error('Elegí el cliente al que pertenece el ingreso'); return; }
-    if (comp && montoNum > 0 && montoNum > Number(comp.saldo_pendiente) + 0.001) {
+    if (comp && montoInvalido) {
+      toast.error('El monto a aplicar no es válido — ingresá un número mayor a 0 o dejalo vacío para aplicar el máximo.');
+      return;
+    }
+    if (comp && montoTipeado && montoNum > Number(comp.saldo_pendiente) + 0.001) {
       toast.error('El monto a aplicar supera el saldo del comprobante');
       return;
     }
-    if (comp && montoNum > movimiento.monto + 0.001) {
+    if (comp && montoTipeado && montoNum > movimiento.monto + 0.001) {
       toast.error('El monto a aplicar supera el importe del movimiento');
       return;
     }
@@ -94,7 +112,7 @@ export function IdentificarMovimientoModal({
       movimientoId: movimiento.id,
       administracionId: adminId,
       comprobanteId: compId || null,
-      montoImputar: comp && montoNum > 0 ? montoNum : null,
+      montoImputar: comp && montoTipeado ? montoNum : null,
       partnerIdAtribucion: partnerId || null,
     });
     setEnviando(false);
@@ -199,10 +217,15 @@ export function IdentificarMovimientoModal({
                   inputMode="decimal"
                   value={montoImputar}
                   onChange={(e) => setMontoImputar(e.target.value)}
-                  placeholder={String(aplicar)}
+                  placeholder={String(maxAplicable)}
                   min={0}
                   step="0.01"
                 />
+                {montoInvalido && (
+                  <p className="mt-1 text-xs text-rose-600">
+                    Monto inválido — ingresá un número mayor a 0 o dejá el campo vacío.
+                  </p>
+                )}
               </Field>
             )}
           </>

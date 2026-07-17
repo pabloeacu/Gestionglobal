@@ -212,7 +212,9 @@ export async function listComprobantesConSaldo(
     .from('comprobantes')
     .select('id, tipo, punto_venta, numero, saldo_pendiente, fecha')
     .eq('administracion_id', administracion_id)
-    .not('estado', 'in', '("anulado","borrador")')
+    // §6 E-GG-142: alinear al patrón "comprobante cobrable" (E-GG-136) — un
+    // rechazado por ARCA o en error no debe recibir aplicaciones.
+    .not('estado', 'in', '("anulado","borrador","rechazado","error")')
     .gt('saldo_pendiente', 0)
     .order('fecha', { ascending: false });
   if (error) return fail('COMP_SALDO_LIST', error.message, error);

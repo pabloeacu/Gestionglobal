@@ -666,6 +666,28 @@ export interface SolicitudVinculadaTramite {
   comprobante_id: string | null;
 }
 
+/** JL-W8-1 · Espejo del comprobante en la solicitud SOLO si aún no tiene uno.
+ *  El `.is('comprobante_id', null)` evita pisar en carrera el vínculo que el
+ *  wizard pudo haber seteado en paralelo (§6 E-GG-142). */
+export async function setSolicitudComprobanteSiVacio(
+  solicitudId: string,
+  comprobanteId: string,
+): Promise<ApiResponse<true>> {
+  const upd = supabase.from('solicitudes') as unknown as {
+    update(values: Record<string, unknown>): {
+      eq(col: string, val: string): {
+        is(col: string, val: null): Promise<{ error: { message: string } | null }>;
+      };
+    };
+  };
+  const { error } = await upd
+    .update({ comprobante_id: comprobanteId })
+    .eq('id', solicitudId)
+    .is('comprobante_id', null);
+  if (error) return fail('SOL_SET_COMPROBANTE', error.message, error);
+  return ok(true);
+}
+
 export async function getSolicitudVinculadaTramite(
   tramiteId: string,
 ): Promise<ApiResponse<SolicitudVinculadaTramite | null>> {

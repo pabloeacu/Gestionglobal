@@ -38,6 +38,12 @@ export function NuevoMovimientoModal({ cajas, onClose, onCreated }: Props) {
   const [sinIdentificar, setSinIdentificar] = useState(false);
   const [creating, setCreating] = useState(false);
 
+  // §6 E-GG-142: al cambiar a egreso el tilde quedaba oculto pero persistido y
+  // reaparecía tildado al volver a ingreso — un pendiente por accidente.
+  useEffect(() => {
+    if (tipo !== 'ingreso') setSinIdentificar(false);
+  }, [tipo]);
+
   useEffect(() => {
     void (async () => {
       const r = await listCategoriasFinanzas();

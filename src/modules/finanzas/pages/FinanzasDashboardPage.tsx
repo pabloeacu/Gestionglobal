@@ -109,16 +109,25 @@ export function FinanzasDashboardPage() {
           tone: balanceNeto >= 0 ? 'emerald' : 'rose' },
       ],
       columns: [
-        { key: 'fecha', label: 'Fecha', width: '12%',
+        { key: 'fecha', label: 'Fecha', width: '10%',
           format: (r) => fmtFecha(r.fecha) },
-        { key: 'caja_nombre', label: 'Caja', width: '18%' },
-        { key: 'tipo', label: 'Tipo', width: '14%' },
-        { key: 'categoria_nombre', label: 'Categoría', width: '18%',
+        { key: 'caja_nombre', label: 'Caja', width: '16%' },
+        { key: 'tipo', label: 'Tipo', width: '10%' },
+        { key: 'categoria_nombre', label: 'Categoría', width: '14%',
           format: (r) => r.categoria_nombre ?? '—' },
-        { key: 'monto', label: 'Monto', align: 'right', width: '14%',
+        { key: 'monto', label: 'Monto', align: 'right', width: '12%',
           format: (r) => formatMoney(r.monto) },
-        { key: 'descripcion', label: 'Descripción', width: '24%',
+        { key: 'descripcion', label: 'Descripción', width: '22%',
           format: (r) => r.descripcion ?? '—' },
+        // E-GG-142: sin esta columna un ingreso sin identificar era
+        // indistinguible de uno normal en el reporte impreso
+        { key: 'estado', label: 'Estado', width: '16%',
+          format: (r) =>
+            (r.estado === 'pendiente_id'
+              ? 'Pendiente de identificar'
+              : r.estado === 'anulado'
+                ? 'Anulado'
+                : 'Identificado') + (r.revertido_at ? ' · revertido' : '') },
       ],
       rows: movs,
     });
@@ -143,7 +152,14 @@ export function FinanzasDashboardPage() {
           value: (r) => r.descripcion ?? '' },
         { key: 'administracion_nombre', label: 'Administración', width: 24,
           value: (r) => r.administracion_nombre ?? '' },
-        { key: 'estado', label: 'Estado', width: 12 },
+        // E-GG-142: estado humanizado (no 'pendiente_id' crudo) + marca revertido
+        { key: 'estado', label: 'Estado', width: 22,
+          value: (r) =>
+            (r.estado === 'pendiente_id'
+              ? 'Pendiente de identificar'
+              : r.estado === 'anulado'
+                ? 'Anulado'
+                : 'Identificado') + (r.revertido_at ? ' · revertido' : '') },
       ],
       rows: movs,
     });
@@ -452,7 +468,8 @@ export function FinanzasDashboardPage() {
                         {m.estado !== 'anulado' && (
                           <MovimientoAdjuntosButton movimientoId={m.id} initialCount={m.adjuntos_count} />
                         )}
-                        {!m.revertido_at && m.estado !== 'anulado' && m.origen !== 'reversion' && (
+                        {/* E-GG-142: un pendiente no se revierte (contador fantasma) — se anula */}
+                        {!m.revertido_at && m.estado !== 'anulado' && m.estado !== 'pendiente_id' && m.origen !== 'reversion' && (
                           <button
                             type="button"
                             onClick={() => onRevertir(m)}

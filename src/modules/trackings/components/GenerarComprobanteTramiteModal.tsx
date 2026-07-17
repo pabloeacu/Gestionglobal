@@ -17,7 +17,7 @@ import { toast } from '@/lib/toast';
 import { emitirComprobanteManual } from '@/services/api/comprobantes';
 import { updateTramite } from '@/services/api/tramites';
 import {
-  setSolicitudComprobante,
+  setSolicitudComprobanteSiVacio,
   type SolicitudVinculadaTramite,
 } from '@/services/api/solicitudes';
 import {
@@ -168,7 +168,7 @@ export function GenerarComprobanteTramiteModal({
     // JL-W8-1: espejar el vínculo en la solicitud de origen (si existe y aún no
     // tiene comprobante) para que el wizard no re-emita un duplicado después.
     if (solicitudVinculada && !solicitudVinculada.comprobante_id) {
-      const sv = await setSolicitudComprobante(solicitudVinculada.id, compId);
+      const sv = await setSolicitudComprobanteSiVacio(solicitudVinculada.id, compId);
       if (!sv.ok) {
         toast.warning(
           'El comprobante no quedó espejado en la solicitud de origen — si corrés el wizard sobre esa solicitud, verificá no duplicar la emisión.',
