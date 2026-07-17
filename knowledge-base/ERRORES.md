@@ -4705,3 +4705,45 @@ no ven. Fixeados todos en el mismo chunk:
 **Aceptado por diseño (no fix):** una plantilla de constancia con emisiones puede borrarse — `constancias`
 persiste `esquema_snapshot` + `pdf_storage_path` y el historial re-descarga por signed URL, nunca re-renderiza
 desde la plantilla (a diferencia del diploma, que sí referencia por FK).
+
+### E-GG-142 · (wave 8 · doble auditoría §6) CREATE OR REPLACE VIEW borra security_invoker + contador fantasma de pendientes
+Al cerrar la wave 8 (notas de JL: advertencia pre-wizard, origen del saldo a favor, movimientos bancarios
+no identificados — migs 0359-0361), la doble auditoría §6 (3 agentes adversariales + e2e BD) cazó **2
+CRÍTICAS** que build+e2e propio no vieron. Fixeadas en mig **0362** + frontend, todo re-verificado e2e:
+
+- **(CRÍTICA · seguridad · regresión de 0005a) `CREATE OR REPLACE VIEW` REEMPLAZA TODAS las reloptions.**
+  La mig 0360 re-creó `cajas_con_saldo` (para alinear el saldo a `estado <> 'anulado'`) sin re-emitir
+  `WITH (security_invoker = true)` → la vista volvió a modo DEFINER (owner postgres, bypassa RLS) y
+  **cualquier authenticated NO-staff (cliente/partner/alumno) leía nombre+saldo de todas las cajas de la
+  gerencia** (probado e2e por el auditor; anon seguía revocado por 0308). Fix: re-CREATE con la reloption
+  explícita; verificado post-fix que un cliente real ve 0 filas. **Lección/regla de bolsillo:** todo
+  `CREATE OR REPLACE VIEW` debe re-emitir `WITH (security_invoker = true)`; smoke de cierre cuando un
+  chunk toca vistas:
+  ```sql
+  SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+  WHERE n.nspname='public' AND c.relkind='v'
+    AND (c.reloptions IS NULL OR NOT 'security_invoker=true' = ANY(c.reloptions));
+  ```
+  Toda vista que devuelva debe tener su modo DEFINER justificado por comentario.
+- **(CRÍTICA · contable) contador fantasma al revertir un pendiente.** `fz_revertir_movimiento` aceptaba
+  un `pendiente_id` y lo dejaba `pendiente_id + revertido_at` — ni `cajas_con_saldo.movs_pendientes` ni
+  `fz_dashboard_kpis` filtraban `revertido_at`, y el fantasma no tenía salida (identificar/anular rechazan
+  revertidos; el botón Identificar exige no-revertido): banner amarillo encendido para siempre por un solo
+  click de gerente. Fix triple: contadores filtran `revertido_at IS NULL`; la RPC bloquea revertir un
+  pendiente ("usá Anular — no tiene imputaciones"); el botón Revertir se oculta en pendientes.
+- **Menores (mismo chunk):** guard `revertido_at` en `fz_desidentificar_movimiento` (evitaba par de
+  reversión asimétrico vía RPC directa); la guarda `sin_identificar` bloquea también `p_consorcio_id`;
+  `fz_conciliar_manual`/`fz_sugerir_matches` aceptan `pendiente_id` (la línea del extracto bancario ES el
+  mismo dinero — antes el caso núcleo de JL no podía conciliarse y se duplicaba); `listComprobantesConSaldo`
+  excluye rechazado/error (patrón E-GG-136); modal Identificar normaliza coma decimal y **rechaza**
+  NaN/0/negativo (antes caían en silencio a "aplicar el máximo") + resetea el monto al cambiar
+  cliente/comprobante; el toggle "sin identificar" se resetea al cambiar a egreso; exports PDF/XLS con
+  estado humanizado; espejo del atajo con `.is('comprobante_id', null)` (no pisa el vínculo del wizard en
+  carrera).
+
+**Anotados sin fix (decisión/consciencia):** el KPI global de pendientes cuenta cajas inactivas (la fila
+aparece en la lista global → hay salida; se decide si restringir cuando haya cajas inactivas reales);
+`listar_creditos` resta TODAS las imputaciones vs extracto/resumen que restan sólo las aplicadas a
+comprobante — hoy cuadran (0 imputaciones a-cuenta en prod), divergiría si un flujo insertara imputaciones
+sin comprobante: pendiente de unificación si aparece ese flujo; un movimiento identificado con partner
+pero sin aplicar no figura en la sábana hasta aplicarse (semántica pre-existente de la sábana).
