@@ -522,6 +522,7 @@ export function SolicitudDetailPage() {
         servicioNombre={data.servicio_nombre}
         servicioPrecioBase={data.servicio_precio_base ?? null}
         receptorNombre={data.cliente_nombre ?? data.solicitante_nombre ?? '—'}
+        solicitudEstado={data.estado}
         onComprobanteCreado={() => void load()}
       />
 

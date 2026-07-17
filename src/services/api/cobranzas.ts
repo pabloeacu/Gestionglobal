@@ -163,6 +163,13 @@ export interface CreditoDisponible {
   saldo_disponible: number;
   descripcion: string | null;
   comprobante_origen: string | null;
+  // JL-W8-2 · origen del crédito (mig 0359 · SOLO informativo): de qué
+  // servicio/curso salió el pago original, para que gerencia sepa "de dónde
+  // salió" sin cambiar la operatoria de aplicación.
+  comprobante_origen_id: string | null;
+  comprobante_origen_estado: string | null;
+  origen_tipo: 'comprobante' | 'comprobante_anulado' | 'pago_a_cuenta' | null;
+  origen_detalle: string | null;
 }
 
 /** Lista los saldos a favor (ingresos con crédito no aplicado) de una admin. */
@@ -182,8 +189,47 @@ export async function listarCreditosAdministracion(
     saldo_disponible: Number(r.saldo_disponible) || 0,
     descripcion: (r.descripcion as string | null) ?? null,
     comprobante_origen: (r.comprobante_origen as string | null) ?? null,
+    comprobante_origen_id: (r.comprobante_origen_id as string | null) ?? null,
+    comprobante_origen_estado: (r.comprobante_origen_estado as string | null) ?? null,
+    origen_tipo: (r.origen_tipo as CreditoDisponible['origen_tipo']) ?? null,
+    origen_detalle: (r.origen_detalle as string | null) ?? null,
   }));
   return ok(out);
+}
+
+// JL-W8-3 · comprobantes con saldo pendiente de una admin (para elegir a cuál
+// aplicar un movimiento identificado). Solo lectura.
+export interface ComprobanteConSaldo {
+  id: string;
+  etiqueta: string;
+  saldo_pendiente: number;
+}
+
+export async function listComprobantesConSaldo(
+  administracion_id: string,
+): Promise<ApiResponse<ComprobanteConSaldo[]>> {
+  const { data, error } = await supabase
+    .from('comprobantes')
+    .select('id, tipo, punto_venta, numero, saldo_pendiente, fecha')
+    .eq('administracion_id', administracion_id)
+    .not('estado', 'in', '("anulado","borrador")')
+    .gt('saldo_pendiente', 0)
+    .order('fecha', { ascending: false });
+  if (error) return fail('COMP_SALDO_LIST', error.message, error);
+  const rows = (data ?? []) as Array<{
+    id: string; tipo: string; punto_venta: number; numero: number | null;
+    saldo_pendiente: number; fecha: string;
+  }>;
+  return ok(
+    rows.map((c) => ({
+      id: c.id,
+      etiqueta:
+        `${c.tipo} ${String(c.punto_venta).padStart(4, '0')}-` +
+        (c.numero != null ? String(c.numero).padStart(8, '0') : 's/n') +
+        ` · ${c.fecha}`,
+      saldo_pendiente: Number(c.saldo_pendiente) || 0,
+    })),
+  );
 }
 
 /** Imputa un crédito disponible a un comprobante pendiente (misma admin). */

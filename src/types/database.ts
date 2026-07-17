@@ -4635,6 +4635,8 @@ export type Database = {
           fecha: string
           hash_dedup: string | null
           id: string
+          identificado_at: string | null
+          identificado_by: string | null
           lote_historico_id: string | null
           monto: number
           motivo_pendiente: string | null
@@ -4661,6 +4663,8 @@ export type Database = {
           fecha?: string
           hash_dedup?: string | null
           id?: string
+          identificado_at?: string | null
+          identificado_by?: string | null
           lote_historico_id?: string | null
           monto: number
           motivo_pendiente?: string | null
@@ -4687,6 +4691,8 @@ export type Database = {
           fecha?: string
           hash_dedup?: string | null
           id?: string
+          identificado_at?: string | null
+          identificado_by?: string | null
           lote_historico_id?: string | null
           monto?: number
           motivo_pendiente?: string | null
@@ -9057,6 +9063,7 @@ export type Database = {
           p_monto: number
           p_partner_id_atribucion?: string
           p_referencia?: string
+          p_sin_identificar?: boolean
           p_tipo: string
         }
         Returns: string
@@ -9081,6 +9088,20 @@ export type Database = {
           movs_pendientes: number
           saldo_total: number
         }[]
+      }
+      fz_desidentificar_movimiento: {
+        Args: { p_movimiento_id: string }
+        Returns: undefined
+      }
+      fz_identificar_movimiento: {
+        Args: {
+          p_administracion_id: string
+          p_comprobante_id?: string
+          p_monto_imputar?: number
+          p_movimiento_id: string
+          p_partner_id_atribucion?: string
+        }
+        Returns: Json
       }
       fz_ignorar_linea_historico: {
         Args: { p_historico_id: string; p_motivo?: string }
@@ -9196,6 +9217,7 @@ export type Database = {
           estado: string
           fecha: string
           id: string
+          identificado_at: string
           monto: number
           movimiento_revertido_id: string
           origen: string
@@ -9546,10 +9568,14 @@ export type Database = {
         Args: { p_administracion_id: string }
         Returns: {
           comprobante_origen: string
+          comprobante_origen_estado: string
+          comprobante_origen_id: string
           descripcion: string
           fecha: string
           monto: number
           movimiento_id: string
+          origen_detalle: string
+          origen_tipo: string
           saldo_disponible: number
         }[]
       }

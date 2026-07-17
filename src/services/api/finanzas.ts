@@ -52,6 +52,8 @@ export interface MovimientoListadoRow {
   movimiento_revertido_id: string | null;
   adjuntos_count: number;
   total_count: number;
+  // JL-W8-3 · cuándo se identificó (NULL = ingreso normal o aún pendiente)
+  identificado_at: string | null;
 }
 
 // ────────────────────────────────────────────────────────────────
@@ -190,6 +192,11 @@ export interface CrearMovimientoInput {
   consorcioId?: string | null;
   imputarAComprobanteId?: string | null;
   partnerIdAtribucion?: string | null; // #145 · flag "participa partner"
+  // JL-W8-3 · ingreso bancario de origen desconocido: entra a caja como
+  // estado 'pendiente_id' (suma al saldo pero no toca cta.cte de nadie)
+  // hasta que la gerencia lo identifique. Incompatible con admin/imputación/
+  // partner (guardas en la RPC · mig 0360).
+  sinIdentificar?: boolean;
 }
 
 export async function crearMovimientoManual(
@@ -211,6 +218,9 @@ export async function crearMovimientoManual(
     if (input.partnerIdAtribucion) {
       args.p_partner_id_atribucion = input.partnerIdAtribucion;
     }
+    if (input.sinIdentificar) {
+      args.p_sin_identificar = true;
+    }
     // Cast: tipos no regenerados aún, pero la RPC ya acepta el param (mig 0101).
     const { data, error } = await supabase.rpc(
       'fz_crear_movimiento_manual',
@@ -223,6 +233,69 @@ export async function crearMovimientoManual(
     );
     if (error) throw error;
     return ok(String(data));
+  } catch (e) {
+    const err = toApiError(e);
+    return fail(err.code, err.message, err.details);
+  }
+}
+
+// ────────────────────────────────────────────────────────────────
+// JL-W8-3 · Identificación de movimientos bancarios pendientes (mig 0360)
+// ────────────────────────────────────────────────────────────────
+
+export interface IdentificarMovimientoResult {
+  movimiento_id: string;
+  administracion_id: string;
+  imputado: number;
+  saldo_a_favor_restante: number;
+}
+
+/** Reconoce un ingreso pendiente_id: le asigna el cliente y, opcionalmente,
+ *  aplica un monto a un comprobante. NO re-impacta la caja (ya sumó al alta). */
+export async function identificarMovimiento(input: {
+  movimientoId: string;
+  administracionId: string;
+  comprobanteId?: string | null;
+  montoImputar?: number | null;
+  partnerIdAtribucion?: string | null;
+}): Promise<ApiResponse<IdentificarMovimientoResult>> {
+  try {
+    const args: Record<string, unknown> = {
+      p_movimiento_id: input.movimientoId,
+      p_administracion_id: input.administracionId,
+    };
+    if (input.comprobanteId) args.p_comprobante_id = input.comprobanteId;
+    if (input.montoImputar != null) args.p_monto_imputar = input.montoImputar;
+    if (input.partnerIdAtribucion) args.p_partner_id_atribucion = input.partnerIdAtribucion;
+    const { data, error } = await supabase.rpc(
+      'fz_identificar_movimiento' as never,
+      args as never,
+    );
+    if (error) throw error;
+    const r = data as unknown as Record<string, unknown>;
+    return ok({
+      movimiento_id: String(r.movimiento_id),
+      administracion_id: String(r.administracion_id),
+      imputado: Number(r.imputado) || 0,
+      saldo_a_favor_restante: Number(r.saldo_a_favor_restante) || 0,
+    });
+  } catch (e) {
+    const err = toApiError(e);
+    return fail(err.code, err.message, err.details);
+  }
+}
+
+/** Deshace una identificación errónea (sólo si no tiene aplicaciones vivas). */
+export async function desidentificarMovimiento(
+  movimientoId: string,
+): Promise<ApiResponse<true>> {
+  try {
+    const { error } = await supabase.rpc(
+      'fz_desidentificar_movimiento' as never,
+      { p_movimiento_id: movimientoId } as never,
+    );
+    if (error) throw error;
+    return ok(true);
   } catch (e) {
     const err = toApiError(e);
     return fail(err.code, err.message, err.details);

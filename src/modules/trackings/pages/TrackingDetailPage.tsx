@@ -99,6 +99,10 @@ import { CerrarTramiteDialog } from '../components/CerrarTramiteDialog';
 import { useCancelarTramite } from '@/modules/tramites/lib/useAvanzarTramite';
 import { ReabrirTramiteDialog } from '../components/ReabrirTramiteDialog';
 import { GenerarComprobanteTramiteModal } from '../components/GenerarComprobanteTramiteModal';
+import {
+  getSolicitudVinculadaTramite,
+  type SolicitudVinculadaTramite,
+} from '@/services/api/solicitudes';
 import { PedidosDocPanel } from '@/components/common/PedidosDocPanel';
 // DGG-41 (2026-06-02 · José Luis): la tab Documentación debe mostrar
 // también los archivos del flujo PedidoDoc (cliente sube docs por bucket
@@ -172,6 +176,11 @@ export function TrackingDetailPage() {
   // DGG-90 (JL #2) · derivación a gestoría del trámite (para el botón "Avisar a la gestoría")
   const [derivacion, setDerivacion] = useState<DerivacionGestoria | null>(null);
   const [avisandoGestoria, setAvisandoGestoria] = useState(false);
+  // JL-W8-1 · solicitud que generó este trámite (para advertir si el atajo
+  // "Generar comprobante" se usa sin que el wizard haya corrido, y para espejar
+  // el vínculo del comprobante en la solicitud al emitir).
+  const [solicitudVinculada, setSolicitudVinculada] =
+    useState<SolicitudVinculadaTramite | null>(null);
   // Error in-place (no redirigir al listado: enmascara fallos — E-GG-04 bonus).
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -242,6 +251,37 @@ export function TrackingDetailPage() {
     // DGG-90 · ¿el trámite fue derivado a una gestoría? (para el botón de aviso)
     const der = await getDerivacionGestoria(id);
     if (der.ok) setDerivacion(der.data);
+    // JL-W8-1 · solicitud de origen (best-effort: si falla, sin advertencia).
+    const sol = await getSolicitudVinculadaTramite(id);
+    if (sol.ok) setSolicitudVinculada(sol.data);
+  }
+
+  // JL-W8-1 · advertencia (sin bloquear) al usar el atajo "Generar comprobante"
+  // cuando el circuito normal (wizard de activación) no corrió para este trámite.
+  async function handleGenerarComprobanteClick() {
+    const solSinActivar =
+      solicitudVinculada &&
+      !['activada', 'derivada'].includes(solicitudVinculada.estado);
+    const tramiteManual = !solicitudVinculada && !data?.formulario_submission_id;
+    if (solSinActivar || tramiteManual) {
+      const okConfirm = await confirm({
+        title: 'Este trámite no pasó por el wizard de activación',
+        message: (
+          <div className="space-y-2 text-sm">
+            <p>
+              {solSinActivar
+                ? 'La solicitud vinculada está sin activar: el wizard da de alta el cliente y registra la cobranza con el precio y las bonificaciones del catálogo.'
+                : 'El trámite fue creado a mano (sin solicitud de origen), así que no hay precio ni bonificación del catálogo precargados.'}
+            </p>
+            <p>Verificá el importe y el receptor antes de emitir.</p>
+          </div>
+        ),
+        confirmLabel: 'Emitir igual',
+        cancelLabel: 'Volver',
+      });
+      if (!okConfirm) return;
+    }
+    setGenCompOpen(true);
   }
 
   // DGG-90 (JL #2) · reavisa a la gestoría externa que hay info nueva.
@@ -728,7 +768,7 @@ export function TrackingDetailPage() {
             {isStaff && data.comprobante_pendiente && (
               <Button
                 variant="tonal"
-                onClick={() => setGenCompOpen(true)}
+                onClick={() => void handleGenerarComprobanteClick()}
                 title="Emitir el comprobante de este trámite sin volver a Solicitudes"
               >
                 <Receipt className="h-4 w-4" /> Generar comprobante
@@ -1231,6 +1271,7 @@ export function TrackingDetailPage() {
         servicioPrecioBase={data.servicio?.precio_base ?? null}
         receptorNombre={data.administracion?.nombre ?? data.solicitante_nombre ?? '—'}
         esDDJJ={data.categoria === 'dj'}
+        solicitudVinculada={solicitudVinculada}
         onClose={() => setGenCompOpen(false)}
         onGenerado={() => {
           setGenCompOpen(false);

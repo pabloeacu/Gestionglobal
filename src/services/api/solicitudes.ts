@@ -655,3 +655,27 @@ export async function setSolicitudComprobante(
   if (error) return fail('SOL_SET_COMPROBANTE', error.message, error);
   return ok(true);
 }
+
+// ── JL-W8-1 · Solicitud vinculada a un trámite ────────────────────────────────
+// El vínculo es unidireccional (solicitudes.tramite_id → tramites.id; tramites
+// NO tiene solicitud_id), así que se resuelve con query inversa. Query separada
+// y no embed reverso de PostgREST por el schema-cache stale (E-GG-04).
+export interface SolicitudVinculadaTramite {
+  id: string;
+  estado: string;
+  comprobante_id: string | null;
+}
+
+export async function getSolicitudVinculadaTramite(
+  tramiteId: string,
+): Promise<ApiResponse<SolicitudVinculadaTramite | null>> {
+  const { data, error } = await supabase
+    .from('solicitudes')
+    .select('id, estado, comprobante_id')
+    .eq('tramite_id', tramiteId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) return fail('SOL_DE_TRAMITE', error.message, error);
+  return ok((data ?? null) as SolicitudVinculadaTramite | null);
+}

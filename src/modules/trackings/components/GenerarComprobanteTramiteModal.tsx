@@ -17,6 +17,10 @@ import { toast } from '@/lib/toast';
 import { emitirComprobanteManual } from '@/services/api/comprobantes';
 import { updateTramite } from '@/services/api/tramites';
 import {
+  setSolicitudComprobante,
+  type SolicitudVinculadaTramite,
+} from '@/services/api/solicitudes';
+import {
   cobroInicial,
   validarCobroEnEmision,
   registrarCobranzaEnEmision,
@@ -44,6 +48,7 @@ export function GenerarComprobanteTramiteModal({
   servicioPrecioBase,
   receptorNombre,
   esDDJJ,
+  solicitudVinculada,
   onClose,
   onGenerado,
 }: {
@@ -56,6 +61,11 @@ export function GenerarComprobanteTramiteModal({
   servicioPrecioBase: number | null;
   receptorNombre: string;
   esDDJJ: boolean;
+  // JL-W8-1: solicitud que generó este trámite (si existe). Al emitir por el
+  // atajo se ESPEJA el vínculo en solicitudes.comprobante_id — sin esto, la
+  // idempotencia del wizard (que sólo mira solicitud.comprobante_id) re-emitiría
+  // un comprobante DUPLICADO si alguien corre el wizard después del atajo.
+  solicitudVinculada?: SolicitudVinculadaTramite | null;
   onClose: () => void;
   onGenerado: () => void;
 }) {
@@ -155,6 +165,16 @@ export function GenerarComprobanteTramiteModal({
     }
     // Vincular al trámite → limpia el computed column comprobante_pendiente.
     const v = await updateTramite(tramiteId, { comprobante_id: compId });
+    // JL-W8-1: espejar el vínculo en la solicitud de origen (si existe y aún no
+    // tiene comprobante) para que el wizard no re-emita un duplicado después.
+    if (solicitudVinculada && !solicitudVinculada.comprobante_id) {
+      const sv = await setSolicitudComprobante(solicitudVinculada.id, compId);
+      if (!sv.ok) {
+        toast.warning(
+          'El comprobante no quedó espejado en la solicitud de origen — si corrés el wizard sobre esa solicitud, verificá no duplicar la emisión.',
+        );
+      }
+    }
     setEnviando(false);
     if (!v.ok) {
       toast.warning('Comprobante creado pero no quedó vinculado al trámite.' + cobroWarn);

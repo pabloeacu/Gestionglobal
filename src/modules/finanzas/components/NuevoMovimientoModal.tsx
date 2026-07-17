@@ -32,6 +32,10 @@ export function NuevoMovimientoModal({ cajas, onClose, onCreated }: Props) {
   const [partners, setPartners] = useState<PartnerOpcion[]>([]);
   const [partnerId, setPartnerId] = useState<string>('');
   const [adjuntos, setAdjuntos] = useState<File[]>([]);
+  // JL-W8-3 · ingreso bancario de origen desconocido: entra a la caja como
+  // "pendiente de identificar" (suma al saldo, no toca cta.cte de ningún
+  // cliente) hasta que la gerencia lo reconozca.
+  const [sinIdentificar, setSinIdentificar] = useState(false);
   const [creating, setCreating] = useState(false);
 
   useEffect(() => {
@@ -63,6 +67,7 @@ export function NuevoMovimientoModal({ cajas, onClose, onCreated }: Props) {
     if (!m || m <= 0) { toast.error('Monto inválido'); return; }
     if (!fecha) { toast.error('Falta la fecha'); return; }
     setCreating(true);
+    const esSinIdentificar = tipo === 'ingreso' && sinIdentificar;
     const res = await crearMovimientoManual({
       cajaId,
       tipo,
@@ -71,8 +76,10 @@ export function NuevoMovimientoModal({ cajas, onClose, onCreated }: Props) {
       categoriaId: categoriaId || null,
       descripcion: descripcion.trim() || null,
       referencia: referencia.trim() || null,
-      administracionId: adminId,
-      partnerIdAtribucion: partnerId || null,
+      // sin identificar ⇒ sin cliente ni partner (guardas de la RPC · mig 0360)
+      administracionId: esSinIdentificar ? null : adminId,
+      partnerIdAtribucion: esSinIdentificar ? null : partnerId || null,
+      sinIdentificar: esSinIdentificar,
     });
     if (!res.ok) {
       setCreating(false);
@@ -87,7 +94,7 @@ export function NuevoMovimientoModal({ cajas, onClose, onCreated }: Props) {
     }
     setCreating(false);
     toast.success(
-      `${tipo === 'ingreso' ? 'Ingreso' : 'Egreso'} registrado` +
+      `${esSinIdentificar ? 'Ingreso sin identificar' : tipo === 'ingreso' ? 'Ingreso' : 'Egreso'} registrado` +
         (adjuntos.length ? ` · ${adjuntos.length - adjFallos}/${adjuntos.length} adjunto(s)` : ''),
     );
     if (adjFallos > 0) toast.warning(`${adjFallos} adjunto(s) no se pudieron subir`);
@@ -140,6 +147,26 @@ export function NuevoMovimientoModal({ cajas, onClose, onCreated }: Props) {
           </div>
         </div>
 
+        {/* JL-W8-3 · Ingreso bancario no identificado */}
+        {tipo === 'ingreso' && (
+          <label className="flex cursor-pointer items-start gap-2 rounded-xl border border-amber-200 bg-amber-50/60 p-3">
+            <input
+              type="checkbox"
+              checked={sinIdentificar}
+              onChange={(e) => setSinIdentificar(e.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded border-amber-300 text-amber-600 focus:ring-amber-500"
+            />
+            <span className="text-sm">
+              <span className="font-semibold text-amber-900">Ingreso no identificado</span>
+              <span className="mt-0.5 block text-xs text-amber-800">
+                Plata que entró a la caja pero no sabemos de qué cliente es. Suma al
+                saldo de la caja y NO afecta la cuenta corriente de nadie hasta que
+                lo identifiques desde la lista de movimientos.
+              </span>
+            </span>
+          </label>
+        )}
+
         <div className="grid grid-cols-2 gap-3">
           <Field label="Caja" required>
             <Select value={cajaId} onChange={(e) => setCajaId(e.target.value)}>
@@ -187,8 +214,8 @@ export function NuevoMovimientoModal({ cajas, onClose, onCreated }: Props) {
           <Input value={referencia} onChange={(e) => setReferencia(e.target.value)} />
         </Field>
 
-        {/* #145 · Participa partner (opcional) */}
-        {partners.length > 0 && (
+        {/* #145 · Participa partner (opcional) · oculto si es sin identificar */}
+        {partners.length > 0 && !(tipo === 'ingreso' && sinIdentificar) && (
           <Field
             label="Participa partner"
             hint="Si lo marcás, este movimiento entra en la rendición del partner con su % diferencial."
@@ -207,7 +234,8 @@ export function NuevoMovimientoModal({ cajas, onClose, onCreated }: Props) {
           </Field>
         )}
 
-        {/* Asociar a administración (opcional, autocomplete) */}
+        {/* Asociar a administración (opcional, autocomplete) · oculto si es sin identificar */}
+        {!(tipo === 'ingreso' && sinIdentificar) && (
         <Field label="Asociar a administración (opcional)">
           {adminId ? (
             <div className="flex items-center gap-2 rounded-lg border border-brand-cyan/30 bg-brand-cyan/5 p-2 text-sm">
@@ -247,6 +275,7 @@ export function NuevoMovimientoModal({ cajas, onClose, onCreated }: Props) {
             </>
           )}
         </Field>
+        )}
 
         {/* DGG-85 · Adjuntar constancias del gasto (factura, transferencia, etc.) */}
         <Field label="Adjuntos (constancias)" hint="Factura, transferencia, recibo… PDF o imagen. Opcional.">

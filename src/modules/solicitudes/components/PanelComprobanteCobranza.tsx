@@ -23,6 +23,7 @@ import {
   Input,
   Select,
   Textarea,
+  useConfirm,
 } from '@/components/common';
 import { toast } from '@/lib/toast';
 import {
@@ -56,6 +57,12 @@ interface Props {
   servicioPrecioBase?: number | null;
   receptorNombre: string;
   receptorDocumento?: string | null;
+  // JL-W8-1: estado de la solicitud, para advertir (sin bloquear) cuando se
+  // quiere emitir ANTES de pasar por el wizard de activación. 'activada' y
+  // 'derivada' implican wizard corrido (solicitud_activar setea estado+tramite
+  // atómicamente); en 'recibida'/'en_revision' el comprobante saldría sin el
+  // alta del cliente/precio/voucher/cobranza estructurada del wizard.
+  solicitudEstado?: string | null;
   onComprobanteCreado: (id: string) => void;
 }
 
@@ -67,12 +74,43 @@ export function PanelComprobanteCobranza({
   servicioPrecioBase,
   receptorNombre,
   receptorDocumento,
+  solicitudEstado,
   onComprobanteCreado,
 }: Props) {
+  const confirm = useConfirm();
   const [comp, setComp] = useState<ComprobanteRow | null>(null);
   const [loadingComp, setLoadingComp] = useState(false);
   const [openGen, setOpenGen] = useState(false);
   const [openCobrar, setOpenCobrar] = useState(false);
+
+  const preWizard =
+    solicitudEstado != null && !['activada', 'derivada'].includes(solicitudEstado);
+
+  async function onGenerarClick() {
+    if (preWizard) {
+      const ok = await confirm({
+        title: 'La solicitud todavía no pasó por el wizard',
+        message: (
+          <div className="space-y-2">
+            <p>
+              Esta solicitud está <strong>sin activar</strong>. El wizard de
+              activación da de alta al cliente, abre el trámite y registra la
+              cobranza con el precio y las bonificaciones del catálogo.
+            </p>
+            <p>
+              Si emitís el comprobante ahora, esos pasos no se ejecutan y la
+              carga puede quedar incompleta o con importes incorrectos.
+            </p>
+          </div>
+        ),
+        confirmLabel: 'Emitir igual',
+        cancelLabel: 'Volver',
+        danger: true,
+      });
+      if (!ok) return;
+    }
+    setOpenGen(true);
+  }
 
   useEffect(() => {
     if (!comprobanteId) {
@@ -100,7 +138,7 @@ export function PanelComprobanteCobranza({
             bonificación por convenio y registrar el pago en el mismo paso.
           </p>
           <Button
-            onClick={() => setOpenGen(true)}
+            onClick={() => void onGenerarClick()}
             disabled={!administracionId}
             title={
               !administracionId
@@ -111,6 +149,12 @@ export function PanelComprobanteCobranza({
             <Plus size={15} />
             Generar comprobante
           </Button>
+          {preWizard && administracionId && (
+            <p className="text-xs text-amber-700">
+              Esta solicitud aún no pasó por el wizard de activación — al emitir
+              se te va a pedir confirmación.
+            </p>
+          )}
           {!administracionId && (
             <p className="text-xs text-amber-700">
               Asociá un cliente desde el wizard de activación para habilitar la

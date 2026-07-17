@@ -160,9 +160,10 @@ export function AplicarSaldoAFavorDrawer({
         />
         <div className="relative space-y-5">
           <p className="text-sm text-brand-muted">
-            Los saldos a favor surgen cuando un comprobante <strong>ya pagado</strong> se anula
-            (por ejemplo, una inscripción duplicada). El pago queda como crédito del cliente y
-            podés aplicarlo a este comprobante.
+            Los saldos a favor surgen cuando el cliente <strong>paga de más</strong> sobre un
+            comprobante, deja un <strong>pago a cuenta</strong>, o se anula un comprobante que
+            ya estaba pagado. El crédito queda a nombre del cliente y podés aplicarlo a este
+            comprobante. Cada crédito muestra <strong>de qué servicio o curso se originó</strong>.
           </p>
 
           {loading ? (
@@ -178,8 +179,8 @@ export function AplicarSaldoAFavorDrawer({
                 No hay saldos a favor disponibles
               </p>
               <p className="max-w-sm text-xs text-brand-muted">
-                Este cliente no tiene créditos sin aplicar. Aparecen acá cuando se anula un
-                comprobante que estaba pagado.
+                Este cliente no tiene créditos sin aplicar. Aparecen acá cuando paga de más,
+                deja un pago a cuenta o se anula un comprobante que estaba pagado.
               </p>
             </div>
           ) : (
@@ -212,10 +213,21 @@ export function AplicarSaldoAFavorDrawer({
                           </span>
                           Crédito del {formatDateShort(c.fecha)}
                         </p>
+                        {/* JL-W8-2 · etiqueta de origen: QUÉ servicio/curso lo generó */}
                         <p className="mt-0.5 pl-7 text-xs text-brand-muted">
-                          {c.comprobante_origen
-                            ? `Origen: ${c.comprobante_origen}`
-                            : c.descripcion ?? 'Pago sin imputar'}
+                          {c.origen_tipo === 'pago_a_cuenta'
+                            ? `Pago a cuenta sin comprobante${c.descripcion ? ` · ${c.descripcion}` : ''}`
+                            : c.origen_detalle
+                              ? `Origen: ${c.origen_detalle}${
+                                  c.origen_tipo === 'comprobante_anulado'
+                                    ? ` · comprobante anulado ${c.comprobante_origen ?? ''}`
+                                    : c.comprobante_origen
+                                      ? ` · excedente de ${c.comprobante_origen}`
+                                      : ''
+                                }`
+                              : c.comprobante_origen
+                                ? `Origen: ${c.comprobante_origen}`
+                                : (c.descripcion ?? 'Pago sin imputar')}
                         </p>
                       </div>
                       <div className="shrink-0 text-right">

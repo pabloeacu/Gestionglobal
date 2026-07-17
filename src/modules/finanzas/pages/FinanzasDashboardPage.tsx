@@ -2,18 +2,19 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ArrowRightLeft, Plus, TrendingUp, TrendingDown, Wallet, AlertCircle,
-  Banknote, Search, X, RotateCcw, Ban, Landmark,
+  Banknote, Search, X, RotateCcw, Ban, Landmark, UserCheck, Undo2,
 } from 'lucide-react';
 import { Button, Input, Select, useConfirm } from '@/components/common';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import { toast } from '@/lib/toast';
 import {
   getCajasConSaldo, getDashboardKpis, listarMovimientos,
-  anularMovimiento, revertirMovimiento,
+  anularMovimiento, revertirMovimiento, desidentificarMovimiento,
   type CajaConSaldoRow, type DashboardKpis, type MovimientoListadoRow,
 } from '@/services/api/finanzas';
 import { cn } from '@/lib/cn';
 import { NuevoMovimientoModal } from '../components/NuevoMovimientoModal';
+import { IdentificarMovimientoModal } from '../components/IdentificarMovimientoModal';
 import { TransferenciaModal } from '../components/TransferenciaModal';
 import { TipoBadge, EstadoBadge, formatMonto, montoColor } from '../components/MovimientoBadges';
 import { MovimientoAdjuntosButton } from '../components/MovimientoAdjuntosButton';
@@ -43,6 +44,8 @@ export function FinanzasDashboardPage() {
   const [search, setSearch] = useState('');
   const [nuevoOpen, setNuevoOpen] = useState(false);
   const [transferOpen, setTransferOpen] = useState(false);
+  // JL-W8-3 · movimiento pendiente elegido para identificar
+  const [identificarTarget, setIdentificarTarget] = useState<MovimientoListadoRow | null>(null);
 
   async function recargar() {
     setLoading(true);
@@ -184,6 +187,33 @@ export function FinanzasDashboardPage() {
     void recargar();
   }
 
+  // JL-W8-3 · deshacer una identificación errónea ("reconocí al cliente
+  // equivocado"). La RPC bloquea si tiene aplicaciones vivas a comprobantes.
+  async function onDesidentificar(m: MovimientoListadoRow) {
+    const okConfirm = await confirm({
+      title: 'Deshacer identificación',
+      message: (
+        <div className="space-y-2 text-sm">
+          <p>
+            El movimiento vuelve a quedar <strong>sin identificar</strong>: se le quita el
+            cliente ({m.administracion_nombre ?? '—'}) y deja de figurar en su cuenta corriente.
+          </p>
+          <p>El saldo de la caja no cambia. Si tiene pagos aplicados a comprobantes, primero quitá esas aplicaciones desde la cuenta corriente.</p>
+        </div>
+      ),
+      confirmLabel: 'Deshacer',
+      danger: true,
+    });
+    if (!okConfirm) return;
+    const res = await desidentificarMovimiento(m.id);
+    if (!res.ok) {
+      toast.error('No pudimos deshacer la identificación', { description: humanizeError(res.error) });
+      return;
+    }
+    toast.success('El movimiento volvió a "sin identificar"');
+    void recargar();
+  }
+
   return (
     <div className="space-y-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
@@ -253,7 +283,12 @@ export function FinanzasDashboardPage() {
       {kpis.movs_pendientes > 0 && (
         <div className="flex items-center gap-2 rounded-xl border border-yellow-300 bg-yellow-50 p-3 text-sm text-yellow-900">
           <AlertCircle size={16} className="flex-shrink-0" />
-          Hay <strong>{kpis.movs_pendientes}</strong> movimiento{kpis.movs_pendientes === 1 ? '' : 's'} pendiente{kpis.movs_pendientes === 1 ? '' : 's'} de identificar (provenientes de extractos bancarios sin conciliar).
+          <span>
+            Hay <strong>{kpis.movs_pendientes}</strong> ingreso{kpis.movs_pendientes === 1 ? '' : 's'} en
+            caja <strong>sin identificar</strong> — ya suman al saldo pero no figuran en la cuenta
+            corriente de ningún cliente. Usá el botón <UserCheck size={12} className="-mt-0.5 inline" /> de
+            la lista para reconocerlos.
+          </span>
         </div>
       )}
 
@@ -370,6 +405,15 @@ export function FinanzasDashboardPage() {
                         {m.categoria_nombre && <span className="text-[10px] text-brand-muted">{m.categoria_nombre}</span>}
                         {m.administracion_nombre && <span className="text-[10px] text-brand-cyan">· {m.administracion_nombre}</span>}
                         <EstadoBadge estado={m.estado} revertido={!!m.revertido_at} />
+                        {/* JL-W8-3 · historial: este ingreso entró sin identificar y fue reconocido */}
+                        {m.identificado_at && m.estado === 'identificado' && (
+                          <span
+                            className="inline-flex items-center gap-0.5 rounded-full border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-emerald-700"
+                            title={`Identificado el ${new Date(m.identificado_at).toLocaleString('es-AR')}`}
+                          >
+                            <UserCheck size={9} /> Identificado
+                          </span>
+                        )}
                       </div>
                     </td>
                     <td className="px-4 py-2 text-xs text-brand-muted">
@@ -383,6 +427,28 @@ export function FinanzasDashboardPage() {
                     </td>
                     <td className="px-4 py-2 text-right">
                       <div className="inline-flex items-center gap-1">
+                        {/* JL-W8-3 · identificar un ingreso pendiente */}
+                        {m.estado === 'pendiente_id' && !m.revertido_at && (
+                          <button
+                            type="button"
+                            onClick={() => setIdentificarTarget(m)}
+                            className="inline-flex items-center gap-1 rounded-md border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[11px] font-semibold text-amber-800 hover:bg-amber-100"
+                            title="Identificar: asignar el cliente y aplicar a su cuenta corriente"
+                          >
+                            <UserCheck size={12} /> Identificar
+                          </button>
+                        )}
+                        {/* JL-W8-3 · deshacer una identificación errónea */}
+                        {m.estado === 'identificado' && m.identificado_at && !m.revertido_at && (
+                          <button
+                            type="button"
+                            onClick={() => void onDesidentificar(m)}
+                            className="rounded-md p-1 text-amber-700 hover:bg-amber-50"
+                            title="Deshacer identificación (vuelve a 'sin identificar')"
+                          >
+                            <Undo2 size={13} />
+                          </button>
+                        )}
                         {m.estado !== 'anulado' && (
                           <MovimientoAdjuntosButton movimientoId={m.id} initialCount={m.adjuntos_count} />
                         )}
@@ -433,6 +499,14 @@ export function FinanzasDashboardPage() {
           cajas={cajas.filter((c) => c.activo)}
           onClose={() => setTransferOpen(false)}
           onCreated={() => { setTransferOpen(false); void recargar(); }}
+        />
+      )}
+      {/* JL-W8-3 · identificar ingreso pendiente */}
+      {identificarTarget && (
+        <IdentificarMovimientoModal
+          movimiento={identificarTarget}
+          onClose={() => setIdentificarTarget(null)}
+          onIdentificado={() => { setIdentificarTarget(null); void recargar(); }}
         />
       )}
     </div>
