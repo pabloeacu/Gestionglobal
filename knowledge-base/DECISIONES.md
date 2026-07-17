@@ -4267,3 +4267,27 @@ Tras el cierre de la wave 8 (JL-W8-1/2/3, migs 0359-0362, E-GG-142), Pablo resol
 4. **Comprobantes 'observados' y 'procesando' PUEDEN recibir aplicaciones** (sólo se
    excluyen anulado/borrador/rechazado/error). Criterio Pablo: la plata del cliente entró
    igual; si ARCA rechazara un 'procesando' con pago aplicado, se desimputa a mano.
+
+## DGG-110 · Buckets de Storage: criterio "privado por defecto, público por diseño" (2026-07-17)
+
+Decisión de Pablo tras la explicación de E-GG-126 (riesgos de hacerlo vs postergarlo):
+**"Núcleo quirúrgico ya"** — cerrar de inmediato lo sensible, diferir lo masivo.
+
+1. **Privados desde hoy** (migs 0364/0365): `gestor-uploads` (docs reales de clientes,
+   accesibles por link sin login hasta hoy), `partner-facturas` y `tramite-documento-final`
+   (vacíos: se cierran ANTES del primer uso, sin backfill). Revierte la decisión de migs
+   0191/0192 (E-GG-49 "bucket público para que el cliente pueda leer").
+2. **Arquitectura elegida — identificador estable + firma on-click**: se SIGUE persistiendo
+   la URL getPublicUrl completa como identificador (cero migración de datos; compatible con
+   columnas polimórficas que mezclan URLs externas y links /verificar/). Los lectores
+   resuelven a signed URL (1h, download) en el momento del click vía `src/lib/storageUrls.ts`
+   (firmar on-render dejaría URLs vencidas en pestañas largas). Cliente → policies SELECT
+   scoped con helpers `private.*` SECURITY DEFINER (patrón E-GG-70, igualdad exacta de key);
+   partner → scoped por la atribución de `partner_mis_comprobantes`; gestor externo anónimo →
+   edge fn `gestor-firmar-adjunto` v4 (token + whitelist de buckets + espejo del listador).
+3. **Públicos POR DISEÑO quedan como están**: formulario-descargas, formulario-previews,
+   campus-media (140MB, lectores anónimos reales — su eventual cierre es una decisión futura
+   separada por peso/alcance). **Candidatos futuros anotados**: avatars, emisor-logos,
+   encuesta-testimonios (hoy inofensivos, revisar si algún día contienen datos sensibles).
+4. **Regla operativa**: todo bucket nuevo nace private con policies explícitas; público sólo
+   con justificación escrita en la migración (mismo espíritu que regla 2 para RLS).

@@ -14,7 +14,9 @@
 //   2. Observaciones (textarea, opcional pero siempre disponible).
 //   3. Documento final (solo si el motivo lo requiere):
 //        tabs "Subir archivo" / "Pegar URL".
-//        El upload va al bucket público `tramite-documento-final`.
+//        El upload va al bucket PRIVADO `tramite-documento-final` (mig 0364,
+//        E-GG-126): se persiste la URL getPublicUrl como identificador y los
+//        lectores la resuelven a signed URL con src/lib/storageUrls.ts.
 //
 // El motivo + observaciones se persisten en `tramites.motivo_cierre` /
 // `tramites.cierre_satisfactorio` y se vuelven parte de la última línea

@@ -4413,12 +4413,31 @@ La storage key usaba file.name.split('.').pop() → sin extensión, todo el nomb
 pasaba a la key. Fix: extraer sólo extensión alfanumérica corta o 'bin'.
 
 ### E-GG-126 · FOLLOW-UPS DIFERIDOS (documentados, NO resueltos en wave 7 por riesgo/alcance)
-- **Buckets públicos con docs privados** (partner-facturas, tramite-documento-final, gestor-uploads,
-  encuesta-testimonios): son public=true → legibles por cualquiera con la URL. El fix correcto
-  (private + URL firmada on-demand) exige refactor: guardar el PATH (no la URL pública, que hoy se
-  persiste) y firmar en cada punto de descarga (partners.ts, tramites.ts, accesoExterno.ts,
-  trackings.ts + sus vistas). Hacerlo a medias ROMPE las descargas (URLs guardadas → 403). Se difiere
-  a un chunk dedicado con testing completo. **PRIORIDAD #1 de seguridad pendiente.**
+- **Buckets públicos con docs privados** — ✅ **NÚCLEO RESUELTO 2026-07-17** (decisión Pablo "núcleo
+  quirúrgico ya" · DGG-110 · migs 0364/0365 + edge fn gestor-firmar-adjunto v4 + commits cf8c4be…):
+  `gestor-uploads` (5 docs reales de clientes), `partner-facturas` y `tramite-documento-final`
+  (vacíos, cerrados ANTES de usarse) pasaron a **private**. Diseño clave que evitó el refactor
+  temido: el identificador persistido SIGUE siendo la URL getPublicUrl completa (cero migración de
+  datos, compatible con históricos y columnas polimórficas que mezclan URLs externas y /verificar/);
+  los LECTORES resuelven a signed URL **on-click** con `src/lib/storageUrls.ts` (7 superficies
+  convertidas), el cliente lee vía policies SELECT scoped con helpers `private.*` (patrón E-GG-70)
+  y el gestor externo anónimo vía la edge fn v4 (candado por token). La doble auditoría §6 del
+  chunk (workflow 3 scopes + verificación adversarial, 672k tokens) capturó ANTES de producción
+  una regresión crítica latente: la edge fn v3 sólo resolvía bucket `gestor-uploads` en su fuente
+  3c y filtraba `moderacion_estado='publicado'`, pero `gestor_listar_avances` lista toda línea
+  `visible_cliente` (las de gerencia y la línea automática de cierre quedan con moderación NULL)
+  y la línea de cierre lleva el documento final en bucket `tramite-documento-final` → el primer
+  cierre con PDF habría dado 403 en el panel del gestor (regla 15: regresión vs bucket público).
+  Fix v4: 3c(ii) espeja `visible_cliente=true` y resuelve el bucket real de la URL persistida con
+  whitelist. Hardening adicional (mig 0365): helper del cliente pasó de `LIKE '%'||p_name` (comodines
+  `_`, TRUE con vacío, sin ancla) a igualdad exacta de key; y la policy pre-existente
+  `partner_facturas_auth_read` que dejaba a CUALQUIER partner leer todo el bucket ahora scopea por
+  la atribución real de `partner_mis_comprobantes` (helper `private.partner_puede_ver_factura`).
+  Verificado: e2e BD (8 asserts helpers, rollback forzado) + e2e HTTP edge fn (doc final ok/
+  descarga 200/regresión ok/cross-trámite 403/token inválido 401/URL pública vieja 400) + en vivo
+  las 3 superficies (gerencia, portal cliente por rol-swap, panel gestor por token QA — desktop y
+  360px) + 0 residuos QA. `campus-media` y los candidatos avatars/emisor-logos/encuesta-testimonios
+  quedan como decisión futura separada (DGG-110).
 - **voucher_incrementar_uso / voucher_validar** anon: incrementar_uso no tiene guarda (anon con un
   voucher_id podría agotar un voucher); validar es un oráculo de enumeración. El fix limpio es mover
   el incremento server-side (edge submit) — refactor del flujo público. Mitigación actual: los ids son

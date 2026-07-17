@@ -1676,30 +1676,14 @@ function Panel({
   );
 }
 
-function Dl({
-  label,
-  value,
-  link,
-}: {
-  label: string;
-  value: string;
-  link?: boolean;
-}) {
+function Dl({ label, value }: { label: string; value: string }) {
+  // Auditoría §6 E-GG-126: la prop `link` (<a href> directo) se eliminó — su
+  // único consumidor (documento final) migró a firma on-click vía
+  // abrirArchivoProtegido; un <a> directo sobre bucket privado daría 400.
   return (
     <div className="flex items-baseline justify-between gap-3 text-sm">
       <span className="text-brand-muted">{label}</span>
-      {link && value !== '—' ? (
-        <a
-          href={value}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="truncate font-medium text-cyan-700 hover:underline"
-        >
-          Ver documento
-        </a>
-      ) : (
-        <span className="truncate font-medium text-brand-ink">{value}</span>
-      )}
+      <span className="truncate font-medium text-brand-ink">{value}</span>
     </div>
   );
 }

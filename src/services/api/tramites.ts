@@ -848,8 +848,9 @@ export async function urlFirmadaAdjunto(
 }
 
 // DGG-38 (2026-06-02) · Sube el documento final que cierra el trámite
-// (certificado, diploma, PDF de aprobación, etc.). Bucket público con URL
-// estable porque la URL se comparte con el cliente en su tracking.
+// (certificado, diploma, PDF de aprobación, etc.). Bucket PRIVADO desde mig
+// 0364 (E-GG-126): la URL getPublicUrl se persiste como identificador estable
+// y los lectores la resuelven a signed URL on-click (src/lib/storageUrls.ts).
 export async function subirDocumentoFinalTramite(
   tramite_id: string,
   file: File,

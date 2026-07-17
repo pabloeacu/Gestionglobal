@@ -128,7 +128,9 @@ export async function fetchPartnerMisComprobantes(): Promise<
 // bucket partner-facturas) para que quede asociado al comprobante y descargable
 // desde cliente, gerencia y partner.
 // DGG-34 R4 sweep · sube el PDF de la factura del partner al bucket
-// `partner-facturas` y devuelve la URL pública. Antes vivía como import
+// `partner-facturas` (PRIVADO desde mig 0364, E-GG-126) y devuelve la URL
+// getPublicUrl como identificador persistido — los lectores la resuelven a
+// signed URL on-click (src/lib/storageUrls.ts). Antes vivía como import
 // dinámico de supabase en PartnerPortalPage (anti-patrón R4).
 export async function subirFacturaPartner(
   comprobanteId: string,

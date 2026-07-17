@@ -5,7 +5,6 @@ import {
   Loader2,
   ShieldCheck,
   AlertCircle,
-  ExternalLink,
   FileText,
   CalendarPlus,
   Clock,
@@ -208,28 +207,10 @@ export function AccesoExternoPage() {
             {/* 5.B · tarjeta "Tu contacto" — humaniza el acceso. */}
             <TuContacto responsable={data.responsable} />
 
-            {/* Adjuntos */}
-            {data.adjuntos && data.adjuntos.length > 0 && (
-              <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-                <div className="kicker mb-3 text-brand-cyan">Adjuntos</div>
-                <div className="grid gap-2 sm:grid-cols-2">
-                  {data.adjuntos.map((a) => (
-                    <a
-                      key={a.url}
-                      href={a.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center justify-between rounded-lg border border-slate-200 p-3 transition hover:border-brand-cyan/40 hover:bg-brand-cyan-pale/20"
-                    >
-                      <span className="inline-flex items-center gap-2 text-sm text-brand-ink">
-                        <FileText size={14} className="text-brand-cyan" /> {a.nombre}
-                      </span>
-                      <ExternalLink size={12} className="text-brand-muted" />
-                    </a>
-                  ))}
-                </div>
-              </section>
-            )}
+            {/* Auditoría §6 E-GG-126: el bloque "Adjuntos" que renderizaba
+                <a href> directo se eliminó — la edge fn acceso-externo declara
+                adjuntos:[] y nunca lo poblaba; los adjuntos reales se firman
+                on-click en el PanelGestor. */}
           </div>
         )}
       </main>

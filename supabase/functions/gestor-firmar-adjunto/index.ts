@@ -18,6 +18,13 @@
 // puede firmar (i) sus propias subidas (path que empieza con su token) y
 // (ii) archivos presentes en líneas de tracking PUBLICADAS de su trámite.
 //
+// v4 (auditoría §6 E-GG-126): la fuente 3c(ii) ahora espeja lo que el panel
+// realmente lista (gestor_listar_avances devuelve toda línea visible_cliente,
+// no sólo moderacion_estado='publicado' — las líneas de gerencia y la línea
+// automática de cierre quedan con moderación NULL) y resuelve el BUCKET real
+// de la URL persistida (whitelist gestor-uploads / tramite-documento-final):
+// antes el documento final del cierre, listado al gestor, daba 403 al firmar.
+//
 // verify_jwt = false: la autenticación es el token de acceso externo, no un JWT.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.46.1';
@@ -83,7 +90,7 @@ Deno.serve(async (req) => {
     submissionId = (sol?.formulario_submission_id as string | null) ?? null;
   }
 
-  // 3) Localizar el path en una de las dos fuentes permitidas y elegir el bucket.
+  // 3) Localizar el path en una de las fuentes permitidas y elegir el bucket.
   //    (candado: el gestor sólo firma archivos de SU solicitud/trámite.)
   let bucket: string | null = null;
 
@@ -113,9 +120,16 @@ Deno.serve(async (req) => {
     if (ped) bucket = 'pedidos-doc-cliente';
   }
 
-  //    3c) E-GG-126 · gestor-uploads (privado desde mig 0364): el gestor firma
+  //    3c) E-GG-126 · buckets privados desde mig 0364: el gestor firma
   //        (i) sus propias subidas — el path arranca con SU token — o
-  //        (ii) archivos de líneas de tracking PUBLICADAS de su trámite.
+  //        (ii) archivos de líneas VISIBLES AL CLIENTE de su trámite (las de
+  //        gerencia y la línea de cierre tienen moderación NULL; las del
+  //        gestor sólo son visibles al publicarse). El bucket se resuelve de
+  //        la URL persistida, acotado a la whitelist: nunca se firma un
+  //        bucket que no sea de adjuntos del trámite.
+  const BUCKETS_GESTOR = ['gestor-uploads', 'tramite-documento-final'];
+  const RE_STORAGE =
+    /\/storage\/v1\/object\/(?:public|sign|authenticated)\/([^/]+)\/(.+?)(?:\?.*)?$/;
   if (!bucket) {
     if (path.startsWith(token + '/')) {
       bucket = 'gestor-uploads';
@@ -124,14 +138,27 @@ Deno.serve(async (req) => {
         .from('tracking_lineas')
         .select('archivos_urls')
         .eq('tramite_id', tramiteId)
-        .eq('moderacion_estado', 'publicado')
+        .eq('visible_cliente', true)
         .not('archivos_urls', 'is', null);
-      const presente = (lineas ?? []).some((l) =>
-        ((l.archivos_urls as string[] | null) ?? []).some(
-          (u) => u === path || u.endsWith('/gestor-uploads/' + path),
-        ),
-      );
-      if (presente) bucket = 'gestor-uploads';
+      for (const l of lineas ?? []) {
+        for (const u of (l.archivos_urls as string[] | null) ?? []) {
+          const m = RE_STORAGE.exec(u);
+          const b = m?.[1];
+          const rawPath = m?.[2];
+          if (!b || !rawPath || !BUCKETS_GESTOR.includes(b)) continue;
+          let decoded = rawPath;
+          try {
+            decoded = decodeURIComponent(rawPath);
+          } catch {
+            // path con % literal inválido: comparar crudo
+          }
+          if (decoded === path || rawPath === path) {
+            bucket = b;
+            break;
+          }
+        }
+        if (bucket) break;
+      }
     }
   }
 
