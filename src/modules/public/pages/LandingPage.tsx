@@ -317,9 +317,9 @@ function Nosotros() {
                 acompañamiento cercano y soluciones que funcionan.
               </p>
               <p className="mt-4 text-sm leading-relaxed text-white/85">
-                Gestión Global nace dentro de Global Servicios Integrados SRL
-                como una división especializada para acompañar la transformación
-                normativa y profesional de la administración de consorcios.
+                Gestión Global nace de más de tres décadas de experiencia
+                conociendo las necesidades reales de los administradores de
+                consorcios, en el medio de la vorágine de su trabajo diario.
               </p>
             </div>
           </div>
