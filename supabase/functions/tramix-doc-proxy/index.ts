@@ -70,7 +70,10 @@ async function getCookie(svc: any, forceNew = false): Promise<string> {
     if (data?.cookie && data.aceptado_at && (Date.now() - new Date(data.aceptado_at).getTime() < SESSION_MAX_MS)) return data.cookie;
   }
   const cookie = await establishSession();
-  await svc.from("tramix_session").update({ cookie, aceptado_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("id", "singleton");
+  // upsert (no update): si la fila singleton no existe (p.ej. tras una purga),
+  // un UPDATE afecta 0 filas en silencio y la sesión jamás se persiste —
+  // auto-sanante como tramix_gate (auditoría post-purga DGG-111).
+  await svc.from("tramix_session").upsert({ id: "singleton", cookie, aceptado_at: new Date().toISOString(), updated_at: new Date().toISOString() });
   return cookie;
 }
 

@@ -4291,3 +4291,42 @@ Decisión de Pablo tras la explicación de E-GG-126 (riesgos de hacerlo vs poste
    encuesta-testimonios (hoy inofensivos, revisar si algún día contienen datos sensibles).
 4. **Regla operativa**: todo bucket nuevo nace private con policies explícitas; público sólo
    con justificación escrita en la migración (mismo espíritu que regla 2 para RLS).
+
+## DGG-111 · Purga pre-lanzamiento de TODOS los datos de prueba (2026-07-17)
+
+Pablo: "necesitamos salir al mercado... eliminá todos los registros de pruebas...
+quirúrgico pero implacable... sin rastros ni nada colgado". Protocolo de 8 pasos
+(doc 05 §5) completo, con 7 decisiones previas respondidas una a una:
+
+1. **Usuarios**: quedan SOLO los 2 gerentes (pabloeacu@ y adm.saveriano@). Los 3
+   administradores de prueba (estudio.saveriano@, lucia.saveriano@,
+   expensaspagas.admsaveriano@) eliminados con sus cuentas (cascada auth completa).
+2. **FundPlata es REAL**: se conserva ficha + convenio (0 actividad transaccional).
+3. **Evento** "Desempeño del Administrador..." era de prueba: borrado (+ flyer).
+4. **Numeración de comprobantes reseteada a 0** (los 9 eran tipo X sin ARCA →
+   sin conflicto fiscal). Primer comprobante real = 0001-00000001. También:
+   tramite_codigo_seq→1 (primer trámite = TRM-2026-00001), constancias_codigo_seq→1.
+5. **Bitácora + audit log**: vaciados (arranque limpio).
+6. **Logs técnicos**: vaciados (health, CSP, Tramix, frases, throttles).
+7. **Backup**: schema interno `backup_prelaunch_20260717` (37 tablas + 3 usuarios
+   + inventario de storage) se conserva hasta el **2026-07-24** y se elimina.
+8. Decisiones adicionales del mapeo: el egreso $10.000 atribuido a FundPlata era
+   de prueba (borrado); bucket gestoria-adjuntos (7 transferencias QA) borrado.
+
+Ejecución: 6 crons de dispatch pausados durante la ventana → backup → transacción
+única SQL (orden FK-seguro; 1 abort limpio por movimientos.comprobante_id enseñó
+el orden correcto: movimientos ANTES que comprobantes) → 70 archivos de storage
+borrados por API en lotes (mig 0366: policy avatars_staff_delete para los 3
+avatares huérfanos de QA viejos) → crons reactivados (16/16). `formularios.
+total_envios=0`. config_global INTACTA (proximo_dni_ficticio nunca consumido).
+
+Verificación: scan global de orfandad (8 ids borrados × todas las tablas de
+public → 0 referencias), counts purgados=0 / conservados intactos (11 servicios,
+4 cajas, 4 cursos con 74 clases + 100 preguntas, 10 formularios + 47 versiones,
+40 templates, FundPlata, tabulador, ARCA, 365 frases), storage final: avatars 1
+(Pablo), campus-media 46, formulario-descargas 1, resto 0. Auditoría §6 post-purga
+(3 agentes: residuos BD + flujos día-1 e2e con rollback + front en estado vacío)
++ prueba en vivo (gerencia inicio/clientes/trámites/finanzas, /eventos, form
+público — consola limpia). GARANTÍA CLAVE: la purga NO tocó una sola línea de
+código ni de schema (solo DELETEs + resets de contadores + 1 policy nueva) —
+las cientos de revisiones previas de cada flujo siguen 100% vigentes.

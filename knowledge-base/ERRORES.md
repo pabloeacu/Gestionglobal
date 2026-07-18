@@ -4739,9 +4739,15 @@ CRÍTICAS** que build+e2e propio no vieron. Fixeadas en mig **0362** + frontend,
   `CREATE OR REPLACE VIEW` debe re-emitir `WITH (security_invoker = true)`; smoke de cierre cuando un
   chunk toca vistas:
   ```sql
+  -- (versión normalizada 2026-07-17, auditoría post-purga DGG-111: Postgres
+  -- acepta 'on'/'true'/'1' como truthy — el match textual contra
+  -- 'security_invoker=true' daba falsa alarma con vistas '=on')
   SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
   WHERE n.nspname='public' AND c.relkind='v'
-    AND (c.reloptions IS NULL OR NOT 'security_invoker=true' = ANY(c.reloptions));
+    AND NOT EXISTS (
+      SELECT 1 FROM pg_options_to_table(c.reloptions) o
+      WHERE o.option_name='security_invoker' AND o.option_value IN ('true','on','1')
+    );
   ```
   Toda vista que devuelva debe tener su modo DEFINER justificado por comentario.
 - **(CRÍTICA · contable) contador fantasma al revertir un pendiente.** `fz_revertir_movimiento` aceptaba
