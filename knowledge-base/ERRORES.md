@@ -4772,3 +4772,26 @@ aparece en la lista global → hay salida; se decide si restringir cuando haya c
 comprobante — hoy cuadran (0 imputaciones a-cuenta en prod), divergiría si un flujo insertara imputaciones
 sin comprobante: pendiente de unificación si aparece ese flujo; un movimiento identificado con partner
 pero sin aplicar no figura en la sábana hasta aplicarse (semántica pre-existente de la sábana).
+
+### E-GG-143 · "La reunión Zoom se creó pero no pudimos guardarla en el curso" (5° caller service_role que E-GG-127 no atrapó)
+JL clickeó "Crear sala Zoom" en el encuentro sincrónico "Encuentro Agosto" (Curso de Actualización
+RPAC PBA, 31/08/2026): la sala se creó en Zoom pero el campus mostró "no pudimos guardarla en el
+curso. Avisá a un gerente" (500 en `zoom-encuentro-create`, visible en logs). Causa raíz: el MISMO
+patrón de [E-GG-127] — la edge fn crea la reunión y persiste vía `curso_encuentro_set_zoom` con
+SERVICE_ROLE_KEY (sin JWT de usuario); desde el hardening de is_staff() (mig 0346, NULL→false) el
+guard `IF NOT private.is_staff()` de esa RPC abortaba con contexto service_role → sala huérfana en
+Zoom + encuentro sin metadata. El sweep de E-GG-127 migró 4 gates (`comprobantes_morosos`,
+`disparar_recupero_manual`, `webinar_set_zoom`, `db_health_metrics`) pero NO detectó este 5° caller
+(su llamada es un fetch REST crudo `rpc/curso_encuentro_set_zoom` — el grep de aquel sweep buscaba
+`.rpc(` de supabase-js y no el patrón REST).
+Fix (mig 0368): guard → `private.is_staff_or_service()` (la edge fn ya valida rol gerente ANTES de
+llamar a Zoom; R3: el service_role solo vive server-side). **Barrido DEFINITIVO ejecutado**: se
+cruzaron TODAS las RPCs con `private.is_staff()` puro (~170) contra TODAS las llamadas rpc de TODAS
+las edge fns (tanto `.rpc('…')` de supabase-js como `fetch …/rest/v1/rpc/…` crudo) → 0 casos
+restantes. e2e (rollback): service_role persiste ✓, staff pasa ✓, anon y authenticated-no-staff
+bloqueados ✓. En vivo: se re-ejecutó el flujo real y la sala quedó creada y persistida
+(meeting 81085183995, estado "programado", botones Iniciar host / Link público visibles).
+**Lección**: al endurecer un helper de autorización, el sweep de call-sites debe cubrir TODOS los
+mecanismos de invocación (supabase-js `.rpc(`, REST crudo `rpc/`, pg_cron, triggers) — un solo
+patrón de grep deja colas. Residuo cosmético: la sala huérfana del primer intento quedó en el
+portal Zoom (topic "…Encuentro Agosto · Curso de Actualización…", sin uso — borrar a mano si molesta).
