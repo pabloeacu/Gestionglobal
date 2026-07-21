@@ -4360,3 +4360,36 @@ de 5 min serializa los envíos (con clases 18:30 y matrícula chica sobra margen
 si algún día hay clases matinales con >10 alumnos, subir batch o adelantar cron).
 Tradeoff aceptado: re-corrida manual del cron con alumnos nuevos re-manda al
 alumno pero no re-emite el testigo del día (evita spam a gerencia).
+
+## DGG-113 · Throttle de emails en dos pisos: 60s global + 5 min por destinatario (2026-07-21)
+
+Pablo preguntó si los 5 min entre mails eran óptimos o exagerados. Análisis: el
+piso de 5 min venía de E42 (era MANAXER: "4 mails en 30 segundos AL MISMO
+CLIENTE") + D05 (dominio recién nacido). La lección real era anti-ráfaga POR
+DESTINATARIO, pero el throttle implementado era GLOBAL: un solo carril para
+todo → un password-reset con 3 mails delante esperaba 15-20 min; el
+recordatorio de encuentros con 20 alumnos tardaba 1h40m. Contra los límites
+reales (Gmail API/Workspace: 2.000 destinatarios/día por casilla; acá máx.
+288/día con el viejo ritmo = 14% del cupo de UNA casilla) estaba
+exageradamente espaciado para mails de destinatarios DISTINTOS.
+
+Decisión (con garantía de no romper el circuito probado):
+- **Global: 60 segundos** entre mails de destinatarios distintos (máx. teórico
+  1.440/día — sigue humilde para Gmail).
+- **Por destinatario: piso de 5 min INTACTO** (la esencia de E42): el
+  dispatcher saltea candidatos cuyo destinatario recibió algo en la ventana
+  (chequeo fail-closed sobre email_queue status='sent'+sent_at) y los
+  reintenta en la próxima corrida; el orden prioridad/programado_para se
+  respeta entre destinatarios distintos (CANDIDATE_MAX=10).
+- kind='lote' no tiene procesador activo (camino dormido) — sin cambios.
+- `private.next_email_slot` verificado SIN callers (código muerto del
+  framework): el throttle vive 100% en dispatch-emails.
+- health-flows-check: copy y matemática del warning actualizados (60s);
+  STALE_MS queda en 20 min (ahora 20 ventanas — más conservador que antes).
+
+El path de envío (OAuth, MIME, Gmail send, render, marcado, sent_emails,
+testigos) quedó byte a byte idéntico: el cambio vive solo en la compuerta de
+ritmo y en la selección del candidato. Verificado con e2e REAL: 3 mails QA a
+casillas propias del Workspace drenados por el cron productivo — M2
+(destinatario distinto) salió a ~1-2 min de M1; M3 (mismo destinatario que
+M1) recién a los 5+ min. QA borrado tras la prueba.

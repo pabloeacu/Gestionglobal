@@ -22,6 +22,7 @@
 // es warning, sino 'ok'.
 //
 // Auth: igual que dispatch-emails (CRON_SECRET o SERVICE_ROLE_KEY en Bearer).
+// verify_jwt = false (la auth vive ADENTRO — el bearer del cron no es un JWT).
 // Trigger: pg_cron 0 3,15 * * * (00:00 y 12:00 ART en UTC-3).
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.46.1';
@@ -49,16 +50,17 @@ function jsonResp(status: number, body: unknown): Response {
 // ----------------------------------------------------------------------------
 
 async function check_email_queue_atascada(admin: ReturnType<typeof createClient>): Promise<CheckResult> {
-  // E-GG-108: el dispatcher de emails envía CON throttle global de 5 min (1
-  // por corrida, decisión E42/D05). Por eso una cola de emails esperando NO es
-  // "cron caído": es el throttle drenando de a uno (un burst de N tarda N×5min).
-  // La versión anterior gritaba "crítico" ante cualquier backlog de +30min y
-  // daba falsas alarmas constantes. Señal REAL de caída: hay cola due-sin-enviar
-  // Y (a) el más viejo lleva esperando > una ventana holgada de throttle Y
+  // E-GG-108: el dispatcher de emails envía CON throttle (DGG-113: 60s global
+  // entre destinatarios distintos + piso 5 min por destinatario, lección E42/
+  // D05). Por eso una cola de emails esperando NO es "cron caído": es el
+  // throttle drenando de a uno (un burst de N a destinatarios distintos tarda
+  // ~N minutos). La versión anterior gritaba "crítico" ante cualquier backlog
+  // de +30min y daba falsas alarmas constantes. Señal REAL de caída: hay cola
+  // due-sin-enviar Y (a) el más viejo lleva esperando > una ventana holgada Y
   // (b) el dispatcher no marcó ningún envío en ese lapso (last_sent_at stale).
   // Ambas condiciones evitan el falso positivo del período quieto (cola recién
   // llegada con last_sent_at viejo) y el del throttle drenando (last_sent_at fresco).
-  const STALE_MS = 20 * 60 * 1000; // 4 ventanas de throttle (5 min c/u)
+  const STALE_MS = 20 * 60 * 1000; // holgura amplia (20 ventanas de 60s)
   const { data, error } = await admin
     .from('email_queue')
     .select('id, intento, max_intentos, programado_para')
@@ -98,7 +100,7 @@ async function check_email_queue_atascada(admin: ReturnType<typeof createClient>
   if (backlog > 40) {
     return {
       status: 'warning',
-      detail: `${backlog} emails en cola (throttle 5 min; ~${Math.round((backlog * 5) / 60)}h para drenar)`,
+      detail: `${backlog} emails en cola (throttle 60s; ~${Math.max(1, Math.round(backlog / 60))}h para drenar)`,
       metric: backlog,
     };
   }

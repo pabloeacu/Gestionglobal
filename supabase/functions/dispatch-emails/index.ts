@@ -1,5 +1,7 @@
-// dispatch-emails · drena email_queue (kind=workflow), aplica throttle global
-// hard 5 min (E42/D05) y envía vía Gmail API REST con OAuth2 refresh_token.
+// dispatch-emails · drena email_queue (kind=workflow), aplica throttle en dos
+// pisos (DGG-113: 60s global entre destinatarios distintos + 5 min POR
+// destinatario, la lección real de E42/D05) y envía vía Gmail API REST con
+// OAuth2 refresh_token.
 //
 // Reuso del patrón de send-comprobante-email/index.ts: misma técnica para
 // refresh access token + RFC 2047 + multipart MIME.
@@ -28,6 +30,9 @@
 //
 // Trigger: pg_cron */1 min via net.http_post con Bearer service_role.
 // Idempotente: si no hay nada que enviar, devuelve {drained:0}.
+// verify_jwt = false: la auth es CRON_SECRET/service_role validado ADENTRO
+// (AUDIT-011) — con verify_jwt=true la plataforma rechaza el bearer del cron
+// con 401 ANTES de llegar al código (lección del redeploy DGG-113).
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.46.1';
 
@@ -55,8 +60,20 @@ function aliasFor(casilla: string | null | undefined): string {
 }
 
 const THROTTLE_KEY = 'global';
-const THROTTLE_MS = 5 * 60 * 1000;
+// DGG-113 (2026-07-21, decisión Pablo): el throttle se separa en dos pisos.
+// La lección real de E42 fue una RÁFAGA AL MISMO CLIENTE (4 mails en 30s):
+// ese piso de 5 min POR DESTINATARIO se conserva intacto (RECIPIENT_FLOOR_MS).
+// El ritmo GLOBAL entre mails de destinatarios distintos baja a 60s — sigue
+// siendo humilde para Gmail API (cupo Workspace: 2.000/día por casilla; acá
+// máx. 1.440/día teóricos) y elimina las esperas prácticas (password-reset
+// detrás de una cola, recordatorios de encuentros con N alumnos).
+const THROTTLE_MS = 60 * 1000;
+const RECIPIENT_FLOOR_MS = 5 * 60 * 1000;
 const BATCH_MAX = 1;
+// Candidatos a examinar por corrida: si el primero está bloqueado por el piso
+// por-destinatario, se intenta con los siguientes (sin saltear prioridades
+// entre destinatarios distintos: el orden prioridad/programado_para se respeta).
+const CANDIDATE_MAX = 10;
 
 type Casilla = string;
 
@@ -110,7 +127,7 @@ Deno.serve(async (req) => {
     serviceKey,
   );
 
-  // 1) Throttle global hard 5 min.
+  // 1) Throttle GLOBAL (ritmo entre mails de destinatarios distintos — DGG-113).
   const { data: throttleRow } = await admin
     .from('email_throttle').select('last_sent_at').eq('key', THROTTLE_KEY).maybeSingle();
   if (throttleRow?.last_sent_at) {
@@ -120,7 +137,7 @@ Deno.serve(async (req) => {
     }
   }
 
-  // 2) Próximos jobs.
+  // 2) Próximos jobs (candidatos en orden de prioridad).
   const { data: rows, error: errQueue } = await admin
     .from('email_queue')
     .select('id, template_slug, to_email, to_nombre, variables, prioridad, intento, max_intentos, administracion_id, consorcio_id')
@@ -129,11 +146,34 @@ Deno.serve(async (req) => {
     .lte('programado_para', new Date().toISOString())
     .order('prioridad', { ascending: true })
     .order('programado_para', { ascending: true })
-    .limit(BATCH_MAX);
+    .limit(CANDIDATE_MAX);
   if (errQueue) return jsonError(500, `queue read: ${errQueue.message}`);
   if (!rows || rows.length === 0) return json({ ok: true, drained: 0 });
 
-  const job = rows[0] as QueueRow;
+  // 2b) Piso POR DESTINATARIO (la lección original de E42: jamás 2 mails al
+  // mismo email en <5 min). Se toma el primer candidato cuyo destinatario no
+  // recibió nada en la ventana; los bloqueados quedan en cola y se reintentan
+  // en la próxima corrida (el cron pasa cada 1 min). Si todos están bloqueados,
+  // esta corrida no envía — igual que un tick throttled de siempre.
+  const recipientCutoff = new Date(Date.now() - RECIPIENT_FLOOR_MS).toISOString();
+  let job: QueueRow | null = null;
+  for (const candidate of rows as QueueRow[]) {
+    const { count, error: errRecent } = await admin
+      .from('email_queue')
+      .select('id', { count: 'exact', head: true })
+      .eq('to_email', candidate.to_email)
+      .eq('status', 'sent')
+      .gte('sent_at', recipientCutoff);
+    // Ante un error de lectura, preferimos NO enviar (fail-closed del piso).
+    if (errRecent) return jsonError(500, `recipient check: ${errRecent.message}`);
+    if (!count) {
+      job = candidate;
+      break;
+    }
+  }
+  if (!job) {
+    return json({ ok: true, drained: 0, recipient_throttled: true });
+  }
 
   // 3) Cargar template (con campos MANAXER).
   const { data: tplRow, error: errTpl } = await admin
