@@ -2533,3 +2533,25 @@ export async function deleteCampusMedia(publicUrl: string | null | undefined): P
   const path = publicUrl.slice(idx + marker.length);
   await supabase.storage.from('campus-media').remove([path]);
 }
+
+// ── DGG-112 · Banner "HOY tenés clase" (portal del alumno) ──────────────────
+// La RPC alumno_encuentros_hoy devuelve los encuentros sincrónicos de HOY de
+// módulos con asistencia obligatoria en los que el alumno (auth.uid) todavía
+// no asistió a ninguna fecha alternativa, hasta que termine la clase.
+export interface EncuentroHoy {
+  encuentro_id: string;
+  encuentro_titulo: string;
+  modulo: string;
+  curso_titulo: string;
+  curso_slug: string | null;
+  fecha_hora: string;
+  duracion_min: number;
+  plataforma: string;
+  join_url: string | null;
+}
+
+export async function fetchAlumnoEncuentrosHoy(): Promise<ApiResponse<EncuentroHoy[]>> {
+  const { data, error } = await supabase.rpc('alumno_encuentros_hoy');
+  if (error) return fail('ALUMNO_ENCUENTROS_HOY', error.message, error);
+  return ok((data ?? []) as EncuentroHoy[]);
+}

@@ -55,6 +55,7 @@ import { NovedadesBanner } from '../components/NovedadesBanner';
 import { PortalOnboardingTour, tourCompletado } from '../components/PortalOnboardingTour';
 import { PortalPwaAssistant } from '../components/PortalPwaAssistant';
 import { PortalPushAssistant } from '../components/PortalPushAssistant';
+import { EncuentroHoyBanner } from '@/modules/campus/components/EncuentroHoyBanner';
 
 // =========================================================================
 export function PortalHome() {
@@ -146,6 +147,8 @@ export function PortalHome() {
 
   return (
     <div className="space-y-5 sm:space-y-6 pb-12">
+      {/* DGG-112: aviso del encuentro sincrónico de HOY (solo si le falta asistir) */}
+      <EncuentroHoyBanner />
       <Hero
         userName={userName}
         nombre={data.administracion.nombre}

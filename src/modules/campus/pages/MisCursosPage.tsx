@@ -21,6 +21,7 @@ import {
 } from '@/services/api/campus';
 import { ProgresoBar } from '../components/ProgresoBar';
 import { humanizeError } from '@/lib/errors';
+import { EncuentroHoyBanner } from '@/modules/campus/components/EncuentroHoyBanner';
 
 // DGG-82: leyenda de felicitaciones en el card cuando el alumno terminó el
 // curso y conserva acceso (ventana post-finalización). dias = vigencia − hoy.
@@ -82,6 +83,8 @@ export function MisCursosPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
+      {/* DGG-112: aviso del encuentro sincrónico de HOY (solo si le falta asistir) */}
+      <EncuentroHoyBanner />
       <header>
         <p className="kicker text-brand-cyan">Campus virtual</p>
         <h1 className="font-display text-3xl font-bold text-brand-ink sm:text-4xl">

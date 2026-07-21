@@ -1054,34 +1054,55 @@ function EncuentroRow({
             {matriculas.length === 0 ? (
               <p className="text-sm text-brand-muted">Asigná alumnos al curso para tomar asistencia.</p>
             ) : (
-              <ul className="grid gap-2 sm:grid-cols-2">
-                {matriculas.map((mt) => {
-                  const presente = presentes.has(mt.id);
-                  return (
-                    <li key={mt.id}>
-                      <button
-                        onClick={() => onToggleAsist(encuentro.id, mt.id)}
-                        className={cn(
-                          'flex w-full items-center justify-between gap-2 rounded-lg border px-3 py-2 text-left text-sm transition',
-                          presente
-                            ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
-                            : 'border-slate-200 bg-white text-brand-muted hover:bg-slate-50',
-                        )}
-                      >
-                        <span className="truncate">{mt.alumno_nombre ?? 'Alumno'}</span>
-                        <span
-                          className={cn(
-                            'shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider',
-                            presente ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-600',
-                          )}
-                        >
-                          {presente ? 'Presente' : 'Ausente'}
-                        </span>
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
+              /* Pablo 2026-07-21: mostrar SOLO presentes — las clases son
+                 alternativas y listar ausentes repite a todo el curso en cada
+                 card. El pase de lista manual se conserva (R14): el selector
+                 marca presente a quien falte y el click sobre un presente lo
+                 quita (con confirmación implícita del toggle). */
+              <>
+                {matriculas.filter((mt) => presentes.has(mt.id)).length === 0 ? (
+                  <p className="text-sm text-brand-muted">
+                    Todavía no hay asistentes registrados.
+                  </p>
+                ) : (
+                  <ul className="grid gap-2 sm:grid-cols-2">
+                    {matriculas
+                      .filter((mt) => presentes.has(mt.id))
+                      .map((mt) => (
+                        <li key={mt.id}>
+                          <button
+                            onClick={() => onToggleAsist(encuentro.id, mt.id)}
+                            title="Click para quitar la asistencia"
+                            className="flex w-full items-center justify-between gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-left text-sm text-emerald-800 transition hover:bg-emerald-100"
+                          >
+                            <span className="truncate">{mt.alumno_nombre ?? 'Alumno'}</span>
+                            <span className="shrink-0 rounded-full bg-emerald-600 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
+                              Presente
+                            </span>
+                          </button>
+                        </li>
+                      ))}
+                  </ul>
+                )}
+                {matriculas.some((mt) => !presentes.has(mt.id)) && (
+                  <select
+                    value=""
+                    onChange={(e) => {
+                      if (e.target.value) onToggleAsist(encuentro.id, e.target.value);
+                    }}
+                    className="mt-2 w-full max-w-xs rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-brand-muted focus:border-brand-cyan focus:outline-none sm:w-auto"
+                  >
+                    <option value="">+ Marcar presente…</option>
+                    {matriculas
+                      .filter((mt) => !presentes.has(mt.id))
+                      .map((mt) => (
+                        <option key={mt.id} value={mt.id}>
+                          {mt.alumno_nombre ?? 'Alumno'}
+                        </option>
+                      ))}
+                  </select>
+                )}
+              </>
             )}
           </div>
         </>

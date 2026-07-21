@@ -8031,6 +8031,20 @@ export type Database = {
           tabulador_nuevo_id: string
         }[]
       }
+      alumno_encuentros_hoy: {
+        Args: never
+        Returns: {
+          curso_slug: string
+          curso_titulo: string
+          duracion_min: number
+          encuentro_id: string
+          encuentro_titulo: string
+          fecha_hora: string
+          join_url: string
+          modulo: string
+          plataforma: string
+        }[]
+      }
       analitica_cobranzas_mensual: {
         Args: { p_meses?: number }
         Returns: {
@@ -9456,6 +9470,7 @@ export type Database = {
         Returns: number
       }
       gg_campus_vencer_matriculas: { Args: never; Returns: undefined }
+      gg_encuentros_recordatorio_diario: { Args: never; Returns: Json }
       gg_profile_marcar_pwa: {
         Args: { p_installed: boolean }
         Returns: undefined
