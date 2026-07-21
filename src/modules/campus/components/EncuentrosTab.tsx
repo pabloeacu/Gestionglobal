@@ -1087,6 +1087,7 @@ function EncuentroRow({
                 {matriculas.some((mt) => !presentes.has(mt.id)) && (
                   <select
                     value=""
+                    aria-label="Marcar presente"
                     onChange={(e) => {
                       if (e.target.value) onToggleAsist(encuentro.id, e.target.value);
                     }}

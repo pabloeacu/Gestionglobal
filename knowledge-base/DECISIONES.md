@@ -4330,3 +4330,33 @@ public → 0 referencias), counts purgados=0 / conservados intactos (11 servicio
 público — consola limpia). GARANTÍA CLAVE: la purga NO tocó una sola línea de
 código ni de schema (solo DELETEs + resets de contadores + 1 policy nueva) —
 las cientos de revisiones previas de cada flujo siguen 100% vigentes.
+
+## DGG-112 · Recordatorio automático del día del encuentro sincrónico (2026-07-21)
+
+Pedido de Pablo + 6 decisiones respondidas una a una:
+1. **Asistencia en gerencia muestra SOLO presentes** (las clases son alternativas;
+   listar ausentes repetía a todo el curso en cada card). Pase de lista manual
+   conservado (R14): selector "+ Marcar presente…" + click sobre presente lo quita.
+2. **Mail 8:00 AR** (cron 11:00 UTC → `gg_encuentros_recordatorio_diario`) el día
+   de CADA fecha alternativa del módulo, hasta que asista a una. Solo módulos con
+   asistencia **obligatoria** (el copy "tu asistencia es obligatoria" es siempre
+   veraz). Matriculados **activos con acceso vigente**. Template entusiasta
+   `campus-encuentro-recordatorio-dia` (HOY se dicta X + hora + CTA portal + guía
+   3 pasos). **Copia testigo a todos los gerentes activos** (dinámico) con la
+   lista de destinatarios. Registro: email_queue → sent_emails. Idempotente.
+3. **Banner del día** en portal del alumno (PortalHome + Mis cursos): de 00:00 al
+   fin de la clase (inicio+duración, auto-oculta por minuto). Join directo gateado
+   a la ventana F9-ter (10 min antes); antes de eso el CTA lleva al campus.
+4. Limpieza: condición residual "QA · prueba e2e" (curso Formación PBA) eliminada.
+   ⚠️ Ese curso quedó con 0 condiciones — **checklist al activarlo**: cargar sus
+   condiciones reales antes de publicar.
+
+Auditoría §6 (3 agentes + e2e): capturó ANTES de la primera corrida (a) el CHECK
+de email_queue que exigía kind='workflow'; (b) CRÍTICO latente: las RPCs ignoraban
+`encuentro_sesiones_compartidas` (verdad única de fecha/sala en compartidos) →
+mig 0370 con LEFT JOIN + COALESCE; (c) el testigo sin variable {{url}} (CTA a la
+landing) → linkea al curso en el panel. Diferido documentado: el throttle global
+de 5 min serializa los envíos (con clases 18:30 y matrícula chica sobra margen;
+si algún día hay clases matinales con >10 alumnos, subir batch o adelantar cron).
+Tradeoff aceptado: re-corrida manual del cron con alumnos nuevos re-manda al
+alumno pero no re-emite el testigo del día (evita spam a gerencia).

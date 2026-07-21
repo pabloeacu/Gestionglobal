@@ -11,9 +11,14 @@ import {
   type EncuentroHoy,
 } from '@/services/api/campus';
 
+// F9-ter: el join directo a la sala recién se habilita 10 min antes del inicio
+// (mismo criterio que EncuentrosEnVivoAlumno y la HotCard de PortalHome — "no
+// dos botones con criterios distintos"). Antes de eso, el CTA lleva al campus.
+const GATE_PREV_MS = 10 * 60_000;
+
 export function EncuentroHoyBanner() {
   const [items, setItems] = useState<EncuentroHoy[]>([]);
-  const [tick, setTick] = useState(0);
+  const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
     void fetchAlumnoEncuentrosHoy().then((r) => {
@@ -21,20 +26,19 @@ export function EncuentroHoyBanner() {
     });
   }, []);
 
-  // Re-evalúa cada minuto para que el banner desaparezca al terminar la clase.
+  // Re-evalúa cada minuto: desaparece al terminar la clase y habilita el join
+  // directo al entrar en la ventana F9-ter.
   useEffect(() => {
-    const t = setInterval(() => setTick((x) => x + 1), 60_000);
+    const t = setInterval(() => setNow(Date.now()), 60_000);
     return () => clearInterval(t);
   }, []);
 
   const vivos = useMemo(
     () =>
       items.filter(
-        (e) =>
-          new Date(e.fecha_hora).getTime() + e.duracion_min * 60_000 >
-          Date.now(),
+        (e) => new Date(e.fecha_hora).getTime() + e.duracion_min * 60_000 > now,
       ),
-    [items, tick],
+    [items, now],
   );
 
   if (vivos.length === 0) return null;
@@ -67,7 +71,8 @@ export function EncuentroHoyBanner() {
                 </span>
               </p>
             </div>
-            {e.join_url ? (
+            {e.join_url &&
+            now >= new Date(e.fecha_hora).getTime() - GATE_PREV_MS ? (
               <a
                 href={e.join_url}
                 target="_blank"
