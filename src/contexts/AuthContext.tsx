@@ -79,7 +79,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // E-GG-07 · timer de refresh manual. Como autoRefreshToken=false (los locks
   // de supabase-js cuelgan bajo StrictMode/HMR), refrescamos el token a mano
   // ~60s antes de que venza, así la sesión no muere cada ~1h.
+  //
+  // E-GG-144 (incidente JL 21/07 17:26) · el refresh manual competía entre
+  // pestañas: cada una cerraba sobre el refresh_token EN MEMORIA (de hasta 1h
+  // antes) y, tras una suspensión, todos los timers despertaban juntos y
+  // refrescaban con tokens viejos → GoTrue lo detecta como reuso fuera de la
+  // ventana de 10s → revoca la FAMILIA entera → deslogueo ("se me cerró la
+  // sesión"; la lentitud previa eran los reintentos con el token ya muerto).
+  // Fix en 3 capas: (1) re-leer SIEMPRE gg.auth.session antes de refrescar y
+  // usar el token más nuevo; (2) lock cross-tab puntual (navigator.locks
+  // 'gg-auth-refresh') SOLO alrededor del refresh — no es el lock global de
+  // supabase-js que colgaba queries; (3) listener de 'storage' que adopta al
+  // instante el token rotado por otra pestaña (la carrera desaparece de raíz).
   const refreshTimer = useRef<number | null>(null);
+  const refreshSeguroRef = useRef<() => Promise<void>>(async () => {});
 
   const scheduleRefresh = useCallback((s: Session | null) => {
     if (refreshTimer.current) {
@@ -89,9 +102,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!s?.expires_at || !s.refresh_token) return;
     // 60s de colchón; mínimo 5s para no spamear si ya está por vencer.
     const delay = Math.max(s.expires_at * 1000 - Date.now() - 60_000, 5_000);
-    refreshTimer.current = window.setTimeout(async () => {
+    refreshTimer.current = window.setTimeout(() => {
+      void refreshSeguroRef.current();
+    }, delay);
+  }, []);
+
+  // Cuerpo real del refresh (se reasigna en cada render para cerrar sobre el
+  // estado más fresco; el timer solo dispara la ref).
+  refreshSeguroRef.current = async () => {
+    const run = async () => {
+      // 1) Re-leer el storage: otra pestaña pudo haber rotado el token
+      //    mientras este timer dormía (suspensión de la laptop, tab inactiva).
+      const stored = readStoredSession();
+      if (!stored?.refresh_token) {
+        // Logout hecho en otra pestaña → logout local limpio.
+        setSession(null);
+        setUser(null);
+        return;
+      }
+      // 2) Si el access del storage sigue vigente con margen (>2 min), otra
+      //    pestaña ya refrescó: adoptamos sin llamar al servidor.
+      if (stored.expires_at * 1000 - Date.now() > 120_000) {
+        const { data } = await supabase.auth.setSession({
+          access_token: stored.access_token,
+          refresh_token: stored.refresh_token,
+        });
+        if (data.session) {
+          setSession(data.session);
+          scheduleRefresh(data.session);
+          return;
+        }
+      }
+      // 3) Refrescar con el token MÁS NUEVO (el del storage, no el de memoria).
       const { data, error } = await supabase.auth.refreshSession({
-        refresh_token: s.refresh_token,
+        refresh_token: stored.refresh_token,
       });
       if (error || !data.session) {
         // refresh_token muerto → logout limpio.
@@ -108,8 +152,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
       setSession(data.session);
       scheduleRefresh(data.session);
-    }, delay);
-  }, []);
+    };
+    // Lock cross-tab puntual: si otra pestaña está refrescando, esperamos y al
+    // entrar re-leemos el storage (paso 1/2) → adoptamos su resultado.
+    if (typeof navigator !== 'undefined' && navigator.locks?.request) {
+      await navigator.locks.request('gg-auth-refresh', run);
+    } else {
+      await run();
+    }
+  };
 
   // Reintentos + backoff + watchdog en la hidratación del profile.
   // Inspirado en el handoff de MDC (1/6/2026):
@@ -251,10 +302,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // de seguir (evita 401 en todas las queries). Si no, lo re-inyectamos.
         const expirado = stored.expires_at * 1000 < Date.now();
         if (expirado) {
-          const { data: r } = await supabase.auth.refreshSession({
-            refresh_token: stored.refresh_token,
-          });
-          s = r.session ?? null;
+          // E-GG-144: el refresh del arranque también va con lock cross-tab y
+          // re-lectura del storage — otra pestaña activa pudo rotar el token
+          // entre nuestra lectura y este punto.
+          const refrescarConLock = async (): Promise<Session | null> => {
+            const run = async (): Promise<Session | null> => {
+              const fresco = readStoredSession() ?? stored;
+              if (fresco.expires_at * 1000 - Date.now() > 120_000) {
+                const { data } = await supabase.auth.setSession({
+                  access_token: fresco.access_token,
+                  refresh_token: fresco.refresh_token,
+                });
+                if (data.session) return data.session;
+              }
+              const { data: r } = await supabase.auth.refreshSession({
+                refresh_token: fresco.refresh_token,
+              });
+              return r.session ?? null;
+            };
+            if (typeof navigator !== 'undefined' && navigator.locks?.request) {
+              return await navigator.locks.request('gg-auth-refresh', run);
+            }
+            return await run();
+          };
+          s = await refrescarConLock();
           if (s) {
             persistSession({
               access_token: s.access_token,
@@ -302,9 +373,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     });
 
+    // E-GG-144 · cuando OTRA pestaña rota el token (o hace logout), este evento
+    // llega acá (el evento 'storage' solo dispara en las pestañas que NO
+    // escribieron). Adoptamos el token nuevo al instante y reprogramamos el
+    // scheduler: ninguna pestaña vuelve a usar un refresh_token viejo.
+    const onStorage = (e: StorageEvent) => {
+      if (e.key !== 'gg.auth.session' || !active) return;
+      const stored = readStoredSession();
+      if (!stored) {
+        // Logout en otra pestaña → reflejar acá.
+        setSession(null);
+        setUser(null);
+        scheduleRefresh(null);
+        return;
+      }
+      void supabase.auth
+        .setSession({
+          access_token: stored.access_token,
+          refresh_token: stored.refresh_token,
+        })
+        .then(({ data }) => {
+          if (active && data.session) {
+            setSession(data.session);
+            scheduleRefresh(data.session);
+          }
+        });
+    };
+    window.addEventListener('storage', onStorage);
+
     return () => {
       active = false;
       if (refreshTimer.current) clearTimeout(refreshTimer.current);
+      window.removeEventListener('storage', onStorage);
       sub.subscription.unsubscribe();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
