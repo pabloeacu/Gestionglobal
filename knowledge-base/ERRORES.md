@@ -4830,3 +4830,32 @@ distancia del incidente), sin revocación de familia ni login posterior. **Lecci
 (a) releer el storage compartido justo antes de refrescar, (b) serializar el refresh cross-tab, y
 (c) distinguir error de red de token inválido — borrar la sesión ante un transitorio recrea el
 síntoma que se quiso arreglar.
+
+**E-GG-144 · rondas 2 y 3 (garantías, 2026-07-21 noche).** A pedido de Pablo ("certezas y garantías
+de que nada se rompe para ningún rol"), el delta de la auditoría §6 (880691e) pasó por su PROPIA
+ronda adversarial (3 auditores + 4 refutadores por hallazgo crítico, 37 invariantes verificados
+contra auth-js 2.106.0 instalado). Confirmado 1 crítico nuevo (4/4 refutadores no pudieron
+refutarlo): `/restablecer` tenía **tres** salidas y sólo 2 se habían convertido a reload — el
+back-link "Ir al login" del header seguía siendo `<Link>` SPA, dejando la pestaña con el snapshot
+de recovery activo: un login posterior en esa pestaña no se persistía (deslogueo fantasma a los
+~55 min — la MISMA clase del incidente) y podía llegar a adoptar la sesión de otro usuario del
+storage. Fix 35a3574: `<a href>` + guard DGG-93 también en `refreshSeguroRef` y en el
+`persistSession(null)` del fallo de loadProfile + logout concurrente con refresh en vuelo ya no
+resucita la sesión (guard TOKEN_REFRESHED-con-storage-vacío) + 5xx de gateway clasifica transitorio
++ TOKEN_REFRESHED vuelve a recargar el profile (restaura la detección horaria del profile
+desactivado; el skip queda sólo para adopciones SIGNED_IN) + boot offline con access vigente
+también reintenta. E2e en vivo sobre prod (browser aislado + gerente QA efímero, borrado con 0
+residuos): bootstrap/persistencia/perfil OK; storage con vencimiento ≤120s → delegación al camino
+lockeado que refresca y re-persiste en <5s (audit log: 1 rotación limpia); logout en una pestaña
+→ storage null + la otra pestaña reflejó el logout al instante; pestaña recovery aislada (no
+adopta, no pisa storage) y normal tras salida con reload. Preexistentes documentados sin tocar:
+boot no-expirado corre `setSession` fuera del lock (auto-curado por la ventana de reuso de 10s),
+transición de deploy con SW viejo (pestañas con bundle pre-fix conviven hasta recargar), signOut
+global de RestablecerPage post-reset (higiene estándar, desde DGG-93). Un verificador final sobre el
+diff de ronda 3 (contra auth-js instalado) encontró 2 fallas medias del propio hardening, cerradas en
+la ronda 4 (commit final): (A) para AuthApiError 5xx / AuthUnknownError, auth-js emite SIGNED_OUT y
+nuestro handler wipeaba el storage ANTES del check transitorio → el reintento nacía muerto; ahora la
+rama transitoria RESTAURA el snapshot si el handler lo wipeó (auto-correctivo: si el wipe era un
+logout real, el token restaurado está revocado y el reintento da 400 → logout limpio); (B) el
+anti-resurrección post-logout-concurrente faltaba en el path gemelo del boot-expirado → espejo del
+re-chequeo antes de persistir.

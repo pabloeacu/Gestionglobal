@@ -174,8 +174,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         refresh_token: stored.refresh_token,
       });
       if (error && esErrorTransitorioDeRed(error)) {
-        // Sin red: el refresh_token sigue vivo — NO tocar el storage ni el
-        // estado; reintentar en 30s (cuando vuelva la conexión, adopta/refresca).
+        // Sin red / 5xx: el refresh_token sigue vivo — reintentar en 30s.
+        // Para AuthApiError 5xx y AuthUnknownError, auth-js ya emitió
+        // SIGNED_OUT y nuestro handler wipeó el storage ANTES de llegar acá:
+        // lo restauramos para que el reintento tenga con qué trabajar. Si en
+        // realidad hubo un logout concurrente, el token restaurado está
+        // revocado server-side y el reintento devuelve 400 → logout limpio.
+        if (!readStoredSession()) persistSession(stored);
         programarReintentoRefresh(30_000);
         return;
       }
@@ -384,7 +389,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               });
               // Arrancar sin red (PWA offline post-suspensión) NO invalida el
               // refresh_token: no wipear el storage; reintentar cuando vuelva.
-              if (error && esErrorTransitorioDeRed(error)) falloTransitorioBoot = true;
+              // (Y si auth-js ya lo wipeó vía SIGNED_OUT —AuthApiError 5xx—,
+              // restaurarlo para que el reintento tenga con qué trabajar.)
+              if (error && esErrorTransitorioDeRed(error)) {
+                falloTransitorioBoot = true;
+                if (!readStoredSession()) persistSession(fresco);
+              }
               return r.session ?? null;
             };
             if (typeof navigator !== 'undefined' && navigator.locks?.request) {
@@ -393,6 +403,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             return await run();
           };
           s = await refrescarConLock();
+          // Logout concurrente mientras el refresh del boot estaba en vuelo
+          // (storage vaciado por otra pestaña): respetarlo, no resucitar.
+          if (s && !readStoredSession()) s = null;
           if (s) {
             persistSession({
               access_token: s.access_token,
