@@ -144,6 +144,7 @@ export function ComprobanteFormDrawer({
 
   // -------- data sources --------
   const [administraciones, setAdministraciones] = useState<AdministracionListItem[]>([]);
+  const [sourcesLoaded, setSourcesLoaded] = useState(false);
   const [consorcios, setConsorcios] = useState<ConsorcioRow[]>([]);
   const [servicios, setServicios] = useState<ServicioListItem[]>([]);
   const [proxNumero, setProxNumero] = useState<number | null>(null);
@@ -176,6 +177,7 @@ export function ComprobanteFormDrawer({
   }, [open]);
 
   async function loadSources() {
+    setSourcesLoaded(false);
     const [admins, servs, arca] = await Promise.all([
       listAdministraciones({ estado: 'activo', limit: 100 }),
       listServiciosActivos(),
@@ -184,6 +186,7 @@ export function ComprobanteFormDrawer({
     if (admins.ok) setAdministraciones(admins.data.rows);
     if (servs.ok) setServicios(servs.data);
     if (arca.ok) setArcaCfg(arca.data);
+    setSourcesLoaded(true);
   }
 
   // Cargar consorcios cuando cambia la administración
@@ -586,21 +589,34 @@ export function ComprobanteFormDrawer({
                 required
                 error={errors['administracion_id']}
               >
-                <Select
-                  value={administracionId}
-                  onChange={(e) => {
-                    setAdministracionId(e.target.value);
-                    setConsorcioId('');
-                  }}
-                  required
-                >
-                  <option value="">— Elegí una administración —</option>
-                  {administraciones.map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.nombre} {a.cuit ? `· ${a.cuit}` : ''}
-                    </option>
-                  ))}
-                </Select>
+                {sourcesLoaded && administraciones.length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-3 text-sm text-brand-muted">
+                    Todavía no hay administraciones activas.{' '}
+                    <a
+                      href="/gerencia/clientes"
+                      className="font-semibold text-brand-cyan hover:underline"
+                    >
+                      Cargá tu primer cliente
+                    </a>{' '}
+                    para poder emitir comprobantes.
+                  </div>
+                ) : (
+                  <Select
+                    value={administracionId}
+                    onChange={(e) => {
+                      setAdministracionId(e.target.value);
+                      setConsorcioId('');
+                    }}
+                    required
+                  >
+                    <option value="">— Elegí una administración —</option>
+                    {administraciones.map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.nombre} {a.cuit ? `· ${a.cuit}` : ''}
+                      </option>
+                    ))}
+                  </Select>
+                )}
               </Field>
 
               {administracionId && (
