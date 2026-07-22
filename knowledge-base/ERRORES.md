@@ -4795,3 +4795,38 @@ bloqueados ✓. En vivo: se re-ejecutó el flujo real y la sala quedó creada y 
 mecanismos de invocación (supabase-js `.rpc(`, REST crudo `rpc/`, pg_cron, triggers) — un solo
 patrón de grep deja colas. Residuo cosmético: la sala huérfana del primer intento quedó en el
 portal Zoom (topic "…Encuentro Agosto · Curso de Actualización…", sin uso — borrar a mano si molesta).
+
+### E-GG-144 · "El sistema se puso lento y se me cerró la sesión" (carrera de refresh multi-pestaña → GoTrue revoca la familia de tokens)
+JL reportó (21/07 ~17:20 AR, segunda vez) lentitud creciente y deslogueo forzado. Server limpio
+(0 `errores_runtime`, health checks 7/7 OK). El diagnóstico salió de `auth.audit_log_entries`: su
+sesión registró pares `token_refreshed`+`token_revoked` EN EL MISMO SEGUNDO a las 11:58, 13:24 y
+14:23 AR (dobles refresh = 2 pestañas, sobrevividos porque el 2° cayó dentro de la ventana de reuso
+de 10s de GoTrue), y a las **17:26:19 AR el par fatal SIN re-refresh posterior** → familia de
+refresh tokens revocada → deslogueo (re-login a las 17:55). A las 19:59 otro par sobrevivió (+9s).
+Causa raíz: nuestro refresh manual (E-GG-07: `persistSession:false` + scheduler propio) cerraba
+sobre el refresh_token EN MEMORIA de cada pestaña (de hasta 1h antes). Tras una suspensión de la
+laptop, los timers de todas las pestañas despertaban JUNTOS y refrescaban con tokens de distinta
+generación → GoTrue detecta reuso fuera de la ventana de 10s → **revoca la FAMILIA entera**. La
+"lentitud" previa eran las queries reintentando con el JWT ya muerto antes de la expulsión.
+Fix (commit 8b5e80f, 3 capas en `AuthContext`): (1) **re-leer SIEMPRE `gg.auth.session` antes de
+refrescar** y si otra pestaña ya rotó (access vigente >2 min) adoptarlo sin consumir el
+refresh_token; (2) **lock cross-tab puntual** `navigator.locks('gg-auth-refresh')` SOLO alrededor
+del refresh (no es el lock global de supabase-js que colgaba queries — E-GG-07 intacto, verificado:
+ese lock solo se instala con `persistSession:true`); (3) **listener de `storage`** que adopta al
+instante el token rotado por otra pestaña y refleja logouts. Resultado: 1 solo POST /token por
+rotación, N pestañas convergen al mismo token.
+Auditoría §6 (commit 880691e, 2 críticas + 3 menores encontradas y fixeadas): un
+`AuthRetryableFetchError` (sin red post-suspensión — la MISMA ventana temporal del incidente) ya NO
+borra la sesión: el refresh_token sigue vivo, se reintenta en 30s (ídem bootstrap offline de la
+PWA); la pestaña de `/restablecer` (DGG-93) no adopta sesiones ajenas ni escribe `gg.auth.session`
+(evita `updateUser({password})` sobre el usuario equivocado); onStorage con token por vencer delega
+en el camino lockeado; `signOut()` limpia storage+timer incondicionalmente (auth-js no emite
+SIGNED_OUT si el POST /logout falla por red → la sesión "resucitaba" con el timer); fallo técnico
+de loadProfile → `signOut({scope:'local'})` (no revocar server-side la familia de las pestañas
+sanas). Prueba en vivo: 2 pestañas reales del panel llegando juntas al vencimiento natural del
+token → ambas sobreviven logueadas con el MISMO token renovado; el audit log muestra la
+convergencia en 75 ms (muy adentro de la ventana de reuso de 10s — vs. los tokens de 1h de
+distancia del incidente), sin revocación de familia ni login posterior. **Lección**: con refresh-token rotation, cualquier scheduler manual multi-pestaña DEBE
+(a) releer el storage compartido justo antes de refrescar, (b) serializar el refresh cross-tab, y
+(c) distinguir error de red de token inválido — borrar la sesión ante un transitorio recrea el
+síntoma que se quiso arreglar.
