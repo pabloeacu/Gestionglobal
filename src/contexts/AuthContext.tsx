@@ -15,7 +15,18 @@ import {
   persistSession,
   clearLegacySupabaseStorage,
   arrivedWithRecoveryHash,
+  SESSION_KEY,
 } from '@/lib/supabase';
+
+// E-GG-144 (auditoría §6) · un fallo de red (AuthRetryableFetchError, status 0 o
+// sin status) NO significa refresh_token muerto: la laptop pudo despertar de una
+// suspensión antes de que vuelva el WiFi. En ese caso el token sigue vivo y NO
+// hay que borrar la sesión — se reintenta. Solo un error real del servidor
+// (invalid_grant / 4xx) marca el token como muerto.
+function esErrorTransitorioDeRed(error: { name?: string; status?: number } | null): boolean {
+  if (!error) return false;
+  return error.name === 'AuthRetryableFetchError' || error.status === 0 || error.status === undefined;
+}
 import { getCurrentProfile, type CurrentProfile, type Role } from '@/services/api/profiles';
 
 export type { Role } from '@/services/api/profiles';
@@ -93,6 +104,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // instante el token rotado por otra pestaña (la carrera desaparece de raíz).
   const refreshTimer = useRef<number | null>(null);
   const refreshSeguroRef = useRef<() => Promise<void>>(async () => {});
+  // Id del usuario ya cargado en contexto — para que la adopción cross-tab de un
+  // token rotado (mismo usuario) no re-dispare loadProfile en cada rotación.
+  const userIdRef = useRef<string | null>(null);
+
+  // Reintento corto tras un fallo transitorio (red caída post-suspensión).
+  const programarReintentoRefresh = useCallback((ms: number) => {
+    if (refreshTimer.current) clearTimeout(refreshTimer.current);
+    refreshTimer.current = window.setTimeout(() => {
+      void refreshSeguroRef.current();
+    }, ms);
+  }, []);
 
   const scheduleRefresh = useCallback((s: Session | null) => {
     if (refreshTimer.current) {
@@ -108,7 +130,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // Cuerpo real del refresh (se reasigna en cada render para cerrar sobre el
-  // estado más fresco; el timer solo dispara la ref).
+  // estado más fresco; el timer solo dispara la ref). Ídem userIdRef: el
+  // handler de onAuthStateChange (closure del mount) lo lee siempre fresco.
+  userIdRef.current = user?.id ?? null;
   refreshSeguroRef.current = async () => {
     const run = async () => {
       // 1) Re-leer el storage: otra pestaña pudo haber rotado el token
@@ -121,7 +145,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
       // 2) Si el access del storage sigue vigente con margen (>2 min), otra
-      //    pestaña ya refrescó: adoptamos sin llamar al servidor.
+      //    pestaña ya refrescó: adoptamos sin consumir el refresh_token
+      //    (setSession valida el access con un GET /user, nada más).
       if (stored.expires_at * 1000 - Date.now() > 120_000) {
         const { data } = await supabase.auth.setSession({
           access_token: stored.access_token,
@@ -137,8 +162,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { data, error } = await supabase.auth.refreshSession({
         refresh_token: stored.refresh_token,
       });
+      if (error && esErrorTransitorioDeRed(error)) {
+        // Sin red: el refresh_token sigue vivo — NO tocar el storage ni el
+        // estado; reintentar en 30s (cuando vuelva la conexión, adopta/refresca).
+        programarReintentoRefresh(30_000);
+        return;
+      }
       if (error || !data.session) {
-        // refresh_token muerto → logout limpio.
+        // refresh_token muerto (error real del servidor) → logout limpio.
         persistSession(null);
         setSession(null);
         setUser(null);
@@ -155,10 +186,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
     // Lock cross-tab puntual: si otra pestaña está refrescando, esperamos y al
     // entrar re-leemos el storage (paso 1/2) → adoptamos su resultado.
-    if (typeof navigator !== 'undefined' && navigator.locks?.request) {
-      await navigator.locks.request('gg-auth-refresh', run);
-    } else {
-      await run();
+    try {
+      if (typeof navigator !== 'undefined' && navigator.locks?.request) {
+        await navigator.locks.request('gg-auth-refresh', run);
+      } else {
+        await run();
+      }
+    } catch (err) {
+      // Una excepción acá no debe matar el ciclo de refresh de la pestaña:
+      // logueamos y reintentamos (la sesión del storage sigue intacta).
+      // eslint-disable-next-line no-console
+      console.error('[Auth] refresh falló con excepción, reintento en 30s', err);
+      programarReintentoRefresh(30_000);
     }
   };
 
@@ -267,7 +306,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       nullCount,
     });
     try {
-      if (isSupabaseConfigured) await supabase.auth.signOut();
+      // scope 'local': el objetivo es no operar sin profile en ESTA pestaña,
+      // no revocar server-side la familia de tokens de las demás (§6 E-GG-144).
+      if (isSupabaseConfigured) await supabase.auth.signOut({ scope: 'local' });
     } catch {
       // Si el signOut falla por red, igual limpiamos local — la sesión queda
       // muerta del lado cliente y el próximo intento la regenera.
@@ -297,6 +338,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // sobre el usuario correcto y no sobre uno ya logueado en el navegador.
       const stored = arrivedWithRecoveryHash() ? null : readStoredSession();
       let s: Session | null = null;
+      let falloTransitorioBoot = false;
       if (stored) {
         // Si el access token ya venció, refrescamos con el refresh_token antes
         // de seguir (evita 401 en todas las queries). Si no, lo re-inyectamos.
@@ -315,9 +357,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 });
                 if (data.session) return data.session;
               }
-              const { data: r } = await supabase.auth.refreshSession({
+              const { data: r, error } = await supabase.auth.refreshSession({
                 refresh_token: fresco.refresh_token,
               });
+              // Arrancar sin red (PWA offline post-suspensión) NO invalida el
+              // refresh_token: no wipear el storage; reintentar cuando vuelva.
+              if (error && esErrorTransitorioDeRed(error)) falloTransitorioBoot = true;
               return r.session ?? null;
             };
             if (typeof navigator !== 'undefined' && navigator.locks?.request) {
@@ -333,7 +378,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               expires_at: s.expires_at ?? 0,
               user: { id: s.user.id, email: s.user.email },
             });
-          } else {
+          } else if (!falloTransitorioBoot) {
             persistSession(null);
           }
         } else {
@@ -347,28 +392,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!active) return;
       setSession(s);
       scheduleRefresh(s);
+      // Después de scheduleRefresh (que limpia el timer con s=null): si el boot
+      // falló por red transitoria, dejar armado el reintento que recupera la
+      // sesión intacta del storage cuando vuelva la conexión.
+      if (!s && falloTransitorioBoot) programarReintentoRefresh(30_000);
       await loadProfile(s);
       if (active) setLoading(false);
     })();
 
     // Persistimos manualmente cada cambio de auth (signIn / signOut / refresh).
+    // DGG-93 + E-GG-144 §6: la pestaña de recovery NO escribe gg.auth.session —
+    // su sesión (la del link) no debe ser adoptada por las demás pestañas, ni su
+    // signOut final debe wipear la sesión normal de otro usuario del browser.
     const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
       if (!active) return;
-      if (s) {
-        persistSession({
-          access_token: s.access_token,
-          refresh_token: s.refresh_token,
-          expires_at: s.expires_at ?? 0,
-          user: { id: s.user.id, email: s.user.email },
-        });
-      } else {
-        persistSession(null);
+      if (!arrivedWithRecoveryHash()) {
+        if (s) {
+          persistSession({
+            access_token: s.access_token,
+            refresh_token: s.refresh_token,
+            expires_at: s.expires_at ?? 0,
+            user: { id: s.user.id, email: s.user.email },
+          });
+        } else {
+          persistSession(null);
+        }
       }
       // Re-cargamos profile solo en cambios reales (signin/signout); el
       // INITIAL_SESSION lo manejamos arriba con la lectura de storage.
       if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED') {
         setSession(s);
         scheduleRefresh(s);
+        // La adopción cross-tab de un token rotado emite SIGNED_IN; si es el
+        // mismo usuario ya cargado, el profile no cambió — no re-cargarlo.
+        if (s && s.user.id === userIdRef.current) return;
         void loadProfile(s);
       }
     });
@@ -378,13 +435,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // escribieron). Adoptamos el token nuevo al instante y reprogramamos el
     // scheduler: ninguna pestaña vuelve a usar un refresh_token viejo.
     const onStorage = (e: StorageEvent) => {
-      if (e.key !== 'gg.auth.session' || !active) return;
+      if (e.key !== SESSION_KEY || !active) return;
+      // DGG-93: la pestaña de recovery no adopta sesiones ajenas ni refleja
+      // logouts — la sesión autoritativa ahí es la del link, siempre.
+      if (arrivedWithRecoveryHash()) return;
       const stored = readStoredSession();
       if (!stored) {
-        // Logout en otra pestaña → reflejar acá.
+        // Logout en otra pestaña → reflejar acá (flags de error incluidas).
         setSession(null);
         setUser(null);
+        setProfileMissing(false);
+        setProfileLoadFailed(false);
+        setAccesoRevocado(false);
         scheduleRefresh(null);
+        return;
+      }
+      // Si lo guardado ya está por vencer, setSession refrescaría contra el
+      // servidor FUERA del lock — delegar en el camino lockeado que re-lee,
+      // adopta o refresca serializado.
+      if (stored.expires_at * 1000 - Date.now() <= 120_000) {
+        void refreshSeguroRef.current();
         return;
       }
       void supabase.auth
@@ -411,13 +481,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [loadProfile]);
 
   const signOut = useCallback(async () => {
-    if (isSupabaseConfigured) await supabase.auth.signOut();
+    try {
+      if (isSupabaseConfigured) await supabase.auth.signOut();
+    } catch {
+      // Ante fallo de red auth-js NO emite SIGNED_OUT ni limpia nada —
+      // limpiamos local igual para que la sesión no "resucite" con el timer.
+    }
+    // Limpieza local incondicional (no depender del evento SIGNED_OUT): borra
+    // el storage (propaga el logout a las otras pestañas vía 'storage') y
+    // desarma el timer de refresh.
+    persistSession(null);
+    scheduleRefresh(null);
     setSession(null);
     setUser(null);
     setProfileMissing(false);
     setProfileLoadFailed(false);
     setAccesoRevocado(false);
-  }, []);
+  }, [scheduleRefresh]);
 
   const reloadProfile = useCallback(async () => {
     await loadProfile(session);

@@ -68,7 +68,7 @@ export function onPasswordRecovery(cb: () => void): () => void {
 // Persistencia manual de session. supabase-js maneja localStorage solo si
 // `persistSession: true`, pero eso activa locks que se contienden y cuelgan
 // las queries bajo StrictMode/HMR. Lo replicamos a mano sin locks.
-const SESSION_KEY = 'gg.auth.session';
+export const SESSION_KEY = 'gg.auth.session';
 
 export interface StoredSessionLite {
   access_token: string;
