@@ -1,5 +1,4 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { Link } from 'react-router-dom';
 import { KeyRound, ArrowLeft, Loader2, CheckCircle2, ShieldAlert } from 'lucide-react';
 import {
   supabase,
@@ -123,12 +122,14 @@ export function RestablecerPage() {
 
       <div className="flex w-full flex-col items-center justify-center bg-white px-6 lg:w-1/2">
         <div className="w-full max-w-sm">
-          <Link
-            to="/ingresar"
+          {/* <a>, no <Link>: TODA salida de /restablecer debe ser reload completo
+              para resetear arrivedWithRecoveryHash (snapshot por pestaña). */}
+          <a
+            href="/ingresar"
             className="mb-8 inline-flex items-center gap-1.5 text-sm text-brand-muted transition hover:text-brand-ink"
           >
             <ArrowLeft size={15} /> Ir al login
-          </Link>
+          </a>
 
           <BrandMark variant="light" size={42} className="mb-7 lg:hidden" />
 

@@ -18,14 +18,22 @@ import {
   SESSION_KEY,
 } from '@/lib/supabase';
 
-// E-GG-144 (auditoría §6) · un fallo de red (AuthRetryableFetchError, status 0 o
-// sin status) NO significa refresh_token muerto: la laptop pudo despertar de una
-// suspensión antes de que vuelva el WiFi. En ese caso el token sigue vivo y NO
-// hay que borrar la sesión — se reintenta. Solo un error real del servidor
-// (invalid_grant / 4xx) marca el token como muerto.
+// E-GG-144 (auditoría §6) · un fallo de red o de infraestructura NO significa
+// refresh_token muerto: la laptop pudo despertar de una suspensión antes de que
+// vuelva el WiFi, o el gateway pudo devolver un 5xx. En esos casos el token
+// sigue vivo y NO hay que borrar la sesión — se reintenta. Solo un error real
+// del servidor de auth (invalid_grant / 4xx) marca el token como muerto.
+// (La rama status undefined es redundante — para AuthUnknownError auth-js ya
+// emitió SIGNED_OUT antes de que este check corra — pero queda por robustez
+// ante cambios de versión.)
 function esErrorTransitorioDeRed(error: { name?: string; status?: number } | null): boolean {
   if (!error) return false;
-  return error.name === 'AuthRetryableFetchError' || error.status === 0 || error.status === undefined;
+  return (
+    error.name === 'AuthRetryableFetchError' ||
+    error.status === 0 ||
+    error.status === undefined ||
+    error.status >= 500
+  );
 }
 import { getCurrentProfile, type CurrentProfile, type Role } from '@/services/api/profiles';
 
@@ -134,6 +142,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // handler de onAuthStateChange (closure del mount) lo lee siempre fresco.
   userIdRef.current = user?.id ?? null;
   refreshSeguroRef.current = async () => {
+    // DGG-93: la pestaña de recovery no opera contra gg.auth.session — ni
+    // adopta, ni rota, ni desloguea. Su sesión es la del link, y punto.
+    if (arrivedWithRecoveryHash()) return;
     const run = async () => {
       // 1) Re-leer el storage: otra pestaña pudo haber rotado el token
       //    mientras este timer dormía (suspensión de la laptop, tab inactiva).
@@ -171,6 +182,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (error || !data.session) {
         // refresh_token muerto (error real del servidor) → logout limpio.
         persistSession(null);
+        setSession(null);
+        setUser(null);
+        return;
+      }
+      // Si mientras el refresh estaba en vuelo otra pestaña (o esta) hizo
+      // logout (storage vacío), NO resucitar la sesión persistiendo el token
+      // nuevo: respetar el logout.
+      if (!readStoredSession()) {
         setSession(null);
         setUser(null);
         return;
@@ -306,14 +325,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       nullCount,
     });
     try {
-      // scope 'local': el objetivo es no operar sin profile en ESTA pestaña,
-      // no revocar server-side la familia de tokens de las demás (§6 E-GG-144).
+      // scope 'local': preserva las sesiones del usuario en OTROS dispositivos
+      // (las pestañas de este browser comparten la misma familia y se
+      // deslogüean igual vía el persistSession(null) de abajo — §6 E-GG-144).
       if (isSupabaseConfigured) await supabase.auth.signOut({ scope: 'local' });
     } catch {
       // Si el signOut falla por red, igual limpiamos local — la sesión queda
       // muerta del lado cliente y el próximo intento la regenera.
     }
-    persistSession(null);
+    // DGG-93: si esto corre en la pestaña de recovery, no wipear la sesión
+    // normal (de otro usuario u otra pestaña) guardada en gg.auth.session.
+    if (!arrivedWithRecoveryHash()) persistSession(null);
     setSession(null);
     setUser(null);
     setProfileMissing(false);
@@ -382,11 +404,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             persistSession(null);
           }
         } else {
-          await supabase.auth.setSession({
+          const { error } = await supabase.auth.setSession({
             access_token: stored.access_token,
             refresh_token: stored.refresh_token,
           });
           s = (await supabase.auth.getSession()).data.session;
+          // Boot sin red con access vigente: no quedarse deslogueado de
+          // mentira hasta un reload — reintentar (storage queda intacto).
+          if (!s && error && esErrorTransitorioDeRed(error)) falloTransitorioBoot = true;
         }
       }
       if (!active) return;
@@ -406,6 +431,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // signOut final debe wipear la sesión normal de otro usuario del browser.
     const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
       if (!active) return;
+      // Un TOKEN_REFRESHED que llega con el storage ya vacío es un refresh que
+      // estaba en vuelo cuando otra pestaña (o esta) hizo logout: respetarlo,
+      // no resucitar la sesión. (Un login real llega como SIGNED_IN.)
+      if (event === 'TOKEN_REFRESHED' && s && !readStoredSession()) return;
       if (!arrivedWithRecoveryHash()) {
         if (s) {
           persistSession({
@@ -425,7 +454,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         scheduleRefresh(s);
         // La adopción cross-tab de un token rotado emite SIGNED_IN; si es el
         // mismo usuario ya cargado, el profile no cambió — no re-cargarlo.
-        if (s && s.user.id === userIdRef.current) return;
+        // TOKEN_REFRESHED (solo la pestaña que rotó, 1/h) SÍ re-carga: es lo
+        // que detecta a mitad de sesión un profile desactivado (§6 ronda 2).
+        if (event === 'SIGNED_IN' && s && s.user.id === userIdRef.current) return;
         void loadProfile(s);
       }
     });
