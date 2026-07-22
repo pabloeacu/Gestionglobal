@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { KeyRound, ArrowLeft, Loader2, CheckCircle2, ShieldAlert } from 'lucide-react';
 import {
   supabase,
@@ -21,7 +21,6 @@ import { actualizarPasswordConRecovery } from '@/services/api/perfil';
 // contraseña. Si no hay sesión de recovery (link vencido/usado o acceso
 // directo), mostramos el estado correspondiente.
 export function RestablecerPage() {
-  const navigate = useNavigate();
   const [estado, setEstado] = useState<'verificando' | 'listo' | 'sin_sesion' | 'guardado'>(
     'verificando',
   );
@@ -92,7 +91,11 @@ export function RestablecerPage() {
     toast.success('¡Contraseña actualizada!', {
       description: 'Ya podés ingresar con tu nueva clave.',
     });
-    setTimeout(() => navigate('/ingresar'), 1800);
+    // Salir con reload completo (no navigate SPA): resetea la señal
+    // arrivedWithRecoveryHash de la pestaña — si no, el login normal posterior
+    // en ESTA pestaña no se persistiría en gg.auth.session (E-GG-144 §6/DGG-93)
+    // — y descarta la sesión de recovery que queda en memoria del cliente.
+    setTimeout(() => window.location.assign('/ingresar'), 1800);
   }
 
   return (
@@ -150,7 +153,7 @@ export function RestablecerPage() {
                 <strong>“¿Olvidaste tu contraseña?”</strong>.
               </p>
               <Button
-                onClick={() => navigate('/ingresar')}
+                onClick={() => window.location.assign('/ingresar')}
                 className="w-full rounded-xl bg-gradient-to-r from-brand-cyan to-brand-blue py-3"
               >
                 Volver al login
