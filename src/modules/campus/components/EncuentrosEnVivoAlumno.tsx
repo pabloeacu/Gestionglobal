@@ -7,7 +7,6 @@ import {
   Video,
   X,
   ExternalLink,
-  PlayCircle,
   Smartphone,
   CheckCircle2,
   Mic,
@@ -316,7 +315,6 @@ function EncuentroLi({
           const status = (statusField as string | undefined) ?? 'programado';
           const isLive = status === 'en_curso';
           const finalizado = status === 'finalizado';
-          const tieneGrabacion = !!enc.grabacion_play_url;
 
           // Gating temporal del acceso del alumno (F9-ter · Lista JL):
           // habilitado SÓLO en [fecha_hora − 10min, fecha_hora + duración], o
@@ -389,15 +387,14 @@ function EncuentroLi({
                   )}
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                  {tieneGrabacion && (
-                    <a
-                      href={enc.grabacion_play_url ?? undefined}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100"
-                    >
-                      <PlayCircle size={14} /> Ver grabación
-                    </a>
+                  {/* Los encuentros sincrónicos NO publican grabación al alumno
+                      (por eso la asistencia es obligatoria) — la grabación es
+                      material interno de gerencia. El finalizado muestra el
+                      mismo pill informativo que la ventana vencida. */}
+                  {finalizado && (
+                    <span className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-2 text-xs font-semibold text-brand-muted">
+                      <Clock size={13} /> El encuentro finalizó
+                    </span>
                   )}
 
                   {/* ZOOM (default) · E-GG-145: el camino PRIMARIO es el embed

@@ -1455,8 +1455,10 @@ function coalesceEncuentroSesion(row: any): CursoEncuentroRow {
     zoom_status: s.zoom_status,
     iniciado_at: s.iniciado_at,
     finalizado_at: s.finalizado_at,
-    grabacion_url: s.grabacion_url,
-    grabacion_play_url: s.grabacion_play_url,
+    // Grabaciones: material interno de gerencia — al alumno no viajan (la
+    // asistencia sincrónica es obligatoria justamente porque no hay VOD).
+    grabacion_url: s.grabacion_url ?? null,
+    grabacion_play_url: s.grabacion_play_url ?? null,
     webex_meeting_id: s.webex_meeting_id,
     webex_join_url: s.webex_join_url,
     webex_start_url: s.webex_start_url ?? null,
@@ -1483,14 +1485,14 @@ export async function listEncuentros(
     ? '*'
     : 'id,curso_id,titulo,descripcion,fecha_hora,link_zoom,orden,created_at,updated_at,' +
       'zoom_meeting_id,zoom_join_url,duracion_min,zoom_status,iniciado_at,' +
-      'finalizado_at,grabacion_url,grabacion_play_url,plataforma,webex_meeting_id,' +
+      'finalizado_at,plataforma,webex_meeting_id,' +
       'webex_join_url,webex_status,webex_meeting_number,condicion_id,' +
       'sesion_compartida_id';
   const sesionCols = opts.incluirHostUrl
     ? '*'
     : 'id,titulo,descripcion,fecha_hora,duracion_min,plataforma,' +
       'zoom_meeting_id,zoom_join_url,zoom_status,' +
-      'iniciado_at,finalizado_at,grabacion_url,grabacion_play_url,' +
+      'iniciado_at,finalizado_at,' +
       'webex_meeting_id,webex_join_url,webex_status,webex_meeting_number,' +
       'docente_nombre,docente_foto_url,docente_cv_url,created_by,created_at,updated_at';
   const { data, error } = await supabase
