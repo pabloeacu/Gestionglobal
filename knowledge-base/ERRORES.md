@@ -4972,3 +4972,46 @@ de un e2e deben copiar la FORMA REAL de los datos de prod (una matrícula sin ad
 existe en la práctica); (b) toda función que corra bajo pg_cron debe auditarse contra los asserts
 de tenancy de las RPCs que llama (no hay JWT: is_staff/assert fallan por diseño); (c) un dedupe
 apoyado en una tabla alcanzable por otros actores es un vector de supresión — preferir atomicidad.
+
+### E-GG-150 · encolar_email era invocable por cualquier authenticated (vector de templates arbitrarios)
+Adyacencia #2 de la refutación §6 de DGG-115b (E-GG-149), fixeada como chunk propio. `public.encolar_email`
+(mig 0024) tenía GRANT EXECUTE a `authenticated` y su único gate (`assert_administracion_access`) sólo
+corría con `p_administracion_id NOT NULL`. Con admin NULL, CUALQUIER usuario logueado —cliente
+(administrador), partner o alumno, no sólo gerencia— podía, manipulando las peticiones (no desde la UI),
+encolar CUALQUIER template activo hacia CUALQUIER email con variables/CTA arbitrarios: (a) phishing con el
+branding real de Gestión Global (el correo sale del servidor oficial); (b) envenenar el dedupe de crons que
+usan email_queue como memoria de "ya avisé", para SUPRIMIR un aviso legítimo. Pre-existente desde 0024;
+DGG-115b ya había dejado de depender de la función (mig 0377).
+**Mapa de callers (auditado en BD viva ANTES de tocar):** superficie de front viva = SÓLO EmailTemplatesPage
+(gerencia·Config) vía sendTestEmail; 17 RPCs/triggers SECURITY DEFINER internos que ejecutan encolar_email
+con privilegio del OWNER (postgres), NO del invocador → no dependen del GRANT a authenticated; crons como
+postgres (owner); edge functions con service_role. **Fix quirúrgico (mig 0378, cero lógica de negocio
+tocada):** (1) wrapper `public.gerencia_encolar_email(...)` con guard `is_staff_or_service`, delega en la
+canónica, GRANT a authenticated+service_role; (2) `REVOKE EXECUTE ON encolar_email FROM authenticated,
+PUBLIC` (queda postgres+service_role); (3) front pasa por el wrapper; (4) NOTIFY pgrst. El INSERT directo a
+email_queue por un cliente ya estaba cerrado por RLS (email_queue_insert_staff · with_check is_staff).
+E2e (rollback) 6 ejes: cliente directo DENEGADO, cliente al wrapper DENEGADO, gerente al wrapper OK, caller
+interno SECDEF bajo role authenticated no-staff SIGUE encolando, service_role directo OK, 0 overloads (R16).
+**Lección:** una función de utilidad SECURITY DEFINER con GRANT amplio a `authenticated` y gate condicional
+(sólo-si-hay-tenant) es un vector de templates/side-effects arbitrarios; el candado correcto no es meter un
+guard is_staff DENTRO (rompería los callers internos que un cliente dispara legítimamente vía triggers/RPCs
+SECDEF — el guard evaluaría el rol del cliente), sino un WRAPPER staff-gated para la superficie directa +
+REVOKE del acceso directo, apoyándose en que los internos ejecutan como owner.
+
+### E-GG-150b · Los 2 callers residuales del mismo vector (refutación de 0378)
+La refutación adversarial de 0378 + un barrido propio ("¿qué RPC ejecutable por authenticated encola/
+inserta email SIN gate is_staff?") encontraron que cerrar `encolar_email` no bastaba: había 2 RPCs MÁS con
+template controlable por el caller y sólo gate de tenencia (o ninguno): `lote_consolidado_administracion`
+(template arbitrario, destino auto-dirigido a la casilla de la propia admin del cliente — no phishing a
+terceros porque `administraciones.email` es is_staff-only, pero superficie residual; 0 callers de app) y
+`notify_all_gerentes` (template_slug controlable → spam interno a los gerentes; 0 callers directos, sus 5
+callers son triggers/crons SECDEF que corren como owner). Fix (mig 0379): REVOKE EXECUTE de ambas a
+authenticated+PUBLIC (queda service_role + owner). Descartados en el barrido (NO vector): next_email_slot
+(schema private, no expuesto por PostgREST), solicitud_pedir_docs_revision/solicitud_rechazar (gatean
+role='gerente' + template fijo), tramite_pedido_doc_enviar_revision (flujo legítimo de cliente, template
+fijo), trg_certificado_celebrar_fn (trigger). E2e rollback: cliente directo a ambas DENEGADO, caller interno
+(espejo de trigger) sigue notificando a los gerentes, service OK. **Lección:** cerrar la función-núcleo de un
+vector no cierra el vector — hay que barrer TODA la clase (toda RPC alcanzable por el rol no privilegiado que
+deje el template/destinatario en manos del caller), no sólo la función que disparó el hallazgo.
+
+> **Nota de despliegue (E-GG-150):** el front cambió de `rpc('encolar_email')` a `rpc('gerencia_encolar_email')`. Por el SW de la PWA, un GERENTE con bundle viejo cacheado podría ver 42501 en el botón "enviar email de prueba" del editor de plantillas hasta recargar (auto-sana al bustear el SW). Sólo gerencia, sólo el test-send, inherente a cualquier rename de RPC; ningún flujo de cliente/partner/alumno afectado. No se mitigó reintroduciendo el GRANT (rompería el cierre) ni tocando las 17 funciones internas (no-quirúrgico).

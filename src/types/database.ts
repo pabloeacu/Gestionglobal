@@ -9361,6 +9361,20 @@ export type Database = {
           vencida: boolean
         }[]
       }
+      gerencia_encolar_email: {
+        Args: {
+          p_administracion_id: string
+          p_consorcio_id: string
+          p_prioridad: number
+          p_related_id: string
+          p_related_table: string
+          p_template: string
+          p_to_email: string
+          p_to_nombre: string
+          p_variables: Json
+        }
+        Returns: string
+      }
       gerencia_proximos_seguimientos: {
         Args: { p_dias?: number }
         Returns: {

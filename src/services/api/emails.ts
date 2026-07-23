@@ -192,8 +192,11 @@ export function previewTemplate(
 // --- encolar -------------------------------------------------------------
 
 export async function encolarEmail(input: EncolarEmailInput): Promise<ApiResponse<string>> {
-  // Los args de la RPC permiten NULL en PG pero las types generadas los marcan
-  // como NOT NULL (limitación de pg-meta). Casteamos a `any` el bag de args.
+  // E-GG-150: pasamos por el wrapper staff-gated `gerencia_encolar_email`. La
+  // RPC base `encolar_email` ya NO es ejecutable por `authenticated` (era un
+  // vector: cualquier logueado podía encolar templates arbitrarios). El
+  // wrapper exige is_staff_or_service y delega en la canónica. Los args
+  // permiten NULL en PG pero las types los marcan NOT NULL (pg-meta): casteo.
   const args = {
     p_template: input.template,
     p_to_email: input.to,
@@ -204,8 +207,8 @@ export async function encolarEmail(input: EncolarEmailInput): Promise<ApiRespons
     p_related_table: input.related_table ?? null,
     p_related_id: input.related_id ?? null,
     p_prioridad: input.prioridad ?? 5,
-  } as unknown as Parameters<typeof supabase.rpc<'encolar_email'>>[1];
-  const { data, error } = await supabase.rpc('encolar_email', args);
+  } as unknown as Parameters<typeof supabase.rpc<'gerencia_encolar_email'>>[1];
+  const { data, error } = await supabase.rpc('gerencia_encolar_email', args);
   if (error) return fail('EMAIL_ENCOLAR', error.message, error);
   return ok(data as string);
 }
