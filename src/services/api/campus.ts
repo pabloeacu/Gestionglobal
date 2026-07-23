@@ -161,11 +161,11 @@ export async function listCursos(
     .order('created_at', { ascending: false });
 
   if (params.soloActivos !== false) {
-    // DGG-115 (§6 C#9): OJO — `activo=true` NO significa "publicado": incluye
-    // programados (publicar_at futuro) y finalizados (despublicar_at pasado).
-    // Hoy TODOS los callers pasan soloActivos=false y filtran por estado en
-    // memoria (cursoFinalizado / estadoPublicacion). Si consumís este default,
-    // filtrá vos también — o mejor, imitá a los callers existentes.
+    // DGG-116 (§6): OJO — `activo=true` (check "Visible") no distingue un curso
+    // Publicado de uno ya Finalizado (despublicar_at pasado sigue con activo=
+    // true). Hoy TODOS los callers pasan soloActivos=false y filtran por estado
+    // en memoria (cursoFinalizado / estadoPublicacion). Si consumís este
+    // default, filtrá vos también — o mejor, imitá a los callers existentes.
     q = q.eq('activo', true);
   }
   if (params.modalidad && params.modalidad !== 'todos') {
@@ -2494,16 +2494,18 @@ export function cursoFinalizado(
   return !!obj?.despublicar_at && new Date(obj.despublicar_at).getTime() <= Date.now();
 }
 
-/** DGG-115: true si el curso aún NO está publicado para el alumno (estado
- *  BD 'borrador' u 'oculto', o 'programado' con publicar_at futuro). El
- *  matriculado ve la card de expectativa sin contenido. Finalizado NO cuenta:
- *  los matriculados conservan su vigencia individual (DGG-82). Espeja la
- *  precedencia de `private.curso_estado_publicacion`. */
+/** DGG-116: true si el curso aún NO es visible para el alumno (estado BD
+ *  'no_visible', i.e. el check "Visible" apagado). El matriculado ve la card
+ *  de expectativa sin contenido. Finalizado NO cuenta: los matriculados
+ *  conservan su vigencia individual (DGG-82). Espeja la precedencia de
+ *  `private.curso_estado_publicacion` (3 estados). Nota: `publicar_at` (Fecha
+ *  de inicio) ya NO retiene la visibilidad — el cron la tilda al llegar la
+ *  fecha, y la gerencia puede anticiparla a mano; por eso acá sólo mira
+ *  `activo`. */
 export function cursoEnExpectativa(
   curso:
     | {
         activo?: boolean | null;
-        publicar_at?: string | null;
         despublicar_at?: string | null;
       }
     | null
@@ -2511,16 +2513,16 @@ export function cursoEnExpectativa(
 ): boolean {
   if (!curso) return false;
   if (cursoFinalizado(curso)) return false;
-  if (!curso.activo) return true;
-  return (
-    !!curso.publicar_at && new Date(curso.publicar_at).getTime() > Date.now()
-  );
+  return !curso.activo;
 }
 
 /** Etiqueta corta del estado de publicación, útil en chips de gerencia.
- *  variant 'curso' (DGG-115): la etiqueta post-fin es "Finalizado" y GANA a
- *  Borrador (espeja el helper de BD); el default conserva "Despublicado"
- *  para módulos/clases/bibliografía, donde el orden histórico se mantiene. */
+ *  variant 'curso' (DGG-116, 3 estados): Publicado (check "Visible" puesto) ·
+ *  No visible (check apagado, igualmente matriculable) · Finalizado (fecha de
+ *  fin pasada, GANA a No visible). NO existe "Programado": `publicar_at` (Fecha
+ *  de inicio) ya no retiene la visibilidad — sólo dispara el auto-tildado del
+ *  check. El default (módulos/clases/bibliografía) conserva el modelo histórico
+ *  con Borrador/Programado/Despublicado, donde publicar_at SÍ retiene. */
 export function estadoPublicacion(
   obj: {
     publicado?: boolean | null;
@@ -2532,17 +2534,23 @@ export function estadoPublicacion(
   tone: 'emerald' | 'slate' | 'amber' | 'rose';
   label: string;
 } {
-  if (!obj) return { tone: 'slate', label: 'Borrador' };
+  const esCurso = variant === 'curso';
+  if (!obj) return { tone: 'slate', label: esCurso ? 'No visible' : 'Borrador' };
   const now = Date.now();
-  if (variant === 'curso' && cursoFinalizado(obj)) {
+  if (esCurso && cursoFinalizado(obj)) {
     return { tone: 'rose', label: 'Finalizado' };
   }
-  if (obj.publicado === false) return { tone: 'slate', label: 'Borrador' };
-  if (obj.publicar_at && new Date(obj.publicar_at).getTime() > now) {
+  if (obj.publicado === false) {
+    return { tone: 'slate', label: esCurso ? 'No visible' : 'Borrador' };
+  }
+  // DGG-116: la rama "Programado" (publicar_at futuro) sólo aplica al default;
+  // para un curso, tener el check "Visible" puesto es Publicado aunque la
+  // fecha de inicio sea futura (la gerencia anticipó la visibilidad).
+  if (!esCurso && obj.publicar_at && new Date(obj.publicar_at).getTime() > now) {
     return { tone: 'amber', label: 'Programado' };
   }
   if (obj.despublicar_at && new Date(obj.despublicar_at).getTime() <= now) {
-    return { tone: 'rose', label: variant === 'curso' ? 'Finalizado' : 'Despublicado' };
+    return { tone: 'rose', label: esCurso ? 'Finalizado' : 'Despublicado' };
   }
   return { tone: 'emerald', label: 'Publicado' };
 }

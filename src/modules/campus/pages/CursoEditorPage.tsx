@@ -109,7 +109,8 @@ export function CursoEditorPage() {
           </h1>
         </div>
         <div className="flex items-center gap-2">
-          {/* DGG-115: badge de 4 estados (Finalizado gana a Borrador). */}
+          {/* DGG-116: badge de 3 estados (Publicado / No visible / Finalizado;
+              Finalizado gana a No visible). */}
           {(() => {
             const estado = estadoPublicacion(
               {
@@ -155,12 +156,12 @@ export function CursoEditorPage() {
                   return;
                 }
                 toast.success(
-                  data.curso.activo ? 'Curso despublicado' : 'Curso publicado',
+                  data.curso.activo ? 'Curso ocultado (No visible)' : 'Curso visible',
                 );
                 void reload();
               }}
             >
-              {data.curso.activo ? 'Despublicar' : 'Publicar'}
+              {data.curso.activo ? 'Ocultar' : 'Hacer visible'}
             </Button>
           )}
         </div>

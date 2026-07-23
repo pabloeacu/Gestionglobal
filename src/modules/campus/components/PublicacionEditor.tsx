@@ -1,9 +1,14 @@
-// Editor de publicación reutilizable: checkbox "Publicado" + ventana opcional
-// (publicar desde / dejar de publicar el). Genera el chip de estado y los
-// inputs datetime-local. Tres modos pedidos en sesión 30/05/2026:
-//   1. Publicación inmediata (publicado=true, sin fechas)
-//   2. Publicación programada (publicar_at en el futuro)
-//   3. Despublicación programada / oculto (publicado=false ó despublicar_at)
+// Editor de publicación reutilizable: checkbox "Publicado" + ventana opcional.
+// Genera el chip de estado y los inputs datetime-local.
+//
+// DGG-116: el componente se comporta distinto según `variant`:
+//   · variant='curso' — modelo de 3 estados. El check "Visible" hace visible el
+//     curso YA; `publicar_at` es la "Fecha de inicio": NO retiene la
+//     visibilidad, sólo dispara el auto-tildado del check al llegar el día
+//     (cron gg_cursos_visibilizar_por_fecha). `despublicar_at` = "Fecha de fin"
+//     → FINALIZADO. Un curso No visible igual se puede matricular.
+//   · default (módulos/clases/bibliografía) — modelo histórico (30/05/2026):
+//     publicar_at SÍ retiene la visibilidad (Programado hasta esa fecha).
 
 import { Calendar, Eye, EyeOff } from 'lucide-react';
 import { cn } from '@/lib/cn';
@@ -21,8 +26,9 @@ interface PublicacionEditorProps {
   onChange: (next: PublicacionState) => void;
   /** Densidad: 'compact' para insertarlo dentro de cards de clase, 'normal' para módulo/curso. */
   density?: 'compact' | 'normal';
-  /** DGG-115: 'curso' etiqueta el post-fin como "Finalizado" (corta matrícula
-   *  de nuevos, no solo visibilidad). Módulos/clases conservan "Despublicado". */
+  /** DGG-116: 'curso' usa el modelo de 3 estados (No visible / Publicado /
+   *  Finalizado) y re-etiqueta las fechas como Inicio/Fin. Módulos/clases
+   *  (default) conservan el modelo histórico (Borrador/Programado/Despublicado). */
   variant?: 'curso';
 }
 
@@ -50,9 +56,11 @@ const TONE_CHIP: Record<
 };
 
 export function PublicacionEditor({ value, onChange, density = 'normal', variant }: PublicacionEditorProps) {
+  const esCurso = variant === 'curso';
   const estado = estadoPublicacion(value, variant);
-  // DGG-115 (§6 A#20): ventana invertida (fin <= inicio) = el recurso pasa de
-  // "programado" a oculto/finalizado sin publicarse nunca. Warning inline.
+  // DGG-115 (§6 A#20): ventana invertida (fin <= inicio). Para curso: la fecha
+  // de fin cae antes/igual que la de inicio → finalizaría antes de hacerse
+  // visible. Para el default: el recurso nunca llegaría a publicarse. Warning.
   const ventanaInvertida =
     !!value.publicar_at &&
     !!value.despublicar_at &&
@@ -96,7 +104,9 @@ export function PublicacionEditor({ value, onChange, density = 'normal', variant
         <span>
           <strong className="text-brand-ink">Visible para los alumnos</strong>
           <span className="ml-1 text-xs text-brand-muted">
-            (destildá para dejarlo oculto / en borrador)
+            {esCurso
+              ? '(destildá para dejarlo No visible; igual podés matricular alumnos)'
+              : '(destildá para dejarlo oculto / en borrador)'}
           </span>
         </span>
       </label>
@@ -110,10 +120,14 @@ export function PublicacionEditor({ value, onChange, density = 'normal', variant
         <Field
           label={
             <span className="inline-flex items-center gap-1">
-              <Calendar size={11} /> Publicar a partir de
+              <Calendar size={11} /> {esCurso ? 'Fecha de inicio' : 'Publicar a partir de'}
             </span>
           }
-          hint="Opcional. Si lo seteás a futuro, queda oculto hasta esa fecha."
+          hint={
+            esCurso
+              ? 'Opcional. Al llegar ese día (00:00), el curso se hace visible automáticamente. Podés tildar "Visible" antes para anticiparlo.'
+              : 'Opcional. Si lo seteás a futuro, queda oculto hasta esa fecha.'
+          }
         >
           <Input
             type="datetime-local"
@@ -124,11 +138,11 @@ export function PublicacionEditor({ value, onChange, density = 'normal', variant
         <Field
           label={
             <span className="inline-flex items-center gap-1">
-              <Calendar size={11} /> Dejar de publicar el
+              <Calendar size={11} /> {esCurso ? 'Fecha de fin' : 'Dejar de publicar el'}
             </span>
           }
           hint={
-            variant === 'curso'
+            esCurso
               ? 'Opcional. Al llegar esa fecha el curso queda FINALIZADO: no admite nuevas matrículas ni es visible para no matriculados. Los matriculados conservan su vigencia.'
               : 'Opcional. Cuando llegue esa fecha, se oculta automáticamente.'
           }
@@ -142,11 +156,18 @@ export function PublicacionEditor({ value, onChange, density = 'normal', variant
       </div>
       {ventanaInvertida && (
         <p className="mt-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700">
-          ⚠ La fecha de fin es anterior (o igual) a la de publicación:{' '}
-          {variant === 'curso'
-            ? 'el curso quedaría FINALIZADO sin haberse publicado nunca y no admitiría matrículas.'
-            : 'el recurso nunca llegaría a publicarse.'}{' '}
-          Revisá las fechas.
+          {esCurso ? (
+            <>
+              ⚠ La fecha de fin es anterior (o igual) a la de inicio: el curso
+              quedaría FINALIZADO en (o antes de) su fecha de inicio y no
+              admitiría nuevas matrículas. Revisá las fechas.
+            </>
+          ) : (
+            <>
+              ⚠ La fecha de fin es anterior (o igual) a la de publicación: el
+              recurso nunca llegaría a publicarse. Revisá las fechas.
+            </>
+          )}
         </p>
       )}
     </div>

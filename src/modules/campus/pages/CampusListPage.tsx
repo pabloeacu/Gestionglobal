@@ -80,9 +80,9 @@ export function CampusListPage() {
     const okc = await confirm({
       title: 'Duplicar curso',
       message:
-        `Se creará una copia BORRADOR de "${curso.titulo}" con todo el material ` +
+        `Se creará una copia NO VISIBLE de "${curso.titulo}" con todo el material ` +
         '(módulos, clases, examen, condiciones, encuentros, bibliografía y encuestas). ' +
-        'NO se copian los alumnos matriculados. Después la editás y la publicás.',
+        'NO se copian los alumnos matriculados. Después la editás y la hacés visible.',
       confirmLabel: 'Duplicar',
     });
     if (!okc) return;
@@ -115,9 +115,9 @@ export function CampusListPage() {
     const activas = matriculas.filter((m) => m.estado === 'activa').length;
     const completadas = matriculas.filter((m) => m.estado === 'completada')
       .length;
-    // DGG-115 (§6 A#13): "activos" = con el tilde de visibilidad puesto y no
-    // finalizados — o sea publicados + programados. Los borradores (tilde
-    // apagado) y los finalizados (fecha fin pasada) quedan afuera.
+    // DGG-116: "activos" = con el check "Visible" puesto y no finalizados — o
+    // sea, publicados. Los No visibles (check apagado) y los finalizados
+    // (fecha de fin pasada) quedan afuera.
     return {
       activas,
       completadas,

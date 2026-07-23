@@ -149,15 +149,18 @@ Deno.serve(async (req) => {
     // firma+password de un curso oculto.
     const curso = enc.curso as {
       activo: boolean;
-      publicar_at: string | null;
       despublicar_at: string | null;
     } | null;
     const finalizado =
       !!curso?.despublicar_at &&
       new Date(curso.despublicar_at).getTime() <= Date.now();
-    const publicado =
-      !!curso?.activo &&
-      (!curso.publicar_at || new Date(curso.publicar_at).getTime() <= Date.now());
+    // DGG-116 (E-GG-151): el check "Visible" (activo) publica el curso YA;
+    // publicar_at (Fecha de inicio) dejó de retener la visibilidad (sólo
+    // dispara el auto-tildado por cron). Espejo del derivador de 3 estados:
+    // publicado = activo. La lógica vieja exigía publicar_at<=now y devolvía
+    // 403 a un curso con visibilidad anticipada (activo=true + fecha futura)
+    // que la BD/RLS ya exponen en dashboard/banner/campus.
+    const publicado = !!curso?.activo;
     if (!finalizado && !publicado) return json(403, { error: "curso_no_publicado" });
     matriculaId = mat.id;
   }

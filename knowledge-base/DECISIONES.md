@@ -4449,3 +4449,56 @@ atomicidad marca+mails es la garantía; un dedupe envenenable vía encolar_email
 advisory lock, guard de template inactivo, filtro p.activo en alumnos, y `crearCurso` ahora nace en
 BORRADOR (antes nacía 'publicado' vacío y el cron quemaba la marca antes de la pre-venta).
 Hardening de encolar_email: tarea aparte (requiere mapa completo de callers).
+
+## DGG-116 · Unificación del criterio de visibilidad de cursos: 3 estados (2026-07-23)
+**Origen** (Pablo, mismo día): DGG-115 modeló 4 estados con precedencia
+`finalizado > borrador > programado > publicado`, pero (a) llamar "Borrador" a un curso
+armado-pero-oculto confundía (Borrador = curso en construcción), y (b) el estado 'programado'
+(publicar_at futuro con activo=true "retenía" la visibilidad) chocaba con la intención real: el
+check "Visible" debe hacer visible el curso YA, sin importar la fecha. Regla verbatim de Pablo:
+_"el check visible lo deja público para el alumno automáticamente; el check apagado, no visible.
+Si tiene fecha de inicio, a las 0:00 de ese día el check se tilda automáticamente y comienza a
+verse. La fecha podría ser posterior y yo podría tildar 'visible' anticipando la visibilidad.
+Cuando la fecha llega, chequea y si ya está visible, no hace nada. En todas las instancias
+anteriores los cursos son pasibles de matriculación. La fecha de fin quita la matriculación."_
+
+**Decisión — 3 estados** (mig 0380). `private.curso_estado_publicacion(...)` se simplifica a
+precedencia `finalizado (despublicar_at<=now) > no_visible (activo=false) > publicado (else)`.
+Desaparece 'programado'; 'borrador'→**'no_visible'**. `publicar_at` se re-etiqueta en el editor
+**"Fecha de inicio"** y ya NO retiene la visibilidad: es sólo el DISPARADOR del auto-tildado.
+- **Visibilidad = check O fecha.** El check "Visible" (`activo`) publica al instante. Además, un
+  cron **`gg_cursos_visibilizar_por_fecha`** (00:00 AR, `0 3 * * *`) tilda `activo=true` en los
+  cursos cuya Fecha de inicio ya llegó. Idempotente y con salvaguarda: la columna nueva
+  **`cursos.visibilidad_auto_at`** marca los ya procesados, así un curso que la gerencia oculta a
+  mano DESPUÉS no se re-abre; y un curso ya visible-anticipado sólo se marca (no cambia). Nunca
+  re-abre finalizados (`despublicar_at IS NULL OR > now`). Se engancha con el aviso DGG-115b: al
+  tildarse, el curso pasa a 'publicado' y el cron horario (job 28) manda "tu curso ya está
+  disponible" una sola vez.
+- **Matriculación: sin cambios de fondo.** SOLO los finalizados se rechazan (guards
+  curso_asignar_alumno/curso_matricular ya comparan `= 'finalizado'`, no 'borrador'/'programado').
+  Un No visible sigue siendo matriculable → card de expectativa. Un curso Publicado con contenido
+  se ve completo.
+- **Alcance del rename.** El helper de front `estadoPublicacion(obj,'curso')` y `cursoEnExpectativa`
+  (ahora `!activo` salvo finalizado, sin rama publicar_at) reflejan los 3 estados SÓLO para
+  cursos; el modelo histórico de módulos/clases/bibliografía (default, con Borrador/Programado/
+  Despublicado donde publicar_at SÍ retiene) queda **intacto**. La rama que aceptaba estado curso
+  'programado' en `gg_encuentros_recordatorio_diario` (mig 0375) quedó inerte (deuda cosmética):
+  un curso visible el día del encuentro es 'publicado' y lo agarra la rama IN ('publicado',
+  'finalizado').
+
+**Seguridad del cambio** (auditado en BD viva antes de tocar): ningún consumidor SQL compara el
+resultado del derivador contra 'borrador'/'programado' (todos usan IN ('publicado','finalizado')
+o ='finalizado'); las menciones vivas a esos literales son de otros dominios (comprobantes en
+borrador, rendiciones, zoom_status='programado'). Los 4 cursos reales tienen publicar_at=NULL →
+el cron nunca los toca; sólo cambió el string 'borrador'→'no_visible' del único oculto (mismo
+significado). Verificado con e2e rollback de 6 casos borde del cron (oculto+fecha pasada→tilda;
+fecha futura→no toca; visible-anticipado→sólo marca; ya-procesado→no re-abre; finalizado→no
+re-abre; sin fecha→no toca) + derivador correcto en cada combinación.
+
+**Hallazgo de la §6 (E-GG-151):** la triple auditoría cazó que 2 edge functions (`zoom-sdk-
+signature`, `webex-guest-token`) **re-implementaban** el gate de publicación en TS con la fórmula
+vieja (`publicado = activo && (!publicar_at || publicar_at<=now)`), invisibles al grep SQL de
+cierre de la mig. Con visibilidad anticipada (activo=true + fecha futura) la BD/RLS exponen la
+clase pero el edge devolvía 403 al entrar al vivo. Fix: `publicado = !!curso?.activo` en ambos
+(deployados). Lección: un derivado con espejos en otras runtimes exige grepear TODO el repo
+(edges + front), no sólo SQL.

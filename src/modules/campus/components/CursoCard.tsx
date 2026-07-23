@@ -8,8 +8,9 @@ import {
   type CursoListItem,
 } from '@/services/api/campus';
 
-// DGG-115: tonos del chip de estado de publicación (Borrador / Programado /
-// Publicado / Finalizado) sobre el banner, sólo en vista gerencia.
+// DGG-116: tonos del chip de estado de publicación del curso (Publicado /
+// No visible / Finalizado) sobre el banner, sólo en vista gerencia. El tono
+// amber (Programado) sólo lo usa el default de módulos/clases, no los cursos.
 const ESTADO_CHIP: Record<'emerald' | 'slate' | 'amber' | 'rose', string> = {
   emerald: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
   slate: 'bg-slate-100 text-slate-600 ring-slate-200',

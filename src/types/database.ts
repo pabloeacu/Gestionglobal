@@ -3001,6 +3001,7 @@ export type Database = {
           titulo: string
           updated_at: string
           vigencia_meses: number
+          visibilidad_auto_at: string | null
         }
         Insert: {
           activo?: boolean
@@ -3037,6 +3038,7 @@ export type Database = {
           titulo: string
           updated_at?: string
           vigencia_meses?: number
+          visibilidad_auto_at?: string | null
         }
         Update: {
           activo?: boolean
@@ -3073,6 +3075,7 @@ export type Database = {
           titulo?: string
           updated_at?: string
           vigencia_meses?: number
+          visibilidad_auto_at?: string | null
         }
         Relationships: [
           {
@@ -9505,6 +9508,7 @@ export type Database = {
       }
       gg_campus_vencer_matriculas: { Args: never; Returns: undefined }
       gg_cursos_publicados_notificar: { Args: never; Returns: Json }
+      gg_cursos_visibilizar_por_fecha: { Args: never; Returns: Json }
       gg_encuentros_recordatorio_diario: { Args: never; Returns: Json }
       gg_profile_marcar_pwa: {
         Args: { p_installed: boolean }
