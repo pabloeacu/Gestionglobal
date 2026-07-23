@@ -178,6 +178,11 @@ function construirOps(
 
   // 1b · Observación interna del tracking (si la gerencia la cargó). Best-effort:
   //      línea interna (no visible al cliente) sobre la apertura.
+  //      E-GG-152: la categoría debe existir en tracking_categorias_config; 'alta'
+  //      NO está en el catálogo (la RPC tracking_agregar_linea rechaza con
+  //      'Categoría inválida') → la observación se perdía silenciosamente (best-
+  //      effort). Se usa 'seguimiento_interno' (misma categoría que la línea de
+  //      apertura automática), acá con visible_cliente=false (nota interna).
   if (state.observacionesTracking.trim()) {
     ops.push({
       key: 'observacion',
@@ -186,7 +191,7 @@ function construirOps(
       run: async (ctx) => {
         if (!ctx.trackingId) return 'Sin trámite';
         const r = await agregarLinea(ctx.trackingId, {
-          categoria: 'alta',
+          categoria: 'seguimiento_interno',
           descripcion: state.observacionesTracking.trim(),
           visible_cliente: false,
         });
