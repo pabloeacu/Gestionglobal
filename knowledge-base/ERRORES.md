@@ -4947,3 +4947,28 @@ criterio de acceso se centraliza en UN helper y los demás lo llaman — nunca s
 inline. Diferidos documentados (pre-existentes, fuera de alcance): bucket `campus-media` público
 (URLs directas sin auth), skew de reloj cliente en la transición programado→publicado, contenido
 stale en pantalla si el curso se oculta con el detalle abierto (hasta F5).
+
+### E-GG-149 · El aviso "curso publicado" (v1, mig 0376) moría en su caso principal — atrapado por la refutación §6
+La v1 del cron `gg_cursos_publicados_notificar` llamaba a `public.encolar_email(...administracion_id...)`,
+que desde el hardening 0350 ejecuta `private.assert_administracion_access`. Bajo pg_cron (postgres,
+sin JWT) el assert revienta con 42501 apenas la matrícula tenga `administracion_id` — y el 100% de
+las matrículas activas reales lo tienen. La primera publicación real habría fallado CADA HORA en
+silencio (transacción atómica: sin mails, push, marca ni alerta), con el job reportando 'succeeded'
+solo en corridas vacías. **Mi e2e v1 no lo vio porque las matrículas QA iban SIN administración**
+(clase E-GG-42: el bug latente hasta el primer uso real); los DOS refutadores adversariales lo
+probaron e2e por separado en el contexto exacto del cron. Adyacencias del mismo veredicto:
+(2, lateral pre-existente de 0024) `encolar_email` es ejecutable por cualquier authenticated y con
+admin NULL saltea el assert — sirve para disparar templates arbitrarios y para ENVENENAR dedupes
+sobre email_queue; no se puede revocar a ciegas (callers legítimos de gerencia/RPCs/flujos
+públicos) → hardening en tarea aparte, y el cron dejó de depender de esa superficie; (3) `crearCurso`
+insertaba `activo=true` → el curso nacía 'publicado' vacío y el cron le quemaba la marca con 0
+matriculados, dejando la pre-venta posterior SIN aviso → los cursos ahora nacen en borrador;
+(4) faltaba `p.activo=true` en el loop (avisaba a perfiles dados de baja) y un template inactivo
+abortaba la corrida. Fix (mig 0377 + campus.ts): INSERT directo a email_queue (patrón 0369, con
+administracion_id y lower()), SIN dedupe envenenable (la atomicidad marca+mails garantiza envío
+único), advisory lock, guard de template, filtro de perfiles activos. E2e ronda 2 con la forma
+EXACTA de prod (matrícula con administración): 8/8 ✔. **Lección triple:** (a) los datos sintéticos
+de un e2e deben copiar la FORMA REAL de los datos de prod (una matrícula sin administración no
+existe en la práctica); (b) toda función que corra bajo pg_cron debe auditarse contra los asserts
+de tenancy de las RPCs que llama (no hay JWT: is_staff/assert fallan por diseño); (c) un dedupe
+apoyado en una tabla alcanzable por otros actores es un vector de supresión — preferir atomicidad.

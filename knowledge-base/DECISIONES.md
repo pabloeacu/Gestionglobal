@@ -4441,3 +4441,11 @@ mig: los publicados/finalizados existentes quedaron marcados (cero spam a los al
 Verificado: e2e rollback de 9 ejes (oculto no dispara; publicar → mail solo a matrícula activa +
 push + testigos + marca; idempotente; variables exactas) + primera corrida real del cron
 'succeeded' (regla E-GG-146). La función es mass-mailer: REVOKE a todos, solo la ejecuta el cron.
+
+**Refutación DGG-115b (mismo día):** la v1 (mig 0376) fue volteada por los 2 refutadores §6 —
+`encolar_email` bajo pg_cron reventaba con el 100% de las matrículas reales (E-GG-149). La versión
+vigente es la mig 0377: INSERT directo a email_queue (patrón 0369), SIN dedupe por email_queue (la
+atomicidad marca+mails es la garantía; un dedupe envenenable vía encolar_email(NULL) era peor),
+advisory lock, guard de template inactivo, filtro p.activo en alumnos, y `crearCurso` ahora nace en
+BORRADOR (antes nacía 'publicado' vacío y el cron quemaba la marca antes de la pre-venta).
+Hardening de encolar_email: tarea aparte (requiere mapa completo de callers).

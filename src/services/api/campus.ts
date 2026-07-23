@@ -611,7 +611,11 @@ export async function crearCurso(
       fecha_inicio: input.fecha_inicio ?? null,
       fecha_fin: input.fecha_fin ?? null,
       banner_url: input.banner_url ?? null,
-      activo: true,
+      // DGG-115b (E-GG-149 #3): los cursos nacen en BORRADOR. Antes nacían
+      // activo=true ('publicado' vacío) y el cron de aviso les quemaba la
+      // marca con 0 matriculados — la pre-venta posterior quedaba sin aviso.
+      // La gerencia publica explícitamente desde el editor cuando está listo.
+      activo: false,
     })
     .select()
     .single();
