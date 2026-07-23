@@ -196,6 +196,31 @@ export function PasoComprobante({ state, set }: PasoProps) {
                   ))}
                 </Select>
               </Field>
+              {/* E-GG-153: fecha real + N° de la transferencia/comprobante. La RPC
+                  de cobranza ya persiste ambos (p_fecha / p_referencia); antes el
+                  wizard hardcodeaba hoy() y referencia vacía. */}
+              <Field
+                label="Fecha del pago"
+                required
+                hint="Fecha real de la transferencia o pago (puede diferir de la del comprobante)."
+              >
+                <Input
+                  type="date"
+                  value={c.fechaPago}
+                  onChange={(e) => patchC({ fechaPago: e.target.value })}
+                />
+              </Field>
+              <Field
+                label="N° de comprobante / transferencia"
+                hint="Opcional. Número de la transferencia o comprobante del pago."
+              >
+                <Input
+                  type="text"
+                  value={c.referencia}
+                  onChange={(e) => patchC({ referencia: e.target.value })}
+                  placeholder="Ej: 945418"
+                />
+              </Field>
               {categorias.length > 0 && (
                 <Field label="Categoría" hint="Opcional. Para agrupar en reportes.">
                   <Select

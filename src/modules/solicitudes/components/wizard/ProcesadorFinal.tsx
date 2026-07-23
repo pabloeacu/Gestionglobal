@@ -292,10 +292,12 @@ function construirOps(
         const r = await registrarCobranza({
           comprobante_id: ctx.comprobanteId,
           caja_id: c.cajaId,
-          fecha: hoy(),
+          // E-GG-153: fecha real del pago + N° de transferencia/comprobante que
+          // ahora carga la gerencia en el paso Comprobante (antes: hoy() y '').
+          fecha: c.fechaPago || hoy(),
           monto,
           descripcion: `Cobranza · ${c.descripcion}`,
-          referencia: '',
+          referencia: c.referencia?.trim() || '',
           categoria_id: c.categoriaId || null,
           partner_id_atribucion: c.partnerId,
         });

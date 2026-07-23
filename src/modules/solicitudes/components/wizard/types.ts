@@ -38,6 +38,12 @@ export interface ComprobanteState {
   /** Monto efectivamente cobrado si pagoModo='parcial'. */
   montoCobrado: string;
   cajaId: string;
+  /** E-GG-153: fecha real del pago/transferencia (YYYY-MM-DD). Puede diferir de
+   *  la fecha del comprobante (el cliente pudo transferir otro día). */
+  fechaPago: string;
+  /** E-GG-153: N° de comprobante / transferencia (referencia del movimiento).
+   *  Opcional — no todo pago tiene número (efectivo). Va a cobranza.referencia. */
+  referencia: string;
   /** Categoría de ingreso (opcional) para reportes financieros. */
   categoriaId: string;
   compartePartner: boolean;

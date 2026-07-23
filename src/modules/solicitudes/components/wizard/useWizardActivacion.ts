@@ -99,6 +99,8 @@ function estadoInicial(sol: SolicitudDetalle, flags: SolicitudFlags): WizardStat
       pagoModo: flags.esGratuito ? 'ninguno' : 'total',
       montoCobrado: '',
       cajaId: '',
+      fechaPago: new Date().toISOString().slice(0, 10),
+      referencia: '',
       categoriaId: '',
       compartePartner: false,
       partnerId: null,
