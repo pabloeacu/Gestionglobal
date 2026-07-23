@@ -93,7 +93,7 @@ async function fetchParticipantes(
       const acc: ZoomParticipant[] = [];
       let next = "";
       do {
-        const url = `${base}?page_size=300${next ? `&next_page_token=${next}` : ""}`;
+        const url = `${base}?page_size=300${next ? `&next_page_token=${encodeURIComponent(next)}` : ""}`;
         const r = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
         if (!r.ok) throw new Error(`${r.status}: ${await r.text()}`);
         const j = await r.json();

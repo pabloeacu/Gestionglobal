@@ -1449,7 +1449,9 @@ function coalesceEncuentroSesion(row: any): CursoEncuentroRow {
     zoom_meeting_id: s.zoom_meeting_id,
     zoom_join_url: s.zoom_join_url,
     zoom_start_url: s.zoom_start_url ?? null,
-    zoom_password: s.zoom_password,
+    // E-GG-145: los passwords tampoco viajan al alumno (embed las recibe de
+    // la firma) — normalizamos a null igual que los start_url.
+    zoom_password: s.zoom_password ?? null,
     zoom_status: s.zoom_status,
     iniciado_at: s.iniciado_at,
     finalizado_at: s.finalizado_at,
@@ -1458,7 +1460,7 @@ function coalesceEncuentroSesion(row: any): CursoEncuentroRow {
     webex_meeting_id: s.webex_meeting_id,
     webex_join_url: s.webex_join_url,
     webex_start_url: s.webex_start_url ?? null,
-    webex_password: s.webex_password,
+    webex_password: s.webex_password ?? null,
     webex_status: s.webex_status,
     webex_meeting_number: s.webex_meeting_number,
     compartido: true,

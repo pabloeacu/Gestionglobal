@@ -4859,3 +4859,58 @@ rama transitoria RESTAURA el snapshot si el handler lo wipeó (auto-correctivo: 
 logout real, el token restaurado está revocado y el reintento da 400 → logout limpio); (B) el
 anti-resurrección post-logout-concurrente faltaba en el path gemelo del boot-expirado → espejo del
 re-chequeo antes de persistir.
+
+### E-GG-145 · Asistencia Zoom: el alumno en la sala era invisible para la plataforma (sin identidad no hay presente)
+Encuentro Julio (22/07, Actualización RPAC PBA) EN VIVO: el único matriculado (Althabe) entró "desde
+el campus", la moderadora lo veía en la sala, y la plataforma mostraba "Todavía no hay asistentes".
+Causa raíz: la asistencia automática exige `customer_key` (= matricula_id) en los webhooks de Zoom,
+y ese dato SOLO lo inyecta el reproductor embebido (SDK) — pero para encuentros Zoom standalone el
+campus NUNCA ofrecía el embed: tanto la página del curso ("Unirme a la clase Zoom") como el banner
+del día (DGG-112) y la HotCard del dashboard abrían el link crudo → participante sin identidad → el
+webhook DESCARTABA los join/leave EN SILENCIO (0 filas, 0 logs). Diseño roto de nacimiento para
+standalone; primera clase real = primera manifestación. Evidencia adicional del reporte oficial de
+Zoom (138 sesiones de esa reunión, ~30 personas): los invitados llegan SIN email → el match por
+email solo sirve para logueados en Zoom; la identidad robusta ES el embed.
+Fix DOBLE VÍA (migs 0371-0373 + zoom-webhook v8 + zoom-reconciliar-asistencia v2 + zoom-sdk-signature
+v9 + front, commits 940bb3d+ronda2):
+- **Vía 1 · tiempo real:** el alumno entra por el EMBED del campus (botón primario, como Webex);
+  el link a Zoom oficial queda secundario. Banner del día y HotCard llevan SIEMPRE al campus. La
+  password viaja por la firma (gateada por matrícula) y sale del payload del alumno.
+- **Vía 2 · la garantía:** al terminar cada reunión (webhook meeting.ended, sin bloquear la
+  respuesta a Zoom) y cada 15 min por cron idempotente, se consume el reporte oficial de
+  participantes de Zoom (con paginación y fallback de endpoint) y la RPC
+  `curso_encuentro_reconciliar_asistencia` computa asistencia por customer_key/email SIN degradar
+  nada. Nunca más descartes silenciosos: todo evento sin identidad queda loggeado (matricula NULL).
+- **Rescate del 22/07:** Althabe marcado presente (fuente manual) en el momento.
+Auditoría §6 (3 auditores + refutadores, 37 OKs) atrapó 4 críticos ANTES de que muerdan, todos
+fixeados en ronda 2 (mig 0373): (1) un webhook tardío/reenviado DEGRADABA la asistencia consolidada
+(pisaba fuente y recomputaba presente desde 0) → la RPC ahora es MONÓTONA (fuente mixto/zoom_report
+se preservan, tiempo GREATEST, flags OR, presente nunca baja); (2) ídem con la marca manual del
+gerente (pre-existente desde 0047, agravado por el embed) → mismo fix; (3) el CRON nuevo fallaba el
+100% de sus corridas (ver E-GG-146); (4) la HotCard del dashboard seguía deep-linkeando al link
+crudo → al campus. Menores: participante malformado o customer_key tampereado ya no aborta el batch
+(uuid regex estricta + private.safe_ts/safe_int), reporte vacío no cierra el gate del cron, el
+webhook ignora reuniones ajenas al campus (sin ruido), RPCs del circuito webhook cerradas a
+service_role (mig 0372 — pre-existente: cualquier autenticado podía inyectarse asistencia).
+E2e con rollback de los 2 escenarios de degradación: presente/tiempo se conservan ✔. En vivo:
+reconciliador corrido contra el meeting real (reporte oficial OK), cadena de identidad probada con
+alumno QA efímero (firma + customerKey=matrícula + password, luego 0 residuos), UI mobile verificada
+en prod. **Lección:** una integración cuyo camino feliz depende de POR DÓNDE entra el usuario
+necesita una vía de reconciliación post-hoc contra la fuente de verdad externa — y los flujos de
+"todo salió bien en la prueba" hay que ejercitarlos con el caso real (invitados sin email).
+Diferidos documentados: podar join_url del RPC alumno_encuentros_hoy; alerta de health para
+encuentros >2h sin reconciliar; timing-safe compare del bearer; ZoomCustomVideoStage sigue muerto.
+
+### E-GG-146 · 4 crons rotos en silencio por GUCs inexistentes (el nuevo + 3 pre-existentes)
+Al auditar E-GG-145 se descubrió que el cron nuevo `gg-zoom-reconciliar-asistencia` fallaba el 100%
+de sus corridas: usaba `current_setting('app.supabase_url')` / `('app.cron_secret')`, GUCs que NO
+existen en la BD → `net.http_post(url := NULL)` → job 'failed' en cada corrida. El patrón se copió
+de crons existentes… que también estaban rotos: **7 dispatch-vencimientos-diario** (bearer NULL →
+401 diario), **16 gg-email-bounces-30min** (bearer NULL → 401 cada 30 min — los 401 eran visibles
+en los logs de edge y nadie los había conectado), **17 db-health-alert-check-daily** (url NULL →
+jamás envió NADA desde su creación). Fix (mig 0373): los 4 recreados con URL y bearer LITERALES
+(patrón de los crons sanos 3/5/9/18). Verificación: corrida real del job 23 con status 'succeeded'.
+**Lección doble:** (a) todo cron nuevo se verifica mirando `cron.job_run_details` de su PRIMERA
+corrida real (el schedule no es la prueba); (b) al copiar un patrón existente, verificar que el
+original FUNCIONE (E-GG-145 heredó un patrón roto que nadie había detectado porque sus víctimas
+fallaban en silencio). Candidato a smoke periódico: jobs con status 'failed' en las últimas 24h.

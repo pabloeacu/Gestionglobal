@@ -108,6 +108,18 @@ Deno.serve(async (req) => {
       esSesionCompartida = !!sesMatch;
     }
 
+    // E-GG-145 §6 r2: si el meeting tampoco es de un curso (reunión personal
+    // del host en la misma cuenta Zoom), cortar acá — evita RPCs en vano y
+    // console.error espurios por cada join/leave de reuniones ajenas al campus.
+    if (!esWebinar && !esSesionCompartida) {
+      const { data: cursoMatch } = await supabase
+        .from("curso_encuentros")
+        .select("id")
+        .eq("zoom_meeting_id", meetingId)
+        .maybeSingle();
+      if (!cursoMatch) return jsonResp(200, { ok: true, ignored: "meeting_ajeno" });
+    }
+
     if (ev === "meeting.started") {
       if (esWebinar) {
         await supabase.rpc("webinar_zoom_evento", {
@@ -153,20 +165,17 @@ Deno.serve(async (req) => {
         });
         // E-GG-145 · disparar la reconciliación con el reporte oficial de Zoom
         // (cubre a quien entró por link crudo/app nativa, sin customer_key).
-        // Fire-and-catch: si falla, el cron cada 15 min la reintenta.
-        try {
-          const cronSecret = Deno.env.get("CRON_SECRET") ?? "";
-          await fetch(`${SUPABASE_URL}/functions/v1/zoom-reconciliar-asistencia`, {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${cronSecret}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ zoom_meeting_id: meetingId }),
-          });
-        } catch (e) {
-          console.error("reconciliar_invoke_error", String(e));
-        }
+        // SIN await (§6 r2): Zoom reintenta si la respuesta tarda >3s y la
+        // reconciliación puede demorar. Si falla, el cron de 15 min reintenta.
+        const cronSecret = Deno.env.get("CRON_SECRET") ?? "";
+        fetch(`${SUPABASE_URL}/functions/v1/zoom-reconciliar-asistencia`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${cronSecret}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ zoom_meeting_id: meetingId }),
+        }).catch((e) => console.error("reconciliar_invoke_error", String(e)));
       }
     } else if (ev === "meeting.participant_joined" || ev === "meeting.participant_left") {
       const part = p?.participant ?? {};

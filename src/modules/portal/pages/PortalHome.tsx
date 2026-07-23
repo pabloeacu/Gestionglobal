@@ -292,16 +292,14 @@ function HotCards({
   if (claseHoy) {
     const mins = Math.max(0, claseHoy.minutos_para_inicio);
     const inProgress = mins <= 0 && (claseHoy.iniciado_at || claseHoy.minutos_para_inicio >= -120);
-    // Gating temporal del join (F9-ter · Lista JL): el "Unirme" sólo lleva a la
-    // sala desde 10 min antes y mientras está en curso. Fuera de esa ventana el
-    // CTA lleva al curso (donde el encuentro muestra cuándo se habilita), para
-    // no permitir el ingreso anticipado desde el dashboard. Misma regla que la
-    // lista de encuentros — no dos botones con criterios distintos.
-    const tieneLink = !!(claseHoy.link_zoom || claseHoy.link_webex);
+    // Gating temporal del join (F9-ter · Lista JL): la etiqueta cambia dentro
+    // de la ventana, pero el destino es SIEMPRE el campus (E-GG-145): entrar
+    // por el link crudo de Zoom dejaba al alumno sin identidad y por lo tanto
+    // invisible para la asistencia automática. Desde el campus, el encuentro
+    // ofrece el reproductor embebido con identidad (asistencia al instante).
     const enVentana =
       claseHoy.minutos_para_inicio <= 10 &&
       (claseHoy.minutos_para_inicio >= 0 || !!inProgress);
-    const puedeUnirse = Boolean(tieneLink && enVentana);
     const cursoHref = `/portal/campus/${claseHoy.curso_slug}`;
     cards.push(
       <HotCard
@@ -313,9 +311,9 @@ function HotCards({
             ? `${claseHoy.curso_titulo} · En curso`
             : `${claseHoy.curso_titulo} · En ${formatMinutes(mins)}`
         }
-        ctaLabel={puedeUnirse ? 'Unirme' : 'Ver clase'}
-        ctaHref={puedeUnirse ? (claseHoy.link_zoom ?? claseHoy.link_webex ?? cursoHref) : cursoHref}
-        ctaExternal={puedeUnirse}
+        ctaLabel={enVentana ? 'Unirme' : 'Ver clase'}
+        ctaHref={cursoHref}
+        ctaExternal={false}
         icon={<PlayCircle size={22} />}
         tone="urgente"
       />

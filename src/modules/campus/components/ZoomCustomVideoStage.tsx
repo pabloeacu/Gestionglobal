@@ -196,7 +196,8 @@ export function ZoomCustomVideoStage({
         await client.join({
           signature: sig.data.signature,
           meetingNumber: sig.data.meetingNumber,
-          password: password ?? '',
+          // E-GG-145: password de la firma (gateada); prop como fallback.
+          password: sig.data.password ?? password ?? '',
           userName,
           customerKey: sig.data.customerKey ?? undefined,
         });

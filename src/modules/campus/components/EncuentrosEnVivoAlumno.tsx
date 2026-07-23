@@ -443,12 +443,12 @@ function EncuentroLi({
                     )}
 
                   {/* Mobile · Zoom via app nativa (mejor experiencia en celular;
-                      la asistencia se reconcilia al cierre). Gateado (F9-ter). */}
+                      la asistencia se reconcilia al cierre). Gateado (F9-ter).
+                      El gate se muestra AUNQUE falte join_url (§6 r2). */}
                   {!finalizado &&
                     isZoom &&
                     isMobile &&
-                    enc.zoom_join_url &&
-                    (puedeUnirse ? (
+                    (puedeUnirse && enc.zoom_join_url ? (
                       <a
                         href={enc.zoom_join_url}
                         target="_blank"
@@ -457,9 +457,9 @@ function EncuentroLi({
                       >
                         <Smartphone size={13} /> Unirme a la clase Zoom
                       </a>
-                    ) : (
+                    ) : !puedeUnirse ? (
                       botonBloqueado
-                    ))}
+                    ) : null)}
 
                   {/* WEBEX · embed embebido en el campus (botón abre overlay).
                       Gateado por tiempo (F9-ter): habilitado 10 min antes. */}
