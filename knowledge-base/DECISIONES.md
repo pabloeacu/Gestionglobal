@@ -4393,3 +4393,16 @@ ritmo y en la selección del candidato. Verificado con e2e REAL: 3 mails QA a
 casillas propias del Workspace drenados por el cron productivo — M2
 (destinatario distinto) salió a ~1-2 min de M1; M3 (mismo destinatario que
 M1) recién a los 5+ min. QA borrado tras la prueba.
+
+## DGG-114 · Asistencia de encuentros sincrónicos: arquitectura de doble vía (2026-07-23)
+**Decisión:** la asistencia automática de clases Zoom nunca depende de un solo mecanismo. Vía 1
+(tiempo real): el alumno entra por el reproductor EMBEBIDO del campus, que viaja con identidad
+(customer_key = matrícula) — todos los CTAs del portal llevan al campus, jamás al link crudo. Vía 2
+(garantía): al cierre de cada reunión + cron idempotente cada 15 min, se consume el reporte oficial
+de participantes de Zoom y se reconcilia SIN degradar (monotónico: presente solo sube, manual jamás
+se pisa). Todo evento sin identidad queda loggeado (matrícula NULL) — prohibidos los descartes
+silenciosos. Razón: el reporte real (E-GG-145) probó que los invitados de Zoom llegan SIN email, o
+sea que ninguna heurística post-hoc reemplaza a la identidad en el join; y ningún camino en vivo es
+infalible (webhooks se pierden), o sea que la reconciliación es obligatoria. Regla operativa nueva
+(E-GG-146): todo cron nuevo se da por vivo recién al ver su PRIMERA corrida real 'succeeded' en
+cron.job_run_details + 200 en net._http_response.
