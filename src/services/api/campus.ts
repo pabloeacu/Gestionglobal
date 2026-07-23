@@ -1474,19 +1474,22 @@ export async function listEncuentros(
   // link podría iniciar la reunión como host). Sólo el gerente pide incluirHostUrl
   // (para "Iniciar host"). Se excluyen tanto de la fila base del encuentro
   // (standalone) como del embed de la sesión compartida. El resto de columnas van.
+  // E-GG-145: zoom_password/webex_password tampoco viajan al alumno — el embed
+  // recibe la password desde zoom-sdk-signature (gateada por matrícula) y los
+  // join_url ya llevan el token ?pwd= embebido para la vía externa.
   const baseCols = opts.incluirHostUrl
     ? '*'
     : 'id,curso_id,titulo,descripcion,fecha_hora,link_zoom,orden,created_at,updated_at,' +
-      'zoom_meeting_id,zoom_join_url,zoom_password,duracion_min,zoom_status,iniciado_at,' +
+      'zoom_meeting_id,zoom_join_url,duracion_min,zoom_status,iniciado_at,' +
       'finalizado_at,grabacion_url,grabacion_play_url,plataforma,webex_meeting_id,' +
-      'webex_join_url,webex_password,webex_status,webex_meeting_number,condicion_id,' +
+      'webex_join_url,webex_status,webex_meeting_number,condicion_id,' +
       'sesion_compartida_id';
   const sesionCols = opts.incluirHostUrl
     ? '*'
     : 'id,titulo,descripcion,fecha_hora,duracion_min,plataforma,' +
-      'zoom_meeting_id,zoom_join_url,zoom_password,zoom_status,' +
+      'zoom_meeting_id,zoom_join_url,zoom_status,' +
       'iniciado_at,finalizado_at,grabacion_url,grabacion_play_url,' +
-      'webex_meeting_id,webex_join_url,webex_password,webex_status,webex_meeting_number,' +
+      'webex_meeting_id,webex_join_url,webex_status,webex_meeting_number,' +
       'docente_nombre,docente_foto_url,docente_cv_url,created_by,created_at,updated_at';
   const { data, error } = await supabase
     .from('curso_encuentros')
@@ -1896,6 +1899,8 @@ export interface ZoomSdkSignature {
   sdkKey: string;
   meetingNumber: string;
   role: 0 | 1;
+  /** E-GG-145: password de la reunión, gateada server-side por matrícula/staff. */
+  password: string | null;
   customerKey: string | null;
 }
 

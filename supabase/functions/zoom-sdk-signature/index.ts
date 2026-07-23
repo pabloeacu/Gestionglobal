@@ -94,13 +94,20 @@ Deno.serve(async (req) => {
   // vive en la sesión (no en la fila del encuentro). Resolvemos desde la sesión.
   const { data: enc, error: encErr } = await admin
     .from("curso_encuentros")
-    .select("id, curso_id, zoom_meeting_id, duracion_min, sesion_compartida_id, sesion:encuentro_sesiones_compartidas(zoom_meeting_id)")
+    .select("id, curso_id, zoom_meeting_id, zoom_password, duracion_min, sesion_compartida_id, sesion:encuentro_sesiones_compartidas(zoom_meeting_id, zoom_password)")
     .eq("id", encuentroId)
     .maybeSingle();
   if (encErr || !enc) return json(404, { error: "encuentro_not_found" });
+  const sesion = enc.sesion as { zoom_meeting_id: number | null; zoom_password: string | null } | null;
   const meetingNumber = enc.sesion_compartida_id
-    ? (enc.sesion as { zoom_meeting_id: number | null } | null)?.zoom_meeting_id ?? null
+    ? sesion?.zoom_meeting_id ?? null
     : enc.zoom_meeting_id;
+  // E-GG-145: la password viaja acá (gateada por matrícula/staff) para que el
+  // front no necesite leer zoom_password de la tabla (menos secretos en el
+  // payload del alumno).
+  const meetingPassword = enc.sesion_compartida_id
+    ? sesion?.zoom_password ?? null
+    : (enc as { zoom_password?: string | null }).zoom_password ?? null;
   if (!meetingNumber) return json(409, { error: "meeting_not_created" });
 
   // ¿Es staff?
@@ -152,6 +159,7 @@ Deno.serve(async (req) => {
     sdkKey: SDK_KEY,
     meetingNumber: String(meetingNumber),
     role,
+    password: meetingPassword,
     customerKey: matriculaId, // null si es staff. F11: el fan-out resuelve la
     // persona desde esta matrícula y abanica a sus matrículas en cada curso.
   });

@@ -2295,7 +2295,7 @@ export type Database = {
           encuentro_id: string
           evento: string
           id: string
-          matricula_id: string
+          matricula_id: string | null
           ocurrido_at: string
           raw_payload: Json | null
         }
@@ -2304,7 +2304,7 @@ export type Database = {
           encuentro_id: string
           evento: string
           id?: string
-          matricula_id: string
+          matricula_id?: string | null
           ocurrido_at: string
           raw_payload?: Json | null
         }
@@ -2313,7 +2313,7 @@ export type Database = {
           encuentro_id?: string
           evento?: string
           id?: string
-          matricula_id?: string
+          matricula_id?: string | null
           ocurrido_at?: string
           raw_payload?: Json | null
         }
@@ -2336,6 +2336,7 @@ export type Database = {
       }
       curso_encuentros: {
         Row: {
+          asistencia_reconciliada_at: string | null
           condicion_id: string | null
           created_at: string
           curso_id: string
@@ -2366,6 +2367,7 @@ export type Database = {
           zoom_status: string
         }
         Insert: {
+          asistencia_reconciliada_at?: string | null
           condicion_id?: string | null
           created_at?: string
           curso_id: string
@@ -2396,6 +2398,7 @@ export type Database = {
           zoom_status?: string
         }
         Update: {
+          asistencia_reconciliada_at?: string | null
           condicion_id?: string | null
           created_at?: string
           curso_id?: string
@@ -8663,6 +8666,10 @@ export type Database = {
         Returns: string
       }
       curso_duplicar: { Args: { p_curso_id: string }; Returns: string }
+      curso_encuentro_reconciliar_asistencia: {
+        Args: { p_encuentro_id: string; p_participantes: Json }
+        Returns: Json
+      }
       curso_encuentro_set_zoom: {
         Args: {
           p_duracion_min?: number
@@ -8682,6 +8689,16 @@ export type Database = {
         Args: {
           p_evento: string
           p_matricula_id: string
+          p_meeting_id: number
+          p_ocurrido_at: string
+          p_payload?: Json
+        }
+        Returns: string
+      }
+      curso_encuentro_zoom_evento_por_email: {
+        Args: {
+          p_email: string
+          p_evento: string
           p_meeting_id: number
           p_ocurrido_at: string
           p_payload?: Json
@@ -10352,6 +10369,13 @@ export type Database = {
           p_zoom_meeting_id: number
         }
         Returns: undefined
+      }
+      zoom_encuentros_pendientes_reconciliar: {
+        Args: never
+        Returns: {
+          encuentro_id: string
+          zoom_meeting_id: number
+        }[]
       }
     }
     Enums: {

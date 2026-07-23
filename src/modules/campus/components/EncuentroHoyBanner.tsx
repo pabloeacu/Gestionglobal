@@ -71,16 +71,17 @@ export function EncuentroHoyBanner() {
                 </span>
               </p>
             </div>
-            {e.join_url &&
-            now >= new Date(e.fecha_hora).getTime() - GATE_PREV_MS ? (
-              <a
-                href={e.join_url}
-                target="_blank"
-                rel="noopener noreferrer"
+            {/* E-GG-145: el CTA SIEMPRE lleva al campus (la página del curso
+                ofrece el embed con identidad → asistencia en tiempo real).
+                El link crudo de Zoom acá dejaba al alumno invisible para la
+                asistencia automática. */}
+            {now >= new Date(e.fecha_hora).getTime() - GATE_PREV_MS ? (
+              <Link
+                to={`/portal/campus/${e.curso_slug ?? ''}`}
                 className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-brand-cyan px-4 py-2.5 text-sm font-semibold text-white shadow transition hover:bg-brand-teal"
               >
                 Entrar a la clase <ArrowRight size={15} />
-              </a>
+              </Link>
             ) : (
               <Link
                 to={`/portal/campus/${e.curso_slug ?? ''}`}

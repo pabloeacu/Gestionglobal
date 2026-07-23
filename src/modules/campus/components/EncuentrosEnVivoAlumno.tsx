@@ -400,27 +400,62 @@ function EncuentroLi({
                     </a>
                   )}
 
-                  {/* ZOOM (default) · botón grande external link. Asistencia
-                      tracked via webhook meeting.participant_joined/left.
+                  {/* ZOOM (default) · E-GG-145: el camino PRIMARIO es el embed
+                      del campus (SDK con customerKey=matrícula → asistencia en
+                      tiempo real). El link a Zoom oficial queda como secundario:
+                      esa vía se reconcilia al cierre con el reporte de Zoom.
                       Gateado por tiempo (F9-ter): habilitado 10 min antes. */}
                   {!finalizado &&
                     isZoom &&
-                    enc.zoom_join_url &&
+                    !isMobile &&
                     (puedeUnirse ? (
-                      <a
-                        href={enc.zoom_join_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                      <button
+                        onClick={() => onEntrar(enc.id)}
                         className={cn(
                           'inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-xs font-bold text-white shadow-sm transition',
                           isLive
                             ? 'bg-red-600 hover:bg-red-700'
                             : 'bg-brand-cyan hover:bg-brand-cyan/90',
                         )}
-                        title="Abrir la reunión en Zoom oficial"
                       >
-                        <ExternalLink size={13} />{' '}
-                        {isLive ? 'Unirme a la clase Zoom' : 'Unirme al encuentro'}
+                        <Radio size={13} />{' '}
+                        {isLive ? 'Entrar a la clase en vivo' : 'Entrar al encuentro'}
+                      </button>
+                    ) : (
+                      botonBloqueado
+                    ))}
+
+                  {/* Secundario desktop: Zoom oficial (asistencia al cierre). */}
+                  {!finalizado &&
+                    isZoom &&
+                    !isMobile &&
+                    puedeUnirse &&
+                    enc.zoom_join_url && (
+                      <a
+                        href={enc.zoom_join_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-brand-muted transition hover:bg-slate-50 hover:text-brand-ink"
+                        title="Abrir la reunión en la app oficial de Zoom"
+                      >
+                        <ExternalLink size={13} /> Abrir en Zoom oficial
+                      </a>
+                    )}
+
+                  {/* Mobile · Zoom via app nativa (mejor experiencia en celular;
+                      la asistencia se reconcilia al cierre). Gateado (F9-ter). */}
+                  {!finalizado &&
+                    isZoom &&
+                    isMobile &&
+                    enc.zoom_join_url &&
+                    (puedeUnirse ? (
+                      <a
+                        href={enc.zoom_join_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-brand-cyan px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-brand-cyan/90"
+                      >
+                        <Smartphone size={13} /> Unirme a la clase Zoom
                       </a>
                     ) : (
                       botonBloqueado
@@ -468,11 +503,14 @@ function EncuentroLi({
                 </div>
               </div>
 
-              {/* Asistencia automática (zoom external link) */}
+              {/* Asistencia automática (E-GG-145: embed = tiempo real;
+                  Zoom oficial/app = se registra al cierre de la clase). */}
               {!finalizado && isZoom && (
                 <p className="mt-2 flex items-center gap-1.5 text-[11px] text-brand-muted">
                   <CheckCircle2 size={12} className="text-emerald-600" />
-                  Tu asistencia se registra automáticamente al unirte a la sala.
+                  {isMobile
+                    ? 'Tu asistencia se registra al cierre de la clase.'
+                    : 'Entrando por el campus tu asistencia se registra al instante; por Zoom oficial, al cierre de la clase.'}
                 </p>
               )}
 

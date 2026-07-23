@@ -151,6 +151,22 @@ Deno.serve(async (req) => {
           p_estado: "finalizado",
           p_ocurrido_at: p?.end_time ?? new Date().toISOString(),
         });
+        // E-GG-145 · disparar la reconciliación con el reporte oficial de Zoom
+        // (cubre a quien entró por link crudo/app nativa, sin customer_key).
+        // Fire-and-catch: si falla, el cron cada 15 min la reintenta.
+        try {
+          const cronSecret = Deno.env.get("CRON_SECRET") ?? "";
+          await fetch(`${SUPABASE_URL}/functions/v1/zoom-reconciliar-asistencia`, {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${cronSecret}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ zoom_meeting_id: meetingId }),
+          });
+        } catch (e) {
+          console.error("reconciliar_invoke_error", String(e));
+        }
       }
     } else if (ev === "meeting.participant_joined" || ev === "meeting.participant_left") {
       const part = p?.participant ?? {};
@@ -194,7 +210,10 @@ Deno.serve(async (req) => {
           });
         }
       } else {
-        // Cursos: customer_key viene del Meeting SDK (ZoomMtg.join customerKey=matriculaId)
+        // Cursos: customer_key viene del Meeting SDK (ZoomMtg.join customerKey=matriculaId).
+        // E-GG-145: si no viene (link crudo/app nativa), fallback por email del
+        // participante; y se registre o no la identidad, el evento SIEMPRE queda
+        // loggeado (matricula_id NULL) — nunca más descartes silenciosos.
         const matriculaId = part?.customer_key as string | undefined;
         if (matriculaId && /^[0-9a-f-]{36}$/i.test(matriculaId)) {
           await supabase.rpc("curso_encuentro_zoom_evento", {
@@ -204,6 +223,16 @@ Deno.serve(async (req) => {
             p_ocurrido_at: at,
             p_payload: part,
           });
+        } else {
+          const userEmail = (part?.email ?? part?.user_email ?? "").toString().toLowerCase().trim();
+          const { error: evErr } = await supabase.rpc("curso_encuentro_zoom_evento_por_email", {
+            p_meeting_id: meetingId,
+            p_email: userEmail,
+            p_evento: evento,
+            p_ocurrido_at: at,
+            p_payload: part,
+          });
+          if (evErr) console.error("evento_por_email_error", evErr.message);
         }
       }
     } else if (ev === "recording.completed") {

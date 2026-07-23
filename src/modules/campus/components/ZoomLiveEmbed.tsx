@@ -85,7 +85,10 @@ export function ZoomLiveEmbed(props: ZoomLiveEmbedProps) {
         await client.join({
           signature: sig.data.signature,
           meetingNumber: sig.data.meetingNumber,
-          password: props.password ?? '',
+          // E-GG-145: la password viene de la firma (gateada server-side);
+          // el prop queda como fallback para no depender del payload de la
+          // tabla en el browser del alumno.
+          password: sig.data.password ?? props.password ?? '',
           userName: props.userName,
           customerKey: sig.data.customerKey ?? undefined,
         });
