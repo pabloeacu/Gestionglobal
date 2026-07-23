@@ -25,6 +25,7 @@ import { toast } from '@/lib/toast';
 import { cn } from '@/lib/cn';
 import {
   crearCurso,
+  cursoFinalizado,
   duplicarCurso,
   listCursos,
   listMatriculas,
@@ -114,7 +115,14 @@ export function CampusListPage() {
     const activas = matriculas.filter((m) => m.estado === 'activa').length;
     const completadas = matriculas.filter((m) => m.estado === 'completada')
       .length;
-    return { activas, completadas, cursos: cursos.filter((c) => c.activo).length };
+    // DGG-115 (§6 A#13): "activos" = con el tilde de visibilidad puesto y no
+    // finalizados — o sea publicados + programados. Los borradores (tilde
+    // apagado) y los finalizados (fecha fin pasada) quedan afuera.
+    return {
+      activas,
+      completadas,
+      cursos: cursos.filter((c) => c.activo && !cursoFinalizado(c)).length,
+    };
   }, [cursos, matriculas]);
 
   return (

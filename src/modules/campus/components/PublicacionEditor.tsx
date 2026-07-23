@@ -21,6 +21,9 @@ interface PublicacionEditorProps {
   onChange: (next: PublicacionState) => void;
   /** Densidad: 'compact' para insertarlo dentro de cards de clase, 'normal' para módulo/curso. */
   density?: 'compact' | 'normal';
+  /** DGG-115: 'curso' etiqueta el post-fin como "Finalizado" (corta matrícula
+   *  de nuevos, no solo visibilidad). Módulos/clases conservan "Despublicado". */
+  variant?: 'curso';
 }
 
 function toLocalInput(iso: string | null): string {
@@ -46,8 +49,14 @@ const TONE_CHIP: Record<
   rose: 'bg-rose-50 text-rose-700 ring-rose-200',
 };
 
-export function PublicacionEditor({ value, onChange, density = 'normal' }: PublicacionEditorProps) {
-  const estado = estadoPublicacion(value);
+export function PublicacionEditor({ value, onChange, density = 'normal', variant }: PublicacionEditorProps) {
+  const estado = estadoPublicacion(value, variant);
+  // DGG-115 (§6 A#20): ventana invertida (fin <= inicio) = el recurso pasa de
+  // "programado" a oculto/finalizado sin publicarse nunca. Warning inline.
+  const ventanaInvertida =
+    !!value.publicar_at &&
+    !!value.despublicar_at &&
+    new Date(value.despublicar_at).getTime() <= new Date(value.publicar_at).getTime();
 
   return (
     <div
@@ -118,7 +127,11 @@ export function PublicacionEditor({ value, onChange, density = 'normal' }: Publi
               <Calendar size={11} /> Dejar de publicar el
             </span>
           }
-          hint="Opcional. Cuando llegue esa fecha, se oculta automáticamente."
+          hint={
+            variant === 'curso'
+              ? 'Opcional. Al llegar esa fecha el curso queda FINALIZADO: no admite nuevas matrículas ni es visible para no matriculados. Los matriculados conservan su vigencia.'
+              : 'Opcional. Cuando llegue esa fecha, se oculta automáticamente.'
+          }
         >
           <Input
             type="datetime-local"
@@ -127,6 +140,15 @@ export function PublicacionEditor({ value, onChange, density = 'normal' }: Publi
           />
         </Field>
       </div>
+      {ventanaInvertida && (
+        <p className="mt-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700">
+          ⚠ La fecha de fin es anterior (o igual) a la de publicación:{' '}
+          {variant === 'curso'
+            ? 'el curso quedaría FINALIZADO sin haberse publicado nunca y no admitiría matrículas.'
+            : 'el recurso nunca llegaría a publicarse.'}{' '}
+          Revisá las fechas.
+        </p>
+      )}
     </div>
   );
 }

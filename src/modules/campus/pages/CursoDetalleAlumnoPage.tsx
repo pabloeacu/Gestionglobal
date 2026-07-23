@@ -4,6 +4,7 @@ import {
   ArrowLeft,
   Award,
   BookOpen,
+  CalendarClock,
   CheckCircle2,
   ChevronDown,
   Circle,
@@ -28,7 +29,9 @@ import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
 import { cn } from '@/lib/cn';
 import {
   certificadoParaPdf,
+  cursoEnExpectativa,
   esVisibleAlumno,
+  fmtFecha,
   getCertificadoMatricula,
   getCurso,
   getProgresoResumen,
@@ -95,6 +98,13 @@ export function CursoDetalleAlumnoPage() {
   // (incluido el <ZoomLiveEmbed>) → al re-montar dispara un join() duplicado
   // y Zoom interpreta dos solicitudes de admisión.
   const [initialLoading, setInitialLoading] = useState(true);
+  // DGG-115 / E-GG-147: si getCurso falla en la carga inicial (RLS oculta el
+  // curso al no-matriculado → PGRST116, o error de red), antes quedaba el
+  // Skeleton eterno (data nunca llegaba). Ahora distinguimos y mostramos
+  // un empty-state accionable.
+  const [loadError, setLoadError] = useState<'no_disponible' | 'error' | null>(
+    null,
+  );
   // El panel derecho muestra el nodo seleccionado; null = default a 1ª clase.
   const [nodoSel, setNodoSel] = useState<NodoSel | null>(null);
   // DGG-14: cuando el alumno entra a un encuentro en vivo, el layout
@@ -115,10 +125,21 @@ export function CursoDetalleAlumnoPage() {
     if (!silent) setInitialLoading(true);
     const d = await getCurso(slug);
     if (!d.ok) {
-      if (!silent) setInitialLoading(false);
-      if (!silent) toast.error(humanizeError(d.error));
+      if (!silent) {
+        const pgCode = (d.error.details as { code?: string } | undefined)?.code;
+        if (pgCode === 'PGRST116') {
+          // 0 filas por RLS: curso oculto/finalizado y el usuario no está
+          // matriculado (o el slug no existe). No es un error técnico.
+          setLoadError('no_disponible');
+        } else {
+          setLoadError('error');
+          toast.error(humanizeError(d.error));
+        }
+        setInitialLoading(false);
+      }
       return;
     }
+    setLoadError(null);
     setData(d.data);
 
     // Buscar matrícula del usuario actual.
@@ -294,6 +315,67 @@ export function CursoDetalleAlumnoPage() {
   }, [claseActiva, modulosVisibles]);
   const openModuloEfectivo = accordionTocado ? openModuloId : moduloDeActivaId;
 
+  // DGG-115 / E-GG-147: la carga inicial falló — antes esto era Skeleton
+  // eterno. 'no_disponible' = RLS ocultó el curso (oculto/finalizado sin
+  // matrícula, o slug inexistente); 'error' = falla técnica (red, etc.).
+  if (!initialLoading && loadError) {
+    return (
+      <div className="mx-auto max-w-2xl space-y-6">
+        <Link
+          to="/portal/campus"
+          className="inline-flex items-center gap-1 text-xs font-medium text-brand-muted hover:text-brand-ink"
+        >
+          <ArrowLeft size={13} /> Mis cursos
+        </Link>
+        <div className="card-premium relative overflow-hidden p-8">
+          <TrianglesAccent
+            position="top-right"
+            size={200}
+            tone="cyan"
+            density="rich"
+            className="opacity-25"
+          />
+          <div className="relative">
+            <IllustratedEmpty
+              illustration="lista"
+              title={
+                loadError === 'no_disponible'
+                  ? 'Este curso no está disponible'
+                  : 'No pudimos cargar el curso'
+              }
+              description={
+                loadError === 'no_disponible' ? (
+                  <>
+                    Puede que ya no esté publicado o que el enlace no sea
+                    correcto. Tus cursos habilitados están en{' '}
+                    <Link
+                      to="/portal/campus"
+                      className="font-medium text-brand-cyan hover:underline"
+                    >
+                      Mis cursos
+                    </Link>
+                    .
+                  </>
+                ) : (
+                  <>
+                    Hubo un problema de conexión.{' '}
+                    <button
+                      type="button"
+                      onClick={() => void reload({ silent: false })}
+                      className="font-medium text-brand-cyan hover:underline"
+                    >
+                      Reintentar
+                    </button>
+                  </>
+                )
+              }
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (initialLoading || !data) {
     return (
       <div className="mx-auto max-w-6xl space-y-4 p-6">
@@ -372,6 +454,54 @@ export function CursoDetalleAlumnoPage() {
                 </>
               }
             />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // DGG-115: matriculado a un curso aún no publicado (pre-venta) → pantalla
+  // de expectativa. El contenido (módulos/clases/biblio/exámenes) viene vacío
+  // por RLS; sin este gate el alumno vería un curso "en blanco".
+  if (cursoEnExpectativa(data.curso)) {
+    const desde =
+      data.curso.publicar_at &&
+      new Date(data.curso.publicar_at).getTime() > Date.now()
+        ? fmtFecha(data.curso.publicar_at)
+        : null;
+    return (
+      <div className="mx-auto max-w-2xl space-y-6">
+        <Link
+          to="/portal/campus"
+          className="inline-flex items-center gap-1 text-xs font-medium text-brand-muted hover:text-brand-ink"
+        >
+          <ArrowLeft size={13} /> Mis cursos
+        </Link>
+        <div className="card-premium relative overflow-hidden p-8">
+          <TrianglesAccent
+            position="top-right"
+            size={200}
+            tone="cyan"
+            density="rich"
+            className="opacity-25"
+          />
+          <div className="relative space-y-4">
+            <div className="flex items-center gap-3">
+              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-amber-50 text-amber-600 ring-1 ring-amber-200">
+                <CalendarClock size={22} />
+              </span>
+              <div className="min-w-0">
+                <p className="kicker text-brand-cyan">¡Ya estás matriculado!</p>
+                <h1 className="truncate font-display text-xl font-bold text-brand-ink">
+                  {data.curso.titulo}
+                </h1>
+              </div>
+            </div>
+            <p className="text-sm leading-relaxed text-brand-muted">
+              {desde
+                ? `El contenido del curso va a estar disponible a partir del ${desde}. No tenés que hacer nada: cuando llegue la fecha, lo vas a ver acá mismo.`
+                : 'El contenido del curso todavía no está disponible. No tenés que hacer nada: apenas se habilite lo vas a ver acá mismo.'}
+            </p>
           </div>
         </div>
       </div>

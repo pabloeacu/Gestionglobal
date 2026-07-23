@@ -4914,3 +4914,36 @@ jamás envió NADA desde su creación). Fix (mig 0373): los 4 recreados con URL 
 corrida real (el schedule no es la prueba); (b) al copiar un patrón existente, verificar que el
 original FUNCIONE (E-GG-145 heredó un patrón roto que nadie había detectado porque sus víctimas
 fallaban en silencio). Candidato a smoke periódico: jobs con status 'failed' en las últimas 24h.
+
+### E-GG-147 · Skeleton eterno en el detalle de curso del alumno cuando getCurso falla
+Pre-existente, descubierto al mapear DGG-115: en `CursoDetalleAlumnoPage`, si `getCurso(slug)`
+fallaba (RLS ocultando el curso a un no-matriculado → PGRST116 con `.single()`, slug inexistente,
+o error de red), el `data` quedaba `null` para siempre y el render `initialLoading || !data`
+mostraba el **Skeleton eterno** — sin mensaje, sin salida. Con el modelo DGG-115 el caso se volvía
+frecuente (curso oculto/finalizado + visitante no matriculado). Fix: estado `loadError`
+('no_disponible' si PGRST116 | 'error' técnico con botón Reintentar) con empty-state y link a Mis
+cursos. **Lección:** todo fetch inicial cuyo fallo deja `data=null` necesita una rama de render
+explícita para ese fallo — un skeleton solo es válido mientras hay una carga EN CURSO.
+
+### E-GG-148 · Fugas laterales de contenido de cursos no publicados (7 vías, mig 0375 + edge fns)
+La doble auditoría §6 de DGG-115 (3 agentes adversariales) encontró que el gate central de
+publicación (mig 0374: RLS cursos + 8 hijas) tenía **side-channels** que lo esquivaban — todos
+SECURITY DEFINER o service_role, o sea inmunes a la RLS: (1) **CRÍTICO** `busqueda_global` (0066)
+enumeraba id+título+modalidad de TODOS los cursos a cualquier authenticated no-staff (bloque sin
+gate; además el GRANT del repo decía anon pero prod tenía un REVOKE a mano sin versionar — se
+versionó); (2) **CRÍTICO** `cliente_portal_dashboard.clase_hoy` (0197) anunciaba la HotCard de un
+curso oculto y filtraba `link_zoom` + `encuentro_id` crudos; (3) **CRÍTICO** la policy SELECT de
+`encuentro_sesiones_compartidas` (0236) usaba `curso_matriculado` → un matriculado en pre-venta
+leía los join-URLs de Zoom/Webex; (4) `curso_examen_rendir` (0200) entregaba el examen completo
+con matrícula sola; (5) `curso_iniciar_intento`/`curso_marcar_clase_completada` (0316) escribían
+progreso sobre cursos ocultos; (6) `curso_encuestas.enc_lectura_matriculados` (0136) leía sin
+estado de matrícula ni de curso; (7) las edge fns `zoom-sdk-signature`/`webex-guest-token`
+firmaban el acceso al meeting sin mirar publicación. Fix: TODO centralizado en
+`private.curso_contenido_accesible` (mig 0375 + v10/v5 de las edge fns) — e2e rollback de 15 ejes:
+oculto bloquea las 7 vías, publicado las habilita, cross-user rechazado. **Lección:** cuando una
+mig instala un gate nuevo en RLS, la auditoría debe barrer TODAS las vías que bypassean RLS
+(RPCs SECURITY DEFINER, policies laterales con criterio viejo, edge fns con service_role): el
+criterio de acceso se centraliza en UN helper y los demás lo llaman — nunca se re-implementa
+inline. Diferidos documentados (pre-existentes, fuera de alcance): bucket `campus-media` público
+(URLs directas sin auth), skew de reloj cliente en la transición programado→publicado, contenido
+stale en pantalla si el curso se oculta con el detalle abierto (hasta F5).

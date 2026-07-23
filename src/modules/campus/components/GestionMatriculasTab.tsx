@@ -27,6 +27,7 @@ import {
   listCertificadosPorCurso,
   listCondicionesMatricula,
   listMatriculas,
+  cursoFinalizado,
   resolverEsquemaParaCert,
   tildarCondicion,
   verificacionUrl,
@@ -298,9 +299,20 @@ export function GestionMatriculasTab({ data }: { data: CursoDetalle }) {
               disabled={matriculas.length === 0}
               hint="Matrículas"
             />
-            <Button onClick={() => setDrawerOpen(true)}>
-              <UserPlus size={14} /> Asignar alumno
-            </Button>
+            {/* DGG-115: un curso finalizado no admite nuevas matrículas
+                (la RPC además lo rechaza server-side). */}
+            {cursoFinalizado(data.curso) ? (
+              <span
+                className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-2 text-xs font-semibold text-brand-muted"
+                title="Curso finalizado — no admite nuevas matrículas. Los alumnos ya matriculados conservan su vigencia."
+              >
+                <UserPlus size={14} /> Curso finalizado
+              </span>
+            ) : (
+              <Button onClick={() => setDrawerOpen(true)}>
+                <UserPlus size={14} /> Asignar alumno
+              </Button>
+            )}
           </div>
         </header>
 

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { GraduationCap, PartyPopper } from 'lucide-react';
+import { CalendarClock, GraduationCap, PartyPopper } from 'lucide-react';
 import { Skeleton } from '@/components/common';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import { IllustratedEmpty } from '@/components/brand/IllustratedEmpty';
@@ -9,7 +9,9 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
 import { cn } from '@/lib/cn';
 import {
+  cursoEnExpectativa,
   diasAccesoRestantes,
+  fmtFecha,
   getProgresoResumen,
   listMatriculas,
   matriculaTieneAcceso,
@@ -52,12 +54,16 @@ export function MisCursosPage() {
     }
     setMatriculas(m.data);
 
-    // Resúmenes en paralelo.
+    // Resúmenes en paralelo. DGG-115: los cursos aún no publicados muestran
+    // card de expectativa sin contenido — no se pide progreso (la RLS de las
+    // tablas hijas además lo devolvería vacío).
     const entries = await Promise.all(
-      m.data.map(async (mm) => {
-        const r = await getProgresoResumen(mm.id);
-        return [mm.id, r.ok ? r.data : null] as const;
-      }),
+      m.data
+        .filter((mm) => !cursoEnExpectativa(mm.curso))
+        .map(async (mm) => {
+          const r = await getProgresoResumen(mm.id);
+          return [mm.id, r.ok ? r.data : null] as const;
+        }),
     );
     const acc: Record<string, ProgresoResumen> = {};
     for (const [k, v] of entries) if (v) acc[k] = v;
@@ -126,6 +132,50 @@ export function MisCursosPage() {
               {visibles.map((m) => {
                 const r = progresos[m.id];
                 const diasRestantes = diasAccesoRestantes(m);
+                // DGG-115: matriculado a un curso aún no publicado (pre-venta)
+                // → card de expectativa, sin link ni progreso ni contenido.
+                if (cursoEnExpectativa(m.curso)) {
+                  const desde =
+                    m.curso?.publicar_at &&
+                    new Date(m.curso.publicar_at).getTime() > Date.now()
+                      ? fmtFecha(m.curso.publicar_at)
+                      : null;
+                  return (
+                    <li key={m.id} className="min-w-0">
+                      <div className="flex h-full min-w-0 flex-col overflow-hidden rounded-2xl border border-dashed border-slate-300 bg-slate-50/60 shadow-sm motion-safe:animate-fade-up">
+                        {m.curso?.banner_url ? (
+                          <div className="relative aspect-[3/1] w-full overflow-hidden bg-slate-100">
+                            <img
+                              src={m.curso.banner_url}
+                              alt=""
+                              className="h-full w-full object-cover opacity-70 saturate-50"
+                              loading="lazy"
+                            />
+                          </div>
+                        ) : null}
+                        <div className="flex flex-1 flex-col gap-3 p-4">
+                          <header className="min-w-0">
+                            <p className="kicker text-brand-muted">
+                              {m.curso?.modalidad ?? 'curso'}
+                            </p>
+                            <h3 className="mt-1 truncate font-display text-base font-semibold text-brand-ink">
+                              {m.curso?.titulo ?? 'Curso'}
+                            </h3>
+                          </header>
+                          <div className="mt-auto flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs font-medium leading-snug text-amber-800">
+                            <CalendarClock size={16} className="mt-0.5 shrink-0" />
+                            <span>
+                              ¡Ya estás matriculado!{' '}
+                              {desde
+                                ? `El contenido va a estar disponible a partir del ${desde}.`
+                                : 'El contenido todavía no está disponible. Apenas se habilite, lo vas a ver acá mismo.'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </li>
+                  );
+                }
                 return (
                   <li key={m.id} className="min-w-0">
                     <Link

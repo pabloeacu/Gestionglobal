@@ -3,9 +3,19 @@ import { Clock, Copy, GraduationCap, Loader2, Users } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import {
   MODALIDAD_LABEL,
+  estadoPublicacion,
   fmtMoneda,
   type CursoListItem,
 } from '@/services/api/campus';
+
+// DGG-115: tonos del chip de estado de publicación (Borrador / Programado /
+// Publicado / Finalizado) sobre el banner, sólo en vista gerencia.
+const ESTADO_CHIP: Record<'emerald' | 'slate' | 'amber' | 'rose', string> = {
+  emerald: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
+  slate: 'bg-slate-100 text-slate-600 ring-slate-200',
+  amber: 'bg-amber-50 text-amber-700 ring-amber-200',
+  rose: 'bg-rose-50 text-rose-700 ring-rose-200',
+};
 
 interface CursoCardProps {
   curso: CursoListItem;
@@ -70,18 +80,41 @@ export function CursoCard({
             {duplicating ? 'Duplicando…' : 'Duplicar'}
           </button>
         )}
-        <span
-          className={cn(
-            'absolute right-3 top-3 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider',
-            curso.modalidad === 'asincronica'
-              ? 'bg-emerald-50 text-emerald-700'
-              : curso.modalidad === 'sincronica'
-              ? 'bg-amber-50 text-amber-700'
-              : 'bg-brand-cyan/10 text-brand-cyan',
-          )}
-        >
-          {MODALIDAD_LABEL[curso.modalidad as keyof typeof MODALIDAD_LABEL]}
-        </span>
+        <div className="absolute right-3 top-3 flex flex-col items-end gap-1">
+          <span
+            className={cn(
+              'inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider',
+              curso.modalidad === 'asincronica'
+                ? 'bg-emerald-50 text-emerald-700'
+                : curso.modalidad === 'sincronica'
+                ? 'bg-amber-50 text-amber-700'
+                : 'bg-brand-cyan/10 text-brand-cyan',
+            )}
+          >
+            {MODALIDAD_LABEL[curso.modalidad as keyof typeof MODALIDAD_LABEL]}
+          </span>
+          {onDuplicate &&
+            (() => {
+              const estado = estadoPublicacion(
+                {
+                  publicado: curso.activo,
+                  publicar_at: curso.publicar_at,
+                  despublicar_at: curso.despublicar_at,
+                },
+                'curso',
+              );
+              return (
+                <span
+                  className={cn(
+                    'inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ring-1',
+                    ESTADO_CHIP[estado.tone],
+                  )}
+                >
+                  {estado.label}
+                </span>
+              );
+            })()}
+        </div>
       </div>
 
       <div className="flex flex-1 flex-col gap-3 p-4">

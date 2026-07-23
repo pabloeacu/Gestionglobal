@@ -161,8 +161,11 @@ export async function listCursos(
     .order('created_at', { ascending: false });
 
   if (params.soloActivos !== false) {
-    // por default mostramos sólo activos (catálogo público). Staff puede pasar
-    // soloActivos=false para ver el archivo.
+    // DGG-115 (§6 C#9): OJO — `activo=true` NO significa "publicado": incluye
+    // programados (publicar_at futuro) y finalizados (despublicar_at pasado).
+    // Hoy TODOS los callers pasan soloActivos=false y filtran por estado en
+    // memoria (cursoFinalizado / estadoPublicacion). Si consumís este default,
+    // filtrá vos también — o mejor, imitá a los callers existentes.
     q = q.eq('activo', true);
   }
   if (params.modalidad && params.modalidad !== 'todos') {
@@ -321,7 +324,12 @@ export interface ListMatriculasParams {
 }
 
 export interface MatriculaListItem extends CursoMatriculaRow {
-  curso: Pick<CursoRow, 'id' | 'slug' | 'titulo' | 'modalidad' | 'banner_url'> | null;
+  // DGG-115: activo/publicar_at/despublicar_at viajan para computar la card
+  // de expectativa (curso aún no publicado) en memoria (R19-friendly).
+  curso: Pick<
+    CursoRow,
+    'id' | 'slug' | 'titulo' | 'modalidad' | 'banner_url' | 'activo' | 'publicar_at' | 'despublicar_at'
+  > | null;
   alumno_nombre: string | null;
   administracion_nombre: string | null;
 }
@@ -333,7 +341,7 @@ export async function listMatriculas(
     .from('curso_matriculas')
     .select(
       `*,
-       cursos:curso_id(id, slug, titulo, modalidad, banner_url),
+       cursos:curso_id(id, slug, titulo, modalidad, banner_url, activo, publicar_at, despublicar_at),
        profiles!curso_matriculas_profile_id_fkey(id, full_name),
        administraciones(id, nombre)`,
     )
@@ -346,7 +354,10 @@ export async function listMatriculas(
   if (error) return fail('MATRICULAS_LIST', error.message, error);
 
   type RawRow = CursoMatriculaRow & {
-    cursos: Pick<CursoRow, 'id' | 'slug' | 'titulo' | 'modalidad' | 'banner_url'> | null;
+    cursos: Pick<
+      CursoRow,
+      'id' | 'slug' | 'titulo' | 'modalidad' | 'banner_url' | 'activo' | 'publicar_at' | 'despublicar_at'
+    > | null;
     profiles: { id: string; full_name: string | null } | null;
     administraciones: { id: string; nombre: string } | null;
   };
@@ -1641,14 +1652,20 @@ export interface CursoParaCompartir {
 export async function listCursosParaCompartir(
   excludeCursoId: string,
 ): Promise<ApiResponse<CursoParaCompartir[]>> {
+  // DGG-115: mismo criterio que el wizard — se puede compartir con cursos
+  // ocultos (pre-venta, privilegio de gerencia) pero NUNCA con finalizados
+  // (ya no admiten alumnos nuevos). El filtro es en memoria (R19).
   const { data, error } = await supabase
     .from('cursos')
-    .select('id, titulo, modalidad')
-    .eq('activo', true)
+    .select('id, titulo, modalidad, despublicar_at')
     .neq('id', excludeCursoId)
     .order('titulo', { ascending: true });
   if (error) return fail('CURSOS_COMPARTIR', error.message, error);
-  return ok((data ?? []) as CursoParaCompartir[]);
+  return ok(
+    ((data ?? []) as Array<CursoParaCompartir & { despublicar_at: string | null }>)
+      .filter((c) => !cursoFinalizado(c))
+      .map(({ despublicar_at: _d, ...c }) => c as CursoParaCompartir),
+  );
 }
 
 /** Para cada sesión compartida, qué cursos la comparten (para el sello). */
@@ -2461,25 +2478,67 @@ export function esVisibleAlumno(
   return true;
 }
 
-/** Etiqueta corta del estado de publicación, útil en chips de gerencia. */
+/**
+ * DGG-115 · ¿El CURSO está finalizado? (despublicar_at pasado). Predicado
+ * canónico: gana a "oculto" — un finalizado corta la matriculación de nuevos
+ * aunque el tilde de visibilidad esté apagado. Espeja
+ * `private.curso_estado_publicacion(...) = 'finalizado'` de la BD.
+ */
+export function cursoFinalizado(
+  obj: { despublicar_at?: string | null } | null | undefined,
+): boolean {
+  return !!obj?.despublicar_at && new Date(obj.despublicar_at).getTime() <= Date.now();
+}
+
+/** DGG-115: true si el curso aún NO está publicado para el alumno (estado
+ *  BD 'borrador' u 'oculto', o 'programado' con publicar_at futuro). El
+ *  matriculado ve la card de expectativa sin contenido. Finalizado NO cuenta:
+ *  los matriculados conservan su vigencia individual (DGG-82). Espeja la
+ *  precedencia de `private.curso_estado_publicacion`. */
+export function cursoEnExpectativa(
+  curso:
+    | {
+        activo?: boolean | null;
+        publicar_at?: string | null;
+        despublicar_at?: string | null;
+      }
+    | null
+    | undefined,
+): boolean {
+  if (!curso) return false;
+  if (cursoFinalizado(curso)) return false;
+  if (!curso.activo) return true;
+  return (
+    !!curso.publicar_at && new Date(curso.publicar_at).getTime() > Date.now()
+  );
+}
+
+/** Etiqueta corta del estado de publicación, útil en chips de gerencia.
+ *  variant 'curso' (DGG-115): la etiqueta post-fin es "Finalizado" y GANA a
+ *  Borrador (espeja el helper de BD); el default conserva "Despublicado"
+ *  para módulos/clases/bibliografía, donde el orden histórico se mantiene. */
 export function estadoPublicacion(
   obj: {
     publicado?: boolean | null;
     publicar_at?: string | null;
     despublicar_at?: string | null;
   } | null | undefined,
+  variant?: 'curso',
 ): {
   tone: 'emerald' | 'slate' | 'amber' | 'rose';
   label: string;
 } {
   if (!obj) return { tone: 'slate', label: 'Borrador' };
   const now = Date.now();
+  if (variant === 'curso' && cursoFinalizado(obj)) {
+    return { tone: 'rose', label: 'Finalizado' };
+  }
   if (obj.publicado === false) return { tone: 'slate', label: 'Borrador' };
   if (obj.publicar_at && new Date(obj.publicar_at).getTime() > now) {
     return { tone: 'amber', label: 'Programado' };
   }
   if (obj.despublicar_at && new Date(obj.despublicar_at).getTime() <= now) {
-    return { tone: 'rose', label: 'Despublicado' };
+    return { tone: 'rose', label: variant === 'curso' ? 'Finalizado' : 'Despublicado' };
   }
   return { tone: 'emerald', label: 'Publicado' };
 }

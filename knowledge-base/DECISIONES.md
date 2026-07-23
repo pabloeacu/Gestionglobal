@@ -4406,3 +4406,22 @@ sea que ninguna heurística post-hoc reemplaza a la identidad en el join; y ning
 infalible (webhooks se pierden), o sea que la reconciliación es obligatoria. Regla operativa nueva
 (E-GG-146): todo cron nuevo se da por vivo recién al ver su PRIMERA corrida real 'succeeded' en
 cron.job_run_details + 200 en net._http_response.
+
+## DGG-115 · Publicación vs. matriculación de cursos: estado derivado de 4 valores (2026-07-23)
+**Decisión:** la visibilidad de un curso condiciona QUÉ VE el alumno, nunca SI se lo puede
+matricular. El estado se DERIVA (sin crons, sin columna nueva) de `activo` + `publicar_at` +
+`despublicar_at` con precedencia **finalizado > borrador > programado > publicado**; fuente única
+en BD `private.curso_estado_publicacion(...)` (mig 0374) espejada en el front por
+`cursoFinalizado()` / `cursoEnExpectativa()` / `estadoPublicacion(obj,'curso')` (campus.ts).
+Reglas: (1) la gerencia puede matricular a cursos OCULTOS o PROGRAMADOS (pre-venta: inscripciones
+antes del inicio) — el alumno matriculado ve una **card de expectativa** "disponible a partir del
+X" sin contenido (RLS hijas = matriculado AND estado IN publicado/finalizado); (2) al llegar
+`despublicar_at` el curso queda **FINALIZADO**: no admite nuevas matrículas (guard en
+curso_asignar_alumno y curso_matricular) ni es visible para no matriculados, pero los matriculados
+**conservan su vigencia individual** (DGG-82) y el contenido sigue accesible; (3) matricular a
+ocultos es SOLO por gerencia (wizard paso 6 + asignación manual) — el circuito público de forms no
+cambia; (4) un curso finalizado **se puede duplicar** (el clon nace borrador sin fechas); (5) para
+"reabrir" un finalizado se edita/borra la fecha de fin en el panel Publicación (el botón
+Publicar/Despublicar se reemplaza por esa indicación). RLS cursos: staff OR matriculado OR
+publicado. Verificado con e2e rollback de 13 ejes (duplicar-finalizado, rechazo de matrícula,
+reabrir por fecha, encuentros-hoy 1/0/1 por estado, RLS por estado, join de matrículas, cross-user).

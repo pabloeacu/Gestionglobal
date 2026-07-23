@@ -94,7 +94,7 @@ Deno.serve(async (req) => {
   // vive en la sesión (no en la fila del encuentro). Resolvemos desde la sesión.
   const { data: enc, error: encErr } = await admin
     .from("curso_encuentros")
-    .select("id, curso_id, zoom_meeting_id, zoom_password, duracion_min, sesion_compartida_id, sesion:encuentro_sesiones_compartidas(zoom_meeting_id, zoom_password)")
+    .select("id, curso_id, zoom_meeting_id, zoom_password, duracion_min, sesion_compartida_id, sesion:encuentro_sesiones_compartidas(zoom_meeting_id, zoom_password), curso:curso_id(activo, publicar_at, despublicar_at)")
     .eq("id", encuentroId)
     .maybeSingle();
   if (encErr || !enc) return json(404, { error: "encuentro_not_found" });
@@ -143,6 +143,22 @@ Deno.serve(async (req) => {
       (mat.estado === "completada" &&
         (mat.vigencia_hasta == null || mat.vigencia_hasta >= hoy));
     if (!tieneAcceso) return json(403, { error: "matricula_inactiva" });
+    // DGG-115 (0375, B#7): matrícula sola no alcanza — el curso tiene que estar
+    // publicado o finalizado (espejo de private.curso_estado_publicacion). Sin
+    // esto, un matriculado en pre-venta con un encuentro_id cacheado obtenía
+    // firma+password de un curso oculto.
+    const curso = enc.curso as {
+      activo: boolean;
+      publicar_at: string | null;
+      despublicar_at: string | null;
+    } | null;
+    const finalizado =
+      !!curso?.despublicar_at &&
+      new Date(curso.despublicar_at).getTime() <= Date.now();
+    const publicado =
+      !!curso?.activo &&
+      (!curso.publicar_at || new Date(curso.publicar_at).getTime() <= Date.now());
+    if (!finalizado && !publicado) return json(403, { error: "curso_no_publicado" });
     matriculaId = mat.id;
   }
 

@@ -6,7 +6,12 @@
 import { useEffect, useState } from 'react';
 import { GraduationCap } from 'lucide-react';
 import { Field, Select, StepPanel } from '@/components/common';
-import { listCursos, type CursoListItem } from '@/services/api/campus';
+import {
+  listCursos,
+  cursoFinalizado,
+  estadoPublicacion,
+  type CursoListItem,
+} from '@/services/api/campus';
 import { listWebinars, type WebinarRow } from '@/services/api/webinars';
 import type { PasoProps } from './types';
 
@@ -16,9 +21,12 @@ export function PasoCampus({ flags, state, set }: PasoProps) {
 
   useEffect(() => {
     if (flags.esCurso) {
-      // listCursos por default ya filtra activo=true (cursos vigentes).
-      void listCursos().then((r) => {
-        if (r.ok) setCursos(r.data);
+      // DGG-115: gerencia puede matricular a cursos OCULTOS (pre-venta: el
+      // alumno queda asociado y ve la card de expectativa), pero NUNCA a
+      // FINALIZADOS (despublicar_at pasado) — esos salen del dropdown y la
+      // RPC además lo rechaza server-side.
+      void listCursos({ soloActivos: false }).then((r) => {
+        if (r.ok) setCursos(r.data.filter((c) => !cursoFinalizado(c)));
       });
     }
     if (flags.esWebinar) {
@@ -44,11 +52,18 @@ export function PasoCampus({ flags, state, set }: PasoProps) {
             }
           >
             <option value="">— No matricular ahora —</option>
-            {cursos.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.titulo}
-              </option>
-            ))}
+            {cursos.map((c) => {
+              const estado = estadoPublicacion(
+                { publicado: c.activo, publicar_at: c.publicar_at, despublicar_at: c.despublicar_at },
+                'curso',
+              );
+              return (
+                <option key={c.id} value={c.id}>
+                  {c.titulo}
+                  {estado.label !== 'Publicado' ? ` — ${estado.label}` : ''}
+                </option>
+              );
+            })}
           </Select>
         </Field>
       )}

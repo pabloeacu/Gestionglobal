@@ -97,7 +97,7 @@ Deno.serve(async (req) => {
   });
   const { data: enc, error: encErr } = await admin
     .from("curso_encuentros")
-    .select("id, curso_id, plataforma, webex_meeting_id, webex_meeting_number, webex_password")
+    .select("id, curso_id, plataforma, webex_meeting_id, webex_meeting_number, webex_password, curso:curso_id(activo, publicar_at, despublicar_at)")
     .eq("id", encuentroId).maybeSingle();
   if (encErr || !enc) return json(404, { error: "encuentro_not_found" });
   if (enc.plataforma !== "webex") return json(409, { error: "not_webex_encuentro" });
@@ -119,6 +119,20 @@ Deno.serve(async (req) => {
     if (mat.estado && mat.estado !== "activa") {
       return json(403, { error: "matricula_inactiva" });
     }
+    // DGG-115 (0375, B#7): matrícula sola no alcanza — el curso tiene que estar
+    // publicado o finalizado (espejo de private.curso_estado_publicacion).
+    const curso = enc.curso as {
+      activo: boolean;
+      publicar_at: string | null;
+      despublicar_at: string | null;
+    } | null;
+    const finalizado =
+      !!curso?.despublicar_at &&
+      new Date(curso.despublicar_at).getTime() <= Date.now();
+    const publicado =
+      !!curso?.activo &&
+      (!curso.publicar_at || new Date(curso.publicar_at).getTime() <= Date.now());
+    if (!finalizado && !publicado) return json(403, { error: "curso_no_publicado" });
     matriculaId = mat.id;
   }
 

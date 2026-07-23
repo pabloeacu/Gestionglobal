@@ -26,6 +26,8 @@ import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
 import { cn } from '@/lib/cn';
 import {
   actualizarCurso,
+  cursoFinalizado,
+  estadoPublicacion,
   getCurso,
   MODALIDADES,
   MODALIDAD_LABEL,
@@ -107,32 +109,60 @@ export function CursoEditorPage() {
           </h1>
         </div>
         <div className="flex items-center gap-2">
-          <span
-            className={cn(
-              'rounded-full border px-3 py-1 text-xs font-semibold',
-              data.curso.activo
-                ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                : 'border-slate-200 bg-slate-50 text-slate-600',
-            )}
-          >
-            {data.curso.activo ? 'Publicado' : 'Borrador'}
-          </span>
-          <Button
-            variant="secondary"
-            onClick={async () => {
-              const res = await setCursoActivo(data.curso.id, !data.curso.activo);
-              if (!res.ok) {
-                toast.error(humanizeError(res.error));
-                return;
-              }
-              toast.success(
-                data.curso.activo ? 'Curso despublicado' : 'Curso publicado',
-              );
-              void reload();
-            }}
-          >
-            {data.curso.activo ? 'Despublicar' : 'Publicar'}
-          </Button>
+          {/* DGG-115: badge de 4 estados (Finalizado gana a Borrador). */}
+          {(() => {
+            const estado = estadoPublicacion(
+              {
+                publicado: data.curso.activo,
+                publicar_at: data.curso.publicar_at,
+                despublicar_at: data.curso.despublicar_at,
+              },
+              'curso',
+            );
+            const tones = {
+              emerald: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+              slate: 'border-slate-200 bg-slate-50 text-slate-600',
+              amber: 'border-amber-200 bg-amber-50 text-amber-700',
+              rose: 'border-rose-200 bg-rose-50 text-rose-700',
+            } as const;
+            return (
+              <span
+                className={cn(
+                  'rounded-full border px-3 py-1 text-xs font-semibold',
+                  tones[estado.tone],
+                )}
+                title={
+                  estado.label === 'Finalizado'
+                    ? 'El curso finalizó: no admite nuevas matrículas y no es visible para no matriculados. Los matriculados conservan su vigencia. Para reabrirlo, editá la fecha de fin de publicación.'
+                    : undefined
+                }
+              >
+                {estado.label}
+              </span>
+            );
+          })()}
+          {cursoFinalizado(data.curso) ? (
+            <span className="text-xs text-brand-muted">
+              Para reabrir, editá la fecha de fin en Publicación.
+            </span>
+          ) : (
+            <Button
+              variant="secondary"
+              onClick={async () => {
+                const res = await setCursoActivo(data.curso.id, !data.curso.activo);
+                if (!res.ok) {
+                  toast.error(humanizeError(res.error));
+                  return;
+                }
+                toast.success(
+                  data.curso.activo ? 'Curso despublicado' : 'Curso publicado',
+                );
+                void reload();
+              }}
+            >
+              {data.curso.activo ? 'Despublicar' : 'Publicar'}
+            </Button>
+          )}
         </div>
       </header>
 
@@ -213,6 +243,17 @@ function DatosTab({
     publicar_at: data.curso.publicar_at,
     despublicar_at: data.curso.despublicar_at,
   });
+  // DGG-115 (§6 A#12): el botón Publicar/Despublicar del header muta `activo`
+  // por fuera de este form y el tab no remonta; sin este sync, un "Guardar
+  // cambios" posterior pisaría activo/fechas con el valor stale (revirtiendo
+  // el toggle en silencio).
+  useEffect(() => {
+    setPub({
+      publicado: data.curso.activo,
+      publicar_at: data.curso.publicar_at,
+      despublicar_at: data.curso.despublicar_at,
+    });
+  }, [data.curso.activo, data.curso.publicar_at, data.curso.despublicar_at]);
   const [certEsquemaId, setCertEsquemaId] = useState<string | null>(
     data.curso.cert_esquema_id ?? null,
   );
@@ -520,7 +561,7 @@ function DatosTab({
         </div>
 
         {/* Publicación del curso (toggle + ventana opcional) */}
-        <PublicacionEditor value={pub} onChange={setPub} />
+        <PublicacionEditor value={pub} onChange={setPub} variant="curso" />
 
         {/* Certificado · esquema visual + flag emisión automática */}
         <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4">
