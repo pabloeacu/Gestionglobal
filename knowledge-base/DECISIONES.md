@@ -4425,3 +4425,19 @@ cambia; (4) un curso finalizado **se puede duplicar** (el clon nace borrador sin
 Publicar/Despublicar se reemplaza por esa indicación). RLS cursos: staff OR matriculado OR
 publicado. Verificado con e2e rollback de 13 ejes (duplicar-finalizado, rechazo de matrícula,
 reabrir por fecha, encuentros-hoy 1/0/1 por estado, RLS por estado, join de matrículas, cross-user).
+
+## DGG-115b · Aviso automático "tu curso ya está disponible" (2026-07-23)
+**Decisión:** cerrar la promesa de la card de expectativa con un aviso ACTIVO al publicarse el
+curso. Como el estado de publicación es DERIVADO (DGG-115, sin triggers posibles en la
+transición), la vía es un **cron horario** (`gg-cursos-publicados-notificar`, job 28, minuto 12)
+que detecta cursos en estado 'publicado' con `publicado_notificado_at IS NULL` (mig 0376) y:
+(1) encola email `campus-curso-publicado` a cada matriculado activo con vigencia (dedupe all-time
+por curso+destinatario en email_queue); (2) encola push web (`push_notifications_queue`, la drena
+el job 9); (3) manda testigo `gerencia-notif-generica` a los gerentes con la lista de
+destinatarios; (4) marca el curso SIEMPRE (aunque tenga 0 matriculados). Reglas: se avisa UNA vez
+por vida del curso (re-publicar tras ocultar no re-avisa); un curso que salta directo a
+'finalizado' sin publicarse no dispara ("ya está disponible" sería falso); BACKFILL al aplicar la
+mig: los publicados/finalizados existentes quedaron marcados (cero spam a los alumnos reales).
+Verificado: e2e rollback de 9 ejes (oculto no dispara; publicar → mail solo a matrícula activa +
+push + testigos + marca; idempotente; variables exactas) + primera corrida real del cron
+'succeeded' (regla E-GG-146). La función es mass-mailer: REVOKE a todos, solo la ejecuta el cron.

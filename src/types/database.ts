@@ -2994,6 +2994,7 @@ export type Database = {
           precio_lista: number | null
           presencia_minima_pct: number
           programa_url: string | null
+          publicado_notificado_at: string | null
           publicar_at: string | null
           requisitos_html: string | null
           slug: string
@@ -3029,6 +3030,7 @@ export type Database = {
           precio_lista?: number | null
           presencia_minima_pct?: number
           programa_url?: string | null
+          publicado_notificado_at?: string | null
           publicar_at?: string | null
           requisitos_html?: string | null
           slug: string
@@ -3064,6 +3066,7 @@ export type Database = {
           precio_lista?: number | null
           presencia_minima_pct?: number
           programa_url?: string | null
+          publicado_notificado_at?: string | null
           publicar_at?: string | null
           requisitos_html?: string | null
           slug?: string
@@ -9487,6 +9490,7 @@ export type Database = {
         Returns: number
       }
       gg_campus_vencer_matriculas: { Args: never; Returns: undefined }
+      gg_cursos_publicados_notificar: { Args: never; Returns: Json }
       gg_encuentros_recordatorio_diario: { Args: never; Returns: Json }
       gg_profile_marcar_pwa: {
         Args: { p_installed: boolean }
