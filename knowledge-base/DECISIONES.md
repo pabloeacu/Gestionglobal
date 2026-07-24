@@ -4310,6 +4310,9 @@ quirúrgico pero implacable... sin rastros ni nada colgado". Protocolo de 8 paso
 6. **Logs técnicos**: vaciados (health, CSP, Tramix, frases, throttles).
 7. **Backup**: schema interno `backup_prelaunch_20260717` (37 tablas + 3 usuarios
    + inventario de storage) se conserva hasta el **2026-07-24** y se elimina.
+   ✅ **Ejecutado 2026-07-24** con autorización explícita de Pablo: pre-check de
+   dependencias externas (0 — el CASCADE quedó contenido), DROP SCHEMA CASCADE,
+   post-check schema=0 y producción intacta (120 tablas public, datos vivos).
 8. Decisiones adicionales del mapeo: el egreso $10.000 atribuido a FundPlata era
    de prueba (borrado); bucket gestoria-adjuntos (7 transferencias QA) borrado.
 
