@@ -546,8 +546,9 @@ function KpiCard({ label, value, icon: Icon, tone }: { label: string; value: Rea
         </div>
         <p className="text-xs uppercase tracking-wider text-brand-muted">{label}</p>
       </div>
-      {/* text-lg en base: a 360px el grid es de 2 columnas (~126px útiles) */}
-      <p className="mt-2 font-display text-lg font-bold tabular-nums text-brand-ink sm:text-xl">{value}</p>
+      {/* text-base en base: a 360px el grid es de 2 columnas (~120px útiles)
+          y un saldo de 8 cifras con centavos debe entrar sin tocar el borde */}
+      <p className="mt-2 font-display text-base font-bold tabular-nums text-brand-ink sm:text-xl">{value}</p>
     </div>
   );
 }
