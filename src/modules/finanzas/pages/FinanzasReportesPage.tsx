@@ -14,6 +14,8 @@ import {
   type PygRow, type ComparativoRow,
 } from '@/services/api/finanzas-admin';
 import { humanizeError } from '@/lib/errors';
+// E-GG-154: centavos en superíndice para los KPIs (cifras contables exactas).
+import { MoneySup } from '../components/MoneySup';
 
 function formatMoney(n: number, opts?: { compact?: boolean }): string {
   if (opts?.compact && Math.abs(n) >= 1_000_000) {
@@ -22,8 +24,10 @@ function formatMoney(n: number, opts?: { compact?: boolean }): string {
       notation: 'compact',
     }).format(n);
   }
+  // E-GG-154: cifras contables exactas al centavo (el modo compact de los
+  // ejes de gráficos sigue aproximando por diseño).
   return new Intl.NumberFormat('es-AR', {
-    style: 'currency', currency: 'ARS', maximumFractionDigits: 0,
+    style: 'currency', currency: 'ARS', minimumFractionDigits: 2, maximumFractionDigits: 2,
   }).format(n);
 }
 
@@ -236,7 +240,8 @@ function FlujoCajaTab({ anio }: { anio: number }) {
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+      {/* E-GG-154: overflow-x-auto — con 2 decimales la tabla puede exceder en mobile */}
+      <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
         <table className="w-full">
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wider text-brand-muted">
@@ -546,7 +551,8 @@ function ComparativoTab({ anio }: { anio: number }) {
         />
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+      {/* E-GG-154: overflow-x-auto — con 2 decimales la tabla puede exceder en mobile */}
+      <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wider text-brand-muted">
@@ -616,7 +622,7 @@ function ComparativoKpi({
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-5">
       <p className="text-xs uppercase tracking-wider text-brand-muted">{label}</p>
-      <p className={cn('mt-1 text-2xl font-bold tabular-nums', color)}>{formatMoney(actual)}</p>
+      <p className={cn('mt-1 text-2xl font-bold tabular-nums', color)}><MoneySup value={actual} /></p>
       <div className="mt-2 flex items-center justify-between text-xs">
         <span className="text-brand-muted">Año anterior: {formatMoney(anterior)}</span>
         <VariacionPct value={varPct} invert={tone === 'egreso'} />
@@ -681,7 +687,7 @@ function KpiCard({
     <div className={cn('rounded-2xl border p-4', styles)}>
       <p className="text-xs uppercase tracking-wider text-brand-muted">{label}</p>
       <p className={cn('mt-1 text-2xl font-bold tabular-nums', textColor)}>
-        {formatMoney(value)}
+        <MoneySup value={value} />
       </p>
     </div>
   );

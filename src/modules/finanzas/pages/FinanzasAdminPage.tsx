@@ -19,11 +19,9 @@ import {
 } from '@/services/api/finanzas-admin';
 import { humanizeError } from '@/lib/errors';
 
-function formatMoney(n: number): string {
-  return new Intl.NumberFormat('es-AR', {
-    style: 'currency', currency: 'ARS', maximumFractionDigits: 0,
-  }).format(n);
-}
+// E-GG-154: saldos de caja exactos al centavo (conciliación), centavos en
+// superíndice para no ensanchar el card.
+import { MoneySup } from '../components/MoneySup';
 
 const TIPO_CAJA_LABEL: Record<CajaTipo, string> = {
   banco: 'Banco',
@@ -332,7 +330,7 @@ function CajasTab() {
                   <div>
                     <p className="text-xs text-brand-muted">Saldo</p>
                     <p className="text-xl font-bold tabular-nums text-brand-ink">
-                      {formatMoney(caja.saldo)}
+                      <MoneySup value={caja.saldo} />
                     </p>
                   </div>
                   <div className="text-right">

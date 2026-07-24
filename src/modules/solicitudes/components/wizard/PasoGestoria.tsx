@@ -13,6 +13,8 @@ import {
   listGestoriaDestinatarios,
   type GestoriaDestinatario,
 } from '@/services/api/solicitudes';
+// E-GG-154: saldo de caja con el formato canónico (2 decimales exactos)
+import { formatMoneyExact } from '@/modules/finanzas/components/MoneySup';
 import { getCajasConSaldo, type CajaConSaldoRow } from '@/services/api/finanzas';
 import { humanizeError } from '@/lib/errors';
 import type { GestoriaState, PasoProps } from './types';
@@ -158,7 +160,7 @@ export function PasoGestoria({ solicitud, state, set }: PasoProps) {
                   <option value="">— No imputar a ninguna caja —</option>
                   {cajas.map((c) => (
                     <option key={c.caja_id} value={c.caja_id}>
-                      {c.nombre} (saldo: ${Number(c.saldo).toLocaleString('es-AR')})
+                      {c.nombre} (saldo: {formatMoneyExact(Number(c.saldo))})
                     </option>
                   ))}
                 </Select>

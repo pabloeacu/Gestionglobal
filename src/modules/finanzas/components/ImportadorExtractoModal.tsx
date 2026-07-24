@@ -14,7 +14,8 @@ interface Props {
 }
 
 function formatMoney(n: number): string {
-  return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n);
+  // E-GG-154: el extracto bancario se concilia al centavo — nunca redondear.
+  return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
 }
 
 export function ImportadorExtractoModal({ cajas, onClose, onImported }: Props) {
@@ -171,6 +172,7 @@ export function ImportadorExtractoModal({ cajas, onClose, onImported }: Props) {
                   <summary className="cursor-pointer px-3 py-2 text-xs font-semibold text-brand-muted">
                     Preview de las primeras 5 líneas
                   </summary>
+                  <div className="overflow-x-auto">
                   <table className="min-w-full divide-y divide-slate-200 text-xs">
                     <thead className="bg-slate-50">
                       <tr>
@@ -191,6 +193,7 @@ export function ImportadorExtractoModal({ cajas, onClose, onImported }: Props) {
                       ))}
                     </tbody>
                   </table>
+                  </div>
                 </details>
               </>
             )}

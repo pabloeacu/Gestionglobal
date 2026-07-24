@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ArrowRightLeft, Plus, TrendingUp, TrendingDown, Wallet, AlertCircle,
@@ -23,9 +23,10 @@ import { generateReportPdf } from '@/lib/reportPdf';
 import { generateReportXls } from '@/lib/reportXls';
 import { humanizeError } from '@/lib/errors';
 
-function formatMoney(n: number): string {
-  return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n);
-}
+// E-GG-154: los saldos del dashboard son cifras de conciliación → exactos al
+// centavo (antes maximumFractionDigits: 0 redondeaba: la caja mostraba
+// $ 3.074.548 cuando el saldo real era $ 3.074.548,26).
+import { MoneySup, formatMoneyExact as formatMoney } from '../components/MoneySup';
 
 function fmtFecha(d: string): string {
   try {
@@ -115,9 +116,9 @@ export function FinanzasDashboardPage() {
         { key: 'tipo', label: 'Tipo', width: '10%' },
         { key: 'categoria_nombre', label: 'Categoría', width: '14%',
           format: (r) => r.categoria_nombre ?? '—' },
-        { key: 'monto', label: 'Monto', align: 'right', width: '12%',
+        { key: 'monto', label: 'Monto', align: 'right', width: '14%',
           format: (r) => formatMoney(r.monto) },
-        { key: 'descripcion', label: 'Descripción', width: '22%',
+        { key: 'descripcion', label: 'Descripción', width: '20%',
           format: (r) => r.descripcion ?? '—' },
         // E-GG-142: sin esta columna un ingreso sin identificar era
         // indistinguible de uno normal en el reporte impreso
@@ -285,12 +286,12 @@ export function FinanzasDashboardPage() {
 
       {/* KPIs */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <KpiCard label="Saldo total" value={formatMoney(kpis.saldo_total)} icon={Wallet} tone="navy" />
-        <KpiCard label="Ingresos del mes" value={formatMoney(kpis.ingresos_mes)} icon={TrendingUp} tone="green" />
-        <KpiCard label="Egresos del mes" value={formatMoney(kpis.egresos_mes)} icon={TrendingDown} tone="red" />
+        <KpiCard label="Saldo total" value={<MoneySup value={kpis.saldo_total} />} icon={Wallet} tone="navy" />
+        <KpiCard label="Ingresos del mes" value={<MoneySup value={kpis.ingresos_mes} />} icon={TrendingUp} tone="green" />
+        <KpiCard label="Egresos del mes" value={<MoneySup value={kpis.egresos_mes} />} icon={TrendingDown} tone="red" />
         <KpiCard
           label="Balance neto"
-          value={formatMoney(balanceNeto)}
+          value={<MoneySup value={balanceNeto} />}
           icon={Banknote}
           tone={balanceNeto >= 0 ? 'cyan' : 'red'}
         />
@@ -337,7 +338,7 @@ export function FinanzasDashboardPage() {
                   <p className="text-xs uppercase tracking-wider text-brand-muted">{c.tipo.replace('_', ' ')}</p>
                   <h3 className="mt-1 font-display text-lg font-bold text-brand-ink">{c.nombre}</h3>
                   <p className="mt-2 font-display text-2xl font-bold tabular-nums text-brand-ink">
-                    {formatMoney(c.saldo)}
+                    <MoneySup value={c.saldo} />
                   </p>
                   <p className="mt-0.5 text-[11px] text-brand-muted">
                     {c.moneda}{c.movs_pendientes > 0 ? ` · ${c.movs_pendientes} pendientes` : ''}
@@ -530,7 +531,7 @@ export function FinanzasDashboardPage() {
   );
 }
 
-function KpiCard({ label, value, icon: Icon, tone }: { label: string; value: string; icon: typeof Wallet; tone: 'navy' | 'green' | 'red' | 'cyan' }) {
+function KpiCard({ label, value, icon: Icon, tone }: { label: string; value: ReactNode; icon: typeof Wallet; tone: 'navy' | 'green' | 'red' | 'cyan' }) {
   const tones: Record<string, string> = {
     navy: 'bg-slate-50 text-slate-700 ring-slate-200',
     green: 'bg-green-50 text-green-700 ring-green-200',
@@ -545,7 +546,8 @@ function KpiCard({ label, value, icon: Icon, tone }: { label: string; value: str
         </div>
         <p className="text-xs uppercase tracking-wider text-brand-muted">{label}</p>
       </div>
-      <p className="mt-2 font-display text-xl font-bold tabular-nums text-brand-ink">{value}</p>
+      {/* text-lg en base: a 360px el grid es de 2 columnas (~126px útiles) */}
+      <p className="mt-2 font-display text-lg font-bold tabular-nums text-brand-ink sm:text-xl">{value}</p>
     </div>
   );
 }

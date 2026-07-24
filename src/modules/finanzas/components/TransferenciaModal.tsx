@@ -12,7 +12,8 @@ interface Props {
 }
 
 function formatMoney(n: number): string {
-  return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n);
+  // E-GG-154: saldos de caja exactos al centavo (conciliación).
+  return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
 }
 
 export function TransferenciaModal({ cajas, onClose, onCreated }: Props) {
