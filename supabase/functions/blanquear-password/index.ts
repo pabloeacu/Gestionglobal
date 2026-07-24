@@ -1,30 +1,25 @@
-// reenviar-bienvenida · DGG-117 · Reenvía el mail de bienvenida del portal al
-// usuario EXISTENTE del cliente, sin crear usuarios nuevos.
+// blanquear-password · E-GG-157 · "Blanquear contraseña" de la ficha del
+// cliente: la gerencia genera una contraseña nueva para el usuario EXISTENTE
+// (la actual deja de servir) y el cliente la recibe en su email de LOGIN
+// vigente con formato bienvenida ("blanqueamos tu contraseña y generamos
+// esta nueva").
 //
-// Caso de uso (Pablo, 2026-07-24): el primer mail de bienvenida se perdió
-// (rebote, casilla llena, borrado accidental) y la gerencia quiere repetirlo.
-// Como la password temporal original no es recuperable (queda hasheada), se
-// REGENERA una nueva y se reenvía el mismo template 'bienvenida-administracion'
-// con credenciales frescas. Si el cliente ya había ingresado, el front advierte
-// antes (la clave vigente deja de servir).
+// Pedido de Pablo (2026-07-24, derivado de E-GG-156): camino PARALELO y
+// exclusivo de gerencia respecto del "¿Olvidaste tu contraseña?" del login
+// (que sigue intacto para el autoservicio del cliente). Caso de uso típico:
+// el cliente ya ingresó alguna vez, olvidó su clave, y llama a la gerencia.
 //
-// Body:    { administracion_id: string }
-// Región:  staff-gated de verdad — el JWT del caller debe ser de un profile
-//          con role gerente/operador (a diferencia del gate laxo del alta,
-//          E-GG-150 lección: superficie que muta credenciales = gate real).
+// Body:      { administracion_id: string }
+// Staff-gate real (JWT del caller → profiles.role gerente/operador).
 // Respuesta: { ok: true, email_destino, ya_habia_ingresado } | { ok, error }
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.46.1';
 
-// Versión mínima local de _shared/humanize.ts (deploy autocontenido): mapea
-// los errores de Supabase Auth que esta edge puede propagar al UI (E-GG-39).
+// Versión mínima local de _shared/humanize.ts (deploy autocontenido, E-GG-39).
 function humanizeAuthError(msg: string | undefined, fallback: string): { status: number; message: string } {
   const m = msg ?? '';
   if (/rate limit|too many requests/i.test(m)) {
     return { status: 429, message: 'Demasiados intentos seguidos. Esperá un minuto y reintentá.' };
-  }
-  if (/user already (registered|exists)|already been registered/i.test(m)) {
-    return { status: 409, message: 'Ya existe un usuario con ese email.' };
   }
   if (/invalid.*email|email.*invalid/i.test(m)) {
     return { status: 422, message: 'El email no tiene un formato válido.' };
@@ -81,7 +76,7 @@ Deno.serve(async (req) => {
   const { data: prof } = await admin
     .from('profiles').select('role').eq('id', caller.user.id).maybeSingle();
   if (!prof || !['gerente', 'operador'].includes(prof.role ?? '')) {
-    return json(403, { ok: false, error: 'Solo gerencia puede reenviar la bienvenida' });
+    return json(403, { ok: false, error: 'Solo gerencia puede blanquear la contraseña' });
   }
 
   // 2) Cliente + usuario vinculado (NUNCA crea usuarios: eso es del alta).
@@ -94,14 +89,16 @@ Deno.serve(async (req) => {
   if (!adminRow.user_id) {
     return json(409, { ok: false, error: 'Este cliente no tiene acceso al portal todavía. Usá "Crear acceso al portal".' });
   }
-  // §6 E-GG-157 #4c · cliente dado de baja: sin credenciales (defensa en
-  // profundidad — el front tampoco muestra el botón en baja).
+  // §6 E-GG-157 #4c · cliente dado de baja: sin credenciales (el gate del
+  // portal ya lo excluye; enviarle claves sería engañoso). Defensa en
+  // profundidad — el front tampoco muestra el botón en baja.
   if (adminRow.estado === 'baja') {
     return json(409, { ok: false, error: 'Este cliente está dado de baja. Reactivalo antes de operar su acceso.' });
   }
   // §6 E-GG-157 #2 · anti-escalación: SOLO se operan credenciales de un
-  // usuario cliente del portal (role administrador) — nadie regenera la
-  // clave de un gerente desde una ficha con user_id manipulado.
+  // usuario cliente del portal (role administrador). Corta el vector "ficha
+  // con user_id apuntado a un gerente" → nadie blanquea la clave de un
+  // gerente desde acá.
   const { data: profTarget } = await admin
     .from('profiles').select('role').eq('id', adminRow.user_id).maybeSingle();
   if (profTarget?.role !== 'administrador') {
@@ -115,20 +112,22 @@ Deno.serve(async (req) => {
   const emailLogin = userRes.user.email;
   const yaIngreso = !!userRes.user.last_sign_in_at;
 
-  // 3) Regenerar password temporal del usuario EXISTENTE (mismo ID).
+  // 3) Generar la contraseña nueva y PISAR la actual (usuario existente,
+  //    mismo UUID — el historial no se toca).
   const passwordTemporal = generarPasswordTemporal();
   const { error: errPwd } = await admin.auth.admin.updateUserById(adminRow.user_id, {
     password: passwordTemporal,
   });
   if (errPwd) {
-    const h = humanizeAuthError(errPwd.message, 'No pudimos regenerar la contraseña. Reintentá.');
+    const h = humanizeAuthError(errPwd.message, 'No pudimos blanquear la contraseña. Reintentá.');
     return json(h.status, { ok: false, error: h.message });
   }
 
-  // 4) Reenviar la bienvenida (mismo template del alta) con credenciales nuevas.
+  // 4) Credenciales nuevas al email de LOGIN vigente, formato bienvenida con
+  //    el copy de blanqueo (template acceso-password-blanqueada, mig 0384).
   const { error: errEmail } = await admin.from('email_queue').insert({
     kind: 'workflow',
-    template_slug: 'bienvenida-administracion',
+    template_slug: 'acceso-password-blanqueada',
     to_email: emailLogin,
     to_nombre: adminRow.nombre,
     variables: {
@@ -146,9 +145,9 @@ Deno.serve(async (req) => {
     related_id: adminRow.id,
   });
   if (errEmail) {
-    // La password ya se regeneró: avisamos igual, el reintento reencola.
-    console.error('reenviar-bienvenida: encolar falló', errEmail.message);
-    return json(500, { ok: false, error: 'Se regeneró la contraseña pero el email no pudo encolarse. Reintentá el reenvío.' });
+    // La password ya fue pisada: decirlo sin vueltas — reintentar reencola.
+    console.error('blanquear-password: encolar falló', errEmail.message);
+    return json(500, { ok: false, error: 'La contraseña se blanqueó pero el email no pudo encolarse. Reintentá el blanqueo.' });
   }
 
   return json(200, { ok: true, email_destino: emailLogin, ya_habia_ingresado: yaIngreso });

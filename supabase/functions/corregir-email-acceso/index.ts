@@ -98,12 +98,25 @@ Deno.serve(async (req) => {
   // 2) Cliente + usuario vinculado.
   const { data: adminRow, error: errAdmin } = await admin
     .from('administraciones')
-    .select('id, nombre, email, user_id')
+    .select('id, nombre, email, user_id, estado')
     .eq('id', body.administracion_id)
     .single();
   if (errAdmin || !adminRow) return json(404, { ok: false, error: 'Administración no encontrada' });
   if (!adminRow.user_id) {
     return json(409, { ok: false, error: 'Este cliente no tiene acceso al portal todavía. Usá "Crear acceso al portal" con el email correcto.' });
+  }
+  // §6 E-GG-157 #4c · cliente dado de baja: sin cambios de acceso (defensa en
+  // profundidad — el front tampoco muestra el botón en baja).
+  if (adminRow.estado === 'baja') {
+    return json(409, { ok: false, error: 'Este cliente está dado de baja. Reactivalo antes de operar su acceso.' });
+  }
+  // §6 E-GG-157 #2 · anti-escalación: SOLO se opera el acceso de un usuario
+  // cliente del portal (role administrador) — este es el vector más sensible
+  // (cambia el email de login), nunca debe alcanzar a un gerente.
+  const { data: profTarget } = await admin
+    .from('profiles').select('role').eq('id', adminRow.user_id).maybeSingle();
+  if (profTarget?.role !== 'administrador') {
+    return json(409, { ok: false, error: 'El usuario vinculado a esta ficha no es un cliente del portal. Verificá la ficha.' });
   }
 
   const { data: userRes, error: errUser } = await admin.auth.admin.getUserById(adminRow.user_id);

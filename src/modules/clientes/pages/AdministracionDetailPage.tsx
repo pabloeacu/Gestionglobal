@@ -36,6 +36,7 @@ import {
   fetchAccesoEstado,
   reenviarBienvenida,
   corregirEmailAcceso,
+  blanquearPassword,
   type AccesoEstado,
 } from '@/services/api/usuarios';
 import { BrandLoader } from '@/components/brand/BrandLoader';
@@ -92,7 +93,7 @@ export function AdministracionDetailPage() {
   const [acceso, setAcceso] = useState<AccesoEstado | null>(null);
   // §6 B#4: acción en curso identificada → spinner sólo en el botón activo
   // (ambos quedan deshabilitados igual, evitando acciones concurrentes).
-  const [accionAcceso, setAccionAcceso] = useState<'reenviar' | 'corregir' | null>(null);
+  const [accionAcceso, setAccionAcceso] = useState<'reenviar' | 'corregir' | 'blanquear' | null>(null);
 
   async function load() {
     if (!id) return;
@@ -230,6 +231,39 @@ export function AdministracionDetailPage() {
     void load();
   }
 
+  // E-GG-157 · "Blanquear contraseña": genera una contraseña nueva (la actual
+  // deja de servir) y el cliente la recibe en su email de login vigente con
+  // formato bienvenida. Camino paralelo al "¿Olvidaste tu contraseña?" del
+  // login, exclusivo de gerencia. Estado FRESCO al operar (lección E-GG-156).
+  async function onBlanquearPassword() {
+    if (!admin) return;
+    const est = await fetchAccesoEstado(admin.id);
+    const fresco = est.ok ? est.data : null;
+    if (fresco) setAcceso(fresco);
+    const yaIngreso = fresco ? fresco.ya_ingreso : null;
+    const destino = fresco?.email_login ?? acceso?.email_login ?? admin.email ?? '';
+    const okc = await confirm({
+      title: 'Blanquear contraseña',
+      message:
+        yaIngreso === false
+          ? `"${admin.nombre}" todavía no ingresó al portal (para el primer acceso también sirve "Reenviar bienvenida"). El blanqueo genera una contraseña NUEVA y se la enviamos a ${destino}. ¿Continuar?`
+          : `${yaIngreso === null ? `No pudimos verificar si "${admin.nombre}" ya ingresó. ` : `"${admin.nombre}" ya ingresó al portal. `}Se genera una contraseña NUEVA y LA ACTUAL DEJA DE SERVIR. Se la enviamos a ${destino} con el formato de bienvenida. ¿Continuar?`,
+      confirmLabel: 'Blanquear',
+      cancelLabel: 'Cancelar',
+      danger: yaIngreso !== false,
+    });
+    if (!okc) return;
+    setAccionAcceso('blanquear');
+    const res = await blanquearPassword(admin.id);
+    setAccionAcceso(null);
+    if (!res.ok) {
+      toast.error('No pudimos blanquear la contraseña', { description: humanizeError(res.error) });
+      return;
+    }
+    toast.success(`Contraseña blanqueada — credenciales nuevas enviadas a ${res.data.email_destino}.`);
+    void load();
+  }
+
   // DGG-117 · "Corregir mail de acceso": la gerencia carga SOLO el email nuevo;
   // la plataforma hace el resto (login + ficha + aviso al cliente) en la edge.
   async function onCorregirEmail() {
@@ -328,6 +362,7 @@ export function AdministracionDetailPage() {
         onCrearAcceso={() => void onCrearAcceso()}
         onReenviarBienvenida={() => void onReenviarBienvenida()}
         onCorregirEmail={() => void onCorregirEmail()}
+        onBlanquearPassword={() => void onBlanquearPassword()}
         onEdit={() => setEditOpen(true)}
         onArchive={() => void onArchive()}
         onReactivar={() => void onReactivar()}
@@ -421,6 +456,7 @@ function FichaCover({
   acceso,
   creandoAcceso,
   accionAcceso,
+  onBlanquearPassword,
   onCrearAcceso,
   onReenviarBienvenida,
   onCorregirEmail,
@@ -433,7 +469,8 @@ function FichaCover({
   tieneAcceso: boolean;
   acceso: AccesoEstado | null;
   creandoAcceso: boolean;
-  accionAcceso: 'reenviar' | 'corregir' | null;
+  accionAcceso: 'reenviar' | 'corregir' | 'blanquear' | null;
+  onBlanquearPassword: () => void;
   onCrearAcceso: () => void;
   onReenviarBienvenida: () => void;
   onCorregirEmail: () => void;
@@ -576,6 +613,17 @@ function FichaCover({
                   disabled={accionAcceso !== null}
                 >
                   <Mail size={14} /> Corregir mail de acceso
+                </Button>
+                {/* E-GG-157 · camino paralelo al "¿Olvidaste tu contraseña?"
+                    del login, exclusivo de gerencia: pisa la contraseña y
+                    manda credenciales nuevas al email de login vigente. */}
+                <Button
+                  variant="secondary"
+                  onClick={onBlanquearPassword}
+                  loading={accionAcceso === 'blanquear'}
+                  disabled={accionAcceso !== null}
+                >
+                  <KeyRound size={14} /> Blanquear contraseña
                 </Button>
               </>
             )}

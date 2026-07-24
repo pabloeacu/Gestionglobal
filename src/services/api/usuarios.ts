@@ -135,6 +135,23 @@ export async function reenviarBienvenida(
   return ok(data as { email_destino: string; ya_habia_ingresado: boolean });
 }
 
+/** E-GG-157 · "Blanquear contraseña": la gerencia genera una contraseña nueva
+ *  para el usuario existente (la actual deja de servir) y el cliente la recibe
+ *  en su email de login vigente con formato bienvenida. Camino paralelo y
+ *  exclusivo de gerencia respecto del "¿Olvidaste tu contraseña?" del login. */
+export async function blanquearPassword(
+  administracionId: string,
+): Promise<ApiResponse<{ email_destino: string; ya_habia_ingresado: boolean }>> {
+  const { data, error } = await supabase.functions.invoke('blanquear-password', {
+    body: { administracion_id: administracionId },
+  });
+  if (error) {
+    const msg = await extractEdgeFnError(error);
+    return fail('BLANQUEAR_PASSWORD', msg, error);
+  }
+  return ok(data as { email_destino: string; ya_habia_ingresado: boolean });
+}
+
 /** "Corregir mail de acceso": la gerencia pasa SOLO el email nuevo y la edge
  *  hace el wizard completo — cambia el login del usuario existente (mismo ID,
  *  historial intacto), actualiza el email de la ficha y avisa al cliente en
