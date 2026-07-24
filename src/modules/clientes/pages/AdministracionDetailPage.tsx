@@ -234,9 +234,24 @@ export function AdministracionDetailPage() {
   // la plataforma hace el resto (login + ficha + aviso al cliente) en la edge.
   async function onCorregirEmail() {
     if (!admin) return;
+    // E-GG-156 · estado FRESCO al momento de operar: el semáforo de la ficha
+    // puede llevar horas en pantalla (caso Nogueira 24/07: mostraba "nunca
+    // ingresó" pero el cliente había entrado 4 h antes → la gerencia esperaba
+    // credenciales nuevas y el cliente recibió solo el aviso). Re-consultamos
+    // y le decimos a la gerencia EXACTAMENTE qué va a recibir el cliente.
+    const est = await fetchAccesoEstado(admin.id);
+    const fresco = est.ok ? est.data : null;
+    if (fresco) setAcceso(fresco); // sincroniza también el semáforo visible
+    const yaIngreso = fresco ? fresco.ya_ingreso : null;
+    const efecto =
+      yaIngreso === null
+        ? 'No pudimos verificar si ya ingresó: si nunca entró va a recibir la bienvenida completa con contraseña nueva; si ya entró, solo el aviso (su contraseña no cambia).'
+        : yaIngreso
+          ? 'Este cliente YA ingresó al portal: su contraseña NO se toca y va a recibir solo un aviso del cambio en la casilla nueva.'
+          : 'Este cliente NUNCA ingresó: va a recibir la BIENVENIDA completa con una contraseña temporal NUEVA en la casilla nueva.';
     const emailNuevo = await prompt({
       title: 'Corregir mail de acceso',
-      message: `Ingresá el email nuevo de "${admin.nombre}". La plataforma actualiza sola el usuario del portal (sin perder historial), el email de la ficha, y le avisa al cliente en la casilla nueva.`,
+      message: `Ingresá el email nuevo de "${admin.nombre}". La plataforma actualiza sola el usuario del portal (sin perder historial) y el email de la ficha. ${efecto} Al correo anterior no se le envía nada.`,
       label: 'Email nuevo',
       placeholder: 'cliente@correo.com',
       confirmLabel: 'Corregir acceso',

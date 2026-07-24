@@ -6,13 +6,14 @@
 //      historial completo queda intacto: matrículas, trámites, cta cte).
 //   2. Actualiza el email de contacto de la ficha (administraciones.email)
 //      → todas las comunicaciones futuras van a la casilla nueva.
-//   3. Avisa al cliente EN LA CASILLA NUEVA (antes de tocar la ficha, §6 A#6):
-//      · nunca ingresó  → template 'acceso-email-actualizado' con contraseña
-//        temporal regenerada (equivale a re-bienvenida en el mail correcto);
+//   3. Escribe al cliente SOLO EN LA CASILLA NUEVA (E-GG-156, decisión de
+//      Pablo 24/07: el caso de uso es "el correo viejo está muerto" — mandarle
+//      un aviso ahí generaba otro rebote y ruido en el banner de rebotes):
+//      · nunca ingresó  → template 'acceso-email-actualizado': BIENVENIDA
+//        completa con credenciales (contraseña temporal regenerada);
 //      · ya ingresó     → template 'acceso-email-actualizado-aviso' (su
-//        contraseña vigente no se toca).
-//   4. §6 A#8: aviso de seguridad al mail ANTERIOR (best-effort) — si el
-//      dueño legítimo no pidió el cambio, se entera y puede responder.
+//        contraseña vigente no se toca; el mail lo aclara y recuerda
+//        "¿Olvidaste tu contraseña?").
 //
 // Body:      { administracion_id: string, email_nuevo: string }
 // Staff-gate real (JWT del caller → profiles.role gerente/operador).
@@ -174,34 +175,10 @@ Deno.serve(async (req) => {
     console.error('corregir-email-acceso: encolar aviso falló', errEmail.message);
   }
 
-  // 5b) §6 A#8 · Aviso de seguridad al mail ANTERIOR (best-effort): patrón
-  //     estándar de cambio de credenciales — si el dueño legítimo no pidió el
-  //     cambio, se entera y puede responder. Si esa casilla rebota (caso
-  //     típico que motivó la corrección), simplemente rebota sin ruido.
-  if (emailAnterior.includes('@')) {
-    const { error: errAvisoViejo } = await admin.from('email_queue').insert({
-      kind: 'workflow',
-      template_slug: 'acceso-email-actualizado-aviso',
-      to_email: emailAnterior,
-      to_nombre: adminRow.nombre,
-      variables: {
-        nombre_administracion: adminRow.nombre,
-        email_nuevo: emailNuevo,
-        email_anterior: emailAnterior,
-        link_portal: 'https://www.gestionglobal.ar/ingresar',
-      },
-      prioridad: 3,
-      intento: 0,
-      max_intentos: 3,
-      programado_para: new Date().toISOString(),
-      administracion_id: adminRow.id,
-      related_table: 'administraciones',
-      related_id: adminRow.id,
-    });
-    if (errAvisoViejo) {
-      console.warn('corregir-email-acceso: aviso al mail anterior falló', errAvisoViejo.message);
-    }
-  }
+  // (E-GG-156 · se ELIMINÓ el aviso al mail anterior que existía acá: el caso
+  // de uso del asistente es "el correo viejo está muerto" — escribirle solo
+  // generaba otro rebote, ruido en el banner de rebotes y confusión. Decisión
+  // de Pablo, 24/07/2026.)
 
   // 6) Actualizar el email de contacto de la ficha.
   const { error: errFicha } = await admin
