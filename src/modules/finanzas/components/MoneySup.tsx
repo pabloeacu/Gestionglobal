@@ -22,7 +22,8 @@ export function MoneySup({ value }: { value: number }) {
   return (
     <span className="whitespace-nowrap">
       {entero}
-      <sup className="text-[0.62em] font-semibold opacity-80">,{centavos}</sup>
+      {/* Sin coma: el superíndice ya comunica "decimal" (pedido de Pablo) */}
+      <sup className="text-[0.62em] font-semibold opacity-80">{centavos}</sup>
     </span>
   );
 }
