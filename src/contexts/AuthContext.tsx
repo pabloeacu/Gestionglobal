@@ -533,6 +533,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // pasa por acá: la función signOut() limpia directo, y el de otra
       // pestaña llega vía el evento 'storage'.
       if (event === 'SIGNED_OUT' && refreshInFlightRef.current) return;
+      // E-GG-155b (cazado por el e2e en vivo) · SOLO los 3 eventos de cambio
+      // real tocan nuestro storage. En particular INITIAL_SESSION: con
+      // persistSession:false auth-js SIEMPRE lo emite con sesión null al
+      // suscribirse — persistirlo WIPEABA gg.auth.session en cada mount, y si
+      // el boot estaba refrescando un access vencido (pausa >1h), el guard
+      // anti-resurrección descartaba la sesión VÁLIDA que volvía del server
+      // (200) → "se me cerró la sesión" en cada arranque matutino. Esta era
+      // LA causa dominante de los deslogueos de JL y Pablo — el server nunca
+      // registró un error: el cliente tiraba la sesión buena.
+      if (event !== 'SIGNED_IN' && event !== 'SIGNED_OUT' && event !== 'TOKEN_REFRESHED') return;
       // Un TOKEN_REFRESHED que llega con el storage ya vacío es un refresh que
       // estaba en vuelo cuando otra pestaña (o esta) hizo logout: respetarlo,
       // no resucitar la sesión. (Un login real llega como SIGNED_IN.)
