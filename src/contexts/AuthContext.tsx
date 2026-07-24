@@ -115,6 +115,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Id del usuario ya cargado en contexto — para que la adopción cross-tab de un
   // token rotado (mismo usuario) no re-dispare loadProfile en cada rotación.
   const userIdRef = useRef<string | null>(null);
+  // E-GG-155 · último refresh_token que recibió un 400 definitivo. Permite UN
+  // único reintento diferido por token (una pestaña con bundle viejo pudo rotar
+  // fuera del lock y todavía no escribir el storage) sin riesgo de loop: si el
+  // mismo token vuelve a fallar, el logout es definitivo.
+  const token400Ref = useRef<string | null>(null);
+  // E-GG-155 (§6 A#6) · hay un refresh nuestro en vuelo. auth-js emite
+  // SIGNED_OUT (y con él el handler wipeaba storage + UI) ANTES de devolvernos
+  // el 400 — eso mataba el reintento y hacía flashear el login aunque la
+  // recuperación fuera inminente. Con el flag activo, el handler difiere: la
+  // decisión (adoptar / reintentar / logout limpio) es del path del 400.
+  const refreshInFlightRef = useRef(false);
 
   // Reintento corto tras un fallo transitorio (red caída post-suspensión).
   const programarReintentoRefresh = useCallback((ms: number) => {
@@ -146,6 +157,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // adopta, ni rota, ni desloguea. Su sesión es la del link, y punto.
     if (arrivedWithRecoveryHash()) return;
     const run = async () => {
+      refreshInFlightRef.current = true;
+      try {
+        await runInner();
+      } finally {
+        refreshInFlightRef.current = false;
+      }
+    };
+    const runInner = async () => {
       // 1) Re-leer el storage: otra pestaña pudo haber rotado el token
       //    mientras este timer dormía (suspensión de la laptop, tab inactiva).
       const stored = readStoredSession();
@@ -185,12 +204,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
       if (error || !data.session) {
-        // refresh_token muerto (error real del servidor) → logout limpio.
+        // E-GG-155 · 400 del servidor. ANTES de rendirnos, cubrir la carrera
+        // residual: una pestaña/PWA con bundle viejo (pre E-GG-144, sin lock)
+        // pudo rotar este token por afuera y nuestro request perdió.
+        // (a) Si el storage ya tiene un refresh_token DISTINTO al que usamos,
+        //     otra pestaña rotó bien → adoptar por el camino lockeado, no
+        //     desloguear.
+        const ahora = readStoredSession();
+        if (ahora?.refresh_token && ahora.refresh_token !== stored.refresh_token) {
+          programarReintentoRefresh(400);
+          return;
+        }
+        // (b) Mismo token: darle UNA ventana de 1.5s a la otra pestaña para
+        //     escribir el storage y reintentar una única vez por token.
+        if (token400Ref.current !== stored.refresh_token) {
+          token400Ref.current = stored.refresh_token;
+          programarReintentoRefresh(1_500);
+          return;
+        }
+        // (c) Segundo 400 con el mismo token: familia revocada de verdad →
+        //     logout limpio (comportamiento previo).
         persistSession(null);
         setSession(null);
         setUser(null);
         return;
       }
+      token400Ref.current = null; // refresh OK → resetear el guard de reintento
       // Si mientras el refresh estaba en vuelo otra pestaña (o esta) hizo
       // logout (storage vacío), NO resucitar la sesión persistiendo el token
       // nuevo: respetar el logout.
@@ -285,7 +324,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setAccesoRevocado(true);
             try {
               if (isSupabaseConfigured) await supabase.auth.signOut();
-            } catch { /* limpiamos storage local igual */ }
+            } catch { /* la limpieza local de abajo corre igual */ }
+            // E-GG-155 (re-§6 D1a-iii) · limpieza local EXPLÍCITA, sin depender
+            // del handler de SIGNED_OUT (que un refresh en vuelo puede diferir).
+            // Cierra además el bug latente del catch: el comentario prometía
+            // limpiar el storage pero no había ningún persistSession(null).
+            persistSession(null);
+            setSession(null);
+            scheduleRefresh(null);
             return;
           }
           setUser({ ...r.data, email: s.user.email ?? '' });
@@ -318,6 +364,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(null);
       setProfileMissing(true);
       setProfileLoadFailed(false);
+      return;
+    }
+
+    // E-GG-155 (§6 refutador #1a) · Un fallo TÉCNICO de RE-carga no tumba una
+    // sesión que ya venía operando: si el perfil de ESTE usuario ya está en
+    // memoria (la re-carga la disparó el TOKEN_REFRESHED horario), lo
+    // conservamos y el próximo ciclo la reintenta. Antes, ~30s de red mala
+    // post-suspensión (3 timeouts de 8/9/12s) terminaban en signOut — un
+    // deslogueo SIN 400 de auth, indistinguible para el usuario del bug de
+    // tokens. El signOut de abajo queda solo para el caso original: sesión
+    // nueva que nunca logró cargar su perfil.
+    if (userIdRef.current === s.user.id) {
+      // eslint-disable-next-line no-console
+      console.warn('[Auth] re-carga de perfil falló; conservo el perfil en memoria', {
+        userId: s.user.id,
+        lastError: lastError instanceof Error ? lastError.message : String(lastError),
+      });
       return;
     }
 
@@ -376,6 +439,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // entre nuestra lectura y este punto.
           const refrescarConLock = async (): Promise<Session | null> => {
             const run = async (): Promise<Session | null> => {
+              refreshInFlightRef.current = true;
+              try {
+                return await runInner();
+              } finally {
+                refreshInFlightRef.current = false;
+              }
+            };
+            const runInner = async (): Promise<Session | null> => {
               const fresco = readStoredSession() ?? stored;
               if (fresco.expires_at * 1000 - Date.now() > 120_000) {
                 const { data } = await supabase.auth.setSession({
@@ -397,10 +468,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               }
               return r.session ?? null;
             };
+            // E-GG-155 · 400 definitivo en el boot: ventana única de 1.2s para
+            // que otra pestaña (bundle viejo, fuera del lock) persista el token
+            // que rotó por afuera, antes de dar la sesión por muerta. run()
+            // re-lee el storage adentro (con fallback a `stored` si auth-js lo
+            // wipeó), así el reintento adopta o refresca el token más nuevo.
+            const runConReintento = async (): Promise<Session | null> => {
+              const primera = await run();
+              if (primera || falloTransitorioBoot) return primera;
+              await new Promise((r) => setTimeout(r, 1_200));
+              return await run();
+            };
             if (typeof navigator !== 'undefined' && navigator.locks?.request) {
-              return await navigator.locks.request('gg-auth-refresh', run);
+              return await navigator.locks.request('gg-auth-refresh', runConReintento);
             }
-            return await run();
+            return await runConReintento();
           };
           s = await refrescarConLock();
           // Logout concurrente mientras el refresh del boot estaba en vuelo
@@ -444,6 +526,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // signOut final debe wipear la sesión normal de otro usuario del browser.
     const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
       if (!active) return;
+      // E-GG-155 (§6 A#6) · SIGNED_OUT emitido por auth-js DURANTE un refresh
+      // nuestro (el 400 todavía no volvió al caller): no wipear storage ni UI —
+      // el path del 400 decide (adopta el token de otra pestaña, reintenta una
+      // vez, o hace el logout limpio él mismo). Un signOut real del usuario no
+      // pasa por acá: la función signOut() limpia directo, y el de otra
+      // pestaña llega vía el evento 'storage'.
+      if (event === 'SIGNED_OUT' && refreshInFlightRef.current) return;
       // Un TOKEN_REFRESHED que llega con el storage ya vacío es un refresh que
       // estaba en vuelo cuando otra pestaña (o esta) hizo logout: respetarlo,
       // no resucitar la sesión. (Un login real llega como SIGNED_IN.)
