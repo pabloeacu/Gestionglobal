@@ -34,7 +34,13 @@
 //
 // Cron: cada 30 minutos (mig 0154).
 //
-// Seguridad: verify_jwt = true; el cron pasa CRON_SECRET en Authorization.
+// Seguridad: verify_jwt = false; el gate real es CRON_SECRET en Authorization.
+//
+// v4 (§6 DGG-117, agentes A/C): gate "es un DSN" antes de marcar (evita
+// falsos bounced por auto-replies de postmaster), 'complained' sólo por
+// subject FBL (no por la palabra spam en el diagnóstico SMTP), anti-loop
+// (rebotes de gerencia-notif-generica avisan sin email → corta el ciclo
+// aviso→mail→rebote→aviso), e ilike con wildcards escapados.
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
@@ -242,7 +248,9 @@ async function findOriginalSentEmail(
   const { data, error } = await admin
     .from('sent_emails')
     .select('id, to_email, enviado_at, estado, administracion_id, template_slug, asunto')
-    .ilike('to_email', recipient.toLowerCase())
+    // §6 C#12: escapar % y _ para que un email con guión bajo no actúe de
+    // comodín ilike y matchee un envío ajeno.
+    .ilike('to_email', recipient.toLowerCase().replace(/([%_])/g, '\\$1'))
     .gte(
       'enviado_at',
       new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
@@ -374,6 +382,20 @@ Deno.serve(async (req) => {
       if (snippetAddr) candidates.push(snippetAddr[1].toLowerCase());
       const uniqueCandidates = [...new Set(candidates)];
 
+      // §6 C#5 (v4): gate "esto ES un DSN". Un mail de postmaster que no sea
+      // un reporte de entrega (auto-reply, aviso de cuarentena, digest) NO
+      // debe marcar bounced: exigimos delivery-status, o la frase de forward,
+      // o un subject inequívoco de DSN. Si no, se archiva sin tocar nada.
+      const esDsn =
+        !!dsPart ||
+        !!ultimately ||
+        /delivery status notification|undeliver|returned to sender|delivery incomplete|no se entreg/i.test(subjectTop);
+      if (!esDsn) {
+        processed++;
+        await gmailMarkRead(accessToken, item.id);
+        continue;
+      }
+
       if (uniqueCandidates.length === 0) {
         // No pudimos identificar destinatario — saltar pero no error.
         processed++;
@@ -392,11 +414,12 @@ Deno.serve(async (req) => {
       // Determinar estado a setear:
       // · action='failed' o status 5xx → bounced
       // · action='delayed' o status 4xx → delivery_delayed
-      // · si "complaint" en subject → complained
+      // · si subject FBL → complained
       let estado: 'bounced' | 'delivery_delayed' | 'complained' = 'bounced';
-      const isComplaint =
-        /complaint|spam/i.test(subjectTop) ||
-        /complaint|spam/i.test(bounce.diagnostic ?? '');
+      // §6 C#6 (v4): 'complained' SOLO por subject de feedback-loop. La palabra
+      // "spam" en el diagnóstico SMTP ("550 rejected as spam") es un rechazo
+      // anti-spam del receptor = bounce, no una queja del usuario.
+      const isComplaint = /complaint|abuse report|feedback-?loop/i.test(subjectTop);
       if (isComplaint) estado = 'complained';
       else if (
         bounce.action === 'delayed' ||
@@ -433,9 +456,14 @@ Deno.serve(async (req) => {
       // procesa una sola vez (dsn_msg_id UNIQUE) → un solo aviso por rebote.
       if (estado === 'bounced' || estado === 'complained') {
         try {
+          // §6 C#7 (v4) ANTI-LOOP: si lo que rebotó es un email interno a
+          // gerencia (gerencia-notif-generica), avisar SOLO por campanita/push
+          // (p_send_email=false). Si no, el ciclo aviso→mail a gerentes→rebote
+          // del mail de un gerente→nuevo aviso→... se retroalimenta cada 30min.
+          const esNotifInterna = sent.template_slug === 'gerencia-notif-generica';
           const url = sent.administracion_id
             ? `/gerencia/clientes/${sent.administracion_id}`
-            : '/gerencia/comunicaciones';
+            : '/gerencia/configuracion/emails/cola';
           const titulo =
             estado === 'complained'
               ? `Queja de spam: ${sent.to_email}`
@@ -449,6 +477,7 @@ Deno.serve(async (req) => {
             p_titulo: titulo,
             p_cuerpo: cuerpo,
             p_url: url,
+            p_send_email: !esNotifInterna,
             p_related_table: 'sent_emails',
             p_related_id: sent.id,
           });

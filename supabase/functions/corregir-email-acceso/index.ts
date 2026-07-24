@@ -6,15 +6,17 @@
 //      historial completo queda intacto: matrículas, trámites, cta cte).
 //   2. Actualiza el email de contacto de la ficha (administraciones.email)
 //      → todas las comunicaciones futuras van a la casilla nueva.
-//   3. Avisa al cliente EN LA CASILLA NUEVA:
+//   3. Avisa al cliente EN LA CASILLA NUEVA (antes de tocar la ficha, §6 A#6):
 //      · nunca ingresó  → template 'acceso-email-actualizado' con contraseña
 //        temporal regenerada (equivale a re-bienvenida en el mail correcto);
 //      · ya ingresó     → template 'acceso-email-actualizado-aviso' (su
 //        contraseña vigente no se toca).
+//   4. §6 A#8: aviso de seguridad al mail ANTERIOR (best-effort) — si el
+//      dueño legítimo no pidió el cambio, se entera y puede responder.
 //
 // Body:      { administracion_id: string, email_nuevo: string }
 // Staff-gate real (JWT del caller → profiles.role gerente/operador).
-// Respuesta: { ok: true, email_anterior, email_nuevo, ya_habia_ingresado }
+// Respuesta: { ok: true, email_anterior, email_nuevo, ya_habia_ingresado, aviso_enviado }
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.46.1';
 
@@ -114,7 +116,9 @@ Deno.serve(async (req) => {
     return json(409, { ok: false, error: 'El email nuevo es igual al actual.' });
   }
 
-  // 3) Colisión: ¿otro usuario ya usa ese email?
+  // 3) Colisión: ¿otro usuario ya usa ese email? (pre-check con listUsers;
+  //    el backstop real es el índice UNIQUE de auth.users → updateUserById
+  //    duplicado falla y humanizeAuthError lo mapea a 409. §6 A#5.)
   const { data: existingUsers } = await admin.auth.admin.listUsers({ page: 1, perPage: 200 });
   const colision = existingUsers?.users?.find(
     (u) => u.email?.toLowerCase() === emailNuevo && u.id !== adminRow.user_id,
@@ -142,18 +146,9 @@ Deno.serve(async (req) => {
     return json(h.status, { ok: false, error: h.message });
   }
 
-  // 5) Actualizar el email de contacto de la ficha.
-  const { error: errFicha } = await admin
-    .from('administraciones')
-    .update({ email: emailNuevo })
-    .eq('id', adminRow.id);
-  if (errFicha) {
-    // El login ya cambió; avisamos para que la gerencia corrija la ficha a mano.
-    console.error('corregir-email-acceso: update ficha falló', errFicha.message);
-    return json(500, { ok: false, error: 'El acceso se actualizó pero la ficha no. Editá el email de la ficha a mano.' });
-  }
-
-  // 6) Avisar al cliente en la casilla NUEVA.
+  // 5) Avisar al cliente en la casilla NUEVA — ANTES de tocar la ficha (§6
+  //    A#6): si la password fue regenerada, el aviso con credenciales no debe
+  //    depender de que el update de la ficha salga bien.
   const { error: errEmail } = await admin.from('email_queue').insert({
     kind: 'workflow',
     template_slug: passwordTemporal ? 'acceso-email-actualizado' : 'acceso-email-actualizado-aviso',
@@ -174,15 +169,49 @@ Deno.serve(async (req) => {
     related_table: 'administraciones',
     related_id: adminRow.id,
   });
+  const avisoEnviado = !errEmail;
   if (errEmail) {
     console.error('corregir-email-acceso: encolar aviso falló', errEmail.message);
-    return json(200, {
-      ok: true,
-      email_anterior: emailAnterior,
-      email_nuevo: emailNuevo,
-      ya_habia_ingresado: yaIngreso,
-      aviso_enviado: false,
+  }
+
+  // 5b) §6 A#8 · Aviso de seguridad al mail ANTERIOR (best-effort): patrón
+  //     estándar de cambio de credenciales — si el dueño legítimo no pidió el
+  //     cambio, se entera y puede responder. Si esa casilla rebota (caso
+  //     típico que motivó la corrección), simplemente rebota sin ruido.
+  if (emailAnterior.includes('@')) {
+    const { error: errAvisoViejo } = await admin.from('email_queue').insert({
+      kind: 'workflow',
+      template_slug: 'acceso-email-actualizado-aviso',
+      to_email: emailAnterior,
+      to_nombre: adminRow.nombre,
+      variables: {
+        nombre_administracion: adminRow.nombre,
+        email_nuevo: emailNuevo,
+        email_anterior: emailAnterior,
+        link_portal: 'https://www.gestionglobal.ar/ingresar',
+      },
+      prioridad: 3,
+      intento: 0,
+      max_intentos: 3,
+      programado_para: new Date().toISOString(),
+      administracion_id: adminRow.id,
+      related_table: 'administraciones',
+      related_id: adminRow.id,
     });
+    if (errAvisoViejo) {
+      console.warn('corregir-email-acceso: aviso al mail anterior falló', errAvisoViejo.message);
+    }
+  }
+
+  // 6) Actualizar el email de contacto de la ficha.
+  const { error: errFicha } = await admin
+    .from('administraciones')
+    .update({ email: emailNuevo })
+    .eq('id', adminRow.id);
+  if (errFicha) {
+    // El login ya cambió y el aviso ya está encolado; sólo falta la ficha.
+    console.error('corregir-email-acceso: update ficha falló', errFicha.message);
+    return json(500, { ok: false, error: 'El acceso se actualizó y avisamos al cliente, pero la ficha no se pudo actualizar. Editá el email de la ficha a mano.' });
   }
 
   return json(200, {
@@ -190,6 +219,6 @@ Deno.serve(async (req) => {
     email_anterior: emailAnterior,
     email_nuevo: emailNuevo,
     ya_habia_ingresado: yaIngreso,
-    aviso_enviado: true,
+    aviso_enviado: avisoEnviado,
   });
 });

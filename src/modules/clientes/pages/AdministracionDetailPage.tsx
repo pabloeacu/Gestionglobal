@@ -90,7 +90,9 @@ export function AdministracionDetailPage() {
   const [creandoAcceso, setCreandoAcceso] = useState(false);
   // DGG-117: estado del acceso al portal (ícono 3 estados + botones).
   const [acceso, setAcceso] = useState<AccesoEstado | null>(null);
-  const [accionAcceso, setAccionAcceso] = useState(false);
+  // §6 B#4: acción en curso identificada → spinner sólo en el botón activo
+  // (ambos quedan deshabilitados igual, evitando acciones concurrentes).
+  const [accionAcceso, setAccionAcceso] = useState<'reenviar' | 'corregir' | null>(null);
 
   async function load() {
     if (!id) return;
@@ -202,21 +204,24 @@ export function AdministracionDetailPage() {
   // temporal — no crea usuarios). Con advertencia extra si ya había ingresado.
   async function onReenviarBienvenida() {
     if (!admin) return;
-    const yaIngreso = acceso?.ya_ingreso ?? false;
+    // §6 B#2: si la RPC de estado falló (acceso===null), NO sabemos si el
+    // cliente ya ingresó → asumimos lo peor y mostramos la advertencia fuerte.
+    const estadoDesconocido = acceso === null;
+    const yaIngreso = estadoDesconocido ? true : acceso.ya_ingreso;
     const destino = acceso?.email_login ?? admin.email ?? '';
     const okc = await confirm({
       title: 'Reenviar mail de bienvenida',
       message: yaIngreso
-        ? `"${admin.nombre}" YA ingresó al portal alguna vez. Reenviar la bienvenida genera una contraseña temporal nueva y LA ACTUAL DEJA DE SERVIR. Se envía a ${destino}. ¿Continuar?`
+        ? `${estadoDesconocido ? `No pudimos verificar si "${admin.nombre}" ya ingresó al portal. ` : `"${admin.nombre}" YA ingresó al portal alguna vez. `}Reenviar la bienvenida genera una contraseña temporal nueva y LA ACTUAL DEJA DE SERVIR. Se envía a ${destino}. ¿Continuar?`
         : `Le reenviamos a "${admin.nombre}" el mail de bienvenida con una contraseña temporal nueva, a ${destino}.`,
       confirmLabel: 'Reenviar',
       cancelLabel: 'Cancelar',
       danger: yaIngreso,
     });
     if (!okc) return;
-    setAccionAcceso(true);
+    setAccionAcceso('reenviar');
     const res = await reenviarBienvenida(admin.id);
-    setAccionAcceso(false);
+    setAccionAcceso(null);
     if (!res.ok) {
       toast.error('No pudimos reenviar la bienvenida', { description: humanizeError(res.error) });
       return;
@@ -237,19 +242,33 @@ export function AdministracionDetailPage() {
       confirmLabel: 'Corregir acceso',
     });
     if (!emailNuevo || !emailNuevo.trim()) return;
-    setAccionAcceso(true);
+    // §6 B#5: validación mínima en el front (la edge revalida) — evita el
+    // viaje entero por un typo evidente.
+    if (!/^\S+@\S+\.\S+$/.test(emailNuevo.trim())) {
+      toast.error('Ese email no parece válido. Revisalo y volvé a intentar.');
+      return;
+    }
+    setAccionAcceso('corregir');
     const res = await corregirEmailAcceso(admin.id, emailNuevo.trim());
-    setAccionAcceso(false);
+    setAccionAcceso(null);
     if (!res.ok) {
       toast.error('No pudimos corregir el mail de acceso', { description: humanizeError(res.error) });
       return;
     }
-    toast.success(
-      `Acceso actualizado: ${res.data.email_anterior} → ${res.data.email_nuevo}. ` +
-        (res.data.ya_habia_ingresado
-          ? 'Le avisamos al cliente (su contraseña sigue igual).'
-          : 'Le enviamos credenciales nuevas a la casilla nueva.'),
-    );
+    // §6 A#7/B#1: si el aviso NO pudo encolarse, decirlo — no mentir éxito.
+    if (res.data.aviso_enviado === false) {
+      toast.warning(
+        `Acceso actualizado: ${res.data.email_anterior} → ${res.data.email_nuevo}, ` +
+          'pero el email de aviso NO pudo encolarse. Usá "Reenviar bienvenida" para mandarle las credenciales.',
+      );
+    } else {
+      toast.success(
+        `Acceso actualizado: ${res.data.email_anterior} → ${res.data.email_nuevo}. ` +
+          (res.data.ya_habia_ingresado
+            ? 'Le avisamos al cliente (su contraseña sigue igual).'
+            : 'Le enviamos credenciales nuevas a la casilla nueva.'),
+      );
+    }
     void load();
   }
 
@@ -399,7 +418,7 @@ function FichaCover({
   tieneAcceso: boolean;
   acceso: AccesoEstado | null;
   creandoAcceso: boolean;
-  accionAcceso: boolean;
+  accionAcceso: 'reenviar' | 'corregir' | null;
   onCrearAcceso: () => void;
   onReenviarBienvenida: () => void;
   onCorregirEmail: () => void;
@@ -412,20 +431,36 @@ function FichaCover({
   // dato de la ficha (tieneAcceso) con el color amarillo como neutro-seguro.
   const tieneUser = acceso ? acceso.tiene_user : tieneAcceso;
   const yaIngreso = acceso?.ya_ingreso ?? false;
+  // §6 B#2: si la RPC falló (acceso null pero la ficha dice que hay user),
+  // el estado es DESCONOCIDO — badge neutro, sin afirmar "nunca ingresó".
+  const estadoDesconocido = acceso === null && tieneAcceso;
+  const esBaja = admin.estado === 'baja';
+  const ultimoIngreso = acceso?.last_sign_in_at
+    ? new Date(acceso.last_sign_in_at).toLocaleString('es-AR')
+    : null;
   const semaforo = !tieneUser
     ? {
         cls: 'border-rose-200 bg-rose-50 text-rose-600',
         title: 'Sin usuario del portal — creale el acceso',
+        label: 'Sin acceso',
       }
-    : yaIngreso
+    : estadoDesconocido
       ? {
-          cls: 'border-emerald-200 bg-emerald-50 text-emerald-600',
-          title: `Usuario activo (${acceso?.email_login ?? ''}) — ya ingresó al portal`,
+          cls: 'border-slate-200 bg-slate-50 text-slate-600',
+          title: 'Tiene usuario, pero no pudimos verificar su actividad — recargá la ficha',
+          label: 'Acceso (estado no disponible)',
         }
-      : {
-          cls: 'border-amber-300 bg-amber-50 text-amber-600',
-          title: `Usuario creado (${acceso?.email_login ?? ''}) — todavía nunca ingresó`,
-        };
+      : yaIngreso
+        ? {
+            cls: 'border-emerald-200 bg-emerald-50 text-emerald-600',
+            title: `Usuario activo (${acceso?.email_login ?? ''}) — último ingreso: ${ultimoIngreso ?? '—'}`,
+            label: 'Acceso en uso',
+          }
+        : {
+            cls: 'border-amber-300 bg-amber-50 text-amber-600',
+            title: `Usuario creado (${acceso?.email_login ?? ''}) — todavía nunca ingresó`,
+            label: 'Nunca ingresó',
+          };
   const initials = (admin.nombre ?? '?')
     .split(/\s+/)
     .map((p) => p[0])
@@ -497,9 +532,12 @@ function FichaCover({
               title={semaforo.title}
             >
               <UserRound size={14} />
-              {!tieneUser ? 'Sin acceso' : yaIngreso ? 'Acceso en uso' : 'Nunca ingresó'}
+              {semaforo.label}
             </span>
-            {!tieneUser ? (
+            {/* §6 B#3: cliente dado de baja → sin acciones de acceso (el gate
+                del portal lo excluye; enviarle credenciales sería engañoso).
+                Sólo queda "Reactivar", que restablece el acceso. */}
+            {esBaja ? null : !tieneUser ? (
               /* Rojo: la única acción posible es crear el acceso. */
               <Button onClick={onCrearAcceso} loading={creandoAcceso}>
                 <KeyRound size={14} /> Crear acceso al portal
@@ -511,14 +549,16 @@ function FichaCover({
                 <Button
                   variant="secondary"
                   onClick={onReenviarBienvenida}
-                  loading={accionAcceso}
+                  loading={accionAcceso === 'reenviar'}
+                  disabled={accionAcceso !== null}
                 >
                   <Send size={14} /> Reenviar bienvenida
                 </Button>
                 <Button
                   variant="secondary"
                   onClick={onCorregirEmail}
-                  loading={accionAcceso}
+                  loading={accionAcceso === 'corregir'}
+                  disabled={accionAcceso !== null}
                 >
                   <Mail size={14} /> Corregir mail de acceso
                 </Button>

@@ -74,7 +74,7 @@ export function EmailsRebotadosWidget({ limit = 5 }: { limit?: number }) {
         {visibles.map((r) => (
           <li key={r.id}>
             <Link
-              to={r.administracion_id ? `/gerencia/clientes/${r.administracion_id}` : '/gerencia/comunicaciones'}
+              to={r.administracion_id ? `/gerencia/clientes/${r.administracion_id}` : '/gerencia/configuracion/emails/cola'}
               className="group flex items-center justify-between gap-3 rounded px-1 py-2.5 transition hover:bg-white"
             >
               <div className="min-w-0">
@@ -99,6 +99,13 @@ export function EmailsRebotadosWidget({ limit = 5 }: { limit?: number }) {
           </li>
         ))}
       </ul>
+
+      <Link
+        to="/gerencia/configuracion/emails/cola"
+        className="mt-3 inline-block text-xs font-medium text-rose-700 hover:underline"
+      >
+        Ver todos los envíos{total > visibles.length ? ` (${total}${total >= 20 ? '+' : ''})` : ''} →
+      </Link>
     </section>
   );
 }

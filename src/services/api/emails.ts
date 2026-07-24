@@ -466,6 +466,9 @@ export async function listarRebotesRecientes(): Promise<ApiResponse<ReboteRecien
     .select('id, to_email, asunto, template_slug, estado, bounced_at, error_msg, administracion_id, administraciones:administracion_id(nombre)')
     .in('estado', ['bounced', 'complained'])
     .gte('last_event_at', desde)
+    // §6 B#10: excluir casillas sintéticas de QA (dominio .test) — no son
+    // clientes reales y sólo meten ruido en el Inicio.
+    .not('to_email', 'ilike', '%.test')
     .order('bounced_at', { ascending: false, nullsFirst: false })
     .limit(20);
   if (error) return fail('REBOTES_LIST', error.message, error);
