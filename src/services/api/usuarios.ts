@@ -94,6 +94,75 @@ export async function asegurarUsuarioAlumno(input: {
   return ok({ profileId: uid });
 }
 
+// ---------------------------------------------------------------------------
+// DGG-117 · Gestión del acceso al portal desde la ficha del cliente
+// ---------------------------------------------------------------------------
+
+/** Estado del acceso al portal de un cliente (para el ícono de 3 estados de
+ *  la ficha): rojo = sin usuario · amarillo = usuario que nunca ingresó ·
+ *  verde = usuario que ya ingresó. RPC staff-gated (lee auth.users). */
+export interface AccesoEstado {
+  tiene_user: boolean;
+  ya_ingreso: boolean;
+  email_login: string | null;
+  last_sign_in_at: string | null;
+}
+
+export async function fetchAccesoEstado(
+  administracionId: string,
+): Promise<ApiResponse<AccesoEstado>> {
+  const { data, error } = await supabase.rpc('cliente_acceso_estado', {
+    p_administracion_id: administracionId,
+  } as never);
+  if (error) return fail('ACCESO_ESTADO', error.message, error);
+  return ok(data as unknown as AccesoEstado);
+}
+
+/** Reenvía el mail de bienvenida al usuario EXISTENTE (no crea usuarios):
+ *  regenera la password temporal y re-encola 'bienvenida-administracion'.
+ *  Si el cliente ya había ingresado, su clave vigente deja de servir — el
+ *  caller debe advertirlo antes. */
+export async function reenviarBienvenida(
+  administracionId: string,
+): Promise<ApiResponse<{ email_destino: string; ya_habia_ingresado: boolean }>> {
+  const { data, error } = await supabase.functions.invoke('reenviar-bienvenida', {
+    body: { administracion_id: administracionId },
+  });
+  if (error) {
+    const msg = await extractEdgeFnError(error);
+    return fail('REENVIAR_BIENVENIDA', msg, error);
+  }
+  return ok(data as { email_destino: string; ya_habia_ingresado: boolean });
+}
+
+/** "Corregir mail de acceso": la gerencia pasa SOLO el email nuevo y la edge
+ *  hace el wizard completo — cambia el login del usuario existente (mismo ID,
+ *  historial intacto), actualiza el email de la ficha y avisa al cliente en
+ *  la casilla nueva (con credenciales nuevas si nunca ingresó). */
+export async function corregirEmailAcceso(
+  administracionId: string,
+  emailNuevo: string,
+): Promise<ApiResponse<{
+  email_anterior: string;
+  email_nuevo: string;
+  ya_habia_ingresado: boolean;
+  aviso_enviado?: boolean;
+}>> {
+  const { data, error } = await supabase.functions.invoke('corregir-email-acceso', {
+    body: { administracion_id: administracionId, email_nuevo: emailNuevo },
+  });
+  if (error) {
+    const msg = await extractEdgeFnError(error);
+    return fail('CORREGIR_EMAIL_ACCESO', msg, error);
+  }
+  return ok(data as {
+    email_anterior: string;
+    email_nuevo: string;
+    ya_habia_ingresado: boolean;
+    aviso_enviado?: boolean;
+  });
+}
+
 // DGG-34 · Editar nombre + rol de un gerente/operador desde el panel Usuarios
 export async function actualizarGerente(
   user_id: string,

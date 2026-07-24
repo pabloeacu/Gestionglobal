@@ -8361,6 +8361,10 @@ export type Database = {
           titulo: string
         }[]
       }
+      cliente_acceso_estado: {
+        Args: { p_administracion_id: string }
+        Returns: Json
+      }
       cliente_catalogo_formularios: {
         Args: never
         Returns: {

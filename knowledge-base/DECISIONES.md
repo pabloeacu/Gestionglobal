@@ -4502,3 +4502,32 @@ cierre de la mig. Con visibilidad anticipada (activo=true + fecha futura) la BD/
 clase pero el edge devolvía 403 al entrar al vivo. Fix: `publicado = !!curso?.activo` en ambos
 (deployados). Lección: un derivado con espejos en otras runtimes exige grepear TODO el repo
 (edges + front), no sólo SQL.
+
+## DGG-117 · Gestión del acceso al portal desde la ficha + circuito de rebotes (2026-07-24)
+**Origen** (Pablo, tras el caso Nogueira — casilla con redirección a un Gmail lleno/inactivo que
+rebotaba todo, bienvenida incluida): la ficha del cliente debe permitir operar el acceso al portal
+sin soporte técnico, y los rebotes deben avisarse solos.
+
+**Decisión — ficha del cliente (semáforo + 3 acciones):**
+- **Semáforo del acceso** (ícono UserRound): **rojo** = sin usuario · **amarillo** = usuario creado
+  que nunca ingresó · **verde** = ya ingresó. Fuente: RPC `cliente_acceso_estado` (SECURITY
+  DEFINER, guard is_staff — `last_sign_in_at` vive en auth.users, invisible para PostgREST).
+- **Rojo** → única acción: "Crear acceso al portal" (edge existente `alta-cliente-portal`).
+- **Amarillo/verde** → el botón de crear DESAPARECE (evita usuarios duplicados con matrículas
+  huérfanas) y aparecen: **"Reenviar bienvenida"** (edge `reenviar-bienvenida`: regenera password
+  temporal del usuario EXISTENTE y re-encola `bienvenida-administracion`; advertencia fuerte en
+  verde porque la clave vigente deja de servir) y **"Corregir mail de acceso"** (edge
+  `corregir-email-acceso`: modal de UN campo; la plataforma hace todo — cambia el email de login
+  del MISMO usuario (UUID intacto → historial completo intacto), actualiza el email de la ficha,
+  y avisa al cliente EN LA CASILLA NUEVA: template `acceso-email-actualizado` con credenciales si
+  nunca ingresó, o `-aviso` sin tocar la clave si ya ingresó). Ambas edges con staff-gate REAL
+  (JWT del caller → profiles.role gerente/operador; lección E-GG-150).
+**Decisión — rebotes (caso redirección + aviso activo):**
+- `email-bounce-harvester` **v3**: matching multi-candidato — extrae la dirección ORIGINAL de un
+  forward del texto del DSN ("ultimately generated from X"), además de original/final-recipient y
+  snippet, probadas en orden. Cierra el caso Nogueira (el DSN reportaba el Gmail final, inexistente
+  en sent_emails → los 4 envíos quedaban 'sent' pese a rebotar).
+- Al marcar `bounced`/`complained` → `notify_all_gerentes` (campanita + push + email a gerencia)
+  con CTA a la ficha del cliente. Idempotente (dsn_msg_id UNIQUE = 1 aviso por rebote).
+- **Widget "Emails rebotados"** en el Inicio de gerencia (tono rosa): rebotes de los últimos 7
+  días con CTA a la ficha; oculto si no hay nada. Mig 0381 + edges v1/v1/v3.

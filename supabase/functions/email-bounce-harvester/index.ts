@@ -1,4 +1,13 @@
-// D2-bis · email-bounce-harvester
+// D2-bis · email-bounce-harvester (v3 · DGG-117)
+//
+// v3 (2026-07-24, caso Nogueira):
+//   · Matching multi-candidato: los rebotes de casillas con REDIRECCIÓN
+//     reportan como fallida la dirección FINAL del reenvío (no la que
+//     nosotros enviamos) → ahora se prueban en orden: "ultimately generated
+//     from <addr>" del texto del DSN, original/final-recipient del
+//     delivery-status, y la dirección del snippet.
+//   · Aviso a gerencia: al marcar un bounce/complaint real se dispara
+//     notify_all_gerentes (campanita + push + email con CTA a la ficha).
 //
 // Lee la bandeja del alias `contacto@gestionglobal.ar` vía Gmail OAuth.
 // Detecta DSNs (Delivery Status Notifications) que mailer-daemon envía
@@ -153,6 +162,10 @@ function findPartByMime(
 
 interface BounceInfo {
   recipient: string | null;
+  /** DGG-117 (v3): TODAS las direcciones del delivery-status, en orden
+   *  original-recipient primero (la dirección a la que NOSOTROS enviamos)
+   *  y final-recipient después (la dirección final tras redirecciones). */
+  addresses: string[];
   action: string | null;
   statusCode: string | null;
   diagnostic: string | null;
@@ -161,10 +174,13 @@ interface BounceInfo {
 function parseDeliveryStatus(text: string): BounceInfo {
   const out: BounceInfo = {
     recipient: null,
+    addresses: [],
     action: null,
     statusCode: null,
     diagnostic: null,
   };
+  const originals: string[] = [];
+  const finals: string[] = [];
   for (const rawLine of text.split(/\r?\n/)) {
     const line = rawLine.trim();
     if (!line) continue;
@@ -174,7 +190,10 @@ function parseDeliveryStatus(text: string): BounceInfo {
     const val = m[2].trim();
     if (key === 'original-recipient' || key === 'final-recipient') {
       // Formato: "rfc822; user@host" → quedamos con la dirección
-      const addr = val.split(';').pop()?.trim() ?? val;
+      const addr = (val.split(';').pop()?.trim() ?? val).toLowerCase();
+      if (addr.includes('@')) {
+        (key === 'original-recipient' ? originals : finals).push(addr);
+      }
       if (!out.recipient) out.recipient = addr;
     } else if (key === 'action' && !out.action) {
       out.action = val.toLowerCase();
@@ -184,7 +203,18 @@ function parseDeliveryStatus(text: string): BounceInfo {
       out.diagnostic = val.slice(0, 480);
     }
   }
+  out.addresses = [...new Set([...originals, ...finals])];
   return out;
+}
+
+/** DGG-117 (v3): en rebotes de casillas con REDIRECCIÓN (caso Nogueira,
+ *  E-GG-rebotes), el DSN reporta como fallida la dirección FINAL del reenvío
+ *  (p.ej. un Gmail personal), que no existe en sent_emails. Pero el texto del
+ *  DSN trae la original: "(ultimately generated from <addr>)". La extraemos
+ *  como candidato de matching prioritario. */
+function extractUltimatelyGenerated(text: string): string | null {
+  const m = text.match(/ultimately generated from\s+<?([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})>?/i);
+  return m ? m[1].toLowerCase() : null;
 }
 
 function headersToMap(headers: GmailMessageHeader[] | undefined): Record<string, string> {
@@ -200,6 +230,9 @@ interface SentEmailRow {
   to_email: string;
   enviado_at: string;
   estado: string;
+  administracion_id: string | null;
+  template_slug: string | null;
+  asunto: string | null;
 }
 
 async function findOriginalSentEmail(
@@ -208,7 +241,7 @@ async function findOriginalSentEmail(
 ): Promise<SentEmailRow | null> {
   const { data, error } = await admin
     .from('sent_emails')
-    .select('id, to_email, enviado_at, estado')
+    .select('id, to_email, enviado_at, estado, administracion_id, template_slug, asunto')
     .ilike('to_email', recipient.toLowerCase())
     .gte(
       'enviado_at',
@@ -217,7 +250,22 @@ async function findOriginalSentEmail(
     .order('enviado_at', { ascending: false })
     .limit(1);
   if (error || !data || data.length === 0) return null;
-  return data[0] as SentEmailRow;
+  return data[0] as unknown as SentEmailRow;
+}
+
+/** DGG-117 (v3): probar candidatos en orden hasta matchear un envío nuestro.
+ *  Orden: "ultimately generated from" (la dirección original de un forward) →
+ *  original/final-recipient del delivery-status → dirección del snippet. */
+async function findByCandidates(
+  admin: ReturnType<typeof createClient>,
+  candidates: string[],
+): Promise<SentEmailRow | null> {
+  for (const c of candidates) {
+    if (!c || !c.includes('@')) continue;
+    const sent = await findOriginalSentEmail(admin, c);
+    if (sent) return sent;
+  }
+  return null;
 }
 
 function nowIso(): string {
@@ -297,6 +345,7 @@ Deno.serve(async (req) => {
 
       let bounce: BounceInfo = {
         recipient: null,
+        addresses: [],
         action: null,
         statusCode: null,
         diagnostic: null,
@@ -304,21 +353,36 @@ Deno.serve(async (req) => {
       if (dsPart?.body?.data) {
         bounce = parseDeliveryStatus(base64UrlDecode(dsPart.body.data));
       }
-      // Fallback: parsear snippet o subject buscando "<addr>"
-      if (!bounce.recipient) {
-        const m = (msg.snippet ?? '').match(
-          /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/,
-        );
-        if (m) bounce.recipient = m[1];
-      }
-      if (!bounce.recipient) {
+
+      // DGG-117 (v3): candidatos de matching, en orden de confianza.
+      // 1º la dirección ORIGINAL de un forward ("ultimately generated from"),
+      // que es a la que nosotros enviamos; después las del delivery-status;
+      // último recurso, la primera dirección del snippet.
+      const plainPart = findPartByMime(msg.payload, 'text/plain');
+      const plainText = plainPart?.body?.data
+        ? base64UrlDecode(plainPart.body.data)
+        : '';
+      const candidates: string[] = [];
+      const ultimately =
+        extractUltimatelyGenerated(plainText) ??
+        extractUltimatelyGenerated(msg.snippet ?? '');
+      if (ultimately) candidates.push(ultimately);
+      candidates.push(...bounce.addresses);
+      const snippetAddr = (msg.snippet ?? '').match(
+        /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/,
+      );
+      if (snippetAddr) candidates.push(snippetAddr[1].toLowerCase());
+      const uniqueCandidates = [...new Set(candidates)];
+
+      if (uniqueCandidates.length === 0) {
         // No pudimos identificar destinatario — saltar pero no error.
         processed++;
         await gmailMarkRead(accessToken, item.id);
         continue;
       }
+      if (!bounce.recipient) bounce.recipient = uniqueCandidates[0];
 
-      const sent = await findOriginalSentEmail(admin, bounce.recipient);
+      const sent = await findByCandidates(admin, uniqueCandidates);
       if (!sent) {
         processed++;
         await gmailMarkRead(accessToken, item.id);
@@ -362,6 +426,38 @@ Deno.serve(async (req) => {
         errors.push(`upd ${sent.id}: ${updErr.message}`);
         continue;
       }
+
+      // DGG-117 (v3): avisar a gerencia (campanita + push + email) cuando un
+      // envío REBOTA de verdad (no por demoras transitorias). Best-effort: un
+      // fallo acá no aborta la cosecha. Idempotente por diseño: cada DSN se
+      // procesa una sola vez (dsn_msg_id UNIQUE) → un solo aviso por rebote.
+      if (estado === 'bounced' || estado === 'complained') {
+        try {
+          const url = sent.administracion_id
+            ? `/gerencia/clientes/${sent.administracion_id}`
+            : '/gerencia/comunicaciones';
+          const titulo =
+            estado === 'complained'
+              ? `Queja de spam: ${sent.to_email}`
+              : `Rebotó un email a ${sent.to_email}`;
+          const cuerpo =
+            `"${sent.asunto ?? sent.template_slug ?? 'email'}" no llegó a ${sent.to_email}. ` +
+            `Motivo: ${(errMsg || 'desconocido').slice(0, 180)}. ` +
+            `Verificá la casilla del cliente o corregí su mail de acceso desde la ficha.`;
+          const { error: notifErr } = await admin.rpc('notify_all_gerentes', {
+            p_evento_codigo: 'email_bounced',
+            p_titulo: titulo,
+            p_cuerpo: cuerpo,
+            p_url: url,
+            p_related_table: 'sent_emails',
+            p_related_id: sent.id,
+          });
+          if (notifErr) errors.push(`notif ${sent.id}: ${notifErr.message}`);
+        } catch (e) {
+          errors.push(`notif ${sent.id}: ${(e as Error).message}`);
+        }
+      }
+
       matched++;
       processed++;
       await gmailMarkRead(accessToken, item.id);

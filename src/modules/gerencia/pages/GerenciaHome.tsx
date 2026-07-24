@@ -7,6 +7,7 @@ import { NuevasSolicitudesWidget } from '@/modules/gerencia/components/NuevasSol
 import { AportesGestoriaWidget } from '@/modules/gerencia/components/AportesGestoriaWidget';
 import { DocsClientePendientesWidget } from '@/modules/gerencia/components/DocsClientePendientesWidget';
 import { PagosInformadosWidget } from '@/modules/gerencia/components/PagosInformadosWidget';
+import { EmailsRebotadosWidget } from '@/modules/gerencia/components/EmailsRebotadosWidget';
 import { AlarmasHoyWidget } from '@/modules/gerencia/components/AlarmasHoyWidget';
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
 import { getDashboardGlobal, type DashboardKpis } from '@/services/api/dashboard';
@@ -75,6 +76,10 @@ export function GerenciaHome() {
       {/* E-GG-116 · P5-A (reporte JL wave 6): pagos que el cliente informó,
           pendientes de conciliar — antes sólo en la campanita. Tono ámbar. */}
       <PagosInformadosWidget />
+
+      {/* DGG-117 (caso Nogueira): emails rebotados de los últimos 7 días —
+          el cliente NO recibió lo enviado; CTA a su ficha. Tono rosa. */}
+      <EmailsRebotadosWidget />
 
       {/* J1 · checklist "Primeros 5 minutos" para nuevos gerentes.
           Auto-oculto cuando se completa o el user lo descarta. */}

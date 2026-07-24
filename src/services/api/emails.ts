@@ -439,3 +439,49 @@ export async function cancelar(emailId: string): Promise<ApiResponse<true>> {
   if (error) return fail('EMAIL_CANCELAR', error.message, error);
   return ok(true);
 }
+
+// ---------------------------------------------------------------------------
+// DGG-117 · Rebotes recientes (banner del Inicio de gerencia)
+// ---------------------------------------------------------------------------
+
+export interface ReboteReciente {
+  id: string;
+  to_email: string;
+  asunto: string | null;
+  template_slug: string | null;
+  estado: string;
+  bounced_at: string | null;
+  error_msg: string | null;
+  administracion_id: string | null;
+  administracion_nombre: string | null;
+}
+
+/** Envíos rebotados o con queja de spam en los últimos 7 días (staff via RLS).
+ *  Alimenta el banner "Emails rebotados" del Inicio de gerencia con CTA a la
+ *  ficha del cliente. */
+export async function listarRebotesRecientes(): Promise<ApiResponse<ReboteReciente[]>> {
+  const desde = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const { data, error } = await supabase
+    .from('sent_emails')
+    .select('id, to_email, asunto, template_slug, estado, bounced_at, error_msg, administracion_id, administraciones:administracion_id(nombre)')
+    .in('estado', ['bounced', 'complained'])
+    .gte('last_event_at', desde)
+    .order('bounced_at', { ascending: false, nullsFirst: false })
+    .limit(20);
+  if (error) return fail('REBOTES_LIST', error.message, error);
+  type Raw = Omit<ReboteReciente, 'administracion_nombre'> & {
+    administraciones: { nombre: string } | null;
+  };
+  const rows = ((data ?? []) as unknown as Raw[]).map((r) => ({
+    id: r.id,
+    to_email: r.to_email,
+    asunto: r.asunto,
+    template_slug: r.template_slug,
+    estado: r.estado,
+    bounced_at: r.bounced_at,
+    error_msg: r.error_msg,
+    administracion_id: r.administracion_id,
+    administracion_nombre: r.administraciones?.nombre ?? null,
+  }));
+  return ok(rows);
+}

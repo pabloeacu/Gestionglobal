@@ -18,8 +18,9 @@ import {
   Eye,
   EyeOff,
   KeyRound,
-  ShieldCheck,
   RotateCcw,
+  UserRound,
+  Send,
 } from 'lucide-react';
 import {
   Button,
@@ -30,7 +31,13 @@ import {
   CopyButton,
   InlineEdit,
 } from '@/components/common';
-import { altaClientePortal } from '@/services/api/usuarios';
+import {
+  altaClientePortal,
+  fetchAccesoEstado,
+  reenviarBienvenida,
+  corregirEmailAcceso,
+  type AccesoEstado,
+} from '@/services/api/usuarios';
 import { BrandLoader } from '@/components/brand/BrandLoader';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import { AdministracionFormDrawer } from '../components/AdministracionFormDrawer';
@@ -81,6 +88,9 @@ export function AdministracionDetailPage() {
   const [consorcioFormOpen, setConsorcioFormOpen] = useState(false);
   const [editingConsorcio, setEditingConsorcio] = useState<ConsorcioRow | null>(null);
   const [creandoAcceso, setCreandoAcceso] = useState(false);
+  // DGG-117: estado del acceso al portal (ícono 3 estados + botones).
+  const [acceso, setAcceso] = useState<AccesoEstado | null>(null);
+  const [accionAcceso, setAccionAcceso] = useState(false);
 
   async function load() {
     if (!id) return;
@@ -96,6 +106,10 @@ export function AdministracionDetailPage() {
     }
     setAdmin(a.data);
     if (cs.ok) setConsorcios(cs.data);
+    // DGG-117: el estado del acceso se carga aparte (RPC staff-gated que lee
+    // auth.users). Best-effort: si falla, el header cae al dato de la ficha.
+    const est = await fetchAccesoEstado(id);
+    setAcceso(est.ok ? est.data : null);
   }
 
   useEffect(() => {
@@ -184,6 +198,61 @@ export function AdministracionDetailPage() {
     void load();
   }
 
+  // DGG-117 · Reenviar bienvenida al usuario EXISTENTE (regenera la password
+  // temporal — no crea usuarios). Con advertencia extra si ya había ingresado.
+  async function onReenviarBienvenida() {
+    if (!admin) return;
+    const yaIngreso = acceso?.ya_ingreso ?? false;
+    const destino = acceso?.email_login ?? admin.email ?? '';
+    const okc = await confirm({
+      title: 'Reenviar mail de bienvenida',
+      message: yaIngreso
+        ? `"${admin.nombre}" YA ingresó al portal alguna vez. Reenviar la bienvenida genera una contraseña temporal nueva y LA ACTUAL DEJA DE SERVIR. Se envía a ${destino}. ¿Continuar?`
+        : `Le reenviamos a "${admin.nombre}" el mail de bienvenida con una contraseña temporal nueva, a ${destino}.`,
+      confirmLabel: 'Reenviar',
+      cancelLabel: 'Cancelar',
+      danger: yaIngreso,
+    });
+    if (!okc) return;
+    setAccionAcceso(true);
+    const res = await reenviarBienvenida(admin.id);
+    setAccionAcceso(false);
+    if (!res.ok) {
+      toast.error('No pudimos reenviar la bienvenida', { description: humanizeError(res.error) });
+      return;
+    }
+    toast.success(`Bienvenida reenviada a ${res.data.email_destino} con credenciales nuevas.`);
+    void load();
+  }
+
+  // DGG-117 · "Corregir mail de acceso": la gerencia carga SOLO el email nuevo;
+  // la plataforma hace el resto (login + ficha + aviso al cliente) en la edge.
+  async function onCorregirEmail() {
+    if (!admin) return;
+    const emailNuevo = await prompt({
+      title: 'Corregir mail de acceso',
+      message: `Ingresá el email nuevo de "${admin.nombre}". La plataforma actualiza sola el usuario del portal (sin perder historial), el email de la ficha, y le avisa al cliente en la casilla nueva.`,
+      label: 'Email nuevo',
+      placeholder: 'cliente@correo.com',
+      confirmLabel: 'Corregir acceso',
+    });
+    if (!emailNuevo || !emailNuevo.trim()) return;
+    setAccionAcceso(true);
+    const res = await corregirEmailAcceso(admin.id, emailNuevo.trim());
+    setAccionAcceso(false);
+    if (!res.ok) {
+      toast.error('No pudimos corregir el mail de acceso', { description: humanizeError(res.error) });
+      return;
+    }
+    toast.success(
+      `Acceso actualizado: ${res.data.email_anterior} → ${res.data.email_nuevo}. ` +
+        (res.data.ya_habia_ingresado
+          ? 'Le avisamos al cliente (su contraseña sigue igual).'
+          : 'Le enviamos credenciales nuevas a la casilla nueva.'),
+    );
+    void load();
+  }
+
   if (loading && !admin) {
     return (
       <div className="grid place-items-center p-16">
@@ -219,8 +288,12 @@ export function AdministracionDetailPage() {
         admin={admin}
         badge={badge}
         tieneAcceso={Boolean(admin.user_id)}
+        acceso={acceso}
         creandoAcceso={creandoAcceso}
+        accionAcceso={accionAcceso}
         onCrearAcceso={() => void onCrearAcceso()}
+        onReenviarBienvenida={() => void onReenviarBienvenida()}
+        onCorregirEmail={() => void onCorregirEmail()}
         onEdit={() => setEditOpen(true)}
         onArchive={() => void onArchive()}
         onReactivar={() => void onReactivar()}
@@ -311,8 +384,12 @@ function FichaCover({
   admin,
   badge,
   tieneAcceso,
+  acceso,
   creandoAcceso,
+  accionAcceso,
   onCrearAcceso,
+  onReenviarBienvenida,
+  onCorregirEmail,
   onEdit,
   onArchive,
   onReactivar,
@@ -320,12 +397,35 @@ function FichaCover({
   admin: AdministracionRow;
   badge: { label: string; cls: string };
   tieneAcceso: boolean;
+  acceso: AccesoEstado | null;
   creandoAcceso: boolean;
+  accionAcceso: boolean;
   onCrearAcceso: () => void;
+  onReenviarBienvenida: () => void;
+  onCorregirEmail: () => void;
   onEdit: () => void;
   onArchive: () => void;
   onReactivar: () => void;
 }) {
+  // DGG-117 · Semáforo del acceso: rojo = sin usuario · amarillo = usuario que
+  // nunca ingresó · verde = ya ingresó. Si la RPC aún no respondió, caemos al
+  // dato de la ficha (tieneAcceso) con el color amarillo como neutro-seguro.
+  const tieneUser = acceso ? acceso.tiene_user : tieneAcceso;
+  const yaIngreso = acceso?.ya_ingreso ?? false;
+  const semaforo = !tieneUser
+    ? {
+        cls: 'border-rose-200 bg-rose-50 text-rose-600',
+        title: 'Sin usuario del portal — creale el acceso',
+      }
+    : yaIngreso
+      ? {
+          cls: 'border-emerald-200 bg-emerald-50 text-emerald-600',
+          title: `Usuario activo (${acceso?.email_login ?? ''}) — ya ingresó al portal`,
+        }
+      : {
+          cls: 'border-amber-300 bg-amber-50 text-amber-600',
+          title: `Usuario creado (${acceso?.email_login ?? ''}) — todavía nunca ingresó`,
+        };
   const initials = (admin.nombre ?? '?')
     .split(/\s+/)
     .map((p) => p[0])
@@ -388,17 +488,41 @@ function FichaCover({
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            {tieneAcceso ? (
-              <span
-                className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-700"
-                title="Este cliente ya tiene usuario para entrar al portal"
-              >
-                <ShieldCheck size={14} /> Acceso al portal activo
-              </span>
-            ) : (
+            {/* DGG-117 · Semáforo del acceso al portal (rojo/amarillo/verde) */}
+            <span
+              className={cn(
+                'inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-semibold',
+                semaforo.cls,
+              )}
+              title={semaforo.title}
+            >
+              <UserRound size={14} />
+              {!tieneUser ? 'Sin acceso' : yaIngreso ? 'Acceso en uso' : 'Nunca ingresó'}
+            </span>
+            {!tieneUser ? (
+              /* Rojo: la única acción posible es crear el acceso. */
               <Button onClick={onCrearAcceso} loading={creandoAcceso}>
                 <KeyRound size={14} /> Crear acceso al portal
               </Button>
+            ) : (
+              /* Amarillo/verde: nunca se re-crea el usuario — se reenvía la
+                 bienvenida o se corrige el mail de acceso (DGG-117). */
+              <>
+                <Button
+                  variant="secondary"
+                  onClick={onReenviarBienvenida}
+                  loading={accionAcceso}
+                >
+                  <Send size={14} /> Reenviar bienvenida
+                </Button>
+                <Button
+                  variant="secondary"
+                  onClick={onCorregirEmail}
+                  loading={accionAcceso}
+                >
+                  <Mail size={14} /> Corregir mail de acceso
+                </Button>
+              </>
             )}
             <Button variant="secondary" onClick={onEdit}>
               <Pencil size={14} /> Editar
