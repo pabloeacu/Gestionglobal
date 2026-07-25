@@ -9513,6 +9513,7 @@ export type Database = {
       gg_campus_vencer_matriculas: { Args: never; Returns: undefined }
       gg_cursos_publicados_notificar: { Args: never; Returns: Json }
       gg_cursos_visibilizar_por_fecha: { Args: never; Returns: Json }
+      gg_emails_redactar_passwords: { Args: never; Returns: number }
       gg_encuentros_recordatorio_diario: { Args: never; Returns: Json }
       gg_profile_marcar_pwa: {
         Args: { p_installed: boolean }
