@@ -11,9 +11,10 @@
 // ============================================================================
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ClipboardCheck, ChevronRight } from 'lucide-react';
+import { ClipboardCheck, ChevronRight, X } from 'lucide-react';
 import { fetchModeracionPendientes, type ModeracionPendiente } from '@/services/api/trackings';
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
+import { useCardDismiss } from '@/hooks/useCardDismiss';
 
 export function AportesGestoriaWidget({ limit = 5 }: { limit?: number }) {
   const [items, setItems] = useState<ModeracionPendiente[]>([]);
@@ -41,13 +42,25 @@ export function AportesGestoriaWidget({ limit = 5 }: { limit?: number }) {
 
   // Vacío o cargando → no ocupa espacio (el widget de solicitudes ya da el
   // "todo al día"; no queremos dos barras).
-  if (loading || items.length === 0) return null;
+  // E-GG-158 · la X oculta el card hasta que llegue un aporte NUEVO del gestor.
+  const { dismissedAt, dismiss } = useCardDismiss('gg.dismiss.aportesGestoria');
+  const nuevos = items.filter((a) => Date.parse(a.created_at) > dismissedAt);
 
-  const total = items.length;
-  const visibles = items.slice(0, limit);
+  if (loading || nuevos.length === 0) return null;
+
+  const total = nuevos.length;
+  const visibles = nuevos.slice(0, limit);
 
   return (
     <section className="relative overflow-hidden rounded-2xl border-2 border-violet-300/70 bg-gradient-to-br from-violet-50 via-white to-violet-50/60 p-5 shadow-md animate-fade-in">
+      <button
+        type="button"
+        onClick={dismiss}
+        title="Ocultar hasta que haya aportes nuevos"
+        className="absolute right-3 top-3 z-10 rounded-full p-1.5 text-brand-muted transition hover:bg-white hover:text-brand-ink"
+      >
+        <X size={16} />
+      </button>
       <header className="mb-3 flex items-start gap-3">
         <span className="relative grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-violet-100 text-violet-700">
           <ClipboardCheck size={18} />

@@ -12,9 +12,10 @@
 // ============================================================================
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { FileCheck2, ChevronRight } from 'lucide-react';
+import { FileCheck2, ChevronRight, X } from 'lucide-react';
 import { fetchDocsClientePendientes, type DocPendienteCliente } from '@/services/api/trackings';
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
+import { useCardDismiss } from '@/hooks/useCardDismiss';
 
 export function DocsClientePendientesWidget({ limit = 5 }: { limit?: number }) {
   const [items, setItems] = useState<DocPendienteCliente[]>([]);
@@ -39,13 +40,25 @@ export function DocsClientePendientesWidget({ limit = 5 }: { limit?: number }) {
   // Tiempo real: cambios en pedidos/items de documentación re-fetchean.
   useRealtimeRefresh(['tramite_pedidos_doc', 'tramite_pedidos_doc_items'], load);
 
-  if (loading || items.length === 0) return null;
+  // E-GG-158 · la X oculta el card hasta que haya documentación NUEVA subida.
+  const { dismissedAt, dismiss } = useCardDismiss('gg.dismiss.docsCliente');
+  const nuevos = items.filter((d) => Date.parse(d.creado_at) > dismissedAt);
 
-  const total = items.length;
-  const visibles = items.slice(0, limit);
+  if (loading || nuevos.length === 0) return null;
+
+  const total = nuevos.length;
+  const visibles = nuevos.slice(0, limit);
 
   return (
     <section className="relative overflow-hidden rounded-2xl border-2 border-brand-cyan/50 bg-gradient-to-br from-brand-cyan-pale/50 via-white to-brand-cyan-pale/30 p-5 shadow-md animate-fade-in">
+      <button
+        type="button"
+        onClick={dismiss}
+        title="Ocultar hasta que haya documentación nueva"
+        className="absolute right-3 top-3 z-10 rounded-full p-1.5 text-brand-muted transition hover:bg-white hover:text-brand-ink"
+      >
+        <X size={16} />
+      </button>
       <header className="mb-3 flex items-start gap-3">
         <span className="relative grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand-cyan-pale text-brand-cyan">
           <FileCheck2 size={18} />

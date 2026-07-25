@@ -12,9 +12,10 @@
 // ============================================================================
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { MailX, ChevronRight } from 'lucide-react';
+import { MailX, ChevronRight, X } from 'lucide-react';
 import { listarRebotesRecientes, type ReboteReciente } from '@/services/api/emails';
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
+import { useCardDismiss } from '@/hooks/useCardDismiss';
 
 export function EmailsRebotadosWidget({ limit = 5 }: { limit?: number }) {
   const [items, setItems] = useState<ReboteReciente[]>([]);
@@ -40,13 +41,28 @@ export function EmailsRebotadosWidget({ limit = 5 }: { limit?: number }) {
   // (si la tabla no está en la publicación realtime, el load inicial alcanza).
   useRealtimeRefresh(['sent_emails'], load);
 
-  if (loading || items.length === 0) return null;
+  // E-GG-158 · la X oculta el card hasta que aparezca un rebote NUEVO
+  // (posterior al descarte). El gerente decide cuándo dejar de verlo.
+  const { dismissedAt, dismiss } = useCardDismiss('gg.dismiss.rebotes');
+  const nuevos = items.filter(
+    (r) => (r.bounced_at ? Date.parse(r.bounced_at) : 0) > dismissedAt,
+  );
 
-  const total = items.length;
-  const visibles = items.slice(0, limit);
+  if (loading || nuevos.length === 0) return null;
+
+  const total = nuevos.length;
+  const visibles = nuevos.slice(0, limit);
 
   return (
     <section className="relative overflow-hidden rounded-2xl border-2 border-rose-300/70 bg-gradient-to-br from-rose-50 via-white to-rose-50/60 p-5 shadow-md animate-fade-in">
+      <button
+        type="button"
+        onClick={dismiss}
+        title="Ocultar hasta que haya rebotes nuevos"
+        className="absolute right-3 top-3 z-10 rounded-full p-1.5 text-brand-muted transition hover:bg-white hover:text-brand-ink"
+      >
+        <X size={16} />
+      </button>
       <header className="mb-3 flex items-start gap-3">
         <span className="relative grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-rose-100 text-rose-700">
           <MailX size={18} />

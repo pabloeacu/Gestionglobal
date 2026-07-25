@@ -11,12 +11,13 @@
 // ============================================================================
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Wallet, ChevronRight } from 'lucide-react';
+import { Wallet, ChevronRight, X } from 'lucide-react';
 import {
   listPagosReportadosGerencia,
   type PagoReportadoGerencia,
 } from '@/services/api/pagosReportados';
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
+import { useCardDismiss } from '@/hooks/useCardDismiss';
 
 const MEDIO_LABEL: Record<string, string> = {
   transferencia: 'Transferencia',
@@ -53,13 +54,25 @@ export function PagosInformadosWidget({ limit = 5 }: { limit?: number }) {
   // Tiempo real (mig 0342 agregó pagos_reportados a la publicación). RLS = staff.
   useRealtimeRefresh(['pagos_reportados'], load);
 
-  if (loading || items.length === 0) return null;
+  // E-GG-158 · la X oculta el card hasta que un cliente informe un pago NUEVO.
+  const { dismissedAt, dismiss } = useCardDismiss('gg.dismiss.pagosInformados');
+  const nuevos = items.filter((p) => Date.parse(p.created_at) > dismissedAt);
 
-  const total = items.length;
-  const visibles = items.slice(0, limit);
+  if (loading || nuevos.length === 0) return null;
+
+  const total = nuevos.length;
+  const visibles = nuevos.slice(0, limit);
 
   return (
     <section className="relative overflow-hidden rounded-2xl border-2 border-amber-300/70 bg-gradient-to-br from-amber-50 via-white to-amber-50/60 p-5 shadow-md animate-fade-in">
+      <button
+        type="button"
+        onClick={dismiss}
+        title="Ocultar hasta que haya pagos informados nuevos"
+        className="absolute right-3 top-3 z-10 rounded-full p-1.5 text-brand-muted transition hover:bg-white hover:text-brand-ink"
+      >
+        <X size={16} />
+      </button>
       <header className="mb-3 flex items-start gap-3">
         <span className="relative grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-amber-100 text-amber-700">
           <Wallet size={18} />

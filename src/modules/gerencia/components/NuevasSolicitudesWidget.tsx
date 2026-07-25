@@ -13,10 +13,11 @@
 // ============================================================================
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Inbox, ChevronRight, CheckCircle2 } from 'lucide-react';
+import { Inbox, ChevronRight, CheckCircle2, X } from 'lucide-react';
 import { Skeleton } from '@/components/common';
 import { listSolicitudesPendientes } from '@/services/api/solicitudes';
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
+import { useCardDismiss } from '@/hooks/useCardDismiss';
 
 interface SolicitudPendiente {
   id: string;
@@ -55,9 +56,17 @@ export function NuevasSolicitudesWidget({ limit = 5 }: { limit?: number }) {
   // La RLS de `solicitudes` filtra por staff (regla 2); el hook debouncea ráfagas.
   useRealtimeRefresh(['solicitudes'], load);
 
+  // E-GG-158 · la X oculta el banner hasta que ENTRE una solicitud nueva.
+  // Ojo: si hay pendientes pero todas descartadas, NO mostramos la barra
+  // "Todo al día" (sería mentira) — simplemente no se muestra nada.
+  const { dismissedAt, dismiss } = useCardDismiss('gg.dismiss.nuevasSolicitudes');
+  const nuevos = items.filter((s) => Date.parse(s.created_at) > dismissedAt);
+
   if (loading) {
     return <Skeleton className="h-12 rounded-xl" />;
   }
+
+  if (total > 0 && nuevos.length === 0) return null;
 
   // Estado vacío: barra slim discreta (no es un banner que robe foco).
   if (total === 0) {
@@ -87,20 +96,29 @@ export function NuevasSolicitudesWidget({ limit = 5 }: { limit?: number }) {
           <div className="min-w-0">
             <p className="kicker text-amber-700">Tenés novedades · en vivo</p>
             <h3 className="font-display text-lg font-bold text-brand-ink">
-              <span key={total} className="inline-block animate-fade-in tabular">
-                {total}
+              <span key={nuevos.length} className="inline-block animate-fade-in tabular">
+                {nuevos.length}
               </span>{' '}
-              {total === 1 ? 'nueva solicitud' : 'nuevas solicitudes'}
+              {nuevos.length === 1 ? 'nueva solicitud' : 'nuevas solicitudes'}
             </h3>
             <p className="mt-0.5 text-xs text-brand-muted">
               Derivá al gestor o activá el wizard para arrancar el trámite.
             </p>
           </div>
         </div>
+        {/* E-GG-158: ocultar hasta que entre una solicitud nueva */}
+        <button
+          type="button"
+          onClick={dismiss}
+          title="Ocultar hasta que haya solicitudes nuevas"
+          className="shrink-0 rounded-full p-1.5 text-brand-muted transition hover:bg-white hover:text-brand-ink"
+        >
+          <X size={16} />
+        </button>
       </header>
 
       <ul className="divide-y divide-amber-200/60">
-        {items.map((s) => (
+        {nuevos.map((s) => (
           <li key={s.id}>
             <Link
               to={`/gerencia/solicitudes/${s.id}`}
