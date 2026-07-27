@@ -246,9 +246,9 @@ export function GestionMatriculasTab({ data }: { data: CursoDetalle }) {
         },
       ],
       columns: [
-        { key: 'alumno_nombre', label: 'Alumno', width: '26%',
+        { key: 'alumno_nombre', label: 'Alumno', width: '24%',
           format: (r) => r.alumno_nombre ?? '—' },
-        { key: 'administracion_nombre', label: 'Administración', width: '22%',
+        { key: 'administracion_nombre', label: 'Administración', width: '20%',
           format: (r) => r.administracion_nombre ?? '—' },
         { key: 'inscripto_at', label: 'Fecha matrícula', width: '14%',
           format: (r) => fmtFecha(r.inscripto_at) },

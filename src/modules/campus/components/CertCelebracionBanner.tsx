@@ -26,6 +26,7 @@ import { humanizeError } from '@/lib/errors';
 import {
   listCertsCelebrarCliente,
   marcarCelebracionVista,
+  marcarCertDescargadoAlumno,
   getCertCompleto,
   resolverEsquemaParaCert,
   certificadoParaPdf,
@@ -76,6 +77,9 @@ export function CertCelebracionBanner({ cursoId }: Props) {
         return;
       }
       await generateCertificadoPdf(certificadoParaPdf(r.data), esquema);
+      // DGG-119 (§6 A#1): el banner es el PRIMER camino de descarga del alumno
+      // — sin esta marca, gerencia vería "todavía no lo descargó" para siempre.
+      void marcarCertDescargadoAlumno(item.cert_id);
       // Marcar como vista (el banner desaparece después de la descarga).
       await marcarCelebracionVista(item.cert_id);
       setItems((prev) => prev.filter((x) => x.cert_id !== item.cert_id));
