@@ -175,6 +175,19 @@ Deno.serve(async (req) => {
       ...(passwordTemporal ? { password_temporal: passwordTemporal } : {}),
       link_portal: 'https://www.gestionglobal.ar/ingresar',
     },
+    // DGG-118: la rama "nunca ingresó" manda la bienvenida COMPLETA con
+    // credenciales nuevas → lleva la guía en PDF. El '-aviso' (ya ingresó,
+    // password intacta) NO la lleva: no es una bienvenida.
+    ...(passwordTemporal
+      ? {
+          attachments_jsonb: [{
+            filename: 'Guia-de-Bienvenida-Gestion-Global.pdf',
+            content_type: 'application/pdf',
+            storage_bucket: 'email-assets',
+            storage_path: 'guia-bienvenida/Guia-Bienvenida-GestionGlobal.pdf',
+          }],
+        }
+      : {}),
     prioridad: 1,
     intento: 0,
     max_intentos: 3,

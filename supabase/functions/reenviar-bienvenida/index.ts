@@ -137,6 +137,13 @@ Deno.serve(async (req) => {
       password_temporal: passwordTemporal,
       link_portal: 'https://www.gestionglobal.ar/ingresar',
     },
+    // DGG-118: la bienvenida reenviada lleva la misma guía en PDF que el alta.
+    attachments_jsonb: [{
+      filename: 'Guia-de-Bienvenida-Gestion-Global.pdf',
+      content_type: 'application/pdf',
+      storage_bucket: 'email-assets',
+      storage_path: 'guia-bienvenida/Guia-Bienvenida-GestionGlobal.pdf',
+    }],
     prioridad: 1,
     intento: 0,
     max_intentos: 3,

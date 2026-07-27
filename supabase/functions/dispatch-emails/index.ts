@@ -97,6 +97,25 @@ interface TemplateRow {
   layout_version: string;
 }
 
+// DGG-118: forma de cada elemento de email_queue.attachments_jsonb. Soporta
+// las TRES variantes que conviven en el sistema:
+//   · storage  → { filename, storage_bucket, storage_path, content_type }
+//     (referencia liviana; el dispatcher baja el archivo al enviar; solo
+//      buckets whitelisteados en ATTACH_BUCKETS — guía de bienvenida)
+//   · gestoría → { path, filename, mime, size } (mig 0208 / solicitud_derivar:
+//     `path` es una key del bucket gestoria-adjuntos subida por staff)
+//   · inline   → { filename, content_b64, content_type } (doc 02 §emails;
+//     hoy sin productor activo — se acepta por la forma documentada)
+interface QueueAttachment {
+  filename?: string;
+  content_type?: string;
+  content_b64?: string;
+  storage_bucket?: string;
+  storage_path?: string;
+  path?: string;
+  mime?: string;
+}
+
 interface QueueRow {
   id: string;
   template_slug: string;
@@ -108,7 +127,19 @@ interface QueueRow {
   max_intentos: number;
   administracion_id: string | null;
   consorcio_id: string | null;
+  attachments_jsonb: QueueAttachment[] | null;
 }
+
+// DGG-118: únicos buckets desde los que el dispatcher acepta bajar adjuntos.
+// Cierra el vector "encolo un mail con path arbitrario y exfiltro un bucket
+// privado por email". Ampliar SOLO con revisión de seguridad.
+// gestoria-adjuntos: ahí sube únicamente staff desde el wizard de derivación.
+const ATTACH_BUCKETS = ['email-assets', 'gestoria-adjuntos'];
+
+// Tope de base64 total de adjuntos por mail: el payload JSON del endpoint de
+// Gmail admite ~10MB; con más de ~7MB de adjuntos el raw se pasa y el envío
+// fallaría los 3 reintentos. El excedente se omite (nunca bloquear el mail).
+const MAX_ATTACH_B64_TOTAL = 7_000_000;
 
 Deno.serve(async (req) => {
   if (req.method === 'GET') return new Response('dispatch-emails alive', { status: 200 });
@@ -140,7 +171,7 @@ Deno.serve(async (req) => {
   // 2) Próximos jobs (candidatos en orden de prioridad).
   const { data: rows, error: errQueue } = await admin
     .from('email_queue')
-    .select('id, template_slug, to_email, to_nombre, variables, prioridad, intento, max_intentos, administracion_id, consorcio_id')
+    .select('id, template_slug, to_email, to_nombre, variables, prioridad, intento, max_intentos, administracion_id, consorcio_id, attachments_jsonb')
     .eq('kind', 'workflow')
     .is('enviado_at', null)
     .lte('programado_para', new Date().toISOString())
@@ -239,6 +270,66 @@ Deno.serve(async (req) => {
   }
 
   // 7) MIME + Gmail send.
+  // DGG-118: adjuntos opcionales del job. Se resuelven acá y NUNCA bloquean el
+  // envío — un adjunto irrecuperable se omite con log de error (un mail de
+  // bienvenida con credenciales no puede quedar rehén de un PDF de marketing).
+  const attachments: MimeAttachment[] = [];
+  const adjOmitidos: string[] = [];
+  let attachB64Total = 0;
+  for (const att of (Array.isArray(job.attachments_jsonb) ? job.attachments_jsonb : [])) {
+    const filename = sanitizeFilename(att.filename || 'adjunto.pdf');
+    try {
+      // content_type saneado (§6 A#2): evita header injection vía MIME type.
+      const rawMime = att.content_type || att.mime || 'application/octet-stream';
+      const mimeType = /^[\w.+-]+\/[\w.+-]+$/.test(rawMime) ? rawMime : 'application/octet-stream';
+
+      let b64: string | null = null;
+      if (att.content_b64) {
+        // §6 A#3: strip de prefijo dataURL + validación base64 estándar.
+        const limpio = att.content_b64.replace(/^data:[^,]*,/, '').replace(/\s+/g, '');
+        if (!/^[A-Za-z0-9+/]+=*$/.test(limpio)) {
+          console.error('dispatch-emails · content_b64 inválido — omitido', { job: job.id, filename });
+          adjOmitidos.push(filename);
+          continue;
+        }
+        b64 = limpio;
+      } else {
+        // storage ref explícita, o forma gestoría ({path} → gestoria-adjuntos).
+        const bucket = att.storage_bucket ?? (att.path ? 'gestoria-adjuntos' : null);
+        const path = att.storage_path ?? att.path ?? null;
+        if (!bucket || !path) {
+          console.error('dispatch-emails · adjunto sin content_b64 ni storage ref — omitido', { job: job.id, filename });
+          adjOmitidos.push(filename);
+          continue;
+        }
+        if (!ATTACH_BUCKETS.includes(bucket)) {
+          console.error(`dispatch-emails · adjunto rechazado (bucket fuera de whitelist): ${bucket}`, { job: job.id, filename });
+          adjOmitidos.push(filename);
+          continue;
+        }
+        const { data: blob, error: errAtt } = await admin.storage.from(bucket).download(path);
+        if (errAtt || !blob) {
+          console.error(`dispatch-emails · adjunto no descargable: ${bucket}/${path}`, { job: job.id, filename, error: errAtt?.message });
+          adjOmitidos.push(filename);
+          continue;
+        }
+        b64 = uint8ToBase64(new Uint8Array(await blob.arrayBuffer()));
+      }
+
+      // §6 A#4: tope de tamaño total — el excedente se omite, el mail sale.
+      if (attachB64Total + b64.length > MAX_ATTACH_B64_TOTAL) {
+        console.error('dispatch-emails · adjunto omitido por tamaño total', { job: job.id, filename, b64_len: b64.length });
+        adjOmitidos.push(filename);
+        continue;
+      }
+      attachB64Total += b64.length;
+      attachments.push({ filename, mimeType, b64 });
+    } catch (e) {
+      console.error('dispatch-emails · adjunto falló — omitido', { job: job.id, filename, error: (e as Error).message });
+      adjOmitidos.push(filename);
+    }
+  }
+
   const fromHeader = `${encodeRfc2047('Gestión Global')} <${senderEmail}>`;
   const mime = buildMimeMessage({
     from: fromHeader,
@@ -247,6 +338,7 @@ Deno.serve(async (req) => {
     subject,
     html,
     text,
+    attachments,
   });
   const raw = base64UrlEncode(mime);
 
@@ -284,7 +376,12 @@ Deno.serve(async (req) => {
     enviado_at: nowIso,
     sent_at: nowIso,
     status: 'sent',
-    ultimo_error: null,
+    // DGG-118 (§6 A#5): si algún adjunto se omitió, dejar rastro PERSISTENTE
+    // (el mail salió, pero incompleto — visible en EmailQueuePage, no solo en
+    // logs efímeros de la edge). status sigue 'sent': el mail SÍ se entregó.
+    ultimo_error: adjOmitidos.length
+      ? `enviado SIN adjunto(s): ${adjOmitidos.join(', ')}`
+      : null,
   }).eq('id', job.id);
 
   await admin.from('sent_emails').insert({
@@ -507,6 +604,12 @@ async function refreshAccessToken(clientId: string, clientSecret: string, refres
   return j.access_token;
 }
 
+interface MimeAttachment {
+  filename: string;
+  mimeType: string;
+  b64: string;
+}
+
 interface MimeArgs {
   from: string;
   to: string[];
@@ -514,11 +617,13 @@ interface MimeArgs {
   subject: string;
   html: string;
   text?: string;
+  attachments?: MimeAttachment[];
 }
 
 function buildMimeMessage(a: MimeArgs): string {
   const boundary = `bound_${Math.random().toString(36).slice(2)}_${Date.now()}`;
   const hasText = !!a.text;
+  const hasAttachments = !!a.attachments && a.attachments.length > 0;
   const headers: string[] = [
     `From: ${a.from}`,
     `To: ${a.to.join(', ')}`,
@@ -528,6 +633,54 @@ function buildMimeMessage(a: MimeArgs): string {
   headers.push('MIME-Version: 1.0');
   headers.push('X-Auto-Response-Suppress: All');
   headers.push('X-Mailer: Gestion Global Platform');
+
+  // DGG-118: con adjuntos el sobre externo es multipart/mixed — la parte 1 es
+  // el cuerpo (multipart/alternative anidado si hay texto plano, html directo
+  // si no) y luego un part por adjunto. SIN adjuntos, el output es byte a byte
+  // el mismo que siempre (cero riesgo para los ~35 templates existentes).
+  if (hasAttachments) {
+    const mixedBoundary = `mixed_${Math.random().toString(36).slice(2)}_${Date.now()}`;
+    headers.push(`Content-Type: multipart/mixed; boundary="${mixedBoundary}"`);
+    const parts: string[] = ['', `--${mixedBoundary}`];
+
+    if (hasText) {
+      parts.push(
+        `Content-Type: multipart/alternative; boundary="${boundary}"`,
+        '',
+        `--${boundary}`,
+        'Content-Type: text/plain; charset=UTF-8',
+        'Content-Transfer-Encoding: base64',
+        '',
+        chunkBase64(btoa(unescape(encodeURIComponent(a.text!)))),
+        `--${boundary}`,
+        'Content-Type: text/html; charset=UTF-8',
+        'Content-Transfer-Encoding: base64',
+        '',
+        chunkBase64(btoa(unescape(encodeURIComponent(a.html)))),
+        `--${boundary}--`,
+      );
+    } else {
+      parts.push(
+        'Content-Type: text/html; charset=UTF-8',
+        'Content-Transfer-Encoding: base64',
+        '',
+        chunkBase64(btoa(unescape(encodeURIComponent(a.html)))),
+      );
+    }
+
+    for (const att of a.attachments!) {
+      parts.push(
+        `--${mixedBoundary}`,
+        `Content-Type: ${att.mimeType}; name="${att.filename}"`,
+        `Content-Disposition: attachment; filename="${att.filename}"`,
+        'Content-Transfer-Encoding: base64',
+        '',
+        chunkBase64(att.b64),
+      );
+    }
+    parts.push(`--${mixedBoundary}--`);
+    return headers.join('\r\n') + '\r\n' + parts.join('\r\n');
+  }
 
   if (hasText) {
     headers.push(`Content-Type: multipart/alternative; boundary="${boundary}"`);
@@ -551,6 +704,20 @@ function buildMimeMessage(a: MimeArgs): string {
   headers.push('Content-Type: text/html; charset=UTF-8');
   headers.push('Content-Transfer-Encoding: base64');
   return headers.join('\r\n') + '\r\n\r\n' + chunkBase64(btoa(unescape(encodeURIComponent(a.html))));
+}
+
+// DGG-118: helpers de adjuntos (mismo patrón que send-constancia-email).
+function uint8ToBase64(bytes: Uint8Array): string {
+  let bin = '';
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    bin += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + chunkSize)));
+  }
+  return btoa(bin);
+}
+
+function sanitizeFilename(s: string): string {
+  return s.replace(/[^a-zA-Z0-9._-]+/g, '-').replace(/-+/g, '-').slice(0, 100);
 }
 
 function encodeRfc2047(s: string): string {

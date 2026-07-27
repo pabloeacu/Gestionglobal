@@ -4534,3 +4534,35 @@ sin soporte técnico, y los rebotes deben avisarse solos.
   con CTA a la ficha del cliente. Idempotente (dsn_msg_id UNIQUE = 1 aviso por rebote).
 - **Widget "Emails rebotados"** en el Inicio de gerencia (tono rosa): rebotes de los últimos 7
   días con CTA a la ficha; oculto si no hay nada. Mig 0381 + edges v1/v1/v3.
+
+## DGG-118 · Guía de bienvenida en PDF adjunta al mail inicial + dispatcher con adjuntos (2026-07-27)
+**Origen** (Pablo): un PDF "documento estrella" de 5 páginas (bienvenida + tutorial + marketing,
+A4, estética de marca, capturas reales, íconos lucide del sitio) que acompañe el mail de
+bienvenida a todo el que se registra en la plataforma. Aprobado tras 3 iteraciones.
+
+**Decisiones:**
+- **El PDF vive en Storage** — bucket nuevo `email-assets` (privado, 0 policies → solo
+  service_role; 10MB; solo application/pdf; mig 0387), path
+  `guia-bienvenida/Guia-Bienvenida-GestionGlobal.pdf` (2,59 MB, versión optimizada para email;
+  el master de 3,9 MB queda en el Desktop de Pablo y el HTML fuente en el repo de la sesión).
+  **Re-subir al mismo path actualiza la guía de TODOS los mails futuros sin tocar código**
+  (el dispatcher la baja al momento de enviar, no cachea).
+- **`dispatch-emails` ahora procesa `email_queue.attachments_jsonb`** (existía desde mig 0006
+  pero NINGÚN camino la enviaba — los adjuntos de derivación a gestoría de mig 0208 se
+  ignoraban en silencio; gap latente cerrado de paso, 0 filas afectadas históricamente).
+  3 formas por elemento (ver doc 02): storage-ref {storage_bucket, storage_path}, gestoría
+  {path} (bucket gestoria-adjuntos), inline {content_b64}. Blindajes de la doble §6:
+  whitelist `ATTACH_BUCKETS` = [email-assets, gestoria-adjuntos] (anti-exfiltración),
+  content_type saneado por regex (anti header-injection MIME), validación base64, tope 7MB
+  de adjuntos por mail (bajo el límite ~10MB del payload de Gmail), y **degradación
+  elegante**: un adjunto irrecuperable JAMÁS bloquea el envío — se omite con log + marca
+  persistente `ultimo_error = "enviado SIN adjunto(s): ..."` con status 'sent'.
+  Sin adjuntos, el MIME emitido es byte-idéntico al previo (regresión cero demostrada con
+  harness por el auditor §6; multipart/mixed solo cuando hay adjuntos).
+- **La guía viaja en los 3 caminos de la bienvenida completa**: `alta-cliente-portal`,
+  `reenviar-bienvenida`, y `corregir-email-acceso` SOLO en la rama "nunca ingresó"
+  (el '-aviso' no es una bienvenida → sin adjunto). Verificado por §6: no queda ningún
+  otro camino que encole 'bienvenida-administracion'.
+- E2e real (6 mails a alias pabloeacu+guiaN@gmail.com, luego purgados): con adjunto ✓,
+  regresión sin adjunto ✓, adjuntos rotos/bucket prohibido → mail sale igual ✓, flujo
+  completo por la edge ✓, rama gestoría {path} ✓, marca de omisión persistente ✓.

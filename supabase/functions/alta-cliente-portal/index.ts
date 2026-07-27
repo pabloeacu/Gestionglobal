@@ -179,6 +179,14 @@ Deno.serve(async (req) => {
         password_temporal: passwordTemporal,
         link_portal: 'https://www.gestionglobal.ar/ingresar',
       },
+      // DGG-118: guía de bienvenida en PDF adjunta (el dispatcher la baja de
+      // Storage al enviar; si falla, el mail sale igual sin adjunto).
+      attachments_jsonb: [{
+        filename: 'Guia-de-Bienvenida-Gestion-Global.pdf',
+        content_type: 'application/pdf',
+        storage_bucket: 'email-assets',
+        storage_path: 'guia-bienvenida/Guia-Bienvenida-GestionGlobal.pdf',
+      }],
       prioridad: 1,
       intento: 0,
       max_intentos: 3,

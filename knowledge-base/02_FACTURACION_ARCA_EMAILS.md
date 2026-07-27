@@ -348,7 +348,14 @@ CREATE TABLE public.email_queue (
   -- Individual (recordatorio, reclamo, reenvío)
   kind text NOT NULL DEFAULT 'lote' CHECK (kind IN ('lote','individual')),
   html_body text,
-  attachments_jsonb jsonb,                 -- [{filename, content_b64, content_type}]
+  attachments_jsonb jsonb,                 -- DGG-118: 3 formas por elemento:
+                                           --  · storage ref: {filename, storage_bucket, storage_path, content_type}
+                                           --    (el dispatcher baja el archivo al enviar; SOLO buckets whitelisteados
+                                           --     en ATTACH_BUCKETS: email-assets, gestoria-adjuntos)
+                                           --  · gestoría: {path, filename, mime, size} (path = key de gestoria-adjuntos)
+                                           --  · inline: {filename, content_b64, content_type}
+                                           -- Un adjunto irrecuperable NUNCA bloquea el envío: se omite con log +
+                                           -- marca persistente en ultimo_error ("enviado SIN adjunto(s): ...").
   plantilla_tipo text,
   reply_to text,
   comprobante_id uuid REFERENCES comprobantes(id) ON DELETE SET NULL,
