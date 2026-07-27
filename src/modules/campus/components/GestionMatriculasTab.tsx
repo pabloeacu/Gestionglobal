@@ -24,9 +24,11 @@ import {
   desasignarAlumno,
   emitirCertificado,
   fmtFecha,
+  listAlumnosEmails,
   listCertificadosPorCurso,
   listCondicionesMatricula,
   listMatriculas,
+  listMejoresNotas,
   cursoFinalizado,
   resolverEsquemaParaCert,
   tildarCondicion,
@@ -37,6 +39,7 @@ import {
   type EsquemaCertSnapshot,
   type MatriculaCondicionItem,
   type MatriculaListItem,
+  type MejorNotaExamen,
 } from '@/services/api/campus';
 import { generateCertificadoPdf } from '../lib/generateCertificadoPdf';
 import { AsignarAlumnoDrawer } from './AsignarAlumnoDrawer';
@@ -73,6 +76,9 @@ export function GestionMatriculasTab({ data }: { data: CursoDetalle }) {
   const [certificados, setCertificados] = useState<Record<string, CertificadoRow>>(
     {},
   );
+  // DGG-119: mejor nota aprobada por matrícula + email de login por alumno.
+  const [notas, setNotas] = useState<Record<string, MejorNotaExamen>>({});
+  const [emails, setEmails] = useState<Record<string, string>>({});
   const [emitiendo, setEmitiendo] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -93,7 +99,10 @@ export function GestionMatriculasTab({ data }: { data: CursoDetalle }) {
       return;
     }
     setMatriculas(m.data);
-    const [pares, certs] = await Promise.all([
+    // DGG-119: notas del examen + emails de login, para transparencia del
+    // certificado (nota visible, mail de destino). Best-effort: si fallan,
+    // el tab sigue funcionando igual que antes.
+    const [pares, certs, notasRes, emailsRes] = await Promise.all([
       Promise.all(
         m.data.map(async (mm) => {
           const c = await listCondicionesMatricula(mm.id);
@@ -101,11 +110,15 @@ export function GestionMatriculasTab({ data }: { data: CursoDetalle }) {
         }),
       ),
       listCertificadosPorCurso(data.curso.id),
+      listMejoresNotas(m.data.map((mm) => mm.id)),
+      listAlumnosEmails(data.curso.id),
     ]);
     const acc: Record<string, MatriculaCondicionItem[]> = {};
     for (const [k, v] of pares) acc[k] = v;
     setCondiciones(acc);
     setCertificados(certs.ok ? certs.data : {});
+    setNotas(notasRes.ok ? notasRes.data : {});
+    setEmails(emailsRes.ok ? emailsRes.data : {});
     setLoading(false);
   }, [data.curso.id]);
 
@@ -204,14 +217,17 @@ export function GestionMatriculasTab({ data }: { data: CursoDetalle }) {
       const total = conds.length;
       const cumplidas = conds.filter((c) => c.cumplida).length;
       const cert = certificados[m.id] ?? null;
+      const nota = notas[m.id];
       return {
         ...m,
         condiciones_resumen: total > 0 ? `${cumplidas}/${total}` : '—',
         certificado_codigo: cert?.codigo ?? '',
         certificado_emitido: !!cert,
+        // DGG-119: mejor nota aprobada del examen (vacía si no rindió/aprobó).
+        nota_examen: nota ? `${nota.nota}/100` : '',
       };
     });
-  }, [matriculas, condiciones, certificados]);
+  }, [matriculas, condiciones, certificados, notas]);
 
   type ExportRow = (typeof exportRows)[number];
 
@@ -236,10 +252,12 @@ export function GestionMatriculasTab({ data }: { data: CursoDetalle }) {
           format: (r) => r.administracion_nombre ?? '—' },
         { key: 'inscripto_at', label: 'Fecha matrícula', width: '14%',
           format: (r) => fmtFecha(r.inscripto_at) },
-        { key: 'estado', label: 'Estado', width: '12%' },
-        { key: 'condiciones_resumen', label: 'Condiciones', width: '12%',
+        { key: 'estado', label: 'Estado', width: '10%' },
+        { key: 'condiciones_resumen', label: 'Condiciones', width: '10%',
           format: (r) => r.condiciones_resumen },
-        { key: 'certificado_emitido', label: 'Certificado', width: '14%',
+        { key: 'nota_examen', label: 'Nota examen', width: '10%',
+          format: (r) => r.nota_examen || '—' },
+        { key: 'certificado_emitido', label: 'Certificado', width: '12%',
           format: (r) => (r.certificado_emitido ? r.certificado_codigo || 'Emitido' : '—') },
       ],
       rows: exportRows,
@@ -262,6 +280,8 @@ export function GestionMatriculasTab({ data }: { data: CursoDetalle }) {
         { key: 'estado', label: 'Estado', width: 14 },
         { key: 'condiciones_resumen', label: 'Condiciones', width: 14,
           value: (r) => r.condiciones_resumen },
+        { key: 'nota_examen', label: 'Nota examen', width: 14,
+          value: (r) => r.nota_examen },
         { key: 'certificado_emitido', label: 'Certificado emitido', width: 16,
           value: (r) => (r.certificado_emitido ? 'Sí' : 'No') },
         { key: 'certificado_codigo', label: 'Código certificado', width: 22,
@@ -420,6 +440,13 @@ export function GestionMatriculasTab({ data }: { data: CursoDetalle }) {
                                   <p className="text-[11px] text-brand-muted">
                                     {auto ? 'Automática · ' : ''}
                                     {fmtFecha(c.cumplida_at)}
+                                    {/* DGG-119: la nota del examen, al lado de la fecha */}
+                                    {c.tipo === 'examen' && notas[m.id] != null && (
+                                      <span className="font-semibold text-brand-ink">
+                                        {' · Nota '}
+                                        {notas[m.id]?.nota}/100
+                                      </span>
+                                    )}
                                   </p>
                                 )}
                               </div>
@@ -464,30 +491,53 @@ export function GestionMatriculasTab({ data }: { data: CursoDetalle }) {
                   {/* Certificado: emitido (ver/descargar) o botón de emisión
                       manual si el motor todavía no lo hizo. */}
                   {cert ? (
-                    <div className="mt-3 flex flex-wrap items-center gap-3 rounded-lg border border-brand-cyan/20 bg-brand-cyan/5 px-3 py-2">
-                      <span className="font-mono text-[11px] text-brand-muted">
-                        {cert.codigo}
-                      </span>
-                      <button
-                        onClick={() => void abrirPreview(cert)}
-                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand-cyan hover:underline"
-                      >
-                        <Eye size={13} /> Vista previa
-                      </button>
-                      <button
-                        onClick={() => void onDescargar(cert)}
-                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand-cyan hover:underline"
-                      >
-                        <Download size={13} /> Descargar
-                      </button>
-                      <a
-                        href={verificacionUrl(cert.codigo)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 text-xs font-medium text-brand-muted hover:text-brand-ink"
-                      >
-                        <ShieldCheck size={13} /> Verificar
-                      </a>
+                    <div className="mt-3 rounded-lg border border-brand-cyan/20 bg-brand-cyan/5 px-3 py-2">
+                      <div className="flex flex-wrap items-center gap-3">
+                        <span className="font-mono text-[11px] text-brand-muted">
+                          {cert.codigo}
+                        </span>
+                        <button
+                          onClick={() => void abrirPreview(cert)}
+                          className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand-cyan hover:underline"
+                        >
+                          <Eye size={13} /> Vista previa
+                        </button>
+                        <button
+                          onClick={() => void onDescargar(cert)}
+                          className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand-cyan hover:underline"
+                        >
+                          <Download size={13} /> Descargar
+                        </button>
+                        <a
+                          href={verificacionUrl(cert.codigo)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 text-xs font-medium text-brand-muted hover:text-brand-ink"
+                        >
+                          <ShieldCheck size={13} /> Verificar
+                        </a>
+                      </div>
+                      {/* DGG-119: trazabilidad de la emisión — cuándo, a qué
+                          casilla fue el mail, y si el alumno ya lo descargó. */}
+                      <p className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-brand-muted">
+                        <span>Emitido el {fmtFecha(cert.emitido_at)}</span>
+                        {cert.enviado_email_at && (
+                          <span>
+                            Mail enviado el {fmtFecha(cert.enviado_email_at)}
+                            {emails[m.profile_id] ? ` a ${emails[m.profile_id]}` : ''}
+                          </span>
+                        )}
+                        {cert.descargado_alumno_at ? (
+                          <span className="inline-flex items-center gap-1 font-medium text-emerald-600">
+                            <CheckCircle2 size={11} /> Descargado por el alumno el{' '}
+                            {fmtFecha(cert.descargado_alumno_at)}
+                          </span>
+                        ) : (
+                          <span className="text-amber-600">
+                            El alumno todavía no lo descargó
+                          </span>
+                        )}
+                      </p>
                     </div>
                   ) : (
                     todasOk && (

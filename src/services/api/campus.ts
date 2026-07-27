@@ -2339,6 +2339,58 @@ export async function listCertificadosPorCurso(
   return ok(acc);
 }
 
+// DGG-119: mejor nota aprobada por matrícula, para la vista de gerencia.
+// RLS de examen_intentos ya permite SELECT a staff — lectura pura, sin RPC.
+export interface MejorNotaExamen {
+  nota: number;
+  terminado_at: string | null;
+}
+export async function listMejoresNotas(
+  matriculaIds: string[],
+): Promise<ApiResponse<Record<string, MejorNotaExamen>>> {
+  if (matriculaIds.length === 0) return ok({});
+  const { data, error } = await supabase
+    .from('examen_intentos')
+    .select('matricula_id, nota, terminado_at')
+    .in('matricula_id', matriculaIds)
+    .eq('aprobado', true)
+    .not('nota', 'is', null);
+  if (error) return fail('EXAMEN_NOTAS', error.message, error);
+  const acc: Record<string, MejorNotaExamen> = {};
+  for (const r of data ?? []) {
+    const prev = acc[r.matricula_id];
+    if (!prev || (r.nota ?? 0) > prev.nota) {
+      acc[r.matricula_id] = { nota: r.nota ?? 0, terminado_at: r.terminado_at };
+    }
+  }
+  return ok(acc);
+}
+
+// DGG-119: emails de LOGIN de los alumnos del curso (staff-only; auth.users
+// es invisible para PostgREST, por eso RPC SECURITY DEFINER).
+export async function listAlumnosEmails(
+  cursoId: string,
+): Promise<ApiResponse<Record<string, string>>> {
+  const { data, error } = await supabase.rpc('curso_alumnos_emails', {
+    p_curso_id: cursoId,
+  });
+  if (error) return fail('ALUMNOS_EMAILS', error.message, error);
+  const acc: Record<string, string> = {};
+  for (const r of (data ?? []) as { profile_id: string; email: string }[]) {
+    acc[r.profile_id] = r.email;
+  }
+  return ok(acc);
+}
+
+// DGG-119: el alumno marca su primera descarga del certificado (best-effort:
+// jamás bloquea la descarga — si falla, sólo se pierde la señal).
+export async function marcarCertDescargadoAlumno(certId: string): Promise<void> {
+  const { error } = await supabase.rpc('cert_marcar_descarga_alumno', {
+    p_cert_id: certId,
+  });
+  if (error) console.warn('cert_marcar_descarga_alumno falló:', error.message);
+}
+
 // Emisión manual desde gerencia (idempotente; el motor también la dispara).
 export async function emitirCertificado(
   matriculaId: string,

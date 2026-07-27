@@ -40,6 +40,7 @@ import {
   listMatriculas,
   listModulosSincronicos,
   listProgreso,
+  marcarCertDescargadoAlumno,
   matriculaTieneAcceso,
   resolverEsquemaParaCert,
   verificacionUrl,
@@ -998,6 +999,9 @@ function CondicionesAlumnoPanel({
         certificadoParaPdf(certificado),
         esquema ?? undefined,
       );
+      // DGG-119: señal para gerencia de que el alumno ya bajó su certificado.
+      // Best-effort: si falla, la descarga igual fue exitosa.
+      void marcarCertDescargadoAlumno(certificado.id);
     } catch (err) {
       console.error('[cert-pdf] portal alumno descarga falló:', err);
       const detalle =

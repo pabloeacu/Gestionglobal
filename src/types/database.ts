@@ -1108,6 +1108,7 @@ export type Database = {
           codigo: string
           created_at: string
           curso_id: string | null
+          descargado_alumno_at: string | null
           emitido_at: string
           enviado_email_at: string | null
           esquema_snapshot: Json | null
@@ -1132,6 +1133,7 @@ export type Database = {
           codigo: string
           created_at?: string
           curso_id?: string | null
+          descargado_alumno_at?: string | null
           emitido_at?: string
           enviado_email_at?: string | null
           esquema_snapshot?: Json | null
@@ -1156,6 +1158,7 @@ export type Database = {
           codigo?: string
           created_at?: string
           curso_id?: string | null
+          descargado_alumno_at?: string | null
           emitido_at?: string
           enviado_email_at?: string | null
           esquema_snapshot?: Json | null
@@ -8204,6 +8207,10 @@ export type Database = {
         Args: { p_cert_id: string }
         Returns: undefined
       }
+      cert_marcar_descarga_alumno: {
+        Args: { p_cert_id: string }
+        Returns: undefined
+      }
       certificado_registrar_pdf: {
         Args: { p_cert_id: string; p_path: string }
         Returns: undefined
@@ -8661,6 +8668,13 @@ export type Database = {
           saldo_a_favor: number
           total_cobrado: number
           total_facturado: number
+        }[]
+      }
+      curso_alumnos_emails: {
+        Args: { p_curso_id: string }
+        Returns: {
+          email: string
+          profile_id: string
         }[]
       }
       curso_asignar_alumno: {
