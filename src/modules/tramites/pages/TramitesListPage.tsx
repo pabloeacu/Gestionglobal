@@ -89,7 +89,7 @@ const SLA_FILTRO_LABEL: Record<SlaFiltro, string> = {
 // Popover de filtro por columna: botón embudo al lado del SortHeader.
 // Presentacional puro — el estado vive en la página (misma fuente de verdad
 // que los chips de arriba cuando la columna ya tiene filtro global).
-function HeaderFilter({ active, children }: { active: boolean; children: React.ReactNode }) {
+function HeaderFilter({ active, align = 'left', children }: { active: boolean; align?: 'left' | 'right'; children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
@@ -120,7 +120,10 @@ function HeaderFilter({ active, children }: { active: boolean; children: React.R
         <ListFilter size={12} />
       </button>
       {open && (
-        <div className="absolute left-0 top-6 z-30 w-56 overflow-hidden rounded-xl border border-slate-200 bg-white p-2 text-left shadow-lg normal-case tracking-normal">
+        <div className={cn(
+          'absolute top-6 z-30 w-56 overflow-hidden rounded-xl border border-slate-200 bg-white p-2 text-left shadow-lg normal-case tracking-normal',
+          align === 'right' ? 'right-0' : 'left-0',
+        )}>
           {children}
         </div>
       )}
@@ -404,7 +407,7 @@ export function TramitesListPage() {
                     </th>
                     <th className="px-3 py-3">
                       <SortHeader label="Prioridad" sortKey="prioridad" sort={sort} onToggle={toggleSort} />
-                      <HeaderFilter active={f.prioridades.length > 0}>
+                      <HeaderFilter active={f.prioridades.length > 0} align="right">
                         {(Object.keys(TRAMITE_PRIORIDAD_LABEL) as TramitePrioridad[]).map((p) => (
                           <button
                             key={p}
@@ -428,7 +431,7 @@ export function TramitesListPage() {
                     </th>
                     <th className="px-3 py-3">
                       <SortHeader label="Estado" sortKey="estado" sort={sort} onToggle={toggleSort} />
-                      <HeaderFilter active={f.estados.length > 0}>
+                      <HeaderFilter active={f.estados.length > 0} align="right">
                         {(Object.keys(TRAMITE_ESTADO_LABEL) as TramiteEstado[]).map((e) => (
                           <button
                             key={e}
