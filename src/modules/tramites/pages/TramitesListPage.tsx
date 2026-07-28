@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { toast } from '@/lib/toast';
-import { Plus, Briefcase, ChevronRight, KanbanSquare, Receipt, AlertTriangle, ArrowRight, Copy, Wallet } from 'lucide-react';
+import { Plus, Briefcase, ChevronRight, KanbanSquare, Receipt, AlertTriangle, ArrowRight, Copy, Wallet, Clock, ListFilter, Search, X } from 'lucide-react';
 import {
   Button,
   RefreshIndicator,
@@ -75,6 +75,59 @@ const SORT_ACCESSORS: Record<string, (t: TramiteListItem) => string | number | n
 
 const MAX_UNIVERSO = 1000;
 
+// Filtro de SLA propio del encabezado (pedido estético de Pablo 28/07: los
+// encabezados no solo ordenan — también filtran). Valores derivados de
+// computeSla, sin alterar datos.
+type SlaFiltro = 'vencido' | 'pronto' | 'en_plazo' | 'sin_sla';
+const SLA_FILTRO_LABEL: Record<SlaFiltro, string> = {
+  vencido: 'Vencidos',
+  pronto: 'Vencen en ≤ 3 días',
+  en_plazo: 'En plazo',
+  sin_sla: 'Sin SLA (días abiertos)',
+};
+
+// Popover de filtro por columna: botón embudo al lado del SortHeader.
+// Presentacional puro — el estado vive en la página (misma fuente de verdad
+// que los chips de arriba cuando la columna ya tiene filtro global).
+function HeaderFilter({ active, children }: { active: boolean; children: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!open) return;
+    function onDoc(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    function onEsc(e: KeyboardEvent) { if (e.key === 'Escape') setOpen(false); }
+    document.addEventListener('mousedown', onDoc);
+    document.addEventListener('keydown', onEsc);
+    return () => {
+      document.removeEventListener('mousedown', onDoc);
+      document.removeEventListener('keydown', onEsc);
+    };
+  }, [open]);
+  return (
+    <div className="relative inline-flex" ref={ref}>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        title="Filtrar esta columna"
+        className={cn(
+          'ml-1 rounded p-0.5 transition',
+          active ? 'text-brand-cyan' : 'text-brand-muted/50 hover:text-brand-ink',
+        )}
+      >
+        <ListFilter size={12} />
+      </button>
+      {open && (
+        <div className="absolute left-0 top-6 z-30 w-56 overflow-hidden rounded-xl border border-slate-200 bg-white p-2 text-left shadow-lg normal-case tracking-normal">
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function TramitesListPage() {
   const [universe, setUniverse] = useState<TramiteListItem[]>([]);
   const [total, setTotal] = useState(0);
@@ -83,6 +136,10 @@ export function TramitesListPage() {
   const [error, setError] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [f, setF] = useState<TramitesFilterState>(INITIAL_TRAMITES_FILTER);
+  // Filtros propios de los encabezados (columna Cliente y SLA — Prioridad y
+  // Estado reusan f.prioridades / f.estados: una sola fuente de verdad).
+  const [clienteQ, setClienteQ] = useState('');
+  const [slaFil, setSlaFil] = useState<SlaFiltro | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
 
   function update(patch: Partial<TramitesFilterState>) {
@@ -90,6 +147,8 @@ export function TramitesListPage() {
   }
   function clear() {
     setF(INITIAL_TRAMITES_FILTER);
+    setClienteQ('');
+    setSlaFil(null);
   }
   function toggleSegment(key: SegmentKey) {
     setF((prev) => ({ ...prev, segment: prev.segment === key ? null : key }));
@@ -146,7 +205,25 @@ export function TramitesListPage() {
   const counts = useMemo(() => countSegments(universe), [universe]);
   const servicioOpts = useMemo(() => servicioOptions(universe), [universe]);
   const filtered = useMemo(() => applyTramitesFilters(universe, f), [universe, f]);
-  const { sorted, sort, toggle: toggleSort } = useSort<TramiteListItem>(filtered, SORT_ACCESSORS, null);
+  // Filtros de encabezado (Cliente / SLA) aplicados sobre el filtrado global.
+  const visible = useMemo(() => {
+    const needle = clienteQ.trim().toLowerCase();
+    return filtered.filter((t) => {
+      if (needle) {
+        const hay = `${t.administracion_nombre ?? ''} ${t.solicitante_nombre ?? ''} ${t.consorcio_nombre ?? ''}`.toLowerCase();
+        if (!hay.includes(needle)) return false;
+      }
+      if (slaFil) {
+        const s = computeSla(t);
+        if (slaFil === 'sin_sla' && s.diasRestantes !== null) return false;
+        if (slaFil === 'vencido' && !s.vencido) return false;
+        if (slaFil === 'pronto' && (s.diasRestantes === null || s.vencido || s.diasRestantes > 3)) return false;
+        if (slaFil === 'en_plazo' && (s.diasRestantes === null || s.vencido || s.diasRestantes <= 3)) return false;
+      }
+      return true;
+    });
+  }, [filtered, clienteQ, slaFil]);
+  const { sorted, sort, toggle: toggleSort } = useSort<TramiteListItem>(visible, SORT_ACCESSORS, null);
 
   // Aviso (no silent cap, R19/§6): si el universo excede el tope, lo decimos.
   const universoTruncado = total > universe.length;
@@ -160,8 +237,13 @@ export function TramitesListPage() {
     if (f.prioridades.length) items.push({ label: 'Prioridad', value: f.prioridades.map((p) => TRAMITE_PRIORIDAD_LABEL[p]).join(', ') });
     if (f.categorias.length) items.push({ label: 'Categoría', value: f.categorias.map((c) => TRAMITE_CATEGORIA_LABEL[c]).join(', ') });
     if (f.search.trim()) items.push({ label: 'Búsqueda', value: f.search.trim() });
+    if (clienteQ.trim()) items.push({ label: 'Cliente', value: clienteQ.trim() });
+    if (slaFil) items.push({ label: 'SLA', value: SLA_FILTRO_LABEL[slaFil] });
     return items;
-  }, [f]);
+  }, [f, clienteQ, slaFil]);
+
+  // Filtros de columna incluidos: el empty state y "Limpiar" los conocen.
+  const hayFiltrosActivos = hasActiveTramitesFilters(f) || clienteQ.trim() !== '' || slaFil !== null;
 
   function formatFecha(s: string | null): string {
     if (!s) return '—';
@@ -270,9 +352,9 @@ export function TramitesListPage() {
           ) : sorted.length === 0 ? (
             <IllustratedEmpty
               illustration="lista"
-              title={hasActiveTramitesFilters(f) ? 'Sin trámites con estos filtros' : 'Sin trámites todavía'}
-              description={hasActiveTramitesFilters(f) ? <>Ajustá o limpiá los filtros para ver más.</> : <>Creá el primer trámite o esperá a que entren solicitudes.</>}
-              action={hasActiveTramitesFilters(f)
+              title={hayFiltrosActivos ? 'Sin trámites con estos filtros' : 'Sin trámites todavía'}
+              description={hayFiltrosActivos ? <>Ajustá o limpiá los filtros para ver más.</> : <>Creá el primer trámite o esperá a que entren solicitudes.</>}
+              action={hayFiltrosActivos
                 ? <Button variant="secondary" onClick={clear}>Limpiar filtros</Button>
                 : <Button onClick={() => setDrawerOpen(true)}><Plus size={15} /> Nuevo trámite</Button>}
             />
@@ -281,12 +363,94 @@ export function TramitesListPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-slate-100 bg-brand-zebra/40 text-left">
-                    <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-brand-muted">Trámite</th>
-                    <th className="px-4 py-3"><SortHeader label="Cliente" sortKey="cliente" sort={sort} onToggle={toggleSort} /></th>
-                    <th className="px-4 py-3"><SortHeader label="SLA" sortKey="sla" sort={sort} onToggle={toggleSort} /></th>
-                    <th className="px-4 py-3"><SortHeader label="Prioridad" sortKey="prioridad" sort={sort} onToggle={toggleSort} /></th>
-                    <th className="px-4 py-3"><SortHeader label="Estado" sortKey="estado" sort={sort} onToggle={toggleSort} /></th>
-                    <th className="px-4 py-3 w-10"></th>
+                    <th className="w-[34%] px-3 py-3 text-[11px] font-semibold uppercase tracking-wider text-brand-muted">Trámite</th>
+                    <th className="px-3 py-3">
+                      <SortHeader label="Cliente" sortKey="cliente" sort={sort} onToggle={toggleSort} />
+                      <HeaderFilter active={clienteQ.trim() !== ''}>
+                        <div className="flex items-center gap-2 rounded-lg border border-slate-200 px-2 py-1.5">
+                          <Search size={13} className="shrink-0 text-brand-muted" />
+                          <input
+                            autoFocus
+                            value={clienteQ}
+                            onChange={(e) => setClienteQ(e.target.value)}
+                            placeholder="Filtrar cliente…"
+                            className="w-full bg-transparent text-xs font-normal outline-none placeholder:text-brand-muted/60"
+                          />
+                          {clienteQ && (
+                            <button type="button" onClick={() => setClienteQ('')} aria-label="Limpiar" className="text-brand-muted hover:text-brand-ink">
+                              <X size={12} />
+                            </button>
+                          )}
+                        </div>
+                      </HeaderFilter>
+                    </th>
+                    <th className="px-3 py-3">
+                      <SortHeader label="SLA" sortKey="sla" sort={sort} onToggle={toggleSort} />
+                      <HeaderFilter active={slaFil !== null}>
+                        {(Object.keys(SLA_FILTRO_LABEL) as SlaFiltro[]).map((k) => (
+                          <button
+                            key={k}
+                            type="button"
+                            onClick={() => setSlaFil((prev) => (prev === k ? null : k))}
+                            className={cn(
+                              'block w-full rounded-lg px-2.5 py-1.5 text-left text-xs font-medium transition',
+                              slaFil === k ? 'bg-brand-cyan/10 text-brand-cyan' : 'text-brand-ink hover:bg-slate-50',
+                            )}
+                          >
+                            {SLA_FILTRO_LABEL[k]}
+                          </button>
+                        ))}
+                      </HeaderFilter>
+                    </th>
+                    <th className="px-3 py-3">
+                      <SortHeader label="Prioridad" sortKey="prioridad" sort={sort} onToggle={toggleSort} />
+                      <HeaderFilter active={f.prioridades.length > 0}>
+                        {(Object.keys(TRAMITE_PRIORIDAD_LABEL) as TramitePrioridad[]).map((p) => (
+                          <button
+                            key={p}
+                            type="button"
+                            onClick={() =>
+                              update({
+                                prioridades: f.prioridades.includes(p)
+                                  ? f.prioridades.filter((x) => x !== p)
+                                  : [...f.prioridades, p],
+                              })
+                            }
+                            className={cn(
+                              'block w-full rounded-lg px-2.5 py-1.5 text-left text-xs font-medium transition',
+                              f.prioridades.includes(p) ? 'bg-brand-cyan/10 text-brand-cyan' : 'text-brand-ink hover:bg-slate-50',
+                            )}
+                          >
+                            {TRAMITE_PRIORIDAD_LABEL[p]}
+                          </button>
+                        ))}
+                      </HeaderFilter>
+                    </th>
+                    <th className="px-3 py-3">
+                      <SortHeader label="Estado" sortKey="estado" sort={sort} onToggle={toggleSort} />
+                      <HeaderFilter active={f.estados.length > 0}>
+                        {(Object.keys(TRAMITE_ESTADO_LABEL) as TramiteEstado[]).map((e) => (
+                          <button
+                            key={e}
+                            type="button"
+                            onClick={() =>
+                              update({
+                                estados: f.estados.includes(e)
+                                  ? f.estados.filter((x) => x !== e)
+                                  : [...f.estados, e],
+                              })
+                            }
+                            className={cn(
+                              'block w-full rounded-lg px-2.5 py-1.5 text-left text-xs font-medium transition',
+                              f.estados.includes(e) ? 'bg-brand-cyan/10 text-brand-cyan' : 'text-brand-ink hover:bg-slate-50',
+                            )}
+                          >
+                            {TRAMITE_ESTADO_LABEL[e]}
+                          </button>
+                        ))}
+                      </HeaderFilter>
+                    </th>
+                    <th className="w-10 px-3 py-3"></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -299,9 +463,9 @@ export function TramitesListPage() {
                         className="group border-b border-slate-100 transition-colors hover:bg-brand-zebra/40 motion-safe:animate-fade-up"
                         style={{ animationDelay: `${Math.min(idx, 12) * 25}ms` }}
                       >
-                        <td className="px-4 py-3">
-                          <Link to={`/gerencia/tramites/${r.id}`} className="flex items-center gap-3 font-medium text-brand-ink transition group-hover:text-brand-cyan">
-                            <span className="grid h-9 w-9 place-items-center rounded-lg bg-brand-cyan-pale/40 text-brand-cyan transition group-hover:scale-105 group-hover:bg-brand-cyan group-hover:text-white">
+                        <td className="max-w-0 px-3 py-3">
+                          <Link to={`/gerencia/tramites/${r.id}`} className="flex items-center gap-2.5 font-medium text-brand-ink transition group-hover:text-brand-cyan">
+                            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-brand-cyan-pale/40 text-brand-cyan transition group-hover:scale-105 group-hover:bg-brand-cyan group-hover:text-white">
                               <Briefcase size={15} />
                             </span>
                             <span className="min-w-0">
@@ -309,7 +473,9 @@ export function TramitesListPage() {
                                 <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-mono uppercase tracking-wider text-brand-muted">{r.codigo}</span>{' '}
                                 <span className="text-[11px] text-brand-muted">{TRAMITE_CATEGORIA_LABEL[r.categoria as TramiteCategoria]}</span>
                               </span>
-                              <span className="block truncate">{r.titulo}</span>
+                              {/* Ellipsis + tooltip con el título completo (pedido Pablo 28/07:
+                                  no se suprime info — se lee entera al posar el mouse). */}
+                              <span className="block truncate" title={r.titulo}>{r.titulo}</span>
                               {r.comprobante_pendiente && (
                                 <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-semibold text-violet-700" title="Falta emitir el comprobante (ej. DDJJ)">
                                   <Receipt size={10} /> Comprobante pendiente
@@ -329,7 +495,7 @@ export function TramitesListPage() {
                             </span>
                           </Link>
                         </td>
-                        <td className="px-4 py-3 text-brand-muted">
+                        <td className="px-3 py-3 text-brand-muted">
                           {r.administracion_nombre ? (
                             <Link to={`/gerencia/clientes/${r.administracion_id}`} className="hover:text-brand-cyan">{r.administracion_nombre}</Link>
                           ) : (
@@ -337,7 +503,7 @@ export function TramitesListPage() {
                           )}
                           {r.consorcio_nombre && <span className="block text-xs">· {r.consorcio_nombre}</span>}
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-3 py-3">
                           {sla.diasRestantes === null ? (
                             <span className="text-xs text-brand-muted">{sla.diasAbierto}d abierto</span>
                           ) : sla.vencido ? (
@@ -348,17 +514,23 @@ export function TramitesListPage() {
                             </span>
                           )}
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-3 py-3">
                           <span className={cn('inline-block rounded-full border px-2 py-0.5 text-[11px] font-semibold', PRIORIDAD_BADGES[r.prioridad as TramitePrioridad])}>
                             {TRAMITE_PRIORIDAD_LABEL[r.prioridad as TramitePrioridad]}
                           </span>
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-3 py-3">
                           <div className="flex items-center gap-2">
                             <span className={cn('inline-block rounded-full border px-2 py-0.5 text-[11px] font-semibold', ESTADO_BADGES[r.estado as TramiteEstado])}>
                               {TRAMITE_ESTADO_LABEL[r.estado as TramiteEstado]}
                             </span>
-                            <span className="text-[10px] text-brand-muted">{formatDateTime(r.ultima_actividad_at)}</span>
+                            {/* Última actividad → relojito con tooltip (misma info, menos ruido). */}
+                            <span
+                              className="cursor-help text-brand-muted/60 transition hover:text-brand-cyan"
+                              title={`Última actividad: ${formatDateTime(r.ultima_actividad_at)}`}
+                            >
+                              <Clock size={13} />
+                            </span>
                           </div>
                           {nextEst && (
                             <button
@@ -371,7 +543,7 @@ export function TramitesListPage() {
                             </button>
                           )}
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-3 py-3">
                           <Link to={`/gerencia/tramites/${r.id}`} className="inline-flex text-brand-muted transition-transform group-hover:translate-x-1 group-hover:text-brand-cyan" aria-label="Abrir trámite">
                             <ChevronRight size={16} />
                           </Link>

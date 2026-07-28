@@ -164,6 +164,7 @@ export function TramitesFilterBar({
             selected={f.servicios}
             onChange={(v) => update({ servicios: v })}
             searchable
+            align="right"
           />
         )}
       </div>
