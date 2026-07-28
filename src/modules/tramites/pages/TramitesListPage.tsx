@@ -527,12 +527,13 @@ export function TramitesListPage() {
                             <span className={cn('inline-block rounded-full border px-2 py-0.5 text-[11px] font-semibold', ESTADO_BADGES[r.estado as TramiteEstado])}>
                               {TRAMITE_ESTADO_LABEL[r.estado as TramiteEstado]}
                             </span>
-                            {/* Última actividad → relojito con tooltip (misma info, menos ruido). */}
-                            <span
-                              className="cursor-help text-brand-muted/60 transition hover:text-brand-cyan"
-                              title={`Última actividad: ${formatDateTime(r.ultima_actividad_at)}`}
-                            >
+                            {/* Última actividad → relojito con tooltip propio: instantáneo
+                                (sin el delay del title nativo) y cursor normal (pedido Pablo). */}
+                            <span className="group/clock relative inline-flex text-brand-muted/60 transition hover:text-brand-cyan">
                               <Clock size={13} />
+                              <span className="pointer-events-none absolute bottom-full right-0 z-20 mb-1.5 hidden whitespace-nowrap rounded-lg bg-brand-ink px-2.5 py-1.5 text-[11px] font-medium text-white shadow-lg group-hover/clock:block">
+                                Última actividad: {formatDateTime(r.ultima_actividad_at)}
+                              </span>
                             </span>
                           </div>
                           {nextEst && (
