@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import { GraduationCap, Loader2, Search, UserPlus } from 'lucide-react';
-import { Button, Drawer, Field, Input } from '@/components/common';
+import { Button, Drawer, Field, Input, Select } from '@/components/common';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/cn';
 import {
+  ESTADO_PAGO_LABEL,
   asignarAlumno,
   listAdministracionesParaAsignar,
   type AdministracionParaAsignar,
+  type EstadoPagoMatricula,
 } from '@/services/api/campus';
 import { humanizeError } from '@/lib/errors';
 
@@ -30,6 +32,8 @@ export function AsignarAlumnoDrawer({
   const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState<AdministracionParaAsignar | null>(null);
   const [asignando, setAsignando] = useState(false);
+  // DGG-119: estado de pago obligatorio al matricular (gate del certificado).
+  const [estadoPago, setEstadoPago] = useState<EstadoPagoMatricula>('adeudado');
 
   useEffect(() => {
     if (!open) return;
@@ -65,6 +69,7 @@ export function AsignarAlumnoDrawer({
     const res = await asignarAlumno({
       cursoId,
       administracionId: selected.id,
+      estadoPago,
     });
     setAsignando(false);
     if (!res.ok) {
@@ -97,6 +102,20 @@ export function AsignarAlumnoDrawer({
       }
     >
       <div className="space-y-4">
+        <Field
+          label="Estado del pago del curso"
+          hint="«Pago completo» habilita la emisión automática del certificado; con cualquier otro estado, el certificado queda retenido y gerencia recibe el aviso."
+        >
+          <Select
+            value={estadoPago}
+            onChange={(e) => setEstadoPago(e.target.value as EstadoPagoMatricula)}
+          >
+            {(Object.keys(ESTADO_PAGO_LABEL) as EstadoPagoMatricula[]).map((k) => (
+              <option key={k} value={k}>{ESTADO_PAGO_LABEL[k]}</option>
+            ))}
+          </Select>
+        </Field>
+
         <Field label="Buscar administración cliente">
           <div className="relative">
             <Search

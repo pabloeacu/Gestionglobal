@@ -362,13 +362,30 @@ function construirOps(
           profileId = ensured.data.profileId;
           ctx.profileId = profileId;
         }
+        // DGG-119: el estado de pago se autocompleta con lo que ESTE wizard
+        // cobró: total (o gratuito) → pago completo; parcial → pago parcial;
+        // sin cobro → adeudado. Editable después en el tab Alumnos del curso.
+        const cobrado =
+          c.pagoModo === 'parcial' ? Number(c.montoCobrado) || 0
+          : c.pagoModo === 'total' ? total
+          : 0;
+        const estadoPago = c.gratuito
+          ? ('pago_completo' as const)
+          : c.omitir
+            ? ('adeudado' as const) // sin comprobante acá: lo fija gerencia después
+            : total === 0 || cobrado >= total - 0.009
+              ? ('pago_completo' as const)
+              : cobrado > 0
+                ? ('pago_parcial' as const)
+                : ('adeudado' as const);
         const r = await asignarAlumno({
           cursoId,
           administracionId: ctx.administracionId,
           profileId,
+          estadoPago,
         });
         if (!r.ok) throw new Error(humanizeError(r.error));
-        return 'Alumno matriculado';
+        return `Alumno matriculado (${estadoPago.replace('_', ' ')})`;
       },
     });
   }

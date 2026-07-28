@@ -2663,10 +2663,12 @@ export type Database = {
       curso_matriculas: {
         Row: {
           administracion_id: string | null
+          cert_retenido_avisado_at: string | null
           completada_at: string | null
           created_at: string
           curso_id: string
           estado: string
+          estado_pago: string
           fuente: string | null
           id: string
           inscripto_at: string
@@ -2678,10 +2680,12 @@ export type Database = {
         }
         Insert: {
           administracion_id?: string | null
+          cert_retenido_avisado_at?: string | null
           completada_at?: string | null
           created_at?: string
           curso_id: string
           estado?: string
+          estado_pago?: string
           fuente?: string | null
           id?: string
           inscripto_at?: string
@@ -2693,10 +2697,12 @@ export type Database = {
         }
         Update: {
           administracion_id?: string | null
+          cert_retenido_avisado_at?: string | null
           completada_at?: string | null
           created_at?: string
           curso_id?: string
           estado?: string
+          estado_pago?: string
           fuente?: string | null
           id?: string
           inscripto_at?: string
@@ -8681,9 +8687,21 @@ export type Database = {
         Args: {
           p_administracion_id: string
           p_curso_id: string
+          p_estado_pago?: string
           p_profile_id?: string
         }
         Returns: string
+      }
+      curso_certs_retenidos: {
+        Args: never
+        Returns: {
+          alumno_nombre: string
+          curso_id: string
+          curso_titulo: string
+          detectado_at: string
+          estado_pago: string
+          matricula_id: string
+        }[]
       }
       curso_desasignar_alumno: {
         Args: { p_matricula_id: string }
@@ -9710,6 +9728,10 @@ export type Database = {
       matricula_cumple_encuesta: {
         Args: { p_matricula_id: string }
         Returns: boolean
+      }
+      matricula_set_estado_pago: {
+        Args: { p_estado: string; p_matricula_id: string }
+        Returns: undefined
       }
       matricula_sync_encuesta: {
         Args: { p_matricula_id: string }

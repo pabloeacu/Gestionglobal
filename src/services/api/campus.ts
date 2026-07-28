@@ -1237,6 +1237,8 @@ export interface AsignarAlumnoInput {
   cursoId: string;
   administracionId: string;
   profileId?: string | null;
+  // DGG-119: estado de pago declarado al matricular (default BD: 'adeudado').
+  estadoPago?: EstadoPagoMatricula;
 }
 
 export async function asignarAlumno(
@@ -1246,6 +1248,7 @@ export async function asignarAlumno(
     p_curso_id: input.cursoId,
     p_administracion_id: input.administracionId,
     p_profile_id: (input.profileId ?? null) as unknown as string,
+    p_estado_pago: (input.estadoPago ?? null) as unknown as string,
   });
   if (error) return fail('CURSO_ASIGNAR', error.message, error);
   return ok(data as string);
@@ -2337,6 +2340,40 @@ export async function listCertificadosPorCurso(
     if (c.matricula_id) acc[c.matricula_id] = c;
   }
   return ok(acc);
+}
+
+// DGG-119 Chunk B: estado de pago de la matrícula.
+export type EstadoPagoMatricula = 'adeudado' | 'pago_parcial' | 'pago_completo';
+export const ESTADO_PAGO_LABEL: Record<EstadoPagoMatricula, string> = {
+  adeudado: 'Adeudado',
+  pago_parcial: 'Pago parcial',
+  pago_completo: 'Pago completo',
+};
+
+export async function setEstadoPagoMatricula(
+  matriculaId: string,
+  estado: EstadoPagoMatricula,
+): Promise<ApiResponse<null>> {
+  const { error } = await supabase.rpc('matricula_set_estado_pago', {
+    p_matricula_id: matriculaId,
+    p_estado: estado,
+  });
+  if (error) return fail('MATRICULA_ESTADO_PAGO', error.message, error);
+  return ok(null);
+}
+
+export interface CertRetenido {
+  matricula_id: string;
+  curso_id: string;
+  curso_titulo: string;
+  alumno_nombre: string | null;
+  estado_pago: string;
+  detectado_at: string;
+}
+export async function listCertsRetenidos(): Promise<ApiResponse<CertRetenido[]>> {
+  const { data, error } = await supabase.rpc('curso_certs_retenidos');
+  if (error) return fail('CERTS_RETENIDOS', error.message, error);
+  return ok((data ?? []) as CertRetenido[]);
 }
 
 // DGG-119: mejor nota aprobada por matrícula, para la vista de gerencia.

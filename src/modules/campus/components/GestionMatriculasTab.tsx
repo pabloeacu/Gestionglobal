@@ -20,6 +20,7 @@ import { toast } from '@/lib/toast';
 import { cn } from '@/lib/cn';
 import {
   CONDICION_TIPO_LABEL,
+  ESTADO_PAGO_LABEL,
   certificadoParaPdf,
   desasignarAlumno,
   emitirCertificado,
@@ -31,12 +32,14 @@ import {
   listMejoresNotas,
   cursoFinalizado,
   resolverEsquemaParaCert,
+  setEstadoPagoMatricula,
   tildarCondicion,
   verificacionUrl,
   type CertificadoRow,
   type CondicionTipo,
   type CursoDetalle,
   type EsquemaCertSnapshot,
+  type EstadoPagoMatricula,
   type MatriculaCondicionItem,
   type MatriculaListItem,
   type MejorNotaExamen,
@@ -142,6 +145,20 @@ export function GestionMatriculasTab({ data }: { data: CursoDetalle }) {
       return;
     }
     toast.success(`${m.alumno_nombre ?? 'Alumno'} desasignado del curso`);
+    void load();
+  }
+
+  // DGG-119: cambiar el estado de pago (la BD sincroniza la condición y el
+  // gate del certificado solos).
+  async function onEstadoPago(m: MatriculaListItem, estado: EstadoPagoMatricula) {
+    const res = await setEstadoPagoMatricula(m.id, estado);
+    if (!res.ok) {
+      toast.error('No se pudo cambiar el estado de pago', {
+        description: humanizeError(res.error),
+      });
+      return;
+    }
+    toast.success(`Estado de pago: ${ESTADO_PAGO_LABEL[estado]}`);
     void load();
   }
 
@@ -368,6 +385,26 @@ export function GestionMatriculasTab({ data }: { data: CursoDetalle }) {
                         {m.administracion_nombre ?? 'Sin administración'} · vigencia{' '}
                         {fmtFechaSoloDia(m.vigencia_hasta)}
                       </p>
+                      {/* DGG-119: estado de pago editable — 'Pago completo'
+                          habilita el certificado; el resto lo retiene. */}
+                      <label className="mt-1.5 inline-flex items-center gap-1.5 text-[11px] text-brand-muted">
+                        <Banknote size={12} className={m.estado_pago === 'pago_completo' ? 'text-emerald-600' : 'text-amber-500'} />
+                        Pago:
+                        <select
+                          value={m.estado_pago}
+                          onChange={(e) => void onEstadoPago(m, e.target.value as EstadoPagoMatricula)}
+                          className={cn(
+                            'rounded-md border px-1.5 py-0.5 text-[11px] font-semibold outline-none transition',
+                            m.estado_pago === 'pago_completo'
+                              ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                              : 'border-amber-200 bg-amber-50 text-amber-700',
+                          )}
+                        >
+                          {(Object.keys(ESTADO_PAGO_LABEL) as EstadoPagoMatricula[]).map((k) => (
+                            <option key={k} value={k}>{ESTADO_PAGO_LABEL[k]}</option>
+                          ))}
+                        </select>
+                      </label>
                     </div>
                     <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
                       {/* Chunk CONST · constancia de inscripción a demanda */}
