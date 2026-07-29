@@ -420,6 +420,11 @@ export function FinanzasDashboardPage() {
                       <div className="text-brand-ink">{m.descripcion ?? <span className="italic text-brand-muted">Sin descripción</span>}</div>
                       <div className="flex flex-wrap items-center gap-1 mt-0.5">
                         {m.categoria_nombre && <span className="text-[10px] text-brand-muted">{m.categoria_nombre}</span>}
+                        {/* Pedido Pablo 29/07: el Nº de comprobante de la transferencia,
+                            chiquito en la 2ª línea (la RPC ya trae m.referencia). */}
+                        {m.referencia && (
+                          <span className="text-[10px] text-brand-muted">— Transf N° {m.referencia}</span>
+                        )}
                         {m.administracion_nombre && <span className="text-[10px] text-brand-cyan">· {m.administracion_nombre}</span>}
                         <EstadoBadge estado={m.estado} revertido={!!m.revertido_at} />
                         {/* JL-W8-3 · historial: este ingreso entró sin identificar y fue reconocido */}
