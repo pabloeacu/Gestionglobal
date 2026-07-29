@@ -24,6 +24,7 @@ import {
 import { ProgresoBar } from '../components/ProgresoBar';
 import { humanizeError } from '@/lib/errors';
 import { EncuentroHoyBanner } from '@/modules/campus/components/EncuentroHoyBanner';
+import { MisCertificadosSection } from '@/modules/campus/components/MisCertificadosSection';
 
 // DGG-82: leyenda de felicitaciones en el card cuando el alumno terminó el
 // curso y conserva acceso (ventana post-finalización). dias = vigencia − hoy.
@@ -249,6 +250,10 @@ export function MisCursosPage() {
           )}
         </div>
       </section>
+
+      {/* DGG-121: certificados del alumno, PERMANENTES — visibles aunque la
+          matrícula esté vencida y el curso ya no aparezca arriba. */}
+      <MisCertificadosSection />
     </div>
   );
 }

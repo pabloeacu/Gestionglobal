@@ -2428,6 +2428,29 @@ export async function marcarCertDescargadoAlumno(certId: string): Promise<void> 
   if (error) console.warn('cert_marcar_descarga_alumno falló:', error.message);
 }
 
+// DGG-121 · Los certificados de CURSO propios del alumno, para la sección
+// permanente "Mis certificados" (MisCursosPage). La RLS ya scopea por
+// alumno_profile_id, e INDEPENDIENTE del estado de la matrícula y de la
+// visibilidad del curso: el título sale del payload_snapshot (congelado al
+// emitir), así el alumno con acceso vencido puede re-descargar su diploma.
+export async function listMisCertificados(): Promise<ApiResponse<CertificadoRow[]>> {
+  // Defensa en profundidad: además de la RLS, filtramos por el uid propio —
+  // la policy de staff tiene SELECT amplio y esta lista es SIEMPRE personal
+  // (si un staff llegara a montar la página, no debe ver certs ajenos).
+  const { data: u } = await supabase.auth.getUser();
+  const uid = u.user?.id;
+  if (!uid) return ok([]);
+  const { data, error } = await supabase
+    .from('certificados')
+    .select('*')
+    .eq('alumno_profile_id', uid)
+    .not('matricula_id', 'is', null)
+    .is('revocado_at', null)
+    .order('emitido_at', { ascending: false });
+  if (error) return fail('MIS_CERTS', error.message, error);
+  return ok((data ?? []) as CertificadoRow[]);
+}
+
 // Emisión manual desde gerencia (idempotente; el motor también la dispara).
 export async function emitirCertificado(
   matriculaId: string,
