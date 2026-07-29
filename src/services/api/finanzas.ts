@@ -116,6 +116,66 @@ export async function listCategoriasFinanzas(): Promise<ApiResponse<CategoriaFin
   }
 }
 
+// DGG-120 · Catálogo "Proveedor frecuente" (alta de egresos). Meramente
+// informativo: el nombre elegido solo se concatena a la descripción del
+// movimiento — no hay FK ni columna nueva en el circuito contable.
+export interface ProveedorFrecuenteRow {
+  id: string;
+  nombre: string;
+}
+
+export async function listProveedoresFrecuentes(): Promise<ApiResponse<ProveedorFrecuenteRow[]>> {
+  try {
+    const { data, error } = await supabase
+      .from('proveedores_frecuentes')
+      .select('id, nombre')
+      .eq('activo', true)
+      .order('nombre', { ascending: true });
+    if (error) throw error;
+    return ok(data ?? []);
+  } catch (e) {
+    const err = toApiError(e);
+    return fail(err.code, err.message, err.details);
+  }
+}
+
+export async function crearProveedorFrecuente(
+  nombre: string,
+): Promise<ApiResponse<ProveedorFrecuenteRow>> {
+  try {
+    const limpio = nombre.trim();
+    if (!limpio) return fail('PROV_VACIO', 'El nombre no puede estar vacío');
+    const { data, error } = await supabase
+      .from('proveedores_frecuentes')
+      .insert({ nombre: limpio })
+      .select('id, nombre')
+      .single();
+    if (error) {
+      // Ya existe (índice único case/trim-insensitive) → devolver el existente.
+      // §6: escapar metacaracteres de LIKE y confirmar igualdad exacta en JS —
+      // un nombre con % o _ haría matchear al proveedor equivocado.
+      if (error.code === '23505') {
+        const patron = limpio.replace(/[\\%_]/g, (m) => `\\${m}`);
+        const { data: ex, error: e2 } = await supabase
+          .from('proveedores_frecuentes')
+          .select('id, nombre')
+          .ilike('nombre', patron)
+          .limit(5);
+        if (e2) throw e2;
+        const exacto = (ex ?? []).find(
+          (p) => p.nombre.trim().toLowerCase() === limpio.toLowerCase(),
+        );
+        if (exacto) return ok(exacto);
+      }
+      throw error;
+    }
+    return ok(data);
+  } catch (e) {
+    const err = toApiError(e);
+    return fail(err.code, err.message, err.details);
+  }
+}
+
 export async function getDashboardKpis(): Promise<ApiResponse<DashboardKpis>> {
   try {
     const { data, error } = await supabase.rpc('fz_dashboard_kpis');

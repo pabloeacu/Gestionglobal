@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Paperclip, X } from 'lucide-react';
+import { Paperclip, Plus, X } from 'lucide-react';
 import { Button, Field, Input, Modal, Select, Textarea } from '@/components/common';
 import { toast } from '@/lib/toast';
 import {
   crearMovimientoManual, subirAdjuntoMovimiento, listCategoriasFinanzas, buscarAdministraciones,
-  type CajaConSaldoRow, type CategoriaFinanzaRow,
+  listProveedoresFrecuentes, crearProveedorFrecuente,
+  type CajaConSaldoRow, type CategoriaFinanzaRow, type ProveedorFrecuenteRow,
 } from '@/services/api/finanzas';
 import { listPartnersActivos, type PartnerOpcion } from '@/services/api/partners';
 import { cn } from '@/lib/cn';
@@ -32,6 +33,13 @@ export function NuevoMovimientoModal({ cajas, onClose, onCreated }: Props) {
   const [partners, setPartners] = useState<PartnerOpcion[]>([]);
   const [partnerId, setPartnerId] = useState<string>('');
   const [adjuntos, setAdjuntos] = useState<File[]>([]);
+  // DGG-120 · Proveedor frecuente (solo egresos): catálogo informativo cuyo
+  // nombre se concatena al inicio de la descripción al guardar. Nada contable.
+  const [proveedores, setProveedores] = useState<ProveedorFrecuenteRow[]>([]);
+  const [provSel, setProvSel] = useState<ProveedorFrecuenteRow | null>(null);
+  const [provSearch, setProvSearch] = useState('');
+  const [provOpen, setProvOpen] = useState(false);
+  const [provCreating, setProvCreating] = useState(false);
   // JL-W8-3 · ingreso bancario de origen desconocido: entra a la caja como
   // "pendiente de identificar" (suma al saldo, no toca cta.cte de ningún
   // cliente) hasta que la gerencia lo reconozca.
@@ -42,6 +50,13 @@ export function NuevoMovimientoModal({ cajas, onClose, onCreated }: Props) {
   // reaparecía tildado al volver a ingreso — un pendiente por accidente.
   useEffect(() => {
     if (tipo !== 'ingreso') setSinIdentificar(false);
+    // Misma lección para el proveedor: oculto en ingreso NUNCA debe persistir
+    // seleccionado (concatenaría en un ingreso sin que se vea).
+    if (tipo !== 'egreso') {
+      setProvSel(null);
+      setProvSearch('');
+      setProvOpen(false);
+    }
   }, [tipo]);
 
   useEffect(() => {
@@ -50,6 +65,8 @@ export function NuevoMovimientoModal({ cajas, onClose, onCreated }: Props) {
       if (r.ok) setCategorias(r.data);
       const p = await listPartnersActivos();
       if (p.ok) setPartners(p.data);
+      const pf = await listProveedoresFrecuentes();
+      if (pf.ok) setProveedores(pf.data);
     })();
   }, []);
 
@@ -67,6 +84,33 @@ export function NuevoMovimientoModal({ cajas, onClose, onCreated }: Props) {
 
   const categoriasFiltradas = categorias.filter((c) => c.tipo === tipo || c.tipo === 'ambos');
 
+  const provFiltrados = provSearch.trim()
+    ? proveedores.filter((p) => p.nombre.toLowerCase().includes(provSearch.trim().toLowerCase()))
+    : proveedores;
+  const provMatchExacto = proveedores.some(
+    (p) => p.nombre.trim().toLowerCase() === provSearch.trim().toLowerCase(),
+  );
+
+  async function onAgregarProveedor() {
+    const nombre = provSearch.trim();
+    if (!nombre || provCreating) return;
+    setProvCreating(true);
+    const r = await crearProveedorFrecuente(nombre);
+    setProvCreating(false);
+    if (!r.ok) {
+      toast.error('No pudimos agregar el proveedor', { description: humanizeError(r.error) });
+      return;
+    }
+    setProveedores((prev) =>
+      prev.some((p) => p.id === r.data.id)
+        ? prev
+        : [...prev, r.data].sort((a, b) => a.nombre.localeCompare(b.nombre)),
+    );
+    setProvSel(r.data);
+    setProvSearch('');
+    setProvOpen(false);
+  }
+
   async function onSubmit() {
     const m = Number(monto.replace(',', '.'));
     if (!cajaId) { toast.error('Elegí una caja'); return; }
@@ -74,13 +118,17 @@ export function NuevoMovimientoModal({ cajas, onClose, onCreated }: Props) {
     if (!fecha) { toast.error('Falta la fecha'); return; }
     setCreating(true);
     const esSinIdentificar = tipo === 'ingreso' && sinIdentificar;
+    // DGG-120 · el proveedor elegido solo antecede la descripción: "ARCA - Pago…".
+    const provNombre = tipo === 'egreso' && provSel ? provSel.nombre.trim() : '';
+    const descBase = descripcion.trim();
+    const descFinal = provNombre ? (descBase ? `${provNombre} - ${descBase}` : provNombre) : descBase;
     const res = await crearMovimientoManual({
       cajaId,
       tipo,
       monto: m,
       fecha,
       categoriaId: categoriaId || null,
-      descripcion: descripcion.trim() || null,
+      descripcion: descFinal || null,
       referencia: referencia.trim() || null,
       // sin identificar ⇒ sin cliente ni partner (guardas de la RPC · mig 0360)
       administracionId: esSinIdentificar ? null : adminId,
@@ -206,6 +254,70 @@ export function NuevoMovimientoModal({ cajas, onClose, onCreated }: Props) {
             ))}
           </Select>
         </Field>
+
+        {/* DGG-120 · Proveedor frecuente (solo egresos): comodidad de carga.
+            El nombre elegido se antepone a la descripción al guardar. */}
+        {tipo === 'egreso' && (
+          <Field
+            label="Proveedor frecuente (opcional)"
+            hint="Se agrega al inicio de la descripción, ej. «ARCA - Pago de monotributo»."
+          >
+            {provSel ? (
+              <div className="flex items-center gap-2 rounded-lg border border-brand-cyan/30 bg-brand-cyan/5 p-2 text-sm">
+                <span className="flex-1 text-brand-ink">{provSel.nombre}</span>
+                <button
+                  type="button"
+                  onClick={() => { setProvSel(null); setProvSearch(''); }}
+                  className="text-xs text-brand-muted hover:text-brand-ink"
+                >
+                  Quitar
+                </button>
+              </div>
+            ) : (
+              <div className="relative">
+                <Input
+                  value={provSearch}
+                  onChange={(e) => { setProvSearch(e.target.value); setProvOpen(true); }}
+                  onFocus={() => setProvOpen(true)}
+                  onBlur={() => setTimeout(() => setProvOpen(false), 150)}
+                  placeholder="Buscar o elegir proveedor…"
+                />
+                {provOpen && (
+                  <ul className="absolute z-20 mt-1 max-h-44 w-full overflow-auto rounded-lg border border-slate-200 bg-white shadow-lg">
+                    {provFiltrados.map((p) => (
+                      <li key={p.id}>
+                        <button
+                          type="button"
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => { setProvSel(p); setProvSearch(''); setProvOpen(false); }}
+                          className="block w-full px-3 py-1.5 text-left text-sm hover:bg-slate-50"
+                        >
+                          {p.nombre}
+                        </button>
+                      </li>
+                    ))}
+                    {provFiltrados.length === 0 && !provSearch.trim() && (
+                      <li className="px-3 py-1.5 text-sm text-brand-muted">Sin proveedores cargados</li>
+                    )}
+                    {provSearch.trim() !== '' && !provMatchExacto && (
+                      <li className="border-t border-slate-100">
+                        <button
+                          type="button"
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => void onAgregarProveedor()}
+                          disabled={provCreating}
+                          className="flex w-full items-center gap-1.5 px-3 py-1.5 text-left text-sm font-medium text-brand-cyan hover:bg-brand-cyan/5 disabled:opacity-50"
+                        >
+                          <Plus size={13} /> Agregar «{provSearch.trim()}»
+                        </button>
+                      </li>
+                    )}
+                  </ul>
+                )}
+              </div>
+            )}
+          </Field>
+        )}
 
         <Field label="Descripción">
           <Textarea

@@ -4566,3 +4566,13 @@ bienvenida a todo el que se registra en la plataforma. Aprobado tras 3 iteracion
 - E2e real (6 mails a alias pabloeacu+guiaN@gmail.com, luego purgados): con adjunto ✓,
   regresión sin adjunto ✓, adjuntos rotos/bucket prohibido → mail sale igual ✓, flujo
   completo por la edge ✓, rama gestoría {path} ✓, marca de omisión persistente ✓.
+
+## DGG-119 · Campus: nota visible + registro del certificado + estado_pago en matrículas (2026-07-27/28, retroactiva)
+- Documentación retroactiva (implementado y cerrado en commits 1e210dd/012fac5/7ad04e6/1f80fb5): (A) nota de examen visible en Alumnos asignados + fecha/mail/señal de descarga del certificado (`descargado_alumno_at`); (B) condición de pago simplificada por decisión de Pablo — campo `estado_pago` en `curso_matriculas` (adeudado/pago_parcial/pago_completo) seteado por gerencia o autocompletado por el wizard, que gatea la emisión del certificado con aviso de retención a gerencia (diseño elegido sobre el link automático a comprobantes por ser objetivamente más seguro: no toca el circuito contable vivo).
+- Derivados: E-GG-161 (cron de emisión mudo desde 0227), E-GG-162 (checklist sin sembrar al matricular — gate salteable, cazado por la §6 antes de tener víctima).
+
+## DGG-120 · "Proveedor frecuente" en el alta manual de egresos (2026-07-29)
+- **Pedido de Pablo:** combo práctico en Nuevo movimiento (solo egresos) para elegir un proveedor de una lista y no tipearlo; selección única + búsqueda + "Agregar nuevo". Restricción dura: NADA contable se toca.
+- **Diseño:** tabla independiente `proveedores_frecuentes` (mig 0394: RLS staff-only SELECT/INSERT, índice único `lower(btrim(nombre))`, REVOKE del ACL default + GRANT mínimo, seed de 41 proveedores provisto por Pablo). El nombre elegido SOLO se concatena al inicio de la descripción al guardar ("ARCA - Pago de monotributo"; sin descripción → "ARCA"). `crearMovimientoManual` y su RPC reciben exactamente los mismos campos de siempre — cero columnas/FKs nuevas en `movimientos`.
+- **Blindajes §6:** lección E-GG-142 aplicada (al salir de egreso se limpia la selección + guard `tipo==='egreso'` en submit — doble defensa); fallback de duplicado 23505 con LIKE escapado + igualdad exacta en JS; hallazgo de auditoría cerrado: el default ACL del schema public regala ALL a anon/authenticated en cada tabla nueva → REVOKE explícito (sweep del resto de las tablas propuesto como tarea aparte — `pagos_reportados` tiene la misma anomalía pre-existente).
+- **Verificado:** e2e BD con rollback (staff ve 41 / no-staff ve 0 / dedupe "arca " rebota), auditoría adversarial 2 agentes, barrido de consumidores downstream (ninguno parsea descripciones de movimientos), live QA e2e en prod.

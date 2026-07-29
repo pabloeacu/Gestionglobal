@@ -5577,6 +5577,27 @@ export type Database = {
           },
         ]
       }
+      proveedores_frecuentes: {
+        Row: {
+          activo: boolean
+          created_at: string
+          id: string
+          nombre: string
+        }
+        Insert: {
+          activo?: boolean
+          created_at?: string
+          id?: string
+          nombre: string
+        }
+        Update: {
+          activo?: boolean
+          created_at?: string
+          id?: string
+          nombre?: string
+        }
+        Relationships: []
+      }
       push_notifications_queue: {
         Row: {
           click_url: string | null
