@@ -116,17 +116,26 @@ export function WizardActivacionV2({ open, onClose, solicitud, onActivated }: Pr
       state.docOutcome === 'descarte';
     if (!esTerminal && !flags.yaTieneTramite) {
       setVerificandoDup(true);
-      let dup;
+      // E-GG-164 · Gate blando fail-open: si la consulta se cuelga (red stalled /
+      // auth-lock, familia E-GG-155) o rechaza, seguimos sin aviso a los 8s. Sin
+      // esto, verificandoDup quedaba true para siempre y deshabilitaba el único
+      // botón de avance de TODOS los pasos (reporte JL 2026-07-28).
+      let dup: Awaited<ReturnType<typeof buscarTramiteDuplicado>> | null = null;
       try {
-        dup = await buscarTramiteDuplicado({
-          servicioId: solicitud.servicio_solicitado_id,
-          periodo: state.periodo,
-          email: solicitud.solicitante_email,
-        });
+        dup = await Promise.race([
+          buscarTramiteDuplicado({
+            servicioId: solicitud.servicio_solicitado_id,
+            periodo: state.periodo,
+            email: solicitud.solicitante_email,
+          }),
+          new Promise<null>((res) => setTimeout(() => res(null), 8000)),
+        ]);
+      } catch {
+        dup = null;
       } finally {
         setVerificandoDup(false);
       }
-      if (dup.ok && dup.data) {
+      if (dup?.ok && dup.data) {
         const seguir = await confirm({
           title: 'Posible inscripción duplicada',
           message: (
@@ -197,18 +206,22 @@ export function WizardActivacionV2({ open, onClose, solicitud, onActivated }: Pr
             )}
 
             <div className="rounded-xl border border-slate-200 bg-brand-zebra/30 p-3">
-              <Stepper steps={steps} current={step} onJump={setStep} compact />
+              {/* E-GG-164 (auditoría §6): mientras corre el chequeo de duplicado NO
+                  se puede navegar (Atrás/dots/Cancelar) — si no, el goNext() diferido
+                  del fail-open lanzaría el ProcesadorFinal desde otro paso, con el
+                  estado a medio editar. */}
+              <Stepper steps={steps} current={step} onJump={verificandoDup ? undefined : setStep} compact />
             </div>
 
             {renderPaso()}
 
             <div className="flex items-center justify-between">
-              <Button variant="ghost" onClick={onClose}>
+              <Button variant="ghost" onClick={onClose} disabled={verificandoDup}>
                 Cancelar
               </Button>
               <div className="flex gap-2">
                 {step > 0 && (
-                  <Button variant="ghost" onClick={goBack}>
+                  <Button variant="ghost" onClick={goBack} disabled={verificandoDup}>
                     <ArrowLeft size={14} /> Atrás
                   </Button>
                 )}

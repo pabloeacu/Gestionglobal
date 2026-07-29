@@ -385,6 +385,28 @@ function SelloHolografico({ tema, logoUrl }: { tema: Tema; logoUrl: string }) {
 // ============================================================================
 // Componente principal
 // ============================================================================
+
+// E-GG-166 · Tamaño del nombre del alumno por ancho ESTIMADO determinístico.
+// No medimos con la font real: el raster del PDF cae a fuentes fallback
+// (E-GG-95 / skipFonts) con métricas distintas, así que una medición DOM acá
+// no vale en el PDF. Factores calibrados empíricamente sobre Georgia italic
+// 600 (harness fix-audit): mayúscula ~0.75em, minúscula ~0.52em, espacio
+// ~0.35em; margen 10% y piso 30px. La fórmula previa por cantidad de chars
+// truncaba nombres en MAYÚSCULAS (glifos ~40% más anchos). El ellipsis del
+// div queda como guard de último recurso para nombres absurdos (60+ chars).
+function nombreFontSize(nombre: string): number {
+  let units = 0;
+  for (const ch of nombre) {
+    if (ch === ' ') units += 0.35;
+    else if (ch >= '0' && ch <= '9') units += 0.6;
+    else if (ch !== ch.toLowerCase() && ch === ch.toUpperCase()) units += 0.75;
+    else units += 0.52;
+  }
+  // 863 = ancho útil del div del nombre: CERT_W 1123 − 90·2 (padding del
+  // lienzo) − 40·2 (padding propio del div).
+  return Math.max(30, Math.min(54, Math.floor(863 / (units * 1.1))));
+}
+
 export interface CertificadoPremiumProps {
   cert: CertificadoParaPdf;
   qrDataUrl: string | null;
@@ -545,7 +567,7 @@ export const CertificadoPremium = forwardRef<HTMLDivElement, CertificadoPremiumP
             style={{
               fontFamily: SCRIPT,
               fontStyle: 'italic',
-              fontSize: 54,
+              fontSize: nombreFontSize(cert.alumno_nombre),
               fontWeight: 600,
               color: tema.ink,
               lineHeight: 1.1,
@@ -556,6 +578,12 @@ export const CertificadoPremium = forwardRef<HTMLDivElement, CertificadoPremiumP
               whiteSpace: 'nowrap',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
+              // E-GG-166: overflow:hidden anula el min-height automático del ítem
+              // flex → cuando el título del curso envuelve a 2+ líneas, ESTE div era
+              // el único que se achicaba y los glifos salían cortados a la mitad
+              // (reporte JL, cert GG-FORM-2026-859AD8). flexShrink:0 lo blinda: el
+              // excedente se derrama al padding-bottom (300px de aire), no al nombre.
+              flexShrink: 0,
               letterSpacing: 0.5,
               width: '100%',
               boxSizing: 'border-box',

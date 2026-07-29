@@ -77,6 +77,12 @@ export function SabanaPartner({
     return { ing, egr, saldo };
   }, [lineas]);
 
+  // E-GG-122 / pedido JL 2026-07-28: presentación newest-first (más nuevo arriba),
+  // igual que el extracto de cta.cte. La RPC partner_sabana DEBE seguir devolviendo
+  // ASC (el saldo corrido por fila se computa con window function en ese orden y los
+  // KPIs leen lineas[length-1]); acá sólo se invierte la COPIA para pintar/exportar.
+  const displayLineas = useMemo(() => [...lineas].reverse(), [lineas]);
+
   const periodoLabel = useMemo(() => {
     if (desde && hasta) return `${formatDateShort(desde)} a ${formatDateShort(hasta)}`;
     if (desde) return `desde ${formatDateShort(desde)}`;
@@ -117,7 +123,7 @@ export function SabanaPartner({
         { key: 'saldo_participacion', label: 'Saldo', align: 'right', width: '11%',
           format: (r) => fmtMoneda(r.saldo_participacion) },
       ],
-      rows: lineas,
+      rows: displayLineas,
     });
   }
 
@@ -141,7 +147,7 @@ export function SabanaPartner({
         { key: 'participacion_monto', label: 'Participación', width: 15, value: (r) => signed(r) },
         { key: 'saldo_participacion', label: 'Saldo', width: 15, value: (r) => Number(r.saldo_participacion) },
       ],
-      rows: lineas,
+      rows: displayLineas,
     });
   }
 
@@ -205,7 +211,7 @@ export function SabanaPartner({
               </tr>
             </thead>
             <tbody>
-              {lineas.map((l, idx) => (
+              {displayLineas.map((l, idx) => (
                 <tr key={idx} className="border-b border-slate-50 hover:bg-brand-zebra/30">
                   <td className="px-3 py-2.5 tabular text-xs text-brand-muted whitespace-nowrap">
                     {formatDateShort(l.fecha)}
