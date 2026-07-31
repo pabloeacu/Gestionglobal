@@ -147,6 +147,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           cuit: string | null
+          cuit_titular_arca: string | null
           descuento_porc: number
           direccion: string | null
           domicilio_fiscal: string | null
@@ -188,6 +189,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           cuit?: string | null
+          cuit_titular_arca?: string | null
           descuento_porc?: number
           direccion?: string | null
           domicilio_fiscal?: string | null
@@ -229,6 +231,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           cuit?: string | null
+          cuit_titular_arca?: string | null
           descuento_porc?: number
           direccion?: string | null
           domicilio_fiscal?: string | null

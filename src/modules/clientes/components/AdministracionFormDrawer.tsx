@@ -59,6 +59,9 @@ type FormState = {
   madre_apellido_nombre: string;
   legajo_rpac: string;
   clave_fiscal_arca: string;
+  // DGG-123 · PJ: CUIT personal del titular vinculado en ARCA (con la clave
+  // fiscal, es el par con el que la gestoría entra al organismo).
+  cuit_titular_arca: string;
   origen: string;
   convenio: string;
   observaciones: string;
@@ -91,6 +94,7 @@ const EMPTY: FormState = {
   madre_apellido_nombre: '',
   legajo_rpac: '',
   clave_fiscal_arca: '',
+  cuit_titular_arca: '',
   origen: '',
   convenio: '',
   observaciones: '',
@@ -123,6 +127,7 @@ function rowToForm(r: AdministracionRow): FormState {
     madre_apellido_nombre: (r as { madre_apellido_nombre?: string | null }).madre_apellido_nombre ?? '',
     legajo_rpac: (r as { legajo_rpac?: string | null }).legajo_rpac ?? '',
     clave_fiscal_arca: (r as { clave_fiscal_arca?: string | null }).clave_fiscal_arca ?? '',
+    cuit_titular_arca: (r as { cuit_titular_arca?: string | null }).cuit_titular_arca ?? '',
     origen: r.origen ?? '',
     convenio: r.convenio ?? '',
     observaciones: r.observaciones ?? '',
@@ -225,6 +230,7 @@ export function AdministracionFormDrawer({
       madre_apellido_nombre: form.madre_apellido_nombre.trim() || null,
       legajo_rpac: form.legajo_rpac.trim() || null,
       clave_fiscal_arca: form.clave_fiscal_arca.trim() || null,
+      cuit_titular_arca: form.cuit_titular_arca.trim() || null,
       origen: form.origen.trim() || null,
       convenio: form.convenio.trim() || null,
       estado: form.estado,
@@ -646,6 +652,16 @@ export function AdministracionFormDrawer({
                     value={form.clave_fiscal_arca}
                     onChange={(e) => setField('clave_fiscal_arca', e.target.value)}
                     placeholder="Clave fiscal nivel 3"
+                  />
+                </Field>
+                <Field
+                  label="CUIT del titular en ARCA"
+                  hint="Personas jurídicas: el CUIT personal del titular vinculado (20/23/24/27). Con la clave fiscal, es el par de acceso al organismo."
+                >
+                  <Input
+                    value={form.cuit_titular_arca}
+                    onChange={(e) => setField('cuit_titular_arca', e.target.value)}
+                    placeholder="20-XXXXXXXX-X"
                   />
                 </Field>
               </div>

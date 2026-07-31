@@ -1031,6 +1031,16 @@ function TabRegistral({ admin }: { admin: AdministracionRow }) {
           <DataRow label="Clave Fiscal ARCA">
             <ClaveFiscalReveal valor={(admin as { clave_fiscal_arca?: string | null }).clave_fiscal_arca ?? null} />
           </DataRow>
+          {/* DGG-123 (pedido Pablo): en personas jurídicas, el CUIT personal del
+              titular vinculado en ARCA — junto con la clave, es lo que usa la
+              gestoría para entrar al organismo. */}
+          <DataRow label="CUIT del titular en ARCA">
+            <span>
+              {(admin as { cuit_titular_arca?: string | null }).cuit_titular_arca ?? (
+                <span className="text-brand-muted">—</span>
+              )}
+            </span>
+          </DataRow>
           <DataRow label="Fecha de matriculación">
             <span>{admin.matricula_rpac_fecha ?? <span className="text-brand-muted">—</span>}</span>
           </DataRow>

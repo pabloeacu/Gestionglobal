@@ -54,6 +54,16 @@ export function esCuitValido(v: string | null | undefined): boolean {
 }
 
 /**
+ * DGG-123 · Tipo de persona por prefijo de CUIT: 30/33/34 = persona jurídica.
+ * Los CUITs "nunca mienten" (doctrina de identidad); con CUIT vacío o inválido
+ * devuelve false (se asume persona física — el caso abrumadoramente común).
+ */
+export function esCuitJuridico(cuit?: string | null): boolean {
+  const digits = String(cuit ?? '').replace(/\D/g, '');
+  return digits.length === 11 && ['30', '33', '34'].includes(digits.slice(0, 2));
+}
+
+/**
  * Heurística para detectar si un campo de formulario dinámico es un CUIT/CUIL,
  * por su `name` o `label` (los formularios existentes lo definen como text `name:'cuit'`
  * con label 'CUIT/CUIL'; también captura variantes 'cuil', 'cuit_cuil', etc.).

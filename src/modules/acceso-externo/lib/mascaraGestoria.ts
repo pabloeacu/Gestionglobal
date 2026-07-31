@@ -152,6 +152,11 @@ export function construirMascaraGestoria(
             tomar(datos, usadas, ['cuit_razon_social', 'cuit_persona_juridica', 'cuit']),
           ),
           campo('C.U.I.T. TITULAR EN ARCA', tomar(datos, usadas, ['cuit_titular_arca'])),
+          // Pedido Pablo (cierre DGG-123): matrícula/legajo al bloque principal.
+          // Solo renovación/certificado los traen — en inscripción no existen
+          // y `campo()` los omite solo.
+          campo('MATRÍCULA RPAC', tomar(datos, usadas, ['matricula_rpac', 'matricula'])),
+          campo('LEGAJO RPAC', tomar(datos, usadas, ['legajo_rpac'])),
           campo(
             'CLAVE ARCA DEL TITULAR',
             tomar(datos, usadas, ['clave_arca_titular', 'clave_fiscal_arca']),
@@ -175,6 +180,10 @@ export function construirMascaraGestoria(
           campo('TELÉFONO', tomar(datos, usadas, ['celular', 'telefono'])),
           campo('MAIL', tomar(datos, usadas, ['email'])),
           campo('C.U.I.T.', tomar(datos, usadas, ['cuit'])),
+          // Pedido Pablo (cierre DGG-123): matrícula/legajo al bloque principal
+          // (renovación/certificado; en inscripción no existen y se omiten).
+          campo('MATRÍCULA RPAC', tomar(datos, usadas, ['matricula_rpac', 'matricula'])),
+          campo('LEGAJO RPAC', tomar(datos, usadas, ['legajo_rpac'])),
           campo(
             'CLAVE ARCA',
             tomar(datos, usadas, ['clave_fiscal_arca']),

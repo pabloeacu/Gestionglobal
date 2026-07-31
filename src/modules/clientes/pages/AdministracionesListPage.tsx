@@ -7,7 +7,9 @@ import {
   Building2,
   ChevronRight,
   Filter,
+  User,
 } from 'lucide-react';
+import { esCuitJuridico } from '@/lib/cuit';
 import {
   Button,
   Field,
@@ -284,7 +286,9 @@ export function AdministracionesListPage() {
                             />
                           ) : (
                             <span className="grid h-9 w-9 flex-shrink-0 place-items-center rounded-lg bg-brand-cyan-pale/40 text-brand-cyan transition group-hover:scale-105 group-hover:bg-brand-cyan group-hover:text-white">
-                              <Building2 size={16} />
+                              {/* DGG-123 (pedido Pablo): edificio = persona jurídica
+                                  (CUIT 30/33/34); persona = física. */}
+                              {esCuitJuridico(r.cuit) ? <Building2 size={16} /> : <User size={16} />}
                             </span>
                           )}
                           <span className="min-w-0">
