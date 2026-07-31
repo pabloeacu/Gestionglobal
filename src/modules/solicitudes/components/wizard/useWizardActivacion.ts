@@ -55,8 +55,23 @@ function estadoInicial(sol: SolicitudDetalle, flags: SolicitudFlags): WizardStat
   const payload = (sol.submission_payload ?? {}) as Record<string, unknown>;
   const cuitDigits = String(payload.cuit ?? '').replace(/\D/g, '');
   const cuitPrefill = cuitDigits.length === 11 ? cuitDigits : null;
+  // DGG-123 · Persona jurídica: el cliente ES la sociedad (switch PF/PJ del
+  // form, razón social presente, o CUIT con prefijo societario 30/33/34).
+  // Default de IVA: Responsable Inscripto para PJ, Consumidor Final para PF.
+  const esJuridica =
+    String(payload.tipo_persona_solicitante ?? '') === 'Persona jurídica' ||
+    String(payload.razon_social ?? '').trim() !== '' ||
+    (cuitDigits.length === 11 && ['30', '33', '34'].includes(cuitDigits.slice(0, 2)));
   const ivaForm = String(payload.condicion_iva ?? '').trim().toLowerCase();
-  const ivaPrefill = IVA_VALIDAS.includes(ivaForm) ? ivaForm : 'consumidor_final';
+  const ivaPrefill = IVA_VALIDAS.includes(ivaForm)
+    ? ivaForm
+    : esJuridica
+      ? 'responsable_inscripto'
+      : 'consumidor_final';
+  // Responsable de contacto: si el form trae nombre/apellido reales (en PJ son
+  // los del titular vinculado en ARCA), van directo; si no, split del nombre.
+  const respNombre = String(payload.nombre ?? '').trim();
+  const respApellido = String(payload.apellido ?? '').trim();
   // Pre-fill comprobante evitando doble descuento: si conocemos precio base +
   // voucher, los mandamos separados (precio base + bonificación %); si sólo hay
   // precio_final, va ese con 0% (el descuento ya viene aplicado).
@@ -83,8 +98,8 @@ function estadoInicial(sol: SolicitudDetalle, flags: SolicitudFlags): WizardStat
       email: sol.solicitante_email ?? null,
       telefono: sol.solicitante_telefono ?? null,
       cuit: cuitPrefill,
-      responsable_nombre: nombre.split(' ')[0] ?? null,
-      responsable_apellido: nombre.split(' ').slice(1).join(' ') || null,
+      responsable_nombre: respNombre || (nombre.split(' ')[0] ?? null),
+      responsable_apellido: respApellido || (nombre.split(' ').slice(1).join(' ') || null),
       condicion_iva: ivaPrefill,
     },
     docChecks: {},

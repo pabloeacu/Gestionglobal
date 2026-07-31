@@ -63,6 +63,7 @@ const ETIQUETAS: Record<string, string> = {
   legajo_rpac: 'Legajo RPAC',
   declaracion_jurada: 'Declaración jurada',
   origen_canal: 'Origen del canal',
+  tipo_persona_solicitante: 'Tipo de solicitante',
 };
 
 function humanizar(key: string): string {
@@ -101,9 +102,15 @@ function compactar(items: Array<CampoMascara | null>): CampoMascara[] {
   return items.filter((x): x is CampoMascara => x !== null);
 }
 
-/** Heurística de tipo: es jurídica si el envío trae razón social con valor. */
+/**
+ * Heurística de tipo: es jurídica si el envío trae razón social con valor o
+ * si el switch PF/PJ del formulario (DGG-123) lo declara explícitamente.
+ */
 export function esPersonaJuridica(datos: Record<string, unknown>): boolean {
-  return str(datos['razon_social']) !== '';
+  return (
+    str(datos['razon_social']) !== '' ||
+    str(datos['tipo_persona_solicitante']) === 'Persona jurídica'
+  );
 }
 
 export function construirMascaraGestoria(
@@ -127,15 +134,21 @@ export function construirMascaraGestoria(
           ),
           campo('LOCALIDAD', tomar(datos, usadas, ['localidad'])),
           campo('CÓDIGO POSTAL', tomar(datos, usadas, ['codigo_postal'])),
+          campo('TITULAR EN ARCA', tomar(datos, usadas, ['nombre', 'apellido'])),
+          campo('DNI DEL TITULAR', tomar(datos, usadas, ['dni'])),
         ]),
         derecha: compactar([
           campo('TELÉFONO', tomar(datos, usadas, ['telefono', 'celular'])),
           campo('MAIL', tomar(datos, usadas, ['email_empresa', 'email'])),
+          // DGG-123 · Claves canónicas: en el flujo PF/PJ el CUIT de la
+          // EMPRESA viaja en `cuit` (valida identidad/dedupe) y el del titular
+          // en `cuit_titular_arca`. Las claves legacy del form jurídico viejo
+          // se mantienen por si reaparece un dato histórico.
           campo(
             'C.U.I.T. RAZÓN SOCIAL',
-            tomar(datos, usadas, ['cuit_razon_social', 'cuit_persona_juridica']),
+            tomar(datos, usadas, ['cuit_razon_social', 'cuit_persona_juridica', 'cuit']),
           ),
-          campo('C.U.I.T. TITULAR EN ARCA', tomar(datos, usadas, ['cuit_titular_arca', 'cuit'])),
+          campo('C.U.I.T. TITULAR EN ARCA', tomar(datos, usadas, ['cuit_titular_arca'])),
           campo(
             'CLAVE ARCA DEL TITULAR',
             tomar(datos, usadas, ['clave_arca_titular', 'clave_fiscal_arca']),

@@ -1,8 +1,9 @@
-// submit-formulario v10 (reporte JL · puntos 2/4/5): si es un CLIENTE LOGUEADO
-// (origen_canal='cliente' + JWT), la submission se liga a SU administración por
-// identidad (JWT), no por el email tipeado → dispara el sync de datos y liga el
-// trámite a su cuenta (sin cliente-fantasma, sin datos perdidos, trámite visible).
-// Historia: v9 presentacionales excluidos de validación; v8 condition.equals
+// submit-formulario v11 (DGG-123 · PF/PJ): los campos del schema ocultos por
+// condición se eliminan del payload (datos + files) antes de validar y
+// persistir, con visibilidad en cascada (dep oculto ⇒ valor vacío). Defensa en
+// profundidad del contrato "sólo viaja lo visible" que el runner ya aplica.
+// Historia: v10 cliente logueado liga submission a SU administración por JWT;
+// v9 presentacionales excluidos de validación; v8 condition.equals
 // string|string[] (mig 0141); v7 origen_canal + voucher_codigo.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.46.1';
@@ -104,6 +105,44 @@ Deno.serve(async (req) => {
     });
     const obj = (vRes ?? {}) as Record<string, unknown>;
     if (obj.valido === true && obj.es_100 === true) voucherEs100 = true;
+  }
+
+  // 2c-pre · DGG-123: defensa en profundidad — los campos DEFINIDOS en el
+  // schema que estén ocultos por condición NO se validan, NO se persisten y
+  // sus archivos NO se suben, aunque un payload crafteado los mande (el runner
+  // ya los excluye). La visibilidad cascadea: si el campo del que depende la
+  // condición está a su vez oculto, su valor cuenta como vacío. Claves fuera
+  // del schema (meta-campos, extraDatos de flujos internos) pasan intactas.
+  {
+    const defs = new Map<string, FieldDef>();
+    for (const s of schema.sections) for (const f of s.fields) defs.set(f.name, f);
+    const memo = new Map<string, boolean>();
+    const esVisible = (f: FieldDef, seen: Set<string>): boolean => {
+      if (!f.condition) return true;
+      const hit = memo.get(f.name);
+      if (hit !== undefined) return hit;
+      if (seen.has(f.name)) return false;
+      seen.add(f.name);
+      const dep = defs.get(f.condition.field);
+      const depVisible = dep ? esVisible(dep, seen) : true;
+      const val = depVisible ? String(payload.datos[f.condition.field] ?? '') : '';
+      const target = f.condition.equals;
+      const vis = Array.isArray(target) ? target.includes(val) : val === target;
+      memo.set(f.name, vis);
+      return vis;
+    };
+    const ocultos = new Set<string>();
+    for (const s of schema.sections) {
+      for (const f of s.fields) {
+        if (!esVisible(f, new Set())) ocultos.add(f.name);
+      }
+    }
+    if (ocultos.size > 0) {
+      for (const k of ocultos) delete payload.datos[k];
+      if (Array.isArray(payload.files)) {
+        payload.files = payload.files.filter((f) => !ocultos.has(f.field));
+      }
+    }
   }
 
   // 2c. Validar datos contra el schema.

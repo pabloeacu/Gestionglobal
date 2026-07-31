@@ -148,12 +148,29 @@ export function FormularioRunner({
     setTopError(null);
   }
 
-  function isFieldVisible(field: FormularioFieldDef): boolean {
-    if (!field.condition) return true;
-    const actual = String(data[field.condition.field] ?? '');
-    const target = field.condition.equals;
-    return Array.isArray(target) ? target.includes(actual) : actual === target;
-  }
+  const fieldByName = useMemo(() => {
+    const m = new Map<string, FormularioFieldDef>();
+    for (const s of schema.sections) for (const f of s.fields) m.set(f.name, f);
+    return m;
+  }, [schema]);
+
+  // DGG-123 · Visibilidad con cascada: si el campo del que depende la condición
+  // está a su vez oculto, su valor cuenta como vacío. Sin esto, al cambiar el
+  // switch PF/PJ quedaban visibles campos colgados de un select oculto (ej.
+  // cónyuge dependiente de estado_civil con valor "casado" remanente).
+  const isFieldVisible = useMemo(() => {
+    const evaluar = (field: FormularioFieldDef, seen: Set<string>): boolean => {
+      if (!field.condition) return true;
+      if (seen.has(field.name)) return false;
+      seen.add(field.name);
+      const dep = fieldByName.get(field.condition.field);
+      const depVisible = dep ? evaluar(dep, seen) : true;
+      const actual = depVisible ? String(data[field.condition.field] ?? '') : '';
+      const target = field.condition.equals;
+      return Array.isArray(target) ? target.includes(actual) : actual === target;
+    };
+    return (field: FormularioFieldDef) => evaluar(field, new Set());
+  }, [fieldByName, data]);
 
   async function onValidarVoucher() {
     const codigo = voucherCodigo.trim();
@@ -260,15 +277,29 @@ export function FormularioRunner({
     }
     setSending(true);
 
+    // DGG-123 · Sólo viaja lo visible: los campos ocultos por condición no se
+    // envían (ni datos ni archivos). Cumple el contrato documentado en
+    // formularios.ts y evita que un envío "Persona física" arrastre datos
+    // societarios remanentes (o al revés) al cambiar el switch.
+    const visibleData: Record<string, unknown> = {};
+    for (const section of schema.sections) {
+      for (const field of section.fields) {
+        if (!(field.name in data)) continue;
+        if (isFieldVisible(field)) visibleData[field.name] = data[field.name];
+      }
+    }
+
     // Aplanar files a [{ field, file }]
     const flatFiles: Array<{ field: string; file: File }> = [];
     for (const k of Object.keys(files)) {
+      const def = fieldByName.get(k);
+      if (def && !isFieldVisible(def)) continue;
       for (const f of files[k] ?? []) flatFiles.push({ field: k, file: f });
     }
 
     const res = await submitFormulario({
       slug: formulario.slug,
-      datos: extraDatos ? { ...data, ...extraDatos } : data,
+      datos: extraDatos ? { ...visibleData, ...extraDatos } : visibleData,
       files: flatFiles,
       origen_canal: origenCanal,
       voucher_codigo: voucherValidado?.valido ? voucherValidado.codigo : undefined,
@@ -343,7 +374,12 @@ export function FormularioRunner({
           </div>
         </div>
       )}
-      {schema.sections.map((section, sIdx) => (
+      {schema.sections.map((section, sIdx) => {
+        // DGG-123 · Una sección sin ningún campo visible no se renderiza:
+        // evita cards vacías con título cuando el switch PF/PJ oculta el
+        // bloque entero (ej. "Formación profesional" en persona jurídica).
+        if (!section.fields.some((f) => isFieldVisible(f))) return null;
+        return (
         <section
           key={sIdx}
           className="card-premium relative overflow-hidden p-6 motion-safe:animate-fade-up"
@@ -383,7 +419,8 @@ export function FormularioRunner({
             })}
           </div>
         </section>
-      ))}
+        );
+      })}
 
       {tieneServicio && (
         <section className="card-premium relative overflow-hidden p-5 motion-safe:animate-fade-up">

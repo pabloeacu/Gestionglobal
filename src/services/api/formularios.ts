@@ -37,8 +37,11 @@ export interface FormularioFieldDef {
    * Si está presente, el campo solo se muestra (y solo se valida) cuando el
    * valor del campo `field` coincide con `equals`. `equals` acepta un solo
    * valor o una lista — el campo se muestra si el valor actual está en esa
-   * lista. Cuando el campo no es visible, queda excluido del payload y de
-   * la validación required (en runner y edge function).
+   * lista. Cuando el campo no es visible, queda excluido del payload (datos
+   * y archivos) y de la validación required, en runner y edge function
+   * (garantizado desde DGG-123; antes esta exclusión estaba documentada
+   * pero no implementada en el submit). La visibilidad cascadea: si el
+   * campo referido por `field` está a su vez oculto, cuenta como vacío.
    */
   condition?: { field: string; equals: string | string[] };
   // file_download: el archivo que la gerencia provee para que el usuario
