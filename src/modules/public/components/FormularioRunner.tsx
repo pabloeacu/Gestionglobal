@@ -50,6 +50,10 @@ interface FormularioRunnerProps {
    * schema). Se usa para pasar metadata fuera del formulario, ej. la
    * preferencia de modalidad (presencial/online) en eventos mixtos. Opcional
    * → los formularios existentes no cambian.
+   *
+   * DGG-123 · Restricción: NO nombrar un extraDato igual que un campo del
+   * schema que tenga `condition` — el edge elimina las claves de campos
+   * ocultos y lo borraría en silencio.
    */
   extraDatos?: Record<string, unknown>;
 }

@@ -133,6 +133,9 @@ export function construirMascaraGestoria(
             tomar(datos, usadas, ['domicilio_empresa', 'domicilio', 'calle', 'numero', 'piso', 'depto', 'departamento']),
           ),
           campo('LOCALIDAD', tomar(datos, usadas, ['localidad'])),
+          // §6 (auditor C): sin esta línea `provincia` caía a "Otros datos"
+          // y el domicilio de la sede social quedaba partido en dos lugares.
+          campo('PROVINCIA', tomar(datos, usadas, ['partido', 'provincia'])),
           campo('CÓDIGO POSTAL', tomar(datos, usadas, ['codigo_postal'])),
           campo('TITULAR EN ARCA', tomar(datos, usadas, ['nombre', 'apellido'])),
           campo('DNI DEL TITULAR', tomar(datos, usadas, ['dni'])),

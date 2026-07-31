@@ -37,7 +37,10 @@ export function PasoCliente({ solicitud, flags, state, set }: PasoProps) {
         setMatchSugerido(m);
         // E-GG-87: si hay coincidencia, dejamos "vincular" por defecto (no crear
         // duplicado). La gerencia puede pasar a "cliente nuevo" a propósito. El
-        // backstop es el bloqueo duro en `solicitud_activar` (mismo email/CUIT).
+        // backstop es el bloqueo duro en `solicitud_activar`. DGG-123: el match
+        // y el bloqueo aplican veto por CUIT — email coincidente con CUIT
+        // DISTINTO es OTRO cliente (titular PF vs su sociedad); en ese caso el
+        // bloqueo pide cargar un email propio (el email es el login del portal).
         set((s) =>
           s.clienteIdExistente
             ? s

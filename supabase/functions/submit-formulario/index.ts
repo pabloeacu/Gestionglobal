@@ -1,8 +1,10 @@
-// submit-formulario v11 (DGG-123 · PF/PJ): los campos del schema ocultos por
-// condición se eliminan del payload (datos + files) antes de validar y
-// persistir, con visibilidad en cascada (dep oculto ⇒ valor vacío). Defensa en
+// submit-formulario v12 (DGG-123 · PF/PJ): los campos del schema ocultos por
+// condición se eliminan del payload (datos + files) ANTES de la validación de
+// identidad y del resto (auditor A §6), con visibilidad en cascada (dep oculto
+// ⇒ valor vacío) evaluada fresh (sin memo, idéntico al runner). Defensa en
 // profundidad del contrato "sólo viaja lo visible" que el runner ya aplica.
-// Historia: v10 cliente logueado liga submission a SU administración por JWT;
+// Historia: v11 strip inicial post-identidad;
+// v10 cliente logueado liga submission a SU administración por JWT;
 // v9 presentacionales excluidos de validación; v8 condition.equals
 // string|string[] (mig 0141); v7 origen_canal + voucher_codigo.
 
@@ -79,6 +81,46 @@ Deno.serve(async (req) => {
 
   const schema = formulario.schema as SchemaDef;
 
+  // 2a-pre · DGG-123 (auditor A §6): el strip de ocultos corre ANTES de la
+  // validación de identidad — si no, un payload crafteado podía "pasar"
+  // identidad con valores metidos en campos ocultos que luego se borraban,
+  // persistiendo una submission sin esos datos.
+  //
+  // Los campos DEFINIDOS en el schema que estén ocultos por condición NO se
+  // validan, NO se persisten y sus archivos NO se suben, aunque un payload
+  // crafteado los mande (el runner ya los excluye). La visibilidad cascadea:
+  // si el campo del que depende la condición está a su vez oculto, su valor
+  // cuenta como vacío. Sin memo: la evaluación es fresh por campo, idéntica
+  // al runner (un memo dependía del orden de iteración bajo ciclos de
+  // condición). Claves fuera del schema (meta-campos, extraDatos de flujos
+  // internos) pasan intactas.
+  {
+    const defs = new Map<string, FieldDef>();
+    for (const s of schema.sections) for (const f of s.fields) defs.set(f.name, f);
+    const esVisible = (f: FieldDef, seen: Set<string>): boolean => {
+      if (!f.condition) return true;
+      if (seen.has(f.name)) return false;
+      seen.add(f.name);
+      const dep = defs.get(f.condition.field);
+      const depVisible = dep ? esVisible(dep, seen) : true;
+      const val = depVisible ? String(payload.datos[f.condition.field] ?? '') : '';
+      const target = f.condition.equals;
+      return Array.isArray(target) ? target.includes(val) : val === target;
+    };
+    const ocultos = new Set<string>();
+    for (const s of schema.sections) {
+      for (const f of s.fields) {
+        if (!esVisible(f, new Set())) ocultos.add(f.name);
+      }
+    }
+    if (ocultos.size > 0) {
+      for (const k of ocultos) delete payload.datos[k];
+      if (Array.isArray(payload.files)) {
+        payload.files = payload.files.filter((f) => !ocultos.has(f.field));
+      }
+    }
+  }
+
   // 2a. Identidad obligatoria (DGG 2026-05-29).
   const identityErrors = validarIdentidadObligatoria(payload.datos);
   if (identityErrors.length > 0) {
@@ -105,44 +147,6 @@ Deno.serve(async (req) => {
     });
     const obj = (vRes ?? {}) as Record<string, unknown>;
     if (obj.valido === true && obj.es_100 === true) voucherEs100 = true;
-  }
-
-  // 2c-pre · DGG-123: defensa en profundidad — los campos DEFINIDOS en el
-  // schema que estén ocultos por condición NO se validan, NO se persisten y
-  // sus archivos NO se suben, aunque un payload crafteado los mande (el runner
-  // ya los excluye). La visibilidad cascadea: si el campo del que depende la
-  // condición está a su vez oculto, su valor cuenta como vacío. Claves fuera
-  // del schema (meta-campos, extraDatos de flujos internos) pasan intactas.
-  {
-    const defs = new Map<string, FieldDef>();
-    for (const s of schema.sections) for (const f of s.fields) defs.set(f.name, f);
-    const memo = new Map<string, boolean>();
-    const esVisible = (f: FieldDef, seen: Set<string>): boolean => {
-      if (!f.condition) return true;
-      const hit = memo.get(f.name);
-      if (hit !== undefined) return hit;
-      if (seen.has(f.name)) return false;
-      seen.add(f.name);
-      const dep = defs.get(f.condition.field);
-      const depVisible = dep ? esVisible(dep, seen) : true;
-      const val = depVisible ? String(payload.datos[f.condition.field] ?? '') : '';
-      const target = f.condition.equals;
-      const vis = Array.isArray(target) ? target.includes(val) : val === target;
-      memo.set(f.name, vis);
-      return vis;
-    };
-    const ocultos = new Set<string>();
-    for (const s of schema.sections) {
-      for (const f of s.fields) {
-        if (!esVisible(f, new Set())) ocultos.add(f.name);
-      }
-    }
-    if (ocultos.size > 0) {
-      for (const k of ocultos) delete payload.datos[k];
-      if (Array.isArray(payload.files)) {
-        payload.files = payload.files.filter((f) => !ocultos.has(f.field));
-      }
-    }
   }
 
   // 2c. Validar datos contra el schema.
