@@ -45,15 +45,20 @@ export function ErroresRuntimePage() {
   const [loading, setLoading] = useState(true);
   const [showResolved, setShowResolved] = useState(false);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  // DGG-124 · La RPC no acepta offset (solo p_limit) → "cargar más"
+  // incremental con tope duro. Cambiarlo a paginado real requiere tocar la
+  // RPC (fuera del alcance solo-front).
+  const [limit, setLimit] = useState(50);
+  const LIMIT_MAX = 500;
 
   async function load() {
     setLoading(true);
-    const r = await listErrores(!showResolved);
+    const r = await listErrores(!showResolved, limit);
     if (r.ok) setItems(r.data);
     setLoading(false);
   }
 
-  useEffect(() => { void load(); }, [showResolved]);
+  useEffect(() => { void load(); }, [showResolved, limit]);
 
   function toggle(id: string) {
     setExpanded((p) => {
@@ -235,6 +240,16 @@ export function ErroresRuntimePage() {
               </article>
             );
           })
+        )}
+        {/* DGG-124 · Carga incremental con tope (la RPC no pagina por offset). */}
+        {!loading && items.length >= limit && limit < LIMIT_MAX && (
+          <button
+            type="button"
+            onClick={() => setLimit((l) => Math.min(l + 50, LIMIT_MAX))}
+            className="mx-auto block rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-brand-ink transition hover:border-brand-cyan hover:text-brand-cyan"
+          >
+            Cargar 50 más ({items.length} cargados)
+          </button>
         )}
       </section>
     </div>

@@ -18,7 +18,11 @@ import {
   User2,
   Calendar,
 } from 'lucide-react';
-import { Skeleton, SkeletonWithTimeout } from '@/components/common';
+import {
+  Skeleton, SkeletonWithTimeout,
+  Paginador, PAGE_SIZE_DEFAULT,
+  FiltroRangoFechas, type RangoFechas,
+} from '@/components/common';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import { IllustratedEmpty } from '@/components/brand/IllustratedEmpty';
 import { cn } from '@/lib/cn';
@@ -86,14 +90,22 @@ export function AuditoriaPage() {
   const [tableFilter, setTableFilter] = useState<string>('');
   const [actionFilter, setActionFilter] = useState<AuditLogRow['action'] | ''>('');
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
+  // DGG-124 · La RPC siempre aceptó p_offset/p_desde/p_hasta pero la página
+  // los ignoraba: era imposible ver más allá de los últimos 100 eventos.
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(PAGE_SIZE_DEFAULT);
+  const [rango, setRango] = useState<RangoFechas>({ desde: null, hasta: null });
 
   async function load() {
     setLoading(true);
     const [a, r] = await Promise.all([
       listAuditLog({
-        limit: 100,
+        limit: pageSize,
+        offset: (page - 1) * pageSize,
         table: tableFilter || null,
         action: actionFilter || null,
+        desde: rango.desde ? new Date(`${rango.desde}T00:00:00`).toISOString() : null,
+        hasta: rango.hasta ? new Date(`${rango.hasta}T23:59:59.999`).toISOString() : null,
       }),
       getAuditResumen(),
     ]);
@@ -105,7 +117,7 @@ export function AuditoriaPage() {
   useEffect(() => {
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tableFilter, actionFilter]);
+  }, [tableFilter, actionFilter, page, pageSize, rango]);
 
   const total = items.length;
   const ultimos7d = useMemo(
@@ -162,9 +174,14 @@ export function AuditoriaPage() {
           Filtros
         </span>
 
+        <FiltroRangoFechas
+          valor={rango}
+          onChange={(r) => { setPage(1); setRango(r); }}
+        />
+
         <select
           value={tableFilter}
-          onChange={(e) => setTableFilter(e.target.value)}
+          onChange={(e) => { setPage(1); setTableFilter(e.target.value); }}
           className="h-8 rounded-lg border border-slate-200 bg-white px-2 text-sm"
         >
           <option value="">Todas las tablas</option>
@@ -177,7 +194,7 @@ export function AuditoriaPage() {
 
         <select
           value={actionFilter}
-          onChange={(e) => setActionFilter(e.target.value as AuditLogRow['action'] | '')}
+          onChange={(e) => { setPage(1); setActionFilter(e.target.value as AuditLogRow['action'] | ''); }}
           className="h-8 rounded-lg border border-slate-200 bg-white px-2 text-sm"
         >
           <option value="">Cualquier acción</option>
@@ -187,7 +204,7 @@ export function AuditoriaPage() {
         </select>
 
         <span className="ml-auto text-xs text-brand-muted">
-          Últimos {items.length} eventos
+          {items.length} eventos en esta página
         </span>
       </section>
 
@@ -313,6 +330,14 @@ export function AuditoriaPage() {
             );
           })
         )}
+        {/* DGG-124 · Navegación del histórico (la RPC no devuelve total). */}
+        <Paginador
+          page={page}
+          pageSize={pageSize}
+          hayMas={items.length === pageSize}
+          onPage={setPage}
+          onPageSize={(s) => { setPage(1); setPageSize(s); }}
+        />
       </section>
     </div>
   );

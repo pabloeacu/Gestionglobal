@@ -321,6 +321,27 @@ export interface ListMatriculasParams {
   profileId?: string;
   estado?: MatriculaEstado | 'todos';
   search?: string;
+  /** DGG-124 · tope de filas (evita bajar todo el histórico con 3 joins). */
+  limit?: number;
+}
+
+/**
+ * DGG-124 · KPIs de matrículas por counts head-only (universo completo sin
+ * traer filas — antes CampusListPage bajaba TODAS las matrículas con 3 joins
+ * solo para dos contadores).
+ */
+export async function contarMatriculasKpis(): Promise<
+  ApiResponse<{ activas: number; completadas: number }>
+> {
+  const base = () =>
+    supabase.from('curso_matriculas').select('id', { count: 'exact', head: true });
+  const [act, comp] = await Promise.all([
+    base().eq('estado', 'activa'),
+    base().eq('estado', 'completada'),
+  ]);
+  const err = act.error ?? comp.error;
+  if (err) return fail('MATRICULAS_KPIS', err.message, err);
+  return ok({ activas: act.count ?? 0, completadas: comp.count ?? 0 });
 }
 
 export interface MatriculaListItem extends CursoMatriculaRow {
@@ -349,6 +370,7 @@ export async function listMatriculas(
   if (params.cursoId) q = q.eq('curso_id', params.cursoId);
   if (params.profileId) q = q.eq('profile_id', params.profileId);
   if (params.estado && params.estado !== 'todos') q = q.eq('estado', params.estado);
+  if (params.limit) q = q.limit(params.limit);
 
   const { data, error } = await q;
   if (error) return fail('MATRICULAS_LIST', error.message, error);

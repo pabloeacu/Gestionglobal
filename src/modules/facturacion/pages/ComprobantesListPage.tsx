@@ -28,11 +28,13 @@ import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
 import { formatDateShort as formatDate, parseLocalDate } from '@/lib/dates';
 import {
   listComprobantes,
+  kpisComprobantesUniverso,
   esComprobanteVencido,
   type ComprobanteListItem,
   type ComprobanteEstado,
   type CobranzaEstado,
 } from '@/services/api/comprobantes';
+import { Paginador, PAGE_SIZE_DEFAULT } from '@/components/common';
 import { cn } from '@/lib/cn';
 import { ExportButtons } from '@/components/reports/ExportButtons';
 import { copyAsCsv } from '@/lib/csvCopy';
@@ -70,6 +72,14 @@ export function ComprobantesListPage() {
   const [periodo, setPeriodo] = useState<string>(currentPeriodo());
   const [rows, setRows] = useState<ComprobanteListItem[]>([]);
   const [total, setTotal] = useState(0);
+  // DGG-124 · paginado server-side (antes: 50 silenciosas) + universo liviano
+  // para KPIs de plata exactos (antes se calculaban sobre la página visible).
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(PAGE_SIZE_DEFAULT);
+  const [kpiUniverso, setKpiUniverso] = useState<{
+    rows: Array<Pick<ComprobanteListItem, 'estado' | 'total' | 'saldo_pendiente' | 'estado_cobranza' | 'vencimiento'>>;
+    truncado: boolean;
+  }>({ rows: [], truncado: false });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -91,12 +101,16 @@ export function ComprobantesListPage() {
     if (firstLoadDoneRef.current) setRefreshing(true);
     else setLoading(true);
     setError(null);
-    const res = await listComprobantes({
+    const filtros = {
       search,
       estado,
       estadoCobranza: cobranza,
       periodo: periodo || undefined,
-    });
+    };
+    const [res, kpiRes] = await Promise.all([
+      listComprobantes({ ...filtros, limit: pageSize, offset: (page - 1) * pageSize }),
+      kpisComprobantesUniverso(filtros),
+    ]);
     setLoading(false);
     setRefreshing(false);
     firstLoadDoneRef.current = true;
@@ -107,36 +121,46 @@ export function ComprobantesListPage() {
     }
     setRows(res.data.rows);
     setTotal(res.data.total);
+    if (kpiRes.ok) {
+      setKpiUniverso(kpiRes.data as typeof kpiUniverso);
+    }
   }
 
   useEffect(() => {
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [estado, cobranza, periodo]);
+  }, [estado, cobranza, periodo, page, pageSize]);
 
   useEffect(() => {
-    const t = setTimeout(() => void load(), 320);
+    const t = setTimeout(() => { setPage(1); void load(); }, 320);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search]);
 
+  // DGG-124 · cambiar de filtro vuelve a la página 1.
+  useEffect(() => { setPage(1); }, [estado, cobranza, periodo]);
+
   useRealtimeRefresh(['comprobantes', 'items_comprobantes'], () => void load());
 
   const kpis = useMemo(() => {
-    const emitidos = rows.filter((r) => r.estado === 'autorizado').length;
-    const totalEmitido = rows
+    // DGG-124 · Los KPIs de plata se calculan sobre el UNIVERSO filtrado
+    // completo (query liviana de 5 columnas), no sobre la página visible —
+    // antes sumaban solo 50 filas y las cifras financieras mentían.
+    const u = kpiUniverso.rows;
+    const emitidos = u.filter((r) => r.estado === 'autorizado').length;
+    const totalEmitido = u
       .filter((r) => r.estado === 'autorizado')
       .reduce((s, r) => s + Number(r.total ?? 0), 0);
-    const totalPendiente = rows
+    const totalPendiente = u
       .filter((r) => r.estado_cobranza === 'pendiente' || r.estado_cobranza === 'parcial')
       .reduce((s, r) => s + Number(r.saldo_pendiente ?? 0), 0);
     // E-GG-136: "vencido" se DERIVA de la fecha (nadie envejece estado_cobranza
     // a 'vencido' → filtrar por ese valor daba SIEMPRE $0).
-    const totalVencido = rows
+    const totalVencido = u
       .filter((r) => esComprobanteVencido(r))
       .reduce((s, r) => s + Number(r.saldo_pendiente ?? 0), 0);
     return { emitidos, totalEmitido, totalPendiente, totalVencido };
-  }, [rows]);
+  }, [kpiUniverso]);
 
   // DGG-26 · Export a PDF/XLS del filtrado actual.
   const exportFiltros = useMemo<Array<{ label: string; value: string }>>(() => {
@@ -541,6 +565,13 @@ export function ComprobantesListPage() {
               </table>
             </div>
           )}
+          <Paginador
+            page={page}
+            pageSize={pageSize}
+            total={total}
+            onPage={setPage}
+            onPageSize={(s) => { setPage(1); setPageSize(s); }}
+          />
         </div>
       </section>
 

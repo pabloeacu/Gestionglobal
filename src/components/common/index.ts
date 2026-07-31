@@ -16,6 +16,11 @@ export { ColorPicker } from './ColorPicker';
 export { EmailManaxerPreview, buildManaxerHtml, type ManaxerTemplateData } from './EmailManaxerPreview';
 export { Tooltip } from './Tooltip';
 export { RefreshIndicator } from './RefreshIndicator';
+// DGG-124 · Toolkit anti-grillas-infinitas (paginado 50 + rango de fechas en
+// un calendario + encabezados que ordenan/filtran/buscan).
+export { Paginador, PAGE_SIZE_DEFAULT } from './Paginador';
+export { FiltroRangoFechas, type RangoFechas } from './FiltroRangoFechas';
+export { ThInteractivo, type OrdenGrilla, type OpcionFiltro } from './ThInteractivo';
 // F8 (DGG-64) · toolkit premium de filtros
 export {
   Switch,

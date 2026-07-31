@@ -70,24 +70,13 @@ export interface ListComprobantesParams {
   offset?: number;
 }
 
-export async function listComprobantes(
-  params: ListComprobantesParams = {},
-): Promise<ApiResponse<{ rows: ComprobanteListItem[]; total: number }>> {
-  const limit = params.limit ?? 50;
-  const offset = params.offset ?? 0;
-
-  let q = supabase
-    .from('comprobantes')
-    .select(
-      `*,
-       administraciones!inner(id,nombre),
-       consorcios(id,nombre)`,
-      { count: 'exact' },
-    )
-    .order('fecha', { ascending: false })
-    .order('numero', { ascending: false })
-    .range(offset, offset + limit - 1);
-
+// DGG-124 · Filtros compartidos entre la lista paginada y el universo de KPIs
+// (una sola fuente de verdad — si divergieran, los KPIs mentirían contra la
+// grilla). El builder de PostgREST es genérico; usamos any acotado al helper.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function aplicarFiltrosComprobantes<T>(q0: T, params: ListComprobantesParams): T {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let q = q0 as any;
   if (params.estado && params.estado !== 'todos') {
     q = q.eq('estado', params.estado);
   }
@@ -119,11 +108,63 @@ export async function listComprobantes(
     q = q.eq('periodo', params.periodo);
   }
   if (params.search && params.search.trim().length > 0) {
-    const s = params.search.trim();
-    q = q.or(
-      `receptor_razon_social.ilike.%${s}%,receptor_numero_documento.ilike.%${s}%`,
-    );
+    const s = params.search.trim().replace(/[%_,()]/g, ' ').trim();
+    if (s) {
+      q = q.or(
+        `receptor_razon_social.ilike.%${s}%,receptor_numero_documento.ilike.%${s}%`,
+      );
+    }
   }
+  return q as T;
+}
+
+/**
+ * DGG-124 · Universo liviano para los KPIs de plata de la lista (Total
+ * emitido / Pendiente / Vencido): mismas condiciones que la grilla pero SOLO
+ * 5 columnas chicas, sin joins, con tope de seguridad. Antes los KPIs se
+ * calculaban sobre las 50 filas visibles → cifras financieras incorrectas
+ * (viola consistencia contable) apenas el filtro superaba una página.
+ */
+export async function kpisComprobantesUniverso(
+  params: ListComprobantesParams = {},
+): Promise<ApiResponse<{
+  rows: Array<Pick<ComprobanteRow, 'estado' | 'total' | 'saldo_pendiente' | 'estado_cobranza' | 'vencimiento'>>;
+  truncado: boolean;
+}>> {
+  const CAP = 5000;
+  const q = aplicarFiltrosComprobantes(
+    supabase
+      .from('comprobantes')
+      .select('estado,total,saldo_pendiente,estado_cobranza,vencimiento')
+      .limit(CAP),
+    params,
+  );
+  const { data, error } = await q;
+  if (error) return fail('COMP_KPIS', error.message, error);
+  const rows = data ?? [];
+  return ok({ rows, truncado: rows.length >= CAP });
+}
+
+export async function listComprobantes(
+  params: ListComprobantesParams = {},
+): Promise<ApiResponse<{ rows: ComprobanteListItem[]; total: number }>> {
+  const limit = params.limit ?? 50;
+  const offset = params.offset ?? 0;
+
+  const q = aplicarFiltrosComprobantes(
+    supabase
+      .from('comprobantes')
+      .select(
+        `*,
+         administraciones!inner(id,nombre),
+         consorcios(id,nombre)`,
+        { count: 'exact' },
+      )
+      .order('fecha', { ascending: false })
+      .order('numero', { ascending: false })
+      .range(offset, offset + limit - 1),
+    params,
+  );
 
   const { data, error, count } = await q;
   if (error) return fail('COMP_LIST', error.message, error);

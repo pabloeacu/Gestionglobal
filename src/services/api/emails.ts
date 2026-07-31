@@ -79,8 +79,58 @@ export interface ListEnviosFilters {
   estado?: EstadoEmail | 'todos';
   casilla?: FromCasilla | 'todas';
   search?: string;
+  /** DGG-124 · filtro multi por plantilla (slugs) desde el encabezado. */
+  plantillas?: string[];
+  /** DGG-124 · rango de fechas 'YYYY-MM-DD' (local) sobre programado_para. */
+  desde?: string;
+  hasta?: string;
+  /** DGG-124 · orden server-side por columna. */
+  orden?: 'programado_para' | 'to_email' | 'template_slug' | 'intento';
+  dir?: 'asc' | 'desc';
   limit?: number;
   offset?: number;
+}
+
+// DGG-124 · El "estado" es DERIVADO (enviado_at / ultimo_error / intento vs
+// max_intentos), no una columna — para paginar server-side lo traducimos a
+// filtros PostgREST exactos. PostgREST no compara columna contra columna, así
+// que "intento >= max_intentos" se expande por los valores reales del dominio
+// de max_intentos (hoy 3 y 5). Si algún flujo suma otro max_intentos, agregar
+// el tramo acá y en contarEnviosKpis.
+const FALLIDO_SIN_ENVIAR =
+  'and(enviado_at.is.null,max_intentos.eq.3,intento.gte.3),and(enviado_at.is.null,max_intentos.eq.5,intento.gte.5)';
+const PENDIENTE_OR =
+  'and(max_intentos.eq.3,intento.lt.3),and(max_intentos.eq.5,intento.lt.5)';
+
+// Sanitiza el texto de búsqueda para el .or(ilike) de PostgREST: comas y
+// paréntesis rompen la sintaxis del or; % y _ son wildcards de ilike.
+function sanearBusqueda(s: string): string {
+  return s.replace(/[%_,()]/g, ' ').trim();
+}
+
+/**
+ * DGG-124 · KPIs sobre el universo COMPLETO (espíritu R19) sin traer filas:
+ * counts head-only por estado. `pendientes` sale por resta para que la suma
+ * siempre cierre contra el total.
+ */
+export async function contarEnviosKpis(): Promise<
+  ApiResponse<{ total: number; pendientes: number; enviados: number; fallidos: number }>
+> {
+  const base = () =>
+    supabase.from('email_queue').select('id', { count: 'exact', head: true }).eq('kind', 'workflow');
+
+  const [tot, env, fall] = await Promise.all([
+    base(),
+    base().not('enviado_at', 'is', null).is('ultimo_error', null),
+    base().or(`and(enviado_at.not.is.null,ultimo_error.not.is.null),${FALLIDO_SIN_ENVIAR}`),
+  ]);
+  const err = tot.error ?? env.error ?? fall.error;
+  if (err) return fail('ENVIOS_KPIS', err.message, err);
+
+  const total = tot.count ?? 0;
+  const enviados = env.count ?? 0;
+  const fallidos = fall.count ?? 0;
+  return ok({ total, enviados, fallidos, pendientes: Math.max(0, total - enviados - fallidos) });
 }
 
 // --- templates -----------------------------------------------------------
@@ -253,8 +303,32 @@ export async function listEnvios(
       { count: 'exact' },
     )
     .eq('kind', 'workflow')
-    .order('programado_para', { ascending: false })
+    .order(filters.orden ?? 'programado_para', { ascending: (filters.dir ?? 'desc') === 'asc' })
     .range(offset, offset + limit - 1);
+
+  // DGG-124 · Estado server-side (antes se filtraba en memoria post-fetch, lo
+  // que rompía el paginado). Condiciones exactas del estado derivado.
+  if (filters.estado === 'enviado') {
+    q = q.not('enviado_at', 'is', null).is('ultimo_error', null);
+  } else if (filters.estado === 'fallido') {
+    q = q.or(`and(enviado_at.not.is.null,ultimo_error.not.is.null),${FALLIDO_SIN_ENVIAR}`);
+  } else if (filters.estado === 'pendiente') {
+    q = q.is('enviado_at', null).or(PENDIENTE_OR);
+  }
+
+  // DGG-124 · Rango de fechas (un solo calendario en la UI). Los límites son
+  // días locales del usuario → Date local → ISO UTC para el timestamptz.
+  if (filters.desde) {
+    q = q.gte('programado_para', new Date(`${filters.desde}T00:00:00`).toISOString());
+  }
+  if (filters.hasta) {
+    q = q.lte('programado_para', new Date(`${filters.hasta}T23:59:59.999`).toISOString());
+  }
+
+  // DGG-124 · Filtro multi de plantillas desde el encabezado.
+  if (filters.plantillas && filters.plantillas.length > 0) {
+    q = q.in('template_slug', filters.plantillas);
+  }
 
   if (filters.casilla && filters.casilla !== 'todas') {
     // filtramos por template.from_casilla via inner join no es trivial sin RPC;
@@ -267,7 +341,8 @@ export async function listEnvios(
   }
 
   if (filters.search) {
-    q = q.or(`to_email.ilike.%${filters.search}%,subject.ilike.%${filters.search}%`);
+    const s = sanearBusqueda(filters.search);
+    if (s) q = q.or(`to_email.ilike.%${s}%,subject.ilike.%${s}%`);
   }
 
   const { data, error, count } = await q;
@@ -296,7 +371,7 @@ export async function listEnvios(
     }
   }
 
-  let rows: EnvioListItem[] = ((data ?? []) as unknown as RawJoined[]).map((r) => {
+  const rows: EnvioListItem[] = ((data ?? []) as unknown as RawJoined[]).map((r) => {
     const delivery = deliveryByQueueId.get(r.id);
     return {
       id: r.id,
@@ -320,11 +395,9 @@ export async function listEnvios(
     };
   });
 
-  if (filters.estado && filters.estado !== 'todos') {
-    rows = rows.filter(r => r.estado === filters.estado);
-  }
-
-  const safeTotal = count && count > 0 ? count : rows.length;
+  // DGG-124 · El estado ya se filtró server-side (paginado consistente); el
+  // count exacto ES el total del universo filtrado.
+  const safeTotal = count ?? rows.length;
   return ok({ rows, total: safeTotal });
 }
 

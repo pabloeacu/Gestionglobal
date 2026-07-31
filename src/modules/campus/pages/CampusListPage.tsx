@@ -29,6 +29,7 @@ import {
   duplicarCurso,
   listCursos,
   listMatriculas,
+  contarMatriculasKpis,
   MODALIDADES,
   MODALIDAD_LABEL,
   type CursoListItem,
@@ -45,6 +46,7 @@ type ModFilter = Modalidad | 'todos';
 export function CampusListPage() {
   const [cursos, setCursos] = useState<CursoListItem[]>([]);
   const [matriculas, setMatriculas] = useState<MatriculaListItem[]>([]);
+  const [kpisMatriculas, setKpisMatriculas] = useState({ activas: 0, completadas: 0 });
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [modalidad, setModalidad] = useState<ModFilter>('todos');
@@ -54,10 +56,15 @@ export function CampusListPage() {
 
   async function load() {
     setLoading(true);
-    const [c, m] = await Promise.all([
+    // DGG-124 · KPIs por counts (universo completo) + solo las últimas 20
+    // matrículas para "actividad reciente" — antes se bajaba TODO el
+    // histórico con 3 joins solo para dos contadores.
+    const [c, m, k] = await Promise.all([
       listCursos({ soloActivos: false }),
-      listMatriculas({}),
+      listMatriculas({ limit: 20 }),
+      contarMatriculasKpis(),
     ]);
+    if (k.ok) setKpisMatriculas(k.data);
     setLoading(false);
     if (!c.ok) {
       toast.error(`No pudimos cargar cursos: ${humanizeError(c.error)}`);
@@ -112,18 +119,15 @@ export function CampusListPage() {
   }, [cursos, search, modalidad]);
 
   const kpis = useMemo(() => {
-    const activas = matriculas.filter((m) => m.estado === 'activa').length;
-    const completadas = matriculas.filter((m) => m.estado === 'completada')
-      .length;
-    // DGG-116: "activos" = con el check "Visible" puesto y no finalizados — o
-    // sea, publicados. Los No visibles (check apagado) y los finalizados
-    // (fecha de fin pasada) quedan afuera.
+    // DGG-124: activas/completadas vienen de counts head-only (universo
+    // completo, sin bajar filas). DGG-116: "activos" = con el check "Visible"
+    // puesto y no finalizados — o sea, publicados.
     return {
-      activas,
-      completadas,
+      activas: kpisMatriculas.activas,
+      completadas: kpisMatriculas.completadas,
       cursos: cursos.filter((c) => c.activo && !cursoFinalizado(c)).length,
     };
-  }, [cursos, matriculas]);
+  }, [cursos, kpisMatriculas]);
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
