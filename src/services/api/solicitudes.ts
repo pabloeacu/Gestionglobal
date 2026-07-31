@@ -139,9 +139,50 @@ export async function listSolicitudes(
 // Detalle
 // ----------------------------------------------------------------------------
 
+// DGG-122 · Toggle "Ocultar a gestoría" por adjunto (staff-only, RPC de mig
+// 0395). origen: 'form' = adjunto del formulario · 'pedido' = item de pedido
+// de documentación. No borra nada: solo omite el archivo de las superficies
+// del gestor (panel, mail de derivación y firma de URLs).
+export async function setAdjuntoVisibleGestoria(
+  origen: 'form' | 'pedido',
+  id: string,
+  visible: boolean,
+): Promise<ApiResponse<true>> {
+  const { error } = await rpc('gestoria_set_adjunto_visible', {
+    p_origen: origen,
+    p_id: id,
+    p_visible: visible,
+  });
+  if (error) return fail('ADJ_VISIBLE', error.message, error);
+  return ok(true);
+}
+
+// DGG-122 · Visibilidad FRESCA por adjunto del submission (id → visible).
+// El Paso 2 del wizard la re-sincroniza en cada montaje: el snapshot de la
+// página puede estar viejo (§6: el estado stale mentía tras navegar pasos).
+export async function getVisibilidadAdjuntosForm(
+  submissionId: string,
+): Promise<ApiResponse<Record<string, boolean>>> {
+  const { data, error } = await supabase
+    .from('formulario_adjuntos')
+    .select('id, visible_gestoria')
+    .eq('submission_id', submissionId);
+  if (error) return fail('ADJ_VIS_GET', error.message, error);
+  const acc: Record<string, boolean> = {};
+  for (const r of data ?? []) acc[r.id] = r.visible_gestoria;
+  return ok(acc);
+}
+
 export interface SolicitudDetalle extends SolicitudListItem {
   submission_payload: Record<string, unknown> | null;
-  submission_adjuntos: Array<{ campo: string; nombre: string; url: string }>;
+  submission_adjuntos: Array<{
+    id: string;
+    campo: string;
+    nombre: string;
+    url: string;
+    /** DGG-122: false = oculto al gestor (panel, mail y firma de URLs). */
+    visible_gestoria: boolean;
+  }>;
   derivaciones: SolicitudDerivacionRow[];
   /**
    * 1.C · schema del formulario al que pertenece este submission. Sirve
@@ -208,27 +249,39 @@ export async function getSolicitud(
     ...rest
   } = s;
 
-  // Adjuntos del submission (de la tabla formulario_adjuntos)
-  let adjuntos: Array<{ campo: string; nombre: string; url: string }> = [];
+  // Adjuntos del submission (de la tabla formulario_adjuntos). DGG-122: se
+  // incluye id + visible_gestoria para el toggle "Ocultar a gestoría" —
+  // gerencia SIEMPRE ve todos (acá no se filtra nada).
+  let adjuntos: Array<{
+    id: string;
+    campo: string;
+    nombre: string;
+    url: string;
+    visible_gestoria: boolean;
+  }> = [];
   if (formulario_submissions?.id) {
     const { data: adjs } = await supabase
       .from('formulario_adjuntos')
-      .select('field_name, filename_original, storage_path')
+      .select('id, field_name, filename_original, storage_path, visible_gestoria')
       .eq('submission_id', formulario_submissions.id);
     // El bucket form-adjuntos es privado → URL firmada (getPublicUrl daría 403).
     adjuntos = await Promise.all(
       ((adjs as Array<{
+        id: string;
         field_name: string;
         filename_original: string;
         storage_path: string;
+        visible_gestoria: boolean;
       }> | null) ?? []).map(async (a) => {
         const { data: signed } = await supabase.storage
           .from('form-adjuntos')
           .createSignedUrl(a.storage_path, 60 * 60);
         return {
+          id: a.id,
           campo: a.field_name,
           nombre: a.filename_original,
           url: signed?.signedUrl ?? '',
+          visible_gestoria: a.visible_gestoria,
         };
       }),
     );

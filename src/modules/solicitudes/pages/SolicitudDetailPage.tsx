@@ -5,6 +5,7 @@ import {
   AlertCircle,
   ArrowLeft,
   Eye,
+  EyeOff,
   ExternalLink,
   FileText,
   Mail,
@@ -46,6 +47,7 @@ import {
   guardarObservacionesSolicitud,
   responderSolicitud,
   restaurarSolicitud,
+  setAdjuntoVisibleGestoria,
   type RespuestaCasilla,
   type SolicitudDetalle,
   type SolicitudEstado,
@@ -93,6 +95,29 @@ export function SolicitudDetailPage() {
   const [loading, setLoading] = useState(true);
   const [wizardOpen, setWizardOpen] = useState(false);
   const [observ, setObserv] = useState('');
+  // DGG-122 · overrides locales del toggle "Ocultar a gestoría" por adjunto
+  // (optimista; la verdad persiste vía RPC staff-only).
+  const [adjVis, setAdjVis] = useState<Record<string, boolean>>({});
+
+  const [adjVisSaving, setAdjVisSaving] = useState<Set<string>>(new Set());
+
+  async function toggleAdjVisible(adjId: string, visible: boolean) {
+    if (adjVisSaving.has(adjId)) return;
+    setAdjVisSaving((s) => new Set(s).add(adjId));
+    setAdjVis((m) => ({ ...m, [adjId]: visible }));
+    const r = await setAdjuntoVisibleGestoria('form', adjId, visible);
+    setAdjVisSaving((s) => {
+      const n = new Set(s);
+      n.delete(adjId);
+      return n;
+    });
+    if (!r.ok) {
+      setAdjVis((m) => ({ ...m, [adjId]: !visible }));
+      toast.error('No pudimos cambiar la visibilidad para gestoría', {
+        description: humanizeError(r.error),
+      });
+    }
+  }
   const [savingObserv, setSavingObserv] = useState(false);
   const [guardandoNota, setGuardandoNota] = useState(false);
   // 1.B · lightbox de adjuntos.
@@ -114,6 +139,10 @@ export function SolicitudDetailPage() {
     }
     setData(res.data);
     setObserv(res.data.observaciones ?? '');
+    // DGG-122 §6: el fetch fresco trae la verdad de visible_gestoria — los
+    // overrides optimistas viejos no deben enmascararla (el wizard u otra
+    // pestaña pudieron cambiarla).
+    setAdjVis({});
   }, [id]);
 
   useEffect(() => {
@@ -439,6 +468,24 @@ export function SolicitudDetailPage() {
                     <span className="text-xs text-brand-muted">
                       ({labelDeCampo(adjLabelMap, a.campo)})
                     </span>
+                  </button>
+                  {/* DGG-122 · Ocultar/mostrar este adjunto a la gestoría */}
+                  <button
+                    type="button"
+                    onClick={() => void toggleAdjVisible(a.id, !(adjVis[a.id] ?? a.visible_gestoria))}
+                    title={
+                      (adjVis[a.id] ?? a.visible_gestoria)
+                        ? 'El gestor VE este archivo. Click para ocultárselo (queda guardado para gerencia).'
+                        : 'Oculto a gestoría: no viaja en el mail ni aparece en su panel. Click para mostrarlo.'
+                    }
+                    className={`ml-2 inline-flex shrink-0 items-center gap-1 rounded-lg border px-2 py-1 text-[11px] font-semibold transition ${
+                      (adjVis[a.id] ?? a.visible_gestoria)
+                        ? 'border-slate-200 text-brand-muted hover:bg-slate-50'
+                        : 'border-amber-300 bg-amber-50 text-amber-700'
+                    }`}
+                  >
+                    {(adjVis[a.id] ?? a.visible_gestoria) ? <Eye size={12} /> : <EyeOff size={12} />}
+                    {(adjVis[a.id] ?? a.visible_gestoria) ? 'Gestoría' : 'Oculto'}
                   </button>
                   <a
                     href={a.url}

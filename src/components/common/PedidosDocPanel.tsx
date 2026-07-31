@@ -20,6 +20,7 @@ import {
   AlertCircle,
   CheckCircle2,
   Eye,
+  EyeOff,
   Send,
   MessageSquareText,
 } from 'lucide-react';
@@ -41,6 +42,7 @@ import {
   type PedidoDocConItems,
   type PedidoDocItemRow,
 } from '@/services/api/tramitePedidosDoc';
+import { setAdjuntoVisibleGestoria } from '@/services/api/solicitudes';
 import { humanizeError } from '@/lib/errors';
 
 interface PedidosDocPanelProps {
@@ -328,6 +330,30 @@ function PedidoItem({
   const [texto, setTexto] = useState(item.respuesta_texto ?? '');
   const [savingTexto, setSavingTexto] = useState(false);
   const prompt = usePrompt();
+  // DGG-122 · visibilidad del documento para el gestor externo (staff-only).
+  const [visGestoria, setVisGestoria] = useState<boolean>(item.visible_gestoria ?? true);
+  const [visSaving, setVisSaving] = useState(false);
+
+  // §6: el realtime refresca `item` sin remontar (key=id) — re-sincronizar
+  // para no mostrar un estado viejo si otro gerente lo toggleó.
+  useEffect(() => {
+    setVisGestoria(item.visible_gestoria ?? true);
+  }, [item.visible_gestoria]);
+
+  async function toggleVisibleGestoria() {
+    if (visSaving) return;
+    const next = !visGestoria;
+    setVisSaving(true);
+    setVisGestoria(next);
+    const r = await setAdjuntoVisibleGestoria('pedido', item.id, next);
+    setVisSaving(false);
+    if (!r.ok) {
+      setVisGestoria(!next);
+      toast.error('No pudimos cambiar la visibilidad para gestoría', {
+        description: humanizeError(r.error),
+      });
+    }
+  }
 
   async function handleUpload(file: File) {
     setUploading(true);
@@ -455,6 +481,28 @@ function PedidoItem({
                 className="inline-flex items-center gap-1 rounded-md border border-slate-200 px-2 py-1 text-[11px] font-semibold text-brand-ink hover:border-brand-cyan hover:text-brand-cyan"
               >
                 <Eye size={11} /> Ver
+              </button>
+            )}
+
+            {/* DGG-122 · Ocultar/mostrar este documento al gestor externo */}
+            {variant === 'gerente' && (item.archivo_path || item.respuesta_texto) && (
+              <button
+                type="button"
+                onClick={() => void toggleVisibleGestoria()}
+                disabled={visSaving}
+                title={
+                  visGestoria
+                    ? 'El gestor VE este documento en su panel. Click para ocultárselo.'
+                    : 'Oculto a gestoría: no aparece en su panel ni se le firma la descarga. Click para mostrarlo.'
+                }
+                className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-semibold transition ${
+                  visGestoria
+                    ? 'border-slate-200 text-brand-muted hover:bg-slate-50'
+                    : 'border-amber-300 bg-amber-50 text-amber-700'
+                }`}
+              >
+                {visGestoria ? <Eye size={11} /> : <EyeOff size={11} />}
+                {visGestoria ? 'Gestoría' : 'Oculto'}
               </button>
             )}
 

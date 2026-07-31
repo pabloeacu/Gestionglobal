@@ -3740,6 +3740,7 @@ export type Database = {
           storage_path: string
           submission_id: string
           uploaded_at: string
+          visible_gestoria: boolean
         }
         Insert: {
           field_name: string
@@ -3750,6 +3751,7 @@ export type Database = {
           storage_path: string
           submission_id: string
           uploaded_at?: string
+          visible_gestoria?: boolean
         }
         Update: {
           field_name?: string
@@ -3760,6 +3762,7 @@ export type Database = {
           storage_path?: string
           submission_id?: string
           uploaded_at?: string
+          visible_gestoria?: boolean
         }
         Relationships: [
           {
@@ -6907,6 +6910,7 @@ export type Database = {
           revisado_por: string | null
           subido_at: string | null
           subido_por: string | null
+          visible_gestoria: boolean
         }
         Insert: {
           archivo_mime?: string | null
@@ -6924,6 +6928,7 @@ export type Database = {
           revisado_por?: string | null
           subido_at?: string | null
           subido_por?: string | null
+          visible_gestoria?: boolean
         }
         Update: {
           archivo_mime?: string | null
@@ -6941,6 +6946,7 @@ export type Database = {
           revisado_por?: string | null
           subido_at?: string | null
           subido_por?: string | null
+          visible_gestoria?: boolean
         }
         Relationships: [
           {
@@ -9517,6 +9523,10 @@ export type Database = {
           email: string
           nombre: string
         }[]
+      }
+      gestoria_set_adjunto_visible: {
+        Args: { p_id: string; p_origen: string; p_visible: boolean }
+        Returns: undefined
       }
       get_landing_cover_status: { Args: never; Returns: boolean }
       get_public_whatsapp: { Args: never; Returns: string }

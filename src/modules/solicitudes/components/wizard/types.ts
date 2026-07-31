@@ -87,6 +87,13 @@ export interface WizardState {
   docChecks: Record<string, boolean>;
   docOutcome: DocOutcome;
   docMensajeCliente: string;
+  /** DGG-122 · visible_gestoria por adjunto (id → visible). Vive en el estado
+   *  del wizard (shell siempre montado) para sobrevivir la navegación entre
+   *  pasos; el Paso 2 lo re-sincroniza FRESCO desde BD en cada montaje. */
+  docVisGestoria: Record<string, boolean>;
+  /** ids de adjuntos ocultados AUTOMÁTICAMENTE al marcar ✗ (los manuales no
+   *  entran acá: un ocultamiento manual jamás se pisa al volver a ✓). */
+  docVisAuto: string[];
   // Paso 3 · Comprobante + cobranza
   comprobante: ComprobanteState;
   // Paso 4 · Gestoría (opcional)

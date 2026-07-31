@@ -37,6 +37,7 @@ import {
 } from '@/services/api/accesoExterno';
 import { toast } from '@/lib/toast';
 import { humanizeError } from '@/lib/errors';
+import { construirMascaraGestoria } from '../lib/mascaraGestoria';
 
 // Página pública sin login. Carga el recurso vía edge function `acceso-externo`.
 // Diseño premium: hero cyan, tarjeta de datos, galería de adjuntos, footer
@@ -728,21 +729,57 @@ function PanelGestor({ token }: { token: string }) {
 
           {infoOpen && (
             <>
-              {/* Datos del formulario en formato legible */}
-              <dl className="mt-2 grid grid-cols-1 gap-1.5 rounded-lg bg-slate-50/60 p-3 text-xs sm:grid-cols-2">
-                {Object.entries(info.datos).map(([k, v]) => (
-                  <div key={k}>
-                    <dt className="text-brand-muted">{k.replace(/_/g, ' ')}</dt>
-                    <dd className="font-medium text-brand-ink break-words">
-                      {v === null || v === undefined || v === ''
-                        ? '—'
-                        : typeof v === 'object'
-                          ? JSON.stringify(v)
-                          : String(v)}
-                    </dd>
+              {/* DGG-122 · Datos del formulario con la MÁSCARA de orden curado
+                  (pedido JL/Pablo): mismo orden inalterable siempre, campos
+                  concatenados y "Otros datos" para lo no mapeado. La misma
+                  máscara arma el PDF — una sola fuente de orden. */}
+              {(() => {
+                const m = construirMascaraGestoria(info.datos);
+                const renderCampos = (items: typeof m.otros) =>
+                  items.map((c) => (
+                    <div key={c.etiqueta + c.valor}>
+                      <dt className="text-[10px] font-bold uppercase tracking-wide text-brand-muted">
+                        {c.etiqueta}
+                      </dt>
+                      <dd className="font-medium text-brand-ink break-words">{c.valor}</dd>
+                      {c.nota && (
+                        <p className="mt-0.5 text-[9px] leading-snug text-brand-muted">
+                          {c.nota}
+                        </p>
+                      )}
+                    </div>
+                  ));
+                return (
+                  <div className="mt-2 rounded-lg bg-slate-50/60 p-3 text-xs">
+                    <p className="mb-2 font-display text-sm font-bold text-brand-ink">
+                      {m.encabezado}
+                    </p>
+                    {m.bloques.map((b, bi) => (
+                      <div key={bi} className={bi > 0 ? 'mt-4' : ''}>
+                        {b.titulo && (
+                          <p className="mb-1.5 border-b border-slate-200 pb-1 text-[11px] font-semibold text-brand-cyan">
+                            {b.titulo}
+                          </p>
+                        )}
+                        <dl className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+                          <div className="space-y-1.5">{renderCampos(b.izquierda)}</div>
+                          <div className="space-y-1.5">{renderCampos(b.derecha)}</div>
+                        </dl>
+                      </div>
+                    ))}
+                    {m.otros.length > 0 && (
+                      <div className="mt-4">
+                        <p className="mb-1.5 border-b border-slate-200 pb-1 text-[11px] font-semibold text-brand-muted">
+                          Otros datos del trámite
+                        </p>
+                        <dl className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+                          {renderCampos(m.otros)}
+                        </dl>
+                      </div>
+                    )}
                   </div>
-                ))}
-              </dl>
+                );
+              })()}
 
               {/* Adjuntos del cliente — descarga directa con download attr */}
               {info.adjuntos.length > 0 && (

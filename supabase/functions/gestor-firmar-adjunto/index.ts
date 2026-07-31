@@ -95,12 +95,15 @@ Deno.serve(async (req) => {
   let bucket: string | null = null;
 
   //    3a) Adjuntos del formulario original.
+  //        v5 (DGG-122): visible_gestoria=false NO se firma — sin este filtro
+  //        el ocultamiento sería cosmético (un path conocido se firmaría igual).
   if (submissionId) {
     const { data: adj } = await supabase
       .from('formulario_adjuntos')
       .select('storage_path')
       .eq('submission_id', submissionId)
       .eq('storage_path', path)
+      .eq('visible_gestoria', true)
       .limit(1)
       .maybeSingle();
     if (adj) bucket = 'form-adjuntos';
@@ -108,6 +111,7 @@ Deno.serve(async (req) => {
 
   //    3b) Documentos subidos por el cliente a los "Pedidos de Documentación"
   //        de este trámite (sólo subido/aprobado, nunca pendiente/rechazado).
+  //        v5 (DGG-122): ídem filtro visible_gestoria.
   if (!bucket && tramiteId) {
     const { data: ped } = await supabase
       .from('tramite_pedidos_doc_items')
@@ -115,6 +119,7 @@ Deno.serve(async (req) => {
       .eq('archivo_path', path)
       .eq('tramite_pedidos_doc.tramite_id', tramiteId)
       .in('estado', ['subido', 'aprobado'])
+      .eq('visible_gestoria', true)
       .limit(1)
       .maybeSingle();
     if (ped) bucket = 'pedidos-doc-cliente';

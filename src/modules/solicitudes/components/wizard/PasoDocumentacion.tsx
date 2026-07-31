@@ -8,11 +8,13 @@
 //  - descarte  (TERMINAL)→ descarte interno (sin mail)
 // Collect-only: las acciones se ejecutan en el ProcesadorFinal (Q1/Q2).
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Ban,
   CheckCircle2,
   ExternalLink,
+  Eye,
+  EyeOff,
   FileText,
   Inbox,
   Send,
@@ -20,6 +22,12 @@ import {
 } from 'lucide-react';
 import { Field, StepPanel, Textarea } from '@/components/common';
 import { fieldLabelMap, labelDeCampo } from '@/lib/formSchema';
+import { toast } from '@/lib/toast';
+import { humanizeError } from '@/lib/errors';
+import {
+  getVisibilidadAdjuntosForm,
+  setAdjuntoVisibleGestoria,
+} from '@/services/api/solicitudes';
 import { adjKey, type DocOutcome, type PasoProps } from './types';
 
 interface OutcomeOpcion {
@@ -115,8 +123,80 @@ export function PasoDocumentacion({ solicitud, state, set }: PasoProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hayCruz]);
 
+  // DGG-122 · "Ocultar a gestoría" por adjunto. El estado visible se persiste
+  // al instante (RPC staff-only): así ya rige cuando después se derive. Regla
+  // de Pablo: al marcar ✗ Incorrecto se PRE-OCULTA solo (destildable — la
+  // gerencia manda); al volver a ✓ se restaura SOLO si el ocultamiento fue
+  // automático (un ocultamiento manual nunca se pisa). Jamás bloquea Siguiente.
+  //
+  // §6 (hallazgo crítico): vis/auto viven en el ESTADO DEL WIZARD (el shell
+  // sigue montado entre pasos) y el paso re-sincroniza FRESCO desde BD en cada
+  // montaje — el snapshot de la página puede estar viejo y un init stale
+  // mentía ("Visible" con la BD en oculto) o pisaba un ocultamiento manual.
+  const vis = state.docVisGestoria;
+  const autoSet = useMemo(() => new Set(state.docVisAuto), [state.docVisAuto]);
+  const [savingVis, setSavingVis] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    const subId = solicitud.formulario_submission_id;
+    if (!subId || adjuntos.length === 0) return;
+    void (async () => {
+      const r = await getVisibilidadAdjuntosForm(subId);
+      if (!r.ok) return;
+      set((s) => ({
+        ...s,
+        docVisGestoria: r.data,
+        // Un flag "auto" solo sobrevive mientras el adjunto SIGA oculto en BD;
+        // si alguien lo restauró afuera, el auto viejo no debe revivir nada.
+        docVisAuto: s.docVisAuto.filter((id) => r.data[id] === false),
+      }));
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [solicitud.id]);
+
+  async function persistirVisible(adjId: string, visible: boolean) {
+    setSavingVis((s) => new Set(s).add(adjId));
+    set((s) => ({
+      ...s,
+      docVisGestoria: { ...s.docVisGestoria, [adjId]: visible },
+    }));
+    const r = await setAdjuntoVisibleGestoria('form', adjId, visible);
+    setSavingVis((s) => {
+      const n = new Set(s);
+      n.delete(adjId);
+      return n;
+    });
+    if (!r.ok) {
+      set((s) => ({
+        ...s,
+        docVisGestoria: { ...s.docVisGestoria, [adjId]: !visible },
+      }));
+      toast.error('No pudimos cambiar la visibilidad para gestoría', {
+        description: humanizeError(r.error),
+      });
+    }
+  }
+
+  function toggleVisibleManual(adjId: string) {
+    if (savingVis.has(adjId)) return;
+    set((s) => ({ ...s, docVisAuto: s.docVisAuto.filter((x) => x !== adjId) }));
+    void persistirVisible(adjId, !(vis[adjId] ?? true));
+  }
+
   function setCheck(k: string, val: boolean) {
     set((s) => ({ ...s, docChecks: { ...s.docChecks, [k]: val } }));
+    // Presunción DGG-122: lo incorrecto se oculta al gestor (confundiría un
+    // archivo que gerencia ya detectó como malo).
+    const idx = adjuntos.findIndex((a, i) => adjKey(a.campo, a.nombre, i) === k);
+    const adj = idx >= 0 ? adjuntos[idx] : undefined;
+    if (!adj || savingVis.has(adj.id)) return;
+    if (val === false && (vis[adj.id] ?? true)) {
+      set((s) => ({ ...s, docVisAuto: [...s.docVisAuto.filter((x) => x !== adj.id), adj.id] }));
+      void persistirVisible(adj.id, false);
+    } else if (val === true && autoSet.has(adj.id)) {
+      set((s) => ({ ...s, docVisAuto: s.docVisAuto.filter((x) => x !== adj.id) }));
+      void persistirVisible(adj.id, true);
+    }
   }
   function setOutcome(o: DocOutcome) {
     set((s) => ({ ...s, docOutcome: o }));
@@ -161,7 +241,7 @@ export function PasoDocumentacion({ solicitud, state, set }: PasoProps) {
                     </a>
                   )}
                 </div>
-                <div className="flex shrink-0 gap-2">
+                <div className="flex shrink-0 flex-wrap items-center gap-2">
                   <button
                     type="button"
                     onClick={() => setCheck(k, true)}
@@ -183,6 +263,25 @@ export function PasoDocumentacion({ solicitud, state, set }: PasoProps) {
                     }`}
                   >
                     ✗ Incorrecto
+                  </button>
+                  {/* DGG-122 · toggle de visibilidad para el gestor */}
+                  <button
+                    type="button"
+                    onClick={() => toggleVisibleManual(a.id)}
+                    disabled={savingVis.has(a.id)}
+                    title={
+                      (vis[a.id] ?? true)
+                        ? 'El gestor VE este archivo. Click para ocultárselo (queda guardado para gerencia).'
+                        : 'Oculto a gestoría: no viaja en el mail ni aparece en su panel. Click para mostrarlo.'
+                    }
+                    className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition ${
+                      (vis[a.id] ?? true)
+                        ? 'border-slate-200 text-brand-muted hover:bg-slate-50'
+                        : 'border-amber-300 bg-amber-50 text-amber-700'
+                    }`}
+                  >
+                    {(vis[a.id] ?? true) ? <Eye size={13} /> : <EyeOff size={13} />}
+                    {(vis[a.id] ?? true) ? 'Visible a gestoría' : 'Oculto a gestoría'}
                   </button>
                 </div>
               </li>

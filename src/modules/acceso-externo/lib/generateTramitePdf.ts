@@ -9,6 +9,7 @@
 
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
+import { construirMascaraGestoria } from './mascaraGestoria';
 
 const DOMAIN = 'gestionglobal.ar';
 const BRAND_CYAN = '#009ECA';
@@ -68,12 +69,6 @@ function formatearFecha(iso: string): string {
   }
 }
 
-function formatearValor(v: unknown): string {
-  if (v === null || v === undefined || v === '') return '—';
-  if (typeof v === 'object') return JSON.stringify(v);
-  return String(v);
-}
-
 function buildHtml(input: TramitePdfInput): string {
   const fechaHoy = new Date().toLocaleDateString('es-AR', {
     day: '2-digit',
@@ -81,16 +76,47 @@ function buildHtml(input: TramitePdfInput): string {
     year: 'numeric',
   });
 
-  const datosRows = Object.entries(input.datos)
-    .filter(([, v]) => v !== null && v !== undefined && v !== '')
+  // DGG-122 · misma máscara de orden curado que el panel del gestor: una sola
+  // fuente de orden para pantalla y PDF (pedido explícito de Pablo).
+  const mascara = construirMascaraGestoria(input.datos);
+  const campoHtml = (c: { etiqueta: string; valor: string; nota?: string }) => `
+    <div class="m-campo">
+      <p class="label">${escapeHtml(c.etiqueta)}</p>
+      <p class="value">${escapeHtml(c.valor)}</p>
+      ${c.nota ? `<p class="m-nota">${escapeHtml(c.nota)}</p>` : ''}
+    </div>`;
+  const bloquesHtml = mascara.bloques
     .map(
-      ([k, v]) => `
-      <tr>
-        <td class="campo">${escapeHtml(k.replace(/_/g, ' '))}</td>
-        <td class="valor">${escapeHtml(formatearValor(v))}</td>
-      </tr>`,
+      (b) => `
+      ${b.titulo ? `<p class="m-subtitulo">${escapeHtml(b.titulo)}</p>` : ''}
+      <div class="solicitante-grid">
+        <div>${b.izquierda.map(campoHtml).join('')}</div>
+        <div>${b.derecha.map(campoHtml).join('')}</div>
+      </div>`,
     )
     .join('');
+  const otrosHtml =
+    mascara.otros.length === 0
+      ? ''
+      : `<p class="m-subtitulo m-otros">Otros datos del trámite</p>
+        <div class="solicitante-grid">
+          <div>${mascara.otros
+            .filter((_, i) => i % 2 === 0)
+            .map(campoHtml)
+            .join('')}</div>
+          <div>${mascara.otros
+            .filter((_, i) => i % 2 === 1)
+            .map(campoHtml)
+            .join('')}</div>
+        </div>`;
+  const tieneDatos = mascara.bloques.length > 0 || mascara.otros.length > 0;
+  const datosHtml = !tieneDatos
+    ? `<p class="empty">El cliente no completó campos en el formulario.</p>`
+    : `<div class="card">
+        <p class="m-encabezado">${escapeHtml(mascara.encabezado)}</p>
+        ${bloquesHtml}
+        ${otrosHtml}
+      </div>`;
 
   const adjuntosRows =
     input.adjuntos.length === 0
@@ -218,26 +244,6 @@ function buildHtml(input: TramitePdfInput): string {
     margin: 0;
     word-break: break-word;
   }
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-top: 4px;
-  }
-  td {
-    font-size: 12px;
-    padding: 8px 10px;
-    vertical-align: top;
-    border-bottom: 1px solid #f1f5f9;
-  }
-  td.campo {
-    width: 38%;
-    color: #64748b;
-    font-weight: 600;
-    text-transform: capitalize;
-  }
-  td.valor {
-    color: #0f172a;
-  }
   .adjuntos {
     margin: 0;
     padding: 0;
@@ -248,6 +254,28 @@ function buildHtml(input: TramitePdfInput): string {
     border-bottom: 1px solid #f1f5f9;
     font-size: 12px;
     color: #0f172a;
+  }
+  .m-encabezado {
+    margin: 0 0 12px;
+    font-size: 16px;
+    font-weight: 800;
+    color: #0f172a;
+  }
+  .m-subtitulo {
+    margin: 16px 0 8px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid #e2e8f0;
+    font-size: 12px;
+    font-weight: 700;
+    color: ${BRAND_CYAN};
+  }
+  .m-subtitulo.m-otros { color: #64748b; }
+  .m-campo { margin-bottom: 10px; }
+  .m-nota {
+    margin: 2px 0 0;
+    font-size: 8.5px;
+    line-height: 1.4;
+    color: #94a3b8;
   }
   .adj-icon { margin-right: 6px; }
   .adj-campo { color: #94a3b8; font-size: 11px; margin-left: 4px; }
@@ -312,11 +340,7 @@ function buildHtml(input: TramitePdfInput): string {
   </div>
 
   <h2>Datos del formulario</h2>
-  ${
-    datosRows
-      ? `<table>${datosRows}</table>`
-      : `<p class="empty">El cliente no completó campos en el formulario.</p>`
-  }
+  ${datosHtml}
 
   <h2>Documentación adjunta</h2>
   ${adjuntosRows}

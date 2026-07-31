@@ -90,6 +90,8 @@ function estadoInicial(sol: SolicitudDetalle, flags: SolicitudFlags): WizardStat
     docChecks: {},
     docOutcome: 'completa',
     docMensajeCliente: '',
+    docVisGestoria: {},
+    docVisAuto: [],
     comprobante: {
       omitir: flags.esDDJJ,
       gratuito: flags.esGratuito,
