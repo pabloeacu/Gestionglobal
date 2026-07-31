@@ -12,6 +12,7 @@ import {
   Download,
   List,
   Building2,
+  Users,
   ChevronDown,
   type LucideIcon,
 } from 'lucide-react';
@@ -776,7 +777,9 @@ export function VencimientosListPage() {
                       aria-expanded={!colapsado}
                     >
                       <span className="flex min-w-0 items-center gap-2">
-                        <Building2 size={16} className="shrink-0 text-brand-cyan" />
+                        {/* DGG-123: edificio quedó reservado a personas jurídicas;
+                            este dataset no trae CUIT → ícono neutral de cliente. */}
+                        <Users size={16} className="shrink-0 text-brand-cyan" />
                         <span className="truncate font-display text-base font-bold text-brand-ink">
                           {g.nombre}
                         </span>

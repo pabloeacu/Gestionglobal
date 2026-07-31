@@ -65,7 +65,7 @@ import { formatDateShort, parseLocalDate } from '@/lib/dates';
 import { cn } from '@/lib/cn';
 import { TabWebinars } from '../components/TabWebinars';
 import { humanizeError } from '@/lib/errors';
-import { validarCuit, soloDigitosCuit } from '@/lib/cuit';
+import { validarCuit, soloDigitosCuit, esCuitJuridico } from '@/lib/cuit';
 
 type TabKey = 'general' | 'fiscal' | 'registral' | 'consorcios' | 'ctacte' | 'webinars' | 'emails';
 
@@ -548,7 +548,8 @@ function FichaCover({
         <div className="-mt-10 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div className="flex items-end gap-4">
             <span className="grid h-20 w-20 shrink-0 place-items-center rounded-2xl border-4 border-white bg-gradient-to-br from-brand-cyan to-brand-teal font-display text-2xl font-bold text-white shadow-lg sm:h-24 sm:w-24 sm:text-3xl">
-              {initials || <Building2 size={32} />}
+              {initials ||
+                (esCuitJuridico(admin.cuit) ? <Building2 size={32} /> : <UserRound size={32} />)}
             </span>
             <div className="min-w-0 pb-1">
               <p className="kicker text-brand-cyan">Ficha de administración</p>

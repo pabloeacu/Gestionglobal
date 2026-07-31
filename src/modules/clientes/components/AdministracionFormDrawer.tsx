@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { toast } from '@/lib/toast';
-import { Building2, Save, ArrowLeft, ArrowRight, Loader2, KeyRound } from 'lucide-react';
+import { Building2, Save, ArrowLeft, ArrowRight, Loader2, KeyRound, UserRound } from 'lucide-react';
 import {
   Drawer,
   Button,
@@ -24,7 +24,7 @@ import {
 } from '@/services/api/administraciones';
 import { altaClientePortal } from '@/services/api/usuarios';
 import { humanizeError } from '@/lib/errors';
-import { formatCuit, validarCuit, soloDigitosCuit } from '@/lib/cuit';
+import { formatCuit, validarCuit, soloDigitosCuit, esCuitJuridico } from '@/lib/cuit';
 
 interface AdministracionFormDrawerProps {
   open: boolean;
@@ -230,7 +230,9 @@ export function AdministracionFormDrawer({
       madre_apellido_nombre: form.madre_apellido_nombre.trim() || null,
       legajo_rpac: form.legajo_rpac.trim() || null,
       clave_fiscal_arca: form.clave_fiscal_arca.trim() || null,
-      cuit_titular_arca: form.cuit_titular_arca.trim() || null,
+      // Normalizado a dígitos puros — mismo formato que dejan los triggers de
+      // backfill (0399), así el dato es comparable venga de donde venga.
+      cuit_titular_arca: soloDigitosCuit(form.cuit_titular_arca) || null,
       origen: form.origen.trim() || null,
       convenio: form.convenio.trim() || null,
       estado: form.estado,
@@ -361,7 +363,7 @@ export function AdministracionFormDrawer({
       kicker={editing ? 'Editar' : 'Nueva administración'}
       title={editing ? editing.nombre : 'Alta de administración'}
       description="Cargá los datos en 4 pasos. Podés saltear lo que no tengas todavía y completarlo después."
-      icon={<Building2 size={20} />}
+      icon={esCuitJuridico(form.cuit) ? <Building2 size={20} /> : <UserRound size={20} />}
       footer={
         <div className="flex w-full items-center justify-between gap-3">
           <div className="text-xs text-brand-muted">
@@ -659,9 +661,12 @@ export function AdministracionFormDrawer({
                   hint="Personas jurídicas: el CUIT personal del titular vinculado (20/23/24/27). Con la clave fiscal, es el par de acceso al organismo."
                 >
                   <Input
-                    value={form.cuit_titular_arca}
-                    onChange={(e) => setField('cuit_titular_arca', e.target.value)}
-                    placeholder="20-XXXXXXXX-X"
+                    inputMode="numeric"
+                    value={formatCuit(form.cuit_titular_arca)}
+                    onChange={(e) =>
+                      setField('cuit_titular_arca', soloDigitosCuit(e.target.value).slice(0, 11))
+                    }
+                    placeholder="XX-XXXXXXXX-X"
                   />
                 </Field>
               </div>
