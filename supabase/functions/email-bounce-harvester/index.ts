@@ -420,12 +420,38 @@ Deno.serve(async (req) => {
       // "spam" en el diagnóstico SMTP ("550 rejected as spam") es un rechazo
       // anti-spam del receptor = bounce, no una queja del usuario.
       const isComplaint = /complaint|abuse report|feedback-?loop/i.test(subjectTop);
+      // v5 (E-GG-169): los avisos de DEMORA de Gmail en español ("Hubo un
+      // problema temporal… Gmail seguirá intentando N horas más") pueden venir
+      // SIN part message/delivery-status parseable → action/statusCode quedan
+      // null y el default caía en 'bounced', alertando a gerencia por una
+      // demora transitoria. Si NO hay dato máquina, decidimos por el texto
+      // humano: frases inequívocas de demora (ES/EN) → delivery_delayed.
+      // El dato máquina (action='failed' / status 5xx) sigue teniendo
+      // prioridad: si existe, jamás entra acá. El rebote definitivo posterior
+      // llega como DSN nuevo (otro msg id) y sí marca bounced + alerta.
+      const DELAY_PHRASES =
+        /problema temporal|seguir[áa] intentando|delivery incomplete|temporary problem|temporarily delayed|will retry|status notification \(delay\)/i;
+      const humanText = `${subjectTop}\n${msg.snippet ?? ''}\n${plainText.slice(0, 3000)}`;
       if (isComplaint) estado = 'complained';
       else if (
         bounce.action === 'delayed' ||
-        (bounce.statusCode && bounce.statusCode.startsWith('4'))
+        (bounce.statusCode && bounce.statusCode.startsWith('4')) ||
+        (!bounce.action && !bounce.statusCode && DELAY_PHRASES.test(humanText))
       ) {
         estado = 'delivery_delayed';
+      }
+
+      // v5: una demora NUNCA degrada un estado terminal ya registrado. Caso
+      // real: el DSN de falla definitiva (más nuevo) se procesa primero en la
+      // corrida y marca bounced; el aviso de demora (más viejo, aún unread en
+      // la misma corrida) no debe pisarlo de vuelta a delivery_delayed.
+      if (
+        estado === 'delivery_delayed' &&
+        (sent.estado === 'bounced' || sent.estado === 'complained')
+      ) {
+        processed++;
+        await gmailMarkRead(accessToken, item.id);
+        continue;
       }
 
       const errMsg = bounce.diagnostic
