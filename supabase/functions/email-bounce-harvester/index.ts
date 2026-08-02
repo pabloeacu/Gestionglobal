@@ -41,6 +41,14 @@
 // subject FBL (no por la palabra spam en el diagnóstico SMTP), anti-loop
 // (rebotes de gerencia-notif-generica avisan sin email → corta el ciclo
 // aviso→mail→rebote→aviso), e ilike con wildcards escapados.
+//
+// v5 (2026-08-02, E-GG-169): los avisos de DEMORA de Gmail en español
+// pueden venir sin delivery-status parseable → caían al default 'bounced'
+// y alertaban a gerencia por demoras transitorias. Heurística DELAY_PHRASES
+// sobre el texto humano (solo sin dato máquina) + FAIL_PHRASES con
+// precedencia (evidencia de falla gana), narrativa sin el mensaje citado,
+// subject sin el eco "Undeliverable: <asunto>", guard anti-degradación
+// (demora no pisa bounced/complained) y gate esDsn con variantes exim/qmail.
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
@@ -386,10 +394,12 @@ Deno.serve(async (req) => {
       // un reporte de entrega (auto-reply, aviso de cuarentena, digest) NO
       // debe marcar bounced: exigimos delivery-status, o la frase de forward,
       // o un subject inequívoco de DSN. Si no, se archiva sin tocar nada.
+      // v5 §6 B#11: sumadas las variantes exim/qmail ("returning message to
+      // sender", "failure notice") que el gate v4 no reconocía.
       const esDsn =
         !!dsPart ||
         !!ultimately ||
-        /delivery status notification|undeliver|returned to sender|delivery incomplete|no se entreg/i.test(subjectTop);
+        /delivery status notification|undeliver|return(ed|ing)[^\n]{0,20}to sender|failure notice|delivery incomplete|no se entreg/i.test(subjectTop);
       if (!esDsn) {
         processed++;
         await gmailMarkRead(accessToken, item.id);
@@ -430,13 +440,40 @@ Deno.serve(async (req) => {
       // prioridad: si existe, jamás entra acá. El rebote definitivo posterior
       // llega como DSN nuevo (otro msg id) y sí marca bounced + alerta.
       const DELAY_PHRASES =
-        /problema temporal|seguir[áa] intentando|delivery incomplete|temporary problem|temporarily delayed|will retry|status notification \(delay\)/i;
-      const humanText = `${subjectTop}\n${msg.snippet ?? ''}\n${plainText.slice(0, 3000)}`;
+        /problema temporal|seguir[áa] intent[áa]ndo(lo)?|delivery incomplete|temporary problem|temporarily delayed|will retry|status notification \(delay\)/i;
+      // v5 §6 B#9: evidencia de FALLA definitiva le gana a evidencia de
+      // demora. Ojo con los futuros condicionales que los avisos de demora
+      // SÍ contienen ("Si la entrega falla definitivamente…", "if delivery
+      // fails permanently") — por eso acá van solo formas declarativas/
+      // pasadas y códigos SMTP duros, nunca "permanent"/"definitiv" a secas.
+      const FAIL_PHRASES =
+        /couldn'?t be delivered|wasn'?t delivered|message not delivered|no se (pudo|ha podido) entregar|no se entreg[oó]|address not found|no se encontr[oó] la direcci[oó]n|user unknown|does not exist|permanent (error|failure)|\b5\.\d{1,3}\.\d{1,3}\b|\b55[0-9]\b/i;
+      // v5 §6 B#4: el DSN suele adjuntar una copia de NUESTRO mensaje
+      // original (part text/plain del rfc822 citado, o inline estilo exim).
+      // Cortamos la narrativa en el delimitador de cita para que el copy
+      // propio ("hubo un problema temporal con el portal") no decida la
+      // clasificación de su propio rebote.
+      const narrative = plainText.split(
+        /-{3,}[^\n]*(?:original message|copy of the message|mensaje original|forwarded message)[^\n]*|Content-Type:\s*message\/rfc822/i,
+      )[0] ?? '';
+      // v5 §6 B#5: los NDR estilo Exchange ecoan nuestro asunto original en
+      // el subject ("Undeliverable: <asunto>") — lo removemos del haystack.
+      const subjectForHeuristic = subjectTop.replace(
+        /^(undeliverable|no se puede entregar|mail delivery failed)[:.].*$/i,
+        '$1',
+      );
+      const humanText = `${subjectForHeuristic}\n${msg.snippet ?? ''}\n${narrative.slice(0, 3000)}`;
+      // Nota B#6 (evaluado, NO aplicado): exigir !dsPart acá desactivaría la
+      // heurística para el caso real E-GG-169 si Gmail entrega el
+      // delivery-status como attachmentId (body.data vacío → action null con
+      // dsPart presente). El vector "Action: failed oculto en attachment" ya
+      // lo cubre FAIL_PHRASES: una falla real trae narrativa de falla.
       if (isComplaint) estado = 'complained';
       else if (
         bounce.action === 'delayed' ||
         (bounce.statusCode && bounce.statusCode.startsWith('4')) ||
-        (!bounce.action && !bounce.statusCode && DELAY_PHRASES.test(humanText))
+        (!bounce.action && !bounce.statusCode &&
+          DELAY_PHRASES.test(humanText) && !FAIL_PHRASES.test(humanText))
       ) {
         estado = 'delivery_delayed';
       }
