@@ -57,7 +57,25 @@ import {
   type TramiteAdjuntoRow,
 } from '@/services/api/tramites';
 import { humanizeError } from '@/lib/errors';
+import { motivoRechazoAdjunto, type LimitesAdjunto } from '@/lib/adjuntos';
 import { useAvanzarTramite } from '@/modules/tramites/lib/useAvanzarTramite';
+
+// E-GG-170: espejo de los límites del bucket `tramite-adjuntos` (10 MB,
+// imágenes + PDF + Office). Rechazo con mensaje accionable ANTES de subir.
+const LIMITES_ADJUNTO: LimitesAdjunto = {
+  maxMB: 10,
+  mimes: new Set([
+    'image/jpeg',
+    'image/png',
+    'image/webp',
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  ]),
+  formatosLabel: 'JPG, PNG, WEBP, PDF, Word o Excel',
+};
 
 type TabKey = 'detalle' | 'comentarios' | 'adjuntos' | 'historial';
 
@@ -672,6 +690,11 @@ function AdjuntosPane({
     setUploading(true);
     let ok = 0;
     for (const f of Array.from(files)) {
+      const motivo = motivoRechazoAdjunto(f, LIMITES_ADJUNTO);
+      if (motivo) {
+        toast.error(motivo);
+        continue;
+      }
       const res = await subirAdjunto(data.id, f);
       if (res.ok) ok++;
       else toast.error(`${f.name}: ${humanizeError(res.error)}`);
@@ -726,6 +749,7 @@ function AdjuntosPane({
             ref={inputRef}
             type="file"
             multiple
+            accept=".jpg,.jpeg,.png,.webp,.pdf,.doc,.docx,.xls,.xlsx"
             className="hidden"
             disabled={uploading}
             onChange={(e) => void handleFiles(e.target.files)}

@@ -44,6 +44,25 @@ import {
 } from '@/services/api/tramitePedidosDoc';
 import { setAdjuntoVisibleGestoria } from '@/services/api/solicitudes';
 import { humanizeError } from '@/lib/errors';
+import { motivoRechazoAdjunto, type LimitesAdjunto } from '@/lib/adjuntos';
+
+// E-GG-170: espejo de los límites del bucket `pedidos-doc-cliente` (20 MB,
+// imágenes + PDF + Office). Rechazo con mensaje accionable ANTES de subir.
+const LIMITES_PEDIDO_DOC: LimitesAdjunto = {
+  maxMB: 20,
+  mimes: new Set([
+    'image/jpeg',
+    'image/png',
+    'image/webp',
+    'image/heic',
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  ]),
+  formatosLabel: 'JPG, PNG, WEBP, HEIC, PDF, Word o Excel',
+};
 
 interface PedidosDocPanelProps {
   tramiteId: string;
@@ -455,10 +474,15 @@ function PedidoItem({
                 <input
                   ref={fileRef}
                   type="file"
+                  accept=".jpg,.jpeg,.png,.webp,.heic,.pdf,.doc,.docx,.xls,.xlsx"
                   className="hidden"
                   onChange={(e) => {
                     const f = e.target.files?.[0];
-                    if (f) void handleUpload(f);
+                    if (f) {
+                      const motivo = motivoRechazoAdjunto(f, LIMITES_PEDIDO_DOC);
+                      if (motivo) toast.error(motivo);
+                      else void handleUpload(f);
+                    }
                     e.target.value = '';
                   }}
                 />

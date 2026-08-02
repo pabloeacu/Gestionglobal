@@ -63,13 +63,21 @@ const MIME_POR_EXTENSION: Record<string, string> = {
   xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
 };
 function mimeDeArchivo(f: File): string {
-  const t = (f.type ?? '').split(';')[0].trim().toLowerCase();
-  if (t) return t;
+  const t = (f.type ?? '').split(';')[0]?.trim().toLowerCase() ?? '';
+  // §6 B#7a: si el type declarado no está en la whitelist (Android providers
+  // y Windows con registro roto reportan .xlsx como application/octet-stream),
+  // caemos a la extensión antes de rechazar un archivo válido.
+  if (t && MIMES_ADJUNTO.has(t)) return t;
   const ext = f.name.split('.').pop()?.toLowerCase() ?? '';
-  return MIME_POR_EXTENSION[ext] ?? '';
+  return MIME_POR_EXTENSION[ext] ?? t;
 }
 /** Devuelve el motivo de rechazo del archivo, o null si es válido. */
 function motivoRechazoAdjunto(f: File): string | null {
+  // §6 B#1d: placeholder de cloud drive no descargado (0 bytes) satisfacía
+  // el required con un comprobante inservible.
+  if (f.size === 0) {
+    return `«${f.name}» está vacío (0 bytes). Si está en la nube, descargalo al dispositivo y volvé a adjuntarlo.`;
+  }
   if (f.size > MAX_ADJUNTO_BYTES) {
     return `«${f.name}» pesa ${(f.size / 1048576).toFixed(1)} MB y el máximo es ${MAX_ADJUNTO_MB} MB. Comprimí la imagen o generá un PDF más liviano.`;
   }

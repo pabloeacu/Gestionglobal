@@ -6,6 +6,8 @@ import { Paperclip, Download, Plus, Trash2, Loader2 } from 'lucide-react';
 import { toast } from '@/lib/toast';
 import { useConfirm } from '@/components/common';
 import { cn } from '@/lib/cn';
+import { humanizeError } from '@/lib/errors';
+import { motivoRechazoAdjunto, type LimitesAdjunto } from '@/lib/adjuntos';
 import {
   listAdjuntosMovimiento,
   subirAdjuntoMovimiento,
@@ -13,6 +15,23 @@ import {
   eliminarAdjuntoMovimiento,
   type MovimientoAdjuntoRow,
 } from '@/services/api/finanzas';
+
+// E-GG-170: espejo de los límites del bucket `movimiento-adjuntos` (10 MB,
+// imágenes + PDF + Office). Rechazo con mensaje accionable ANTES de subir.
+const LIMITES_MOVIMIENTO: LimitesAdjunto = {
+  maxMB: 10,
+  mimes: new Set([
+    'image/jpeg',
+    'image/png',
+    'image/webp',
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  ]),
+  formatosLabel: 'JPG, PNG, WEBP, PDF, Word o Excel',
+};
 
 export function MovimientoAdjuntosButton({
   movimientoId,
@@ -45,16 +64,26 @@ export function MovimientoAdjuntosButton({
     else toast.error('No pudimos abrir el adjunto');
   }
   async function onAdd(files: FileList | null) {
-    const fs = Array.from(files ?? []);
+    // E-GG-170: filtrar los que violan los límites del bucket antes de subir.
+    const fs = Array.from(files ?? []).filter((f) => {
+      const motivo = motivoRechazoAdjunto(f, LIMITES_MOVIMIENTO);
+      if (motivo) toast.error(motivo);
+      return !motivo;
+    });
     if (!fs.length) return;
     setBusy(true);
     let fail = 0;
+    let primerFallo: string | null = null;
     for (const f of fs) {
       const up = await subirAdjuntoMovimiento(movimientoId, f);
-      if (!up.ok) fail++;
+      if (!up.ok) {
+        fail++;
+        // E-GG-170: mostrar el motivo, no sólo el contador.
+        if (!primerFallo) primerFallo = `${f.name}: ${humanizeError(up.error)}`;
+      }
     }
     setBusy(false);
-    if (fail) toast.warning(`${fail} adjunto(s) no se subieron`);
+    if (fail) toast.warning(`${fail} adjunto(s) no se subieron`, { description: primerFallo ?? undefined });
     await reload();
   }
   async function onDelete(a: MovimientoAdjuntoRow) {
@@ -96,7 +125,7 @@ export function MovimientoAdjuntosButton({
               <input
                 type="file"
                 multiple
-                accept="image/*,application/pdf,.xls,.xlsx,.doc,.docx"
+                accept=".jpg,.jpeg,.png,.webp,.pdf,.doc,.docx,.xls,.xlsx"
                 className="hidden"
                 disabled={busy}
                 onChange={(e) => { void onAdd(e.target.files); e.target.value = ''; }}

@@ -158,11 +158,23 @@ Deno.serve(async (req) => {
         const okBin = dl.status === 200 && dl.bytes.byteLength > 64 && /attachment|octet-stream|msword|rtf/i.test(dl.cd + " " + dl.ct);
         if (!okBin) { await svc.rpc("tramix_record", { p_user: user.id, p_administracion: adminId, p_legajo: legajo, p_resultado: "PARSE_ERROR" }); return json({ resultado: "SIN_DOCUMENTO" }); }
         const nombre = `Actuacion_${n}-${a}.doc`;
-        await svc.storage.from(DOC_BUCKET).upload(storagePath, new Uint8Array(dl.bytes), { contentType: "application/msword", upsert: true });
+        // E-GG-170 (barrido C#1): el resultado del upload no se chequeaba y el
+        // cache se upserteaba igual → quedaba apuntando a un objeto inexistente
+        // y la respuesta podía ser resultado:"OK" con url:undefined.
+        const { error: errUp } = await svc.storage
+          .from(DOC_BUCKET)
+          .upload(storagePath, new Uint8Array(dl.bytes), { contentType: "application/msword", upsert: true });
+        if (errUp) {
+          await svc.rpc("tramix_record", { p_user: user.id, p_administracion: adminId, p_legajo: legajo, p_resultado: "STORAGE_ERROR" });
+          return json({ resultado: "STORAGE_ERROR" });
+        }
         await svc.from("tramix_documentos_cache").upsert({ doc_key: docKey, storage_path: storagePath, nombre, content_type: "application/msword", bajado_at: new Date().toISOString() });
         await svc.rpc("tramix_record", { p_user: user.id, p_administracion: adminId, p_legajo: legajo, p_resultado: "OK" });
         const { data: signed } = await svc.storage.from(DOC_BUCKET).createSignedUrl(storagePath, 300, { download: nombre });
-        return json({ resultado: "OK", url: signed?.signedUrl, nombre, desde_cache: false, ms: Math.round(performance.now() - t0) });
+        if (!signed?.signedUrl) {
+          return json({ resultado: "STORAGE_ERROR" });
+        }
+        return json({ resultado: "OK", url: signed.signedUrl, nombre, desde_cache: false, ms: Math.round(performance.now() - t0) });
       } catch (e) {
         const res = e instanceof TramixTimeout ? "TIMEOUT" : "TRAMIX_DOWN";
         await svc.rpc("tramix_record", { p_user: user.id, p_administracion: adminId, p_legajo: legajo, p_resultado: res });

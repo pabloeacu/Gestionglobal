@@ -156,6 +156,15 @@ const HUMAN_BY_MESSAGE: Array<{ re: RegExp; human: string }> = [
   { re: /tramite_no_cerrado_no_se_reabre/i, human: 'Este trámite no está cerrado, no hay nada para reabrir.' },
   { re: /tramite_inexistente/i, human: 'El trámite que querés reabrir ya no existe.' },
   { re: /motivo_reapertura_requerido/i, human: 'Ingresá un motivo para la reapertura — el cliente y los reportes lo necesitan.' },
+  // E-GG-170 · errores crudos de Supabase Storage al subir archivos. La
+  // validación cliente (src/lib/adjuntos.ts) debería atajarlos antes, pero
+  // humanizamos como defensa en profundidad por si el archivo llega igual
+  // (límites del bucket desincronizados, uploads fuera de las superficies
+  // con espejo, etc.).
+  { re: /exceeded the maximum allowed size/i, human: 'El archivo supera el tamaño máximo permitido.' },
+  { re: /mime type .* is not supported/i, human: 'El formato del archivo no está soportado.' },
+  { re: /The resource already exists/i, human: 'Ya existe un archivo con ese nombre. Renombralo y volvé a intentar.' },
+  { re: /invalid key/i, human: 'El nombre del archivo tiene caracteres no soportados. Renombralo y volvé a intentar.' },
 ];
 
 /**

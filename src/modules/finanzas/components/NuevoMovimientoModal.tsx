@@ -10,6 +10,24 @@ import {
 import { listPartnersActivos, type PartnerOpcion } from '@/services/api/partners';
 import { cn } from '@/lib/cn';
 import { humanizeError } from '@/lib/errors';
+import { motivoRechazoAdjunto, type LimitesAdjunto } from '@/lib/adjuntos';
+
+// E-GG-170: espejo de los límites del bucket `movimiento-adjuntos` (10 MB,
+// imágenes + PDF + Office). Rechazo con mensaje accionable ANTES de subir.
+const LIMITES_MOVIMIENTO: LimitesAdjunto = {
+  maxMB: 10,
+  mimes: new Set([
+    'image/jpeg',
+    'image/png',
+    'image/webp',
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  ]),
+  formatosLabel: 'JPG, PNG, WEBP, PDF, Word o Excel',
+};
 
 interface Props {
   cajas: CajaConSaldoRow[];
@@ -142,16 +160,25 @@ export function NuevoMovimientoModal({ cajas, onClose, onCreated }: Props) {
     }
     // DGG-85 · subir las constancias adjuntas (best-effort; el movimiento ya existe).
     let adjFallos = 0;
+    let primerFallo: string | null = null;
     for (const f of adjuntos) {
       const up = await subirAdjuntoMovimiento(res.data, f);
-      if (!up.ok) adjFallos++;
+      if (!up.ok) {
+        adjFallos++;
+        // E-GG-170: mostrar el motivo, no sólo el contador.
+        if (!primerFallo) primerFallo = `${f.name}: ${humanizeError(up.error)}`;
+      }
     }
     setCreating(false);
     toast.success(
       `${esSinIdentificar ? 'Ingreso sin identificar' : tipo === 'ingreso' ? 'Ingreso' : 'Egreso'} registrado` +
         (adjuntos.length ? ` · ${adjuntos.length - adjFallos}/${adjuntos.length} adjunto(s)` : ''),
     );
-    if (adjFallos > 0) toast.warning(`${adjFallos} adjunto(s) no se pudieron subir`);
+    if (adjFallos > 0) {
+      toast.warning(`${adjFallos} adjunto(s) no se pudieron subir`, {
+        description: primerFallo ?? undefined,
+      });
+    }
     onCreated();
   }
 
@@ -402,10 +429,15 @@ export function NuevoMovimientoModal({ cajas, onClose, onCreated }: Props) {
             <input
               type="file"
               multiple
-              accept="image/*,application/pdf,.xls,.xlsx,.doc,.docx"
+              accept=".jpg,.jpeg,.png,.webp,.pdf,.doc,.docx,.xls,.xlsx"
               className="hidden"
               onChange={(e) => {
-                const fs = Array.from(e.target.files ?? []);
+                // E-GG-170: filtrar los que violan los límites del bucket.
+                const fs = Array.from(e.target.files ?? []).filter((f) => {
+                  const motivo = motivoRechazoAdjunto(f, LIMITES_MOVIMIENTO);
+                  if (motivo) toast.error(motivo);
+                  return !motivo;
+                });
                 if (fs.length) setAdjuntos((prev) => [...prev, ...fs]);
                 e.target.value = '';
               }}

@@ -6,12 +6,22 @@ import { Wallet, Loader2, Paperclip, X } from 'lucide-react';
 import { Modal, Field, Input, Select, Textarea, Button } from '@/components/common';
 import { toast } from '@/lib/toast';
 import { humanizeError } from '@/lib/errors';
+import { motivoRechazoAdjunto, type LimitesAdjunto } from '@/lib/adjuntos';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   reportarPago,
   uploadComprobantePago,
   type PagoMedio,
 } from '@/services/api/pagosReportados';
+
+// E-GG-170: espejo de los límites del bucket `pagos-reportados` (10 MB,
+// jpeg/png/webp/heic/pdf). Sin este chequeo el comprobante viajaba igual y
+// el rechazo recién ocurría en Storage.
+const LIMITES_COMPROBANTE: LimitesAdjunto = {
+  maxMB: 10,
+  mimes: new Set(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'application/pdf']),
+  formatosLabel: 'JPG, PNG, WEBP, HEIC o PDF',
+};
 
 interface Props {
   open: boolean;
@@ -202,9 +212,21 @@ export function InformarPagoModal({
         <input
           ref={fileRef}
           type="file"
-          accept="image/*,.pdf"
+          accept=".jpg,.jpeg,.png,.webp,.heic,.pdf"
           className="hidden"
-          onChange={(e) => setArchivo(e.target.files?.[0] ?? null)}
+          onChange={(e) => {
+            const f = e.target.files?.[0] ?? null;
+            if (f) {
+              const motivo = motivoRechazoAdjunto(f, LIMITES_COMPROBANTE);
+              if (motivo) {
+                toast.error(motivo);
+                setArchivo(null);
+                if (fileRef.current) fileRef.current.value = '';
+                return;
+              }
+            }
+            setArchivo(f);
+          }}
         />
         {archivo ? (
           <div className="flex items-center justify-between gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm">

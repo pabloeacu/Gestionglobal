@@ -25,7 +25,7 @@ export type TramixResultado =
   | 'SIN_LEGAJO' | 'SIN_ADMIN'
   | 'RATE_LIMITED' | 'CIRCUIT_OPEN'
   | 'TRAMIX_DOWN' | 'TIMEOUT' | 'PARSE_ERROR' | 'TC_BLOCKED'
-  | 'NO_AUTH' | 'FORBIDDEN' | 'INVALID' | 'ERROR';
+  | 'NO_AUTH' | 'FORBIDDEN' | 'INVALID' | 'ERROR' | 'STORAGE_ERROR';
 
 export type TramixConsultaResp = {
   resultado: TramixResultado;

@@ -37,6 +37,15 @@ import {
 } from '../components/ConstanciaPremium';
 import { fechaLargaEs } from '@/services/api/constancias';
 import { humanizeError } from '@/lib/errors';
+import { motivoRechazoAdjunto, type LimitesAdjunto } from '@/lib/adjuntos';
+
+// E-GG-170: espejo de los límites del bucket `certificado-assets` (5 MB,
+// png/jpeg/webp/svg). Rechazo con mensaje accionable ANTES de subir.
+const LIMITES_ASSET: LimitesAdjunto = {
+  maxMB: 5,
+  mimes: new Set(['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml']),
+  formatosLabel: 'PNG, JPG, WEBP o SVG',
+};
 
 // ============================================================================
 // Editor de plantillas de CONSTANCIA de inscripción (chunk CONST) — clon
@@ -617,6 +626,11 @@ function AssetField({
   const previewUrl = url ?? defaultUrl;
 
   async function handleFile(file: File) {
+    const motivo = motivoRechazoAdjunto(file, LIMITES_ASSET);
+    if (motivo) {
+      toast.error(motivo);
+      return;
+    }
     setUploading(true);
     const res = await subirAssetEsquema(esquemaId, slot, file);
     setUploading(false);

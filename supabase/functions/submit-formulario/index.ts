@@ -62,13 +62,15 @@ const MIME_POR_EXTENSION: Record<string, string> = {
 };
 const FORMATOS_LABEL = 'JPG, PNG, WEBP, PDF o Excel';
 
-// Algunos SOs entregan File.type vacío (p.ej. descargas renombradas):
-// caemos a la extensión antes de rechazar.
+// Algunos SOs entregan File.type vacío o genérico (§6 B#7a: providers de
+// Android y Windows con registro roto reportan .xlsx como
+// application/octet-stream): si el type declarado no está en la whitelist,
+// caemos a la extensión antes de rechazar un archivo válido.
 function inferMime(filename: string, given?: string): string {
-  const g = (given ?? '').split(';')[0].trim().toLowerCase();
-  if (g) return g;
+  const g = (given ?? '').split(';')[0]?.trim().toLowerCase() ?? '';
+  if (g && ALLOWED_MIMES.has(g)) return g;
   const ext = filename.split('.').pop()?.toLowerCase() ?? '';
-  return MIME_POR_EXTENSION[ext] ?? '';
+  return MIME_POR_EXTENSION[ext] ?? g;
 }
 
 interface FieldDef {
@@ -219,14 +221,25 @@ Deno.serve(async (req) => {
         if (field.required && filesForField.length === 0 && !voucherEs100) {
           validationErrors.push(`${field.label}: requerido`);
         }
-        if (field.max_files && filesForField.length > field.max_files) {
-          validationErrors.push(`${field.label}: máximo ${field.max_files} archivos`);
+        // §6 B#3c: cap server-side espejo del front (max_files ?? 1) — sin
+        // esto un payload crafteado subía N archivos en un campo single.
+        const capArchivos = field.max_files ?? 1;
+        if (filesForField.length > capArchivos) {
+          validationErrors.push(`${field.label}: máximo ${capArchivos} archivo(s)`);
         }
         // E-GG-170: pre-validación tamaño/tipo contra los límites del bucket
         // ANTES de crear la submission (caso Rodríguez: el rechazo de Storage
         // era silencioso y la solicitud quedaba sin su adjunto obligatorio).
         for (const f of filesForField) {
           const approxBytes = Math.floor((f.base64?.length ?? 0) * 3 / 4);
+          // §6 B#1d: un archivo de 0 bytes (base64 vacío crafteado, o
+          // placeholder de cloud drive no descargado en mobile) satisfacía
+          // el required con un comprobante inservible.
+          if (approxBytes === 0) {
+            validationErrors.push(
+              `${field.label}: «${f.filename}» está vacío (0 bytes). Volvé a adjuntarlo desde el dispositivo`,
+            );
+          }
           if (approxBytes > MAX_FILE_BYTES) {
             validationErrors.push(
               `${field.label}: «${f.filename}» pesa ${(approxBytes / 1048576).toFixed(1)} MB y el máximo es 10 MB. Comprimí la imagen o generá un PDF más liviano`,
@@ -356,8 +369,9 @@ Deno.serve(async (req) => {
   // El id se pre-genera para conservar el path `slug/<submission_id>/...`.
   const submissionId = crypto.randomUUID();
   const subidos: Array<{ field: string; filename: string; path: string; mime: string; size: number }> = [];
+  const pathsUsados = new Set<string>();
   if (payload.files && payload.files.length > 0) {
-    for (const f of payload.files) {
+    for (const [idx, f] of payload.files.entries()) {
       try {
         const bin = atob(f.base64);
         const bytes = new Uint8Array(bin.length);
@@ -365,8 +379,18 @@ Deno.serve(async (req) => {
         if (bytes.length > MAX_FILE_BYTES) {
           throw new Error(`supera el máximo de 10 MB`);
         }
+        if (bytes.length === 0) {
+          throw new Error(`está vacío (0 bytes)`);
+        }
         const cleanName = safeStorageKey(f.filename);
-        const path = `${formulario.slug}/${submissionId}/${f.field}-${cleanName}`;
+        // §6 A#11: dos archivos con el mismo nombre saneado en el mismo campo
+        // colisionaban (upsert:false → 409) y abortaban el envío entero con
+        // mensaje engañoso. Desambiguamos con el índice sólo si hace falta.
+        let path = `${formulario.slug}/${submissionId}/${f.field}-${cleanName}`;
+        if (pathsUsados.has(path)) {
+          path = `${formulario.slug}/${submissionId}/${f.field}-${idx}-${cleanName}`;
+        }
+        pathsUsados.add(path);
         const mime = inferMime(f.filename, f.mime) || 'application/octet-stream';
         const { error: errUp } = await supabase.storage
           .from('form-adjuntos')
@@ -376,7 +400,10 @@ Deno.serve(async (req) => {
       } catch (e) {
         console.error('[submit-formulario] upload falló, abortando envío:', f.filename, e);
         if (subidos.length > 0) {
-          await supabase.storage.from('form-adjuntos').remove(subidos.map((s) => s.path));
+          const { error: errRm } = await supabase.storage
+            .from('form-adjuntos')
+            .remove(subidos.map((s) => s.path));
+          if (errRm) console.error('[submit-formulario] cleanup remove falló:', errRm.message);
         }
         return jsonError(
           502,
@@ -411,7 +438,10 @@ Deno.serve(async (req) => {
   if (errIns || !submission) {
     // Sin submission no dejamos huérfanos en Storage.
     if (subidos.length > 0) {
-      await supabase.storage.from('form-adjuntos').remove(subidos.map((s) => s.path));
+      const { error: errRm } = await supabase.storage
+        .from('form-adjuntos')
+        .remove(subidos.map((s) => s.path));
+      if (errRm) console.error('[submit-formulario] cleanup remove falló:', errRm.message);
     }
     return jsonError(500, `No pudimos guardar la solicitud: ${errIns?.message ?? 'error'}`);
   }
@@ -437,7 +467,9 @@ Deno.serve(async (req) => {
       // romperle el envío al usuario (su archivo está a salvo).
       console.error('[submit-formulario] adjunto sin fila:', s.path, errRow.message);
       try {
-        await supabase.rpc('notify_all_gerentes', {
+        // §6 A#12: supabase.rpc no tira — capturar el {error} del resultado,
+        // si no el backstop podía quedar mudo sin dejar rastro.
+        const { error: errNotif } = await supabase.rpc('notify_all_gerentes', {
           p_evento_codigo: 'formulario_adjunto_huerfano',
           p_titulo: `Adjunto sin registrar en un envío de ${formulario.slug}`,
           p_cuerpo:
@@ -448,6 +480,9 @@ Deno.serve(async (req) => {
           p_related_table: 'formulario_submissions',
           p_related_id: submission.id,
         });
+        if (errNotif) {
+          console.error('[submit-formulario] backstop rpc devolvió error:', errNotif.message);
+        }
       } catch (e) {
         console.error('[submit-formulario] backstop notify falló:', e);
       }

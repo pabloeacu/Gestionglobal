@@ -25,8 +25,17 @@ import {
 } from '@/services/api/partners';
 import { toast } from '@/lib/toast';
 import { humanizeError } from '@/lib/errors';
+import { motivoRechazoAdjunto, type LimitesAdjunto } from '@/lib/adjuntos';
 import { parseLocalDate } from '@/lib/dates';
 import { SabanaPartner } from '@/modules/partners/components/SabanaPartner';
+
+// E-GG-170: tope defensivo para el PDF de factura del partner (bucket
+// `partner-facturas`). Rechazo con mensaje accionable ANTES de subir.
+const LIMITES_FACTURA_PDF: LimitesAdjunto = {
+  maxMB: 20,
+  mimes: new Set(['application/pdf']),
+  formatosLabel: 'PDF',
+};
 
 export function PartnerPortalPage() {
   const [comps, setComps] = useState<PartnerComprobanteRow[] | null>(null);
@@ -520,8 +529,20 @@ function ModalFacturar({
             </span>
             <input
               type="file"
-              accept="application/pdf"
-              onChange={(e) => setPdfFile(e.target.files?.[0] ?? null)}
+              accept=".pdf"
+              onChange={(e) => {
+                const f = e.target.files?.[0] ?? null;
+                if (f) {
+                  const motivo = motivoRechazoAdjunto(f, LIMITES_FACTURA_PDF);
+                  if (motivo) {
+                    toast.error(motivo);
+                    setPdfFile(null);
+                    e.target.value = '';
+                    return;
+                  }
+                }
+                setPdfFile(f);
+              }}
               className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-1.5 text-sm file:mr-2 file:rounded file:border-0 file:bg-brand-cyan-pale/40 file:px-2 file:py-1 file:text-xs file:font-medium file:text-brand-cyan"
             />
             {pdfFile && (

@@ -37,6 +37,7 @@ import {
 } from '@/services/api/accesoExterno';
 import { toast } from '@/lib/toast';
 import { humanizeError } from '@/lib/errors';
+import { motivoRechazoAdjunto, type LimitesAdjunto } from '@/lib/adjuntos';
 import { construirMascaraGestoria } from '../lib/mascaraGestoria';
 
 // Página pública sin login. Carga el recurso vía edge function `acceso-externo`.
@@ -472,12 +473,18 @@ function escapeICS(s: string): string {
 // #147 · Perfil Gestor (carga de avance desde acceso externo)
 // =============================================================================
 interface AdjuntoStaged {
+  /** E-GG-170: identificador estable — el índice sobre estado stale marcaba el ítem equivocado. */
+  id: string;
   nombre: string;
   size: number;
   url: string;     // URL pública del bucket
   uploading: boolean;
   error?: string;
 }
+
+// E-GG-170: espejo del límite del bucket `gestor-uploads` (20 MB, sin
+// restricción de formato). Rechazo con mensaje claro ANTES de subir.
+const LIMITES_GESTOR: LimitesAdjunto = { maxMB: 20 };
 
 // Bloque K (obs nueva): info que ve el gestor sobre la solicitud original.
 // Le permite descargar lo que el cliente envió: datos del formulario +
@@ -626,7 +633,16 @@ function PanelGestor({ token }: { token: string }) {
   // <token>/<timestamp>-<random>-<filename>. Devuelve URL pública del bucket.
   async function onFilesPicked(files: FileList | null) {
     if (!files || files.length === 0) return;
-    const staged: AdjuntoStaged[] = Array.from(files).map((f) => ({
+    // E-GG-170: filtrar los que violan los límites del bucket antes de subir.
+    const aceptados: File[] = [];
+    for (const f of Array.from(files)) {
+      const motivo = motivoRechazoAdjunto(f, LIMITES_GESTOR);
+      if (motivo) toast.error(motivo);
+      else aceptados.push(f);
+    }
+    if (aceptados.length === 0) return;
+    const staged: AdjuntoStaged[] = aceptados.map((f) => ({
+      id: crypto.randomUUID(),
       nombre: f.name,
       size: f.size,
       url: '',
@@ -635,21 +651,24 @@ function PanelGestor({ token }: { token: string }) {
     setAdjuntos((prev) => [...prev, ...staged]);
 
     await Promise.all(
-      Array.from(files).map(async (f, i) => {
-        const stagedIdx = adjuntos.length + i;
+      aceptados.map(async (f, i) => {
+        // E-GG-170: matchear por id estable — `adjuntos.length + i` leía el
+        // estado stale del closure y podía marcar el ítem equivocado.
+        const stagedItem = staged[i];
+        if (!stagedItem) return;
         try {
           const up = await subirAdjuntoGestor(token, f);
           if (!up.ok) throw new Error(up.error.message);
           setAdjuntos((prev) =>
-            prev.map((a, k) =>
-              k === stagedIdx ? { ...a, uploading: false, url: up.data } : a,
+            prev.map((a) =>
+              a.id === stagedItem.id ? { ...a, uploading: false, url: up.data } : a,
             ),
           );
         } catch (e) {
-          const msg = (e as { message?: string })?.message ?? 'Falló la subida';
+          const msg = humanizeError(e);
           setAdjuntos((prev) =>
-            prev.map((a, k) =>
-              k === stagedIdx ? { ...a, uploading: false, error: msg } : a,
+            prev.map((a) =>
+              a.id === stagedItem.id ? { ...a, uploading: false, error: msg } : a,
             ),
           );
         }
@@ -668,6 +687,11 @@ function PanelGestor({ token }: { token: string }) {
     }
     if (adjuntos.some((a) => a.uploading)) {
       toast.error('Esperá a que terminen de subir los adjuntos');
+      return;
+    }
+    // E-GG-170: antes los adjuntos fallados se excluían EN SILENCIO del envío.
+    if (adjuntos.some((a) => a.error)) {
+      toast.error('Hay archivos que no se pudieron subir. Quitalos o reintentá antes de enviar.');
       return;
     }
     const urls = adjuntos.filter((a) => !a.error && a.url).map((a) => a.url);
@@ -920,7 +944,7 @@ function PanelGestor({ token }: { token: string }) {
             <ul className="mt-2 space-y-1.5">
               {adjuntos.map((a, idx) => (
                 <li
-                  key={idx}
+                  key={a.id}
                   className="flex items-center justify-between gap-2 rounded-lg bg-slate-50 px-2.5 py-1.5 text-xs"
                 >
                   <span className="flex min-w-0 items-center gap-1.5">
