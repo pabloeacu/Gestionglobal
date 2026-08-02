@@ -1,9 +1,15 @@
-// submit-formulario v12 (DGG-123 · PF/PJ): los campos del schema ocultos por
-// condición se eliminan del payload (datos + files) ANTES de la validación de
-// identidad y del resto (auditor A §6), con visibilidad en cascada (dep oculto
-// ⇒ valor vacío) evaluada fresh (sin memo, idéntico al runner). Defensa en
-// profundidad del contrato "sólo viaja lo visible" que el runner ya aplica.
-// Historia: v11 strip inicial post-identidad;
+// submit-formulario v13 (E-GG-170 · caso Rodríguez): los archivos se validan
+// (tamaño/tipo espejo del bucket) y se suben a Storage ANTES de insertar la
+// submission, con el id pre-generado para conservar el path
+// `slug/<submission_id>/...`. Si Storage falla, se limpia lo subido y el
+// usuario recibe un error claro — la submission NI SE CREA (el insert dispara
+// triggers con side effects irreversibles: solicitud, mail "Recibimos tu
+// formulario", notifs). Antes el orden era insert→upload y un upload fallido
+// se tragaba con console.error → solicitud "válida" sin su adjunto
+// obligatorio. Backstop: adjunto subido cuya fila no se pudo registrar →
+// notify_all_gerentes. Sólo se aceptan files de campos `file` del schema.
+// Historia: v12 strip de ocultos con cascada ANTES de identidad (DGG-123);
+// v11 strip inicial post-identidad;
 // v10 cliente logueado liga submission a SU administración por JWT;
 // v9 presentacionales excluidos de validación; v8 condition.equals
 // string|string[] (mig 0141); v7 origen_canal + voucher_codigo.
@@ -30,6 +36,39 @@ function safeStorageKey(filename: string): string {
     .replace(/^_+|_+$/g, '')
     .slice(0, 200);
   return clean || 'archivo';
+}
+
+// E-GG-170: espejo de la config del bucket `form-adjuntos` (límite 10 MB +
+// whitelist de MIME). Mantener EN SYNC con el bucket (storage.buckets) y con
+// la validación del front (FormularioRunner.tsx). Sin esta pre-validación el
+// rechazo recién ocurría en Storage, donde era silencioso.
+const MAX_FILE_BYTES = 10 * 1024 * 1024;
+const ALLOWED_MIMES = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'application/pdf',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+]);
+const MIME_POR_EXTENSION: Record<string, string> = {
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  png: 'image/png',
+  webp: 'image/webp',
+  pdf: 'application/pdf',
+  xls: 'application/vnd.ms-excel',
+  xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+};
+const FORMATOS_LABEL = 'JPG, PNG, WEBP, PDF o Excel';
+
+// Algunos SOs entregan File.type vacío (p.ej. descargas renombradas):
+// caemos a la extensión antes de rechazar.
+function inferMime(filename: string, given?: string): string {
+  const g = (given ?? '').split(';')[0].trim().toLowerCase();
+  if (g) return g;
+  const ext = filename.split('.').pop()?.toLowerCase() ?? '';
+  return MIME_POR_EXTENSION[ext] ?? '';
 }
 
 interface FieldDef {
@@ -80,6 +119,17 @@ Deno.serve(async (req) => {
   if (formulario.cierre_at && new Date(formulario.cierre_at) < new Date()) return jsonError(410, 'Este formulario está cerrado');
 
   const schema = formulario.schema as SchemaDef;
+
+  // E-GG-170: sólo se aceptan archivos de campos `file` DEFINIDOS en el
+  // schema. Un payload crafteado con files de campos inexistentes subía
+  // objetos a Storage sin validación ni registro.
+  if (Array.isArray(payload.files) && payload.files.length > 0) {
+    const fileFields = new Set<string>();
+    for (const s of schema.sections) {
+      for (const f of s.fields) if (f.type === 'file') fileFields.add(f.name);
+    }
+    payload.files = payload.files.filter((f) => fileFields.has(f.field));
+  }
 
   // 2a-pre · DGG-123 (auditor A §6): el strip de ocultos corre ANTES de la
   // validación de identidad — si no, un payload crafteado podía "pasar"
@@ -171,6 +221,22 @@ Deno.serve(async (req) => {
         }
         if (field.max_files && filesForField.length > field.max_files) {
           validationErrors.push(`${field.label}: máximo ${field.max_files} archivos`);
+        }
+        // E-GG-170: pre-validación tamaño/tipo contra los límites del bucket
+        // ANTES de crear la submission (caso Rodríguez: el rechazo de Storage
+        // era silencioso y la solicitud quedaba sin su adjunto obligatorio).
+        for (const f of filesForField) {
+          const approxBytes = Math.floor((f.base64?.length ?? 0) * 3 / 4);
+          if (approxBytes > MAX_FILE_BYTES) {
+            validationErrors.push(
+              `${field.label}: «${f.filename}» pesa ${(approxBytes / 1048576).toFixed(1)} MB y el máximo es 10 MB. Comprimí la imagen o generá un PDF más liviano`,
+            );
+          }
+          if (!ALLOWED_MIMES.has(inferMime(f.filename, f.mime))) {
+            validationErrors.push(
+              `${field.label}: el formato de «${f.filename}» no está soportado. Aceptamos ${FORMATOS_LABEL}`,
+            );
+          }
         }
         continue;
       }
@@ -280,9 +346,51 @@ Deno.serve(async (req) => {
     }
   }
 
+  // E-GG-170 · ORDEN INVERTIDO: primero Storage, después la submission.
+  // El insert de la submission dispara triggers con side effects
+  // irreversibles (solicitud, mail "Recibimos tu formulario", notifs a
+  // gerencia) — si un upload fallaba DESPUÉS, la solicitud quedaba "válida"
+  // sin su adjunto obligatorio y el error se tragaba (caso Rodríguez,
+  // curso-actualizacion 31/07). Ahora: si Storage rechaza, se limpia lo ya
+  // subido y el usuario recibe un error claro; la submission NI SE CREA.
+  // El id se pre-genera para conservar el path `slug/<submission_id>/...`.
+  const submissionId = crypto.randomUUID();
+  const subidos: Array<{ field: string; filename: string; path: string; mime: string; size: number }> = [];
+  if (payload.files && payload.files.length > 0) {
+    for (const f of payload.files) {
+      try {
+        const bin = atob(f.base64);
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        if (bytes.length > MAX_FILE_BYTES) {
+          throw new Error(`supera el máximo de 10 MB`);
+        }
+        const cleanName = safeStorageKey(f.filename);
+        const path = `${formulario.slug}/${submissionId}/${f.field}-${cleanName}`;
+        const mime = inferMime(f.filename, f.mime) || 'application/octet-stream';
+        const { error: errUp } = await supabase.storage
+          .from('form-adjuntos')
+          .upload(path, bytes, { contentType: mime, upsert: false });
+        if (errUp) throw new Error(errUp.message);
+        subidos.push({ field: f.field, filename: f.filename, path, mime, size: bytes.length });
+      } catch (e) {
+        console.error('[submit-formulario] upload falló, abortando envío:', f.filename, e);
+        if (subidos.length > 0) {
+          await supabase.storage.from('form-adjuntos').remove(subidos.map((s) => s.path));
+        }
+        return jsonError(
+          502,
+          `No pudimos guardar tu archivo adjunto («${f.filename}»). Tu solicitud NO quedó registrada. ` +
+            `Revisá que sea ${FORMATOS_LABEL} de hasta 10 MB y volvé a intentarlo.`,
+        );
+      }
+    }
+  }
+
   const { data: submission, error: errIns } = await supabase
     .from('formulario_submissions')
     .insert({
+      id: submissionId,
       formulario_id: formulario.id,
       datos,
       email_contacto: email_contacto ?? null,
@@ -300,34 +408,52 @@ Deno.serve(async (req) => {
     .select('id, created_at')
     .single();
 
-  if (errIns || !submission) return jsonError(500, `No pudimos guardar la solicitud: ${errIns?.message ?? 'error'}`);
+  if (errIns || !submission) {
+    // Sin submission no dejamos huérfanos en Storage.
+    if (subidos.length > 0) {
+      await supabase.storage.from('form-adjuntos').remove(subidos.map((s) => s.path));
+    }
+    return jsonError(500, `No pudimos guardar la solicitud: ${errIns?.message ?? 'error'}`);
+  }
 
   const adjuntosCreados: Array<{ field: string; filename: string; path: string }> = [];
-  if (payload.files && payload.files.length > 0) {
-    for (const f of payload.files) {
-      try {
-        const bin = atob(f.base64);
-        const bytes = new Uint8Array(bin.length);
-        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-        const cleanName = safeStorageKey(f.filename);
-        const path = `${formulario.slug}/${submission.id}/${f.field}-${cleanName}`;
-        const { error: errUp } = await supabase.storage
-          .from('form-adjuntos')
-          .upload(path, bytes, { contentType: f.mime ?? 'application/octet-stream', upsert: false });
-        if (errUp) { console.error('upload error', errUp); continue; }
-        await supabase.from('formulario_adjuntos').insert({
-          submission_id: submission.id,
-          field_name: f.field,
-          storage_path: path,
-          filename_original: f.filename,
-          mime_type: f.mime ?? null,
-          size_bytes: bytes.length,
-        });
-        adjuntosCreados.push({ field: f.field, filename: f.filename, path });
-      } catch (e) {
-        console.error('file processing error', e);
-      }
+  for (const s of subidos) {
+    const row = {
+      submission_id: submission.id,
+      field_name: s.field,
+      storage_path: s.path,
+      filename_original: s.filename,
+      mime_type: s.mime,
+      size_bytes: s.size,
+    };
+    let { error: errRow } = await supabase.from('formulario_adjuntos').insert(row);
+    if (errRow) {
+      // Reintento único (transitorio de red/pool).
+      ({ error: errRow } = await supabase.from('formulario_adjuntos').insert(row));
     }
+    if (errRow) {
+      // Backstop E-GG-170: el archivo SÍ está en Storage pero sin fila la
+      // gerencia no lo ve en la grilla. Avisar para rescate manual, sin
+      // romperle el envío al usuario (su archivo está a salvo).
+      console.error('[submit-formulario] adjunto sin fila:', s.path, errRow.message);
+      try {
+        await supabase.rpc('notify_all_gerentes', {
+          p_evento_codigo: 'formulario_adjunto_huerfano',
+          p_titulo: `Adjunto sin registrar en un envío de ${formulario.slug}`,
+          p_cuerpo:
+            `"${s.filename}" quedó subido en Storage (${s.path}) pero no se pudo registrar ` +
+            `en la base (${errRow.message}). Revisar la submission ${submission.id} y recuperarlo manualmente.`,
+          p_url: '/gerencia/formularios',
+          p_send_email: true,
+          p_related_table: 'formulario_submissions',
+          p_related_id: submission.id,
+        });
+      } catch (e) {
+        console.error('[submit-formulario] backstop notify falló:', e);
+      }
+      continue;
+    }
+    adjuntosCreados.push({ field: s.field, filename: s.filename, path: s.path });
   }
 
   return new Response(

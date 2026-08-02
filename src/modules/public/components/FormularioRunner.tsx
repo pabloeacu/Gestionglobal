@@ -31,6 +31,54 @@ import { cn } from '@/lib/cn';
 import { humanizeError } from '@/lib/errors';
 import { formatCuit, validarCuit, esCampoCuit } from '@/lib/cuit';
 
+// E-GG-170 (caso Rodríguez): espejo de los límites del bucket `form-adjuntos`.
+// Mantener EN SYNC con el bucket (storage.buckets) y con el edge
+// submit-formulario (MAX_FILE_BYTES / ALLOWED_MIMES). Sin este chequeo el
+// archivo viajaba igual y el rechazo recién ocurría en Storage.
+const MAX_ADJUNTO_MB = 10;
+const MAX_ADJUNTO_BYTES = MAX_ADJUNTO_MB * 1024 * 1024;
+const MIMES_ADJUNTO = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'application/pdf',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+]);
+// Default del <input accept>: además de filtrar el picker, en iOS fuerza la
+// transcodificación automática HEIC→JPEG de las fotos de cámara (Safari solo
+// la hace cuando el accept pide formatos que el HEIC no cumple).
+const ACCEPT_ADJUNTO_DEFAULT = '.jpg,.jpeg,.png,.webp,.pdf,.xls,.xlsx';
+const FORMATOS_ADJUNTO_LABEL = 'JPG, PNG, WEBP, PDF o Excel';
+
+// Fallback por extensión para archivos con File.type vacío (pasa con
+// descargas renombradas / algunos SO). Igual criterio que el edge.
+const MIME_POR_EXTENSION: Record<string, string> = {
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  png: 'image/png',
+  webp: 'image/webp',
+  pdf: 'application/pdf',
+  xls: 'application/vnd.ms-excel',
+  xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+};
+function mimeDeArchivo(f: File): string {
+  const t = (f.type ?? '').split(';')[0].trim().toLowerCase();
+  if (t) return t;
+  const ext = f.name.split('.').pop()?.toLowerCase() ?? '';
+  return MIME_POR_EXTENSION[ext] ?? '';
+}
+/** Devuelve el motivo de rechazo del archivo, o null si es válido. */
+function motivoRechazoAdjunto(f: File): string | null {
+  if (f.size > MAX_ADJUNTO_BYTES) {
+    return `«${f.name}» pesa ${(f.size / 1048576).toFixed(1)} MB y el máximo es ${MAX_ADJUNTO_MB} MB. Comprimí la imagen o generá un PDF más liviano.`;
+  }
+  if (!MIMES_ADJUNTO.has(mimeDeArchivo(f))) {
+    return `El formato de «${f.name}» no está soportado. Aceptamos ${FORMATOS_ADJUNTO_LABEL}.`;
+  }
+  return null;
+}
+
 interface FormularioRunnerProps {
   formulario: FormularioRow;
   /**
@@ -235,6 +283,12 @@ export function FormularioRunner({
           }
           if (field.max_files && fl.length > field.max_files) {
             errors.push(`${field.label}: máximo ${field.max_files} archivos`);
+          }
+          // E-GG-170: cinturón al submit (el picker ya filtra, pero un file
+          // que haya entrado por otro camino no debe viajar inválido).
+          for (const f of fl) {
+            const motivo = motivoRechazoAdjunto(f);
+            if (motivo) errors.push(`${field.label}: ${motivo}`);
           }
           continue;
         }
@@ -1081,11 +1135,21 @@ function FileUploader({
   onFilesChange: (f: File[]) => void;
 }) {
   const maxFiles = field.max_files ?? 1;
-  const acceptStr = field.accept?.join(',') ?? '';
+  // E-GG-170: accept por defecto (los campos existentes no definen accept y
+  // el picker dejaba elegir cualquier archivo, incluso los que Storage
+  // después rechazaba en silencio).
+  const acceptStr = field.accept?.join(',') ?? ACCEPT_ADJUNTO_DEFAULT;
 
   function onPick(e: React.ChangeEvent<HTMLInputElement>) {
-    const newFiles = Array.from(e.target.files ?? []);
-    const total = [...files, ...newFiles].slice(0, maxFiles);
+    // E-GG-170: rechazo temprano con mensaje claro — el archivo inválido no
+    // entra a la lista (antes viajaba y moría silenciosamente en Storage).
+    const aceptados: File[] = [];
+    for (const f of Array.from(e.target.files ?? [])) {
+      const motivo = motivoRechazoAdjunto(f);
+      if (motivo) toast.error(motivo);
+      else aceptados.push(f);
+    }
+    const total = [...files, ...aceptados].slice(0, maxFiles);
     onFilesChange(total);
     e.target.value = ''; // reset input para permitir re-pick mismo archivo
   }
