@@ -5,6 +5,7 @@
 
 import { supabase } from '@/lib/supabase';
 import { ok, fail, type ApiResponse } from '@/lib/errors';
+import { normalizarAdjunto } from '@/lib/adjuntos';
 import type { Database } from '@/types/database';
 
 const rpc = supabase.rpc.bind(supabase);
@@ -81,16 +82,21 @@ export async function subirArchivoItem(
   const ext = extMatch?.[1]?.toLowerCase() ?? 'bin';
   const path = `${tramiteId}/${pedidoId}/${itemId}/${Date.now()}.${ext}`;
 
+  // E-GG-171: el bucket valida el content-type de la parte multipart (= type
+  // del File, storage-js ignora contentType con Blob) — re-tipamos con el MIME
+  // efectivo del espejo para que un .xlsx reportado como octet-stream no muera
+  // en la whitelist de la mig 0402 tras pasar el picker.
+  const cuerpo = normalizarAdjunto(file);
   const { error: upErr } = await supabase.storage
     .from(BUCKET)
-    .upload(path, file, { upsert: true, contentType: file.type });
+    .upload(path, cuerpo, { upsert: true });
   if (upErr) return fail('UPLOAD_ITEM', upErr.message, upErr);
 
   const { error: rpcErr } = await rpc('tramite_pedido_doc_subir_item', {
     p_item_id: itemId,
     p_archivo_path: path,
     p_archivo_nombre: file.name,
-    p_archivo_mime: file.type || 'application/octet-stream',
+    p_archivo_mime: cuerpo.type || 'application/octet-stream',
     p_archivo_size: file.size,
   });
   if (rpcErr) return fail('ITEM_REGISTRAR', rpcErr.message, rpcErr);

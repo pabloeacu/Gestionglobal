@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import { ok, fail, toApiError, type ApiResponse } from '@/lib/errors';
+import { normalizarAdjunto } from '@/lib/adjuntos';
 import type { Database } from '@/types/database';
 
 export type CertificadoEsquemaRow = Database['public']['Tables']['certificado_esquemas']['Row'];
@@ -141,10 +142,11 @@ export async function subirAssetEsquema(
     const ext = (file.name.split('.').pop() || 'png').toLowerCase();
     const ts = Date.now();
     const path = `${esquemaId}/${slot}-${ts}.${ext}`;
-    const upload = await supabase.storage.from(BUCKET).upload(path, file, {
+    // E-GG-171: re-tipar el cuerpo — el bucket valida el type del File, no la
+    // opción contentType (storage-js la ignora con Blob).
+    const upload = await supabase.storage.from(BUCKET).upload(path, normalizarAdjunto(file), {
       upsert: false,
       cacheControl: '3600',
-      contentType: file.type || undefined,
     });
     if (upload.error) return fail('UPLOAD_FAIL', upload.error.message, upload.error);
 

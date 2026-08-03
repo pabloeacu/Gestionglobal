@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import { ok, fail, toApiError, type ApiResponse } from '@/lib/errors';
+import { normalizarAdjunto } from '@/lib/adjuntos';
 import type { Database } from '@/types/database';
 
 // DGG-Finanzas Bloque 1: dashboard + CRUD de movimientos + transferencias + reversiones.
@@ -402,12 +403,14 @@ export async function subirAdjuntoMovimiento(
   if (!auth.user) return fail('NO_SESSION', 'Sin sesión activa');
   const { safeStorageKey } = await import('@/lib/storageKeys'); // R20
   const storage_path = `${movimientoId}/${Date.now()}_${safeStorageKey(file.name)}`;
+  // E-GG-171: re-tipar el cuerpo — el bucket valida el type del File, no la
+  // opción contentType (storage-js la ignora con Blob).
+  const cuerpo = normalizarAdjunto(file);
   const upload = await supabase.storage
     .from(MOV_ADJ_BUCKET)
-    .upload(storage_path, file, {
+    .upload(storage_path, cuerpo, {
       cacheControl: '3600',
       upsert: false,
-      contentType: file.type || undefined,
     });
   if (upload.error) return fail('MOVADJ_UPLOAD', upload.error.message, upload.error);
   const { data, error } = await supabase
@@ -416,7 +419,7 @@ export async function subirAdjuntoMovimiento(
       movimiento_id: movimientoId,
       storage_path,
       filename_original: file.name,
-      mime_type: file.type || null,
+      mime_type: cuerpo.type || null,
       size_bytes: file.size,
       subido_por: auth.user.id,
     })

@@ -1,4 +1,13 @@
-// D2-bis · email-bounce-harvester (v3 · DGG-117)
+// D2-bis · email-bounce-harvester (v6 · E-GG-172)
+//
+// v6 (2026-08-02, §6 ultra del merge): el DSN de falla DEFINITIVA por
+//   expiración de reintentos (Action: failed + Status: 4.4.7, el que Gmail
+//   emite al agotar ~47 hs — la secuela directa del propio E-GG-169) caía en
+//   la cláusula "status 4xx → delivery_delayed": el mail estaba muerto, no se
+//   alertaba a gerencia y el DSN quedaba consumido (dsn_msg_id) sin que
+//   llegara jamás otro que marcara bounced. Ahora `action: failed` tiene
+//   precedencia terminal: con action=failed SIEMPRE es bounced, sin importar
+//   que el status sea 4xx.
 //
 // v3 (2026-07-24, caso Nogueira):
 //   · Matching multi-candidato: los rebotes de casillas con REDIRECCIÓN
@@ -436,9 +445,11 @@ Deno.serve(async (req) => {
       // null y el default caía en 'bounced', alertando a gerencia por una
       // demora transitoria. Si NO hay dato máquina, decidimos por el texto
       // humano: frases inequívocas de demora (ES/EN) → delivery_delayed.
-      // El dato máquina (action='failed' / status 5xx) sigue teniendo
-      // prioridad: si existe, jamás entra acá. El rebote definitivo posterior
-      // llega como DSN nuevo (otro msg id) y sí marca bounced + alerta.
+      // v6 (E-GG-172): action='failed' es TERMINAL y le gana a todo — el DSN
+      // de falla por expiración de reintentos viene con Action: failed +
+      // Status: 4.4.7 y es el ÚLTIMO de la cadena (no llega ningún DSN
+      // posterior que marque bounced): sin esta guarda quedaba como demora
+      // eterna y gerencia nunca se enteraba del mail muerto.
       const DELAY_PHRASES =
         /problema temporal|seguir[áa] intent[áa]ndo(lo)?|delivery incomplete|temporary problem|temporarily delayed|will retry|status notification \(delay\)/i;
       // v5 §6 B#9: evidencia de FALLA definitiva le gana a evidencia de
@@ -470,10 +481,12 @@ Deno.serve(async (req) => {
       // lo cubre FAIL_PHRASES: una falla real trae narrativa de falla.
       if (isComplaint) estado = 'complained';
       else if (
-        bounce.action === 'delayed' ||
-        (bounce.statusCode && bounce.statusCode.startsWith('4')) ||
-        (!bounce.action && !bounce.statusCode &&
-          DELAY_PHRASES.test(humanText) && !FAIL_PHRASES.test(humanText))
+        bounce.action !== 'failed' && (
+          bounce.action === 'delayed' ||
+          (bounce.statusCode && bounce.statusCode.startsWith('4')) ||
+          (!bounce.action && !bounce.statusCode &&
+            DELAY_PHRASES.test(humanText) && !FAIL_PHRASES.test(humanText))
+        )
       ) {
         estado = 'delivery_delayed';
       }

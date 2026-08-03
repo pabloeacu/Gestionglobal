@@ -73,9 +73,12 @@ export async function subirImagenPreview(
   const path = `${formularioId}/${fieldKey}/${Date.now()}-${Math.random()
     .toString(36)
     .slice(2, 8)}-${safeStorageKey(file.name)}`;
+  // E-GG-171: re-tipar el cuerpo — el bucket (whitelist png/jpeg/webp) valida
+  // el type del File, no la opción contentType (storage-js la ignora con Blob).
+  const { normalizarAdjunto } = await import('@/lib/adjuntos');
   const { error } = await supabase.storage
     .from('formulario-previews')
-    .upload(path, file, { upsert: false, contentType: file.type || undefined });
+    .upload(path, normalizarAdjunto(file), { upsert: false });
   if (error) return fail('FORM_PREVIEW_UPLOAD', error.message, error);
   const { data } = supabase.storage.from('formulario-previews').getPublicUrl(path);
   return ok(data.publicUrl);

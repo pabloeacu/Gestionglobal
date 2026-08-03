@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import { ok, fail, type ApiResponse } from '@/lib/errors';
+import { normalizarAdjunto } from '@/lib/adjuntos';
 import type { Database, Json } from '@/types/database';
 
 // ============================================================================
@@ -807,12 +808,14 @@ export async function subirAdjunto(
   const { safeStorageKey } = await import('@/lib/storageKeys');
   const storage_path = `${tramite_id}/${Date.now()}_${safeStorageKey(file.name)}`;
 
+  // E-GG-171: re-tipar el cuerpo — el bucket valida el type del File, no la
+  // opción contentType (storage-js la ignora con Blob).
+  const cuerpo = normalizarAdjunto(file);
   const upload = await supabase.storage
     .from('tramite-adjuntos')
-    .upload(storage_path, file, {
+    .upload(storage_path, cuerpo, {
       cacheControl: '3600',
       upsert: false,
-      contentType: file.type || undefined,
     });
   if (upload.error) return fail('UPLOAD', upload.error.message, upload.error);
 
@@ -822,7 +825,7 @@ export async function subirAdjunto(
       tramite_id,
       storage_path,
       filename_original: file.name,
-      mime_type: file.type || null,
+      mime_type: cuerpo.type || null,
       size_bytes: file.size,
       subido_por: auth.user.id,
     })
@@ -860,10 +863,9 @@ export async function subirDocumentoFinalTramite(
   const path = `${tramite_id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${safeStorageKey(file.name)}`;
   const { error } = await supabase.storage
     .from('tramite-documento-final')
-    .upload(path, file, {
+    .upload(path, normalizarAdjunto(file), {
       cacheControl: '3600',
       upsert: false,
-      contentType: file.type || undefined,
     });
   if (error) return fail('UPLOAD_DOC_FINAL', error.message, error);
   const { data } = supabase.storage

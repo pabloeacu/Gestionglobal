@@ -3,6 +3,7 @@
 // vía registrar_cobranza_comprobante (única escritora del asiento). Ver mig 0328.
 import { supabase } from '@/lib/supabase';
 import { ok, fail, type ApiResponse } from '@/lib/errors';
+import { normalizarAdjunto } from '@/lib/adjuntos';
 
 export type PagoMedio = 'transferencia' | 'deposito' | 'mercadopago' | 'efectivo' | 'otro';
 export type PagoEstado = 'reportado' | 'conciliado' | 'rechazado';
@@ -131,9 +132,12 @@ export async function uploadComprobantePago(
 ): Promise<ApiResponse<{ path: string }>> {
   const { buildStorageKey } = await import('@/lib/storageKeys'); // R20
   const path = buildStorageKey(administracionId, file.name);
+  // E-GG-171: re-tipar el cuerpo — el bucket valida el type del File, no la
+  // opción contentType (storage-js la ignora con Blob). El octet-stream
+  // forzado de antes garantizaba el 415 con la whitelist del bucket.
   const { error } = await supabase.storage
     .from(BUCKET_PAGOS)
-    .upload(path, file, { upsert: false, contentType: file.type || 'application/octet-stream' });
+    .upload(path, normalizarAdjunto(file), { upsert: false });
   if (error) return fail('PAGO_UPLOAD', error.message, error);
   return ok({ path });
 }

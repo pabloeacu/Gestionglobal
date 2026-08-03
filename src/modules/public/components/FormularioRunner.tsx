@@ -71,6 +71,61 @@ function mimeDeArchivo(f: File): string {
   const ext = f.name.split('.').pop()?.toLowerCase() ?? '';
   return MIME_POR_EXTENSION[ext] ?? t;
 }
+
+// E-GG-171: tope COMBINADO de adjuntos. El límite de 10 MB es per-archivo;
+// un form con muchos campos file (matriculación: ~9 visibles) podía armar un
+// payload base64 que muere en el runtime del edge (probado: ~120 MB → 546
+// WORKER_RESOURCE_LIMIT tras minutos de espera, error opaco). 60 MB raw
+// (~80 MB base64, probado OK) corta ANTES de enviar con mensaje accionable.
+// Mantener EN SYNC con el edge submit-formulario (MAX_TOTAL_BYTES).
+const MAX_TOTAL_ADJUNTOS_MB = 60;
+const MAX_TOTAL_ADJUNTOS_BYTES = MAX_TOTAL_ADJUNTOS_MB * 1024 * 1024;
+
+// E-GG-171: extensiones equivalentes de cada MIME de la whitelist. El accept
+// se emite SIEMPRE como extensiones porque iOS solo transcodifica HEIC→JPEG
+// cuando el accept no admite HEIC (un accept `image/*` lo admite → la foto
+// viaja como HEIC y muere en la validación).
+const EXTENSIONES_POR_MIME: Record<string, string> = {
+  'image/jpeg': '.jpg,.jpeg',
+  'image/png': '.png',
+  'image/webp': '.webp',
+  'application/pdf': '.pdf',
+  'application/vnd.ms-excel': '.xls',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': '.xlsx',
+};
+
+/**
+ * E-GG-171: sanea el `accept` custom del schema contra la whitelist del
+ * bucket. El caso real: consultoria-juridica definía `image/*`, que en un
+ * iPhone deja pasar la foto HEIC original (Safari no la transcodifica porque
+ * el accept la admite) y el campo required quedaba imposible de completar.
+ * Entradas fuera de la whitelist se descartan; si no queda nada, cae al
+ * default completo.
+ */
+function sanearAccept(accept?: string[]): string {
+  if (!accept || accept.length === 0) return ACCEPT_ADJUNTO_DEFAULT;
+  const partes: string[] = [];
+  for (const a of accept) {
+    const e = a.trim().toLowerCase();
+    if (!e) continue;
+    if (e === 'image/*') {
+      partes.push('.jpg,.jpeg,.png,.webp');
+      continue;
+    }
+    if (EXTENSIONES_POR_MIME[e]) {
+      partes.push(EXTENSIONES_POR_MIME[e]);
+      continue;
+    }
+    if (e.startsWith('.') && MIME_POR_EXTENSION[e.slice(1)]) {
+      partes.push(e);
+      continue;
+    }
+    // Entrada fuera de la whitelist (video/*, .doc, etc.): se descarta — el
+    // bucket la rechazaría igual, mejor que el picker no la ofrezca.
+  }
+  const unicas = [...new Set(partes.join(',').split(',').filter(Boolean))].join(',');
+  return unicas || ACCEPT_ADJUNTO_DEFAULT;
+}
 /** Devuelve el motivo de rechazo del archivo, o null si es válido. */
 function motivoRechazoAdjunto(f: File): string | null {
   // §6 B#1d: placeholder de cloud drive no descargado (0 bytes) satisfacía
@@ -279,6 +334,7 @@ export function FormularioRunner({
     // uso: voucher 100% sobre un servicio que normalmente exige adjuntar el
     // comprobante de transferencia).
     const skipFilesRequired = es100;
+    let totalAdjuntosBytes = 0;
     for (const section of schema.sections) {
       for (const field of section.fields) {
         if (['heading', 'separator', 'html', 'file_download', 'costos_info'].includes(field.type)) continue;
@@ -297,6 +353,7 @@ export function FormularioRunner({
           for (const f of fl) {
             const motivo = motivoRechazoAdjunto(f);
             if (motivo) errors.push(`${field.label}: ${motivo}`);
+            totalAdjuntosBytes += f.size;
           }
           continue;
         }
@@ -320,8 +377,21 @@ export function FormularioRunner({
           const digits = String(val).replace(/\D/g, '');
           if (digits.length < 8) errors.push(`${field.label}: teléfono incompleto`);
         }
-        if (field.type === 'number' && isNaN(Number(val))) {
-          errors.push(`${field.label}: número inválido`);
+        if (field.type === 'number') {
+          const n = Number(val);
+          if (isNaN(n)) {
+            errors.push(`${field.label}: número inválido`);
+          } else {
+            // E-GG-171: espejo de validation.min/max del edge — sin esto el
+            // error recién llegaba como 422 tras codificar y subir todos los
+            // adjuntos (caso real: ano_egreso 1950-2050 en matriculacion-rpac).
+            if (field.validation?.min !== undefined && n < field.validation.min) {
+              errors.push(`${field.label}: mínimo ${field.validation.min}`);
+            }
+            if (field.validation?.max !== undefined && n > field.validation.max) {
+              errors.push(`${field.label}: máximo ${field.validation.max}`);
+            }
+          }
         }
         // DGG-98 · CUIT/CUIL: cantidad de dígitos (11) + dígito verificador.
         if (esCampoCuit(field)) {
@@ -329,6 +399,12 @@ export function FormularioRunner({
           if (cuitErr) errors.push(`${field.label}: ${cuitErr}`);
         }
       }
+    }
+    // E-GG-171: tope combinado (ver MAX_TOTAL_ADJUNTOS_MB).
+    if (totalAdjuntosBytes > MAX_TOTAL_ADJUNTOS_BYTES) {
+      errors.push(
+        `El conjunto de archivos pesa ${(totalAdjuntosBytes / 1048576).toFixed(0)} MB y el máximo total del envío es ${MAX_TOTAL_ADJUNTOS_MB} MB. Comprimí las fotos más pesadas`,
+      );
     }
     return errors;
   }
@@ -938,6 +1014,8 @@ function FieldRenderer({ field, value, prefilled = false, onChange, files, onFil
             onChange={(e) => onChange(e.target.value)}
             placeholder={field.placeholder}
             required={field.required}
+            min={field.type === 'number' ? field.validation?.min : undefined}
+            max={field.type === 'number' ? field.validation?.max : undefined}
           />
         </Field>
       );
@@ -1146,7 +1224,9 @@ function FileUploader({
   // E-GG-170: accept por defecto (los campos existentes no definen accept y
   // el picker dejaba elegir cualquier archivo, incluso los que Storage
   // después rechazaba en silencio).
-  const acceptStr = field.accept?.join(',') ?? ACCEPT_ADJUNTO_DEFAULT;
+  // E-GG-171: el accept custom del schema se SANEA contra la whitelist — un
+  // `image/*` heredado dejaba entrar HEIC que la validación rechaza siempre.
+  const acceptStr = sanearAccept(field.accept);
 
   function onPick(e: React.ChangeEvent<HTMLInputElement>) {
     // E-GG-170: rechazo temprano con mensaje claro — el archivo inválido no

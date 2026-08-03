@@ -53,6 +53,22 @@ export function mimeDeArchivo(f: File): string {
   return MIME_POR_EXTENSION[ext] ?? t;
 }
 
+/**
+ * E-GG-171: re-envuelve el archivo con su MIME efectivo antes de subirlo.
+ * storage-js con cuerpo File/Blob arma multipart e IGNORA la opción
+ * `contentType` — el content-type que valida la whitelist del bucket sale de
+ * `File.type` crudo. Un .xlsx que el provider reporta como octet-stream (caso
+ * B#7a) pasaba el espejo `motivoRechazoAdjunto` (fallback por extensión) pero
+ * el bucket lo rechazaba con 415. Pasar `contentType` al .upload() NO alcanza:
+ * hay que re-tipar el cuerpo. Usar SIEMPRE en el `.upload()` de toda
+ * superficie con espejo cliente.
+ */
+export function normalizarAdjunto(f: File): File {
+  const mime = mimeDeArchivo(f);
+  if (!mime || mime === f.type) return f;
+  return new File([f], f.name, { type: mime, lastModified: f.lastModified });
+}
+
 /** Devuelve el motivo de rechazo del archivo (mensaje para el usuario final), o null si es válido. */
 export function motivoRechazoAdjunto(f: File, lim: LimitesAdjunto): string | null {
   // Placeholder de cloud drive no descargado (0 bytes): satisface el input

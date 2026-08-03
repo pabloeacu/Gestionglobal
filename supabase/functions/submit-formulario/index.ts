@@ -1,4 +1,10 @@
-// submit-formulario v13 (E-GG-170 · caso Rodríguez): los archivos se validan
+// submit-formulario v14 (E-GG-171 · §6 ultra del merge): (a) el pre-check de
+// tamaño descuenta el padding base64 — un archivo de EXACTAMENTE 10 MB pasaba
+// front y bucket pero el estimado floor(len*3/4) lo 422aba con mensaje
+// contradictorio; (b) tope COMBINADO de 60 MB raw (~80 MB base64, probado OK;
+// ~120 MB moría en 546 WORKER_RESOURCE_LIMIT tras subir todo) espejado en el
+// runner.
+// v13 (E-GG-170 · caso Rodríguez): los archivos se validan
 // (tamaño/tipo espejo del bucket) y se suben a Storage ANTES de insertar la
 // submission, con el id pre-generado para conservar el path
 // `slug/<submission_id>/...`. Si Storage falla, se limpia lo subido y el
@@ -43,6 +49,18 @@ function safeStorageKey(filename: string): string {
 // la validación del front (FormularioRunner.tsx). Sin esta pre-validación el
 // rechazo recién ocurría en Storage, donde era silencioso.
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
+// E-GG-171: tope combinado del envío. Mantener EN SYNC con el runner
+// (MAX_TOTAL_ADJUNTOS_MB en FormularioRunner.tsx).
+const MAX_TOTAL_BYTES = 60 * 1024 * 1024;
+// Bytes EXACTOS de un base64 (descuenta el padding '='). El estimado
+// floor(len*3/4) sobraba hasta 2 bytes y rechazaba archivos de exactamente
+// 10 MB que el bucket sí acepta.
+function bytesDeBase64(b64: string): number {
+  const len = b64?.length ?? 0;
+  if (len === 0) return 0;
+  const pad = b64.endsWith('==') ? 2 : b64.endsWith('=') ? 1 : 0;
+  return Math.floor(len / 4) * 3 + (len % 4 === 0 ? 0 : Math.floor(((len % 4) * 3) / 4)) - pad;
+}
 const ALLOWED_MIMES = new Set([
   'image/jpeg',
   'image/png',
@@ -231,7 +249,7 @@ Deno.serve(async (req) => {
         // ANTES de crear la submission (caso Rodríguez: el rechazo de Storage
         // era silencioso y la solicitud quedaba sin su adjunto obligatorio).
         for (const f of filesForField) {
-          const approxBytes = Math.floor((f.base64?.length ?? 0) * 3 / 4);
+          const approxBytes = bytesDeBase64(f.base64 ?? '');
           // §6 B#1d: un archivo de 0 bytes (base64 vacío crafteado, o
           // placeholder de cloud drive no descargado en mobile) satisfacía
           // el required con un comprobante inservible.
@@ -275,6 +293,15 @@ Deno.serve(async (req) => {
       if ((field.type === 'select' || field.type === 'radio') && field.options && !field.options.includes(String(val))) {
         validationErrors.push(`${field.label}: valor no permitido`);
       }
+    }
+  }
+  // E-GG-171: tope combinado — espejo del runner (ver MAX_TOTAL_BYTES).
+  {
+    const totalBytes = (payload.files ?? []).reduce((acc, f) => acc + bytesDeBase64(f.base64 ?? ''), 0);
+    if (totalBytes > MAX_TOTAL_BYTES) {
+      validationErrors.push(
+        `el conjunto de archivos pesa ${(totalBytes / 1048576).toFixed(0)} MB y el máximo total del envío es 60 MB. Comprimí las fotos más pesadas`,
+      );
     }
   }
   if (validationErrors.length > 0) return jsonError(422, `Datos inválidos: ${validationErrors.join('; ')}`);
