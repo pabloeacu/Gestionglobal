@@ -130,7 +130,10 @@ export function construirMascaraGestoria(
           campo('RAZÓN SOCIAL', tomar(datos, usadas, ['razon_social'])),
           campo(
             'DOMICILIO',
-            tomar(datos, usadas, ['domicilio_empresa', 'domicilio', 'calle', 'numero', 'piso', 'depto', 'departamento']),
+            // DGG-127: `direccion` es la key del domicilio en renovación
+            // (heredada del prefill del portal); convive con las de
+            // inscripción (calle/numero/…) y las legacy de empresa.
+            tomar(datos, usadas, ['domicilio_empresa', 'domicilio', 'direccion', 'calle', 'numero', 'piso', 'depto', 'departamento']),
           ),
           campo('LOCALIDAD', tomar(datos, usadas, ['localidad'])),
           // §6 (auditor C): sin esta línea `provincia` caía a "Otros datos"
@@ -171,7 +174,8 @@ export function construirMascaraGestoria(
       {
         izquierda: compactar([
           campo('NOMBRE Y APELLIDO', tomar(datos, usadas, ['nombre', 'apellido'])),
-          campo('DOMICILIO', tomar(datos, usadas, ['calle', 'numero', 'piso', 'depto', 'departamento'])),
+          // DGG-127: `direccion` = domicilio de renovación (un solo campo).
+          campo('DOMICILIO', tomar(datos, usadas, ['direccion', 'calle', 'numero', 'piso', 'depto', 'departamento'])),
           campo('LOCALIDAD', tomar(datos, usadas, ['localidad'])),
           campo('PARTIDO', tomar(datos, usadas, ['partido', 'provincia'])),
           campo('CÓDIGO POSTAL', tomar(datos, usadas, ['codigo_postal'])),
@@ -206,10 +210,15 @@ export function construirMascaraGestoria(
           ),
         ]),
         derecha: compactar([
+          // DGG-127: la ciudad de nacimiento ahora se releva en el form
+          // (inscripción y renovación) — es la fuente del LUGAR DE
+          // NACIMIENTO; la nacionalidad pasa a ser su propio campo (antes se
+          // usaba de fallback del lugar por no existir el dato real).
           campo(
             'LUGAR DE NACIMIENTO',
-            tomar(datos, usadas, ['lugar_nacimiento', 'nacionalidad']),
+            tomar(datos, usadas, ['ciudad_nacimiento', 'lugar_nacimiento']),
           ),
+          campo('NACIONALIDAD', tomar(datos, usadas, ['nacionalidad'])),
           campo('ESTADO CIVIL', tomar(datos, usadas, ['estado_civil'])),
           campo(
             'APELLIDO Y NOMBRE DEL CÓNYUGE',
