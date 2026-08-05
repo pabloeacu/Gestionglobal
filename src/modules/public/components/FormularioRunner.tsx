@@ -203,7 +203,24 @@ export function FormularioRunner({
   // memoria, no hay flash de deslogueo).
   const navigate = useNavigate();
   const schema = formulario.schema as unknown as FormularioSchemaDef;
-  const [state, setState] = useState<Record<string, FieldState>>({});
+  // DGG-126: los campos con `default` en el schema arrancan con ese valor
+  // (caso real: el switch PF/PJ preseleccionado en "Persona física" — sin
+  // esto el form arrancaba sin rama visible y dejaba completar "a ciegas").
+  // El prefill del portal corre después y pisa lo que matchee.
+  const [state, setState] = useState<Record<string, FieldState>>(() => {
+    const init: Record<string, FieldState> = {};
+    for (const s of (formulario.schema as unknown as FormularioSchemaDef).sections) {
+      for (const f of s.fields) {
+        if (typeof f.default !== 'string' || f.default === '') continue;
+        // §6: en radio/select el default debe ser una opción VÁLIDA — un
+        // default huérfano (opción renombrada en el builder) dejaría el
+        // radio sin marcar pero con valor fantasma que satisface el required.
+        if (Array.isArray(f.options) && f.options.length > 0 && !f.options.includes(f.default)) continue;
+        init[f.name] = { value: f.default, touched: false };
+      }
+    }
+    return init;
+  });
   const [files, setFiles] = useState<Record<string, File[]>>({});
   const [sending, setSending] = useState(false);
   const [done, setDone] = useState<{ mensaje: string; redirect: string | null } | null>(null);
@@ -246,7 +263,18 @@ export function FormularioRunner({
       }
     }
     if (count > 0) {
-      setState(newState);
+      // DGG-126: MERGE sobre el estado previo (antes reemplazaba el objeto
+      // entero y borraba los defaults del schema y todo lo ya tipeado).
+      // §6: además NUNCA pisar un campo que el usuario ya tocó — si el
+      // prefill re-corre (rotación de token, resume mobile), lo editado a
+      // mano (incluido el switch PF/PJ) queda intacto.
+      setState((s) => {
+        const merged = { ...s };
+        for (const [k, v] of Object.entries(newState)) {
+          if (!merged[k]?.touched) merged[k] = v;
+        }
+        return merged;
+      });
       setPrefilledCount(count);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps

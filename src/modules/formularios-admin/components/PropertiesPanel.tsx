@@ -199,6 +199,29 @@ function FieldEditor({
         />
       )}
 
+      {/* DGG-126: valor con el que arranca el campo (ej. el switch PF/PJ
+          preseleccionado en "Persona física"). Solo opciones vigentes: si se
+          renombra la opción, el runner descarta el default huérfano y este
+          Select vuelve a "Sin selección". */}
+      {['radio', 'select'].includes(field.type) && (field.options?.length ?? 0) > 0 && (
+        <Field
+          label="Valor inicial (opcional)"
+          hint="El formulario arranca con esta opción ya elegida. El prefill del portal puede pisarla."
+        >
+          <Select
+            value={field.default && field.options?.includes(field.default) ? field.default : ''}
+            onChange={(e) => onPatch({ default: e.target.value || undefined })}
+          >
+            <option value="">Sin selección</option>
+            {(field.options ?? []).map((op) => (
+              <option key={op} value={op}>
+                {op}
+              </option>
+            ))}
+          </Select>
+        </Field>
+      )}
+
       {(field.type === 'text' || field.type === 'textarea') && (
         <div className="grid grid-cols-2 gap-2">
           <Field label="Mín. caracteres">

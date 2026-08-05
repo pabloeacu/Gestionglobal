@@ -77,7 +77,12 @@ export function FormularioPublicoPage() {
     void fetchClientePerfilDatosFormulario().then((data) => {
       setPrefillValues(data);
     });
-  }, [user, desdePortal]);
+  // DGG-126 §6: depender del id, no de la IDENTIDAD del objeto user —
+  // AuthContext recrea `user` en cada TOKEN_REFRESHED (1/h same-tab, o al
+  // volver de suspensión en mobile) y este effect re-fetcheaba el prefill a
+  // mitad del llenado, pisando lo tipeado.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, desdePortal]);
 
   // Entidad aliada del curso (logo + subtítulo de alianza), resuelta por slug.
   const entidad = formulario ? FORM_ENTIDAD[formulario.slug] : undefined;

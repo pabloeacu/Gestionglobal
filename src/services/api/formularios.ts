@@ -34,6 +34,14 @@ export interface FormularioFieldDef {
   accept?: string[];
   validation?: { min?: number; max?: number; pattern?: string };
   /**
+   * DGG-126: valor inicial del campo al montar el runner (ej. el switch
+   * PF/PJ arranca en "Persona física", el caso mayoritario). El prefill del
+   * portal (perfil del cliente) tiene prioridad y lo pisa si matchea. Solo
+   * lo setea el schema (mig 0404); el edge lo ignora — el payload siempre
+   * viaja con el valor efectivo.
+   */
+  default?: string;
+  /**
    * Si está presente, el campo solo se muestra (y solo se valida) cuando el
    * valor del campo `field` coincide con `equals`. `equals` acepta un solo
    * valor o una lista — el campo se muestra si el valor actual está en esa
@@ -238,5 +246,20 @@ export async function listSubmissions(
 export async function fetchClientePerfilDatosFormulario(): Promise<Record<string, unknown>> {
   const { data, error } = await supabase.rpc('cliente_perfil_datos_formulario' as never);
   if (error) return {};
-  return (data ?? {}) as Record<string, unknown>;
+  const perfil = (data ?? {}) as Record<string, unknown>;
+  // DGG-126: preset del switch PF/PJ según la categoría del cliente logueado
+  // (doctrina DGG-123: el cliente ES la persona jurídica — su CUIT de ficha
+  // es el de la sociedad). §6: SOLO el CUIT de la FICHA determina la
+  // categoría — la clave `cuit` del dict cae a la última submission
+  // histórica cuando la ficha no lo tiene, y eso no dice quién es el
+  // cliente. Sin `_cuit_ficha` (mig 0405) no se inyecta nada y rige el
+  // default "Persona física" del schema.
+  const { esCuitJuridico } = await import('@/lib/cuit');
+  const cuitFicha = String(perfil._cuit_ficha ?? '').replace(/\D/g, '');
+  if (/^\d{11}$/.test(cuitFicha)) {
+    perfil.tipo_persona_solicitante = esCuitJuridico(cuitFicha)
+      ? 'Persona jurídica'
+      : 'Persona física';
+  }
+  return perfil;
 }
