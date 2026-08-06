@@ -125,6 +125,61 @@ export interface ProveedorFrecuenteRow {
   nombre: string;
 }
 
+// DGG-130 (pedido Pablo 2026-08-06) · Últimos egresos de un proveedor
+// frecuente, para "reutilizar" categoría+descripción al cargar uno nuevo.
+// LECTURA PURA: el proveedor no se persiste como columna (DGG-120: solo
+// antecede la descripción, «ARCA - Pago…»), así que se busca por prefijo de
+// descripción. Se excluyen anulados y revertidos (lección E-GG-174: un
+// movimiento muerto no es plantilla de nada). Si viene categoría, filtra
+// también por ella. El refinado exacto del prefijo es client-side para no
+// meter el nombre del proveedor (que puede traer comas/paréntesis) en un
+// .or() de PostgREST.
+export interface UltimoEgresoProveedor {
+  id: string;
+  fecha: string;
+  descripcion: string;
+  monto: number;
+  categoria_id: string | null;
+}
+
+export async function ultimosEgresosDeProveedor(
+  nombreProveedor: string,
+  categoriaId?: string | null,
+): Promise<ApiResponse<UltimoEgresoProveedor[]>> {
+  try {
+    const nombre = nombreProveedor.trim();
+    if (!nombre) return ok([]);
+    // §6 C#12: escapar comodines (y el propio escape) del ilike para que un
+    // nombre con % _ \ no matchee egresos ajenos ni rompa el patrón.
+    const prefijo = nombre.replace(/([%_\\])/g, '\\$1');
+    let q = supabase
+      .from('movimientos')
+      .select('id, fecha, descripcion, monto, categoria_id')
+      .eq('tipo', 'egreso')
+      .neq('estado', 'anulado')
+      .is('revertido_at', null)
+      .ilike('descripcion', `${prefijo}%`)
+      .order('fecha', { ascending: false })
+      .order('created_at', { ascending: false })
+      // 100 y no 5: el refinado exacto es client-side; con un límite chico un
+      // proveedor cuyo nombre es prefijo de otro podría quedarse sin filas
+      // (sombra de prefijo, §6 DGG-130). Payload trivial: 5 columnas.
+      .limit(100);
+    if (categoriaId) q = q.eq('categoria_id', categoriaId);
+    const { data, error } = await q;
+    if (error) throw error;
+    const lower = nombre.toLowerCase();
+    const exactos = (data ?? []).filter((m) => {
+      const d = (m.descripcion ?? '').toLowerCase();
+      return d === lower || d.startsWith(`${lower} - `);
+    });
+    return ok(exactos.slice(0, 5) as UltimoEgresoProveedor[]);
+  } catch (e) {
+    const err = toApiError(e);
+    return fail(err.code, err.message, err.details);
+  }
+}
+
 export async function listProveedoresFrecuentes(): Promise<ApiResponse<ProveedorFrecuenteRow[]>> {
   try {
     const { data, error } = await supabase

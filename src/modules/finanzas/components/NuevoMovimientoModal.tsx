@@ -1,12 +1,14 @@
-import { useEffect, useState } from 'react';
-import { Paperclip, Plus, X } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { History, Paperclip, Plus, X } from 'lucide-react';
 import { Button, Field, Input, Modal, Select, Textarea } from '@/components/common';
 import { toast } from '@/lib/toast';
 import {
   crearMovimientoManual, subirAdjuntoMovimiento, listCategoriasFinanzas, buscarAdministraciones,
-  listProveedoresFrecuentes, crearProveedorFrecuente,
+  listProveedoresFrecuentes, crearProveedorFrecuente, ultimosEgresosDeProveedor,
   type CajaConSaldoRow, type CategoriaFinanzaRow, type ProveedorFrecuenteRow,
+  type UltimoEgresoProveedor,
 } from '@/services/api/finanzas';
+import { formatMoneyExact } from './MoneySup';
 import { listPartnersActivos, type PartnerOpcion } from '@/services/api/partners';
 import { cn } from '@/lib/cn';
 import { humanizeError } from '@/lib/errors';
@@ -63,6 +65,26 @@ export function NuevoMovimientoModal({ cajas, onClose, onCreated }: Props) {
   // cliente) hasta que la gerencia lo reconozca.
   const [sinIdentificar, setSinIdentificar] = useState(false);
   const [creating, setCreating] = useState(false);
+  // DGG-130 · "Últimos egresos del proveedor": mini-modal de LECTURA que deja
+  // reutilizar categoría+descripción de un egreso anterior del mismo
+  // proveedor (filtrado también por categoría si ya se eligió una). No toca
+  // ninguna operación: solo rellena campos que siguen 100% editables.
+  const [ultimosOpen, setUltimosOpen] = useState(false);
+  const [ultimos, setUltimos] = useState<UltimoEgresoProveedor[]>([]);
+  const [ultimosLoading, setUltimosLoading] = useState(false);
+  // §6: token anti-race — una respuesta tardía de un fetch viejo no debe
+  // pisar la del filtro vigente.
+  const ultimosReq = useRef(0);
+
+  // §6: si el proveedor cambia o se quita (incluso por el efecto de tipo),
+  // el mini-modal y sus filas dejan de tener sentido — reset total. Evita el
+  // estado fantasma ultimosOpen=true que reabría el mini con filas stale del
+  // proveedor anterior.
+  useEffect(() => {
+    setUltimosOpen(false);
+    setUltimos([]);
+    ultimosReq.current++;
+  }, [provSel?.id]);
 
   // §6 E-GG-142: al cambiar a egreso el tilde quedaba oculto pero persistido y
   // reaparecía tildado al volver a ingreso — un pendiente por accidente.
@@ -108,6 +130,50 @@ export function NuevoMovimientoModal({ cajas, onClose, onCreated }: Props) {
   const provMatchExacto = proveedores.some(
     (p) => p.nombre.trim().toLowerCase() === provSearch.trim().toLowerCase(),
   );
+
+  // DGG-130 · abre el mini-modal y trae los últimos 5 egresos del proveedor
+  // (y de la categoría, si ya hay una elegida — el filtro fino es de Pablo).
+  async function onAbrirUltimos() {
+    if (!provSel) return;
+    const req = ++ultimosReq.current;
+    setUltimosOpen(true);
+    setUltimosLoading(true);
+    const r = await ultimosEgresosDeProveedor(provSel.nombre, categoriaId || null);
+    if (req !== ultimosReq.current) return; // respuesta de un filtro viejo: descartar
+    setUltimosLoading(false);
+    if (!r.ok) {
+      toast.error('No pudimos traer los últimos egresos', { description: humanizeError(r.error) });
+      setUltimos([]);
+      return;
+    }
+    setUltimos(r.data);
+  }
+
+  /** Descripción del asiento SIN el prefijo del proveedor (el proveedor vive
+   *  en su propio campo y se re-antepone al guardar — copiarlo lo duplicaría). */
+  function sinPrefijoProveedor(desc: string): string {
+    if (!provSel) return desc;
+    const pref = `${provSel.nombre.trim()} - `;
+    if (desc.toLowerCase().startsWith(pref.toLowerCase())) return desc.slice(pref.length);
+    if (desc.trim().toLowerCase() === provSel.nombre.trim().toLowerCase()) return '';
+    return desc;
+  }
+
+  function onReutilizar(row: UltimoEgresoProveedor) {
+    setDescripcion(sinPrefijoProveedor(row.descripcion ?? ''));
+    // La categoría solo se asume si el gerente NO había elegido una (si ya
+    // eligió, las filas vienen filtradas por esa misma categoría — no se pisa)
+    // y si sigue existiendo en el catálogo activo del select (una categoría
+    // desactivada dejaría el Select en blanco con un id fantasma en el state).
+    if (
+      !categoriaId &&
+      row.categoria_id &&
+      categoriasFiltradas.some((c) => c.id === row.categoria_id)
+    ) {
+      setCategoriaId(row.categoria_id);
+    }
+    setUltimosOpen(false);
+  }
 
   async function onAgregarProveedor() {
     const nombre = provSearch.trim();
@@ -185,7 +251,10 @@ export function NuevoMovimientoModal({ cajas, onClose, onCreated }: Props) {
   return (
     <Modal
       open
-      onClose={onClose}
+      // DGG-130: con el mini-modal de últimos egresos abierto, Escape lo
+      // cierra a ÉL (ambos modales escuchan keydown; sin esta guarda un solo
+      // Escape cerraría también la carga con todo lo tipeado).
+      onClose={() => (ultimosOpen && provSel ? setUltimosOpen(false) : onClose())}
       title="Nuevo movimiento"
       kicker="Alta manual"
       width={520}
@@ -346,7 +415,27 @@ export function NuevoMovimientoModal({ cajas, onClose, onCreated }: Props) {
           </Field>
         )}
 
-        <Field label="Descripción">
+        <Field
+          label={
+            // DGG-130: con proveedor elegido en un egreso, atajo para reusar
+            // categoría+descripción de sus últimos movimientos.
+            tipo === 'egreso' && provSel ? (
+              <span className="flex items-center justify-between gap-2">
+                <span>Descripción</span>
+                <button
+                  type="button"
+                  onClick={() => void onAbrirUltimos()}
+                  title="Últimos egresos del proveedor"
+                  className="inline-flex items-center gap-1 rounded-md border border-brand-cyan/30 bg-brand-cyan/5 px-1.5 py-0.5 text-[10px] font-semibold normal-case tracking-normal text-brand-cyan transition hover:bg-brand-cyan/10"
+                >
+                  <History size={12} /> Últimos egresos
+                </button>
+              </span>
+            ) : (
+              'Descripción'
+            )
+          }
+        >
           <Textarea
             rows={2}
             value={descripcion}
@@ -354,6 +443,77 @@ export function NuevoMovimientoModal({ cajas, onClose, onCreated }: Props) {
             placeholder="Concepto del movimiento"
           />
         </Field>
+
+        {/* DGG-130 · mini-modal de LECTURA: últimos 5 egresos del proveedor
+            (y de la categoría si ya se eligió una). "Reutilizar" copia
+            categoría+descripción al form — nunca el proveedor, que ya está
+            en su campo — y todo queda 100% editable. */}
+        {ultimosOpen && provSel && (
+          <Modal
+            open
+            onClose={() => setUltimosOpen(false)}
+            title="Últimos egresos del proveedor"
+            kicker={provSel.nombre}
+            icon={<History size={18} />}
+            width={560}
+          >
+            {ultimosLoading ? (
+              <p className="py-6 text-center text-sm text-brand-muted">Buscando…</p>
+            ) : ultimos.length === 0 ? (
+              <p className="py-6 text-center text-sm text-brand-muted">
+                Sin egresos previos de este proveedor
+                {categoriaId ? ' en la categoría elegida' : ''}.
+              </p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-200 text-[10px] uppercase tracking-wider text-brand-muted">
+                      <th className="py-1.5 pr-2 font-semibold">Fecha</th>
+                      <th className="py-1.5 pr-2 font-semibold">Categoría</th>
+                      <th className="py-1.5 pr-2 font-semibold">Descripción</th>
+                      <th className="py-1.5 pr-2 text-right font-semibold">Monto</th>
+                      <th className="py-1.5" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {ultimos.map((m) => (
+                      <tr key={m.id} className="border-b border-slate-100 last:border-0">
+                        <td className="whitespace-nowrap py-2 pr-2 text-brand-muted">
+                          {new Date(`${m.fecha}T00:00:00`).toLocaleDateString('es-AR')}
+                        </td>
+                        <td className="py-2 pr-2 text-brand-ink">
+                          {categorias.find((c) => c.id === m.categoria_id)?.nombre ?? '—'}
+                        </td>
+                        <td className="max-w-[180px] py-2 pr-2 text-brand-ink">
+                          <span className="line-clamp-2">
+                            {sinPrefijoProveedor(m.descripcion ?? '') || '—'}
+                          </span>
+                        </td>
+                        <td className="whitespace-nowrap py-2 pr-2 text-right font-medium text-brand-ink">
+                          {formatMoneyExact(Number(m.monto ?? 0))}
+                        </td>
+                        <td className="py-2 text-right">
+                          <button
+                            type="button"
+                            onClick={() => onReutilizar(m)}
+                            className="rounded-md border border-brand-cyan/30 bg-brand-cyan/5 px-2 py-1 text-[11px] font-semibold text-brand-cyan transition hover:bg-brand-cyan/10"
+                          >
+                            Reutilizar
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <p className="mt-2 text-[11px] text-brand-muted">
+                  Copia categoría y descripción al formulario (editables). El proveedor no
+                  se copia: ya está seleccionado.
+                </p>
+              </div>
+            )}
+          </Modal>
+        )}
 
         <Field label="Referencia externa (opcional)" hint="Número de transacción, CBU, recibo, etc.">
           <Input value={referencia} onChange={(e) => setReferencia(e.target.value)} />

@@ -4648,3 +4648,19 @@ bienvenida a todo el que se registra en la plataforma. Aprobado tras 3 iteracion
 5. Rama v2 (monto sin caja) descartaba fecha/ref tipeados en silencio → la fila solo aparece con caja elegida y se resetea al des-seleccionarla.
 6. `src/types/database.ts` regenerado (quedaba con la firma vieja).
 Descartado con racional: límite de longitud de referencia (sin impacto real verificado).
+
+## DGG-130 · "Últimos egresos del proveedor" en Nuevo movimiento (pedido Pablo, 2026-08-06)
+
+**Qué:** en Finanzas → Nuevo movimiento (egreso), con un proveedor frecuente elegido aparece el botón **"Últimos egresos"** en el label de Descripción. Abre un mini-modal (Modal anidado) con los últimos 5 egresos vivos del proveedor — fecha, categoría, descripción sin prefijo, monto y **Reutilizar** — que copia **solo categoría + descripción** al form (nunca el proveedor, que ya está en su campo; todo 100% editable). Si ya había una categoría elegida, las filas se filtran también por ella y Reutilizar no la pisa. **Constraint duro cumplido y verificado por diff + auditor dedicado: cero cambios en el circuito de guardado (`onSubmit`/`crearMovimientoManual` byte-idénticos) — lectura pura + relleno de campos de texto.**
+
+**Cómo (modelo DGG-120, movimientos SIN proveedor_id):** service `ultimosEgresosDeProveedor` (finanzas.ts) — `tipo='egreso'`, `estado<>'anulado'`, `revertido_at IS NULL` (lección E-GG-174: un asiento muerto no es plantilla), `descripcion ILIKE 'nombre%'` con escape `%_\`, limit 100 server-side y refinado EXACTO client-side (`= nombre` o `startsWith(nombre + ' - ')`) — evita falsos positivos tipo "ARCA2" y el problema de comas en `.or()` de PostgREST; cubre proveedores cuyo nombre contiene " - " ("Wix.com - Hosting").
+
+**§6 (workflow 11 agentes + refutación adversarial, 5 confirmados / 3 descartados) — todos cerrados en el mismo chunk:**
+1. (media) `<label>` sin `htmlFor` promueve el click del texto "Descripción" al botón (spec HTML: primer descendiente labelable) → `Field.tsx` renderiza `<span>` cuando el label no es string (reproducido empíricamente en Chromium por el refutador).
+2. Estado fantasma `ultimosOpen=true` si `provSel` se limpiaba con el mini abierto (vía teclado detrás del backdrop, sin focus trap) → reapertura automática con filas stale del proveedor viejo y riesgo de "NuevoProv - ViejoProv - …". Fix: efecto reset en `[provSel?.id]` + guarda `ultimosOpen && provSel`.
+3. Race de fetches (respuesta vieja pisaba el filtro nuevo) → token `useRef`.
+4. Sombra de prefijo: limit 25 server-side podía vaciar los 5 si un nombre es prefijo de otro (latente: hoy 0 colisiones) → limit 100.
+5. Dato histórico: el único egreso de Zoom.com (id c696e1d4, 26/07) tenía el proveedor al FINAL («Periodo: Jul. 26-2026 a Ago. 25-2026 > Proveedor:	Zoom.com», formato pre-DGG-120) y era invisible al matching → normalizado a «Zoom.com - Periodo: Jul. 26-2026 a Ago. 25-2026» (solo texto; monto/fecha/caja/categoría intactos; verificado antes que nada parsea `descripcion` — solo búsquedas `%texto%`). Snapshot del valor viejo acá por reversibilidad.
+Descartados con racional: ambigüedad " - " inherente a DGG-120 (0 pares reales), seq scan del ilike (0.3 ms, regla 11 cumplida 600×), y el OK del constraint (confirmación, no bug).
+
+**Escape con el mini abierto** lo cierra a él, no a la carga (guarda en el `onClose` externo — ambos modales escuchan keydown).

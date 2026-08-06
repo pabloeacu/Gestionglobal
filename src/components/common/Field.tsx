@@ -11,13 +11,18 @@ interface FieldProps {
 }
 
 export function Field({ label, hint, error, required, children, className }: FieldProps) {
+  // DGG-130 (§6): un <label> sin htmlFor promueve el click al primer
+  // descendiente "labelable" — si el label rico trae un <button>, clickear el
+  // texto lo dispara. Como acá el control vive FUERA del label (nunca usamos
+  // htmlFor), un label rico se renderiza como <span> sin perder nada.
+  const LabelTag = typeof label === 'string' ? 'label' : 'span';
   return (
     <div className={cn('space-y-1.5', className)}>
       {label && (
-        <label className="kicker block">
+        <LabelTag className="kicker block">
           {label}
           {required && <span className="ml-0.5 text-red-500">*</span>}
-        </label>
+        </LabelTag>
       )}
       {children}
       {error ? (
