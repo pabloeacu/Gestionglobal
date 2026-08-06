@@ -324,7 +324,9 @@ export type SchemaWarningKind =
   | 'name_duplicado'
   | 'max_files_inconsistente'
   | 'seccion_vacia'
-  | 'name_vacio';
+  | 'name_vacio'
+  | 'name_autogenerado'
+  | 'default_huerfano';
 
 export interface SchemaWarning {
   kind: SchemaWarningKind;
@@ -376,6 +378,32 @@ export function validarSchema(schema: FormularioSchemaDef): SchemaWarning[] {
         out.push({
           kind: 'name_duplicado',
           mensaje: `Key duplicada: "${f.name}".`,
+          sectionIdx: si,
+          fieldIdx: fi,
+        });
+      }
+      // E-GG-173: name autogenerado sin renombrar (ej. "file_10") — señal de
+      // un campo arrastrado de la paleta por accidente y guardado tal cual
+      // (así apareció un "Adjuntar archivo" fantasma en curso-formacion).
+      if (esVisible && f.name && /^(file|text|textarea|select|radio|checkbox|email|tel|number|date)_\d+$/.test(f.name)) {
+        out.push({
+          kind: 'name_autogenerado',
+          mensaje: `"${f.label || f.name}" conserva la key autogenerada "${f.name}" — ¿es un campo agregado por accidente? Renombralo o eliminalo.`,
+          sectionIdx: si,
+          fieldIdx: fi,
+        });
+      }
+      // DGG-126: default que ya no coincide con ninguna opción (renombraron
+      // la opción después de setear el valor inicial) — el runner lo descarta
+      // en silencio y el campo arranca sin selección.
+      if (
+        typeof f.default === 'string' && f.default !== '' &&
+        Array.isArray(f.options) && f.options.length > 0 &&
+        !f.options.includes(f.default)
+      ) {
+        out.push({
+          kind: 'default_huerfano',
+          mensaje: `El valor inicial de "${f.label || f.name}" ("${f.default}") no coincide con ninguna opción.`,
           sectionIdx: si,
           fieldIdx: fi,
         });
