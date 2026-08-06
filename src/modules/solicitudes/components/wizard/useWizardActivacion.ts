@@ -130,6 +130,8 @@ function estadoInicial(sol: SolicitudDetalle, flags: SolicitudFlags): WizardStat
       diasValidez: 14,
       montoGestoria: '',
       cajaId: '',
+      fechaPago: '',
+      referencia: '',
       adjuntos: [],
     },
     periodo: new Date().getFullYear().toString(),

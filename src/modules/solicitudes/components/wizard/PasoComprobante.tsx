@@ -207,6 +207,8 @@ export function PasoComprobante({ state, set }: PasoProps) {
                 <Input
                   type="date"
                   value={c.fechaPago}
+                  min="2020-01-01"
+                  max={new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10)}
                   onChange={(e) => patchC({ fechaPago: e.target.value })}
                 />
               </Field>

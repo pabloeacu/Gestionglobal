@@ -67,6 +67,10 @@ export interface GestoriaState {
   /** Monto interno que paga la empresa a la gestoría (no visible al cliente). */
   montoGestoria: string;
   cajaId: string;
+  /** DGG-129 (JL): fecha real del pago a la gestoría. Vacío = hoy. */
+  fechaPago: string;
+  /** DGG-129 (JL): N° de transferencia/comprobante. Vacío = referencia automática. */
+  referencia: string;
   adjuntos: GestoriaAdjunto[];
 }
 

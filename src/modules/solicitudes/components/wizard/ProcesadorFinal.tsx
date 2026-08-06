@@ -19,6 +19,7 @@ import { toast } from '@/lib/toast';
 import { humanizeError } from '@/lib/errors';
 import {
   activar,
+  contarDerivacionesDeSolicitud,
   derivar,
   descartar,
   pedirDocsRevision,
@@ -314,6 +315,12 @@ function construirOps(
       label: 'Derivar a la gestoría',
       run: async () => {
         const gg = state.gestoria;
+        // DGG-129 §6: idempotencia como sus hermanas (cliente/comprobante/
+        // cobranza). Reabrir el wizard tras un fallo posterior, o reintentar
+        // tras un commit con respuesta perdida, encontraba la op 'gestoria'
+        // sin guard y duplicaba derivación + mail al gestor + EGRESO en caja.
+        const prev = await contarDerivacionesDeSolicitud(solicitud.id);
+        if (prev.ok && prev.data > 0) return 'Ya estaba derivada';
         const montoNum = parseFloat((gg.montoGestoria || '').replace(',', '.'));
         const tieneMonto = !isNaN(montoNum) && montoNum > 0;
         const r = await derivar(solicitud.id, {
@@ -324,6 +331,9 @@ function construirOps(
           monto_pago_gestoria: tieneMonto ? montoNum : null,
           adjuntos: gg.adjuntos.length > 0 ? gg.adjuntos : undefined,
           caja_id: tieneMonto && gg.cajaId ? gg.cajaId : null,
+          // DGG-129 (JL): fecha real del pago + N° de transferencia del egreso.
+          fecha_pago: gg.fechaPago || null,
+          referencia: gg.referencia.trim() || null,
         });
         if (!r.ok) throw new Error(humanizeError(r.error));
         return r.data.tieneEgreso ? 'Derivada · mail + egreso' : 'Derivada · mail enviado';

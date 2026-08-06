@@ -363,6 +363,11 @@ export interface DerivarInput {
   dias_validez?: number;
   // N3 · monto interno que la empresa paga a la gestoría. NO visible al cliente.
   monto_pago_gestoria?: number | null;
+  // DGG-129 (JL, gemelo de E-GG-153): fecha real del pago a la gestoría
+  // (NULL = hoy) y N° de transferencia (NULL/'' = referencia automática).
+  // Solo aplican a la rama v3 (la única que registra el egreso en caja).
+  fecha_pago?: string | null;
+  referencia?: string | null;
   // N3 · adjuntos enviados a la gestoría. NO visibles al cliente.
   adjuntos?: Array<{ path: string; filename: string; mime: string; size: number }>;
   // DGG-43 (2026-06-04 · Pablo) · si el operador eligió caja, la RPC v3 crea
@@ -429,6 +434,23 @@ export async function listGestoriaDestinatarios(): Promise<GestoriaDestinatario[
   }
 }
 
+/**
+ * DGG-129 §6 · Idempotencia de la op 'gestoria' del wizard (patrón hermano de
+ * "Ya estaba cobrado"): cuántas derivaciones existen ya para la solicitud.
+ * Reabrir el wizard tras un fallo posterior (o reintentar tras un commit con
+ * respuesta perdida) NO debe duplicar derivación + mail al gestor + egreso.
+ */
+export async function contarDerivacionesDeSolicitud(
+  id: string,
+): Promise<ApiResponse<number>> {
+  const { count, error } = await supabase
+    .from('solicitud_derivaciones')
+    .select('id', { count: 'exact', head: true })
+    .eq('solicitud_id', id);
+  if (error) return fail('SOL_DERIVS_COUNT', error.message, error);
+  return ok(count ?? 0);
+}
+
 export async function derivar(
   id: string,
   input: DerivarInput,
@@ -450,6 +472,9 @@ export async function derivar(
       p_adjuntos: (input.adjuntos ?? []) as unknown as Parameters<typeof rpc>[1]['p_adjuntos'],
       p_caja_id: input.caja_id,
       p_categoria_id: input.categoria_id ?? null,
+      // DGG-129: fecha real + N° de transferencia del egreso (mig 0410).
+      p_fecha_pago: input.fecha_pago ?? null,
+      p_referencia: input.referencia ?? null,
     } as unknown as Parameters<typeof rpc>[1]);
     if (error) return fail('SOL_DERIVAR_V3', error.message, error);
     const parsed = (data ?? {}) as {

@@ -10134,9 +10134,11 @@ export type Database = {
           p_destinatario_email: string
           p_destinatario_nombre: string
           p_dias_validez?: number
+          p_fecha_pago?: string
           p_monto_pago?: number
           p_observaciones?: string
           p_plantilla_slug?: string
+          p_referencia?: string
           p_solicitud_id: string
         }
         Returns: Json

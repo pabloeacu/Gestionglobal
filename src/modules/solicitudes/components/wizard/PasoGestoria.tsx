@@ -156,7 +156,16 @@ export function PasoGestoria({ solicitud, state, set }: PasoProps) {
             </Field>
             {hayMonto && (
               <Field label="Caja que paga el egreso">
-                <Select value={g.cajaId} onChange={(e) => patchG({ cajaId: e.target.value })}>
+                <Select
+                  value={g.cajaId}
+                  onChange={(e) => {
+                    const cajaId = e.target.value;
+                    // §6: sin caja no hay egreso donde guardar fecha/ref — se
+                    // resetean para no acumular datos que no se persistirían.
+                    if (!cajaId) patchG({ cajaId, fechaPago: '', referencia: '' });
+                    else patchG({ cajaId });
+                  }}
+                >
                   <option value="">— No imputar a ninguna caja —</option>
                   {cajas.map((c) => (
                     <option key={c.caja_id} value={c.caja_id}>
@@ -165,6 +174,34 @@ export function PasoGestoria({ solicitud, state, set }: PasoProps) {
                   ))}
                 </Select>
               </Field>
+            )}
+            {hayMonto && g.cajaId && (
+              // DGG-129 (JL, gemelo de E-GG-153 para el egreso): fecha real del
+              // pago + N° de transferencia, en una fila de 2 columnas. Vacíos
+              // preservan el comportamiento de siempre (hoy + ref automática).
+              // §6: solo con caja elegida — sin caja no existe egreso y los
+              // valores tipeados se descartarían en silencio (rama v2).
+              <div className="grid grid-cols-2 gap-2">
+                <Field label="Fecha del pago" hint="Vacío = hoy.">
+                  <Input
+                    type="date"
+                    value={g.fechaPago}
+                    min="2020-01-01"
+                    max={new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10)}
+                    onChange={(e) => patchG({ fechaPago: e.target.value })}
+                  />
+                </Field>
+                <Field
+                  label="N° de transferencia / comprobante"
+                  hint="Vacío = referencia automática."
+                >
+                  <Input
+                    value={g.referencia}
+                    onChange={(e) => patchG({ referencia: e.target.value })}
+                    placeholder="Ej: 123456789"
+                  />
+                </Field>
+              </div>
             )}
             <Field label="Adjuntos para la gestoría">
               <input

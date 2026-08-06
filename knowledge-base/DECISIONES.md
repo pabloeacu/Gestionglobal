@@ -4636,3 +4636,15 @@ bienvenida a todo el que se registra en la plataforma. Aprobado tras 3 iteracion
 **Decisión:** en `curso-formacion` el bloque de costos queda SIN importe **a propósito** y el comprobante de pago sigue **obligatorio**. Racional: los aranceles de Formación tienen demasiadas variables según el cliente — el importe se comunica por canal directo (correo/WhatsApp) caso por caso, no se publica. Es una decisión de negocio específica de este curso: las dos Actualizaciones SÍ publican su precio ($80.000) y así siguen. Evidencia de que el circuito funciona: las 7 inscripciones reales (22-31/07) adjuntaron su comprobante de transferencia sin que el form informara el monto.
 
 **Implicancia para el futuro:** si algún día se estandariza el arancel de Formación, cargarlo en `costos.items` con el patrón de las actualizaciones (mig con snapshot). Hasta entonces, el estado actual NO debe reportarse como hallazgo (ya fue evaluado y decidido — anexo E-GG-173).
+## DGG-129 · Fecha de pago y N° de transferencia en la derivación a gestoría (pedido JL, 2026-08-06)
+
+**Qué:** el contenedor amarillo interno del paso 4 del Wizard (derivación a gestoría) gana una fila de 2 columnas — **Fecha del pago** (vacío = hoy) y **N° de transferencia / comprobante** (vacío = referencia automática) — visible solo con monto Y caja elegida. El egreso en caja nace con el registro financiero completo desde la derivación. Gemelo exacto de E-GG-153 (mismos campos en la Cobranza). Mig **0410**: `solicitud_derivar_v3` re-creada con R16 (DROP+CREATE, 12 params) — `fecha = COALESCE(p_fecha_pago, hoy)`, `referencia = COALESCE(nº manual, referencia automática)`.
+
+**§6 (workflow 12 agentes + refutación, 8 confirmados / 1 descartado) — todos cerrados en mig 0411 + front:**
+1. **CRÍTICO pre-existente · op 'gestoria' sin idempotencia**: reabrir el wizard tras un fallo posterior (o reintentar tras un commit con respuesta perdida) duplicaba derivación + mail al gestor + EGRESO de plata real — la única op del ProcesadorFinal sin el guard que sí tienen cliente/comprobante/cobranza. Fix: check "Ya estaba derivada" (patrón hermano de "Ya estaba cobrado") con `contarDerivacionesDeSolicitud`.
+2. **CRÍTICO pre-existente · E-GG-174**: `fz_reporte_balance_mensual` contaba los movimientos REVERTIDOS (excluía el contraasiento pero no el original) → Balance mensual y Flujo de caja divergían para siempre tras cada reversión. Fix: `revertido_at IS NULL` en las 3 subqueries; smoke: delta 0 tras revertir ✔.
+3. La mig 0410 devolvió EXECUTE a PUBLIC/anon al re-crear la función (default de Postgres) → REVOKE re-aplicado. **Regla nueva: todo DROP+CREATE re-aplica los REVOKE del ACL sweep (DGG-125).**
+4. Guard de rango de fecha (2020-01-01 … hoy+7) en la RPC + min/max HTML en los inputs date de gestoría Y cobranza — un año mal tipeado ya no fabrica egresos en 1926.
+5. Rama v2 (monto sin caja) descartaba fecha/ref tipeados en silencio → la fila solo aparece con caja elegida y se resetea al des-seleccionarla.
+6. `src/types/database.ts` regenerado (quedaba con la firma vieja).
+Descartado con racional: límite de longitud de referencia (sin impacto real verificado).
