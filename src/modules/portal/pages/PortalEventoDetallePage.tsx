@@ -171,7 +171,10 @@ export function PortalEventoDetallePage() {
               <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-emerald-100 text-emerald-700">
                 <Award size={22} />
               </span>
-              <div className="min-w-0 flex-1">
+              {/* E-GG-175 (gemelo): min-w real para que el CTA baje de línea en
+                  teléfonos de 390-430px en vez de aplastar el título a ~10px
+                  (a 360px justo envolvía y el QA estándar no lo veía). */}
+              <div className="min-w-[min(200px,100%)] flex-1">
                 <p className="kicker text-emerald-700">Tu certificado</p>
                 <h2 className="font-display text-lg font-bold text-brand-ink">
                   Certificado de asistencia disponible

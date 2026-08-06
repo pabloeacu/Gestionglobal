@@ -521,7 +521,9 @@ export function FormularioBuilderPage() {
         >
           <ArrowLeft size={16} />
         </button>
-        <div className="min-w-0 flex-1">
+        {/* E-GG-175 (gemelo): min-w real para que la toolbar baje de línea en
+            anchos intermedios en vez de aplastar el título a casi 0. */}
+        <div className="min-w-[min(220px,100%)] flex-1">
           <p className="kicker">Constructor</p>
           <h1 className="truncate font-display text-lg font-bold text-brand-ink">
             {formulario.titulo}
@@ -558,7 +560,7 @@ export function FormularioBuilderPage() {
             </span>
           ) : null}
         </span>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
           {/* 4.F · badge validador del schema en tiempo real. */}
           <ValidadorBadge warnings={warnings} onJump={scrollToWarning} />
           {/* 4.D · Undo / Redo (DGG-32). Atajos ⌘Z / ⌘⇧Z. */}

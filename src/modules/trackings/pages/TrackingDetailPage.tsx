@@ -699,7 +699,11 @@ export function TrackingDetailPage() {
       <header className="relative overflow-hidden rounded-3xl border border-slate-200 bg-gradient-to-br from-white via-cyan-50/40 to-white p-6">
         <TrianglesAccent position="top-right" />
         <div className="relative flex flex-wrap items-start justify-between gap-4">
-          <div className="min-w-0 flex-1">
+          {/* E-GG-175: min-w acá es lo que obliga a la toolbar a bajar de línea
+              en anchos intermedios (zoom/ventana angosta). Sin él, flex-1
+              (basis 0) + min-w-0 dejaban aplastar el título a ~165px mientras
+              la toolbar de botones nowrap no cedía ni envolvía jamás. */}
+          <div className="min-w-[min(260px,100%)] flex-1">
             <Link
               to="/gerencia/tramites"
               className="inline-flex items-center gap-1 text-sm text-brand-muted hover:text-brand-ink"
@@ -760,7 +764,7 @@ export function TrackingDetailPage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
             <Button onClick={() => setDrawerOpen(true)}>
               <Plus className="h-4 w-4" /> Agregar línea
             </Button>

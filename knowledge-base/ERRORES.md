@@ -5202,3 +5202,18 @@ deje el template/destinatario en manos del caller), no sólo la función que dis
 - **Síntoma (latente):** `fz_reporte_balance_mensual` excluía el contraasiento de una reversión (`origen <> 'reversion'`) pero SEGUÍA CONTANDO el movimiento original revertido (sin filtrar `revertido_at`). Tras revertir cualquier ingreso/egreso, el Balance mensual quedaba permanentemente distinto del Flujo de caja (que filtra ambos) — dos números para la misma caja, violando la consistencia contable absoluta.
 - **Fix (mig 0411):** `AND mov.revertido_at IS NULL` en las 3 subqueries (saldo_inicial/ingresos/egresos), mismo criterio que `fz_reporte_flujo_caja`. Smoke e2e con rollback: egreso sintético + `fz_revertir_movimiento` → delta 0 en el balance ✔.
 - **Lección:** todo derivador contable nuevo debe copiar el JUEGO COMPLETO de filtros de exclusión del canon (anulado + reversion + revertido_at) — excluir solo una pata de la reversión deja la otra sumando sola.
+
+## E-GG-175 · Header aplastado en anchos intermedios: `flex-1` (basis 0) + `min-w-0` junto a toolbars nowrap (2026-08-06)
+
+**Síntoma (reporte Pablo):** en el detalle de trámite el título/metadata quedaba aplastado a ~165px (palabra por palabra en vertical) con un vacío enorme al lado, mientras JL lo veía perfecto. No era "la compu de Pablo": era una franja de anchos efectivos (~900-1100 CSS px, típica con zoom 125-150% o ventana angosta).
+
+**Causa raíz (medida con fixture DOM):** en un contenedor `flex flex-wrap`, un bloque con `flex-1` tiene **flex-basis 0** — el algoritmo de wrap lo contabiliza como "necesita 0px". Resultado: la toolbar de botones `whitespace-nowrap` (~819px, hasta 7 botones) **nunca baja de línea** — siempre "cabe" porque el título cede primero, con `min-w-0` habilitándolo a colapsar hasta casi 0. En mobile 360 además la toolbar desbordaba el card (sin `flex-wrap` interno).
+
+**Fix canónico (2 tokens, cero lógica):** darle al bloque de texto un **min-width real** — `min-w-[min(NNNpx,100%)]` — para que el wrap check lo contabilice y empuje la toolbar a la línea siguiente antes de aplastar (el `min()` evita que el propio min-width desborde el card en viewports ≤325px, cazado por el refutador); y a la toolbar `flex-wrap justify-end ml-auto` para que envuelva internamente en mobile.
+
+**Superficies corregidas (sweep §6 de patrones gemelos, 14 páginas de detalle revisadas):**
+1. `TrackingDetailPage.tsx` (el reportado) — `min(260px,100%)`.
+2. `FormularioBuilderPage.tsx` — gemelo con la toolbar más ancha del codebase (1017px medidos); franja rota en viewports 1660-1920px (¡MacBook 16" default!) — `min(220px,100%)`.
+3. `PortalEventoDetallePage.tsx` (banner "Tu certificado", superficie CLIENTE) — gemelo con trampa de QA: a 360px (ancho estándar de nuestro QA mobile) el CTA justo envolvía y se veía bien; el aplastamiento (título a ~10px) aparecía en los teléfonos reales más comunes (390-430px) — `min(200px,100%)`.
+
+**Lecciones:** (a) `flex-1` + `min-w-0` en un bloque de texto que convive con botones nowrap = receta de aplastamiento; usar siempre `min-w-[min(NNNpx,100%)]`. (b) El QA mobile a UN solo ancho (360px) puede caer justo fuera de la franja rota — ante layouts flex-wrap, probar también 390-430px. (c) "A mí se me ve bien" y "a él se le ve roto" con el mismo bundle = sospechar franja de ancho efectivo (zoom del browser), no caché ni máquina.
