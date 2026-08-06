@@ -4629,3 +4629,10 @@ bienvenida a todo el que se registra en la plataforma. Aprobado tras 3 iteracion
 **Migs:** 0406 (campos + sección, inserts posicionales verificados contra BD), 0407 (§6: `direccion` a rama PF + los 2 triggers de sync a la ficha ganan el fallback `datos->>'direccion'` — sin esto la ficha quedaba con localidad/CP pero SIN dirección, ejercitado e2e con rollback; smoke R18 post-fix: la ficha recibe la dirección ✓).
 
 **§6 (auditor adversarial, 2 hallazgos confirmados, ambos cerrados en el mismo chunk):** (1) triggers sin `direccion` — mig 0407; (2) doble domicilio PJ en renovación (sede + común) que la máscara concatenaba — `direccion` condicionada a PF.
+
+
+## DGG-128 · El curso de Formación no publica su arancel en el formulario (decisión Pablo, 2026-08-06)
+
+**Decisión:** en `curso-formacion` el bloque de costos queda SIN importe **a propósito** y el comprobante de pago sigue **obligatorio**. Racional: los aranceles de Formación tienen demasiadas variables según el cliente — el importe se comunica por canal directo (correo/WhatsApp) caso por caso, no se publica. Es una decisión de negocio específica de este curso: las dos Actualizaciones SÍ publican su precio ($80.000) y así siguen. Evidencia de que el circuito funciona: las 7 inscripciones reales (22-31/07) adjuntaron su comprobante de transferencia sin que el form informara el monto.
+
+**Implicancia para el futuro:** si algún día se estandariza el arancel de Formación, cargarlo en `costos.items` con el patrón de las actualizaciones (mig con snapshot). Hasta entonces, el estado actual NO debe reportarse como hallazgo (ya fue evaluado y decidido — anexo E-GG-173).
