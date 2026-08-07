@@ -11,6 +11,7 @@ import {
   PlusCircle,
   Download,
   Mail,
+  Pencil,
   Trash2,
   Loader2,
   Save,
@@ -47,7 +48,7 @@ import {
   type CjDocumentoListItem,
   type CjDocumentoInput,
 } from '@/services/api/cj-documentos';
-import { generarPdfBlob, descargarBlob, buildCjLayoutHtml } from '@/lib/cj-pdf';
+import { generarPdfBlob, descargarBlob, buildCjLayoutHtml, getLogoDataUrl } from '@/lib/cj-pdf';
 
 // TipTap rich editor (reusamos el bridge que ya tenemos en EmailTemplatesPage,
 // pero acá lo hacemos local para evitar dependencia cruzada). Importamos
@@ -99,11 +100,12 @@ export function GeneracionCjPage() {
 
   async function handleDescargar(row: CjDocumentoListItem) {
     if (!row.pdf_storage_path) {
-      // Generar al vuelo desde el documento completo
-      const full = await getCjDocumento(row.id);
-      if (!full.ok) { toast.error('No pudimos cargar el documento'); return; }
+      // Generar al vuelo desde el documento completo. §6: busy ANTES del
+      // primer await — un doble click generaba dos PDFs.
       setBusyId(row.id);
       try {
+        const full = await getCjDocumento(row.id);
+        if (!full.ok) { toast.error('No pudimos cargar el documento'); return; }
         const blob = await generarPdfBlob(full.data);
         const upload = await subirPdfYMarcar(row.id, blob);
         if (!upload.ok) { toast.error('No pudimos guardar el PDF', { description: humanizeError(upload.error) }); return; }
@@ -260,6 +262,16 @@ export function GeneracionCjPage() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-1">
+                        {/* DGG-132: acción explícita de edición (antes solo el
+                            click en el tema abría el editor y nadie lo veía). */}
+                        <ActionBtn
+                          onClick={() => void openExisting(r.id)}
+                          disabled={isBusy}
+                          title="Editar documento"
+                          tone="neutral"
+                        >
+                          <Pencil size={13} />
+                        </ActionBtn>
                         <ActionBtn
                           onClick={() => void handleDescargar(r)}
                           disabled={isBusy}
@@ -428,13 +440,20 @@ function CjEditorDrawer({ initial, onClose, onSaved }: DrawerProps) {
     if (saved) onSaved(saved);
   }
 
-  // Preview en vivo (iframe sandboxed que muestra el layout PDF tal cual)
+  // DGG-132: el preview usa el MISMO logo inline (data URL) que el PDF — así
+  // lo que se ve es exactamente lo que se exporta (el iframe sandbox no puede
+  // depender del service worker ni de la red).
+  const [logoSrc, setLogoSrc] = useState<string | undefined>(undefined);
+  useEffect(() => { void getLogoDataUrl().then(setLogoSrc); }, []);
+
+  // Preview en vivo (iframe sandboxed que muestra el layout PDF tal cual).
+  // El logo se muestra recién cuando el data URL resolvió (sin flash remoto).
   const previewSrc = useMemo(() => buildCjLayoutHtml({
-    kicker, titulo, color_acento: color, mostrar_logo: mostrarLogo,
+    kicker, titulo, color_acento: color, mostrar_logo: mostrarLogo && logoSrc !== undefined,
     cuerpo_html: cuerpo, firma: firma.trim() || null,
     destinatario_nombre: destNombre || '(destinatario)',
     destinatario_email: destEmail.trim() || null,
-  }), [kicker, titulo, color, mostrarLogo, cuerpo, firma, destNombre, destEmail]);
+  }, logoSrc), [kicker, titulo, color, mostrarLogo, cuerpo, firma, destNombre, destEmail, logoSrc]);
 
   return (
     <Drawer
@@ -447,7 +466,11 @@ function CjEditorDrawer({ initial, onClose, onSaved }: DrawerProps) {
       footer={
         <div className="flex w-full flex-wrap items-center justify-between gap-2">
           <span className="text-xs text-brand-muted">
-            {destEmail ? `Se podrá mailear a ${destEmail}` : 'Sin email destinatario — sólo PDF'}
+            {isEdit && initial?.pdf_storage_path ? (
+              <span className="text-amber-600">
+                «Guardar» solo actualiza el texto — usá «Generar PDF» para que el PDF refleje los cambios.
+              </span>
+            ) : destEmail ? `Se podrá mailear a ${destEmail}` : 'Sin email destinatario — sólo PDF'}
           </span>
           <div className="flex flex-wrap items-center gap-2">
             <Button variant="ghost" onClick={onClose}>Cancelar</Button>

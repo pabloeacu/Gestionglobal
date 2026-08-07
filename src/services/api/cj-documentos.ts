@@ -111,6 +111,12 @@ export async function actualizarCjDocumento(id: string, input: CjDocumentoInput)
 }
 
 export async function eliminarCjDocumento(id: string): Promise<ApiResponse<true>> {
+  // §6 DGG-132: borrar también los PDFs del storage (el confirm promete
+  // "y su PDF"; antes quedaban huérfanos para siempre en el bucket).
+  const { data: files } = await supabase.storage.from(BUCKET).list(id);
+  if (files && files.length > 0) {
+    await supabase.storage.from(BUCKET).remove(files.map((f) => `${id}/${f.name}`));
+  }
   const { error } = await supabase.rpc('cj_documento_eliminar', { p_id: id });
   if (error) return fail('CJ_DELETE', error.message, error);
   return ok(true);
@@ -121,10 +127,12 @@ export async function eliminarCjDocumento(id: string): Promise<ApiResponse<true>
 // =========================================================================
 
 export async function subirPdfYMarcar(docId: string, pdfBlob: Blob): Promise<ApiResponse<{ storage_path: string }>> {
-  const path = `${docId}/${Date.now()}.pdf`;
+  // §6 DGG-132: path FIJO por documento + upsert — regenerar reemplaza el PDF
+  // anterior en lugar de acumular huérfanos `${Date.now()}.pdf` en el bucket.
+  const path = `${docId}/documento.pdf`;
   const { error: errUp } = await supabase.storage
     .from(BUCKET)
-    .upload(path, pdfBlob, { contentType: 'application/pdf', upsert: false });
+    .upload(path, pdfBlob, { contentType: 'application/pdf', upsert: true });
   if (errUp) return fail('CJ_PDF_UPLOAD', errUp.message, errUp);
 
   const { error: errMark } = await supabase.rpc('cj_documento_marcar_pdf', {

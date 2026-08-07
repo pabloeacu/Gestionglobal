@@ -35,6 +35,21 @@ Deno.serve(async (req) => {
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
   );
 
+  // §6 DGG-132: gate de staff — antes cualquier request con el anon key podía
+  // disparar envíos de emails con PDFs jurídicos. Validamos el JWT del caller
+  // contra Auth y exigimos rol gerente (patrón zoom-encuentro-create; la edge
+  // sigue con verify_jwt=false por el preflight CORS, la auth vive acá).
+  const authHeader = req.headers.get('Authorization') ?? '';
+  if (!authHeader.startsWith('Bearer ')) return jsonError(401, 'no_auth');
+  const ures = await fetch(`${Deno.env.get('SUPABASE_URL')}/auth/v1/user`, {
+    headers: { Authorization: authHeader, apikey: Deno.env.get('SUPABASE_ANON_KEY') ?? '' },
+  });
+  if (!ures.ok) return jsonError(401, 'invalid_auth');
+  const caller = await ures.json() as { id?: string };
+  if (!caller?.id) return jsonError(401, 'invalid_auth');
+  const { data: prof } = await admin.from('profiles').select('role').eq('id', caller.id).maybeSingle();
+  if ((prof as { role?: string } | null)?.role !== 'gerente') return jsonError(403, 'only_staff');
+
   let body: { doc_id?: string };
   try {
     body = await req.json();
