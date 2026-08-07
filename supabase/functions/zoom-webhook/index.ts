@@ -157,6 +157,19 @@ Deno.serve(async (req) => {
           p_estado: "finalizado",
           p_ocurrido_at: p?.end_time ?? new Date().toISOString(),
         });
+        // E-GG-176 (§6 DGG-131): las sesiones compartidas también se
+        // reconcilian con el reporte oficial de Zoom — antes este disparo
+        // existía SOLO en la rama standalone y las compartidas quedaban sin
+        // ninguna red post-reunión. Mismo fire-and-forget (§6 r2).
+        const cronSecretSes = Deno.env.get("CRON_SECRET") ?? "";
+        fetch(`${SUPABASE_URL}/functions/v1/zoom-reconciliar-asistencia`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${cronSecretSes}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ zoom_meeting_id: meetingId }),
+        }).catch((e) => console.error("reconciliar_sesion_invoke_error", String(e)));
       } else {
         await supabase.rpc("curso_encuentro_zoom_estado", {
           p_meeting_id: meetingId,
@@ -217,6 +230,20 @@ Deno.serve(async (req) => {
             p_ocurrido_at: at,
             p_payload: part,
           });
+        } else {
+          // E-GG-176 (§6 DGG-131): sin customer_key (link crudo / app nativa)
+          // la rama compartida descartaba en silencio — el mismo hueco que
+          // E-GG-145 erradicó del standalone. Fallback por email y, con o sin
+          // match, el evento SIEMPRE queda loggeado en los espejos.
+          const userEmail = (part?.email ?? part?.user_email ?? "").toString().toLowerCase().trim();
+          const { error: sesErr } = await supabase.rpc("encuentro_sesion_zoom_evento_por_email", {
+            p_meeting_id: meetingId,
+            p_email: userEmail,
+            p_evento: evento,
+            p_ocurrido_at: at,
+            p_payload: part,
+          });
+          if (sesErr) console.error("sesion_evento_por_email_error", sesErr.message);
         }
       } else {
         // Cursos: customer_key viene del Meeting SDK (ZoomMtg.join customerKey=matriculaId).

@@ -1412,7 +1412,7 @@ export async function listCondicionesMatricula(
 ): Promise<ApiResponse<MatriculaCondicionItem[]>> {
   const { data, error } = await supabase
     .from('matricula_condiciones')
-    .select('*, curso_condiciones_config!inner(tipo, etiqueta, obligatoria, activa, orden)')
+    .select('*, curso_condiciones_config!inner(tipo, etiqueta, obligatoria, activa, orden, created_at)')
     .eq('matricula_id', matriculaId);
   if (error) return fail('MAT_CONDICIONES', error.message, error);
 
@@ -1423,6 +1423,7 @@ export async function listCondicionesMatricula(
       obligatoria: boolean;
       activa: boolean;
       orden: number;
+      created_at: string;
     } | null;
   };
   const rows = (data as unknown as Raw[] | null ?? [])
@@ -1433,9 +1434,14 @@ export async function listCondicionesMatricula(
       obligatoria: r.curso_condiciones_config?.obligatoria ?? true,
       activa: r.curso_condiciones_config?.activa ?? true,
       _orden: r.curso_condiciones_config?.orden ?? 0,
+      // §6 DGG-131: los órdenes reales traen empates (0,0,1,1,2 — dos
+      // autoridades de numeración: F10 renumera no-asistencia, los módulos
+      // sincrónicos usan max+1). Sin desempate estable el checklist cambiaba
+      // de orden al tildar (heap de Postgres).
+      _creado: r.curso_condiciones_config?.created_at ?? '',
     }))
-    .sort((a, b) => a._orden - b._orden)
-    .map(({ _orden, ...rest }) => rest);
+    .sort((a, b) => (a._orden - b._orden) || a._creado.localeCompare(b._creado))
+    .map(({ _orden, _creado, ...rest }) => rest);
   return ok(rows);
 }
 
@@ -1862,9 +1868,23 @@ export interface MarcarAsistenciaInput {
 }
 
 // Tilde de asistencia por (encuentro, matrícula). Upsert idempotente.
+// §6 DGG-131: la marca del gerente debe fijar `fuente` — si pisa una fila
+// zoom_auto sin hacerlo, el próximo join/leave del webhook recalcula presente
+// por umbral y revierte el tilde manual en silencio (espejo del CASE de las
+// RPCs de eventos: manual sobre automática = 'mixto', protegida).
 export async function marcarAsistencia(
   input: MarcarAsistenciaInput,
 ): Promise<ApiResponse<true>> {
+  const { data: previa } = await supabase
+    .from('curso_encuentro_asistencias')
+    .select('fuente')
+    .eq('encuentro_id', input.encuentroId)
+    .eq('matricula_id', input.matriculaId)
+    .maybeSingle();
+  const fuentePrev = (previa as { fuente?: string } | null)?.fuente;
+  const fuente = !fuentePrev || fuentePrev === 'manual'
+    ? 'manual'
+    : 'mixto';
   const { error } = await supabase
     .from('curso_encuentro_asistencias')
     .upsert(
@@ -1872,6 +1892,7 @@ export async function marcarAsistencia(
         encuentro_id: input.encuentroId,
         matricula_id: input.matriculaId,
         presente: input.presente,
+        fuente,
         marcada_at: new Date().toISOString(),
       },
       { onConflict: 'encuentro_id,matricula_id' },

@@ -122,26 +122,52 @@ Deno.serve(async (req) => {
   try { body = await req.json(); } catch { /* body vacío = barrer pendientes */ }
 
   try {
-    // Resolver la lista de encuentros a reconciliar.
-    let objetivos: Array<{ encuentro_id: string; zoom_meeting_id: number }> = [];
+    // Resolver la lista de objetivos a reconciliar. E-GG-176 (§6 DGG-131):
+    // los meetings de sesiones COMPARTIDAS viven en encuentro_sesiones_
+    // compartidas (los espejos tienen zoom_meeting_id NULL) — antes esta
+    // resolución solo miraba curso_encuentros y las compartidas quedaban
+    // fuera de toda reconciliación.
+    type Objetivo =
+      | { tipo: "encuentro"; encuentro_id: string; zoom_meeting_id: number }
+      | { tipo: "sesion"; zoom_meeting_id: number };
+    let objetivos: Objetivo[] = [];
     if (body.encuentro_id) {
       const rows = await restSelect(
-        `curso_encuentros?id=eq.${body.encuentro_id}&select=id,zoom_meeting_id&limit=1`,
-      ) as Array<{ id: string; zoom_meeting_id: number | null }>;
+        `curso_encuentros?id=eq.${body.encuentro_id}&select=id,zoom_meeting_id,sesion_compartida_id&limit=1`,
+      ) as Array<{ id: string; zoom_meeting_id: number | null; sesion_compartida_id: string | null }>;
       if (rows[0]?.zoom_meeting_id) {
-        objetivos = [{ encuentro_id: rows[0].id, zoom_meeting_id: rows[0].zoom_meeting_id }];
+        objetivos = [{ tipo: "encuentro", encuentro_id: rows[0].id, zoom_meeting_id: rows[0].zoom_meeting_id }];
+      } else if (rows[0]?.sesion_compartida_id) {
+        const ses = await restSelect(
+          `encuentro_sesiones_compartidas?id=eq.${rows[0].sesion_compartida_id}&select=zoom_meeting_id&limit=1`,
+        ) as Array<{ zoom_meeting_id: number | null }>;
+        if (ses[0]?.zoom_meeting_id) {
+          objetivos = [{ tipo: "sesion", zoom_meeting_id: ses[0].zoom_meeting_id }];
+        }
       }
     } else if (body.zoom_meeting_id) {
       const rows = await restSelect(
         `curso_encuentros?zoom_meeting_id=eq.${body.zoom_meeting_id}&select=id,zoom_meeting_id&limit=1`,
       ) as Array<{ id: string; zoom_meeting_id: number | null }>;
       if (rows[0]?.zoom_meeting_id) {
-        objetivos = [{ encuentro_id: rows[0].id, zoom_meeting_id: rows[0].zoom_meeting_id }];
+        objetivos = [{ tipo: "encuentro", encuentro_id: rows[0].id, zoom_meeting_id: rows[0].zoom_meeting_id }];
+      } else {
+        const ses = await restSelect(
+          `encuentro_sesiones_compartidas?zoom_meeting_id=eq.${body.zoom_meeting_id}&select=zoom_meeting_id&limit=1`,
+        ) as Array<{ zoom_meeting_id: number | null }>;
+        if (ses[0]?.zoom_meeting_id) {
+          objetivos = [{ tipo: "sesion", zoom_meeting_id: ses[0].zoom_meeting_id }];
+        }
       }
     } else {
-      objetivos = (await rpc("zoom_encuentros_pendientes_reconciliar", {})) as Array<{
+      const standalone = (await rpc("zoom_encuentros_pendientes_reconciliar", {})) as Array<{
         encuentro_id: string; zoom_meeting_id: number;
       }>;
+      objetivos = standalone.map((o) => ({ tipo: "encuentro" as const, ...o }));
+      const sesiones = (await rpc("zoom_sesiones_pendientes_reconciliar", {})) as Array<{
+        zoom_meeting_id: number;
+      }>;
+      objetivos.push(...sesiones.map((s) => ({ tipo: "sesion" as const, zoom_meeting_id: s.zoom_meeting_id })));
     }
 
     if (!objetivos.length) return json(200, { ok: true, reconciliados: 0 });
@@ -159,16 +185,21 @@ Deno.serve(async (req) => {
           leave_time: p.leave_time ?? null,
           duration_seg: p.duration ?? 0,
         }));
-        const res = await rpc("curso_encuentro_reconciliar_asistencia", {
-          p_encuentro_id: o.encuentro_id,
-          p_participantes: payload,
-        });
-        resultados.push({ encuentro_id: o.encuentro_id, fuente, participantes: payload.length, ...res as object });
+        const res = o.tipo === "sesion"
+          ? await rpc("encuentro_sesion_reconciliar_asistencia", {
+              p_meeting_id: o.zoom_meeting_id,
+              p_participantes: payload,
+            })
+          : await rpc("curso_encuentro_reconciliar_asistencia", {
+              p_encuentro_id: o.encuentro_id,
+              p_participantes: payload,
+            });
+        resultados.push({ tipo: o.tipo, zoom_meeting_id: o.zoom_meeting_id, fuente, participantes: payload.length, ...res as object });
       } catch (e) {
-        // Un encuentro que falla no frena a los demás; el cron reintenta
+        // Un objetivo que falla no frena a los demás; el cron reintenta
         // (asistencia_reconciliada_at queda NULL hasta lograr reconciliar).
-        console.error("reconciliar_encuentro_error", o.encuentro_id, String(e));
-        resultados.push({ encuentro_id: o.encuentro_id, error: String(e) });
+        console.error("reconciliar_objetivo_error", o.zoom_meeting_id, String(e));
+        resultados.push({ tipo: o.tipo, zoom_meeting_id: o.zoom_meeting_id, error: String(e) });
       }
     }
     return json(200, { ok: true, reconciliados: resultados.length, resultados });
