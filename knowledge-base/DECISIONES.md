@@ -4691,3 +4691,27 @@ Descartados con racional: ambigüedad " - " inherente a DGG-120 (0 pares reales)
 7. (menor) Flash del logo remoto en el preview antes de resolver el data URL → el logo aparece recién resuelto.
 8. (menor) Doble click en Descargar generaba dos PDFs → busy antes del primer await.
 Descartados con racional: perf del escaneo de filas, umbral 246 vs fondos #f8fafc (protegidos por el borde de acento), "1 de 1" en docs de una página (gusto — queda, es consistente), e hipótesis verificadas OK.
+
+## DGG-133 · Poder de insistencia: la pelota "del otro lado de la cancha" (pedido Pablo, 2026-08-10)
+
+**Principio (Pablo):** todo caso donde la pelota queda del otro lado amerita atención — tanto en manos de la gestoría como del cliente — con un poder de insistencia que se mueve por alarmas y reenvíos. **Regla neurálgica sin fisuras:** toda insistencia al CLIENTE queda registrada VISIBLE en el tracking de su trámite ("estuvimos pendientes"); toda comunicación con la GESTORÍA es privada y el cliente jamás la ve.
+
+**Diseño (0 columnas nuevas, 1 mig de higiene):**
+- **Insistir al cliente** (avioncito en "Alarmas de hoy" + botón en el detalle): modal con texto libre → línea VISIBLE categoría `recordatorio` — la línea ES el vehículo del mail (el trigger 0337 manda UN `tracking-avance-cliente` + push + aviso portal; una línea visible con alerta futura habría doble-maileado vía `tracking-recordatorio`).
+- **Re-alarma "si no responde"** (default 5 días hábiles, cap 1..90): desde el detalle crea línea INTERNA con `alerta_en` (0 avisos, entra a la card); desde la card **reprograma LA alarma original** (postergar) — nunca dos alarmas por el mismo reclamo.
+- **Ojito "último mail"**: `getUltimoEnvioClienteId` ancla `email_queue` por trámite/líneas × 5 templates cliente-facing → `EmailPreviewModal`.
+- **Badge derivado "Insistido Nx"** en el header del trámite (cuenta líneas `recordatorio` visibles; sin columna).
+- **Pedido de doc**: alarma de seguimiento opcional en días hábiles (línea interna) en el drawer; `avisarGestoria` ahora acepta mensaje libre (usePrompt) y sigue siempre interna.
+- `src/lib/diasHabiles.ts`: espejo JS de `private.dias_habiles_add`.
+
+**§6 (workflow 16 agentes: 2 dimensiones + refutación adversarial; 14 reportados, 10 confirmados / 4 refutados con datos de producción) — todos cerrados en el chunk:**
+1. (media) `insistirCliente` fallo parcial: si la re-alarma fallaba tras el mail ya enviado, reportaba fallo total y el reintento **duplicaba el mail al cliente** → éxito parcial con flag + un solo toast coherente.
+2. (media) Badge contaba líneas `recordatorio` internas (que el cliente nunca vio) → filtro `visible_cliente`.
+3. (menor) Insistir desde la card dejaba la alarma original sonando + sumaba otra en N días → el modal recibe `alarmaLineaId` y postpone la original (postergada_veces registra la insistencia).
+4. (menor) Toast del drawer prometía el recordatorio recién fallado → condicionado a `alarmaOk`.
+5. (menor) Ojito ciego a `tramite-docs-pendientes` (mig 0309 encolaba sin `related_*`; mitigado por el gemelo `tracking-avance-cliente` 8/8 verificado) → **mig 0413**: ancla la fuente + backfill 8/8 + smokes reglas 16 (0 overloads) y 18 (RPC ejercitada real con rollback).
+6. (menor) `alarmaPedidoDias` stale al cancelar el drawer → se limpia al destildar.
+7. (menor) Tipear "0" caía a 5 en vez de clampar a 1 → `Number.isFinite`.
+Refutados: trámite sin destinatario (0/38 posibles), omisión `nuevo-servicio-activado` (gemelo 38/38), escala del `.in()` (máx 9 líneas vs ~200 de umbral), borde dow ART/UTC 21-24h (impacto nulo, subsistema ya cuantiza en UTC).
+
+**Verificación:** e2e BD rollback forzado T1-T4 (1 solo mail por insistencia; interna 0 mails y en card; portal del cliente vía su RPC real NO ve internas; insistir-desde-card = 1 mail + alarma única reprogramada). Live en Vercel (vf32f29e, gerente QA efímero + trámite QA): envío real desde la card → línea visible + mail + "Insistido 1x" + alarma fuera de hoy; ojito abre el preview del mail real. Limpieza a 0 verificada (incl. barrido email_queue/sent_emails canon qa-egg175). Nota operativa: 2 mails QA alcanzaron a despacharse al buzón inexistente qa-dgg133@ (la neutralización rollbackeó junto a un SELECT que raiseó) — rebotarán inofensivamente en la casilla emisora; lección: el UPDATE neutralizador se ejecuta SOLO, jamás batcheado con SELECTs que puedan raisear. Limitación declarada: el pane del browser tuvo el renderer congelado (screenshots negros, precedente E-GG-175) — verificación visual completa en 376px; el pass funcional fue por DOM + BD en tab fresca; sin chequeo visual desktop en esta corrida.
