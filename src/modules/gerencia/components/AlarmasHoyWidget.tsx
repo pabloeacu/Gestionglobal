@@ -7,12 +7,14 @@
 // ============================================================================
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Bell, Clock, AlertTriangle, ChevronRight, Loader2 } from 'lucide-react';
+import { Bell, Clock, AlertTriangle, ChevronRight, Loader2, Eye, Send } from 'lucide-react';
 import { Skeleton } from '@/components/common';
+import { EmailPreviewModal } from '@/components/common/EmailPreviewModal';
 import { toast } from '@/lib/toast';
 import { humanizeError } from '@/lib/errors';
 import { listarAlarmasHoy } from '@/services/api/dashboard';
-import { postergarAlarmaLinea } from '@/services/api/trackings';
+import { postergarAlarmaLinea, getUltimoEnvioClienteId } from '@/services/api/trackings';
+import { InsistirClienteModal } from '@/modules/trackings/components/InsistirClienteModal';
 
 interface AlarmaHoy {
   linea_id: string;
@@ -30,6 +32,26 @@ export function AlarmasHoyWidget() {
   const [items, setItems] = useState<AlarmaHoy[]>([]);
   const [loading, setLoading] = useState(true);
   const [postergandoId, setPostergandoId] = useState<string | null>(null);
+  // DGG-133 · poder de insistencia: ojito (último mail al cliente) + avioncito
+  // (recordatorio visible con texto libre) directo desde la alarma.
+  const [previewEnvioId, setPreviewEnvioId] = useState<string | null>(null);
+  const [insistir, setInsistir] = useState<AlarmaHoy | null>(null);
+  const [buscandoMailId, setBuscandoMailId] = useState<string | null>(null);
+
+  async function verUltimoMail(a: AlarmaHoy) {
+    setBuscandoMailId(a.linea_id);
+    const res = await getUltimoEnvioClienteId(a.tramite_id);
+    setBuscandoMailId(null);
+    if (!res.ok) {
+      toast.error('No pudimos buscar el último mail', { description: humanizeError(res.error) });
+      return;
+    }
+    if (!res.data) {
+      toast.info('Este trámite todavía no tiene mails enviados al cliente.');
+      return;
+    }
+    setPreviewEnvioId(res.data);
+  }
 
   async function cargar() {
     setLoading(true);
@@ -168,6 +190,25 @@ export function AlarmasHoyWidget() {
                   <Loader2 className="h-3 w-3 animate-spin text-brand-muted" />
                 ) : (
                   <>
+                    <button
+                      type="button"
+                      onClick={() => void verUltimoMail(a)}
+                      disabled={buscandoMailId === a.linea_id}
+                      className="grid h-6 w-6 place-items-center rounded-md border border-slate-200 bg-white text-brand-muted hover:border-brand-cyan hover:text-brand-cyan disabled:opacity-40"
+                      title="Ver el último mail enviado al cliente"
+                    >
+                      {buscandoMailId === a.linea_id
+                        ? <Loader2 size={11} className="animate-spin" />
+                        : <Eye size={11} />}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setInsistir(a)}
+                      className="grid h-6 w-6 place-items-center rounded-md border border-slate-200 bg-white text-brand-muted hover:border-brand-cyan hover:text-brand-cyan"
+                      title="Insistir al cliente (recordatorio con email + tracking)"
+                    >
+                      <Send size={11} />
+                    </button>
                     {[3, 5, 10].map((d) => (
                       <button
                         key={d}
@@ -190,6 +231,22 @@ export function AlarmasHoyWidget() {
           </li>
         ))}
       </ul>
+
+      <EmailPreviewModal
+        open={previewEnvioId !== null}
+        envioId={previewEnvioId}
+        onClose={() => setPreviewEnvioId(null)}
+      />
+      {insistir && (
+        <InsistirClienteModal
+          open
+          onClose={() => setInsistir(null)}
+          tramiteId={insistir.tramite_id}
+          tramiteTitulo={insistir.tramite_titulo}
+          alarmaLineaId={insistir.linea_id}
+          onDone={() => void cargar()}
+        />
+      )}
     </section>
   );
 }

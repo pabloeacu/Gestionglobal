@@ -8,6 +8,7 @@ import {
 } from '@/services/api/trackings';
 import { crearPedidoDoc } from '@/services/api/tramitePedidosDoc';
 import { humanizeError } from '@/lib/errors';
+import { addDiasHabiles } from '@/lib/diasHabiles';
 
 export interface AgregarLineaDrawerProps {
   open: boolean;
@@ -41,6 +42,10 @@ export function AgregarLineaDrawer({
   // visible, avisa al cliente (portal + push + email) y le habilita el panel
   // de respuesta/adjuntos en su gestión.
   const [requiereRespuesta, setRequiereRespuesta] = useState(false);
+  // DGG-133 · "la pelota del otro lado": alarma opcional de seguimiento del
+  // pedido de documentación — línea INTERNA con alerta futura (el cliente no
+  // la ve; aparece en "Alarmas de hoy" si no respondió).
+  const [alarmaPedidoDias, setAlarmaPedidoDias] = useState('');
   const [saving, setSaving] = useState(false);
 
   function reset() {
@@ -51,6 +56,7 @@ export function AgregarLineaDrawer({
     setAlertaEn('');
     setVisibleCliente(false);
     setRequiereRespuesta(false);
+    setAlarmaPedidoDias('');
   }
 
   async function handleSave() {
@@ -64,13 +70,33 @@ export function AgregarLineaDrawer({
     // (crea su propia línea visible + notifica). No creamos línea duplicada.
     if (requiereRespuesta) {
       const res = await crearPedidoDoc(trackingId, descripcion.trim(), [descripcion.trim()]);
-      setSaving(false);
       if (!res.ok) {
+        setSaving(false);
         toast.error(humanizeError(res.error));
         return;
       }
+      // DGG-133 · alarma opcional de seguimiento (línea interna: el cliente
+      // no la ve, no dispara ningún aviso — solo entra a "Alarmas de hoy").
+      const dias = parseInt(alarmaPedidoDias, 10);
+      let alarmaOk = true;
+      if (dias >= 1) {
+        const alarma = await agregarLinea(trackingId, {
+          categoria: 'seguimiento_interno',
+          descripcion: `Seguimiento del pedido de documentación: "${descripcion.trim().slice(0, 140)}" — insistir si el cliente no respondió.`,
+          visible_cliente: false,
+          alerta_en: addDiasHabiles(new Date(), Math.min(90, dias)).toISOString(),
+        });
+        alarmaOk = alarma.ok;
+      }
+      setSaving(false);
+      // §6 DGG-133: UN solo toast coherente — si la alarma falló, el éxito del
+      // pedido no puede prometer el recordatorio que acaba de fallar.
       toast.success('Pedido enviado al cliente', {
-        description: 'Le avisamos por portal, push y email. Puede responder y adjuntar desde su gestión.',
+        description: dias >= 1
+          ? alarmaOk
+            ? `Le avisamos por portal, push y email. Te lo recordamos en ${Math.min(90, dias)} días hábiles si no responde.`
+            : 'Le avisamos por portal, push y email — pero no pudimos crear la alarma de seguimiento; creala a mano si la necesitás.'
+          : 'Le avisamos por portal, push y email. Puede responder y adjuntar desde su gestión.',
       });
       reset();
       onSaved();
@@ -135,7 +161,12 @@ export function AgregarLineaDrawer({
           <input
             type="checkbox"
             checked={requiereRespuesta}
-            onChange={(e) => setRequiereRespuesta(e.target.checked)}
+            onChange={(e) => {
+              setRequiereRespuesta(e.target.checked);
+              // §6 DGG-133: al destildar se limpia el N de días — el drawer no se
+              // desmonta al cerrar y un valor viejo re-crearía la alarma sin querer.
+              if (!e.target.checked) setAlarmaPedidoDias('');
+            }}
             className="mt-0.5 h-4 w-4 cursor-pointer rounded border-slate-300 text-amber-600 focus:ring-amber-500"
           />
           <div className="flex-1">
@@ -148,6 +179,22 @@ export function AgregarLineaDrawer({
               subir archivos</strong> desde su gestión. Cuando envía, te llega el
               aviso y aparece en el Inicio.
             </div>
+            {requiereRespuesta && (
+              <div className="mt-2 flex items-center gap-2 text-xs text-slate-600">
+                <span>Alarma de seguimiento en</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={90}
+                  value={alarmaPedidoDias}
+                  onChange={(e) => setAlarmaPedidoDias(e.target.value)}
+                  onClick={(e) => e.stopPropagation()}
+                  placeholder="—"
+                  className="h-7 w-14 rounded-md border border-slate-300 px-2 text-center text-xs focus:border-amber-500 focus:outline-none"
+                />
+                <span>días hábiles (opcional — interna, el cliente no la ve).</span>
+              </div>
+            )}
           </div>
         </label>
 

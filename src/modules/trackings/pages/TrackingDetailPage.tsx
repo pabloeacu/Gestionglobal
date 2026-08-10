@@ -89,6 +89,10 @@ import { ModeracionCard } from './ModeracionPage';
 import { LineaTrackingCard } from '../components/LineaTrackingCard';
 import { LineasTimeline } from '../components/LineasTimeline';
 import { AgregarLineaDrawer } from '../components/AgregarLineaDrawer';
+import { InsistirClienteModal } from '../components/InsistirClienteModal';
+import { EmailPreviewModal } from '@/components/common/EmailPreviewModal';
+import { usePrompt } from '@/components/common/DialogProvider';
+import { getUltimoEnvioClienteId } from '@/services/api/trackings';
 import { TrackingMetadataDrawer } from '../components/TrackingMetadataDrawer';
 import { generateReportPdf } from '@/lib/reportPdf';
 import { RecurrenciaList } from '../components/RecurrenciaList';
@@ -127,6 +131,7 @@ export function TrackingDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
   const confirm = useConfirm();
+  const prompt = usePrompt();
   // DGG-95 · Cancelar el trámite desde el detalle vivo usa el MISMO diálogo/cascada
   // que el kanban (anula el comprobante no-fiscal → saldo a favor). Antes sólo se
   // podía "cancelar" seteando el estado desde una línea (bypass silencioso de la cascada).
@@ -286,26 +291,20 @@ export function TrackingDetailPage() {
   }
 
   // DGG-90 (JL #2) · reavisa a la gestoría externa que hay info nueva.
+  // DGG-133: el prompt permite sumar un mensaje propio (la RPC ya aceptaba
+  // p_mensaje y la UI mandaba null). SIEMPRE comunicación interna: la línea
+  // que crea la RPC es visible_cliente=false — el cliente jamás la ve.
   async function handleAvisarGestoria() {
     if (!id || !derivacion) return;
-    const okConfirm = await confirm({
+    const mensaje = await prompt({
       title: 'Avisar a la gestoría',
-      message: (
-        <div className="space-y-2 text-sm">
-          <p>
-            Le avisaremos a <strong>{derivacion.destinatario_email}</strong> que hay
-            información nueva y que ya puede retomar el trámite (verá la información anterior y
-            la nueva desde su acceso).
-          </p>
-          <p>¿Enviar el aviso?</p>
-        </div>
-      ),
+      message: `Le avisaremos a ${derivacion.destinatario_email} que hay información nueva y que puede retomar el trámite. Podés agregar un mensaje propio (opcional — vacío envía el aviso estándar). Esta comunicación es interna: el cliente no la ve.`,
+      placeholder: 'Mensaje adicional para la gestoría (opcional)…',
       confirmLabel: 'Avisar a la gestoría',
-      cancelLabel: 'Cancelar',
     });
-    if (!okConfirm) return;
+    if (mensaje === null) return;
     setAvisandoGestoria(true);
-    const res = await avisarGestoria(id, null);
+    const res = await avisarGestoria(id, mensaje.trim() || null);
     setAvisandoGestoria(false);
     if (!res.ok) {
       toast.error('No pudimos avisar a la gestoría', { description: humanizeError(res.error) });
@@ -313,6 +312,27 @@ export function TrackingDetailPage() {
     }
     toast.success(`Aviso enviado a ${res.data.email}`);
     void load();
+  }
+
+  // DGG-133 · poder de insistencia (cliente): modal de recordatorio + ojito.
+  const [insistirOpen, setInsistirOpen] = useState(false);
+  const [previewEnvioId, setPreviewEnvioId] = useState<string | null>(null);
+  const [buscandoMail, setBuscandoMail] = useState(false);
+
+  async function handleVerUltimoMail() {
+    if (!id) return;
+    setBuscandoMail(true);
+    const res = await getUltimoEnvioClienteId(id);
+    setBuscandoMail(false);
+    if (!res.ok) {
+      toast.error('No pudimos buscar el último mail', { description: humanizeError(res.error) });
+      return;
+    }
+    if (!res.data) {
+      toast.info('Este trámite todavía no tiene mails enviados al cliente.');
+      return;
+    }
+    setPreviewEnvioId(res.data);
   }
 
   useEffect(() => {
@@ -728,6 +748,19 @@ export function TrackingDetailPage() {
                 <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
                 {estadoConfigActual?.label ?? data.estado}
               </span>
+              {/* DGG-133 · badge derivado (sin columna): cuántas veces se le
+                  insistió al cliente (líneas visibles categoría 'recordatorio'). */}
+              {(() => {
+                const insistencias = (data.lineas ?? []).filter(
+                  (l) => l.categoria === 'recordatorio' && l.visible_cliente,
+                ).length;
+                return insistencias > 0 ? (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-800 ring-1 ring-amber-200"
+                    title="Recordatorios enviados al cliente (visibles en su tracking)">
+                    <Send className="h-3 w-3" /> Insistido {insistencias}x
+                  </span>
+                ) : null;
+              })()}
               {/* DEEP-1 · Editar metadata: visible solo para staff. Abrimos
                   drawer lateral con titulo/categoria/prioridad/vence_at +
                   admin+consorcio dependiente + solicitante. */}
@@ -803,6 +836,30 @@ export function TrackingDetailPage() {
               >
                 <Share2 className="h-4 w-4" /> Compartir externo
               </Button>
+            )}
+            {/* DGG-133 · insistencia al CLIENTE: recordatorio visible (email +
+                push + tracking) + ojito para ver el último mail que le llegó. */}
+            {isStaff && data.estado !== 'cerrado' && data.estado !== 'cancelado' && (
+              <>
+                <Button
+                  variant="ghost"
+                  onClick={() => void handleVerUltimoMail()}
+                  disabled={buscandoMail}
+                  title="Ver el último mail enviado al cliente"
+                >
+                  {buscandoMail
+                    ? <Loader2 className="h-4 w-4 animate-spin" />
+                    : <Eye className="h-4 w-4" />}{' '}
+                  Último mail
+                </Button>
+                <Button
+                  variant="tonal"
+                  onClick={() => setInsistirOpen(true)}
+                  title="Recordarle al cliente lo que está pendiente de su lado (email + push + tracking visible)"
+                >
+                  <Send className="h-4 w-4" /> Insistir al cliente
+                </Button>
+              </>
             )}
             {/* DGG-90 (JL #2) · avisar a la gestoría externa que hay info nueva
                 (sólo si el trámite fue derivado y no está cerrado). */}
@@ -1208,6 +1265,22 @@ export function TrackingDetailPage() {
         estados={data.estados_disponibles}
         permiteCambiarEstado={isStaff}
         onSaved={() => void load()}
+      />
+
+      {/* DGG-133 · insistencia al cliente + preview del último mail */}
+      {insistirOpen && (
+        <InsistirClienteModal
+          open
+          onClose={() => setInsistirOpen(false)}
+          tramiteId={data.id}
+          tramiteTitulo={data.servicio?.nombre ?? data.titulo}
+          onDone={() => void load()}
+        />
+      )}
+      <EmailPreviewModal
+        open={previewEnvioId !== null}
+        envioId={previewEnvioId}
+        onClose={() => setPreviewEnvioId(null)}
       />
 
       {/* DEEP-1 · Drawer de edición de metadata del trámite. Recarga el detalle

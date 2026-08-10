@@ -290,6 +290,84 @@ export async function agregarLinea(
 }
 
 // ----------------------------------------------------------------------------
+// DGG-133 · PODER DE INSISTENCIA
+// ----------------------------------------------------------------------------
+// Insistir al CLIENTE: una línea VISIBLE categoría 'recordatorio' es el único
+// vehículo — el trigger tracking_linea_on_insert manda UN solo mail con este
+// texto + push + notificación del portal, y la línea queda en su tracking
+// ("estuvimos pendientes"). Regla neurálgica DGG-133: cliente = visible;
+// gestoría = SIEMPRE interna (derivacion_reavisar_gestoria ya lo garantiza).
+// La re-alarma va en una línea INTERNA separada: una línea visible con alerta
+// futura dispararía un SEGUNDO mail (tracking-recordatorio, E-GG-111).
+// §6 DGG-133: si la interna falla DESPUÉS de que la visible salió, NO se
+// reporta fallo total — el mail ya está en la cola y un reintento lo
+// duplicaría de cara al cliente. Éxito parcial con flag (patrón del drawer).
+export async function insistirCliente(
+  tramiteId: string,
+  texto: string,
+  alarmaEnISO?: string | null,
+): Promise<ApiResponse<{ alarmaFallo: boolean }>> {
+  const visible = await agregarLinea(tramiteId, {
+    categoria: 'recordatorio',
+    descripcion: texto,
+    visible_cliente: true,
+  });
+  if (!visible.ok) return visible as ApiResponse<never>;
+
+  if (alarmaEnISO) {
+    const interna = await agregarLinea(tramiteId, {
+      categoria: 'seguimiento_interno',
+      descripcion: `Seguimiento de insistencia al cliente: "${texto.slice(0, 140)}${texto.length > 140 ? '…' : ''}" — reclamar de nuevo si no respondió.`,
+      visible_cliente: false,
+      alerta_en: alarmaEnISO,
+    });
+    if (!interna.ok) return ok({ alarmaFallo: true });
+  }
+  return ok({ alarmaFallo: false });
+}
+
+// Último mail REAL enviado al cliente por este trámite (para el ojito):
+// devuelve el id de email_queue más reciente con template de cara al cliente,
+// anclado al trámite o a cualquiera de sus líneas. El preview lo renderiza
+// EmailPreviewModal (getEnvioPreview cae a sent_emails.html si hace falta).
+const TEMPLATES_CLIENTE = [
+  'tracking-avance-cliente',
+  'tracking-recordatorio',
+  'tramite-docs-pendientes',
+  'tramite-reabierto',
+  'tramite-cancelado',
+] as const;
+
+export async function getUltimoEnvioClienteId(
+  tramiteId: string,
+): Promise<ApiResponse<string | null>> {
+  const { data: lineas, error: errLineas } = await supabase
+    .from('tracking_lineas')
+    .select('id')
+    .eq('tramite_id', tramiteId);
+  if (errLineas) return fail('INSISTIR_LINEAS', errLineas.message, errLineas);
+  const ids = (lineas ?? []).map((l) => l.id);
+
+  const filtroRelacion = [
+    `and(related_table.eq.tramites,related_id.eq.${tramiteId})`,
+    ids.length > 0
+      ? `and(related_table.eq.tracking_lineas,related_id.in.(${ids.join(',')}))`
+      : null,
+  ].filter(Boolean).join(',');
+
+  const { data, error } = await supabase
+    .from('email_queue')
+    .select('id, enviado_at, created_at')
+    .eq('status', 'sent')
+    .in('template_slug', TEMPLATES_CLIENTE as unknown as string[])
+    .or(filtroRelacion)
+    .order('enviado_at', { ascending: false, nullsFirst: false })
+    .limit(1);
+  if (error) return fail('INSISTIR_ULTIMO_MAIL', error.message, error);
+  return ok(data?.[0]?.id ?? null);
+}
+
+// ----------------------------------------------------------------------------
 // CERRAR TRACKING (RPC, staff only)
 // DGG-38 EXT (2026-06-02 · José Luis): firma extendida con motivo,
 // satisfactorio, observaciones y documento opcional. El motivo es
