@@ -552,6 +552,64 @@ function PanelGestor({ token }: { token: string }) {
   // #154 · adjuntos ilimitados
   const [adjuntos, setAdjuntos] = useState<AdjuntoStaged[]>([]);
 
+  // E-GG-177 (caso Spotti 06/08): los archivos se suben al storage apenas se
+  // eligen, pero el AVANCE recién existe al apretar "Enviar". Una recarga en el
+  // medio borra el borrador en silencio y deja el archivo huérfano — el gestor
+  // cree que envió y la gerencia nunca se entera. Guard de salida con borrador
+  // pendiente. (beforeunload es el ÚNICO mecanismo del browser para interceptar
+  // cierre/recarga de pestaña — no existe alternativa via DialogProvider; el
+  // diálogo lo dibuja el browser, no es window.confirm de regla 13.)
+  // §6: sin `!enviando` — la ventana in-flight del envío es justamente donde
+  // el gestor impaciente recarga; el guard debe seguir armado ahí también.
+  const borradorPendiente =
+    adjuntos.length > 0 || descripcion.trim().length >= 3;
+  useEffect(() => {
+    if (!borradorPendiente) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [borradorPendiente]);
+
+  // §6 E-GG-177: beforeunload es inerte en iOS Safari (WebKit #219102) → el
+  // borrador además se PERSISTE en localStorage por token y se rehidrata al
+  // volver. Los archivos ya viven en el bucket con su URL, así que el Enviar
+  // posterior los vincula sin re-subirlos: el huérfano pasa a ser recuperable.
+  const draftKey = `gg.gestor.borrador.${token}`;
+  const [draftListo, setDraftListo] = useState(false);
+  useEffect(() => {
+    setDraftListo(true);
+    try {
+      const raw = window.localStorage.getItem(draftKey);
+      if (!raw) return;
+      const d = JSON.parse(raw) as { descripcion?: string; adjuntos?: AdjuntoStaged[] };
+      const adj = (d.adjuntos ?? []).filter((a) => a.url && !a.uploading && !a.error);
+      if (!d.descripcion?.trim() && adj.length === 0) return;
+      if (d.descripcion) setDescripcion(d.descripcion);
+      if (adj.length > 0) setAdjuntos(adj);
+      toast.info('Recuperamos tu borrador sin enviar', {
+        description: 'Revisalo y apretá «Enviar avance» para que le llegue a la gerencia.',
+      });
+    } catch { /* borrador corrupto → se ignora */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(() => {
+    if (!draftListo) return;
+    const settled = adjuntos.filter((a) => a.url && !a.uploading && !a.error);
+    try {
+      if (descripcion.trim().length === 0 && settled.length === 0) {
+        window.localStorage.removeItem(draftKey);
+      } else {
+        window.localStorage.setItem(
+          draftKey,
+          JSON.stringify({ descripcion, adjuntos: settled }),
+        );
+      }
+    } catch { /* storage lleno → banner + guard siguen cubriendo */ }
+  }, [descripcion, adjuntos, draftListo, draftKey]);
+
   async function cargarAvances() {
     setLoadingAvances(true);
     const res = await fetchGestorAvances(token);
@@ -648,6 +706,10 @@ function PanelGestor({ token }: { token: string }) {
       url: '',
       uploading: true,
     }));
+    // E-GG-177: adjuntar archivos nuevos arranca OTRO borrador — sin esto,
+    // `enviado` quedaba true tras el primer aporte y el banner "todavía no se
+    // envió" no reaparecía para el segundo.
+    setEnviado(false);
     setAdjuntos((prev) => [...prev, ...staged]);
 
     await Promise.all(
@@ -910,7 +972,13 @@ function PanelGestor({ token }: { token: string }) {
         <textarea
           rows={4}
           value={descripcion}
-          onChange={(e) => setDescripcion(e.target.value)}
+          onChange={(e) => {
+            setDescripcion(e.target.value);
+            // §6: tipear un aporte nuevo apaga el sello "Recibido" del anterior
+            // (simétrico al reset de onFilesPicked) — el chip no puede afirmar
+            // "recibido" sobre un borrador que todavía no se envió.
+            if (enviado && e.target.value.trim().length > 0) setEnviado(false);
+          }}
           placeholder="Contale al cliente qué resolviste, qué se entregó al organismo, próximos pasos…"
           className="w-full rounded-xl border border-slate-200 bg-white p-3 text-sm text-brand-ink shadow-sm transition focus:border-brand-cyan focus:outline-none focus:ring-2 focus:ring-brand-cyan/20"
           disabled={enviando}
@@ -980,6 +1048,25 @@ function PanelGestor({ token }: { token: string }) {
             </p>
           )}
         </div>
+
+        {/* E-GG-177: el tilde verde del archivo se leía como "enviado". Mientras
+            haya borrador sin enviar, se dice explícito qué falta. */}
+        {adjuntos.some((a) => !a.uploading && !a.error) && !enviado && (
+          <div
+            role="status"
+            className="flex items-start gap-2 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800"
+          >
+            <AlertCircle size={16} className="mt-0.5 shrink-0" />
+            <div>
+              <strong>Tus archivos están cargados pero TODAVÍA NO SE ENVIARON.</strong>{' '}
+              {adjuntos.some((a) => a.uploading)
+                ? 'Cuando terminen de subir los archivos, apretá «Enviar avance» — recién ahí le llega a la gerencia.'
+                : descripcion.trim().length < 3
+                  ? 'Escribí una breve descripción del avance y apretá «Enviar avance» — recién ahí le llega a la gerencia.'
+                  : 'Apretá «Enviar avance» para que le lleguen a la gerencia.'}
+            </div>
+          </div>
+        )}
 
         <button
           type="button"
