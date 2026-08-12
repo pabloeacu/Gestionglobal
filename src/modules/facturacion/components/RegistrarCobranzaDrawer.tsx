@@ -327,11 +327,21 @@ export function RegistrarCobranzaDrawer({
                 />
               </Field>
 
-              <Field label="Descripción interna" hint="Opcional. Solo visible en la caja.">
+              {/* E-GG-178 (caso Drozd): si queda vacío, la RPC compone sola
+                  "Cobranza · <renglón del comprobante>" — nunca más un asiento
+                  "Sin descripción" desde esta superficie. */}
+              {/* E-GG-178: el hint viejo "Solo visible en la caja" mentía — la
+                  descripción del movimiento se muestra también en el extracto
+                  de Cta. Cte. que ve el CLIENTE (cuenta_corriente_extracto). */}
+              <Field
+                label="Descripción"
+                hint="Opcional. Aparece en la caja, en el extracto del cliente y, si participa un partner, en su rendición."
+              >
                 <Textarea
                   rows={2}
                   value={descripcion}
                   onChange={(e) => setDescripcion(e.target.value)}
+                  placeholder="Si lo dejás vacío, se completa solo con el detalle del comprobante"
                 />
               </Field>
 

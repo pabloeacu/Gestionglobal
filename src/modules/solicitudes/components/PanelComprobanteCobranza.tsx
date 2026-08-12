@@ -526,7 +526,10 @@ function ModalRegistrarPago({
       caja_id: cajaId,
       fecha,
       monto: m,
-      descripcion: descripcion.trim() || 'Cobranza desde solicitud',
+      // §6 E-GG-178: sin fallback genérico — vacío deja que la RPC componga
+      // 'Cobranza · <renglón real>' (mig 0416). El texto 'Cobranza desde
+      // solicitud' además duplicaba el prefijo en el extracto del cliente.
+      descripcion: descripcion.trim(),
       referencia: referencia.trim() || undefined,         // DGG-39 (JL)
       categoria_id: categoriaId || null,                  // DGG-39 (JL)
       partner_id_atribucion: partnerId || null,
@@ -609,7 +612,7 @@ function ModalRegistrarPago({
           <Input
             value={descripcion}
             onChange={(e) => setDescripcion(e.target.value)}
-            placeholder="Detalle del pago…"
+            placeholder="Si lo dejás vacío, se completa solo con el detalle del comprobante"
           />
         </Field>
         {partners.length > 0 && (
