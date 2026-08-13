@@ -62,6 +62,8 @@ export async function generateReportPdf<T>(
   container.style.top = '0';
   container.style.width = `${REPORT_W}px`;
   container.style.zIndex = '-1';
+  // DGG-136 · escape del tema gg-brand: los PDFs son INTOCABLES (identidad clásica siempre)
+  container.setAttribute('data-gg-classic', '');
   document.body.appendChild(container);
   const root = createRoot(container);
 

@@ -211,6 +211,8 @@ export async function renderCertificadoPdfBlob(
   host.style.pointerEvents = 'none';
   host.style.zIndex = '-9999';
   host.style.overflow = 'hidden';
+  // DGG-136 · escape del tema gg-brand: los PDFs son INTOCABLES (identidad clásica siempre)
+  host.setAttribute('data-gg-classic', '');
   document.body.appendChild(host);
 
   const root = createRoot(host);

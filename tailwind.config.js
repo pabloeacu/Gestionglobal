@@ -5,24 +5,59 @@ export default {
     extend: {
       colors: {
         // Identidad Gestión Global (paleta de la Presentación, alineada a doc 04 BRAND)
+        // DGG-136: los valores viven como variables RGB en src/index.css (:root)
+        // con EXACTAMENTE los hex históricos — así el tema conmutable gg-brand
+        // puede re-tematizar TODAS las utilities compiladas redefiniendo las
+        // variables bajo [data-theme="gg-brand"], sin tocar ninguna clase.
+        // <alpha-value> preserva los modificadores de opacidad (bg-brand-ink/55).
         brand: {
-          cyan: '#009eca',
-          'cyan-light': '#7fc3dc',
-          'cyan-pale': '#a9d4e5',
-          blue: '#0073b7',
-          'blue-deep': '#1d4ed8',
-          teal: '#1b9da8',
-          orange: '#ff8200',
-          ink: '#122230',
-          night: '#0b1f33',
-          'night-2': '#0e2a45',
-          muted: '#5d7284',
-          zebra: '#f7fafc',
+          cyan: 'rgb(var(--brand-cyan-rgb) / <alpha-value>)',
+          'cyan-light': 'rgb(var(--brand-cyan-light-rgb) / <alpha-value>)',
+          'cyan-pale': 'rgb(var(--brand-cyan-pale-rgb) / <alpha-value>)',
+          blue: 'rgb(var(--brand-blue-rgb) / <alpha-value>)',
+          'blue-deep': 'rgb(var(--brand-blue-deep-rgb) / <alpha-value>)',
+          teal: 'rgb(var(--brand-teal-rgb) / <alpha-value>)',
+          orange: 'rgb(var(--brand-orange-rgb) / <alpha-value>)',
+          ink: 'rgb(var(--brand-ink-rgb) / <alpha-value>)',
+          night: 'rgb(var(--brand-night-rgb) / <alpha-value>)',
+          'night-2': 'rgb(var(--brand-night-2-rgb) / <alpha-value>)',
+          muted: 'rgb(var(--brand-muted-rgb) / <alpha-value>)',
+          zebra: 'rgb(var(--brand-zebra-rgb) / <alpha-value>)',
+        },
+        // DGG-136 · escala gg-* del kit de marca (gestionglobal-ui-kit/tailwind-theme.js,
+        // fusionado acá porque el config es ESM y el kit CJS). Solo genera utilities
+        // cuando se usan en markup — inerte hasta las fases de aplicación.
+        gg: {
+          ink: '#0B1F33',
+          ink2: '#122230',
+          slate: '#5D7284',
+          petrol: '#159AA6',
+          petrolD: '#0F7C86',
+          cyan: '#009ECA',
+          blue: '#2E6FB0',
+          sky: '#9CC7E4',
+          pale: '#E7F1F9',
+          paper: '#F3F7FB',
+          line: 'rgba(11,31,51,0.14)',
+          ok: '#0E9F6E',
+          okBg: '#E6F6EF',
+          warn: '#C46A10',
+          warnBg: '#FBEEDD',
+          bad: '#C22B4A',
+          badBg: '#FBE7EC',
+          info: '#009ECA',
+          infoBg: '#E1F3FA',
         },
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', '-apple-system', 'Segoe UI', 'sans-serif'],
         display: ['Sora', 'Inter', 'system-ui', 'sans-serif'],
+        // DGG-136 · tipografías de la dirección marca-nativa (self-host en public/fonts)
+        'gg-display': ['Oswald', 'system-ui', 'sans-serif'],
+        'gg-body': ['Archivo', 'system-ui', 'sans-serif'],
+      },
+      letterSpacing: {
+        'gg-label': '0.10em',
       },
       keyframes: {
         'fade-up': {
@@ -81,5 +116,21 @@ export default {
       },
     },
   },
-  plugins: [],
+  plugins: [
+    // DGG-136 · utilidades de chamfer/tnum del kit gg-brand (inertes hasta usarse)
+    function ggChamferPlugin({ addUtilities }) {
+      addUtilities({
+        '.gg-chamfer': {
+          'clip-path': 'polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 0 100%)',
+        },
+        '.gg-chamfer-sm': {
+          'clip-path': 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%)',
+        },
+        '.gg-tnum': {
+          'font-variant-numeric': 'tabular-nums',
+          'font-feature-settings': '"tnum" 1',
+        },
+      });
+    },
+  ],
 };

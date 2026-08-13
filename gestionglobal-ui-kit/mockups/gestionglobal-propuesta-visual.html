@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gestión Global · Propuesta visual paralela</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Archivo:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#0B1F33;        /* navy institucional (theme-color) */
+  --ink-2:#122230;      /* texto principal */
+  --petrol:#159AA6;     /* teal fuerte de las diagonales de marca */
+  --petrol-d:#0F7C86;
+  --cyan:#009ECA;       /* acento de marca (logo / activo) */
+  --blue:#2E6FB0;       /* azul corporativo medio */
+  --sky:#9CC7E4;        /* celeste claro */
+  --pale:#E7F1F9;       /* panel celeste pálido */
+  --paper:#F3F7FB;      /* fondo de trabajo */
+  --white:#FFFFFF;
+  --slate:#5D7284;      /* texto secundario */
+  --line:rgba(11,31,51,.14);
+  --line-2:rgba(11,31,51,.08);
+  --ok:#0E9F6E; --ok-bg:#E6F6EF;
+  --warn:#C46A10; --warn-bg:#FBEEDD;
+  --bad:#C22B4A; --bad-bg:#FBE7EC;
+  --info:#009ECA; --info-bg:#E1F3FA;
+  --chamfer:14px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  font-family:'Archivo',system-ui,sans-serif;
+  color:var(--ink-2);
+  background:var(--paper);
+  font-feature-settings:"tnum" 1,"lnum" 1;
+  -webkit-font-smoothing:antialiased;
+}
+/* ---------- utilidades de marca ---------- */
+.eyebrow{font-family:'Oswald';text-transform:uppercase;letter-spacing:.12em;font-weight:600;font-size:11px;color:var(--petrol)}
+.disp{font-family:'Oswald';font-weight:700;line-height:1.02;letter-spacing:-.005em;color:var(--ink)}
+.num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
+.chamfer{clip-path:polygon(0 0, calc(100% - var(--chamfer)) 0, 100% var(--chamfer), 100% 100%, 0 100%)}
+.chamfer-l{clip-path:polygon(var(--chamfer) 0, 100% 0, 100% 100%, 0 100%, 0 var(--chamfer))}
+
+/* triángulo motivo (viñeta) */
+.tri{width:0;height:0;border-style:solid;border-width:5px 0 5px 8px;border-color:transparent transparent transparent var(--cyan);display:inline-block}
+
+/* ---------- barra de contexto (concepto) ---------- */
+.ribbon{
+  background:repeating-linear-gradient(135deg,var(--ink),var(--ink) 22px,#0e2740 22px,#0e2740 44px);
+  color:#cfe0ef;font-family:'Oswald';text-transform:uppercase;letter-spacing:.14em;
+  font-size:11px;font-weight:500;padding:7px 20px;display:flex;justify-content:space-between;align-items:center;
+}
+.ribbon b{color:#fff}
+.ribbon .r-right{color:var(--sky)}
+
+/* ---------- shell ---------- */
+.shell{display:grid;grid-template-columns:250px 1fr;min-height:calc(100vh - 32px)}
+
+/* ---------- sidebar ---------- */
+.side{background:var(--ink);color:#c6d7e6;display:flex;flex-direction:column;position:relative;overflow:hidden}
+.side::after{content:"";position:absolute;left:0;right:0;bottom:0;height:180px;
+  background-image:
+    linear-gradient(135deg,transparent 49.5%,rgba(21,154,166,.18) 50%),
+    linear-gradient(45deg,transparent 49.5%,rgba(0,158,202,.14) 50%);
+  background-size:34px 34px;opacity:.5;pointer-events:none}
+.brand{display:flex;align-items:center;gap:11px;padding:20px 20px 18px}
+.brand .logo{width:34px;height:34px;flex:none}
+.brand .bt{font-family:'Oswald';font-weight:600;text-transform:uppercase;letter-spacing:.06em;font-size:16px;color:#fff;line-height:1}
+.brand .bs{font-size:10px;color:var(--sky);letter-spacing:.02em;margin-top:3px}
+.nav{padding:6px 12px;flex:1;position:relative;z-index:1}
+.nav-group{font-family:'Oswald';text-transform:uppercase;letter-spacing:.14em;font-size:10px;color:#6f8ba6;padding:16px 12px 7px}
+.nav a{display:flex;align-items:center;gap:11px;padding:9px 12px;color:#c6d7e6;text-decoration:none;font-size:14px;font-weight:500;
+  border-left:2px solid transparent;transition:background .12s,color .12s;position:relative}
+.nav a svg{width:17px;height:17px;flex:none;opacity:.85}
+.nav a:hover{background:rgba(255,255,255,.05);color:#fff}
+.nav a.active{background:linear-gradient(90deg,rgba(0,158,202,.20),rgba(0,158,202,0));color:#fff;border-left-color:var(--cyan)}
+.nav a.sub{font-size:13px;padding-left:40px;font-weight:400;color:#9fb6cc}
+.nav a.sub::before{content:"";position:absolute;left:24px;top:50%;width:5px;height:5px;transform:translateY(-50%) rotate(45deg);
+  border-right:1.5px solid var(--cyan);border-top:1.5px solid var(--cyan);opacity:0}
+.nav a.sub.active::before,.nav a.sub:hover::before{opacity:1}
+.nav a.sub.active{background:rgba(0,158,202,.12)}
+.side-foot{padding:14px 18px;border-top:1px solid rgba(255,255,255,.08);font-size:11px;color:#7f97ae;position:relative;z-index:1}
+
+/* ---------- topbar ---------- */
+.main{display:flex;flex-direction:column;min-width:0}
+.top{background:var(--white);border-bottom:1px solid var(--line);padding:14px 30px;display:flex;align-items:center;justify-content:space-between;gap:20px}
+.top .t-title .eyebrow{display:block}
+.top .t-title .greet{font-family:'Oswald';font-weight:600;font-size:19px;color:var(--ink);letter-spacing:.01em}
+.top .t-tools{display:flex;align-items:center;gap:12px}
+.search{display:flex;align-items:center;gap:9px;background:var(--paper);border:1px solid var(--line);
+  padding:8px 13px;min-width:250px;color:var(--slate);font-size:13px}
+.search kbd{margin-left:auto;font-family:'Oswald';font-size:10px;letter-spacing:.08em;background:#fff;border:1px solid var(--line);padding:2px 6px;color:var(--slate)}
+.icon-btn{width:38px;height:38px;display:grid;place-items:center;background:var(--paper);border:1px solid var(--line);color:var(--ink);position:relative;cursor:pointer}
+.icon-btn .dot{position:absolute;top:-6px;right:-6px;background:var(--bad);color:#fff;font-family:'Oswald';font-size:9px;
+  padding:1px 4px;letter-spacing:.02em}
+.avatar{display:flex;align-items:center;gap:9px;cursor:pointer}
+.avatar .av{width:38px;height:38px;background:linear-gradient(135deg,var(--petrol),var(--cyan));color:#fff;
+  display:grid;place-items:center;font-family:'Oswald';font-weight:600;font-size:15px}
+.avatar .an{font-size:13px;font-weight:600;color:var(--ink);line-height:1.1}
+.avatar .ar{font-size:11px;color:var(--slate)}
+
+/* ---------- content ---------- */
+.content{padding:28px 30px 48px;flex:1;overflow:auto}
+.view{display:none}
+.view.show{display:block;animation:fade .2s ease}
+@keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.page-eyebrow{margin-bottom:6px}
+h1.page{font-family:'Oswald';font-weight:700;font-size:40px;color:var(--ink);letter-spacing:-.01em;line-height:1}
+.page-sub{color:var(--slate);font-size:15px;margin-top:9px;max-width:640px}
+
+/* header tipo pestaña (device de marca) */
+.sec-head{display:flex;align-items:stretch;gap:0;margin:34px 0 18px}
+.sec-head .ico{width:46px;background:var(--pale);color:var(--ink);display:grid;place-items:center;border:1px solid var(--line);border-right:none}
+.sec-head .ico svg{width:22px;height:22px}
+.sec-head .bar{flex:1;background:var(--white);border:1px solid var(--line);display:flex;align-items:center;padding:0 18px;
+  clip-path:polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 0 100%);position:relative}
+.sec-head .bar h2{font-family:'Oswald';text-transform:uppercase;letter-spacing:.06em;font-weight:600;font-size:18px;color:var(--ink)}
+.sec-head .bar .rule{position:absolute;left:0;bottom:0;height:3px;width:100%;
+  background:linear-gradient(90deg,var(--petrol) 0 44px,var(--ink) 44px 78px,transparent 78px)}
+
+/* novedades / alarmas panels */
+.panel{background:var(--white);border:1px solid var(--line);position:relative}
+.panel-pad{padding:18px 20px}
+.notice{display:flex;gap:16px;align-items:flex-start;background:linear-gradient(90deg,var(--pale),#fff 60%);
+  border:1px solid var(--line);border-left:3px solid var(--cyan);padding:16px 20px;margin-bottom:16px;position:relative}
+.notice .n-ico{width:42px;height:42px;background:var(--white);border:1px solid var(--line);display:grid;place-items:center;flex:none;color:var(--petrol)}
+.notice .n-body{flex:1}
+.notice .n-tag{font-family:'Oswald';text-transform:uppercase;letter-spacing:.12em;font-size:10px;color:var(--petrol);font-weight:600;display:flex;align-items:center;gap:7px}
+.notice .n-tag .live{width:7px;height:7px;background:var(--warn);border-radius:50%;box-shadow:0 0 0 3px rgba(196,106,16,.18)}
+.notice .n-title{font-family:'Oswald';font-weight:600;font-size:18px;color:var(--ink);margin:4px 0 3px}
+.notice .n-desc{font-size:13px;color:var(--slate)}
+.notice .n-row{display:flex;align-items:center;gap:10px;margin-top:12px;padding-top:12px;border-top:1px dashed var(--line);cursor:pointer}
+.notice .n-row .p-av{width:30px;height:30px;background:var(--ink);color:#fff;display:grid;place-items:center;font-family:'Oswald';font-size:12px}
+.notice .n-row .p-name{font-weight:600;font-size:13px;color:var(--ink)}
+.notice .n-row .p-meta{font-size:11px;color:var(--slate)}
+.notice .n-row .chev{margin-left:auto;color:var(--slate)}
+
+.alarm{display:flex;align-items:center;gap:16px;margin-bottom:26px}
+.alarm .a-ico{width:44px;height:44px;background:var(--ok-bg);color:var(--ok);border:1px solid rgba(14,159,110,.25);display:grid;place-items:center;flex:none}
+.alarm .a-tag{font-family:'Oswald';text-transform:uppercase;letter-spacing:.12em;font-size:10px;color:var(--slate);font-weight:600}
+.alarm .a-title{font-family:'Oswald';font-weight:600;font-size:17px;color:var(--ink);margin-top:2px}
+.alarm .a-desc{font-size:13px;color:var(--slate);margin-top:1px}
+
+/* KPI grid */
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:8px}
+.kpi{background:var(--white);border:1px solid var(--line);padding:18px 18px 16px;position:relative;overflow:hidden}
+.kpi .top-rule{position:absolute;top:0;left:0;height:3px;width:100%}
+.kpi .k-label{font-family:'Oswald';text-transform:uppercase;letter-spacing:.1em;font-size:10px;color:var(--slate);font-weight:600;display:flex;justify-content:space-between;align-items:center}
+.kpi .k-ico{color:var(--sky)}
+.kpi .k-val{font-family:'Oswald';font-weight:700;font-size:30px;color:var(--ink);margin:10px 0 4px;letter-spacing:-.01em}
+.kpi .k-foot{font-size:12px;color:var(--slate);display:flex;align-items:center;gap:6px}
+.delta{font-family:'Oswald';font-weight:600;font-size:11px;letter-spacing:.03em;padding:1px 6px}
+.delta.up{color:var(--ok);background:var(--ok-bg)}
+.delta.down{color:var(--bad);background:var(--bad-bg)}
+.delta.flat{color:var(--slate);background:#eef2f6}
+.kpi .motif{position:absolute;right:-14px;bottom:-14px;width:70px;height:70px;opacity:.10;
+  background-image:linear-gradient(135deg,transparent 49%,currentColor 50%);background-size:18px 18px;color:var(--blue)}
+
+/* tabla */
+.table-wrap{background:var(--white);border:1px solid var(--line)}
+.tbl-toolbar{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.tbl-toolbar .grow{flex:1}
+table.data{width:100%;border-collapse:collapse;font-size:13px}
+table.data th{font-family:'Oswald';text-transform:uppercase;letter-spacing:.08em;font-size:10.5px;color:var(--slate);
+  text-align:left;padding:11px 16px;border-bottom:1px solid var(--line);background:var(--paper);font-weight:600}
+table.data td{padding:12px 16px;border-bottom:1px solid var(--line-2);color:var(--ink-2)}
+table.data tr:last-child td{border-bottom:none}
+table.data tbody tr:hover{background:var(--pale)}
+.t-right{text-align:right}
+.mono-id{font-family:'Oswald';font-weight:500;letter-spacing:.03em;color:var(--ink);font-size:13px}
+.cell-cons{display:flex;align-items:center;gap:10px}
+.cell-cons .b{width:30px;height:30px;background:var(--pale);border:1px solid var(--line);display:grid;place-items:center;color:var(--blue);flex:none}
+.cell-cons .nm{font-weight:600;color:var(--ink);font-size:13px;line-height:1.1}
+.cell-cons .un{font-size:11px;color:var(--slate)}
+.money{font-family:'Oswald';font-weight:600;font-size:14px;color:var(--ink)}
+
+/* badges de estado */
+.badge{font-family:'Oswald';text-transform:uppercase;letter-spacing:.06em;font-size:10px;font-weight:600;padding:3px 9px;
+  display:inline-flex;align-items:center;gap:6px;clip-path:polygon(0 0,calc(100% - 6px) 0,100% 6px,100% 100%,0 100%)}
+.badge::before{content:"";width:6px;height:6px;transform:rotate(45deg)}
+.badge.ok{color:var(--ok);background:var(--ok-bg)} .badge.ok::before{background:var(--ok)}
+.badge.warn{color:var(--warn);background:var(--warn-bg)} .badge.warn::before{background:var(--warn)}
+.badge.bad{color:var(--bad);background:var(--bad-bg)} .badge.bad::before{background:var(--bad)}
+.badge.info{color:var(--info);background:var(--info-bg)} .badge.info::before{background:var(--info)}
+.badge.neutral{color:var(--slate);background:#eef2f6} .badge.neutral::before{background:var(--slate)}
+
+/* botones */
+.btn{font-family:'Oswald';text-transform:uppercase;letter-spacing:.06em;font-weight:600;font-size:12.5px;
+  padding:9px 16px;border:1px solid transparent;cursor:pointer;display:inline-flex;align-items:center;gap:8px;
+  clip-path:polygon(0 0,calc(100% - 8px) 0,100% 8px,100% 100%,0 100%);transition:transform .08s, box-shadow .12s;text-decoration:none}
+.btn:active{transform:translateY(1px)}
+.btn.primary{background:var(--cyan);color:#fff}
+.btn.primary:hover{box-shadow:3px 3px 0 rgba(0,158,202,.28)}
+.btn.dark{background:var(--ink);color:#fff}
+.btn.dark:hover{box-shadow:3px 3px 0 rgba(11,31,51,.22)}
+.btn.outline{background:#fff;border-color:var(--ink);color:var(--ink)}
+.btn.outline:hover{background:var(--ink);color:#fff}
+.btn.ghost{background:transparent;color:var(--ink);border-color:var(--line)}
+.btn.ghost:hover{background:var(--pale)}
+.btn.danger{background:var(--bad);color:#fff}
+.btn.sm{padding:6px 11px;font-size:11px}
+.tri-r{width:0;height:0;border-style:solid;border-width:4px 0 4px 6px;border-color:transparent transparent transparent currentColor}
+
+/* chips filtro */
+.chip{font-family:'Oswald';text-transform:uppercase;letter-spacing:.05em;font-size:11px;font-weight:500;
+  padding:6px 12px;border:1px solid var(--line);background:#fff;color:var(--slate);cursor:pointer}
+.chip.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+
+/* paginación */
+.pager{display:flex;align-items:center;gap:6px;padding:12px 16px;border-top:1px solid var(--line);justify-content:flex-end;font-size:12px;color:var(--slate)}
+.pager .pg{font-family:'Oswald';min-width:30px;height:30px;display:grid;place-items:center;border:1px solid var(--line);background:#fff;cursor:pointer;color:var(--ink)}
+.pager .pg.on{background:var(--cyan);color:#fff;border-color:var(--cyan)}
+
+/* ===== sistema visual ===== */
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+.card{background:#fff;border:1px solid var(--line);padding:20px}
+.card h3{font-family:'Oswald';text-transform:uppercase;letter-spacing:.06em;font-size:13px;color:var(--slate);margin-bottom:16px;font-weight:600}
+.swatches{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.sw .chip-c{height:60px;border:1px solid var(--line);position:relative;overflow:hidden}
+.sw .chip-c .cn{position:absolute;left:8px;bottom:6px;font-family:'Oswald';font-size:10px;letter-spacing:.05em;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.4)}
+.sw .hex{font-family:'Oswald';font-size:11px;color:var(--slate);margin-top:6px;letter-spacing:.03em}
+.sw .rol{font-size:10px;color:var(--slate)}
+.spec-row{display:flex;align-items:baseline;justify-content:space-between;padding:10px 0;border-bottom:1px dashed var(--line)}
+.spec-row:last-child{border-bottom:none}
+.spec-row .meta{font-family:'Oswald';font-size:10px;letter-spacing:.06em;color:var(--slate);text-transform:uppercase}
+.btn-row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.field label{font-family:'Oswald';text-transform:uppercase;letter-spacing:.08em;font-size:10px;color:var(--slate);font-weight:600;display:block;margin-bottom:6px}
+.field input,.field select{width:100%;padding:10px 12px;border:1px solid var(--line);background:var(--paper);font-family:'Archivo';font-size:13px;color:var(--ink)}
+.field input:focus,.field select:focus{outline:none;border-color:var(--cyan);background:#fff;box-shadow:0 0 0 3px rgba(0,158,202,.15)}
+.field+.field{margin-top:14px}
+.tabs{display:flex;gap:0;border-bottom:1px solid var(--line);margin-bottom:4px}
+.tabs .tb{font-family:'Oswald';text-transform:uppercase;letter-spacing:.05em;font-size:12px;font-weight:600;padding:10px 16px;color:var(--slate);cursor:pointer;border-bottom:2px solid transparent}
+.tabs .tb.on{color:var(--ink);border-bottom-color:var(--cyan)}
+.empty{border:1px dashed var(--line);padding:30px;text-align:center;position:relative;overflow:hidden;background:var(--paper)}
+.empty .mtile{position:absolute;inset:0;opacity:.06;
+  background-image:linear-gradient(135deg,var(--blue) 25%,transparent 25%),linear-gradient(225deg,var(--petrol) 25%,transparent 25%);
+  background-size:26px 26px;background-position:0 0,13px 13px}
+.empty .e-in{position:relative}
+.empty .e-t{font-family:'Oswald';text-transform:uppercase;letter-spacing:.06em;font-size:14px;color:var(--ink);margin-top:10px}
+.empty .e-d{font-size:12px;color:var(--slate);margin:4px 0 14px}
+.motif-band{height:70px;margin-top:14px;
+  background-image:
+   linear-gradient(135deg,var(--ink) 25%,transparent 25%),
+   linear-gradient(225deg,var(--petrol) 25%,transparent 25%),
+   linear-gradient(45deg,var(--cyan) 25%,transparent 25%),
+   linear-gradient(315deg,var(--sky) 25%,transparent 25%);
+  background-size:36px 36px;background-position:0 0,18px 0,18px 18px,0 18px;opacity:.9}
+.quote{background:var(--pale);border:1px solid var(--line);border-left:3px solid var(--petrol);padding:16px 18px;display:flex;gap:14px}
+.quote .q-av{width:38px;height:38px;background:var(--ink);color:#fff;display:grid;place-items:center;font-family:'Oswald';flex:none}
+.quote .q-txt{font-style:italic;font-size:13px;color:var(--ink-2);line-height:1.5}
+.quote .q-name{font-family:'Oswald';font-weight:600;font-size:12px;color:var(--petrol);text-transform:uppercase;letter-spacing:.05em;margin-top:8px;font-style:normal}
+.note-list{list-style:none}
+.note-list li{display:flex;gap:10px;align-items:flex-start;padding:6px 0;font-size:13px;color:var(--ink-2)}
+.note-list li .tri{margin-top:5px;flex:none}
+
+.foot-legend{margin-top:30px;padding-top:16px;border-top:1px solid var(--line);font-size:12px;color:var(--slate);display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px}
+
+@media(max-width:1050px){.kpi-grid{grid-template-columns:repeat(2,1fr)}.grid2{grid-template-columns:1fr}}
+@media(max-width:760px){.shell{grid-template-columns:1fr}.side{display:none}}
+</style>
+</head>
+<body>
+
+<div class="ribbon">
+  <span><b>Propuesta visual paralela</b> · concepto de dirección</span>
+  <span class="r-right">No modifica el sistema actual · Identidad basada en la marca Gestión Global</span>
+</div>
+
+<div class="shell">
+  <!-- ================= SIDEBAR ================= -->
+  <aside class="side">
+    <div class="brand">
+      <svg class="logo" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M32 12 L54 20 L32 28 L10 20 Z" fill="#9CC7E4"/>
+        <path d="M32 20 L54 28 L32 36 L10 28 Z" fill="#2E6FB0"/>
+        <path d="M32 28 L54 36 L32 44 L10 36 Z" fill="#009ECA"/>
+        <path d="M14 44 C22 52 42 52 50 44" stroke="#0F7C86" stroke-width="3.4" fill="none" stroke-linecap="round"/>
+      </svg>
+      <div>
+        <div class="bt">Gestión Global</div>
+        <div class="bs">Aliados de tu tiempo</div>
+      </div>
+    </div>
+
+    <nav class="nav">
+      <a href="#" class="active" data-view="inicio">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+        Inicio
+      </a>
+
+      <div class="nav-group">Captación</div>
+      <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4h16v12H5.5L4 18z"/></svg>Solicitudes</a>
+      <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="3" width="16" height="18"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>Formularios</a>
+      <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="16"/><path d="M3 9h18M8 3v4M16 3v4"/></svg>Agenda</a>
+
+      <div class="nav-group">Gestión</div>
+      <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 20c0-3.6 2.5-6 5.5-6s5.5 2.4 5.5 6"/><circle cx="17.5" cy="9" r="2.6"/></svg>Clientes</a>
+      <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7l8-4 8 4v10l-8 4-8-4z"/><path d="M4 7l8 4 8-4M12 11v10"/></svg>Trámites</a>
+      <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l8 3v5c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6z"/></svg>Moderación</a>
+
+      <div class="nav-group">Facturación</div>
+      <a href="#" class="sub active" data-view="comprobantes">Comprobantes</a>
+      <a href="#" class="sub">Pagos informados</a>
+      <a href="#" class="sub">Cuenta corriente</a>
+      <a href="#" class="sub">Recupero</a>
+
+      <div class="nav-group">Finanzas</div>
+      <a href="#" class="sub">Cajas y movimientos</a>
+      <a href="#" class="sub">Conciliación</a>
+
+      <div class="nav-group">Diseño</div>
+      <a href="#" data-view="sistema">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/></svg>
+        Sistema visual
+      </a>
+    </nav>
+
+    <div class="side-foot">
+      Global Servicios Integrados SRL<br>Ley 14.701 · PBA + CABA
+    </div>
+  </aside>
+
+  <!-- ================= MAIN ================= -->
+  <div class="main">
+    <header class="top">
+      <div class="t-title">
+        <span class="eyebrow" id="topEyebrow">Panel de gerencia</span>
+        <span class="greet" id="topGreet">Buenas tardes, Paul</span>
+      </div>
+      <div class="t-tools">
+        <div class="search"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>Buscar en la plataforma<kbd>⌘K</kbd></div>
+        <div class="icon-btn"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 9a6 6 0 1112 0c0 5 2 6 2 6H4s2-1 2-6z"/><path d="M10 20a2 2 0 004 0"/></svg><span class="dot num">99+</span></div>
+        <div class="avatar">
+          <div class="av">P</div>
+          <div><div class="an">Paul</div><div class="ar">Gerencia</div></div>
+        </div>
+      </div>
+    </header>
+
+    <div class="content">
+
+      <!-- =============== VIEW: INICIO =============== -->
+      <section class="view show" id="view-inicio">
+        <div class="page-eyebrow eyebrow">Inicio</div>
+        <h1 class="page">Hola, Paul.</h1>
+        <p class="page-sub">Todo el ecosistema en un solo panel. Elegí por dónde arrancar.</p>
+
+        <div class="notice" style="margin-top:24px">
+          <div class="n-ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 5h16v11H6l-2 3z"/></svg></div>
+          <div class="n-body">
+            <div class="n-tag"><span class="live"></span> Tenés novedades · en vivo</div>
+            <div class="n-title">1 nueva solicitud</div>
+            <div class="n-desc">Derivá al gestor o activá el wizard para arrancar el trámite.</div>
+            <div class="n-row">
+              <div class="p-av">YD</div>
+              <div><div class="p-name">Yramain Daniela</div><div class="p-meta">curso-formación · danielayramain@gmail.com</div></div>
+              <div class="chev"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="alarm">
+          <div class="a-ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 13l4 4L19 7"/></svg></div>
+          <div>
+            <div class="a-tag">Alarmas de hoy</div>
+            <div class="a-title">Sin pendientes para hoy</div>
+            <div class="a-desc">No hay seguimientos vencidos ni que cierren hoy.</div>
+          </div>
+        </div>
+
+        <div class="eyebrow" style="color:var(--slate)">Resumen de los últimos 30 días</div>
+        <div class="kpi-grid">
+          <div class="kpi">
+            <div class="top-rule" style="background:var(--cyan)"></div>
+            <div class="k-label">Facturado 30D <span class="k-ico"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 17l5-5 4 3 7-8"/><path d="M20 7v5h-5"/></svg></span></div>
+            <div class="k-val num">$ 7.895.000</div>
+            <div class="k-foot"><span class="delta up">▲ 12%</span> Comprobantes autorizados</div>
+            <div class="motif"></div>
+          </div>
+          <div class="kpi">
+            <div class="top-rule" style="background:var(--petrol)"></div>
+            <div class="k-label">Cobrado 30D <span class="k-ico"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="6" width="18" height="12"/><circle cx="12" cy="12" r="2.5"/></svg></span></div>
+            <div class="k-val num">$ 6.335.000</div>
+            <div class="k-foot"><span class="delta up">▲ 8%</span> Ingresos imputados</div>
+            <div class="motif"></div>
+          </div>
+          <div class="kpi">
+            <div class="top-rule" style="background:var(--warn)"></div>
+            <div class="k-label">Deuda total <span class="k-ico"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l9 16H3z"/><path d="M12 10v4M12 17h.01"/></svg></span></div>
+            <div class="k-val num">$ 1.560.000</div>
+            <div class="k-foot"><span class="delta down">▼ 3%</span> 9 administraciones con saldo</div>
+            <div class="motif"></div>
+          </div>
+          <div class="kpi">
+            <div class="top-rule" style="background:var(--ink)"></div>
+            <div class="k-label">Trámites abiertos <span class="k-ico"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="16"/><path d="M3 9h18M8 3v4M16 3v4"/></svg></span></div>
+            <div class="k-val num">18</div>
+            <div class="k-foot"><span class="delta flat">0 vencimientos en 30d</span></div>
+            <div class="motif"></div>
+          </div>
+        </div>
+
+        <div class="sec-head">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="4" width="18" height="16"/><path d="M3 9h18M9 4v16"/></svg></div>
+          <div class="bar"><h2>Últimos comprobantes</h2><div class="rule"></div></div>
+        </div>
+        <div class="table-wrap">
+          <table class="data">
+            <thead><tr><th>Comprobante</th><th>Consorcio / Cliente</th><th>Fecha</th><th>Estado</th><th class="t-right">Importe</th></tr></thead>
+            <tbody>
+              <tr><td class="mono-id">FC-A 0004-00012891</td><td><div class="cell-cons"><div class="b">CE</div><div><div class="nm">Cons. Edificio Rivadavia 820</div><div class="un">La Plata · UF 24</div></div></div></td><td class="num">12/08/2026</td><td><span class="badge ok">Autorizado</span></td><td class="t-right money num">$ 148.500</td></tr>
+              <tr><td class="mono-id">FC-A 0004-00012890</td><td><div class="cell-cons"><div class="b">TG</div><div><div class="nm">Torres del Golf</div><div class="un">Berazategui · UF 96</div></div></div></td><td class="num">12/08/2026</td><td><span class="badge warn">Pendiente</span></td><td class="t-right money num">$ 512.300</td></tr>
+              <tr><td class="mono-id">FC-B 0004-00012889</td><td><div class="cell-cons"><div class="b">PA</div><div><div class="nm">Cons. Parque Alberdi</div><div class="un">Quilmes · UF 40</div></div></div></td><td class="num">11/08/2026</td><td><span class="badge info">Emitido</span></td><td class="t-right money num">$ 98.750</td></tr>
+              <tr><td class="mono-id">FC-A 0004-00012888</td><td><div class="cell-cons"><div class="b">MB</div><div><div class="nm">Mirador Belgrano</div><div class="un">CABA · UF 132</div></div></div></td><td class="num">10/08/2026</td><td><span class="badge bad">Vencido</span></td><td class="t-right money num">$ 233.900</td></tr>
+              <tr><td class="mono-id">FC-A 0004-00012887</td><td><div class="cell-cons"><div class="b">SL</div><div><div class="nm">Solar de los Lagos</div><div class="un">Ensenada · UF 58</div></div></div></td><td class="num">09/08/2026</td><td><span class="badge neutral">Borrador</span></td><td class="t-right money num">$ 71.200</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- =============== VIEW: COMPROBANTES =============== -->
+      <section class="view" id="view-comprobantes">
+        <div class="page-eyebrow eyebrow">Facturación</div>
+        <h1 class="page">Comprobantes</h1>
+        <p class="page-sub">Emisión, seguimiento y estado de los comprobantes de todas las administraciones.</p>
+
+        <div class="sec-head">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="4" y="3" width="16" height="18"/><path d="M8 8h8M8 12h8M8 16h5"/></svg></div>
+          <div class="bar"><h2>Listado de comprobantes</h2><div class="rule"></div></div>
+        </div>
+
+        <div class="table-wrap">
+          <div class="tbl-toolbar">
+            <div class="chip on">Todos</div>
+            <div class="chip">Autorizados</div>
+            <div class="chip">Pendientes</div>
+            <div class="chip">Vencidos</div>
+            <div class="chip">Borradores</div>
+            <div class="grow"></div>
+            <div class="search" style="min-width:210px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>Buscar comprobante…</div>
+            <a class="btn primary" href="#">Nuevo comprobante <span class="tri-r"></span></a>
+          </div>
+          <table class="data">
+            <thead><tr><th>Comprobante</th><th>Consorcio / Cliente</th><th>Tipo</th><th>Emisión</th><th>Vencimiento</th><th>Estado</th><th class="t-right">Importe</th></tr></thead>
+            <tbody>
+              <tr><td class="mono-id">FC-A 0004-00012891</td><td><div class="cell-cons"><div class="b">CE</div><div><div class="nm">Cons. Edificio Rivadavia 820</div><div class="un">La Plata</div></div></div></td><td>Factura A</td><td class="num">12/08/2026</td><td class="num">27/08/2026</td><td><span class="badge ok">Autorizado</span></td><td class="t-right money num">$ 148.500</td></tr>
+              <tr><td class="mono-id">FC-A 0004-00012890</td><td><div class="cell-cons"><div class="b">TG</div><div><div class="nm">Torres del Golf</div><div class="un">Berazategui</div></div></div></td><td>Factura A</td><td class="num">12/08/2026</td><td class="num">27/08/2026</td><td><span class="badge warn">Pendiente</span></td><td class="t-right money num">$ 512.300</td></tr>
+              <tr><td class="mono-id">FC-B 0004-00012889</td><td><div class="cell-cons"><div class="b">PA</div><div><div class="nm">Cons. Parque Alberdi</div><div class="un">Quilmes</div></div></div></td><td>Factura B</td><td class="num">11/08/2026</td><td class="num">26/08/2026</td><td><span class="badge info">Emitido</span></td><td class="t-right money num">$ 98.750</td></tr>
+              <tr><td class="mono-id">FC-A 0004-00012888</td><td><div class="cell-cons"><div class="b">MB</div><div><div class="nm">Mirador Belgrano</div><div class="un">CABA</div></div></div></td><td>Factura A</td><td class="num">10/08/2026</td><td class="num">25/08/2026</td><td><span class="badge bad">Vencido</span></td><td class="t-right money num">$ 233.900</td></tr>
+              <tr><td class="mono-id">FC-A 0004-00012887</td><td><div class="cell-cons"><div class="b">SL</div><div><div class="nm">Solar de los Lagos</div><div class="un">Ensenada</div></div></div></td><td>Factura A</td><td class="num">09/08/2026</td><td class="num">24/08/2026</td><td><span class="badge neutral">Borrador</span></td><td class="t-right money num">$ 71.200</td></tr>
+              <tr><td class="mono-id">FC-C 0004-00012886</td><td><div class="cell-cons"><div class="b">RP</div><div><div class="nm">Residencial El Prado</div><div class="un">City Bell</div></div></div></td><td>Factura C</td><td class="num">08/08/2026</td><td class="num">23/08/2026</td><td><span class="badge ok">Autorizado</span></td><td class="t-right money num">$ 305.640</td></tr>
+              <tr><td class="mono-id">FC-A 0004-00012885</td><td><div class="cell-cons"><div class="b">VN</div><div><div class="nm">Villa Nueva Center</div><div class="un">Avellaneda</div></div></div></td><td>Factura A</td><td class="num">07/08/2026</td><td class="num">22/08/2026</td><td><span class="badge warn">Pendiente</span></td><td class="t-right money num">$ 189.000</td></tr>
+            </tbody>
+          </table>
+          <div class="pager">
+            <span>Mostrando 1–7 de 128</span>
+            <span class="pg">‹</span><span class="pg on">1</span><span class="pg">2</span><span class="pg">3</span><span class="pg">…</span><span class="pg">19</span><span class="pg">›</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- =============== VIEW: SISTEMA VISUAL =============== -->
+      <section class="view" id="view-sistema">
+        <div class="page-eyebrow eyebrow">Diseño</div>
+        <h1 class="page">Sistema visual</h1>
+        <p class="page-sub">La dirección alternativa, componente por componente. Toma la identidad de la marca institucional —tipografía condensada, azules en capas, motivos triangulares y esquinas plegadas— y la traduce a la interfaz.</p>
+
+        <div class="sec-head">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 000 18"/></svg></div>
+          <div class="bar"><h2>Paleta institucional</h2><div class="rule"></div></div>
+        </div>
+        <div class="card">
+          <div class="swatches">
+            <div class="sw"><div class="chip-c" style="background:#0B1F33"><span class="cn">Navy / Tinta</span></div><div class="hex">#0B1F33</div><div class="rol">Estructura · texto</div></div>
+            <div class="sw"><div class="chip-c" style="background:#159AA6"><span class="cn">Petróleo</span></div><div class="hex">#159AA6</div><div class="rol">Acento de marca</div></div>
+            <div class="sw"><div class="chip-c" style="background:#009ECA"><span class="cn">Cyan</span></div><div class="hex">#009ECA</div><div class="rol">Acción · activo</div></div>
+            <div class="sw"><div class="chip-c" style="background:#2E6FB0"><span class="cn">Azul</span></div><div class="hex">#2E6FB0</div><div class="rol">Datos · íconos</div></div>
+            <div class="sw"><div class="chip-c" style="background:#9CC7E4"><span class="cn" style="color:#0B1F33;text-shadow:none">Celeste</span></div><div class="hex">#9CC7E4</div><div class="rol">Motivos</div></div>
+            <div class="sw"><div class="chip-c" style="background:#E7F1F9"><span class="cn" style="color:#0B1F33;text-shadow:none">Pálido</span></div><div class="hex">#E7F1F9</div><div class="rol">Superficies</div></div>
+            <div class="sw"><div class="chip-c" style="background:#F3F7FB"><span class="cn" style="color:#0B1F33;text-shadow:none">Papel</span></div><div class="hex">#F3F7FB</div><div class="rol">Fondo</div></div>
+            <div class="sw"><div class="chip-c" style="background:linear-gradient(90deg,#0E9F6E 33%,#C46A10 33% 66%,#C22B4A 66%)"><span class="cn">Semánticos</span></div><div class="hex">OK · ATENCIÓN · ERROR</div><div class="rol">Estados</div></div>
+          </div>
+        </div>
+
+        <div class="grid2" style="margin-top:22px">
+          <div class="card">
+            <h3>Tipografía</h3>
+            <div class="spec-row"><span class="disp" style="font-size:30px">Aa Gestión</span><span class="meta">Oswald · Display</span></div>
+            <div class="spec-row"><span class="eyebrow" style="font-size:13px">Etiqueta condensada</span><span class="meta">Oswald · Micro-label</span></div>
+            <div class="spec-row"><span style="font-size:15px">Texto de interfaz y tablas legible.</span><span class="meta">Archivo · Body</span></div>
+            <div class="spec-row"><span class="num money" style="font-size:20px">$ 7.895.000</span><span class="meta">Archivo · Tabular</span></div>
+          </div>
+          <div class="card">
+            <h3>Botones</h3>
+            <div class="btn-row">
+              <a class="btn primary" href="#">Acción principal <span class="tri-r"></span></a>
+              <a class="btn dark" href="#">Navy</a>
+              <a class="btn outline" href="#">Contorno</a>
+            </div>
+            <div class="btn-row" style="margin-top:12px">
+              <a class="btn ghost" href="#">Ghost</a>
+              <a class="btn danger" href="#">Peligro</a>
+              <a class="btn primary sm" href="#">Compacto</a>
+            </div>
+            <h3 style="margin-top:20px">Estados</h3>
+            <div class="btn-row">
+              <span class="badge ok">Autorizado</span>
+              <span class="badge warn">Pendiente</span>
+              <span class="badge bad">Vencido</span>
+              <span class="badge info">Emitido</span>
+              <span class="badge neutral">Borrador</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid2" style="margin-top:22px">
+          <div class="card">
+            <h3>Campos de formulario</h3>
+            <div class="field"><label>Consorcio</label><select><option>Cons. Edificio Rivadavia 820</option><option>Torres del Golf</option></select></div>
+            <div class="field"><label>Importe</label><input value="$ 148.500" class="num"></div>
+            <div class="field"><label>Vencimiento</label><input value="27/08/2026" class="num"></div>
+            <h3 style="margin-top:20px">Pestañas</h3>
+            <div class="tabs"><div class="tb on">Datos</div><div class="tb">Ítems</div><div class="tb">Historial</div></div>
+          </div>
+          <div class="card">
+            <h3>Testimonio</h3>
+            <div class="quote">
+              <div class="q-av">JF</div>
+              <div><div class="q-txt">“Con Global, la gestión de nuestros consorcios ha sido mucho más eficiente y organizada. El sistema nos permitió optimizar tiempos y recursos.”</div><div class="q-name">Julio Ariel Fernández</div></div>
+            </div>
+            <h3 style="margin-top:20px">Estado vacío</h3>
+            <div class="empty">
+              <div class="mtile"></div>
+              <div class="e-in">
+                <span class="tri" style="border-width:9px 0 9px 15px"></span>
+                <div class="e-t">Sin trámites abiertos</div>
+                <div class="e-d">Cuando ingrese una solicitud, aparecerá acá.</div>
+                <a class="btn outline sm" href="#">Crear trámite</a>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid2" style="margin-top:22px">
+          <div class="card">
+            <h3>Reglas y viñetas</h3>
+            <ul class="note-list">
+              <li><span class="tri"></span> Esquinas plegadas (chamfer) en vez de bordes redondeados.</li>
+              <li><span class="tri"></span> Bordes finos + reglas teal/navy; sin sombras difusas.</li>
+              <li><span class="tri"></span> Números tabulares para toda cifra de dinero.</li>
+              <li><span class="tri"></span> Mayúsculas condensadas para etiquetas y encabezados.</li>
+            </ul>
+          </div>
+          <div class="card">
+            <h3>Motivo geométrico</h3>
+            <p style="font-size:13px;color:var(--slate)">El patrón de triángulos de la marca, disponible como textura de fondo para encabezados, estados vacíos y separadores.</p>
+            <div class="motif-band"></div>
+          </div>
+        </div>
+
+        <div class="foot-legend">
+          <span>Gestión Global · Propuesta de dirección visual (concepto paralelo)</span>
+          <span>Navy #0B1F33 · Petróleo #159AA6 · Cyan #009ECA · Oswald + Archivo</span>
+        </div>
+      </section>
+
+    </div>
+  </div>
+</div>
+
+<script>
+const views = document.querySelectorAll('.view');
+const eyebrowMap = {inicio:'Panel de gerencia', comprobantes:'Facturación', sistema:'Diseño'};
+document.querySelectorAll('[data-view]').forEach(el=>{
+  el.addEventListener('click', e=>{
+    e.preventDefault();
+    const v = el.getAttribute('data-view');
+    views.forEach(x=>x.classList.remove('show'));
+    document.getElementById('view-'+v).classList.add('show');
+    document.querySelectorAll('.nav a').forEach(a=>a.classList.remove('active'));
+    el.classList.add('active');
+    document.getElementById('topEyebrow').textContent = eyebrowMap[v]||'Panel de gerencia';
+    document.querySelector('.content').scrollTo({top:0,behavior:'smooth'});
+  });
+});
+// chips filtro demo
+document.querySelectorAll('.tbl-toolbar .chip').forEach(c=>c.addEventListener('click',()=>{
+  document.querySelectorAll('.tbl-toolbar .chip').forEach(x=>x.classList.remove('on'));c.classList.add('on');
+}));
+document.querySelectorAll('.tabs .tb').forEach(t=>t.addEventListener('click',()=>{
+  t.parentElement.querySelectorAll('.tb').forEach(x=>x.classList.remove('on'));t.classList.add('on');
+}));
+</script>
+</body>
+</html>

@@ -133,6 +133,8 @@ export async function generarPdfBlob(doc: CjDocumentoPdfInput): Promise<Blob> {
   container.style.width = '794px'; // A4 ancho aproximado a 96dpi
   container.style.background = '#fff';
   container.innerHTML = html;
+  // DGG-136 · escape del tema gg-brand: los PDFs son INTOCABLES (identidad clásica siempre)
+  container.setAttribute('data-gg-classic', '');
   document.body.appendChild(container);
 
   // Esperamos que la imagen del logo cargue (si aplica)

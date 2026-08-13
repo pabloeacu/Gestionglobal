@@ -5,6 +5,23 @@
 @layer base {
   :root {
     color-scheme: light;
+    /* DGG-136 · Paleta brand como variables RGB (tripletas para rgb(var()/alpha)).
+       Estos son EXACTAMENTE los hex históricos de tailwind.config.js — con el
+       tema clásico (default) el render es bit a bit idéntico a antes. El tema
+       conmutable gg-brand las redefine bajo [data-theme="gg-brand"]
+       (src/styles/gg-theme.css) sin tocar ninguna clase compilada. */
+    --brand-cyan-rgb: 0 158 202; /* #009eca */
+    --brand-cyan-light-rgb: 127 195 220; /* #7fc3dc */
+    --brand-cyan-pale-rgb: 169 212 229; /* #a9d4e5 */
+    --brand-blue-rgb: 0 115 183; /* #0073b7 */
+    --brand-blue-deep-rgb: 29 78 216; /* #1d4ed8 */
+    --brand-teal-rgb: 27 157 168; /* #1b9da8 */
+    --brand-orange-rgb: 255 130 0; /* #ff8200 */
+    --brand-ink-rgb: 18 34 48; /* #122230 */
+    --brand-night-rgb: 11 31 51; /* #0b1f33 */
+    --brand-night-2-rgb: 14 42 69; /* #0e2a45 */
+    --brand-muted-rgb: 93 114 132; /* #5d7284 */
+    --brand-zebra-rgb: 247 250 252; /* #f7fafc */
   }
   /* AJL · 2026-06-02 (revisado): por qué html y body NO comparten height:100%
      ni overflow-x:hidden simétricamente.

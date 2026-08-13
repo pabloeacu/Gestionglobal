@@ -14,7 +14,10 @@ const ICON: Record<ToastItem['kind'], typeof CheckCircle2> = {
 const TONE: Record<ToastItem['kind'], string> = {
   success: 'border-emerald-200/70 [--ring:theme(colors.emerald.500)] [--icon:theme(colors.emerald.600)]',
   error: 'border-red-200/70 [--ring:theme(colors.red.500)] [--icon:theme(colors.red.600)]',
-  info: 'border-brand-cyan/30 [--ring:theme(colors.brand.cyan)] [--icon:theme(colors.brand.cyan)]',
+  // DGG-136: brand.cyan ahora es rgb(var()/α) en el config — theme() dejaría el
+  // placeholder <alpha-value> sin resolver dentro de la propiedad arbitraria.
+  // Referencia directa a la variable: mismo color computado, y sigue al tema.
+  info: 'border-brand-cyan/30 [--ring:rgb(var(--brand-cyan-rgb))] [--icon:rgb(var(--brand-cyan-rgb))]',
   warning: 'border-amber-200/70 [--ring:theme(colors.amber.500)] [--icon:theme(colors.amber.600)]',
 };
 

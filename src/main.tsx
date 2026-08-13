@@ -10,6 +10,9 @@ import { CommandPalette } from '@/components/common/CommandPalette';
 import { App } from '@/App';
 import { installGlobalErrorReporter } from '@/lib/errorReport';
 import '@/index.css';
+// DGG-136 · tema conmutable gg-brand: inerte sin data-theme="gg-brand" en <html>
+// (el atributo lo setea el script pre-paint de index.html según el flag).
+import '@/styles/gg-theme.css';
 
 // P2-#31 · Captura global de errores JS para tracking propio (DGG-38).
 installGlobalErrorReporter();

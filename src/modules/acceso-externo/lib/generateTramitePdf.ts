@@ -369,6 +369,8 @@ export async function generateTramitePdfBlob(
   container.style.width = '794px';
   container.style.background = '#fff';
   container.innerHTML = html;
+  // DGG-136 · escape del tema gg-brand: los PDFs son INTOCABLES (identidad clásica siempre)
+  container.setAttribute('data-gg-classic', '');
   document.body.appendChild(container);
 
   // Esperar el logo del header (logo-h-white.png con CORS habilitado)

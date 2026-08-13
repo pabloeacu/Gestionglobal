@@ -1,0 +1,77 @@
+/* ============================================================
+   Gestión Global · Design tokens (dirección "marca-nativa")
+   Fuente de verdad de colores, tipografías y formas.
+   Uso: importar y activar bajo el atributo [data-theme="gg-brand"]
+   para que conviva con el tema actual (interruptor reversible).
+   ============================================================ */
+
+:root[data-theme="gg-brand"]{
+  /* -- Color: estructura / tinta -- */
+  --gg-ink:        #0B1F33;   /* navy institucional (theme-color) */
+  --gg-ink-2:      #122230;   /* texto principal */
+  --gg-slate:      #5D7284;   /* texto secundario */
+
+  /* -- Color: marca -- */
+  --gg-petrol:     #159AA6;   /* teal fuerte de las diagonales de marca */
+  --gg-petrol-d:   #0F7C86;
+  --gg-cyan:       #009ECA;   /* acento / acción / estado activo */
+  --gg-blue:       #2E6FB0;   /* azul de datos e íconos */
+  --gg-sky:        #9CC7E4;   /* celeste de motivos */
+
+  /* -- Color: superficies -- */
+  --gg-pale:       #E7F1F9;   /* panel celeste pálido */
+  --gg-paper:      #F3F7FB;   /* fondo de trabajo */
+  --gg-white:      #FFFFFF;
+  --gg-line:       rgba(11,31,51,.14);
+  --gg-line-2:     rgba(11,31,51,.08);
+
+  /* -- Color: semánticos (estado) -- */
+  --gg-ok:   #0E9F6E;  --gg-ok-bg:   #E6F6EF;
+  --gg-warn: #C46A10;  --gg-warn-bg: #FBEEDD;
+  --gg-bad:  #C22B4A;  --gg-bad-bg:  #FBE7EC;
+  --gg-info: #009ECA;  --gg-info-bg: #E1F3FA;
+
+  /* -- Tipografía -- */
+  --gg-font-display: 'Oswald', system-ui, sans-serif;  /* títulos + micro-labels, SIEMPRE en mayúsculas */
+  --gg-font-body:    'Archivo', system-ui, sans-serif; /* texto de interfaz, tablas y cifras */
+  --gg-tnum: "tnum" 1, "lnum" 1;                        /* números tabulares para todo lo monetario */
+
+  /* Escala tipográfica (px) */
+  --gg-fs-micro: 10px;  /* etiquetas condensadas */
+  --gg-fs-xs:    12px;
+  --gg-fs-sm:    13px;
+  --gg-fs-base:  14px;
+  --gg-fs-md:    17px;  /* subtítulos */
+  --gg-fs-lg:    22px;
+  --gg-fs-xl:    30px;
+  --gg-fs-2xl:   40px;  /* H1 de página */
+  --gg-tracking-label: .10em;   /* letter-spacing de micro-labels */
+
+  /* -- Forma (clave anti-genérico) -- */
+  --gg-radius: 0px;            /* NO usar border-radius: la marca es de esquinas rectas + biseladas */
+  --gg-chamfer: 14px;          /* tamaño del corte de esquina (chamfer) */
+  --gg-chamfer-sm: 8px;        /* chamfer chico: botones y badges */
+  --gg-border: 1px solid var(--gg-line);
+
+  /* -- Espaciado (rhythm 4) -- */
+  --gg-space-1: 4px;  --gg-space-2: 8px;  --gg-space-3: 12px;
+  --gg-space-4: 16px; --gg-space-6: 24px; --gg-space-8: 32px;
+
+  /* -- Sombra: mínima. En vez de sombra difusa, borde nítido + offset duro en hover -- */
+  --gg-shadow-none: none;
+  --gg-hover-offset: 3px 3px 0 rgba(0,158,202,.28);
+}
+
+/* ---- Utilidades de forma reutilizables ---- */
+.gg-chamfer   { clip-path: polygon(0 0, calc(100% - var(--gg-chamfer)) 0, 100% var(--gg-chamfer), 100% 100%, 0 100%); }
+.gg-chamfer-sm{ clip-path: polygon(0 0, calc(100% - var(--gg-chamfer-sm)) 0, 100% var(--gg-chamfer-sm), 100% 100%, 0 100%); }
+
+/* Motivo de triángulos de marca (fondo para headers, estados vacíos, portadas) */
+.gg-motif{
+  background-image:
+    linear-gradient(135deg, currentColor 25%, transparent 25%),
+    linear-gradient(225deg, currentColor 25%, transparent 25%);
+  background-size: 34px 34px;
+  background-position: 0 0, 17px 17px;
+  opacity: .12;
+}

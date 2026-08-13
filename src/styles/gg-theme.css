@@ -1,0 +1,216 @@
+/* ============================================================
+   DGG-136 · Tema conmutable "gg-brand" (dirección marca-nativa)
+   ------------------------------------------------------------
+   - Fuente de verdad: gestionglobal-ui-kit/ (tokens, spec, mockups)
+     y .claude/skills/gestionglobal-ui/SKILL.md.
+   - Se activa SOLO con data-theme="gg-brand" en <html> (flag por
+     dispositivo: localStorage 'gg.ui.theme', o ?tema=gg-brand).
+     Sin el atributo, este archivo es INERTE: cero efecto visual.
+   - Los @font-face de abajo no descargan nada hasta que algún
+     elemento renderizado use Oswald/Archivo (lazy por diseño).
+   ============================================================ */
+
+/* ---- Fuentes de marca (self-host, public/fonts, subsets latin+latin-ext) ---- */
+@font-face {
+  font-family: 'Archivo';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/archivo-400-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Archivo';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/archivo-400-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Archivo';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/fonts/archivo-500-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Archivo';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/fonts/archivo-500-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Archivo';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('/fonts/archivo-600-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Archivo';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('/fonts/archivo-600-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Oswald';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/fonts/oswald-500-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Oswald';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/fonts/oswald-500-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Oswald';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('/fonts/oswald-600-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Oswald';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('/fonts/oswald-600-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Oswald';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/oswald-700-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Oswald';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/oswald-700-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* ---- Tokens del kit (verbatim de gestionglobal-ui-kit/tokens.css) ---- */
+/* ============================================================
+   Gestión Global · Design tokens (dirección "marca-nativa")
+   Fuente de verdad de colores, tipografías y formas.
+   Uso: importar y activar bajo el atributo [data-theme="gg-brand"]
+   para que conviva con el tema actual (interruptor reversible).
+   ============================================================ */
+
+:root[data-theme="gg-brand"]{
+  /* -- Color: estructura / tinta -- */
+  --gg-ink:        #0B1F33;   /* navy institucional (theme-color) */
+  --gg-ink-2:      #122230;   /* texto principal */
+  --gg-slate:      #5D7284;   /* texto secundario */
+
+  /* -- Color: marca -- */
+  --gg-petrol:     #159AA6;   /* teal fuerte de las diagonales de marca */
+  --gg-petrol-d:   #0F7C86;
+  --gg-cyan:       #009ECA;   /* acento / acción / estado activo */
+  --gg-blue:       #2E6FB0;   /* azul de datos e íconos */
+  --gg-sky:        #9CC7E4;   /* celeste de motivos */
+
+  /* -- Color: superficies -- */
+  --gg-pale:       #E7F1F9;   /* panel celeste pálido */
+  --gg-paper:      #F3F7FB;   /* fondo de trabajo */
+  --gg-white:      #FFFFFF;
+  --gg-line:       rgba(11,31,51,.14);
+  --gg-line-2:     rgba(11,31,51,.08);
+
+  /* -- Color: semánticos (estado) -- */
+  --gg-ok:   #0E9F6E;  --gg-ok-bg:   #E6F6EF;
+  --gg-warn: #C46A10;  --gg-warn-bg: #FBEEDD;
+  --gg-bad:  #C22B4A;  --gg-bad-bg:  #FBE7EC;
+  --gg-info: #009ECA;  --gg-info-bg: #E1F3FA;
+
+  /* -- Tipografía -- */
+  --gg-font-display: 'Oswald', system-ui, sans-serif;  /* títulos + micro-labels, SIEMPRE en mayúsculas */
+  --gg-font-body:    'Archivo', system-ui, sans-serif; /* texto de interfaz, tablas y cifras */
+  --gg-tnum: "tnum" 1, "lnum" 1;                        /* números tabulares para todo lo monetario */
+
+  /* Escala tipográfica (px) */
+  --gg-fs-micro: 10px;  /* etiquetas condensadas */
+  --gg-fs-xs:    12px;
+  --gg-fs-sm:    13px;
+  --gg-fs-base:  14px;
+  --gg-fs-md:    17px;  /* subtítulos */
+  --gg-fs-lg:    22px;
+  --gg-fs-xl:    30px;
+  --gg-fs-2xl:   40px;  /* H1 de página */
+  --gg-tracking-label: .10em;   /* letter-spacing de micro-labels */
+
+  /* -- Forma (clave anti-genérico) -- */
+  --gg-radius: 0px;            /* NO usar border-radius: la marca es de esquinas rectas + biseladas */
+  --gg-chamfer: 14px;          /* tamaño del corte de esquina (chamfer) */
+  --gg-chamfer-sm: 8px;        /* chamfer chico: botones y badges */
+  --gg-border: 1px solid var(--gg-line);
+
+  /* -- Espaciado (rhythm 4) -- */
+  --gg-space-1: 4px;  --gg-space-2: 8px;  --gg-space-3: 12px;
+  --gg-space-4: 16px; --gg-space-6: 24px; --gg-space-8: 32px;
+
+  /* -- Sombra: mínima. En vez de sombra difusa, borde nítido + offset duro en hover -- */
+  --gg-shadow-none: none;
+  --gg-hover-offset: 3px 3px 0 rgba(0,158,202,.28);
+}
+
+/* ---- Utilidades de forma reutilizables ---- */
+.gg-chamfer   { clip-path: polygon(0 0, calc(100% - var(--gg-chamfer)) 0, 100% var(--gg-chamfer), 100% 100%, 0 100%); }
+.gg-chamfer-sm{ clip-path: polygon(0 0, calc(100% - var(--gg-chamfer-sm)) 0, 100% var(--gg-chamfer-sm), 100% 100%, 0 100%); }
+
+/* Motivo de triángulos de marca (fondo para headers, estados vacíos, portadas) */
+.gg-motif{
+  background-image:
+    linear-gradient(135deg, currentColor 25%, transparent 25%),
+    linear-gradient(225deg, currentColor 25%, transparent 25%);
+  background-size: 34px 34px;
+  background-position: 0 0, 17px 17px;
+  opacity: .12;
+}
+
+
+/* ============================================================
+   Escape hatch de PDFs (ley DGG-136: los PDFs son intocables).
+   Los 5 pipelines de generación (reportPdf, cj-pdf,
+   generateTramitePdf, generateCertificadoPdf, generateConstanciaPdf)
+   montan su DOM offscreen con data-gg-classic en el contenedor:
+   este bloque re-fija las variables de la paleta a los valores
+   clásicos y la tipografía a Inter para TODO ese subárbol, gane
+   quien gane arriba en <html>. Regla de implementación permanente:
+   ningún override de gg-brand puede apuntar a elementos dentro de
+   [data-gg-classic] (verificado por diff de PDFs en cada fase).
+   ============================================================ */
+[data-gg-classic] {
+  --brand-cyan-rgb: 0 158 202;
+  --brand-cyan-light-rgb: 127 195 220;
+  --brand-cyan-pale-rgb: 169 212 229;
+  --brand-blue-rgb: 0 115 183;
+  --brand-blue-deep-rgb: 29 78 216;
+  --brand-teal-rgb: 27 157 168;
+  --brand-orange-rgb: 255 130 0;
+  --brand-ink-rgb: 18 34 48;
+  --brand-night-rgb: 11 31 51;
+  --brand-night-2-rgb: 14 42 69;
+  --brand-muted-rgb: 93 114 132;
+  --brand-zebra-rgb: 247 250 252;
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
