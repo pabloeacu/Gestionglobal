@@ -777,6 +777,20 @@ export interface DerivacionGestoria {
   destinatario_email: string;
   destinatario_nombre: string | null;
   enviada_at: string;
+  // DGG-135: la solicitud de la derivación — prefijo del path en el bucket
+  // gestoria-adjuntos (mismo folder que los adjuntos de la derivación
+  // original, así el listado E-GG-90 del trámite los muestra todos juntos).
+  solicitud_id: string | null;
+}
+
+// DGG-135 · meta de un adjunto ya subido a gestoria-adjuntos — el formato
+// exacto que el despachador de emails entiende (variante "gestoría" de
+// attachments_jsonb, mig 0208): adjunta el ARCHIVO REAL al mail.
+export interface AdjuntoGestoriaMeta {
+  path: string;
+  filename: string;
+  mime: string;
+  size: number;
 }
 
 /** Última derivación a gestoría del trámite (o null si no fue derivado). */
@@ -791,7 +805,7 @@ export async function getDerivacionGestoria(
   if (!sols || sols.length === 0) return ok(null);
   const { data, error } = await supabase
     .from('solicitud_derivaciones')
-    .select('destinatario_email, destinatario_nombre, enviada_at')
+    .select('destinatario_email, destinatario_nombre, enviada_at, solicitud_id')
     .in('solicitud_id', sols.map((s) => s.id))
     .order('enviada_at', { ascending: false })
     .limit(1);
@@ -800,14 +814,18 @@ export async function getDerivacionGestoria(
 }
 
 /** Reavisa a la gestoría externa que hay info nueva (regenera el link si venció).
- *  Mensaje opcional; si se omite, va un texto por defecto. */
+ *  Mensaje opcional; si se omite, va un texto por defecto.
+ *  DGG-135: adjuntos opcionales — metas de archivos ya subidos a
+ *  gestoria-adjuntos; viajan como archivos reales en el email. */
 export async function avisarGestoria(
   tramiteId: string,
   mensaje?: string | null,
+  adjuntos?: AdjuntoGestoriaMeta[],
 ): Promise<ApiResponse<{ email: string }>> {
   const { data, error } = await supabase.rpc('derivacion_reavisar_gestoria' as never, {
     p_tramite_id: tramiteId,
     p_mensaje: mensaje ?? null,
+    p_adjuntos: adjuntos ?? [],
   } as never);
   if (error) return fail('AVISAR_GESTORIA', error.message, error);
   const r = data as { ok?: boolean; email?: string } | null;

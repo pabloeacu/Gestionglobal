@@ -78,7 +78,6 @@ import {
   listDocsClienteDeTramite,
   type DocClienteTramite,
   getDerivacionGestoria,
-  avisarGestoria,
   type TrackingDetail,
   type TrackingLineaRow,
   type TrackingVencimientoLigado,
@@ -90,8 +89,8 @@ import { LineaTrackingCard } from '../components/LineaTrackingCard';
 import { LineasTimeline } from '../components/LineasTimeline';
 import { AgregarLineaDrawer } from '../components/AgregarLineaDrawer';
 import { InsistirClienteModal } from '../components/InsistirClienteModal';
+import { AvisarGestoriaModal } from '../components/AvisarGestoriaModal';
 import { EmailPreviewModal } from '@/components/common/EmailPreviewModal';
-import { usePrompt } from '@/components/common/DialogProvider';
 import { getUltimoEnvioClienteId } from '@/services/api/trackings';
 import { TrackingMetadataDrawer } from '../components/TrackingMetadataDrawer';
 import { generateReportPdf } from '@/lib/reportPdf';
@@ -131,7 +130,6 @@ export function TrackingDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
   const confirm = useConfirm();
-  const prompt = usePrompt();
   // DGG-95 · Cancelar el trámite desde el detalle vivo usa el MISMO diálogo/cascada
   // que el kanban (anula el comprobante no-fiscal → saldo a favor). Antes sólo se
   // podía "cancelar" seteando el estado desde una línea (bypass silencioso de la cascada).
@@ -181,7 +179,6 @@ export function TrackingDetailPage() {
   const [accesos, setAccesos] = useState<AccesoConAperturas[]>([]);
   // DGG-90 (JL #2) · derivación a gestoría del trámite (para el botón "Avisar a la gestoría")
   const [derivacion, setDerivacion] = useState<DerivacionGestoria | null>(null);
-  const [avisandoGestoria, setAvisandoGestoria] = useState(false);
   // JL-W8-1 · solicitud que generó este trámite (para advertir si el atajo
   // "Generar comprobante" se usa sin que el wizard haya corrido, y para espejar
   // el vínculo del comprobante en la solicitud al emitir).
@@ -291,27 +288,13 @@ export function TrackingDetailPage() {
   }
 
   // DGG-90 (JL #2) · reavisa a la gestoría externa que hay info nueva.
-  // DGG-133: el prompt permite sumar un mensaje propio (la RPC ya aceptaba
-  // p_mensaje y la UI mandaba null). SIEMPRE comunicación interna: la línea
-  // que crea la RPC es visible_cliente=false — el cliente jamás la ve.
-  async function handleAvisarGestoria() {
+  // DGG-133: mensaje propio opcional. DGG-135: ahora es un modal con adjuntos
+  // opcionales que viajan como archivos reales en el email. SIEMPRE
+  // comunicación interna: la línea que crea la RPC es visible_cliente=false.
+  const [avisarGestoriaOpen, setAvisarGestoriaOpen] = useState(false);
+  function handleAvisarGestoria() {
     if (!id || !derivacion) return;
-    const mensaje = await prompt({
-      title: 'Avisar a la gestoría',
-      message: `Le avisaremos a ${derivacion.destinatario_email} que hay información nueva y que puede retomar el trámite. Podés agregar un mensaje propio (opcional — vacío envía el aviso estándar). Esta comunicación es interna: el cliente no la ve.`,
-      placeholder: 'Mensaje adicional para la gestoría (opcional)…',
-      confirmLabel: 'Avisar a la gestoría',
-    });
-    if (mensaje === null) return;
-    setAvisandoGestoria(true);
-    const res = await avisarGestoria(id, mensaje.trim() || null);
-    setAvisandoGestoria(false);
-    if (!res.ok) {
-      toast.error('No pudimos avisar a la gestoría', { description: humanizeError(res.error) });
-      return;
-    }
-    toast.success(`Aviso enviado a ${res.data.email}`);
-    void load();
+    setAvisarGestoriaOpen(true);
   }
 
   // DGG-133 · poder de insistencia (cliente): modal de recordatorio + ojito.
@@ -867,7 +850,6 @@ export function TrackingDetailPage() {
               <Button
                 variant="ghost"
                 onClick={() => void handleAvisarGestoria()}
-                loading={avisandoGestoria}
                 title={`Avisar a la gestoría (${derivacion.destinatario_email}) que hay información nueva`}
               >
                 <Send className="h-4 w-4" /> Avisar a la gestoría
@@ -945,7 +927,6 @@ export function TrackingDetailPage() {
             </div>
             <Button
               onClick={() => void handleAvisarGestoria()}
-              loading={avisandoGestoria}
               className="shrink-0"
             >
               <Send className="h-4 w-4" /> Avisar a la gestoría
@@ -1266,6 +1247,18 @@ export function TrackingDetailPage() {
         permiteCambiarEstado={isStaff}
         onSaved={() => void load()}
       />
+
+      {/* DGG-135 · aviso a la gestoría con mensaje + adjuntos opcionales */}
+      {avisarGestoriaOpen && derivacion && (
+        <AvisarGestoriaModal
+          open
+          onClose={() => setAvisarGestoriaOpen(false)}
+          tramiteId={data.id}
+          solicitudId={derivacion.solicitud_id}
+          destinatarioEmail={derivacion.destinatario_email}
+          onDone={() => void load()}
+        />
+      )}
 
       {/* DGG-133 · insistencia al cliente + preview del último mail */}
       {insistirOpen && (
