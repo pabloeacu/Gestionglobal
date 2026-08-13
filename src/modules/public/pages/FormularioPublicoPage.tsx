@@ -93,7 +93,9 @@ export function FormularioPublicoPage() {
   // espera si no hay evento vigente). Así las personas entran siempre a la misma
   // dirección y ven el evento al que va direccionado el formulario.
   if (!loading && formulario?.categoria === 'evento') {
-    return <Navigate to="/eventos" replace />;
+    // §6 DGG-134: preservar el query — sin esto, ?origen=portal se perdía en
+    // el redirect y el prefill jamás corría para inscripciones a eventos.
+    return <Navigate to={{ pathname: '/eventos', search: window.location.search }} replace />;
   }
 
   return (

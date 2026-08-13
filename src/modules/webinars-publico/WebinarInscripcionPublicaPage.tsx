@@ -7,14 +7,20 @@
 // destino del CTA de eventos de la landing.
 
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { AlertCircle, MapPin, Globe } from 'lucide-react';
 import { cn } from '@/lib/cn';
+import { useAuth } from '@/contexts/AuthContext';
 import { BrandLoader } from '@/components/brand/BrandLoader';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import { SiteNav } from '@/components/site/SiteNav';
 import { SiteFooter } from '@/components/site/SiteFooter';
 import { FormularioRunner } from '@/modules/public/components/FormularioRunner';
-import { getFormularioPorSlug, type FormularioRow } from '@/services/api/formularios';
+import {
+  getFormularioPorSlug,
+  fetchClientePerfilDatosFormulario,
+  type FormularioRow,
+} from '@/services/api/formularios';
 import { humanizeError } from '@/lib/errors';
 import {
   useWebinarVigente,
@@ -82,6 +88,23 @@ function WebinarFormInscripcion({
   const [error, setError] = useState<string | null>(null);
   // Eventos mixtos: el inscripto elige cómo asiste. Default 'online'.
   const [pref, setPref] = useState<'online' | 'presencial'>('online');
+
+  // §6 DGG-134: mismo prefill del portal que FormularioPublicoPage — antes
+  // el redirect /formulario/eventos → /eventos perdía ?origen=portal y esta
+  // página ni siquiera lo implementaba: el cliente logueado tipeaba todo.
+  const [params] = useSearchParams();
+  const desdePortal = params.get('origen') === 'portal';
+  const { user } = useAuth();
+  const [prefillValues, setPrefillValues] = useState<Record<string, unknown> | undefined>(undefined);
+  useEffect(() => {
+    if (!user || !desdePortal) {
+      setPrefillValues(undefined);
+      return;
+    }
+    void fetchClientePerfilDatosFormulario().then((data) => setPrefillValues(data));
+  // DGG-126 §6: depender del id, no de la identidad del objeto user.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, desdePortal]);
 
   useEffect(() => {
     if (!slug) {
@@ -161,6 +184,7 @@ function WebinarFormInscripcion({
       <FormularioRunner
         formulario={form}
         origenCanal="publico"
+        prefillValues={prefillValues}
         extraDatos={modalidad === 'mixto' ? { modalidad_preferida: pref } : undefined}
       />
     </div>
