@@ -4075,6 +4075,24 @@ export type Database = {
         }
         Relationships: []
       }
+      gestor_uploads_huerfanos_alertados: {
+        Row: {
+          alertado_at: string
+          object_name: string
+          tramite_id: string | null
+        }
+        Insert: {
+          alertado_at?: string
+          object_name: string
+          tramite_id?: string | null
+        }
+        Update: {
+          alertado_at?: string
+          object_name?: string
+          tramite_id?: string | null
+        }
+        Relationships: []
+      }
       health_flow_alerts: {
         Row: {
           check_key: string
@@ -8837,7 +8855,7 @@ export type Database = {
       }
       db_health_metrics: { Args: never; Returns: Json }
       derivacion_reavisar_gestoria: {
-        Args: { p_mensaje?: string; p_tramite_id: string }
+        Args: { p_adjuntos?: Json; p_mensaje?: string; p_tramite_id: string }
         Returns: Json
       }
       desimputar_cobranza: {
@@ -8983,6 +9001,10 @@ export type Database = {
         Args: { p_encuentro_id: string }
         Returns: Json
       }
+      encuentro_sesion_reconciliar_asistencia: {
+        Args: { p_meeting_id: number; p_participantes: Json }
+        Returns: Json
+      }
       encuentro_sesion_zoom_estado: {
         Args: { p_estado: string; p_meeting_id: number; p_ocurrido_at?: string }
         Returns: string
@@ -8991,6 +9013,16 @@ export type Database = {
         Args: {
           p_evento: string
           p_matricula_id: string
+          p_meeting_id: number
+          p_ocurrido_at: string
+          p_payload?: Json
+        }
+        Returns: number
+      }
+      encuentro_sesion_zoom_evento_por_email: {
+        Args: {
+          p_email: string
+          p_evento: string
           p_meeting_id: number
           p_ocurrido_at: string
           p_payload?: Json
@@ -9520,6 +9552,7 @@ export type Database = {
         Returns: Json
       }
       gestor_upload_path_ok: { Args: { p_name: string }; Returns: boolean }
+      gestor_uploads_alertar_huerfanos: { Args: never; Returns: number }
       gestoria_destinatarios_recientes: {
         Args: never
         Returns: {
@@ -10473,6 +10506,12 @@ export type Database = {
         Args: never
         Returns: {
           encuentro_id: string
+          zoom_meeting_id: number
+        }[]
+      }
+      zoom_sesiones_pendientes_reconciliar: {
+        Args: never
+        Returns: {
           zoom_meeting_id: number
         }[]
       }
