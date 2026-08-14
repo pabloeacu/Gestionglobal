@@ -15,7 +15,7 @@
 // volver a 'classic' + deploy (~2 min); diagnóstico por dispositivo con
 // ?tema=clasico.
 (function () {
-  var DEFAULT = 'classic';
+  var DEFAULT = 'gg-brand';
   var t = DEFAULT;
   try {
     var q = new URLSearchParams(location.search).get('tema');
