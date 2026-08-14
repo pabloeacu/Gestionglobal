@@ -282,7 +282,7 @@ export function NotificationBell() {
           <Bell size={16} />
         )}
         {hasUnread && (
-          <span data-gg-round className="pointer-events-none absolute -right-0.5 -top-0.5 grid min-h-[16px] min-w-[16px] place-items-center rounded-full bg-rose-500 px-1 text-[10px] font-bold leading-none text-white shadow-sm ring-2 ring-white">
+          <span className="pointer-events-none absolute -right-0.5 -top-0.5 grid min-h-[16px] min-w-[16px] place-items-center rounded-full bg-rose-500 px-1 text-[10px] font-bold leading-none text-white shadow-sm ring-2 ring-white">
             {count > 99 ? '99+' : count}
           </span>
         )}

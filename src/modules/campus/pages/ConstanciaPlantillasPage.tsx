@@ -716,6 +716,7 @@ function PreviewBox({
         className="mx-auto shadow-xl ring-1 ring-black/10"
       >
         <div
+          data-gg-classic=""
           style={{
             width: CONST_W,
             height: CONST_H,

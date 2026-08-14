@@ -294,7 +294,7 @@ export function PortalOnboardingTour({ open, onClose }: Props) {
   }
 
   return createPortal(
-    <div className="fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto px-3 sm:px-4 pt-8 sm:pt-12 pb-6 backdrop-blur">
+    <div data-gg="overlay" className="fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto px-3 sm:px-4 pt-8 sm:pt-12 pb-6 backdrop-blur">
       {/* overlay */}
       <div
         className="fixed inset-0 bg-brand-ink/60"

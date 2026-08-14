@@ -75,6 +75,7 @@ function KpiCard({
   const t = TONE[tone];
   return (
     <div
+      data-gg-kpi={tone}
       className={cn(
         'group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 transition motion-safe:animate-fade-up',
         t.ring,

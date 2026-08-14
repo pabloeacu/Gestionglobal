@@ -562,7 +562,7 @@ function EmularModal({
   }
 
   return createPortal(
-    <div
+    <div data-gg="overlay"
       className="fixed inset-0 z-50 grid place-items-center bg-brand-ink/40 p-4"
       onClick={onClose}
     >

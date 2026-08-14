@@ -656,7 +656,7 @@ function AdjuntoLightbox({
   const esImg = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'avif', 'svg'].includes(ext);
 
   return createPortal(
-    <div
+    <div data-gg="overlay"
       className="fixed inset-0 z-50 grid place-items-center bg-brand-ink/70 p-4 backdrop-blur-sm motion-safe:animate-fade-in"
       onClick={onClose}
       role="dialog"

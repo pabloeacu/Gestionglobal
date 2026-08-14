@@ -801,7 +801,7 @@ function AdjuntosPane({
       )}
 
       {preview && createPortal(
-        <div
+        <div data-gg="overlay"
           className="fixed inset-0 z-50 grid place-items-center bg-brand-ink/70 p-4 motion-safe:animate-fade-up"
           onClick={() => setPreview(null)}
         >

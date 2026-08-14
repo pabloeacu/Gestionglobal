@@ -105,7 +105,7 @@ export function ProyectadaEmbebidaModal({ proyectada, onClose }: Props) {
   }
 
   return createPortal(
-    <div
+    <div data-gg="overlay"
       role="dialog"
       aria-label="Detalle del evento proyectado"
       className="fixed inset-0 z-50 flex items-center justify-center bg-brand-ink/40 p-4 backdrop-blur-sm motion-safe:animate-fade-in"

@@ -56,7 +56,7 @@ export function AccionesMenu({
   }, [x, y, subOpen]);
 
   return createPortal(
-    <div className="fixed inset-0 z-[70]" onClick={onClose}>
+    <div data-gg="overlay" className="fixed inset-0 z-[70]" onClick={onClose}>
       <div
         ref={menuRef}
         className="fixed w-60 rounded-xl border border-slate-200 bg-white py-1 text-sm shadow-2xl"

@@ -832,7 +832,7 @@ function FieldPreviewEye({
         <Eye size={14} />
       </button>
       {open && pos && createPortal(
-        <div
+        <div data-gg="overlay"
           ref={popoverRef}
           role="dialog"
           aria-label={`Ejemplo: ${preview.filename}`}

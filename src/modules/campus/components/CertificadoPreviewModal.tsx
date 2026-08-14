@@ -95,7 +95,7 @@ export function CertificadoPreviewModal({
   }
 
   return createPortal(
-    <div
+    <div data-gg="overlay"
       className="fixed inset-0 z-50 flex items-center justify-center bg-brand-ink/60 p-4 backdrop-blur-sm motion-safe:animate-fade-in"
       onMouseDown={(e) => e.target === e.currentTarget && onClose()}
     >
@@ -153,6 +153,7 @@ export function CertificadoPreviewModal({
               className="mx-auto shadow-xl ring-1 ring-black/5"
             >
               <div
+                data-gg-classic=""
                 style={{
                   width: CERT_W,
                   height: CERT_H,

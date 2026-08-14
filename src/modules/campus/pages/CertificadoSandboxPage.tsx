@@ -78,6 +78,7 @@ export function CertificadoSandboxPage() {
       <div className="rounded-2xl bg-slate-100 p-6 shadow-inner">
         <div className="mx-auto" style={{ width: CERT_W, maxWidth: '100%' }}>
           <div
+            data-gg-classic=""
             style={{ width: CERT_W, height: CERT_H }}
             className="origin-top-left shadow-xl ring-1 ring-black/10"
           >

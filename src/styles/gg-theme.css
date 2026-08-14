@@ -428,6 +428,208 @@
   border-radius: 0;
   background: linear-gradient(135deg, #159aa6, #009eca);
 }
+
+/* ============================================================
+   D · Disección milimétrica del kit (pedido Pablo 2026-08-14):
+   chips biselados, vértices de grillas, títulos con regla bicolor,
+   tablas/botones/labels en Oswald condensada. TODO scopeado a
+   [data-gg] → inalcanzable para PDFs (montan fuera de [data-gg]
+   y además llevan data-gg-classic) y para la landing (classic).
+   ============================================================ */
+
+/* ---- D.1 · Chips/badges de estado (mockup .badge / .chip) ----
+   Semántica del kit mapeada al DOM real:
+   - badge de ESTADO (pill NO interactiva: span/p/div con padding) →
+     chamfer 6px + Oswald condensada MAYÚSCULAS (mockup .badge);
+   - chip de FILTRO / pill interactiva (button/a) → cuadrada SIN
+     clip-path (mockup .chip es cuadrada; además el clip recortaría
+     el focus ring de a11y — lección §6 crítica #11). */
+[data-theme='gg-brand'] [data-gg] :is(span, p, div, em, strong).rounded-full[class*='px-']:not([data-gg-round]) {
+  border-radius: 0;
+  clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 0 100%);
+  font-family: 'GG Oswald', system-ui, sans-serif;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+[data-theme='gg-brand'] [data-gg] :is(button, a, summary, label).rounded-full[class*='px-']:not([data-gg-round]) {
+  border-radius: 0;
+  font-family: 'GG Oswald', system-ui, sans-serif;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+/* El puntito interno del chip pasa a rombo (mockup .badge::before rotado 45°) */
+[data-theme='gg-brand'] [data-gg] .rounded-full[class*='px-'] :is(.h-1\.5, .h-2, .w-1\.5, .w-2).rounded-full {
+  border-radius: 0;
+  transform: rotate(45deg);
+}
+
+/* ---- D.2 · Títulos de sección: MAYÚSCULAS + regla bicolor
+   petrol→navy (mockup .sec-head .bar h2 + .rule). El H1 de página
+   queda en caja de oración como en el kit (h1.page). ---- */
+[data-theme='gg-brand'] [data-gg] :is(h2, h3).font-display:not([class*='text-center']) {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  position: relative;
+  padding-bottom: 7px;
+}
+[data-theme='gg-brand'] [data-gg] :is(h2, h3).font-display:not([class*='text-center'])::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 3px;
+  width: 78px;
+  background: linear-gradient(90deg, #159aa6 0 44px, #0b1f33 44px 78px);
+}
+
+/* ---- D.3 · Vértice biselado de cards/grillas: ilusión de esquina
+   plegada por background multicapa — SIN clip-path y SIN
+   position:relative, así no se recorta ningún dropdown ni cambia
+   ningún containing block (riesgo funcional cero). ---- */
+[data-theme='gg-brand'] [data-gg] .card-premium {
+  background-image: linear-gradient(
+    to bottom left,
+    #f3f7fb calc(50% - 0.5px),
+    rgba(11, 31, 51, 0.14) calc(50% - 0.5px) calc(50% + 0.5px),
+    transparent calc(50% + 0.5px)
+  );
+  background-size: 15px 15px;
+  background-position: top right;
+  background-repeat: no-repeat;
+}
+
+/* ---- D.4 · Tablas (mockup table.data): th Oswald condensada sobre
+   paper + hover de fila en pale ---- */
+[data-theme='gg-brand'] [data-gg] table thead th {
+  font-family: 'GG Oswald', system-ui, sans-serif;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 10.5px;
+  color: #5d7284;
+  background-color: #f3f7fb;
+}
+[data-theme='gg-brand'] [data-gg] table tbody tr:hover {
+  background-color: rgba(231, 241, 249, 0.6);
+}
+
+/* ---- D.5 · Botones (mockup .btn): Oswald condensada MAYÚSCULAS +
+   offset duro al hover. :where() mantiene la especificidad baja
+   para que los overrides puntuales (rail D.11) puedan ganar. ---- */
+[data-theme='gg-brand'] [data-gg] :is(button, a):where(.bg-brand-cyan, .bg-brand-ink, .bg-brand-night, .bg-brand-orange, .bg-brand-teal, .bg-red-600, .bg-rose-600, .bg-emerald-600) {
+  font-family: 'GG Oswald', system-ui, sans-serif;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+[data-theme='gg-brand'] [data-gg] :is(button, a):where(.border[class*='border-slate'], .border[class*='border-brand'], [class*='border-b-2']) {
+  font-family: 'GG Oswald', system-ui, sans-serif;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+[data-theme='gg-brand'] [data-gg] :is(button, a).bg-brand-cyan:not(:disabled):hover {
+  --tw-shadow: 3px 3px 0 rgba(0, 158, 202, 0.28);
+  box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
+}
+[data-theme='gg-brand'] [data-gg] :is(button, a):is(.bg-brand-ink, .bg-brand-night):not(:disabled):hover {
+  --tw-shadow: 3px 3px 0 rgba(11, 31, 51, 0.22);
+  box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
+}
+
+/* ---- D.6 · Campos de formulario (mockup .field): label Oswald
+   micro + input sobre paper que se enciende blanco al foco ---- */
+[data-theme='gg-brand'] [data-gg] label:where([class*='block']):not([class*='flex']) {
+  font-family: 'GG Oswald', system-ui, sans-serif;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 10px;
+  color: #5d7284;
+}
+[data-theme='gg-brand'] [data-gg] :where(input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']):not([type='color']), select, textarea):not([data-gg-round]) {
+  background-color: #f3f7fb;
+  border-radius: 0;
+}
+[data-theme='gg-brand'] [data-gg] :where(input, select, textarea):focus {
+  background-color: #ffffff;
+  border-color: #009eca;
+}
+
+/* ---- D.7 · kbd (mockup .search kbd: atajo ⌘K) ---- */
+[data-theme='gg-brand'] [data-gg] kbd {
+  font-family: 'GG Oswald', system-ui, sans-serif;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  border-radius: 0;
+  background: #ffffff;
+  border: 1px solid rgba(11, 31, 51, 0.14);
+  color: #5d7284;
+}
+
+/* ---- D.8 · Barras de progreso (mockup .progress .track): pista
+   cuadrada + relleno degradé cyan→petrol. Los dots de estado
+   sueltos NO se tocan (el kit también los usa redondos: .live). ---- */
+[data-theme='gg-brand'] [data-gg] .w-full.rounded-full:is(.h-1, .h-1\.5, .h-2, .h-2\.5, .h-3) {
+  border-radius: 0;
+}
+[data-theme='gg-brand'] [data-gg] .w-full.rounded-full:is(.h-1, .h-1\.5, .h-2, .h-2\.5, .h-3) > * {
+  border-radius: 0;
+}
+[data-theme='gg-brand'] [data-gg] .w-full.rounded-full:is(.h-1, .h-1\.5, .h-2, .h-2\.5, .h-3) > .bg-brand-cyan {
+  background: linear-gradient(90deg, #009eca, #159aa6);
+}
+
+/* ---- D.9 · Pestañas con role=tab (mockup .tabs .tb) ---- */
+[data-theme='gg-brand'] [data-gg] [role='tab'] {
+  font-family: 'GG Oswald', system-ui, sans-serif;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* ---- D.10 · KPI cards del Inicio de gerencia (mockup .kpi):
+   regla superior 3px por tono + motivo triangular abajo-derecha.
+   El acento clásico (TrianglesAccent svg) se apaga bajo el tema. ---- */
+[data-theme='gg-brand'] [data-gg] [data-gg-kpi] > svg {
+  display: none;
+}
+[data-theme='gg-brand'] [data-gg] [data-gg-kpi]::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 3px;
+  width: 100%;
+  background: var(--gg-kpi-rule, #009eca);
+}
+[data-theme='gg-brand'] [data-gg] [data-gg-kpi='cyan'] { --gg-kpi-rule: #009eca; }
+[data-theme='gg-brand'] [data-gg] [data-gg-kpi='emerald'] { --gg-kpi-rule: #159aa6; }
+[data-theme='gg-brand'] [data-gg] [data-gg-kpi='amber'] { --gg-kpi-rule: #c46a10; }
+[data-theme='gg-brand'] [data-gg] [data-gg-kpi='slate'] { --gg-kpi-rule: #0b1f33; }
+[data-theme='gg-brand'] [data-gg] [data-gg-kpi]::after {
+  content: '';
+  position: absolute;
+  right: -14px;
+  bottom: -14px;
+  width: 70px;
+  height: 70px;
+  color: #2e6fb0;
+  opacity: 0.1;
+  pointer-events: none;
+  background-image: linear-gradient(135deg, transparent 49%, currentColor 50%);
+  background-size: 18px 18px;
+}
+
+/* ---- D.11 · El nav del rail NO se condensa (el kit lo deja en
+   Archivo 500; gana sobre D.5 por especificidad). ---- */
+[data-theme='gg-brand'] [data-gg] [data-gg-rail] nav :is(a, button) {
+  font-family: 'GG Archivo', system-ui, sans-serif;
+  text-transform: none;
+  letter-spacing: normal;
+}
 }
 
 /* ============================================================

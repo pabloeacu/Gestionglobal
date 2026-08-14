@@ -290,7 +290,7 @@ function ResolverLineaDrawer({
   }
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex">
+    <div data-gg="overlay" className="fixed inset-0 z-50 flex">
       <div className="flex-1 bg-slate-900/30" onClick={onClose} />
       <aside className="w-full max-w-md overflow-y-auto bg-white shadow-2xl">
         <div className="border-b border-slate-200 p-5">

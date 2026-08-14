@@ -216,7 +216,7 @@ export function EventoModal({ open, onClose, onSaved, categorias, draft, evento 
 
   if (!open) return null;
   return createPortal(
-    <div
+    <div data-gg="overlay"
       className="fixed inset-0 z-50 flex items-center justify-center bg-brand-ink/40 p-4 backdrop-blur-sm motion-safe:animate-fade-in"
       onMouseDown={(e) => e.target === e.currentTarget && onClose()}
     >

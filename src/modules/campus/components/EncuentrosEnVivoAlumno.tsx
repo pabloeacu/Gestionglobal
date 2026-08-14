@@ -580,7 +580,7 @@ export function ClaseEnVivoFullLayout({
   if (typeof document === 'undefined') return null;
 
   return createPortal(
-    <div
+    <div data-gg="overlay"
       className="relative overflow-hidden"
       style={{
         position: 'fixed',

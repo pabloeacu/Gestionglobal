@@ -234,7 +234,7 @@ function CvBankModal({
     q.trim() ? it.nombre.toLowerCase().includes(q.trim().toLowerCase()) : true,
   );
   return createPortal(
-    <div className="fixed inset-0 z-[60] grid place-items-center bg-brand-ink/60 p-4">
+    <div data-gg="overlay" className="fixed inset-0 z-[60] grid place-items-center bg-brand-ink/60 p-4">
       <div className="card-premium relative flex max-h-[80vh] w-full max-w-lg flex-col gap-3 p-4">
         <header className="flex items-center justify-between">
           <h3 className="inline-flex items-center gap-2 font-display text-base font-semibold text-brand-ink">

@@ -220,7 +220,7 @@ function ConsorcioDetailModal({
   onClose: () => void;
 }) {
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-brand-ink/40 px-4 py-6 motion-safe:animate-fade-up sm:items-center sm:py-8">
+    <div data-gg="overlay" className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-brand-ink/40 px-4 py-6 motion-safe:animate-fade-up sm:items-center sm:py-8">
       <div
         className="fixed inset-0"
         onClick={onClose}

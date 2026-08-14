@@ -762,6 +762,7 @@ function PreviewBox({ esquema, qr }: { esquema: EsquemaCert; qr: string | null }
         className="mx-auto shadow-xl ring-1 ring-black/10"
       >
         <div
+          data-gg-classic=""
           style={{
             width: CERT_W,
             height: CERT_H,

@@ -1166,7 +1166,7 @@ function WebexSetupModal({
   }
 
   return createPortal(
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+    <div data-gg="overlay" className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
       <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
         <h3 className="font-display text-lg font-bold text-brand-ink">Configurar sala Webex</h3>
         <p className="mt-1 text-xs text-brand-muted">
@@ -1292,7 +1292,7 @@ function CompartirEncuentroModal({
   }
 
   return createPortal(
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+    <div data-gg="overlay" className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
       <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
         <div className="flex items-center gap-2">
           <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-violet-100 text-violet-700">
