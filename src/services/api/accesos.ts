@@ -56,6 +56,40 @@ export async function generarAcceso(
   }
 }
 
+// DGG-139 · Compartir un tracking con el cliente: genera el token Y encola el
+// email con el link (RPC tramite_compartir_acceso, multi-tabla → R5). El modal
+// promete "lo recibe por mail" — ahora es verdad.
+export async function compartirAccesoTramite(input: {
+  tramiteId: string;
+  email: string;
+  nombre?: string | null;
+  dias?: number;
+  observaciones?: string | null;
+}): Promise<ApiResponse<{ token: string; url: string }>> {
+  try {
+    const args = {
+      p_tramite_id: input.tramiteId,
+      p_email: input.email,
+      p_nombre: input.nombre ?? null,
+      p_dias: input.dias ?? DIAS_VALIDEZ_ENLACE_EXTERNO,
+      p_observaciones: input.observaciones ?? null,
+    } as unknown as {
+      p_tramite_id: string;
+      p_email: string;
+      p_nombre: string;
+      p_dias: number;
+      p_observaciones: string;
+    };
+    const { data, error } = await supabase.rpc('tramite_compartir_acceso', args);
+    if (error) throw error;
+    const res = data as unknown as { token: string; url: string };
+    return ok({ token: res.token, url: res.url });
+  } catch (e) {
+    const err = toApiError(e);
+    return fail(err.code, err.message, err.details);
+  }
+}
+
 // 5.C · acceso + agregado de aperturas (badge "Visto N veces · última hace …").
 export interface AccesoConAperturas extends AccesoExternoRow {
   total_aperturas: number;

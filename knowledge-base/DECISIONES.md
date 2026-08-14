@@ -4883,3 +4883,35 @@ documentadas sin acción: DO-block no re-aplicable a mano (assert es la
 protección), host www/sin-www pre-existente (307 lo cubre), topes de vigencia
 dispares entre superficies (pre-existente), panel >20 días abierto sin
 recargar (irreal). Refutados: 0 — los 5 verdicts confirmaron.
+
+### DGG-139 · "Compartir tracking" ahora envía el mail que prometía (Pablo, 2026-08-14)
+
+Hallazgo de la auditoría §6 de DGG-138 (pre-existente): el modal "Compartir
+con el cliente" de un tracking prometía DOS veces el envío por mail ("El
+destinatario lo recibe por mail" + toast "También se envió por mail"), pedía
+el email como obligatorio… y nunca se enviaba nada — `generar_acceso_externo`
+sólo creaba el token. Pablo eligió opción (a): mandar el mail de verdad.
+
+Implementación (mig 0425): RPC `tramite_compartir_acceso(p_tramite_id,
+p_email, p_nombre?, p_dias?, p_observaciones?)` — R5 multi-tabla: genera el
+token ('tramite', default 20d renovables DGG-138) + encola el email (template
+nuevo `tramite-acceso-compartido`, manaxer-v1, CTA "Ver mi trámite" →
+/externo/<token>, aclara la vigencia renovable) + registra tracking_linea
+(visible_cliente=false). Guards: is_staff, email con @, días 1..365; GRANT
+authenticated / REVOKE anon. Front: `compartirAccesoTramite()` en accesos.ts;
+el modal usa el RPC y los toasts dicen la verdad ("Link copiado y enviado ·
+Le mandamos el mail a X"). R18 e2e con rollback: flujo completo (token 20d +
+email con template/vars + línea), email inválido rechazado, días custom.
+
+**Auditoría §6 de cierre DGG-139 (workflow 6 agentes, 3 frentes + refutación):**
+3 menores confirmados (0 refutados) y FIXEADOS en el chunk: (1) el email se
+encolaba con administracion_id NULL (calco del patrón gestoría que acá no
+aplica) → no aparecía en el historial admin-scoped de sent_emails; ahora pasa
+admin+consorcio del trámite (mig 0426, patrón 0319). (2) email sin @ llegaba
+al RPC y humanizeError lo mapeaba a "fuera de rango" (confuso) → validación
+client-side con mensaje claro. (3) el template prometía "avances y
+documentación" que /externo no muestra para trámites (misma sobre-promesa
+que originó DGG-139) → copy honesto "estado y detalle actualizado"; la
+opción completa (poblar historial con tracking_lineas visible_cliente en la
+página externa) queda como mejora futura opcional. Nota fixeada gratis: To:
+del email ahora usa el fallback de nombre (antes podía salir NULL).

@@ -10349,6 +10349,16 @@ export type Database = {
         Returns: Json
       }
       tramite_cobro_resumen: { Args: { p_tramite_id: string }; Returns: Json }
+      tramite_compartir_acceso: {
+        Args: {
+          p_dias?: number
+          p_email: string
+          p_nombre?: string
+          p_observaciones?: string
+          p_tramite_id: string
+        }
+        Returns: Json
+      }
       tramite_docs_cliente: {
         Args: { p_tramite_id: string }
         Returns: {

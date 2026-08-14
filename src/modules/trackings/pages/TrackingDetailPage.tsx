@@ -61,7 +61,7 @@ import {
 } from '@/components/common';
 import {
   DIAS_VALIDEZ_ENLACE_EXTERNO,
-  generarAcceso,
+  compartirAccesoTramite,
   listAccesosDeRecurso,
   type AccesoConAperturas,
 } from '@/services/api/accesos';
@@ -1414,12 +1414,19 @@ function CompartirExternoModal({
       toast.error('Necesitamos un email para compartir');
       return;
     }
+    // §6 DGG-139: sin <form>, la validación nativa de type="email" no corre;
+    // el 22023 del RPC se humaniza como "fuera de rango" y confunde.
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      toast.error('El email del destinatario no parece válido');
+      return;
+    }
     setBusy(true);
-    const res = await generarAcceso({
-      recursoTipo: 'tramite',
-      recursoId: trackingId,
-      emailDestinatario: email.trim(),
-      diasValidez: Math.max(1, Math.min(60, parseInt(dias, 10) || DIAS_VALIDEZ_ENLACE_EXTERNO)),
+    // DGG-139: el RPC genera el token Y encola el mail al destinatario — el
+    // "lo recibe por mail" que promete el modal ahora es real.
+    const res = await compartirAccesoTramite({
+      tramiteId: trackingId,
+      email: email.trim(),
+      dias: Math.max(1, Math.min(60, parseInt(dias, 10) || DIAS_VALIDEZ_ENLACE_EXTERNO)),
       observaciones: `Tracking: ${trackingTitulo}`,
     });
     setBusy(false);
@@ -1432,11 +1439,11 @@ function CompartirExternoModal({
     // Copia automática al portapapeles para acortar el flujo.
     try {
       await navigator.clipboard.writeText(res.data.url);
-      toast.success('Link copiado', {
-        description: 'También se envió por mail al destinatario.',
+      toast.success('Link copiado y enviado', {
+        description: `Le mandamos el mail con el acceso a ${email.trim()}.`,
       });
     } catch {
-      toast.success('Acceso generado', {
+      toast.success('Acceso generado y enviado por mail', {
         description: 'Copialo manualmente si no se copió solo.',
       });
     }
