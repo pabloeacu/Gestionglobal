@@ -5260,3 +5260,15 @@ deje el template/destinatario en manos del caller), no sólo la función que dis
 **Aprendizajes:** (a) los defaults de texto de asientos se componen en la RPC, nunca en cada superficie — toda superficie nueva hereda el formato sin recordarlo; (b) un hint de privacidad incorrecto es un bug de privacidad: verificar contra las RPCs de lectura reales quién ve cada campo antes de prometer "interno"; (c) los fallbacks client-side genéricos ("Cobranza desde solicitud") esquivan los defaults canónicos del servidor — eliminarlos al centralizar.
 
 **Verificación:** §6 9 agentes + refutación (5 confirmados, 5 cerrados; 2 refutados). E2e rollback: 0416 H1-H3, 0418 H1-H4 (matriz regexp 5 casos, guard casa, saldos e imputaciones intactos). Live en Vercel (`vece68f5`, gerente+comprobante QA): wizard de 3 pasos real con descripción vacía → asiento **"Cobranza · Servicio QA Live 178"** + placeholder + hint veraz visibles; extracto real de Drozd muestra prefijo único. Limpieza a 0 (0 ingresos NULL en toda la BD). Smokes R16/R18 OK.
+
+## E-GG-179 · El dominio de Vercel sirvió un deployment viejo pese a "READY + Current" (2026-08-14)
+
+**Síntoma:** Pablo veía la UI vieja en producción después de 3 deploys "exitosos" (checks de GitHub en success, deployment READY target production con el dominio tildado en el dashboard). Parecía cache del browser/SW del usuario, pero `curl` directo al dominio con query de bypass devolvía el `index.html` con el bundle de 2 deploys atrás, `x-vercel-cache: HIT` y el MISMO etag durante >30 min con `cache-control: max-age=0, must-revalidate`.
+
+**Causa raíz:** el mapping dominio→deployment del edge de Vercel quedó clavado en un deployment anterior (falla de propagación de su lado; el dashboard mostraba el deployment nuevo como Current e incluso "Assigning Custom Domains ✓"). No fue el service worker (E-GG-155 descartado midiendo), ni el browser, ni el build (el dist local contenía los cambios).
+
+**Diagnóstico canónico (3 comandos):** (1) `grep 'assets/index-' dist/index.html` → hash local; (2) `curl -s https://www.gestionglobal.ar/?x=$RANDOM | grep -o 'assets/index-[^"]*'` → hash servido; (3) si difieren con el deploy READY, es el edge, no el cliente. `curl -sI` con `x-vercel-cache: HIT` + etag congelado lo confirma.
+
+**Fix:** `git commit --allow-empty && push` → el deployment nuevo re-escribe el mapping y el dominio quedó sirviendo el bundle correcto al instante (age: 0). Alternativa si reincide: `vercel promote <dpl>` con el token de la CLI (~/Library/Application Support/com.vercel.cli/auth.json) o Redeploy desde el dashboard.
+
+**Regla capitalizada:** el cierre de cada deploy NO se verifica por el estado del check de GitHub sino por el HASH DEL BUNDLE SERVIDO en el dominio (curl del index + comparación contra dist). "Success" del CI ≠ "el usuario lo está viendo". Adyacencia: también costó una vuelta el hook aplicado al gemelo equivocado (ActivarPushAssistant común vs PortalPushAssistant del home del portal) — al hookear banners, grep por el COPY visible, no por el nombre del componente.

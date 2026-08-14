@@ -1171,6 +1171,27 @@
   border-radius: 0;
 }
 
+/* [72b] CTA del remind = .btn.primary del kit (el mockup lo pone cyan,
+   no del tono del aviso) */
+[data-theme='gg-brand'] [data-gg] [data-gg-remind] :is(button, a):is(.bg-amber-600, .bg-amber-500) {
+  background-color: #009eca;
+  font-family: 'GG Oswald', system-ui, sans-serif;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 12.5px;
+}
+[data-theme='gg-brand'] [data-gg] [data-gg-remind] :is(button, a):is(.bg-amber-600, .bg-amber-500):not(:disabled):hover {
+  background-color: #009eca;
+  box-shadow: none;
+  filter: drop-shadow(3px 3px 0 rgba(0, 158, 202, 0.28));
+}
+[data-theme='gg-brand'] [data-gg] [data-gg-remind] :is(button, a):is(.bg-amber-600, .bg-amber-500):not(:focus-visible) {
+  border-radius: 0;
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%);
+}
+[data-theme='gg-brand'] [data-gg] [data-gg-remind] .kicker { color: var(--gg-rt, #009eca); }
+
 /* [79] notice de gerencia ('Tenés novedades · en vivo') */
 [data-theme='gg-brand'] [data-gg] [data-gg-notice] {
   border-width: 1px;

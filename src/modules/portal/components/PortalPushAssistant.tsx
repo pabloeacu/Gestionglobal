@@ -69,7 +69,7 @@ export function PortalPushAssistant() {
   }
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50 via-white to-yellow-50 p-4 shadow-sm sm:p-5">
+    <div data-gg-remind="warn" className="relative overflow-hidden rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50 via-white to-yellow-50 p-4 shadow-sm sm:p-5">
       <button
         type="button"
         onClick={dismiss}
