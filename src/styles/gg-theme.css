@@ -178,17 +178,21 @@
   --brand-zebra-rgb: 243 247 251; /* #F3F7FB paper (antes #f7fafc) */
 }
 
-/* ---- A.1 · Portal: base tipográfica y fondo de trabajo ---- */
-[data-theme='gg-brand'] [data-gg='portal'] {
+/* ---- A.1 · Base tipográfica de TODA superficie hookeada ([data-gg]) ----
+   Fase B: la base (tipos + formas) es común a portal/auth/partner/externo/
+   gerencia; el fondo y los devices van por superficie. */
+[data-theme='gg-brand'] [data-gg] {
   font-family: 'GG Archivo', system-ui, -apple-system, 'Segoe UI', sans-serif;
   font-feature-settings: 'tnum' 1, 'lnum' 1;
-  background-color: #f3f7fb; /* paper */
 }
-[data-theme='gg-brand'] [data-gg='portal'] .font-display {
+[data-theme='gg-brand'] [data-gg='portal'] {
+  background-color: #f3f7fb; /* paper (fondo de trabajo del portal) */
+}
+[data-theme='gg-brand'] [data-gg] .font-display {
   font-family: 'GG Oswald', system-ui, sans-serif;
   letter-spacing: 0.01em;
 }
-[data-theme='gg-brand'] [data-gg='portal'] .kicker {
+[data-theme='gg-brand'] [data-gg] .kicker {
   font-family: 'GG Oswald', system-ui, sans-serif;
   font-size: 11px;
   font-weight: 600;
@@ -199,22 +203,22 @@
    El radio se aplana por clase (no por elemento: regla anti-PDF §6).
    .rounded-full queda EXCEPTUADO acá (spinners/badges semánticos); el
    cuadrado selectivo va por hook (topbar). ---- */
-[data-theme='gg-brand'] [data-gg='portal'] .rounded-3xl,
-[data-theme='gg-brand'] [data-gg='portal'] .rounded-2xl,
-[data-theme='gg-brand'] [data-gg='portal'] .rounded-xl,
-[data-theme='gg-brand'] [data-gg='portal'] .rounded-lg,
-[data-theme='gg-brand'] [data-gg='portal'] .rounded-md {
+[data-theme='gg-brand'] [data-gg] .rounded-3xl,
+[data-theme='gg-brand'] [data-gg] .rounded-2xl,
+[data-theme='gg-brand'] [data-gg] .rounded-xl,
+[data-theme='gg-brand'] [data-gg] .rounded-lg,
+[data-theme='gg-brand'] [data-gg] .rounded-md {
   border-radius: 0;
 }
-[data-theme='gg-brand'] [data-gg='portal'] .shadow-sm,
-[data-theme='gg-brand'] [data-gg='portal'] .hover\:shadow-md:hover,
-[data-theme='gg-brand'] [data-gg='portal'] .hover\:shadow-sm:hover {
+[data-theme='gg-brand'] [data-gg] .shadow-sm,
+[data-theme='gg-brand'] [data-gg] .hover\:shadow-md:hover,
+[data-theme='gg-brand'] [data-gg] .hover\:shadow-sm:hover {
   box-shadow: none;
 }
-[data-theme='gg-brand'] [data-gg='portal'] .shadow-xl {
+[data-theme='gg-brand'] [data-gg] .shadow-xl {
   box-shadow: 4px 4px 0 rgba(11, 31, 51, 0.1); /* offset duro (dropdowns) */
 }
-[data-theme='gg-brand'] [data-gg='portal'] .card-premium {
+[data-theme='gg-brand'] [data-gg] .card-premium {
   border-radius: 0;
   border-color: rgba(11, 31, 51, 0.14);
   box-shadow: none;
@@ -389,4 +393,33 @@
   clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 0 100%);
   font-family: 'GG Oswald', system-ui, sans-serif;
   letter-spacing: 0.06em;
+}
+
+
+/* ============================================================
+   Candado de IMPRESIÓN (ley DGG-136: impresos = identidad clásica).
+   La única vista imprimible real es la orden del gestor externo
+   (AccesoExternoPage, print: variants sobre la paleta brand). Con el
+   tema prendido, al imprimir TODO vuelve a los valores clásicos.
+   ============================================================ */
+@media print {
+  :root[data-theme='gg-brand'] {
+    --brand-cyan-rgb: 0 158 202;
+    --brand-cyan-light-rgb: 127 195 220;
+    --brand-cyan-pale-rgb: 169 212 229;
+    --brand-blue-rgb: 0 115 183;
+    --brand-blue-deep-rgb: 29 78 216;
+    --brand-teal-rgb: 27 157 168;
+    --brand-orange-rgb: 255 130 0;
+    --brand-ink-rgb: 18 34 48;
+    --brand-night-rgb: 11 31 51;
+    --brand-night-2-rgb: 14 42 69;
+    --brand-muted-rgb: 93 114 132;
+    --brand-zebra-rgb: 247 250 252;
+  }
+  [data-theme='gg-brand'] [data-gg],
+  [data-theme='gg-brand'] [data-gg] .font-display,
+  [data-theme='gg-brand'] [data-gg] .kicker {
+    font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  }
 }

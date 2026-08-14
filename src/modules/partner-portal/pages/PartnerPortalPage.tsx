@@ -82,7 +82,7 @@ export function PartnerPortalPage() {
     : 0;
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div data-gg="partner" className="min-h-screen bg-slate-50">
       <header className="relative overflow-hidden bg-gradient-to-br from-brand-cyan via-brand-cyan to-brand-teal py-10 text-white shadow">
         <TrianglesAccent position="top-right" size={260} tone="cyan" density="rich" className="opacity-50" />
         <TrianglesAccent position="bottom-left" size={180} tone="teal" density="soft" className="opacity-40" />

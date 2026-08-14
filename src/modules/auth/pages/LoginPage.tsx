@@ -97,7 +97,7 @@ export function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen font-sans">
+    <div data-gg="auth" className="flex min-h-screen font-sans">
       {/* panel de marca */}
       <div className="relative hidden w-1/2 overflow-hidden lg:block">
         <BrandBackdrop />

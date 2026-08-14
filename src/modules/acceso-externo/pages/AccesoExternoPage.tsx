@@ -83,7 +83,7 @@ export function AccesoExternoPage() {
   }, [token]);
 
   return (
-    <div className="min-h-screen bg-slate-50 print:bg-white">
+    <div data-gg="externo" className="min-h-screen bg-slate-50 print:bg-white">
       {/* Hero · 5.F print: en papel se vuelve sobrio (sin gradient ni triángulos) */}
       <header className="relative overflow-hidden bg-gradient-to-br from-brand-cyan via-brand-cyan to-brand-teal py-10 text-white shadow print:bg-white print:bg-none print:py-4 print:text-brand-ink print:shadow-none">
         <TrianglesAccent position="top-right" size={260} tone="cyan" density="rich" className="opacity-50 print:hidden" />
