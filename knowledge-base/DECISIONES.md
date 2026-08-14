@@ -4790,3 +4790,31 @@ Pablo pidió cierre sin pendientes ("producción, clientes reales, plata real, J
 - **Cobertura:** `/verificar/:codigo` (la del QR de certificado) estaba SIN hook → un cliente la veía clásica; `data-gg='publico'`. SiteNav/SiteFooter mestizos (classic en landing, tematizados embebidos) → `data-gg-classic` (idénticos a la landing en todas las rutas).
 
 **Verificado en vivo en producción (sha 38beacc):** experimento de clip-path del sec-head = 0 popovers recortados (duda cerrada); 0 doble-cajas residuales; topbar con lupa/campana/teclado/avatar intactos; borde rojo de validación sobrevive reposo+foco (inyector DOM); verificar-certificado tematizado; SiteNav/Footer classic en /eventos. Sin usuarios QA creados → sin limpieza. Íconos temáticos en page-headers h1 (consorcios/comprobantes/etc): NO son defecto (page-header sin ícono es diseño válido); requieren mecanismo nuevo — queda como mejora opcional a consultar, no pendiente de cierre.
+
+### DGG-137 · Pop-up promocional del Curso de Formación en la landing (Pablo, 2026-08-14)
+
+Pablo: "en la landing, que se abra una ventana tipo pop up... dentro del
+celular un video que se reproduzca automáticamente cuando se abre el pop...
+enlace directo al formulario 'Inscribirme' y la 'X' para cerrarla". Decisiones
+vía AskUserQuestion: **disparo = ambos** (auto ~1,5s + botón flotante para
+reabrir), **frecuencia = cada visita** (sin gate en localStorage), **diseño =
+marco de celular nítido** (CSS, sin imagen de mano). Implementación:
+`src/modules/public/components/PromoFormacionPopup.tsx`, montado DENTRO del
+escape `data-gg-classic` de `LandingPage` → el tema gg-brand no lo toca.
+
+**Autoplay:** los navegadores sólo autoreproducen video MUTEADO; el componente
+arranca muteado + botón de altavoz para activar sonido. El driver real del
+play NO es el atributo `autoplay` (Chrome no lo dispara para elementos con baja
+media-engagement) sino el `useEffect` que llama `v.play()` imperativo al abrir
+—verificado en el Chrome real de Pablo (`webdriver:false`): `play()` sobre el
+muted resolvió sin error y `currentTime` avanzó. Doble respaldo: reintento al
+primer gesto (pointerdown/keydown) + botón play manual sobre el póster. En
+contextos de automatización (pane headless, extensión) el autoplay queda
+bloqueado por flag —es esperado y no afecta a visitantes reales.
+
+**Asset:** video servido desde `public/landing/promo/curso-formacion.mp4`
+(CDN Vercel, no Storage) por su tamaño chico: original 89MB 1080×1920 →
+comprimido 8,3MB 720×1280 H.264 CRF28 `+faststart` (streaming progresivo,
+`accept-ranges: bytes` confirmado en prod) + póster JPG 264KB. CSP ya cubría
+`media-src 'self'`. CTA "Inscribirme" → `/formulario/curso-formacion`. Sólo
+lo ven visitantes públicos (los logueados son redirigidos de "/" a su portal).
