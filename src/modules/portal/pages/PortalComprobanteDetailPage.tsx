@@ -201,7 +201,7 @@ export function PortalComprobanteDetailPage() {
 
       {/* Cover header */}
       <section className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm motion-safe:animate-fade-up">
-        <div className="relative h-28 bg-gradient-to-br from-brand-cyan via-brand-cyan to-brand-teal sm:h-32">
+        <div data-gg-cover className="relative h-28 bg-gradient-to-br from-brand-cyan via-brand-cyan to-brand-teal sm:h-32">
           <TrianglesAccent
             position="top-right"
             size={220}

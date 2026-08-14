@@ -89,7 +89,7 @@ export function ActivarPushAssistant() {
   if (dismissedUntil && dismissedUntil > new Date()) return null;
 
   return (
-    <section className="relative overflow-hidden rounded-2xl border-2 border-cyan-200 bg-gradient-to-br from-cyan-50 via-white to-teal-50 p-4 shadow-sm ring-1 ring-cyan-100 sm:p-5">
+    <section data-gg-remind="warn" className="relative overflow-hidden rounded-2xl border-2 border-cyan-200 bg-gradient-to-br from-cyan-50 via-white to-teal-50 p-4 shadow-sm ring-1 ring-cyan-100 sm:p-5">
       <button
         type="button"
         onClick={dismiss}

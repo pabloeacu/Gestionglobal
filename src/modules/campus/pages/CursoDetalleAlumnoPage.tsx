@@ -593,7 +593,10 @@ export function CursoDetalleAlumnoPage() {
         </div>
       ) : null}
 
-      <header className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      <header
+        data-gg-hero-curso={!data.curso.banner_url || undefined}
+        className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"
+      >
         <div>
           {!data.curso.banner_url && (
             <>
@@ -604,7 +607,7 @@ export function CursoDetalleAlumnoPage() {
             </>
           )}
           {resumen && (
-            <div className={cn('flex items-center gap-3 text-xs text-brand-muted', !data.curso.banner_url && 'mt-3')}>
+            <div data-gg-cprogress={!data.curso.banner_url || undefined} className={cn('flex items-center gap-3 text-xs text-brand-muted', !data.curso.banner_url && 'mt-3')}>
               <ProgresoBar porcentaje={resumen.porcentaje} className="max-w-xs" />
               <span>
                 {resumen.completadas}/{resumen.total_clases} clases ·{' '}

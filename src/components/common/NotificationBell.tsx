@@ -277,9 +277,9 @@ export function NotificationBell() {
         aria-expanded={open}
       >
         {hasUnread ? (
-          <BellRing size={16} className="text-brand-cyan motion-safe:animate-wiggle" />
+          <BellRing size={18} className="text-brand-cyan motion-safe:animate-wiggle" />
         ) : (
-          <Bell size={16} />
+          <Bell size={18} />
         )}
         {hasUnread && (
           <span className="pointer-events-none absolute -right-0.5 -top-0.5 grid min-h-[16px] min-w-[16px] place-items-center rounded-full bg-rose-500 px-1 text-[10px] font-bold leading-none text-white shadow-sm ring-2 ring-white">

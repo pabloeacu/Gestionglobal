@@ -214,7 +214,7 @@ function FallbackBox({
   message: string;
 }) {
   return (
-    <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center">
+    <div data-gg-empty className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center">
       <span className={cn('mx-auto grid h-12 w-12 place-items-center rounded-xl bg-brand-cyan/10 text-brand-cyan')}>
         {icon}
       </span>

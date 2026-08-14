@@ -103,6 +103,7 @@ export function PortalGestionesPage() {
             </button>
             <Link
               to="/portal/nuevo"
+              data-gg-tri
               className="inline-flex items-center justify-center gap-2 rounded-xl bg-brand-cyan px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-cyan/90"
             >
               <PlusCircle size={15} /> Nueva solicitud
@@ -152,7 +153,7 @@ export function PortalGestionesPage() {
             ? 'Cuando inicies un trámite o nos lo derives, lo verás acá.'
             : 'Todavía no hay registros de gestiones.'}
           action={
-            <Link to="/portal/nuevo" className="inline-flex items-center gap-2 rounded-xl bg-brand-cyan px-4 py-2 text-sm font-semibold text-white">
+            <Link to="/portal/nuevo" data-gg-tri className="inline-flex items-center gap-2 rounded-xl bg-brand-cyan px-4 py-2 text-sm font-semibold text-white">
               <PlusCircle size={15} /> Solicitar nuevo servicio
             </Link>
           }

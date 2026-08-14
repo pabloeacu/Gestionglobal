@@ -41,6 +41,7 @@ export function Paginador({
 
   return (
     <div
+      data-gg-pager
       className={cn(
         'flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 px-4 py-3 text-sm',
         className,

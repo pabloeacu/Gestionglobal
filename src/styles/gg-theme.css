@@ -736,6 +736,649 @@
   content: none;
 }
 
+/* ---- D.13 · Botones milimétricos (kit .btn): tamaño compacto
+   12.5px/9x16, chamfer 8px top-right y active hundido. El chamfer
+   se APAGA con foco de teclado (:focus-visible) para que el ring de
+   a11y se dibuje entero — mouse ve el bisel, teclado ve el ring. ---- */
+[data-theme='gg-brand'] [data-gg] :is(button, a):where(.bg-brand-cyan, .bg-brand-ink, .bg-brand-night, .bg-brand-orange, .bg-brand-teal, .bg-red-600, .bg-rose-600, .bg-emerald-600)[class*='px-'][class*='py-'] {
+  font-size: 12.5px;
+  line-height: 1.2; /* px-4 py-2 (16/8) ya calza con el 15-16/8-9 del kit */
+}
+[data-theme='gg-brand'] [data-gg] :is(button, a):where(.bg-brand-cyan, .bg-brand-ink, .bg-brand-night, .bg-brand-orange, .bg-brand-teal, .bg-red-600, .bg-rose-600, .bg-emerald-600)[class*='px-']:not(:focus-visible):not([data-gg-round]) {
+  border-radius: 0;
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%);
+}
+[data-theme='gg-brand'] [data-gg] :is(button, a):where(.border[class*='border-slate'], .border[class*='border-brand'])[class*='px-']:not(:focus-visible):not([data-gg-round]) {
+  border-radius: 0;
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%);
+}
+[data-theme='gg-brand'] [data-gg] :is(button, a):where(.bg-brand-cyan, .bg-brand-ink, .bg-brand-night, .bg-brand-orange, .bg-brand-teal, .bg-red-600, .bg-rose-600, .bg-emerald-600):active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+/* ---- D.14 · Iconografía del kit: trazo 1.8 (lucide trae 2) ---- */
+[data-theme='gg-brand'] [data-gg] svg.lucide[stroke-width='2'] {
+  stroke-width: 1.8; /* solo el default de lucide; los trazos explícitos (checks 3/3.5) se respetan */
+}
+
+/* ---- D.15 · Portadas de curso (kit .cc-cover): cuando el curso
+   tiene banner subido, el banner manda y el motivo NO se superpone
+   (el doble patrón ensuciaba la vista previa); sin banner, la
+   portada es la del kit: degradé + motivo + esquinas rectas. ---- */
+[data-theme='gg-brand'] [data-gg] [data-gg-cover]:has(img)::after {
+  content: none;
+}
+[data-theme='gg-brand'] [data-gg] [data-gg-cover]:not(:has(img)) {
+  background: linear-gradient(135deg, #0b1f33, #2e6fb0 70%, #159aa6);
+}
+[data-theme='gg-brand'] [data-gg] [data-gg-cover]:not(:has(img))::after {
+  opacity: 0.16;
+}
+
+/* ============================================================
+   E · Fidelidad total contra el kit (auditoría de 6 lentes /
+   97 gaps, 2026-08-14). Cada regla cita su gap [#]. Todo scopeado
+   [data-theme='gg-brand'] — inalcanzable para PDFs/landing/impresos.
+   ============================================================ */
+
+/* [1][61] Hover de CTAs: el fondo NO cambia de tono; offset duro
+   via drop-shadow (box-shadow lo recortaría el chamfer de D.13) */
+[data-theme='gg-brand'] [data-gg] :is(button, a).bg-brand-cyan:not(:disabled):hover {
+  background-color: #009eca;
+  --tw-shadow: 0 0 #0000;
+  box-shadow: none;
+  filter: drop-shadow(3px 3px 0 rgba(0, 158, 202, 0.28));
+}
+[data-theme='gg-brand'] [data-gg] :is(button, a):is(.bg-brand-ink, .bg-brand-night):not(:disabled):hover {
+  box-shadow: none;
+  filter: drop-shadow(3px 3px 0 rgba(11, 31, 51, 0.22));
+}
+/* [13][61] foco de teclado: halo cyan de la spec (el chamfer se apaga
+   en :focus-visible, así que el halo se ve entero) */
+[data-theme='gg-brand'] [data-gg] :is(button, a):where(.bg-brand-cyan, .bg-brand-ink, .bg-brand-night, .bg-red-600):focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(0, 158, 202, 0.35);
+}
+/* [8] rojo del kit */
+[data-theme='gg-brand'] [data-gg] :is(button, a).bg-red-600 { background-color: #c22b4a; }
+[data-theme='gg-brand'] [data-gg] :is(button, a).bg-red-600:hover { background-color: #a82440; }
+/* [12] secondary → .btn.ghost del kit (hover pale) */
+[data-theme='gg-brand'] [data-gg] :is(button, a).border[class*='hover:bg-slate-50']:hover { background-color: #e7f1f9; }
+/* [76] ghost sin borde → ghost del kit */
+[data-theme='gg-brand'] [data-gg] button.text-brand-muted[class*='hover:bg-slate-100'] {
+  font-family: 'GG Oswald', system-ui, sans-serif;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+/* [4][64] triangulito ▶ del kit en CTAs marcados */
+[data-theme='gg-brand'] [data-gg] [data-gg-tri]::after {
+  content: '';
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 4px 0 4px 6px;
+  border-color: transparent transparent transparent currentColor;
+  margin-left: 4px;
+  display: inline-block;
+}
+
+/* [9][10] chips: interactivo Oswald 500/11px, badge estático 10px */
+[data-theme='gg-brand'] [data-gg] :is(button, a, summary, label).rounded-full[class*='px-']:not([data-gg-round]) {
+  font-weight: 500;
+  font-size: 11px;
+}
+[data-theme='gg-brand'] [data-gg] :is(span, p, div, em, strong).rounded-full[class*='px-']:not([data-gg-round]) {
+  font-size: 10px;
+}
+/* [6] rombo del color del estado en badges sin dot/ícono propio */
+[data-theme='gg-brand'] [data-gg] :is(span, p, div, em, strong).rounded-full[class*='px-']:not([data-gg-round]):not(:has(svg, [class*='h-1.5'], [class*='w-1.5'], [class*='h-2 '])) {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+[data-theme='gg-brand'] [data-gg] :is(span, p, div, em, strong).rounded-full[class*='px-']:not([data-gg-round]):not(:has(svg, [class*='h-1.5'], [class*='w-1.5'], [class*='h-2 ']))::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  flex: none;
+  background: currentColor;
+  transform: rotate(45deg);
+}
+/* [7] paleta semántica del kit SOLO en pills */
+[data-theme='gg-brand'] [data-gg] .rounded-full[class*='px-']:is(.bg-emerald-50, .bg-emerald-100) { background-color: #e6f6ef; }
+[data-theme='gg-brand'] [data-gg] .rounded-full[class*='px-']:is(.text-emerald-700, .text-emerald-800) { color: #0e9f6e; }
+[data-theme='gg-brand'] [data-gg] .rounded-full[class*='px-']:is(.bg-amber-50, .bg-amber-100) { background-color: #fbeedd; }
+[data-theme='gg-brand'] [data-gg] .rounded-full[class*='px-']:is(.text-amber-700, .text-amber-800) { color: #c46a10; }
+[data-theme='gg-brand'] [data-gg] .rounded-full[class*='px-']:is(.bg-rose-50, .bg-rose-100, .bg-red-50, .bg-red-100) { background-color: #fbe7ec; }
+[data-theme='gg-brand'] [data-gg] .rounded-full[class*='px-']:is(.text-rose-700, .text-rose-800, .text-red-700, .text-red-800) { color: #c22b4a; }
+[data-theme='gg-brand'] [data-gg] .rounded-full[class*='px-'].bg-slate-100 { background-color: #eef2f6; }
+/* [5][52] chip de filtro activo = navy del kit (aria-pressed) */
+[data-theme='gg-brand'] [data-gg] button.rounded-full[class*='px-'][aria-pressed='true']:not([data-gg-round]) {
+  background-color: #0b1f33;
+  border-color: #0b1f33;
+  color: #ffffff;
+}
+
+/* [17][65] eyebrow del kit = petrol (cyan queda para acción/activo) */
+[data-theme='gg-brand'] [data-gg] .kicker.text-brand-cyan { color: #159aa6; }
+
+/* [18][74][95] H1 de página: escala display del kit */
+[data-theme='gg-brand'] [data-gg] h1.font-display {
+  letter-spacing: -0.01em;
+  line-height: 1.05;
+}
+[data-theme='gg-brand'] [data-gg] h1.font-display:is([class*='text-3xl'], [class*='text-4xl']) {
+  font-size: 38px;
+  line-height: 1;
+}
+[data-theme='gg-brand'] [data-gg='gerencia'] h1.font-display:is([class*='text-3xl'], [class*='text-4xl']) {
+  font-size: 40px;
+}
+
+/* [20] IDs/códigos: Oswald condensada, no monospace (el kit no usa mono) */
+[data-theme='gg-brand'] [data-gg] :is(span, p, td, dd, code).font-mono:not([class*='tracking-']) {
+  font-family: 'GG Oswald', system-ui, sans-serif;
+  font-weight: 500;
+  letter-spacing: 0.03em;
+}
+/* [21][53] importes de tabla en Oswald 600 14px ink */
+[data-theme='gg-brand'] [data-gg] table td.tabular:is(.font-medium, .font-semibold) {
+  font-family: 'GG Oswald', system-ui, sans-serif;
+  font-weight: 600;
+  font-size: 14px;
+  color: #0b1f33;
+}
+
+/* [50] th del toolkit (botones ordenables) hereda la escala del kit */
+[data-theme='gg-brand'] [data-gg] table thead th button.uppercase {
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+}
+/* [55][56][57] tabla: borde del thead, cuerpo 13px, hover pale pleno */
+[data-theme='gg-brand'] [data-gg] table thead th { border-bottom: 1px solid rgba(11, 31, 51, 0.14); }
+[data-theme='gg-brand'] [data-gg] table.text-sm { font-size: 13px; }
+[data-theme='gg-brand'] [data-gg] table tbody tr:hover { background-color: #e7f1f9; }
+
+/* [54] la línea del kit: bordes navy-tintados, nunca slate frío */
+[data-theme='gg-brand'] [data-gg] :is(.border-slate-200, .border-slate-300) { border-color: rgba(11, 31, 51, 0.14); }
+[data-theme='gg-brand'] [data-gg] .border-slate-100 { border-color: rgba(11, 31, 51, 0.08); }
+[data-theme='gg-brand'] [data-gg] .divide-slate-100 > :not([hidden]) ~ :not([hidden]) { border-color: rgba(11, 31, 51, 0.08); }
+
+/* [46][47] inputs: borde línea en reposo + focus exacto del kit */
+[data-theme='gg-brand'] [data-gg] :where(input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']):not([type='color']), select, textarea):not([data-gg-round]) {
+  border-color: rgba(11, 31, 51, 0.14);
+}
+[data-theme='gg-brand'] [data-gg] :where(input:not([type='checkbox']):not([type='radio']), select, textarea):focus:not([class*='ring-red']) {
+  box-shadow: 0 0 0 3px rgba(0, 158, 202, 0.15);
+}
+/* [58] labels ricos de Field.tsx (span.kicker block) = label del kit */
+[data-theme='gg-brand'] [data-gg] span.kicker[class*='block']:not([class*='flex']) {
+  font-family: 'GG Oswald', system-ui, sans-serif;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 10px;
+  color: #5d7284;
+}
+
+/* [51] pestañas: 12px del kit */
+[data-theme='gg-brand'] [data-gg] :is([role='tab'], button[class*='border-b-2'][class*='-mb-px']) {
+  font-size: 12px;
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+
+/* [45] paginador (Paginador.tsx): flechas 30px + fila Oswald */
+[data-theme='gg-brand'] [data-gg] [data-gg-pager] button {
+  min-width: 30px;
+  height: 30px;
+  background: #ffffff;
+  border-color: rgba(11, 31, 51, 0.14);
+  color: #0b1f33;
+  font-family: 'GG Oswald', system-ui, sans-serif;
+}
+[data-theme='gg-brand'] [data-gg] [data-gg-pager] button:hover:not(:disabled) {
+  background: #009eca;
+  border-color: #009eca;
+  color: #ffffff;
+}
+[data-theme='gg-brand'] [data-gg] [data-gg-pager] :is(span, select) {
+  font-family: 'GG Oswald', system-ui, sans-serif;
+  font-size: 12px;
+  letter-spacing: 0.03em;
+}
+
+/* [34][63] barra de progreso del campus: pista pale cuadrada + fill
+   cyan→petrol (el gradiente azul equivocado se pisa acá) */
+[data-theme='gg-brand'] [data-gg] div:has(> [role='progressbar']) {
+  border-radius: 0;
+  background-color: #e7f1f9;
+}
+[data-theme='gg-brand'] [data-gg] [role='progressbar'] { border-radius: 0; }
+[data-theme='gg-brand'] [data-gg] [role='progressbar'].from-brand-cyan {
+  background: linear-gradient(90deg, #009eca, #159aa6);
+}
+[data-theme='gg-brand'] [data-gg] div:has(> [role='progressbar']) + span {
+  font-family: 'GG Oswald', system-ui, sans-serif;
+  font-weight: 600;
+  font-size: 13px;
+  color: #0b1f33;
+}
+
+/* [29][32][33] portadas: motivo del kit (blanco pleno .16; hero 40px .12)
+   + tipografía del hero del curso */
+[data-theme='gg-brand'] [data-gg] [data-gg-cover]:not(:has(img))::after {
+  background-image:
+    linear-gradient(135deg, #ffffff 25%, transparent 25%),
+    linear-gradient(225deg, #ffffff 25%, transparent 25%);
+  opacity: 0.16;
+}
+[data-theme='gg-brand'] [data-gg] [data-gg-cover]:not(:has(img)):has(h1)::after {
+  opacity: 0.12;
+  background-size: 40px 40px;
+  background-position: 0 0, 20px 20px;
+}
+[data-theme='gg-brand'] [data-gg] [data-gg-cover] .kicker {
+  color: #9cc7e4;
+  letter-spacing: 0.14em;
+}
+[data-theme='gg-brand'] [data-gg] [data-gg-cover] h1 {
+  font-size: clamp(28px, 4.5vw, 40px);
+  line-height: 0.98;
+}
+/* [38] badge sobre portada: plano, sin vidrio */
+[data-theme='gg-brand'] [data-gg] [data-gg-cover] > span.rounded-full {
+  top: 14px;
+  right: 14px;
+  box-shadow: none;
+  backdrop-filter: none;
+  border-color: transparent;
+}
+/* [27] fallback de portada (sin banner): cover del kit */
+[data-theme='gg-brand'] [data-gg] [data-gg-cover-fallback] {
+  display: flex !important;
+  aspect-ratio: 3 / 1;
+  align-items: flex-end;
+  padding: 14px 16px;
+  position: relative;
+  overflow: hidden;
+}
+[data-theme='gg-brand'] [data-gg] [data-gg-cover-fallback] [data-gg-cover-title] {
+  position: relative;
+  z-index: 1;
+  font-family: 'GG Oswald', system-ui, sans-serif;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #ffffff;
+  font-size: 19px;
+  line-height: 1.05;
+  letter-spacing: 0.01em;
+  max-width: 80%;
+}
+[data-theme='gg-brand'] [data-gg] [data-gg-cover] .text-brand-cyan\/40 { color: rgba(255, 255, 255, 0.55); }
+/* [28] hero del curso detalle sin banner: c-hero del kit */
+[data-theme='gg-brand'] [data-gg] [data-gg-hero-curso] {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(115deg, #0b1f33 0%, #123a5c 45%, #2e6fb0 100%);
+  border: 1px solid rgba(11, 31, 51, 0.14);
+  padding: 34px 34px 28px;
+}
+[data-theme='gg-brand'] [data-gg] [data-gg-hero-curso]::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0.12;
+  background-image:
+    linear-gradient(135deg, #ffffff 25%, transparent 25%),
+    linear-gradient(225deg, #ffffff 25%, transparent 25%);
+  background-size: 40px 40px;
+  background-position: 0 0, 20px 20px;
+  pointer-events: none;
+}
+[data-theme='gg-brand'] [data-gg] [data-gg-hero-curso] > * { position: relative; z-index: 1; }
+[data-theme='gg-brand'] [data-gg] [data-gg-hero-curso] h1 {
+  color: #ffffff;
+  text-transform: uppercase;
+  font-size: clamp(28px, 4.5vw, 40px);
+  line-height: 0.98;
+}
+[data-theme='gg-brand'] [data-gg] [data-gg-hero-curso] .kicker {
+  color: #9cc7e4;
+  letter-spacing: 0.14em;
+}
+[data-theme='gg-brand'] [data-gg] [data-gg-hero-curso] .text-brand-muted { color: rgba(255, 255, 255, 0.72); }
+/* [42] banda de progreso adosada al hero del curso */
+[data-theme='gg-brand'] [data-gg] [data-gg-cprogress] {
+  background: #ffffff;
+  border: 1px solid rgba(11, 31, 51, 0.14);
+  border-top: none;
+  padding: 14px 22px;
+}
+/* [36] tiras de consorcio/comprobante toman el degradé por data-gg-cover */
+
+/* [39][75] body de la card de curso: cc-mod petrol + cc-name sin caja alta */
+[data-theme='gg-brand'] [data-gg] [data-gg-course] .kicker {
+  color: #159aa6;
+  letter-spacing: 0.1em;
+  font-size: 10px;
+}
+[data-theme='gg-brand'] [data-gg] [data-gg-course] h3.font-display {
+  text-transform: none;
+  letter-spacing: normal;
+  font-size: 17px;
+  line-height: 1.1;
+  padding-bottom: 0;
+}
+[data-theme='gg-brand'] [data-gg] [data-gg-course] h3.font-display::after { content: none; }
+/* [64] pie de card de curso: divisor dashed + CONTINUAR como .btn.primary */
+[data-theme='gg-brand'] [data-gg] [data-gg-course] footer {
+  border-top: 1px dashed rgba(11, 31, 51, 0.14);
+  padding-top: 14px;
+}
+[data-theme='gg-brand'] [data-gg] [data-gg-course] footer > span:last-child {
+  background: #009eca;
+  color: #ffffff;
+  font-family: 'GG Oswald', system-ui, sans-serif;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 12px;
+  padding: 8px 15px;
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%);
+  text-decoration: none !important;
+}
+[data-theme='gg-brand'] [data-gg] [data-gg-course] footer > span:last-child svg { display: none; }
+[data-theme='gg-brand'] [data-gg] [data-gg-course] footer > span:last-child::after {
+  content: '';
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 4px 0 4px 6px;
+  border-color: transparent transparent transparent currentColor;
+  margin-left: 4px;
+  display: inline-block;
+}
+
+/* [30][31][66][40][41] hero del home del portal */
+[data-theme='gg-brand'] [data-gg-hero] > svg { display: none; }
+[data-theme='gg-brand'] [data-gg-hero]::after {
+  content: '';
+  position: absolute;
+  right: -30px;
+  top: -30px;
+  width: 200px;
+  height: 200px;
+  opacity: 0.1;
+  color: #2e6fb0;
+  background-image: linear-gradient(135deg, transparent 49%, currentColor 50%);
+  background-size: 26px 26px;
+  pointer-events: none;
+}
+[data-theme='gg-brand'] [data-gg-hero] h1.font-display {
+  font-size: 34px;
+  line-height: 1;
+}
+[data-theme='gg-brand'] [data-gg-hero] span.font-display[class*='text-2xl'] { font-size: 34px; line-height: 1; }
+[data-theme='gg-brand'] [data-gg-hero] span.uppercase.tracking-wider {
+  font-family: 'GG Oswald', system-ui, sans-serif;
+  font-weight: 600;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+}
+[data-theme='gg-brand'] [data-gg-hero] .kicker { color: #5d7284; }
+[data-theme='gg-brand'] [data-gg-hero] .rounded-full {
+  color: #0e9f6e;
+  background: #e6f6ef;
+  --tw-ring-color: transparent;
+}
+
+/* [67][23] q-cards: caja azul con borde + vértice plegado + qt 15px */
+[data-theme='gg-brand'] [data-gg-qcard] > span.grid {
+  color: #2e6fb0;
+  border: 1px solid rgba(11, 31, 51, 0.14);
+  border-radius: 0;
+}
+[data-theme='gg-brand'] [data-gg-qcard] > span.grid svg.lucide { width: 20px; height: 20px; }
+[data-theme='gg-brand'] [data-gg-qcard] .font-semibold { font-size: 15px; }
+[data-theme='gg-brand'] [data-gg-qcard] {
+  background-image: linear-gradient(
+    to bottom left,
+    #f3f7fb calc(50% - 0.5px),
+    rgba(11, 31, 51, 0.14) calc(50% - 0.5px) calc(50% + 0.5px),
+    transparent calc(50% + 0.5px)
+  );
+  background-size: 15px 15px;
+  background-position: top right;
+  background-repeat: no-repeat;
+}
+
+/* [72] banners de aviso del inicio (remind del kit) */
+[data-theme='gg-brand'] [data-gg] [data-gg-remind] {
+  border-width: 1px;
+  border-color: rgba(11, 31, 51, 0.14);
+  border-left: 3px solid var(--gg-rt, #009eca);
+  background: linear-gradient(90deg, var(--gg-rtb, #e1f3fa), #ffffff 70%);
+}
+[data-theme='gg-brand'] [data-gg] [data-gg-remind='warn'] { --gg-rt: #c46a10; --gg-rtb: #fbeedd; }
+[data-theme='gg-brand'] [data-gg] [data-gg-remind] span.grid:first-child,
+[data-theme='gg-brand'] [data-gg] [data-gg-remind] > div > span.grid {
+  background: #ffffff;
+  border: 1px solid rgba(11, 31, 51, 0.14);
+  color: var(--gg-rt, #009eca);
+  border-radius: 0;
+}
+
+/* [79] notice de gerencia ('Tenés novedades · en vivo') */
+[data-theme='gg-brand'] [data-gg] [data-gg-notice] {
+  border-width: 1px;
+  border-color: rgba(11, 31, 51, 0.14);
+  border-left: 3px solid #009eca;
+  background: linear-gradient(90deg, #e7f1f9, #ffffff 60%);
+}
+[data-theme='gg-brand'] [data-gg] [data-gg-notice] .kicker { color: #159aa6; }
+[data-theme='gg-brand'] [data-gg] [data-gg-notice] :is(.bg-amber-100, .bg-amber-50) {
+  background: #ffffff;
+  border: 1px solid rgba(11, 31, 51, 0.14);
+  color: #159aa6;
+}
+[data-theme='gg-brand'] [data-gg] [data-gg-notice] :is(.text-amber-700, .text-amber-800, .text-amber-900) { color: #122230; }
+[data-theme='gg-brand'] [data-gg] [data-gg-notice] ul > li {
+  border-style: dashed;
+  border-color: rgba(11, 31, 51, 0.14);
+}
+/* [86] alarm del kit (estado 'Sin pendientes para hoy') */
+[data-theme='gg-brand'] [data-gg] [data-gg-alarm] .kicker { color: #5d7284; }
+[data-theme='gg-brand'] [data-gg] [data-gg-alarm] .bg-emerald-50 {
+  background: #e6f6ef;
+  color: #0e9f6e;
+  border: 1px solid rgba(14, 159, 110, 0.25);
+  border-radius: 0;
+}
+
+/* [35] estados vacíos (.empty del kit) */
+[data-theme='gg-brand'] [data-gg] [data-gg-empty] {
+  position: relative;
+  overflow: hidden;
+  border: 1px dashed rgba(11, 31, 51, 0.14);
+  background: #f3f7fb;
+}
+[data-theme='gg-brand'] [data-gg] [data-gg-empty]::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0.06;
+  background-image:
+    linear-gradient(135deg, #2e6fb0 25%, transparent 25%),
+    linear-gradient(225deg, #159aa6 25%, transparent 25%);
+  background-size: 26px 26px;
+  background-position: 0 0, 13px 13px;
+  pointer-events: none;
+}
+
+/* [43] escenarios de video en vivo: fondo radial del kit */
+[data-theme='gg-brand'] [data-gg] :is(.bg-slate-950, .bg-slate-900):is([class*='rounded-2xl'], [class*='rounded-3xl']) {
+  background: radial-gradient(circle at 50% 45%, #16344f, #0b1f33);
+}
+
+/* [70][71] sidebar del curso: números pale/blue + clase activa del kit */
+[data-theme='gg-brand'] [data-gg] aside.card-premium nav button > span.grid:first-child {
+  background: #e7f1f9;
+  color: #2e6fb0;
+  border: 1px solid rgba(11, 31, 51, 0.14);
+  border-radius: 0;
+  font-family: 'GG Oswald', system-ui, sans-serif;
+}
+[data-theme='gg-brand'] [data-gg] aside.card-premium ul li button[class*='bg-brand-cyan/10'] {
+  background: #e7f1f9;
+  border-left: 2px solid #009eca;
+  border-radius: 0;
+  font-weight: 600;
+}
+/* [73] back-link condensado */
+[data-theme='gg-brand'] [data-gg] a:has(> svg.lucide-arrow-left) {
+  font-family: 'GG Oswald', system-ui, sans-serif;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* [22] íconos del riel del portal a 20px (kit .r-ico svg) */
+@media (min-width: 768px) {
+  [data-theme='gg-brand'] [data-gg='portal'] [data-gg-rail] nav a svg.lucide { width: 20px; height: 20px; }
+}
+/* [68] indicador activo del riel: filete a toda la altura */
+[data-theme='gg-brand'] [data-gg-rail] nav a > span[aria-hidden] {
+  top: 0;
+  height: 100%;
+  transform: none;
+  border-radius: 0;
+  width: 2px;
+}
+/* [80] filete cyan del ítem activo (gerencia + portal) */
+[data-theme='gg-brand'] [data-gg-rail] nav > ul > li > :is(a, button) { border-left: 2px solid transparent; }
+[data-theme='gg-brand'] [data-gg-rail] nav > ul > li > a[aria-current='page'],
+[data-theme='gg-brand'] [data-gg-rail] nav > ul > li > button[class*='bg-brand-cyan/10'] { border-left-color: #009eca; }
+/* [82] grupos del nav = nav-group del kit (micro-label condensado) */
+[data-theme='gg-brand'] [data-gg] [data-gg-rail] nav > ul > li > button {
+  font-family: 'GG Oswald', system-ui, sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 10px;
+  font-weight: 600;
+  color: #6f8ba6;
+}
+/* [83] sub-items: flechita cyan en hover/activo, sin hairline gris */
+[data-theme='gg-brand'] [data-gg-rail] nav ul ul a {
+  position: relative;
+  border-color: transparent;
+}
+[data-theme='gg-brand'] [data-gg-rail] nav ul ul a::before {
+  content: '';
+  position: absolute;
+  left: 8px;
+  top: 50%;
+  width: 5px;
+  height: 5px;
+  transform: translateY(-50%) rotate(45deg);
+  border-right: 1.5px solid #009eca;
+  border-top: 1.5px solid #009eca;
+  opacity: 0;
+}
+[data-theme='gg-brand'] [data-gg-rail] nav ul ul a:hover::before,
+[data-theme='gg-brand'] [data-gg-rail] nav ul ul a[aria-current='page']::before { opacity: 1; }
+/* [91] reposo nivel-1 más claro + íconos al 85% */
+[data-theme='gg-brand'] [data-gg='gerencia'] [data-gg-rail] nav > ul > li > a { color: #c6d7e6; }
+[data-theme='gg-brand'] [data-gg-rail] nav :is(a, button) > svg:first-child { opacity: 0.85; }
+/* [85] wordmark del kit */
+[data-theme='gg-brand'] [data-gg-rail] a[aria-label='Inicio'] .font-display {
+  font-size: 16px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  line-height: 1.05;
+}
+/* [90] motivo del sidebar gerencia (escala del mockup gerencia) */
+[data-theme='gg-brand'] [data-gg='gerencia'] [data-gg-rail]::after {
+  height: 180px;
+  background-size: 34px 34px;
+  opacity: 0.5;
+}
+/* [92] color del pie institucional sobre navy */
+[data-theme='gg-brand'] [data-gg-rail] .text-brand-muted { color: #7f97ae; }
+/* [94] ancho del kit */
+[data-theme='gg-brand'] [data-gg='gerencia'] aside[data-gg-rail] { width: 250px; }
+
+/* [78][49][96][81][69][48][84][88][89] topbar del kit */
+[data-theme='gg-brand'] [data-gg-topbar] {
+  background-color: #ffffff;
+  backdrop-filter: none;
+}
+[data-theme='gg-brand'] [data-gg-topbar] [data-tour='palette-trigger'] {
+  background-color: #f3f7fb;
+  border-color: rgba(11, 31, 51, 0.14);
+  padding: 8px 13px;
+  font-family: 'GG Archivo', system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: normal;
+  color: #5d7284;
+  justify-content: flex-start;
+}
+@media (min-width: 900px) {
+  [data-theme='gg-brand'] [data-gg-topbar] [data-tour='palette-trigger'] { min-width: 250px; }
+}
+[data-theme='gg-brand'] [data-gg-topbar] [data-tour='palette-trigger'] kbd { margin-left: auto; }
+[data-theme='gg-brand'] [data-gg='gerencia'] [data-gg-topbar] .kicker + p {
+  font-family: 'GG Oswald', system-ui, sans-serif;
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: #0b1f33;
+  line-height: 1.15;
+}
+[data-theme='gg-brand'] [data-gg='portal'] [data-gg-topbar] .kicker + p {
+  font-family: 'GG Oswald', system-ui, sans-serif;
+  font-size: 17px;
+  font-weight: 600;
+  color: #0b1f33;
+}
+[data-theme='gg-brand'] [data-gg-topbar] button.h-9.w-9 {
+  width: 38px;
+  height: 38px;
+  background-color: #f3f7fb;
+  border-color: rgba(11, 31, 51, 0.14);
+  color: #0b1f33;
+}
+[data-theme='gg-brand'] [data-gg-topbar] button span.bg-rose-500 {
+  background-color: #c22b4a;
+  font-family: 'GG Oswald', system-ui, sans-serif;
+  --tw-ring-shadow: 0 0 #0000;
+  --tw-ring-offset-shadow: 0 0 #0000;
+  box-shadow: none;
+}
+[data-theme='gg-brand'] [data-gg-topbar] span.bg-brand-cyan {
+  font-family: 'GG Oswald', system-ui, sans-serif;
+  font-weight: 600;
+  font-size: 15px;
+}
+
+/* [87] KPI: ícono suelto sky, sin caja tintada (kit .k-ico) */
+[data-theme='gg-brand'] [data-gg] [data-gg-kpi] span[class*='place-items-center'] {
+  background-color: transparent;
+  color: #9cc7e4;
+  width: auto;
+  height: auto;
+}
+/* [93] footer del main transparente sobre paper */
+[data-theme='gg-brand'] [data-gg='gerencia'] footer[class*='bg-white'] {
+  background: transparent;
+  border-color: rgba(11, 31, 51, 0.14);
+}
+
 /* ---- D.11 · El nav del rail NO se condensa (el kit lo deja en
    Archivo 500; gana sobre D.5 por especificidad). ---- */
 [data-theme='gg-brand'] [data-gg] [data-gg-rail] nav :is(a, button) {

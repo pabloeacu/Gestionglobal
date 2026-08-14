@@ -227,7 +227,7 @@ function ConsorcioDetailModal({
         aria-hidden
       />
       <div className="relative my-auto w-full max-w-lg overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
-        <div className="relative h-24 bg-gradient-to-br from-brand-cyan via-brand-cyan to-brand-teal">
+        <div data-gg-cover className="relative h-24 bg-gradient-to-br from-brand-cyan via-brand-cyan to-brand-teal">
           <TrianglesAccent
             position="top-right"
             size={180}

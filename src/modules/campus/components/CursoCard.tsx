@@ -45,7 +45,7 @@ export function CursoCard({
       )}
     >
       {/* Banner / fallback decorativo */}
-      <div className="relative h-32 w-full overflow-hidden bg-gradient-to-br from-brand-cyan-pale via-white to-brand-cyan/10">
+      <div data-gg-cover className="relative h-32 w-full overflow-hidden bg-gradient-to-br from-brand-cyan-pale via-white to-brand-cyan/10">
         {curso.banner_url ? (
           <img
             src={curso.banner_url}

@@ -707,7 +707,7 @@ function DocsPendientesBanner({ items }: { items: PedidoAbiertoResumen[] }) {
   const hayAccionPendiente = totalItemsPendientes > 0 || faltaEnviar;
   const tramiteUnico = total === 1 ? items[0] : null;
   return (
-    <section className="relative overflow-hidden rounded-2xl border-2 border-amber-300 bg-gradient-to-br from-amber-50 via-white to-orange-50 p-4 shadow-sm ring-1 ring-amber-100 sm:p-5">
+    <section data-gg-remind="warn" className="relative overflow-hidden rounded-2xl border-2 border-amber-300 bg-gradient-to-br from-amber-50 via-white to-orange-50 p-4 shadow-sm ring-1 ring-amber-100 sm:p-5">
       <div className="flex items-start gap-3">
         <span className="grid h-12 w-12 flex-shrink-0 place-items-center rounded-2xl bg-amber-500 text-white shadow-sm">
           <AlertCircle size={22} className={hayAccionPendiente ? 'motion-safe:animate-[wiggle_1.2s_ease-in-out_infinite]' : ''} />
@@ -769,6 +769,7 @@ function AvancesNuevosBanner({ count }: { count: number }) {
   return (
     <Link
       to="/portal/gestiones"
+      data-gg-remind
       className="group relative flex items-center gap-4 overflow-hidden rounded-2xl border border-cyan-200 bg-gradient-to-br from-cyan-50 via-white to-teal-50 p-4 shadow-sm ring-1 ring-cyan-100 transition hover:border-brand-cyan hover:shadow-md sm:p-5"
     >
       <span className="grid h-12 w-12 flex-shrink-0 place-items-center rounded-2xl bg-brand-cyan text-white shadow-sm">

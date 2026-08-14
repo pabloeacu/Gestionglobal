@@ -20,6 +20,7 @@ export function IllustratedEmpty({
 }: IllustratedEmptyProps) {
   return (
     <div
+      data-gg-empty
       className={cn(
         'flex flex-col items-center justify-center gap-5 py-12 text-center',
         className,

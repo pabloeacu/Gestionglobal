@@ -98,7 +98,7 @@ export function AlarmasHoyWidget() {
 
   if (items.length === 0) {
     return (
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <section data-gg-alarm className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <header className="mb-3 flex items-center justify-between">
           <div>
             <p className="kicker text-brand-cyan">Alarmas de hoy</p>
