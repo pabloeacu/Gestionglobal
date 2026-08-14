@@ -10,102 +10,45 @@
      elemento renderizado use Oswald/Archivo (lazy por diseño).
    ============================================================ */
 
-/* ---- Fuentes de marca (self-host, public/fonts, subsets latin+latin-ext) ---- */
+/* ---- Fuentes de marca (self-host, public/fonts, subsets latin+latin-ext) ----
+   §6 Fase 0 (CRÍTICO cazado): las familias se registran como 'GG Oswald' /
+   'GG Archivo' — NUNCA 'Oswald'/'Archivo' a secas. Un @font-face es global e
+   inescapable por [data-theme]: registrar 'Oswald' capturaba el stack legacy
+   del título del certificado (CertificadoPremium.tsx: 'Bebas Neue','Oswald',
+   'Impact') y cambiaba el PDF. El prefijo inmuniza cualquier stack presente o
+   futuro. Son fuentes VARIABLES: un archivo por familia/subset cubre todos
+   los pesos (font-weight range) — 4 archivos, no 12. */
 @font-face {
-  font-family: 'Archivo';
+  font-family: 'GG Oswald';
   font-style: normal;
-  font-weight: 400;
+  font-weight: 200 700;
   font-display: swap;
-  src: url('/fonts/archivo-400-latin-ext.woff2') format('woff2');
-  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
-}
-@font-face {
-  font-family: 'Archivo';
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url('/fonts/archivo-400-latin.woff2') format('woff2');
+  src: url('/fonts/gg-oswald-latin.woff2') format('woff2');
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 @font-face {
-  font-family: 'Archivo';
+  font-family: 'GG Oswald';
   font-style: normal;
-  font-weight: 500;
+  font-weight: 200 700;
   font-display: swap;
-  src: url('/fonts/archivo-500-latin-ext.woff2') format('woff2');
+  src: url('/fonts/gg-oswald-latin-ext.woff2') format('woff2');
   unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
 }
 @font-face {
-  font-family: 'Archivo';
+  font-family: 'GG Archivo';
   font-style: normal;
-  font-weight: 500;
+  font-weight: 100 900;
   font-display: swap;
-  src: url('/fonts/archivo-500-latin.woff2') format('woff2');
+  src: url('/fonts/gg-archivo-latin.woff2') format('woff2');
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 @font-face {
-  font-family: 'Archivo';
+  font-family: 'GG Archivo';
   font-style: normal;
-  font-weight: 600;
+  font-weight: 100 900;
   font-display: swap;
-  src: url('/fonts/archivo-600-latin-ext.woff2') format('woff2');
+  src: url('/fonts/gg-archivo-latin-ext.woff2') format('woff2');
   unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
-}
-@font-face {
-  font-family: 'Archivo';
-  font-style: normal;
-  font-weight: 600;
-  font-display: swap;
-  src: url('/fonts/archivo-600-latin.woff2') format('woff2');
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-@font-face {
-  font-family: 'Oswald';
-  font-style: normal;
-  font-weight: 500;
-  font-display: swap;
-  src: url('/fonts/oswald-500-latin-ext.woff2') format('woff2');
-  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
-}
-@font-face {
-  font-family: 'Oswald';
-  font-style: normal;
-  font-weight: 500;
-  font-display: swap;
-  src: url('/fonts/oswald-500-latin.woff2') format('woff2');
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-@font-face {
-  font-family: 'Oswald';
-  font-style: normal;
-  font-weight: 600;
-  font-display: swap;
-  src: url('/fonts/oswald-600-latin-ext.woff2') format('woff2');
-  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
-}
-@font-face {
-  font-family: 'Oswald';
-  font-style: normal;
-  font-weight: 600;
-  font-display: swap;
-  src: url('/fonts/oswald-600-latin.woff2') format('woff2');
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-@font-face {
-  font-family: 'Oswald';
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-  src: url('/fonts/oswald-700-latin-ext.woff2') format('woff2');
-  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
-}
-@font-face {
-  font-family: 'Oswald';
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-  src: url('/fonts/oswald-700-latin.woff2') format('woff2');
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 
 /* ---- Tokens del kit (verbatim de gestionglobal-ui-kit/tokens.css) ---- */
@@ -143,8 +86,8 @@
   --gg-info: #009ECA;  --gg-info-bg: #E1F3FA;
 
   /* -- Tipografía -- */
-  --gg-font-display: 'Oswald', system-ui, sans-serif;  /* títulos + micro-labels, SIEMPRE en mayúsculas */
-  --gg-font-body:    'Archivo', system-ui, sans-serif; /* texto de interfaz, tablas y cifras */
+  --gg-font-display: 'GG Oswald', system-ui, sans-serif;  /* títulos + micro-labels, SIEMPRE en mayúsculas */
+  --gg-font-body:    'GG Archivo', system-ui, sans-serif; /* texto de interfaz, tablas y cifras */
   --gg-tnum: "tnum" 1, "lnum" 1;                        /* números tabulares para todo lo monetario */
 
   /* Escala tipográfica (px) */
@@ -174,11 +117,11 @@
 }
 
 /* ---- Utilidades de forma reutilizables ---- */
-.gg-chamfer   { clip-path: polygon(0 0, calc(100% - var(--gg-chamfer)) 0, 100% var(--gg-chamfer), 100% 100%, 0 100%); }
-.gg-chamfer-sm{ clip-path: polygon(0 0, calc(100% - var(--gg-chamfer-sm)) 0, 100% var(--gg-chamfer-sm), 100% 100%, 0 100%); }
+[data-theme="gg-brand"] .gg-chamfer   { clip-path: polygon(0 0, calc(100% - var(--gg-chamfer)) 0, 100% var(--gg-chamfer), 100% 100%, 0 100%); }
+[data-theme="gg-brand"] .gg-chamfer-sm{ clip-path: polygon(0 0, calc(100% - var(--gg-chamfer-sm)) 0, 100% var(--gg-chamfer-sm), 100% 100%, 0 100%); }
 
 /* Motivo de triángulos de marca (fondo para headers, estados vacíos, portadas) */
-.gg-motif{
+[data-theme="gg-brand"] .gg-motif{
   background-image:
     linear-gradient(135deg, currentColor 25%, transparent 25%),
     linear-gradient(225deg, currentColor 25%, transparent 25%);
@@ -196,8 +139,10 @@
    este bloque re-fija las variables de la paleta a los valores
    clásicos y la tipografía a Inter para TODO ese subárbol, gane
    quien gane arriba en <html>. Regla de implementación permanente:
-   ningún override de gg-brand puede apuntar a elementos dentro de
-   [data-gg-classic] (verificado por diff de PDFs en cada fase).
+   ningún override de gg-brand puede usar selectores de clase o
+   elemento presentes en el DOM capturado por PDFs (.kicker,
+   .card-premium, tablas del reporte, etc.) sin excluir
+   [data-gg-classic]; verificado por diff de PDFs en cada fase.
    ============================================================ */
 [data-gg-classic] {
   --brand-cyan-rgb: 0 158 202;

@@ -77,38 +77,11 @@
         opacity: 0;
       }
     </style>
-    <script>
-      // DGG-136 · Flag del tema conmutable gg-brand (por dispositivo).
-      // Corre ANTES del primer paint para que no haya flash de tema.
-      // Activar:  ?tema=gg-brand   ·  Volver al clásico:  ?tema=clasico
-      // Default: clásico (o VITE_GG_BRAND_DEFAULT=1 en el build, para el
-      // cutover global futuro). Con el flag apagado este script no hace NADA.
-      (function () {
-        try {
-          var q = new URLSearchParams(location.search).get('tema');
-          if (q === 'gg-brand') localStorage.setItem('gg.ui.theme', 'gg-brand');
-          else if (q === 'clasico') localStorage.setItem('gg.ui.theme', 'classic');
-          var t = localStorage.getItem('gg.ui.theme');
-          if (!t && '%VITE_GG_BRAND_DEFAULT%' === '1') t = 'gg-brand';
-          if (t === 'gg-brand') {
-            document.documentElement.setAttribute('data-theme', 'gg-brand');
-            ['/fonts/oswald-600-latin.woff2', '/fonts/archivo-400-latin.woff2'].forEach(
-              function (href) {
-                var l = document.createElement('link');
-                l.rel = 'preload';
-                l.as = 'font';
-                l.type = 'font/woff2';
-                l.crossOrigin = '';
-                l.href = href;
-                document.head.appendChild(l);
-              },
-            );
-          }
-        } catch (e) {
-          /* sin localStorage (privacidad extrema): queda el tema clásico */
-        }
-      })();
-    </script>
+    <!-- DGG-136 · Boot del tema conmutable gg-brand. Archivo estático (no
+         inline) para que lo cubra script-src 'self' del CSP sin hash (§6).
+         Bloqueante a propósito: corre antes del primer paint (sin FOUC).
+         Con el flag apagado no hace NADA. -->
+    <script src="/theme-boot.js"></script>
   </head>
   <body>
     <div id="boot-splash" aria-hidden="true">

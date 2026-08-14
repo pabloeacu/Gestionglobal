@@ -4,12 +4,14 @@
 //   1. Por dispositivo (AHORA): localStorage 'gg.ui.theme' — solo lo ve quien
 //      lo activa. Atajos: ?tema=gg-brand / ?tema=clasico (los procesa el
 //      script pre-paint de index.html antes del primer render).
-//   2. Cutover global (FUTURO): VITE_GG_BRAND_DEFAULT=1 en el build cambia el
-//      default para todos; el override por dispositivo sigue disponible como
-//      herramienta de diagnóstico.
+//   2. Cutover global (FUTURO): cambiar DEFAULT en public/theme-boot.js a
+//      'gg-brand' y deployar; el override por dispositivo sigue disponible
+//      como herramienta de diagnóstico.
 //
 // La activación real es SOLO el atributo data-theme en <html>: todo el tema
 // vive en CSS (src/styles/gg-theme.css + overrides por fase). Cero lógica.
+// ESPEJO de public/theme-boot.js — si tocás la key o los literales acá,
+// tocá también allá (§6 Fase 0, regla anti-divergencia).
 
 const STORAGE_KEY = 'gg.ui.theme';
 
@@ -23,7 +25,11 @@ export function getUiTheme(): UiTheme {
   } catch {
     /* sin localStorage → default */
   }
-  return import.meta.env.VITE_GG_BRAND_DEFAULT === '1' ? 'gg-brand' : 'classic';
+  // Sin flag guardado: el default lo decidió theme-boot.js antes del primer
+  // paint — el atributo presente en <html> ES la fuente de verdad.
+  return document.documentElement.getAttribute('data-theme') === 'gg-brand'
+    ? 'gg-brand'
+    : 'classic';
 }
 
 /** Persiste el flag y aplica el tema al instante (sin recargar). */

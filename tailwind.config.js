@@ -53,8 +53,8 @@ export default {
         sans: ['Inter', 'system-ui', '-apple-system', 'Segoe UI', 'sans-serif'],
         display: ['Sora', 'Inter', 'system-ui', 'sans-serif'],
         // DGG-136 · tipografías de la dirección marca-nativa (self-host en public/fonts)
-        'gg-display': ['Oswald', 'system-ui', 'sans-serif'],
-        'gg-body': ['Archivo', 'system-ui', 'sans-serif'],
+        'gg-display': ['GG Oswald', 'system-ui', 'sans-serif'],
+        'gg-body': ['GG Archivo', 'system-ui', 'sans-serif'],
       },
       letterSpacing: {
         'gg-label': '0.10em',
@@ -116,21 +116,7 @@ export default {
       },
     },
   },
-  plugins: [
-    // DGG-136 · utilidades de chamfer/tnum del kit gg-brand (inertes hasta usarse)
-    function ggChamferPlugin({ addUtilities }) {
-      addUtilities({
-        '.gg-chamfer': {
-          'clip-path': 'polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 0 100%)',
-        },
-        '.gg-chamfer-sm': {
-          'clip-path': 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%)',
-        },
-        '.gg-tnum': {
-          'font-variant-numeric': 'tabular-nums',
-          'font-feature-settings': '"tnum" 1',
-        },
-      });
-    },
-  ],
+  // DGG-136 §6: el chamfer vive en UNA sola fuente (src/styles/gg-theme.css,
+  // scopeado a [data-theme="gg-brand"]) — sin plugin duplicado acá.
+  plugins: [],
 };
