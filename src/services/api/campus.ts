@@ -1726,6 +1726,46 @@ export async function listCoCursosDeSesiones(
   return ok(map);
 }
 
+/** DGG-137 (pedido Pablo 2026-08-13): el sello "Compartido" del ALUMNO solo es
+ *  relevante si él mismo tiene matrícula ACTIVA en 2+ cursos que comparten la
+ *  sesión — para un alumno de un solo curso, "tu presente cuenta en ambos
+ *  cursos" es ruido que despista. Gerencia (EncuentrosTab) lo ve siempre.
+ *  Filtrado EXPLÍCITO por sus otros cursos (no depende de RLS): devuelve las
+ *  sesiones del curso actual que también existen en otro curso donde el
+ *  alumno está matriculado activo. */
+export async function listSesionesCompartidasRelevantes(
+  cursoId: string,
+  sesionIds: string[],
+  profileId: string,
+): Promise<ApiResponse<string[]>> {
+  const ids = Array.from(new Set(sesionIds.filter(Boolean)));
+  if (ids.length === 0) return ok([]);
+  const { data: mats, error: e1 } = await supabase
+    .from('curso_matriculas')
+    .select('curso_id')
+    .eq('profile_id', profileId)
+    .eq('estado', 'activa')
+    .neq('curso_id', cursoId);
+  if (e1) return fail('SESIONES_RELEVANTES', e1.message, e1);
+  const otrosCursos = Array.from(new Set((mats ?? []).map((m) => m.curso_id)));
+  if (otrosCursos.length === 0) return ok([]);
+  const { data, error } = await supabase
+    .from('curso_encuentros')
+    .select('sesion_compartida_id')
+    .in('curso_id', otrosCursos)
+    .in('sesion_compartida_id', ids);
+  if (error) return fail('SESIONES_RELEVANTES', error.message, error);
+  return ok(
+    Array.from(
+      new Set(
+        (data ?? [])
+          .map((r) => (r as { sesion_compartida_id: string | null }).sesion_compartida_id)
+          .filter((x): x is string => !!x),
+      ),
+    ),
+  );
+}
+
 /** Edita la sesión compartida (verdad única de fecha/duración/sala/docente).
  *  Usado por la edición de fuente única: tocar la fecha en un curso la cambia
  *  para todos los cursos que comparten la sesión. */
