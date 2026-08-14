@@ -55,7 +55,7 @@ export function CertsRetenidosWidget({ limit = 5 }: { limit?: number }) {
       >
         <X size={16} />
       </button>
-      <header className="mb-3 flex items-start gap-3">
+      <header data-gg-plain className="mb-3 flex items-start gap-3">
         <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-orange-100 text-orange-700">
           <Award size={18} />
         </span>

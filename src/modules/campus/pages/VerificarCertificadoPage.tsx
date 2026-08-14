@@ -46,7 +46,7 @@ export function VerificarCertificadoPage() {
   const revocado = res?.estado === 'revocado';
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-brand-night via-[#0c2236] to-slate-50">
+    <div data-gg="publico" className="min-h-screen bg-gradient-to-b from-brand-night via-[#0c2236] to-slate-50">
       {/* Hero */}
       <header className="relative overflow-hidden bg-gradient-to-br from-brand-night via-brand-night-2 to-brand-cyan py-14 text-white">
         <TrianglesAccent

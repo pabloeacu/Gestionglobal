@@ -356,7 +356,7 @@ function TemplateEditor({ template, userEmail, onSaved }: EditorProps) {
         {/* Tabs/header de la plantilla */}
         <div className="card-premium relative overflow-hidden">
           <div className="relative space-y-4 p-5">
-            <header>
+            <header data-gg-plain>
               <p className="kicker text-brand-cyan">EDITANDO</p>
               <h2 className="font-display text-xl font-bold text-brand-ink">
                 {template.nombre}

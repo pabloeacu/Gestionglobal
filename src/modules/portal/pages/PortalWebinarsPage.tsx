@@ -6,16 +6,7 @@
 
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import {
-  Video,
-  CalendarClock,
-  PlayCircle,
-  Sparkles,
-  CheckCircle2,
-  Clock,
-  Loader2,
-  ChevronRight,
-} from 'lucide-react';
+import { CalendarCheck, CalendarClock, CheckCircle2, ChevronRight, Clock, Loader2, PlayCircle, Sparkles, Video } from 'lucide-react';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import { Skeleton, useConfirm, Button } from '@/components/common';
 import { toast } from '@/lib/toast';
@@ -160,6 +151,7 @@ export function PortalWebinarsPage() {
           {misSinVigente.length > 0 && (
             <section>
               <header className="mb-3 px-1">
+                <span data-gg-secico className="hidden" aria-hidden><CalendarCheck size={21} strokeWidth={1.7} /></span>
                 <p className="kicker text-brand-muted">MIS INSCRIPCIONES</p>
               </header>
               <ul className="grid gap-3 sm:grid-cols-2">
@@ -172,6 +164,7 @@ export function PortalWebinarsPage() {
           {dispSinVigente.length > 0 && (
             <section>
               <header className="mb-3 flex items-center justify-between px-1">
+                <span data-gg-secico className="hidden" aria-hidden><Video size={21} strokeWidth={1.7} /></span>
                 <p className="kicker text-brand-muted">{vigente ? 'OTROS PRÓXIMOS EVENTOS' : 'PRÓXIMOS EVENTOS'}</p>
                 <span className="text-[11px] font-medium text-brand-muted">
                   {dispSinVigente.length} disponible{dispSinVigente.length === 1 ? '' : 's'}

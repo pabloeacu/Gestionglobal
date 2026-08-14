@@ -83,7 +83,7 @@ export function NuevasSolicitudesWidget({ limit = 5 }: { limit?: number }) {
   // (key={total}) → énfasis sutil sin sonido ni toast.
   return (
     <section data-gg-notice className="relative overflow-hidden rounded-2xl border-2 border-amber-300/70 bg-gradient-to-br from-amber-50 via-white to-amber-50/60 p-5 shadow-md animate-fade-in">
-      <header className="mb-3 flex items-start justify-between gap-3">
+      <header data-gg-plain className="mb-3 flex items-start justify-between gap-3">
         <div className="flex items-start gap-3">
           <span className="relative grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-amber-100 text-amber-700">
             <Inbox size={18} />

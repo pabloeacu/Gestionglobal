@@ -344,6 +344,7 @@
 }
 [data-theme='gg-brand'] [data-gg-qcard]::after {
   content: '';
+  pointer-events: none;
   position: absolute;
   right: 14px;
   bottom: 14px;
@@ -553,7 +554,7 @@
   background-color: #f3f7fb;
   border-radius: 0;
 }
-[data-theme='gg-brand'] [data-gg] :where(input, select, textarea):focus {
+[data-theme='gg-brand'] [data-gg] :where(input, select, textarea):not([class*='border-red']):focus {
   background-color: #ffffff;
   border-color: #009eca;
 }
@@ -598,6 +599,7 @@
 }
 [data-theme='gg-brand'] [data-gg] [data-gg-kpi]::before {
   content: '';
+  pointer-events: none;
   position: absolute;
   top: 0;
   left: 0;
@@ -630,7 +632,7 @@
    page-headers (contienen h1/h2/h3), headers dentro de cards
    (.card-premium) y opt-outs explícitos [data-gg-plain]. En el tema
    clásico no existe (queda la fila simple de siempre). ---- */
-[data-theme='gg-brand'] [data-gg] header:not([data-gg-topbar]):has(> .kicker):not(:has(h1, h2, h3)):not(.card-premium *):not([data-gg-plain]) {
+[data-theme='gg-brand'] [data-gg] header:not([data-gg-topbar]):has(> .kicker):not(:has(h1, h2, h3)):not(.card-premium *):not([data-gg='overlay'] *):not([data-gg-plain]) {
   position: relative;
   display: flex;
   align-items: center;
@@ -643,10 +645,10 @@
   clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 0 100%);
   justify-content: flex-start; /* el ::before es flex-item: justify-between descentraba el título */
 }
-[data-theme='gg-brand'] [data-gg] header:not([data-gg-topbar]):has(> .kicker):not(:has(h1, h2, h3)):not(.card-premium *):not([data-gg-plain]) > :last-child:not(.kicker) {
+[data-theme='gg-brand'] [data-gg] header:not([data-gg-topbar]):has(> .kicker):not(:has(h1, h2, h3)):not(.card-premium *):not([data-gg='overlay'] *):not([data-gg-plain]) > :last-child:not(.kicker) {
   margin-left: auto; /* la acción (Ver todos) vuelve a la derecha */
 }
-[data-theme='gg-brand'] [data-gg] header:not([data-gg-topbar]):has(> .kicker):not(:has(h1, h2, h3)):not(.card-premium *):not([data-gg-plain])::before {
+[data-theme='gg-brand'] [data-gg] header:not([data-gg-topbar]):has(> .kicker):not(:has(h1, h2, h3)):not(.card-premium *):not([data-gg='overlay'] *):not([data-gg-plain])::before {
   content: '';
   align-self: stretch;
   width: 44px;
@@ -654,7 +656,7 @@
   background: linear-gradient(135deg, #159aa6, #009eca);
   border-right: 1px solid rgba(11, 31, 51, 0.14);
 }
-[data-theme='gg-brand'] [data-gg] header:not([data-gg-topbar]):has(> .kicker):not(:has(h1, h2, h3)):not(.card-premium *):not([data-gg-plain])::after {
+[data-theme='gg-brand'] [data-gg] header:not([data-gg-topbar]):has(> .kicker):not(:has(h1, h2, h3)):not(.card-premium *):not([data-gg='overlay'] *):not([data-gg-plain])::after {
   content: '';
   position: absolute;
   left: 45px; /* la regla arranca justo después de la caja (como en el modelo) */
@@ -663,13 +665,13 @@
   width: calc(100% - 45px);
   background: linear-gradient(90deg, #159aa6 0 44px, #0b1f33 44px 78px, transparent 78px);
 }
-[data-theme='gg-brand'] [data-gg] header:not([data-gg-topbar]):has(> .kicker):not(:has(h1, h2, h3)):not(.card-premium *):not([data-gg-plain]) > .kicker {
+[data-theme='gg-brand'] [data-gg] header:not([data-gg-topbar]):has(> .kicker):not(:has(h1, h2, h3)):not(.card-premium *):not([data-gg='overlay'] *):not([data-gg-plain]) > .kicker {
   font-size: 17px;
   font-weight: 600;
   letter-spacing: 0.06em;
   color: #0b1f33;
 }
-[data-theme='gg-brand'] [data-gg] header:not([data-gg-topbar]):has(> .kicker):not(:has(h1, h2, h3)):not(.card-premium *):not([data-gg-plain]) a {
+[data-theme='gg-brand'] [data-gg] header:not([data-gg-topbar]):has(> .kicker):not(:has(h1, h2, h3)):not(.card-premium *):not([data-gg='overlay'] *):not([data-gg-plain]) a {
   font-family: 'GG Oswald', system-ui, sans-serif;
   font-weight: 600;
   text-transform: uppercase;
@@ -899,7 +901,7 @@
 [data-theme='gg-brand'] [data-gg] .divide-slate-100 > :not([hidden]) ~ :not([hidden]) { border-color: rgba(11, 31, 51, 0.08); }
 
 /* [46][47] inputs: borde línea en reposo + focus exacto del kit */
-[data-theme='gg-brand'] [data-gg] :where(input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']):not([type='color']), select, textarea):not([data-gg-round]) {
+[data-theme='gg-brand'] [data-gg] :where(input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']):not([type='color']), select, textarea):not([data-gg-round]):not([class*='border-red']) {
   border-color: rgba(11, 31, 51, 0.14);
 }
 [data-theme='gg-brand'] [data-gg] :where(input:not([type='checkbox']):not([type='radio']), select, textarea):focus:not([class*='ring-red']) {
@@ -1420,11 +1422,11 @@
   display: inline-block;
 }
 /* Acción del sec-head (Ver todos): chevron fuera, ▶ del kit */
-[data-theme='gg-brand'] [data-gg] header:not([data-gg-topbar]):has(> .kicker):not(:has(h1, h2, h3)):not(.card-premium *):not([data-gg-plain]) a svg,
+[data-theme='gg-brand'] [data-gg] header:not([data-gg-topbar]):has(> .kicker):not(:has(h1, h2, h3)):not(.card-premium *):not([data-gg='overlay'] *):not([data-gg-plain]) a svg,
 [data-theme='gg-brand'] [data-gg] header:not([data-gg-topbar]):has(> div > .kicker:first-child):not(:has(h1)):not(.card-premium *):not([data-gg='overlay'] *):not([data-gg-plain]) :is(a, button) svg {
   display: none;
 }
-[data-theme='gg-brand'] [data-gg] header:not([data-gg-topbar]):has(> .kicker):not(:has(h1, h2, h3)):not(.card-premium *):not([data-gg-plain]) a::after,
+[data-theme='gg-brand'] [data-gg] header:not([data-gg-topbar]):has(> .kicker):not(:has(h1, h2, h3)):not(.card-premium *):not([data-gg='overlay'] *):not([data-gg-plain]) a::after,
 [data-theme='gg-brand'] [data-gg] header:not([data-gg-topbar]):has(> div > .kicker:first-child):not(:has(h1)):not(.card-premium *):not([data-gg='overlay'] *):not([data-gg-plain]) > :is(a, button):last-child::after {
   content: '';
   width: 0;
@@ -1448,7 +1450,7 @@
   border-right: 1px solid rgba(11, 31, 51, 0.14);
   color: #ffffff;
 }
-[data-theme='gg-brand'] [data-gg] header:not([data-gg-topbar]):has(> .kicker):not(:has(h1, h2, h3)):not(.card-premium *):not([data-gg-plain]):has([data-gg-secico])::before {
+[data-theme='gg-brand'] [data-gg] header:not([data-gg-topbar]):has(> .kicker):not(:has(h1, h2, h3)):not(.card-premium *):not([data-gg='overlay'] *):not([data-gg-plain]):has([data-gg-secico])::before {
   content: none;
 }
 

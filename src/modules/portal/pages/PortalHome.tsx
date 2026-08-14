@@ -525,6 +525,7 @@ function Oportunidades({
   return (
     <section>
       <header className="mb-3 flex items-center justify-between px-1">
+        <span data-gg-secico className="hidden" aria-hidden><Sparkles size={21} strokeWidth={1.7} /></span>
         <p className="kicker text-brand-muted">SUGERIDO PARA VOS</p>
       </header>
       <div className="grid gap-3 sm:grid-cols-2">

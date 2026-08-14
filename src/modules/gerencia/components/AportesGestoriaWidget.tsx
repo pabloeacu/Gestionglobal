@@ -61,7 +61,7 @@ export function AportesGestoriaWidget({ limit = 5 }: { limit?: number }) {
       >
         <X size={16} />
       </button>
-      <header className="mb-3 flex items-start gap-3">
+      <header data-gg-plain className="mb-3 flex items-start gap-3">
         <span className="relative grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-violet-100 text-violet-700">
           <ClipboardCheck size={18} />
           <span className="absolute -right-0.5 -top-0.5 flex h-3 w-3">

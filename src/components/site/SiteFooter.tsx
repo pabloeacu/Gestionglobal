@@ -11,7 +11,7 @@ export function SiteFooter() {
   const linkTo = (hash: string) => (isHome ? hash : `/${hash}`);
 
   return (
-    <footer className="border-t border-slate-200 bg-white">
+    <footer data-gg-classic className="border-t border-slate-200 bg-white">
       <div className="mx-auto grid max-w-7xl gap-12 px-6 py-16 md:grid-cols-4">
         <div className="md:col-span-2">
           <BrandMark variant="light" size={56} withSlogan />

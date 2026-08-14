@@ -47,7 +47,7 @@ export function SiteNav({ darkHero = false }: SiteNavProps) {
   const onDark = darkHero && !scrolled;
 
   return (
-    <header
+    <header data-gg-classic
       className={cn(
         'fixed inset-x-0 top-0 z-40 transition-all duration-300',
         scrolled
