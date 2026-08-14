@@ -5272,3 +5272,13 @@ deje el template/destinatario en manos del caller), no sólo la función que dis
 **Fix:** `git commit --allow-empty && push` → el deployment nuevo re-escribe el mapping y el dominio quedó sirviendo el bundle correcto al instante (age: 0). Alternativa si reincide: `vercel promote <dpl>` con el token de la CLI (~/Library/Application Support/com.vercel.cli/auth.json) o Redeploy desde el dashboard.
 
 **Regla capitalizada:** el cierre de cada deploy NO se verifica por el estado del check de GitHub sino por el HASH DEL BUNDLE SERVIDO en el dominio (curl del index + comparación contra dist). "Success" del CI ≠ "el usuario lo está viendo". Adyacencia: también costó una vuelta el hook aplicado al gemelo equivocado (ActivarPushAssistant común vs PortalPushAssistant del home del portal) — al hookear banners, grep por el COPY visible, no por el nombre del componente.
+
+## E-GG-180 · El tema anulaba el borde rojo de validación de formularios (2026-08-14, cierre §6)
+
+**Síntoma (latente, no reportado por usuario):** con el tema gg-brand ON, los campos inválidos de Field.tsx dejaban de mostrar su borde rojo. En `Input` sobrevivía el ring, pero en `Select`/`Textarea` el borde rojo (`border-red-400`) era la ÚNICA señal visual de inválido → un cliente llenando un formulario no veía qué campo estaba mal.
+
+**Causa raíz:** las reglas del tema que fijan el borde de inputs a la línea navy (reposo) y al cyan (foco) tienen especificidad `(0,3,0)`, superior a `.border-red-400` `(0,1,0)` de Tailwind → ganaban siempre, incluso en estado inválido.
+
+**Fix:** `:not([class*='border-red'])` en las reglas E de borde-reposo y D.6 de foco. Verificado EN PRODUCCIÓN (inyector DOM sobre sha 38beacc): input `border-red-400` computa `rgb(248,113,113)` en reposo Y al foco; input normal computa la línea navy `rgba(11,31,51,.14)`.
+
+**Cómo se cazó:** doble auditoría §6 con 3 agentes en paralelo (funcional / fidelidad / cobertura) barriendo las ~1100 líneas del CSS del tema antes de dar el tema por cerrado. El frente funcional también confirmó que NO había repetición del bug del topbar (E-GG-179 adyacente: selector ancho ocultando controles) ni otras regresiones. Regla capitalizada: **todo override de tema sobre inputs/estados debe excluir explícitamente los estados de validación (`border-red`, `ring-red`)** — la señal de error nunca puede perder contra la estética.
