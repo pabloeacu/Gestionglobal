@@ -99,7 +99,7 @@ export function AlarmasHoyWidget() {
   if (items.length === 0) {
     return (
       <section data-gg-alarm className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <header className="mb-3 flex items-center justify-between">
+        <header className="mb-3 flex items-center justify-between"><span data-gg-secico className="hidden" aria-hidden><Bell size={21} strokeWidth={1.7} /></span>
           <div>
             <p className="kicker text-brand-cyan">Alarmas de hoy</p>
             <h3 className="font-display text-lg font-bold text-brand-ink">
@@ -125,7 +125,7 @@ export function AlarmasHoyWidget() {
           : 'border-amber-300/60 bg-gradient-to-br from-amber-50 via-white to-amber-50/60'
       }`}
     >
-      <header className="mb-3 flex items-center justify-between">
+      <header className="mb-3 flex items-center justify-between"><span data-gg-secico className="hidden" aria-hidden><Bell size={21} strokeWidth={1.7} /></span>
         <div>
           <p
             className={`kicker ${vencidas > 0 ? 'text-rose-700' : 'text-amber-700'}`}

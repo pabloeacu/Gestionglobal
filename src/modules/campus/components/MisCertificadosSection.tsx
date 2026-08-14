@@ -72,7 +72,7 @@ export function MisCertificadosSection() {
 
   return (
     <section className="card-premium relative overflow-hidden p-5">
-      <header className="mb-4">
+      <header className="mb-4"><span data-gg-secico className="hidden" aria-hidden><Award size={21} strokeWidth={1.7} /></span>
         <p className="kicker text-amber-600">Tus logros</p>
         <h2 className="font-display text-xl font-bold text-brand-ink">
           Mis certificados

@@ -41,7 +41,7 @@ export function ProximosSeguimientosWidget({ dias = 7, limit = 8 }: Props) {
 
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <header className="flex items-center justify-between mb-3">
+      <header className="flex items-center justify-between mb-3"><span data-gg-secico className="hidden" aria-hidden><BellRing size={21} strokeWidth={1.7} /></span>
         <div>
           <p className="kicker text-brand-cyan">Trackings</p>
           <h3 className="font-display text-lg font-bold text-brand-ink">

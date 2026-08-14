@@ -651,12 +651,8 @@
   align-self: stretch;
   width: 44px;
   flex: none;
-  background-color: #e7f1f9;
+  background: linear-gradient(135deg, #159aa6, #009eca);
   border-right: 1px solid rgba(11, 31, 51, 0.14);
-  background-image:
-    linear-gradient(135deg, transparent 49.5%, rgba(46, 111, 176, 0.5) 50%),
-    linear-gradient(45deg, transparent 49.5%, rgba(21, 154, 166, 0.4) 50%);
-  background-size: 13px 13px;
 }
 [data-theme='gg-brand'] [data-gg] header:has(> .kicker):not(:has(h1, h2, h3)):not(.card-premium *):not([data-gg-plain])::after {
   content: '';
@@ -687,7 +683,7 @@
    Misma barra-pestaña, con el bloque de títulos apilado adentro.
    Guardas: nunca page-headers (h1), ni dentro de cards, ni en
    overlays (drawers/modales tienen su propio encabezado). ---- */
-[data-theme='gg-brand'] [data-gg] header:has(> div:first-child > .kicker:first-child):not(:has(h1)):not(.card-premium *):not([data-gg='overlay'] *):not([data-gg-plain]) {
+[data-theme='gg-brand'] [data-gg] header:has(> div > .kicker:first-child):not(:has(h1)):not(.card-premium *):not([data-gg='overlay'] *):not([data-gg-plain]) {
   position: relative;
   display: flex;
   align-items: center;
@@ -699,23 +695,19 @@
   clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 0 100%);
   justify-content: flex-start;
 }
-[data-theme='gg-brand'] [data-gg] header:has(> div:first-child > .kicker:first-child):not(:has(h1)):not(.card-premium *):not([data-gg='overlay'] *):not([data-gg-plain]) > :last-child:not(:first-child) {
+[data-theme='gg-brand'] [data-gg] header:has(> div > .kicker:first-child):not(:has(h1)):not(.card-premium *):not([data-gg='overlay'] *):not([data-gg-plain]) > :last-child:not(:first-child) {
   margin-left: auto;
 }
-[data-theme='gg-brand'] [data-gg] header:has(> div:first-child > .kicker:first-child):not(:has(h1)):not(.card-premium *):not([data-gg='overlay'] *):not([data-gg-plain])::before {
+[data-theme='gg-brand'] [data-gg] header:has(> div > .kicker:first-child):not(:has(h1)):not(.card-premium *):not([data-gg='overlay'] *):not([data-gg-plain])::before {
   content: '';
   align-self: stretch;
   width: 44px;
   flex: none;
   margin: -8px 0 -10px; /* la caja llega a los bordes pese al padding vertical */
-  background-color: #e7f1f9;
+  background: linear-gradient(135deg, #159aa6, #009eca);
   border-right: 1px solid rgba(11, 31, 51, 0.14);
-  background-image:
-    linear-gradient(135deg, transparent 49.5%, rgba(46, 111, 176, 0.5) 50%),
-    linear-gradient(45deg, transparent 49.5%, rgba(21, 154, 166, 0.4) 50%);
-  background-size: 13px 13px;
 }
-[data-theme='gg-brand'] [data-gg] header:has(> div:first-child > .kicker:first-child):not(:has(h1)):not(.card-premium *):not([data-gg='overlay'] *):not([data-gg-plain])::after {
+[data-theme='gg-brand'] [data-gg] header:has(> div > .kicker:first-child):not(:has(h1)):not(.card-premium *):not([data-gg='overlay'] *):not([data-gg-plain])::after {
   content: '';
   position: absolute;
   left: 45px;
@@ -726,13 +718,13 @@
 }
 /* Dentro del device: kicker petrol; el h2/h3 pierde la reglita D.2
    (la barra ya lleva la regla grande) */
-[data-theme='gg-brand'] [data-gg] header:has(> div:first-child > .kicker:first-child):not(:has(h1)):not(.card-premium *):not([data-gg='overlay'] *):not([data-gg-plain]) > div > .kicker {
+[data-theme='gg-brand'] [data-gg] header:has(> div > .kicker:first-child):not(:has(h1)):not(.card-premium *):not([data-gg='overlay'] *):not([data-gg-plain]) > div > .kicker {
   color: #159aa6;
 }
-[data-theme='gg-brand'] [data-gg] header:has(> div:first-child > .kicker:first-child):not(:has(h1)):not(.card-premium *):not([data-gg='overlay'] *):not([data-gg-plain]) :is(h2, h3).font-display {
+[data-theme='gg-brand'] [data-gg] header:has(> div > .kicker:first-child):not(:has(h1)):not(.card-premium *):not([data-gg='overlay'] *):not([data-gg-plain]) :is(h2, h3).font-display {
   padding-bottom: 0;
 }
-[data-theme='gg-brand'] [data-gg] header:has(> div:first-child > .kicker:first-child):not(:has(h1)):not(.card-premium *):not([data-gg='overlay'] *):not([data-gg-plain]) :is(h2, h3).font-display::after {
+[data-theme='gg-brand'] [data-gg] header:has(> div > .kicker:first-child):not(:has(h1)):not(.card-premium *):not([data-gg='overlay'] *):not([data-gg-plain]) :is(h2, h3).font-display::after {
   content: none;
 }
 
@@ -1429,11 +1421,11 @@
 }
 /* Acción del sec-head (Ver todos): chevron fuera, ▶ del kit */
 [data-theme='gg-brand'] [data-gg] header:has(> .kicker):not(:has(h1, h2, h3)):not(.card-premium *):not([data-gg-plain]) a svg,
-[data-theme='gg-brand'] [data-gg] header:has(> div:first-child > .kicker:first-child):not(:has(h1)):not(.card-premium *):not([data-gg='overlay'] *):not([data-gg-plain]) :is(a, button) svg {
+[data-theme='gg-brand'] [data-gg] header:has(> div > .kicker:first-child):not(:has(h1)):not(.card-premium *):not([data-gg='overlay'] *):not([data-gg-plain]) :is(a, button) svg {
   display: none;
 }
 [data-theme='gg-brand'] [data-gg] header:has(> .kicker):not(:has(h1, h2, h3)):not(.card-premium *):not([data-gg-plain]) a::after,
-[data-theme='gg-brand'] [data-gg] header:has(> div:first-child > .kicker:first-child):not(:has(h1)):not(.card-premium *):not([data-gg='overlay'] *):not([data-gg-plain]) > :is(a, button):last-child::after {
+[data-theme='gg-brand'] [data-gg] header:has(> div > .kicker:first-child):not(:has(h1)):not(.card-premium *):not([data-gg='overlay'] *):not([data-gg-plain]) > :is(a, button):last-child::after {
   content: '';
   width: 0;
   height: 0;
@@ -1452,11 +1444,19 @@
   align-self: stretch;
   width: 44px;
   flex: none;
-  background: #e7f1f9;
+  background: linear-gradient(135deg, #159aa6, #009eca);
   border-right: 1px solid rgba(11, 31, 51, 0.14);
-  color: #0b1f33;
+  color: #ffffff;
 }
 [data-theme='gg-brand'] [data-gg] header:has(> .kicker):not(:has(h1, h2, h3)):not(.card-premium *):not([data-gg-plain]):has([data-gg-secico])::before {
+  content: none;
+}
+
+/* Secico en headers compuestos: la caja llega a los bordes y reemplaza al degradé */
+[data-theme='gg-brand'] [data-gg] header:has(> div > .kicker:first-child):not(:has(h1)):not(.card-premium *):not([data-gg='overlay'] *):not([data-gg-plain]) [data-gg-secico] {
+  margin: -8px 0 -10px;
+}
+[data-theme='gg-brand'] [data-gg] header:has(> div > .kicker:first-child):not(:has(h1)):not(.card-premium *):not([data-gg='overlay'] *):not([data-gg-plain]):has([data-gg-secico])::before {
   content: none;
 }
 

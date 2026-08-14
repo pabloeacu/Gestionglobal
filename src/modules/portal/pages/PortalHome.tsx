@@ -664,6 +664,9 @@ function ProximosVencimientos({ items }: { items: ClientePortalDashboard['vencim
   return (
     <section>
       <header className="mb-3 flex items-center justify-between px-1">
+        <span data-gg-secico className="hidden" aria-hidden>
+          <CalendarClock size={21} strokeWidth={1.7} />
+        </span>
         <p className="kicker text-brand-muted">PRÓXIMOS VENCIMIENTOS</p>
       </header>
       <div className="rounded-2xl border border-slate-200 bg-white">
