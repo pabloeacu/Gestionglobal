@@ -423,3 +423,25 @@
     font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
   }
 }
+
+/* ---- C.1 · Gerencia: el sidebar expandido reusa el sistema del riel.
+   Los grupos del nav son <button> (acordeón DGG-25) — mismo tratamiento
+   que los <a>; el estado activo por clase también se re-tematiza. ---- */
+[data-theme='gg-brand'] [data-gg-rail] nav button {
+  border-radius: 0;
+  color: #cfe0ef;
+}
+[data-theme='gg-brand'] [data-gg-rail] nav button:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #ffffff;
+}
+[data-theme='gg-brand'] [data-gg-rail] nav .bg-brand-cyan\/10 {
+  background: linear-gradient(90deg, rgba(0, 158, 202, 0.22), transparent);
+  color: #ffffff;
+}
+[data-theme='gg-brand'] [data-gg-rail] .font-display {
+  color: #ffffff; /* wordmark "Gestión Global" sobre navy */
+}
+[data-theme='gg-brand'] [data-gg='gerencia'] {
+  background-color: #f3f7fb; /* mismo paper de trabajo que el portal */
+}

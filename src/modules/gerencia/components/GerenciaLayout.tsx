@@ -235,9 +235,9 @@ export function GerenciaLayout() {
   useRegisterCommand(cmdAtajos);
 
   return (
-    <div className="flex min-h-screen bg-white font-sans">
+    <div data-gg="gerencia" className="flex min-h-screen bg-white font-sans">
       {/* Sidebar (desktop) */}
-      <aside className="hidden w-64 shrink-0 border-r border-slate-200 bg-white md:flex md:flex-col">
+      <aside data-gg-rail className="hidden w-64 shrink-0 border-r border-slate-200 bg-white md:flex md:flex-col">
         <div className="flex h-16 items-center gap-3 border-b border-slate-100 px-5">
           <Link to="/gerencia" className="inline-flex items-center gap-2 transition hover:opacity-85" aria-label="Inicio">
             <IsoMark size={32} />
@@ -257,7 +257,7 @@ export function GerenciaLayout() {
             className="absolute inset-0 bg-brand-ink/40"
             onClick={() => setMobileOpen(false)}
           />
-          <aside className="absolute left-0 top-0 h-full w-72 bg-white shadow-xl">
+          <aside data-gg-rail className="absolute left-0 top-0 h-full w-72 bg-white shadow-xl">
             <div className="flex h-16 items-center justify-between border-b border-slate-100 px-5">
               <BrandMark variant="light" size={30} />
               <button
@@ -278,7 +278,7 @@ export function GerenciaLayout() {
       <div className="flex min-w-0 flex-1 flex-col">
         {/* iOS safe area: pt-[env(safe-area-inset-top)] evita que botones queden
             debajo del notch/dynamic island del iPhone. */}
-        <header className="sticky top-0 z-30 flex min-h-16 items-center justify-between border-b border-slate-200 bg-white/85 px-5 pt-[env(safe-area-inset-top)] backdrop-blur md:px-8">
+        <header data-gg-topbar className="sticky top-0 z-30 flex min-h-16 items-center justify-between border-b border-slate-200 bg-white/85 px-5 pt-[env(safe-area-inset-top)] backdrop-blur md:px-8">
           <button
             type="button"
             onClick={() => setMobileOpen(true)}
