@@ -36,6 +36,8 @@ import { parseLocalDate } from '@/lib/dates';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import { Skeleton } from '@/components/common';
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
+import { getProgresoResumen, type ProgresoResumen } from '@/services/api/campus';
+import { ProgresoBar } from '@/modules/campus/components/ProgresoBar';
 import {
   fetchClientePortalDashboard,
   fetchTrackingAvancesNuevosCount,
@@ -567,34 +569,90 @@ function Oportunidades({
 // Mis cursos compact
 // =========================================================================
 function MisCursosCompact({ items }: { items: ClientePortalDashboard['cursos_activos'] }) {
+  // Progreso solo-lectura por matrícula (mismo service que MisCursosPage) —
+  // el mockup del kit muestra la card COMPLETA del curso en el Inicio.
+  const [progresos, setProgresos] = useState<Record<string, ProgresoResumen>>({});
+  useEffect(() => {
+    let alive = true;
+    void (async () => {
+      const acc: Record<string, ProgresoResumen> = {};
+      await Promise.all(
+        items.slice(0, 4).map(async (c) => {
+          try {
+            const r = await getProgresoResumen(c.matricula_id);
+            if (r.ok) acc[c.matricula_id] = r.data;
+          } catch {
+            /* la card se muestra sin % */
+          }
+        }),
+      );
+      if (alive) setProgresos(acc);
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [items]);
   return (
     <section>
       <header className="mb-3 flex items-center justify-between px-1">
+        <span data-gg-secico className="hidden" aria-hidden>
+          <GraduationCap size={21} strokeWidth={1.7} />
+        </span>
         <p className="kicker text-brand-muted">MIS CURSOS ACTIVOS</p>
         <Link to="/portal/campus" className="inline-flex items-center gap-1 text-xs font-semibold text-brand-cyan hover:gap-1.5 transition">
           Ver todos <ChevronRight size={11} />
         </Link>
       </header>
-      <div className="space-y-2">
-        {items.slice(0, 3).map((c) => (
-          <Link
-            key={c.matricula_id}
-            to={`/portal/campus/${c.curso_slug}`}
-            className="group flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 transition hover:border-brand-cyan hover:shadow-sm"
-          >
-            <span className="grid h-9 w-9 place-items-center rounded-lg bg-brand-cyan-pale text-brand-cyan">
-              <GraduationCap size={15} />
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium text-brand-ink">{c.curso_titulo}</p>
-              <p className="text-[11px] text-brand-muted">
-                {c.modalidad}{c.vigencia_hasta ? ` · vigente hasta ${formatDateShort(c.vigencia_hasta)}` : ''}
-              </p>
-            </div>
-            <ChevronRight size={14} className="text-brand-muted transition group-hover:translate-x-0.5" />
-          </Link>
-        ))}
-      </div>
+      <ul className="grid gap-4 sm:grid-cols-2">
+        {items.slice(0, 4).map((c) => {
+          const r = progresos[c.matricula_id];
+          return (
+            <li key={c.matricula_id} className="min-w-0">
+              <Link
+                to={`/portal/campus/${c.curso_slug}`}
+                data-gg-course
+                className="group flex h-full min-w-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:border-brand-cyan hover:shadow-md"
+              >
+                {c.banner_url ? (
+                  <div data-gg-cover className="relative aspect-[3/1] w-full overflow-hidden bg-slate-100">
+                    <img
+                      src={c.banner_url}
+                      alt=""
+                      className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+                      loading="lazy"
+                    />
+                    <span className="absolute right-2 top-2 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-emerald-700">
+                      Activa
+                    </span>
+                  </div>
+                ) : (
+                  <div data-gg-cover data-gg-cover-fallback aria-hidden className="hidden">
+                    <span className="absolute right-2 top-2 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-emerald-700">
+                      Activa
+                    </span>
+                    <span data-gg-cover-title>{c.curso_titulo}</span>
+                  </div>
+                )}
+                <div className="flex flex-1 flex-col gap-3 p-4">
+                  <div className="min-w-0">
+                    <p className="kicker text-brand-cyan">Modalidad {c.modalidad}</p>
+                    <h3 className="mt-1 font-display text-base font-semibold text-brand-ink">
+                      {c.curso_titulo}
+                    </h3>
+                  </div>
+                  {r && <ProgresoBar porcentaje={r.porcentaje} />}
+                  <footer className="mt-auto flex items-center justify-between text-xs text-brand-muted">
+                    <span>{r ? `${r.completadas}/${r.total_clases} clases` : c.modalidad}</span>
+                    <span className="inline-flex items-center gap-1 font-medium text-brand-cyan group-hover:underline">
+                      Continuar
+                    </span>
+                  </footer>
+                </div>
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
     </section>
   );
 }
@@ -680,10 +738,6 @@ function formatDias(n: number): string {
 
 function formatDateLong(iso: string): string {
   return parseLocalDate(iso).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' });
-}
-
-function formatDateShort(iso: string): string {
-  return parseLocalDate(iso).toLocaleDateString('es-AR', { day: '2-digit', month: 'short' });
 }
 
 // =========================================================================

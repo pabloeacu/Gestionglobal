@@ -630,7 +630,7 @@
    page-headers (contienen h1/h2/h3), headers dentro de cards
    (.card-premium) y opt-outs explícitos [data-gg-plain]. En el tema
    clásico no existe (queda la fila simple de siempre). ---- */
-[data-theme='gg-brand'] [data-gg] header:has(> .kicker:first-child):not(:has(h1, h2, h3)):not(.card-premium *):not([data-gg-plain]) {
+[data-theme='gg-brand'] [data-gg] header:has(> .kicker):not(:has(h1, h2, h3)):not(.card-premium *):not([data-gg-plain]) {
   position: relative;
   display: flex;
   align-items: center;
@@ -643,10 +643,10 @@
   clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 0 100%);
   justify-content: flex-start; /* el ::before es flex-item: justify-between descentraba el título */
 }
-[data-theme='gg-brand'] [data-gg] header:has(> .kicker:first-child):not(:has(h1, h2, h3)):not(.card-premium *):not([data-gg-plain]) > :last-child:not(.kicker) {
+[data-theme='gg-brand'] [data-gg] header:has(> .kicker):not(:has(h1, h2, h3)):not(.card-premium *):not([data-gg-plain]) > :last-child:not(.kicker) {
   margin-left: auto; /* la acción (Ver todos) vuelve a la derecha */
 }
-[data-theme='gg-brand'] [data-gg] header:has(> .kicker:first-child):not(:has(h1, h2, h3)):not(.card-premium *):not([data-gg-plain])::before {
+[data-theme='gg-brand'] [data-gg] header:has(> .kicker):not(:has(h1, h2, h3)):not(.card-premium *):not([data-gg-plain])::before {
   content: '';
   align-self: stretch;
   width: 44px;
@@ -658,7 +658,7 @@
     linear-gradient(45deg, transparent 49.5%, rgba(21, 154, 166, 0.4) 50%);
   background-size: 13px 13px;
 }
-[data-theme='gg-brand'] [data-gg] header:has(> .kicker:first-child):not(:has(h1, h2, h3)):not(.card-premium *):not([data-gg-plain])::after {
+[data-theme='gg-brand'] [data-gg] header:has(> .kicker):not(:has(h1, h2, h3)):not(.card-premium *):not([data-gg-plain])::after {
   content: '';
   position: absolute;
   left: 45px; /* la regla arranca justo después de la caja (como en el modelo) */
@@ -667,13 +667,13 @@
   width: calc(100% - 45px);
   background: linear-gradient(90deg, #159aa6 0 44px, #0b1f33 44px 78px, transparent 78px);
 }
-[data-theme='gg-brand'] [data-gg] header:has(> .kicker:first-child):not(:has(h1, h2, h3)):not(.card-premium *):not([data-gg-plain]) > .kicker {
+[data-theme='gg-brand'] [data-gg] header:has(> .kicker):not(:has(h1, h2, h3)):not(.card-premium *):not([data-gg-plain]) > .kicker {
   font-size: 17px;
   font-weight: 600;
   letter-spacing: 0.06em;
   color: #0b1f33;
 }
-[data-theme='gg-brand'] [data-gg] header:has(> .kicker:first-child):not(:has(h1, h2, h3)):not(.card-premium *):not([data-gg-plain]) a {
+[data-theme='gg-brand'] [data-gg] header:has(> .kicker):not(:has(h1, h2, h3)):not(.card-premium *):not([data-gg-plain]) a {
   font-family: 'GG Oswald', system-ui, sans-serif;
   font-weight: 600;
   text-transform: uppercase;
@@ -1398,6 +1398,66 @@
 [data-theme='gg-brand'] [data-gg='gerencia'] footer[class*='bg-white'] {
   background: transparent;
   border-color: rgba(11, 31, 51, 0.14);
+}
+
+
+/* ---- F · Cotejo fino 2026-08-14 (imágenes lado a lado de Pablo) ---- */
+/* Los títulos de banners remind/notice/alarm van en caja de oración,
+   17px y SIN la reglita (kit .rt/.n-title/.a-title) */
+[data-theme='gg-brand'] [data-gg] :is([data-gg-remind], [data-gg-notice], [data-gg-alarm]) :is(h2, h3).font-display {
+  text-transform: none;
+  letter-spacing: normal;
+  font-size: 17px;
+  padding-bottom: 0;
+}
+[data-theme='gg-brand'] [data-gg] :is([data-gg-remind], [data-gg-notice], [data-gg-alarm]) :is(h2, h3).font-display::after {
+  content: none;
+}
+/* CTA del remind: sin ícono, con el ▶ del kit */
+[data-theme='gg-brand'] [data-gg] [data-gg-remind] :is(button, a):is(.bg-amber-600, .bg-amber-500, .bg-brand-cyan) svg {
+  display: none;
+}
+[data-theme='gg-brand'] [data-gg] [data-gg-remind] :is(button, a):is(.bg-amber-600, .bg-amber-500, .bg-brand-cyan)::after {
+  content: '';
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 4px 0 4px 6px;
+  border-color: transparent transparent transparent currentColor;
+  margin-left: 4px;
+  display: inline-block;
+}
+/* Acción del sec-head (Ver todos): chevron fuera, ▶ del kit */
+[data-theme='gg-brand'] [data-gg] header:has(> .kicker):not(:has(h1, h2, h3)):not(.card-premium *):not([data-gg-plain]) a svg,
+[data-theme='gg-brand'] [data-gg] header:has(> div:first-child > .kicker:first-child):not(:has(h1)):not(.card-premium *):not([data-gg='overlay'] *):not([data-gg-plain]) :is(a, button) svg {
+  display: none;
+}
+[data-theme='gg-brand'] [data-gg] header:has(> .kicker):not(:has(h1, h2, h3)):not(.card-premium *):not([data-gg-plain]) a::after,
+[data-theme='gg-brand'] [data-gg] header:has(> div:first-child > .kicker:first-child):not(:has(h1)):not(.card-premium *):not([data-gg='overlay'] *):not([data-gg-plain]) > :is(a, button):last-child::after {
+  content: '';
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 4px 0 4px 6px;
+  border-color: transparent transparent transparent currentColor;
+  margin-left: 5px;
+  display: inline-block;
+}
+/* Ícono REAL de sección en la caja del sec-head (kit .sec-head .ico):
+   el span[data-gg-secico] viene hidden del markup; acá reemplaza a la
+   caja de motivo (::before se apaga cuando está presente) */
+[data-theme='gg-brand'] [data-gg] header [data-gg-secico] {
+  display: grid;
+  place-items: center;
+  align-self: stretch;
+  width: 44px;
+  flex: none;
+  background: #e7f1f9;
+  border-right: 1px solid rgba(11, 31, 51, 0.14);
+  color: #0b1f33;
+}
+[data-theme='gg-brand'] [data-gg] header:has(> .kicker):not(:has(h1, h2, h3)):not(.card-premium *):not([data-gg-plain]):has([data-gg-secico])::before {
+  content: none;
 }
 
 /* ---- D.11 · El nav del rail NO se condensa (el kit lo deja en
