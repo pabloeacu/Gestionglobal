@@ -623,6 +623,65 @@
   background-size: 18px 18px;
 }
 
+/* ---- D.12 · Encabezado de sección "pestaña" (mockup .sec-head):
+   caja con motivo de marca + barra blanca biselada 16px + regla
+   bicolor petrol→navy. Se viste el patrón real de la app — un
+   <header> cuyo PRIMER hijo es el kicker de sección — y se excluye:
+   page-headers (contienen h1/h2/h3), headers dentro de cards
+   (.card-premium) y opt-outs explícitos [data-gg-plain]. En el tema
+   clásico no existe (queda la fila simple de siempre). ---- */
+[data-theme='gg-brand'] [data-gg] header:has(> .kicker:first-child):not(:has(h1, h2, h3)):not(.card-premium *):not([data-gg-plain]) {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: #ffffff;
+  border: 1px solid rgba(11, 31, 51, 0.14);
+  padding: 0 18px 0 0;
+  min-height: 46px;
+  margin-bottom: 16px;
+  clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 0 100%);
+  justify-content: flex-start; /* el ::before es flex-item: justify-between descentraba el título */
+}
+[data-theme='gg-brand'] [data-gg] header:has(> .kicker:first-child):not(:has(h1, h2, h3)):not(.card-premium *):not([data-gg-plain]) > :last-child:not(.kicker) {
+  margin-left: auto; /* la acción (Ver todos) vuelve a la derecha */
+}
+[data-theme='gg-brand'] [data-gg] header:has(> .kicker:first-child):not(:has(h1, h2, h3)):not(.card-premium *):not([data-gg-plain])::before {
+  content: '';
+  align-self: stretch;
+  width: 44px;
+  flex: none;
+  background-color: #e7f1f9;
+  border-right: 1px solid rgba(11, 31, 51, 0.14);
+  background-image:
+    linear-gradient(135deg, transparent 49.5%, rgba(46, 111, 176, 0.5) 50%),
+    linear-gradient(45deg, transparent 49.5%, rgba(21, 154, 166, 0.4) 50%);
+  background-size: 13px 13px;
+}
+[data-theme='gg-brand'] [data-gg] header:has(> .kicker:first-child):not(:has(h1, h2, h3)):not(.card-premium *):not([data-gg-plain])::after {
+  content: '';
+  position: absolute;
+  left: 45px; /* la regla arranca justo después de la caja (como en el modelo) */
+  bottom: 0;
+  height: 3px;
+  width: calc(100% - 45px);
+  background: linear-gradient(90deg, #159aa6 0 44px, #0b1f33 44px 78px, transparent 78px);
+}
+[data-theme='gg-brand'] [data-gg] header:has(> .kicker:first-child):not(:has(h1, h2, h3)):not(.card-premium *):not([data-gg-plain]) > .kicker {
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: #0b1f33;
+}
+[data-theme='gg-brand'] [data-gg] header:has(> .kicker:first-child):not(:has(h1, h2, h3)):not(.card-premium *):not([data-gg-plain]) a {
+  font-family: 'GG Oswald', system-ui, sans-serif;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 11px;
+  color: #159aa6;
+}
+
 /* ---- D.11 · El nav del rail NO se condensa (el kit lo deja en
    Archivo 500; gana sobre D.5 por especificidad). ---- */
 [data-theme='gg-brand'] [data-gg] [data-gg-rail] nav :is(a, button) {
