@@ -18,7 +18,7 @@ import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 
 export function ComingSoonCoverPage() {
   return (
-    <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-brand-ink via-brand-ink to-[#073f4d] text-white">
+    <div data-gg-classic className="relative min-h-screen overflow-hidden bg-gradient-to-br from-brand-ink via-brand-ink to-[#073f4d] text-white">
       {/* Triángulos de marca · esquinas */}
       <TrianglesAccent
         position="top-right"

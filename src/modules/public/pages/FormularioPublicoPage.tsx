@@ -99,7 +99,7 @@ export function FormularioPublicoPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white font-sans">
+    <div data-gg="publico" className="min-h-screen bg-white font-sans">
       <SiteNav darkHero />
 
       {loading ? (

@@ -56,7 +56,7 @@ export function WebinarPublicoPage() {
   const { webinar } = acceso.resp;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-brand-cyan/5">
+    <div data-gg="publico" className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-brand-cyan/5">
       <div className="relative overflow-hidden bg-gradient-to-br from-brand-night via-brand-night to-brand-cyan px-6 py-12 text-white">
         <TrianglesAccent position="top-right" tone="cyan" className="opacity-20" />
         <div className="mx-auto max-w-3xl">

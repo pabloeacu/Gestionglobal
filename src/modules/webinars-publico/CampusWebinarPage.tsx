@@ -87,7 +87,7 @@ export function CampusWebinarPage() {
   const esProspecto = inscripto.es_prospecto;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-brand-cyan/5">
+    <div data-gg="publico" className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-brand-cyan/5">
       {/* Top bar estilo Campus */}
       <header className="sticky top-0 z-20 border-b border-slate-200/80 bg-white/85 backdrop-blur-md">
         <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4 sm:px-6">

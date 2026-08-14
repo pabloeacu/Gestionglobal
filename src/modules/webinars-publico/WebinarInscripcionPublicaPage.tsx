@@ -32,7 +32,7 @@ export function WebinarInscripcionPublicaPage() {
   const { data, loading } = useWebinarVigente();
 
   return (
-    <div className="min-h-screen bg-white font-sans">
+    <div data-gg="publico" className="min-h-screen bg-white font-sans">
       <SiteNav />
       <main className="relative mx-auto max-w-3xl px-6 py-12 sm:py-16">
         <TrianglesAccent position="top-right" size={200} tone="cyan" density="soft" className="opacity-30" />

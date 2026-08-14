@@ -190,7 +190,9 @@ const PARTNERS: Array<{ nombre: string; logo: string; descripcion: string }> = [
 
 export function LandingPage() {
   return (
-    <div id="top" className="min-h-screen bg-white font-sans text-brand-ink">
+    // DGG-136 · FRONTERA: la landing queda IDÉNTICA con o sin tema (ley Pablo).
+    // data-gg-classic re-fija las variables de paleta a los valores clásicos.
+    <div id="top" data-gg-classic className="min-h-screen bg-white font-sans text-brand-ink">
       <SiteNav />
 
       <Hero />
