@@ -544,7 +544,7 @@ export function CursoDetalleAlumnoPage() {
       </Link>
 
       {data.curso.banner_url ? (
-        <div className="relative mb-4 overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 shadow-sm">
+        <div data-gg-cover className="relative mb-4 overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 shadow-sm">
           <div className="aspect-[3/1] w-full">
             <img
               src={data.curso.banner_url}

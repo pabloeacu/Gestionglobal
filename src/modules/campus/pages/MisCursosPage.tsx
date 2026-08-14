@@ -181,10 +181,11 @@ export function MisCursosPage() {
                   <li key={m.id} className="min-w-0">
                     <Link
                       to={`/portal/campus/${m.curso?.slug ?? m.curso_id}`}
+                      data-gg-course
                       className="group flex h-full min-w-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:border-brand-cyan hover:shadow-md motion-safe:animate-fade-up"
                     >
                       {m.curso?.banner_url ? (
-                        <div className="relative aspect-[3/1] w-full overflow-hidden bg-slate-100">
+                        <div data-gg-cover className="relative aspect-[3/1] w-full overflow-hidden bg-slate-100">
                           <img
                             src={m.curso.banner_url}
                             alt=""
