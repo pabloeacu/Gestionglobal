@@ -682,6 +682,60 @@
   color: #159aa6;
 }
 
+/* ---- D.12b · Variante compuesta del sec-head: el patrón de
+   gerencia es header > div(kicker + h2/h3 + descripción) + acción.
+   Misma barra-pestaña, con el bloque de títulos apilado adentro.
+   Guardas: nunca page-headers (h1), ni dentro de cards, ni en
+   overlays (drawers/modales tienen su propio encabezado). ---- */
+[data-theme='gg-brand'] [data-gg] header:has(> div:first-child > .kicker:first-child):not(:has(h1)):not(.card-premium *):not([data-gg='overlay'] *):not([data-gg-plain]) {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: #ffffff;
+  border: 1px solid rgba(11, 31, 51, 0.14);
+  padding: 8px 18px 10px 0;
+  margin-bottom: 16px;
+  clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 0 100%);
+  justify-content: flex-start;
+}
+[data-theme='gg-brand'] [data-gg] header:has(> div:first-child > .kicker:first-child):not(:has(h1)):not(.card-premium *):not([data-gg='overlay'] *):not([data-gg-plain]) > :last-child:not(:first-child) {
+  margin-left: auto;
+}
+[data-theme='gg-brand'] [data-gg] header:has(> div:first-child > .kicker:first-child):not(:has(h1)):not(.card-premium *):not([data-gg='overlay'] *):not([data-gg-plain])::before {
+  content: '';
+  align-self: stretch;
+  width: 44px;
+  flex: none;
+  margin: -8px 0 -10px; /* la caja llega a los bordes pese al padding vertical */
+  background-color: #e7f1f9;
+  border-right: 1px solid rgba(11, 31, 51, 0.14);
+  background-image:
+    linear-gradient(135deg, transparent 49.5%, rgba(46, 111, 176, 0.5) 50%),
+    linear-gradient(45deg, transparent 49.5%, rgba(21, 154, 166, 0.4) 50%);
+  background-size: 13px 13px;
+}
+[data-theme='gg-brand'] [data-gg] header:has(> div:first-child > .kicker:first-child):not(:has(h1)):not(.card-premium *):not([data-gg='overlay'] *):not([data-gg-plain])::after {
+  content: '';
+  position: absolute;
+  left: 45px;
+  bottom: 0;
+  height: 3px;
+  width: calc(100% - 45px);
+  background: linear-gradient(90deg, #159aa6 0 44px, #0b1f33 44px 78px, transparent 78px);
+}
+/* Dentro del device: kicker petrol; el h2/h3 pierde la reglita D.2
+   (la barra ya lleva la regla grande) */
+[data-theme='gg-brand'] [data-gg] header:has(> div:first-child > .kicker:first-child):not(:has(h1)):not(.card-premium *):not([data-gg='overlay'] *):not([data-gg-plain]) > div > .kicker {
+  color: #159aa6;
+}
+[data-theme='gg-brand'] [data-gg] header:has(> div:first-child > .kicker:first-child):not(:has(h1)):not(.card-premium *):not([data-gg='overlay'] *):not([data-gg-plain]) :is(h2, h3).font-display {
+  padding-bottom: 0;
+}
+[data-theme='gg-brand'] [data-gg] header:has(> div:first-child > .kicker:first-child):not(:has(h1)):not(.card-premium *):not([data-gg='overlay'] *):not([data-gg-plain]) :is(h2, h3).font-display::after {
+  content: none;
+}
+
 /* ---- D.11 · El nav del rail NO se condensa (el kit lo deja en
    Archivo 500; gana sobre D.5 por especificidad). ---- */
 [data-theme='gg-brand'] [data-gg] [data-gg-rail] nav :is(a, button) {
