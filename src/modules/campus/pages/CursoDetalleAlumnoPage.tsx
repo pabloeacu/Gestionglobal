@@ -37,6 +37,7 @@ import {
   getProgresoResumen,
   listCondicionesMatricula,
   listEncuentros,
+  listSesionesCompartidasRelevantes,
   listMatriculas,
   listModulosSincronicos,
   listProgreso,
@@ -93,6 +94,7 @@ export function CursoDetalleAlumnoPage() {
   const [certificado, setCertificado] = useState<CertificadoRow | null>(null);
   const [encuesta, setEncuesta] = useState<CursoEncuestaRow | null>(null);
   const [encuentros, setEncuentros] = useState<CursoEncuentroRow[]>([]);
+  const [sesionesRelevantes, setSesionesRelevantes] = useState<Set<string>>(new Set());
   const [modulos, setModulos] = useState<ModuloSincronicoRow[]>([]);
   // E-GG-14: separar carga INICIAL de refreshes silenciosos. Si en cada
   // realtime/refetch ponemos loading=true, el árbol entero se desmonta
@@ -165,7 +167,24 @@ export function CursoDetalleAlumnoPage() {
         if (r.ok) setResumen(r.data);
         if (c.ok) setCondiciones(c.data);
         if (cert.ok) setCertificado(cert.data);
-        if (enc.ok) setEncuentros(enc.data);
+        if (enc.ok) {
+          setEncuentros(enc.data);
+          // DGG-137: el sello "Compartido" solo si el alumno tiene matrícula
+          // activa en otro curso que comparte la sesión.
+          const sesIds = enc.data
+            .map((e) => e.sesion_compartida_id)
+            .filter((x): x is string => !!x);
+          if (sesIds.length > 0) {
+            const rel = await listSesionesCompartidasRelevantes(
+              d.data.curso.id,
+              sesIds,
+              userId,
+            );
+            setSesionesRelevantes(rel.ok ? new Set(rel.data) : new Set());
+          } else {
+            setSesionesRelevantes(new Set());
+          }
+        }
         if (mods.ok) setModulos(mods.data);
         if (enq.ok) setEncuesta(enq.data);
       } else {
@@ -909,6 +928,7 @@ export function CursoDetalleAlumnoPage() {
             encuentros.length > 0 ? (
               <EncuentrosEnVivoAlumno
                 encuentros={encuentros}
+                sesionesCompartidasRelevantes={sesionesRelevantes}
                 modulos={modulos}
                 userName={userNameStable}
                 activoEncuentroId={encuentroEnVivoId}

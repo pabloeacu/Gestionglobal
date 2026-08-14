@@ -42,6 +42,9 @@ import { WebexLiveEmbed } from './WebexLiveEmbed';
 
 interface Props {
   encuentros: CursoEncuentroRow[];
+  /** DGG-137: sesiones compartidas donde ESTE alumno tiene matrícula activa en
+   *  2+ cursos — solo ahí el sello "Compartido" es información y no ruido. */
+  sesionesCompartidasRelevantes?: ReadonlySet<string>;
   /** F10: módulos sincrónicos del curso (para agrupar + docente + requisito). */
   modulos: ModuloSincronicoRow[];
   /** Recibido sólo para mantener API estable; el ClaseEnVivoFullLayout lo usa. */
@@ -172,6 +175,7 @@ function ZoomEmbedScaled({
 
 export function EncuentrosEnVivoAlumno({
   encuentros,
+  sesionesCompartidasRelevantes,
   modulos,
   activoEncuentroId,
   onEntrar,
@@ -245,6 +249,7 @@ export function EncuentrosEnVivoAlumno({
                   now={now}
                   isMobile={isMobile}
                   onEntrar={onEntrar}
+                  sesionesCompartidasRelevantes={sesionesCompartidasRelevantes}
                 />
               ))}
             </ul>
@@ -302,11 +307,13 @@ function EncuentroLi({
   now,
   isMobile,
   onEntrar,
+  sesionesCompartidasRelevantes,
 }: {
   enc: CursoEncuentroRow;
   now: number;
   isMobile: boolean;
   onEntrar: (encuentroId: string) => void;
+  sesionesCompartidasRelevantes?: ReadonlySet<string>;
 }) {
   const plataforma = (enc.plataforma as string | undefined) ?? 'zoom';
           const isZoom = plataforma === 'zoom';
@@ -363,10 +370,12 @@ function EncuentroLi({
                         Finalizado
                       </span>
                     )}
-                    {enc.compartido && (
+                    {enc.compartido &&
+                      !!enc.sesion_compartida_id &&
+                      sesionesCompartidasRelevantes?.has(enc.sesion_compartida_id) && (
                       <span
                         className="inline-flex items-center gap-1 rounded-full border border-violet-200 bg-violet-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-violet-700"
-                        title="Este encuentro es compartido con otro curso: tu presente cuenta en ambos."
+                        title="Estás matriculado en más de un curso que comparte este encuentro: tu presente cuenta en todos."
                       >
                         <Users size={10} /> Compartido
                       </span>
@@ -377,9 +386,11 @@ function EncuentroLi({
                     {enc.fecha_hora ? fmtFechaHora(enc.fecha_hora) : 'Sin fecha'}
                     {enc.duracion_min ? ` · ${enc.duracion_min} min` : ''}
                   </p>
-                  {enc.compartido && (
+                  {enc.compartido &&
+                    !!enc.sesion_compartida_id &&
+                    sesionesCompartidasRelevantes?.has(enc.sesion_compartida_id) && (
                     <p className="mt-0.5 text-[11px] font-medium text-violet-700">
-                      Encuentro compartido — tu presente cuenta en ambos cursos.
+                      Encuentro compartido — tu presente cuenta en tus dos cursos.
                     </p>
                   )}
                   {enc.descripcion && (
