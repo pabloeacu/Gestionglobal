@@ -88,9 +88,11 @@ export function PortalLayout() {
     .toUpperCase();
 
   return (
-    <div className="flex min-h-screen bg-white font-sans">
+    // DGG-136 · data-gg="portal": hook INERTE del tema gg-brand — todos los
+    // overrides visuales viven en CSS bajo [data-theme="gg-brand"] [data-gg="portal"].
+    <div data-gg="portal" className="flex min-h-screen bg-white font-sans">
       {/* Sidebar (desktop) */}
-      <aside className="hidden w-[72px] shrink-0 flex-col border-r border-slate-200 bg-white md:flex">
+      <aside data-gg-rail className="hidden w-[72px] shrink-0 flex-col border-r border-slate-200 bg-white md:flex">
         <div className="flex h-16 items-center justify-center border-b border-slate-100">
           <Link
             to="/portal"
@@ -112,7 +114,7 @@ export function PortalLayout() {
             className="absolute inset-0 bg-brand-ink/40"
             onClick={() => setMobileOpen(false)}
           />
-          <aside className="absolute left-0 top-0 h-full w-72 bg-white shadow-xl">
+          <aside data-gg-rail className="absolute left-0 top-0 h-full w-72 bg-white shadow-xl">
             <div className="flex h-16 items-center justify-between border-b border-slate-100 px-5">
               <BrandMark variant="light" size={30} />
               <button
@@ -133,7 +135,7 @@ export function PortalLayout() {
       <div className="flex min-w-0 flex-1 flex-col">
         {/* iOS safe area: pt-[env(safe-area-inset-top)] evita que los botones
             queden debajo del notch/dynamic island del iPhone. */}
-        <header className="sticky top-0 z-30 flex min-h-16 items-center justify-between border-b border-slate-200 bg-white/85 px-5 pt-[env(safe-area-inset-top)] backdrop-blur md:px-8">
+        <header data-gg-topbar className="sticky top-0 z-30 flex min-h-16 items-center justify-between border-b border-slate-200 bg-white/85 px-5 pt-[env(safe-area-inset-top)] backdrop-blur md:px-8">
           <button
             type="button"
             onClick={() => setMobileOpen(true)}

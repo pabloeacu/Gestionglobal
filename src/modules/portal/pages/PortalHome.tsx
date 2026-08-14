@@ -233,7 +233,7 @@ function Hero({
 }) {
   const greeting = greetingFromHour();
   return (
-    <section className="card-premium relative overflow-hidden">
+    <section data-gg-hero className="card-premium relative overflow-hidden">
       <TrianglesAccent position="top-right" size={220} tone="cyan" density="soft" className="opacity-30" />
       <div className="relative flex flex-col gap-4 p-5 sm:flex-row sm:items-end sm:justify-between sm:p-6">
         <div className="min-w-0 flex-1">
@@ -477,6 +477,7 @@ function Atajos({
         <Link
           key={it.to}
           to={it.to}
+          data-gg-qcard
           className="group relative flex flex-col gap-2 overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-brand-cyan hover:shadow-md"
         >
           <span className="grid h-10 w-10 place-items-center rounded-xl bg-brand-cyan-pale text-brand-cyan transition group-hover:scale-105">
