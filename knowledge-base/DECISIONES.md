@@ -4818,3 +4818,68 @@ comprimido 8,3MB 720×1280 H.264 CRF28 `+faststart` (streaming progresivo,
 `accept-ranges: bytes` confirmado en prod) + póster JPG 264KB. CSP ya cubría
 `media-src 'self'`. CTA "Inscribirme" → `/formulario/curso-formacion`. Sólo
 lo ven visitantes públicos (los logueados son redirigidos de "/" a su portal).
+
+### DGG-138 · Vigencia del enlace a gestoría: 20 días RENOVABLES (Pablo, 2026-08-14)
+
+Caso disparador: gestor360 reportó "link vencido" — el mail
+`gestoria-info-nueva-disponible` era del 29/7 y el 14/8 el acceso estaba muerto.
+Autopsia: la política era **14 días fijos desde la GENERACIÓN del token**
+(`generar_acceso_externo` DEFAULT 14, mig 0043); los reavisos reutilizaban el
+token vivo SIN extenderlo (rama ELSE de 0264/0421) y la visita del gestor
+tampoco renovaba. El token del caso venció el 12/8 con 24 visitas encima
+(última el 10/8): la gestoría trabajando activamente y el link se le murió igual.
+
+**Política nueva (decisión Pablo): 20 días renovables por interacción.**
+- Al crear: `vence_at = now() + 20 días` (antes 14; `solicitud_derivar_v3`
+  tenía DEFAULT 7 divergente — unificado).
+- Cada interacción renueva: `vence_at = GREATEST(vence_at, now() + 20d)`.
+  Interacción = (a) cada envío de email a la gestoría que contenga el link
+  (derivación + reaviso "info nueva"), (b) cada visita del gestor al panel.
+- `GREATEST` = renueva la ventana, no acumula ni acorta: el link muere sólo
+  tras 20 días SIN ningún movimiento. La revocación manual sigue ganando
+  siempre (`WHERE revocado_at IS NULL`).
+
+**Implementación (mig 0423 + edge acceso-externo v8 + front):**
+- RPC nuevo `acceso_externo_registrar_visita(p_token)`: visitas/usado_at/
+  extensión en un UPDATE atómico sólo sobre tokens vivos; REVOKE anon/
+  authenticated + GRANT service_role (sólo la edge puede tocarlo). La edge
+  reemplazó su UPDATE inline por este RPC (best-effort) y devuelve el
+  `vence_at` ya renovado (el panel muestra la fecha fresca).
+- `derivacion_reavisar_gestoria`: si el token vive, ahora lo EXTIENDE; si
+  murió, regenera con 20.
+- `solicitud_derivar/_v2/_v3`: defaults recreados a 20 con DO-block dinámico
+  sobre `pg_get_functiondef` (cero drift de transcripción, con assert).
+- Front: constante única `DIAS_VALIDEZ_ENLACE_EXTERNO = 20`
+  (`src/services/api/accesos.ts`) consumida por los 6 puntos que armaban 14;
+  selector de "Compartir tracking" con opción "20 días (recomendado)".
+- Alcance declarado: la renovación por visita aplica a TODO recurso_tipo de
+  `accesos_externos` (también links de tracking al cliente) — deseado: un
+  link usado activamente no debe morir; uno abandonado muere a los 20 días.
+- Descarte razonado: `gestor_cargar_avance` no extiende — para llegar ahí el
+  panel ya pasó por la edge (que extendió); ventana de 20 días entre mount y
+  submit es irreal.
+
+**Data-fix del caso:** los 2 tokens vencidos de tramites@gestor360.com.ar
+extendidos a now()+20d → el link del mail del 29/7 volvió a funcionar (probado
+en vivo: panel abre, "expira el 03 de septiembre de 2026", visita renovó).
+
+Verificación R18 e2e (BEGIN/ROLLBACK): T1 creación default=20d · T2 visita
+renueva · T3 GREATEST no acorta · T4 vencido intocable (NULL) · T5 reaviso
+regenera 20d + encola email · T6 reaviso extiende token vivo. R16: 0 overloads.
+
+**Auditoría §6 de cierre (workflow 8 agentes: 3 frentes + 5 refutadores):**
+3 hallazgos menores confirmados y FIXEADOS en el mismo chunk: (1) la edge
+descartaba sin log el `error` no-throw del RPC de visita → un grant perdido
+habría apagado la renovación-por-visita en silencio (patrón E-GG-42); ahora
+`console.error` en los edge logs, v9. (2) Copy stale "Default 14" en
+PasoGestoria → interpola la constante + declara la renovación. (3) La
+renovación por visita aplica a TODO recurso_tipo (también "Compartir
+tracking" al cliente) — decidido como DESEADO (riesgo bajo, revocación manual
+sigue ganando, 0 tokens 'tramite' en prod al momento) y declarado en el copy
+del modal. Bonus (nota → fix gratis, mig 0424): el UPDATE de extensión del
+reaviso re-chequea `revocado_at IS NULL` (carrera teórica revocar-vs-reavisar
+cerrada; smoke T7: tras revocar, el reaviso regenera token nuevo). Notas
+documentadas sin acción: DO-block no re-aplicable a mano (assert es la
+protección), host www/sin-www pre-existente (307 lo cubre), topes de vigencia
+dispares entre superficies (pre-existente), panel >20 días abierto sin
+recargar (irreal). Refutados: 0 — los 5 verdicts confirmaron.

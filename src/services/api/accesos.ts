@@ -10,6 +10,12 @@ export type AccesoExternoRow = Database['public']['Tables']['accesos_externos'][
 
 export type RecursoTipo = 'tramite' | 'solicitud' | 'tracking' | 'documento';
 
+// DGG-138 (2026-08-14): política de vigencia del enlace externo — 20 días
+// RENOVABLES. Cada envío de aviso a la gestoría y cada visita del gestor
+// renuevan a GREATEST(vence_at, now()+20d) del lado del server. Este valor
+// espeja los DEFAULT de las RPCs (mig 0423); cambiarlo requiere migración.
+export const DIAS_VALIDEZ_ENLACE_EXTERNO = 20;
+
 export interface GenerarAccesoInput {
   recursoTipo: RecursoTipo;
   recursoId: string;
@@ -28,7 +34,7 @@ export async function generarAcceso(
       p_recurso_id: input.recursoId,
       p_email_destinatario: input.emailDestinatario,
       p_nombre_destinatario: input.nombreDestinatario ?? null,
-      p_dias_validez: input.diasValidez ?? 14,
+      p_dias_validez: input.diasValidez ?? DIAS_VALIDEZ_ENLACE_EXTERNO,
       p_observaciones: input.observaciones ?? null,
     } as unknown as {
       p_recurso_tipo: string;

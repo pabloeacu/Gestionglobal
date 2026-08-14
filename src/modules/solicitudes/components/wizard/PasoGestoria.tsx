@@ -8,6 +8,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Send } from 'lucide-react';
 import { Field, Input, Select, StepPanel, Textarea } from '@/components/common';
 import { toast } from '@/lib/toast';
+import { DIAS_VALIDEZ_ENLACE_EXTERNO } from '@/services/api/accesos';
 import {
   uploadAdjuntoGestoria,
   listGestoriaDestinatarios,
@@ -259,11 +260,13 @@ export function PasoGestoria({ solicitud, state, set }: PasoProps) {
                 value={g.diasValidez}
                 onChange={(e) => {
                   const n = parseInt(e.target.value, 10);
-                  patchG({ diasValidez: isNaN(n) ? 14 : Math.min(365, Math.max(1, n)) });
+                  patchG({ diasValidez: isNaN(n) ? DIAS_VALIDEZ_ENLACE_EXTERNO : Math.min(365, Math.max(1, n)) });
                 }}
                 className="w-28"
               />
-              <span className="text-xs text-brand-muted">Default 14. Rango 1-365.</span>
+              <span className="text-xs text-brand-muted">
+                Default {DIAS_VALIDEZ_ENLACE_EXTERNO}. Rango 1-365. Se renueva solo con cada aviso o visita.
+              </span>
             </div>
           </Field>
         </div>

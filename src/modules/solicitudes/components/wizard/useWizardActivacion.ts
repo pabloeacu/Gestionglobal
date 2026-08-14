@@ -5,6 +5,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { SolicitudDetalle } from '@/services/api/solicitudes';
+import { DIAS_VALIDEZ_ENLACE_EXTERNO } from '@/services/api/accesos';
 import {
   DOC_OUTCOMES_TERMINALES,
   type DocOutcome,
@@ -127,7 +128,7 @@ function estadoInicial(sol: SolicitudDetalle, flags: SolicitudFlags): WizardStat
       email: '',
       nombre: '',
       observaciones: '',
-      diasValidez: 14,
+      diasValidez: DIAS_VALIDEZ_ENLACE_EXTERNO,
       montoGestoria: '',
       cajaId: '',
       fechaPago: '',

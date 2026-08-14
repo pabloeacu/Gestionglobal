@@ -8,7 +8,10 @@
 // Reglas:
 // - Token requerido (32 bytes hex = 64 chars). Caso contrario 400.
 // - Verifica que el token exista, no esté revocado y no haya vencido.
-// - Registra ultima_visita_at + total_visitas++ y usado_at si era NULL.
+// - Registra la visita vía RPC acceso_externo_registrar_visita (DGG-138):
+//   ultima_visita_at + total_visitas++ + usado_at + RENUEVA la vigencia a
+//   GREATEST(vence_at, now()+20 días) — cada visita del gestor mantiene
+//   vivo el enlace; sólo muere tras 20 días sin actividad.
 // - Devuelve el recurso con campos seguros (sin sensibles) + adjuntos (URLs
 //   firmadas a Storage, 1 hora).
 // - service_role bypass RLS para leer recursos (justificado por estar el
@@ -69,15 +72,25 @@ Deno.serve(async (req) => {
     return errorJson(410, 'Este acceso venció');
   }
 
-  // Marcar visita.
-  await admin
-    .from('accesos_externos')
-    .update({
-      ultima_visita_at: new Date().toISOString(),
-      total_visitas: (row.total_visitas ?? 0) + 1,
-      usado_at: row.usado_at ?? new Date().toISOString(),
-    })
-    .eq('token', row.token);
+  // Marcar visita + renovar vigencia (DGG-138): el RPC extiende vence_at a
+  // GREATEST(vence_at, now()+20d) de forma atómica. Best-effort: si fallara,
+  // el acceso igual se sirve con la vigencia que ya tenía.
+  let venceAt = row.vence_at;
+  try {
+    const { data: nuevoVence, error: errVisita } = await admin.rpc(
+      'acceso_externo_registrar_visita',
+      { p_token: row.token },
+    );
+    // Auditoría DGG-138: supabase-js NO tira throw en errores PostgREST — sin
+    // este log, un grant perdido dejaría de renovar visitas en silencio total.
+    if (errVisita) {
+      console.error('[acceso-externo] registrar_visita falló:', errVisita.message);
+    }
+    if (typeof nuevoVence === 'string' && nuevoVence) venceAt = nuevoVence;
+  } catch (e) {
+    /* la visita/renovación no debe tumbar el acceso */
+    console.error('[acceso-externo] registrar_visita throw:', e);
+  }
 
   let recurso: Record<string, unknown> | null = null;
   let historial: unknown[] = [];
@@ -133,7 +146,8 @@ Deno.serve(async (req) => {
     acceso: {
       tipo: row.recurso_tipo,
       destinatario: row.nombre_destinatario ?? row.email_destinatario,
-      vence_at: row.vence_at,
+      // DGG-138: la fecha ya renovada por esta misma visita.
+      vence_at: venceAt,
     },
     recurso,
     historial,

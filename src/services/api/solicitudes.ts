@@ -3,6 +3,7 @@
 // (lógica multi-tabla en RPCs SD), Documento "Flujo Maestro" §1-8.
 
 import { supabase } from '@/lib/supabase';
+import { DIAS_VALIDEZ_ENLACE_EXTERNO } from './accesos';
 import { ok, fail, type ApiResponse } from '@/lib/errors';
 import type { Database, Json } from '@/types/database';
 
@@ -467,7 +468,7 @@ export async function derivar(
       p_destinatario_nombre: input.destinatario_nombre ?? null,
       p_plantilla_slug: input.plantilla_slug ?? 'solicitud-derivada-gestoria',
       p_observaciones: input.observaciones ?? null,
-      p_dias_validez: input.dias_validez ?? 14,
+      p_dias_validez: input.dias_validez ?? DIAS_VALIDEZ_ENLACE_EXTERNO,
       p_monto_pago: input.monto_pago_gestoria,
       p_adjuntos: (input.adjuntos ?? []) as unknown as Parameters<typeof rpc>[1]['p_adjuntos'],
       p_caja_id: input.caja_id,
@@ -497,7 +498,7 @@ export async function derivar(
       p_destinatario_nombre: input.destinatario_nombre ?? null,
       p_plantilla_slug: input.plantilla_slug ?? 'solicitud-derivada-gestoria',
       p_observaciones: input.observaciones ?? null,
-      p_dias_validez: input.dias_validez ?? 14,
+      p_dias_validez: input.dias_validez ?? DIAS_VALIDEZ_ENLACE_EXTERNO,
       p_monto_pago: input.monto_pago_gestoria ?? null,
       p_adjuntos: (input.adjuntos ?? []) as unknown as Parameters<typeof rpc>[1]['p_adjuntos'],
     } as unknown as Parameters<typeof rpc>[1]);
@@ -510,7 +511,7 @@ export async function derivar(
     p_destinatario_nombre: input.destinatario_nombre ?? null,
     p_plantilla_slug: input.plantilla_slug ?? 'solicitud-derivada-gestoria',
     p_observaciones: input.observaciones ?? null,
-    p_dias_validez: input.dias_validez ?? 14,
+    p_dias_validez: input.dias_validez ?? DIAS_VALIDEZ_ENLACE_EXTERNO,
   } as unknown as Parameters<typeof rpc>[1]);
   if (error) return fail('SOL_DERIVAR', error.message, error);
   return ok({ derivacionId: data as string, movimientoId: null, tieneEgreso: false });

@@ -8041,6 +8041,10 @@ export type Database = {
           administracion_id: string
         }[]
       }
+      acceso_externo_registrar_visita: {
+        Args: { p_token: string }
+        Returns: string
+      }
       actualizar_gerente: {
         Args: { p_full_name: string; p_role: string; p_user_id: string }
         Returns: string

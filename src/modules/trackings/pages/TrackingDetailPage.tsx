@@ -60,6 +60,7 @@ import {
   type TabItem,
 } from '@/components/common';
 import {
+  DIAS_VALIDEZ_ENLACE_EXTERNO,
   generarAcceso,
   listAccesosDeRecurso,
   type AccesoConAperturas,
@@ -1396,7 +1397,7 @@ function CompartirExternoModal({
   onGenerado?: () => void;
 }) {
   const [email, setEmail] = useState(emailSugerido);
-  const [dias, setDias] = useState('14');
+  const [dias, setDias] = useState(String(DIAS_VALIDEZ_ENLACE_EXTERNO));
   const [busy, setBusy] = useState(false);
   const [link, setLink] = useState<string | null>(null);
 
@@ -1418,7 +1419,7 @@ function CompartirExternoModal({
       recursoTipo: 'tramite',
       recursoId: trackingId,
       emailDestinatario: email.trim(),
-      diasValidez: Math.max(1, Math.min(60, parseInt(dias, 10) || 14)),
+      diasValidez: Math.max(1, Math.min(60, parseInt(dias, 10) || DIAS_VALIDEZ_ENLACE_EXTERNO)),
       observaciones: `Tracking: ${trackingTitulo}`,
     });
     setBusy(false);
@@ -1476,10 +1477,15 @@ function CompartirExternoModal({
         <Field label="Vigencia">
           <Select value={dias} onChange={(e) => setDias(e.target.value)}>
             <option value="7">7 días</option>
-            <option value="14">14 días (recomendado)</option>
+            <option value="14">14 días</option>
+            <option value="20">20 días (recomendado)</option>
             <option value="30">30 días</option>
             <option value="60">60 días</option>
           </Select>
+          {/* DGG-138: la política de renovación aplica a todo acceso externo. */}
+          <p className="mt-1 text-[11px] text-slate-400">
+            La vigencia se renueva sola con cada visita del destinatario; podés revocar el enlace cuando quieras.
+          </p>
         </Field>
 
         {link && (
