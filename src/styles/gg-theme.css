@@ -1276,15 +1276,7 @@
 [data-theme='gg-brand'] [data-gg-rail] nav > ul > li > :is(a, button) { border-left: 2px solid transparent; }
 [data-theme='gg-brand'] [data-gg-rail] nav > ul > li > a[aria-current='page'],
 [data-theme='gg-brand'] [data-gg-rail] nav > ul > li > button[class*='bg-brand-cyan/10'] { border-left-color: #009eca; }
-/* [82] grupos del nav = nav-group del kit (micro-label condensado) */
-[data-theme='gg-brand'] [data-gg] [data-gg-rail] nav > ul > li > button {
-  font-family: 'GG Oswald', system-ui, sans-serif;
-  text-transform: uppercase;
-  letter-spacing: 0.14em;
-  font-size: 10px;
-  font-weight: 600;
-  color: #6f8ba6;
-}
+/* [82] · grupos del nav: mismo trato que los ítems (pedido Pablo) — el chevron los distingue, no el color ni la tipografía */
 /* [83] sub-items: flechita cyan en hover/activo, sin hairline gris */
 [data-theme='gg-brand'] [data-gg-rail] nav ul ul a {
   position: relative;
@@ -1305,7 +1297,7 @@
 [data-theme='gg-brand'] [data-gg-rail] nav ul ul a:hover::before,
 [data-theme='gg-brand'] [data-gg-rail] nav ul ul a[aria-current='page']::before { opacity: 1; }
 /* [91] reposo nivel-1 más claro + íconos al 85% */
-[data-theme='gg-brand'] [data-gg='gerencia'] [data-gg-rail] nav > ul > li > a { color: #c6d7e6; }
+[data-theme='gg-brand'] [data-gg='gerencia'] [data-gg-rail] nav > ul > li > :is(a, button) { color: #c6d7e6; }
 [data-theme='gg-brand'] [data-gg-rail] nav :is(a, button) > svg:first-child { opacity: 0.85; }
 /* [85] wordmark del kit */
 [data-theme='gg-brand'] [data-gg-rail] a[aria-label='Inicio'] .font-display {

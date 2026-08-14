@@ -21,7 +21,6 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { BrandMark } from '@/components/brand/BrandMark';
-import { IsoMark } from '@/components/brand/IsoMark';
 import { LandingCoverBadge } from './LandingCoverBadge';
 import { HealthFlowsBanner } from './HealthFlowsBanner';
 import { NotificationBell } from '@/components/common/NotificationBell';
@@ -239,11 +238,12 @@ export function GerenciaLayout() {
       {/* Sidebar (desktop) */}
       <aside data-gg-rail className="hidden w-64 shrink-0 border-r border-slate-200 bg-white md:flex md:flex-col">
         <div className="flex h-16 items-center gap-3 border-b border-slate-100 px-5">
-          <Link to="/gerencia" className="inline-flex items-center gap-2 transition hover:opacity-85" aria-label="Inicio">
-            <IsoMark size={32} />
-            <span className="font-display text-sm font-bold leading-tight text-brand-ink">
-              Gestión <br />Global
-            </span>
+          <Link to="/gerencia" className="inline-flex items-center transition hover:opacity-85" aria-label="Inicio">
+            <img
+              src="/brand/logo-white-trim.png"
+              alt="Gestión Global · Aliados de tu tiempo"
+              className="h-10 w-auto brightness-0"
+            />
           </Link>
         </div>
         <SidebarNav />
@@ -448,7 +448,7 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
                   />
                 </button>
                 {expanded && (
-                  <ul className="mt-0.5 space-y-0.5 pl-3">
+                  <ul className="mt-0.5 space-y-0.5 pl-3 motion-safe:animate-fade-up">
                     {item.children.map((leaf) => (
                       <li key={leaf.to}>
                         <NavLink
