@@ -112,46 +112,49 @@ export function PromoFormacionPopup() {
             <div className="grid gap-0 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)]">
               {/* Columna izquierda: celular con el video */}
               <div className="flex items-center justify-center bg-gradient-to-br from-[#0b1f33] via-[#123a5c] to-[#009eca] p-6 sm:p-8">
-                <div className="relative w-[210px] shrink-0 sm:w-[230px]" style={{ aspectRatio: '9 / 19.5' }}>
-                  {/* Bisel del teléfono */}
-                  <div className="absolute inset-0 rounded-[2.4rem] bg-slate-950 p-[6px] shadow-2xl ring-1 ring-white/10">
-                    <video
-                      ref={videoRef}
-                      className="h-full w-full rounded-[2rem] object-cover"
-                      src={VIDEO_SRC}
-                      poster={POSTER_SRC}
-                      autoPlay
-                      muted
-                      loop
-                      playsInline
-                      preload="auto"
-                      onPlay={() => setPlaying(true)}
-                      onPause={() => setPlaying(false)}
-                    />
+                <div className="relative shrink-0">
+                  {/* Bisel del teléfono — envuelve la pantalla a su tamaño real */}
+                  <div className="rounded-[2.4rem] bg-slate-950 p-[7px] shadow-2xl ring-1 ring-white/10">
+                    {/* Pantalla EXACTAMENTE 9:16 = ratio del video → object-cover no recorta */}
+                    <div className="relative w-[206px] overflow-hidden rounded-[2rem] bg-black sm:w-[228px]" style={{ aspectRatio: '9 / 16' }}>
+                      <video
+                        ref={videoRef}
+                        className="absolute inset-0 h-full w-full object-cover"
+                        src={VIDEO_SRC}
+                        poster={POSTER_SRC}
+                        autoPlay
+                        muted
+                        loop
+                        playsInline
+                        preload="auto"
+                        onPlay={() => setPlaying(true)}
+                        onPause={() => setPlaying(false)}
+                      />
+                      {/* Play manual si el navegador frenó el autoplay */}
+                      {!playing && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const v = videoRef.current;
+                            if (v) void v.play().then(() => setPlaying(true)).catch(() => {});
+                          }}
+                          className="absolute inset-0 grid place-items-center focus:outline-none"
+                          aria-label="Reproducir video"
+                        >
+                          <span className="grid h-14 w-14 place-items-center rounded-full bg-white/90 text-[#122230] shadow-lg transition hover:scale-105">
+                            <Play size={24} className="ml-0.5 fill-current" />
+                          </span>
+                        </button>
+                      )}
+                    </div>
                   </div>
-                  {/* Notch */}
-                  <div className="pointer-events-none absolute left-1/2 top-[6px] h-4 w-20 -translate-x-1/2 rounded-b-xl bg-slate-950" />
-                  {/* Play manual si el navegador frenó el autoplay */}
-                  {!playing && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const v = videoRef.current;
-                        if (v) void v.play().then(() => setPlaying(true)).catch(() => {});
-                      }}
-                      className="absolute inset-0 grid place-items-center rounded-[2.4rem] focus:outline-none"
-                      aria-label="Reproducir video"
-                    >
-                      <span className="grid h-14 w-14 place-items-center rounded-full bg-white/90 text-[#122230] shadow-lg transition hover:scale-105">
-                        <Play size={24} className="ml-0.5 fill-current" />
-                      </span>
-                    </button>
-                  )}
+                  {/* Notch sobre el bisel */}
+                  <div className="pointer-events-none absolute left-1/2 top-[7px] h-4 w-20 -translate-x-1/2 rounded-b-xl bg-slate-950" />
                   {/* Botón de sonido */}
                   <button
                     type="button"
                     onClick={toggleSound}
-                    className="absolute bottom-3 right-3 grid h-9 w-9 place-items-center rounded-full bg-black/55 text-white backdrop-blur transition hover:bg-black/75 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"
+                    className="absolute bottom-4 right-4 grid h-9 w-9 place-items-center rounded-full bg-black/55 text-white backdrop-blur transition hover:bg-black/75 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"
                     aria-label={muted ? 'Activar sonido' : 'Silenciar'}
                   >
                     {muted ? <VolumeX size={16} /> : <Volume2 size={16} />}
