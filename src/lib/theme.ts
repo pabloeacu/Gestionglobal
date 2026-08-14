@@ -1,9 +1,9 @@
 // DGG-136 · Flag del tema conmutable "gg-brand" (dirección visual marca-nativa).
 //
 // Modelo de dos niveles (decisión Pablo 2026-08-13):
-//   1. Por dispositivo (AHORA): localStorage 'gg.ui.theme' — solo lo ve quien
-//      lo activa. Atajos: ?tema=gg-brand / ?tema=clasico (los procesa el
-//      script pre-paint de index.html antes del primer render).
+//   1. Por dispositivo: localStorage 'gg.ui.theme.v2' (key versionada en el
+//      cutover §6 — la vieja 'gg.ui.theme' se ignora y limpia). Atajos:
+//      ?tema=gg-brand / ?tema=clasico (los procesa theme-boot.js pre-paint).
 //   2. Cutover global (FUTURO): cambiar DEFAULT en public/theme-boot.js a
 //      'gg-brand' y deployar; el override por dispositivo sigue disponible
 //      como herramienta de diagnóstico.
@@ -13,7 +13,7 @@
 // ESPEJO de public/theme-boot.js — si tocás la key o los literales acá,
 // tocá también allá (§6 Fase 0, regla anti-divergencia).
 
-const STORAGE_KEY = 'gg.ui.theme';
+const STORAGE_KEY = 'gg.ui.theme.v2';
 
 export type UiTheme = 'classic' | 'gg-brand';
 

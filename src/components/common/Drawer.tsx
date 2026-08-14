@@ -53,6 +53,7 @@ export function Drawer({
   // alto). El portal lo monta como hijo directo del body.
   return createPortal(
     <div
+      data-gg="overlay"
       className="fixed inset-0 z-50 flex justify-end bg-brand-ink/40 backdrop-blur-sm motion-safe:animate-fade-in"
       onMouseDown={(e) => e.target === e.currentTarget && onClose()}
     >

@@ -52,6 +52,7 @@ export function Modal({
   // position: fixed (ver nota en Drawer.tsx).
   return createPortal(
     <div
+      data-gg="overlay"
       className="fixed inset-0 z-50 flex items-center justify-center bg-brand-ink/40 p-4 backdrop-blur-sm motion-safe:animate-fade-in"
       onMouseDown={(e) => closeOnBackdrop && e.target === e.currentTarget && onClose()}
     >

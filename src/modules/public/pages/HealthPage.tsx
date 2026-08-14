@@ -76,7 +76,7 @@ export function HealthPage() {
   const stillChecking = checks.some((c) => c.status === 'pending');
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-brand-zebra/40 via-white to-brand-zebra/30 px-4 py-12">
+    <div data-gg="publico" className="min-h-screen bg-gradient-to-br from-brand-zebra/40 via-white to-brand-zebra/30 px-4 py-12">
       <div className="mx-auto max-w-xl">
         <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <header className="flex items-center justify-between border-b border-slate-100 pb-4">

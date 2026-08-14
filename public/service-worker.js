@@ -12,7 +12,7 @@
 // E-GG-155: bump a v2 → purga el index.html añejo cacheado por v1 (el
 // fallback offline podía servir un app-shell de semanas atrás cuyo bundle
 // pre-E-GG-144 refrescaba tokens sin lock y hacía revocar la familia).
-const CACHE_VERSION = 'gg-v2';
+const CACHE_VERSION = 'gg-v3'; // DGG-136 cutover: purga gg-v2 (theme-boot/CSS añejos)
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const STATIC_ASSETS = [
   '/',

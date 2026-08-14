@@ -13,7 +13,7 @@ import { WhatsAppFloatingButton } from '@/components/common/WhatsAppFloatingButt
 
 export function PlataformaMuyProntoPage() {
   return (
-    <div className="min-h-screen bg-brand-ink text-white">
+    <div data-gg="publico" className="min-h-screen bg-brand-ink text-white">
       <SiteNav />
 
       <main className="relative isolate overflow-hidden">

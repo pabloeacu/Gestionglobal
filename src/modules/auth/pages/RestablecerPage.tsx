@@ -98,7 +98,7 @@ export function RestablecerPage() {
   }
 
   return (
-    <div className="flex min-h-screen font-sans">
+    <div data-gg="auth" className="flex min-h-screen font-sans">
       <div className="relative hidden w-1/2 overflow-hidden lg:block">
         <BrandBackdrop />
         <div className="relative z-10 flex h-full flex-col justify-between p-12 text-white">

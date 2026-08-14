@@ -317,6 +317,7 @@ export function CommandPalette() {
 
   return createPortal(
     <div
+      data-gg="overlay"
       className="fixed inset-0 z-[70] flex items-start justify-center bg-brand-ink/40 px-4 pt-[14vh] backdrop-blur-sm motion-safe:animate-fade-in"
       onMouseDown={(e) => e.target === e.currentTarget && close()}
     >

@@ -137,7 +137,7 @@ export function OnboardingTour({ open, steps, onClose }: Props) {
   }
 
   return createPortal(
-    <div className="fixed inset-0 z-[80]">
+    <div data-gg="overlay" className="fixed inset-0 z-[80]">
       {/* Overlay con agujero sobre el target */}
       {rect ? (
         <>
