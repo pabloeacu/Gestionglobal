@@ -4915,3 +4915,35 @@ que originó DGG-139) → copy honesto "estado y detalle actualizado"; la
 opción completa (poblar historial con tracking_lineas visible_cliente en la
 página externa) queda como mejora futura opcional. Nota fixeada gratis: To:
 del email ahora usa el fallback de nombre (antes podía salir NULL).
+
+### DGG-140 · Exámenes: retomar intento abierto + tope por entregados + confirmación (Pablo, 2026-08-18)
+
+Caso Mercerat (E-GG-181): un intento abierto y vacío consumía la única chance
+del examen. Decisión Pablo: rescate inmediato + fix estructural completo.
+- **Rescate:** intento fantasma borrado (verificado 0 respuestas) → chance
+  recuperada al instante.
+- **`curso_iniciar_intento` (mig 0427):** idempotente — con intento abierto lo
+  devuelve (retomar tras refresh/caída); tope validado SERVER-SIDE contando
+  sólo entregados (antes el tope vivía únicamente en el disabled del front);
+  ventana habilitación/cierre también server-side. Guards previos intactos
+  (ownership, vigencia, accesibilidad, advisory lock).
+- **ExamenRunner:** `intentosRestantes` cuenta sólo entregados; botón
+  "Continuar examen" cuando hay abierto (habilitado aunque restantes=0);
+  `useConfirm` R13 antes de gastar un intento ("Vas a usar tu única chance…"
+  / "Te quedan N de M…"); lista de intentos marca "en curso — podés retomarlo".
+Semántica: un intento abierto NO consume cupo hasta entregarse; sólo la
+entrega (terminado_at) cuenta. El retome reinicia las respuestas (no hay
+persistencia parcial — el runner las guarda en memoria hasta entregar).
+
+**Auditoría §6 de cierre DGG-140 (workflow 8 agentes, 3 frentes + refutación):**
+1 CRÍTICO (E-GG-182, pre-existente) + 2 menores, todos fixeados en el chunk
+(mig 0428). (1) Crítico: alumno podía escribir examen_intentos directo por
+PostgREST (auto-aprobarse + evadir tope) — exploit verificado e2e; fix = drop
+policy write + revoke grants, mutación sólo por RPC. (2) Menor: la ventana
+(fecha_cierre) bloqueaba el retome de un intento abierto mientras la entrega
+post-cierre se aceptaba (asimetría por refresh) → política: el cierre impide
+CREAR intentos, RETOMAR uno iniciado en ventana se permite siempre (ventana
+movida después del retome). (3) Menor front: `previos` quedaba stale tras
+Cancelar (mostraba "Comenzar" en vez de "Continuar") → Cancelar refresca
+previos + confirma ("lo marcado no se guarda, el intento queda abierto y
+retomable"). Refutados: 0.

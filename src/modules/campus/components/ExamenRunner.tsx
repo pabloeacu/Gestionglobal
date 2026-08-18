@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, CheckCircle2, Loader2, ScrollText, XCircle, Info } from 'lucide-react';
 import { Button } from '@/components/common';
+import { useConfirm } from '@/components/common/DialogProvider';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/cn';
 import {
@@ -106,15 +107,35 @@ export function ExamenRunner({ matriculaId, examen }: ExamenRunnerProps) {
     if (res.ok) setPrevios(res.data);
   }
 
-  const intentosRestantes = Math.max(0, (examen.intentos_max ?? 1) - previos.length);
+  // DGG-140 (caso Mercerat): el cupo cuenta SOLO intentos ENTREGADOS. Un
+  // intento abierto (refresh/pestaña cerrada antes de entregar) no consume la
+  // chance: se RETOMA (la RPC curso_iniciar_intento es idempotente y lo devuelve).
+  const entregados = previos.filter((p) => p.terminado_at !== null);
+  const intentoAbierto = previos.find((p) => p.terminado_at === null) ?? null;
+  const intentosRestantes = Math.max(0, (examen.intentos_max ?? 1) - entregados.length);
   const yaCerrado =
     examen.fecha_cierre !== null && new Date(examen.fecha_cierre) < new Date();
   const aunNoHabilitado =
     examen.fecha_habilitacion !== null &&
     new Date(examen.fecha_habilitacion) > new Date();
 
+  const confirm = useConfirm();
+
   async function arrancar() {
     if (!contenido) return;
+    // Confirmación antes de GASTAR un intento (retomar uno abierto no gasta).
+    if (!intentoAbierto) {
+      const unico = (examen.intentos_max ?? 1) === 1;
+      const ok = await confirm({
+        title: unico ? 'Vas a usar tu única chance' : 'Vas a usar un intento',
+        message: unico
+          ? 'Este examen tiene un único intento. Al comenzar, el intento queda iniciado; si salís sin entregar vas a poder retomarlo, pero no empezar de nuevo. ¿Comenzamos?'
+          : `Te quedan ${intentosRestantes} de ${examen.intentos_max ?? 1} intentos. Si salís sin entregar vas a poder retomarlo. ¿Comenzamos?`,
+        confirmLabel: 'Comenzar examen',
+        cancelLabel: 'Todavía no',
+      });
+      if (!ok) return;
+    }
     setLoading(true);
     const res = await iniciarIntento(examen.id, matriculaId);
     setLoading(false);
@@ -273,12 +294,18 @@ export function ExamenRunner({ matriculaId, examen }: ExamenRunnerProps) {
               <li key={p.id} className="flex items-center justify-between">
                 <span>Intento #{p.intento}</span>
                 <span className="font-semibold text-brand-ink">
-                  {p.nota !== null ? `${p.nota}/100` : '—'}{' '}
-                  {p.aprobado ? (
-                    <span className="ml-1 text-emerald-600">aprobado</span>
-                  ) : p.aprobado === false ? (
-                    <span className="ml-1 text-amber-600">no aprobado</span>
-                  ) : null}
+                  {p.terminado_at === null ? (
+                    <span className="text-brand-cyan">en curso — podés retomarlo</span>
+                  ) : (
+                    <>
+                      {p.nota !== null ? `${p.nota}/100` : '—'}{' '}
+                      {p.aprobado ? (
+                        <span className="ml-1 text-emerald-600">aprobado</span>
+                      ) : p.aprobado === false ? (
+                        <span className="ml-1 text-amber-600">no aprobado</span>
+                      ) : null}
+                    </>
+                  )}
                 </span>
               </li>
             ))}
@@ -299,10 +326,12 @@ export function ExamenRunner({ matriculaId, examen }: ExamenRunnerProps) {
         <Button
           onClick={arrancar}
           disabled={
-            intentosRestantes <= 0 || yaCerrado || aunNoHabilitado || loading || totalPreguntas === 0
+            // Con un intento abierto se puede RETOMAR aunque el cupo esté agotado.
+            (intentoAbierto === null && intentosRestantes <= 0) ||
+            yaCerrado || aunNoHabilitado || loading || totalPreguntas === 0
           }
         >
-          Comenzar examen
+          {intentoAbierto ? 'Continuar examen' : 'Comenzar examen'}
         </Button>
       </div>
     );
@@ -379,9 +408,25 @@ export function ExamenRunner({ matriculaId, examen }: ExamenRunnerProps) {
       <div className="flex justify-end gap-2">
         <Button
           variant="ghost"
-          onClick={() => { setIntento(null); setRespuestas({}); setVista([]); }}
+          onClick={async () => {
+            // §6 DGG-140: avisar que lo marcado se descarta pero el intento
+            // sigue abierto y retomable; refrescar previos para que la tarjeta
+            // muestre "Continuar examen" (antes quedaba stale con "Comenzar").
+            const ok = await confirm({
+              title: 'Salir del examen',
+              message:
+                'Lo que marcaste hasta acá no se guarda, pero el intento queda abierto: vas a poder retomarlo. ¿Salir?',
+              confirmLabel: 'Salir',
+              cancelLabel: 'Seguir rindiendo',
+            });
+            if (!ok) return;
+            setIntento(null);
+            setRespuestas({});
+            setVista([]);
+            await recargarPrevios();
+          }}
         >
-          <XCircle size={14} /> Cancelar
+          <XCircle size={14} /> Salir
         </Button>
         <Button onClick={enviar} loading={submitting}>
           Enviar respuestas

@@ -5282,3 +5282,71 @@ deje el template/destinatario en manos del caller), no sólo la función que dis
 **Fix:** `:not([class*='border-red'])` en las reglas E de borde-reposo y D.6 de foco. Verificado EN PRODUCCIÓN (inyector DOM sobre sha 38beacc): input `border-red-400` computa `rgb(248,113,113)` en reposo Y al foco; input normal computa la línea navy `rgba(11,31,51,.14)`.
 
 **Cómo se cazó:** doble auditoría §6 con 3 agentes en paralelo (funcional / fidelidad / cobertura) barriendo las ~1100 líneas del CSS del tema antes de dar el tema por cerrado. El frente funcional también confirmó que NO había repetición del bug del topbar (E-GG-179 adyacente: selector ancho ocultando controles) ni otras regresiones. Regla capitalizada: **todo override de tema sobre inputs/estados debe excluir explícitamente los estados de validación (`border-red`, `ring-red`)** — la señal de error nunca puede perder contra la estética.
+
+### E-GG-181 · Intento fantasma de examen consumía la única chance (caso Mercerat) — 2026-08-18
+
+**Síntoma.** La alumna Mercerat (Curso de Actualización FUNDPLATA) veía
+"Intentos restantes: 0" y el botón "Comenzar examen" bloqueado sin haber
+rendido: en BD tenía un intento #1 iniciado ese mismo día, `terminado_at
+NULL`, `respuestas = 0`.
+
+**Causa raíz (doble).** (1) `ExamenRunner` calculaba `intentosRestantes =
+intentos_max − previos.length` contando TODOS los intentos, incluidos los
+abiertos sin entregar; y el intento "en curso" vivía sólo en la memoria del
+componente: un refresh/cierre de pestaña/caída de conexión tras tocar
+"Comenzar examen" dejaba la fila huérfana, restaba el cupo y no había forma
+de retomar. (2) `curso_iniciar_intento` NO validaba el tope server-side (el
+comentario del service lo prometía, la función no lo hacía) y siempre creaba
+una fila nueva — el enforcement real era únicamente el `disabled` del front.
+
+**Fix (DGG-140, mig 0427 + ExamenRunner).** RPC idempotente: si hay intento
+abierto lo DEVUELVE (retomar); tope server-side contando SOLO entregados
+(`terminado_at NOT NULL`); ventana habilitación/cierre también server-side.
+Front: cupo por entregados, botón "Continuar examen" (habilitado aunque el
+cupo esté agotado si hay abierto), `useConfirm` (R13) antes de gastar un
+intento con copy de única chance, y la lista de intentos marca "en curso —
+podés retomarlo". Data-fix: intento fantasma de Mercerat borrado (verificado
+vacío) → recuperó su chance.
+
+**Lección.** Todo tope/cupo que el front muestre como `disabled` debe estar
+TAMBIÉN validado en la RPC (el disabled es UX, no seguridad), y toda
+operación "iniciar X" cuyo estado en curso viva en memoria del cliente debe
+ser idempotente/retomable server-side: el refresh es un evento normal, no
+excepcional.
+
+### E-GG-182 · RLS: el alumno podía escribir examen_intentos directo y auto-aprobarse (CRÍTICO, pre-existente) — 2026-08-18
+
+**Hallazgo** (auditoría §6 de DGG-140, verificado con exploit e2e bajo JWT de
+alumno + ROLLBACK). La tabla `examen_intentos` tenía la policy
+`examen_intentos_cud` (FOR ALL por ownership de la matrícula) y `authenticated`
+conservaba grants INSERT/UPDATE/DELETE. Un alumno, con su propia anon key,
+sin pasar por ninguna RPC, podía por PostgREST directo:
+- `UPDATE … SET nota=100, aprobado=true, terminado_at=now()` → **auto-aprobarse**;
+  el trigger `trg_examen_intentos_sync_condicion` (SECURITY DEFINER) propaga el
+  aprobado a la condición de la matrícula → **habilita el certificado**.
+- `UPDATE … SET terminado_at=NULL` sobre un entregado → lo resucita como
+  "abierto" y anula el tope por entregados de DGG-140/0427.
+- `DELETE` de un reprobado → libera cupo.
+- `INSERT` con nota/aprobado pre-seteados (el trigger de ventana no sanea esas
+  columnas).
+
+**Causa raíz.** Deuda pre-existente desde 0029/0045: la policy de write por
+ownership trataba al alumno como dueño de sus intentos, pero el intento de
+examen NO es un dato que el alumno deba poder mutar — es el registro de una
+evaluación. El enforcement (tope, nota, aprobación) vivía en las RPCs, pero la
+tabla quedaba escribible por al lado. (Regla 4/5: toda mutación de negocio por
+RPC — acá la tabla contradecía la regla.)
+
+**Fix (mig 0428).** `DROP POLICY examen_intentos_cud` + `REVOKE INSERT/UPDATE/
+DELETE … FROM authenticated, anon`. Toda mutación queda SOLO en las RPCs
+SECURITY DEFINER (`curso_iniciar_intento`, `curso_responder_examen`). Se
+conserva `examen_intentos_select` (ownership/staff) para las lecturas legítimas
+(listIntentos / listMejoresNotas — verificado que ninguna superficie front
+escribe la tabla directo). Verificado post-fix con el mismo exploit: las 3
+escrituras del alumno ahora dan `insufficient_privilege`; las RPCs siguen
+operando.
+
+**Lección.** Ownership no implica derecho de escritura: una tabla-registro de
+evaluación/auditoría debe ser read-only para el sujeto y mutar sólo por RPC
+SECURITY DEFINER. Al capitalizar cualquier bug de una tabla, auditar sus
+policies de WRITE con el JWT del rol menos privilegiado, no sólo la RPC.
