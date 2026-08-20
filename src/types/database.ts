@@ -9491,6 +9491,15 @@ export type Database = {
           vencida: boolean
         }[]
       }
+      gerencia_email_registro_kpis: {
+        Args: never
+        Returns: {
+          enviados: number
+          fallidos: number
+          pendientes: number
+          total: number
+        }[]
+      }
       gerencia_encolar_email: {
         Args: {
           p_administracion_id: string

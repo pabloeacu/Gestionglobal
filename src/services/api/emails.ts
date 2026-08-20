@@ -105,31 +105,24 @@ function sanearBusqueda(s: string): string {
 }
 
 /**
- * REG · KPIs sobre el universo COMPLETO del registro (espíritu R19) sin traer
- * filas: counts head-only por estado directamente sobre la vista unificada
- * `v_email_registro`. El estado es una columna real, así que cada KPI es un
- * `count` exacto (ya no hace falta la resta ni las expansiones de dominio).
+ * REG · KPIs sobre el universo COMPLETO del registro (espíritu R19) en UNA sola
+ * pasada vía RPC `gerencia_email_registro_kpis` (count FILTER). Antes se
+ * disparaban 4 `count=exact` HEAD concurrentes sobre `v_email_registro`, lo que
+ * bajo picos de concurrencia devolvía 503 esporádico (vista RLS · UNION · joins)
+ * y dejaba las tarjetas con números erróneos. El RPC es SECURITY INVOKER, así
+ * que respeta la misma RLS que la vista (staff ve todo; administrador, lo suyo).
  */
 export async function contarEnviosKpis(): Promise<
   ApiResponse<{ total: number; pendientes: number; enviados: number; fallidos: number }>
 > {
-  const base = () =>
-    supabase.from('v_email_registro').select('id', { count: 'exact', head: true });
-
-  const [tot, pend, env, fall] = await Promise.all([
-    base(),
-    base().eq('estado', 'pendiente'),
-    base().eq('estado', 'enviado'),
-    base().eq('estado', 'fallido'),
-  ]);
-  const err = tot.error ?? pend.error ?? env.error ?? fall.error;
-  if (err) return fail('ENVIOS_KPIS', err.message, err);
-
+  const { data, error } = await supabase.rpc('gerencia_email_registro_kpis').single();
+  if (error) return fail('ENVIOS_KPIS', error.message, error);
+  const r = (data ?? {}) as { total: number; pendientes: number; enviados: number; fallidos: number };
   return ok({
-    total: tot.count ?? 0,
-    pendientes: pend.count ?? 0,
-    enviados: env.count ?? 0,
-    fallidos: fall.count ?? 0,
+    total: Number(r.total ?? 0),
+    pendientes: Number(r.pendientes ?? 0),
+    enviados: Number(r.enviados ?? 0),
+    fallidos: Number(r.fallidos ?? 0),
   });
 }
 
