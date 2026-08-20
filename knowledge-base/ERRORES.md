@@ -5468,3 +5468,16 @@ diff no.
   muerta `'error'` del CASE, `opened`/`clicked` al `DeliveryEstado`).
 - **Fecha / módulo:** 2026-08-20 · configuración/emails, services/api/emails.ts,
   supabase/migrations/0432.
+- **Follow-ups del mismo día (prueba en vivo):**
+  1. **KPIs 503 (mig 0433).** Las 4 tarjetas disparaban 4 `count=exact` HEAD
+     concurrentes sobre la vista RLS; un count aislado responde 200/933 rápido,
+     pero 4 en paralelo bajo pico devolvían 503 esporádico → números erráticos
+     (105/115 en vez de 933). Fix: RPC `gerencia_email_registro_kpis`
+     (SECURITY INVOKER, `count() FILTER` en 1 pasada) reemplaza los 4 counts.
+  2. **REG-6 · adjunto PDF invisible en el preview (reporte Pablo).** El "Ver"
+     de la constancia mostraba el HTML pero no el chip del PDF: las 3 edge fns de
+     envío directo (send-constancia-email, send-certificado-email, cj-enviar-pdf)
+     construían el adjunto pero NO guardaban `attachments_filenames` en
+     `sent_emails`. Fix: las 3 lo registran (`[pdfFilename]`) + `getEnvioPreview`
+     cae a `attachments_meta` (comprobantes) + data-fix de las constancias
+     existentes (CONST-2026-00001/00002). El modal ya renderiza el chip.

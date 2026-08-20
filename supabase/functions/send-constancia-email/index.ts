@@ -156,6 +156,9 @@ Deno.serve(async (req) => {
     webhook_status: 'enviado',
     provider_msg_id: providerMsgId,
     administracion_id: con.administracion_id,
+    // REG-6: registrar el nombre del PDF adjunto para que el preview del
+    // registro de correos ("Ver") muestre el chip del adjunto, como en la cola.
+    attachments_filenames: [pdfFilename],
     zip_attached: false,
   });
   await admin

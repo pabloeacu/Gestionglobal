@@ -13,7 +13,13 @@
 // Citas: regla 7 (edge fn versionada), reuso del patrón dispatch-emails.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.46.1';
-import { humanizeUpstream, humanizeUpstreamMsg } from '../_shared/humanize.ts';
+
+// Inline (self-contained, sin dep de _shared, igual que send-certificado-email):
+// el detalle upstream se loguea con console.error; al usuario le devolvemos el
+// fallback amigable.
+function humanizeUpstreamMsg(_upstream: string, fallback: string): string {
+  return fallback;
+}
 
 const DOMAIN = 'gestionglobal.ar';
 const FROM = `consultoriajuridica@${DOMAIN}`;
@@ -151,6 +157,8 @@ Deno.serve(async (req) => {
     estado: 'sent',
     webhook_status: 'enviado',
     provider_msg_id: providerMsgId,
+    // REG-6: registrar el nombre del PDF adjunto para el preview del registro.
+    attachments_filenames: [pdfFilename],
     zip_attached: false,
   });
 

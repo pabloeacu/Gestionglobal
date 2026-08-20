@@ -418,7 +418,7 @@ export async function getEnvioPreview(
   // Fila de sent_emails: el HTML y los metadatos viven ahí.
   const { data: se, error: seErr } = await supabase
     .from('sent_emails')
-    .select('id, asunto, to_email, html, enviado_at, template_slug, attachments_filenames')
+    .select('id, asunto, to_email, html, enviado_at, template_slug, attachments_filenames, attachments_meta')
     .eq('id', envioId)
     .maybeSingle();
   if (seErr) return fail('ENVIO_PREVIEW', seErr.message, seErr);
@@ -433,6 +433,12 @@ export async function getEnvioPreview(
   let toNombre: string | null = null;
   let variables: Record<string, unknown> | null = null;
   let filenames: string[] | null = (se.attachments_filenames as string[] | null) ?? null;
+  // REG-6 · Fallback a attachments_meta [{filename,...}] para directos que
+  // registran el adjunto ahí (comprobantes) y no en attachments_filenames.
+  if (!filenames || filenames.length === 0) {
+    const meta = se.attachments_meta as Array<{ filename?: string }> | null | undefined;
+    if (Array.isArray(meta) && meta.length > 0) filenames = meta.map(m => m.filename ?? '(sin nombre)');
+  }
   if (se.enviado_at) {
     const { data: q2 } = await supabase
       .from('email_queue')

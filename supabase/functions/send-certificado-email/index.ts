@@ -164,6 +164,8 @@ Deno.serve(async (req) => {
     webhook_status: 'enviado',
     provider_msg_id: providerMsgId,
     administracion_id: cert.administracion_id,
+    // REG-6: registrar el nombre del PDF adjunto para el preview del registro.
+    attachments_filenames: [pdfFilename],
     zip_attached: false,
   });
   await admin.from('certificados').update({ enviado_email_at: nowIso }).eq('id', cert.id);
