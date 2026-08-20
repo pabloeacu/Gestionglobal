@@ -162,7 +162,12 @@ export function ModeracionCard({ item, onResuelto }: { item: ModeracionPendiente
     // Si un intento previo ya creó el pedido (y sólo falló sacar el aporte de la cola),
     // NO lo volvemos a crear: reintentamos únicamente el paso 'interno'.
     if (!pedidoCreadoRef.current) {
-      const res = await crearPedidoDoc(item.tramite_id, desc, [desc]);
+      // JL-R3 (2026-08-20): NO pasar `desc` como descripción Y como ítem — el pedido
+      // tiene un encabezado (pedido.descripcion) + una lista de ítems; duplicar el
+      // texto lo mostraba al cliente dos veces ("lo que pones en texto también queda
+      // como título"). El texto que se escribe ES lo que se le pide → va como único
+      // ítem; el encabezado queda en el default limpio ('Documentación requerida').
+      const res = await crearPedidoDoc(item.tramite_id, '', [desc]);
       if (!res.ok) {
         setCreandoPedido(false);
         toast.error('No pudimos crear el pedido', { description: humanizeError(res.error) });

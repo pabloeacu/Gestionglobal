@@ -69,7 +69,11 @@ export function AgregarLineaDrawer({
     // Modo "requiere respuesta": delega TODO en el pedido de documentación
     // (crea su propia línea visible + notifica). No creamos línea duplicada.
     if (requiereRespuesta) {
-      const res = await crearPedidoDoc(trackingId, descripcion.trim(), [descripcion.trim()]);
+      // JL-R3 §6 (parity con ModeracionPage): NO pasar el texto como descripción
+      // Y como ítem — se veía duplicado en el portal (header del pedido == ítem).
+      // El texto va como único ítem; el header queda en el default limpio. El
+      // mail/campanita usan el fallback a ítems (mig 0431) para no quedar vacíos.
+      const res = await crearPedidoDoc(trackingId, '', [descripcion.trim()]);
       if (!res.ok) {
         setSaving(false);
         toast.error(humanizeError(res.error));

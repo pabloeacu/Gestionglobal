@@ -24,11 +24,13 @@ import { toast } from '@/lib/toast';
 import { humanizeError } from '@/lib/errors';
 import { formatDateTime } from '@/lib/dates';
 import { abrirArchivoProtegido } from '@/lib/storageUrls';
+import { useConfirm } from '@/components/common';
 import {
   colorBadge,
   type TrackingLineaRow,
   type TrackingCategoriaConfigRow,
   editarAvanceLinea,
+  reenviarAvanceCliente,
 } from '@/services/api/trackings';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -71,9 +73,37 @@ export function LineaTrackingCard({
   // Staff = 'gerente' u 'operador'. La RPC valida también private.is_staff()
   // en backend, así que esto es solo UX (mostrar/ocultar el lápiz).
   const isStaff = user?.role === 'gerente' || user?.role === 'operador';
+  const confirm = useConfirm();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(linea.descripcion);
   const [saving, setSaving] = useState(false);
+  const [reenviando, setReenviando] = useState(false);
+
+  // JL-R2: gerencia puede reenviar al cliente el aviso de un avance ya
+  // publicado, con los adjuntos de la línea. Sólo tiene sentido cuando la
+  // línea es visible al cliente y tiene archivos que hacer llegar por mail.
+  const tieneAdjuntos = (linea.archivos_urls?.length ?? 0) > 0;
+  const puedeReenviar = isStaff && linea.visible_cliente === true && tieneAdjuntos;
+
+  async function reenviar() {
+    const ok = await confirm({
+      title: 'Reenviar al cliente',
+      message:
+        'Le reenviamos este avance al cliente por email (con los adjuntos), push y campanita. ¿Confirmás?',
+      confirmLabel: 'Reenviar',
+    });
+    if (!ok) return;
+    setReenviando(true);
+    const res = await reenviarAvanceCliente(linea.id);
+    setReenviando(false);
+    if (!res.ok) {
+      toast.error('No pudimos reenviar', { description: humanizeError(res.error) });
+      return;
+    }
+    toast.success('Reenviado al cliente', {
+      description: 'Le llega por email con los adjuntos, más aviso al portal.',
+    });
+  }
 
   async function guardar() {
     if (!draft.trim()) {
@@ -200,6 +230,21 @@ export function LineaTrackingCard({
                 </li>
               ))}
             </ul>
+          )}
+
+          {puedeReenviar && (
+            <div className="mt-3">
+              <button
+                type="button"
+                onClick={() => void reenviar()}
+                disabled={reenviando}
+                title="Reenvía al cliente este avance por email con los adjuntos"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-brand-cyan/30 bg-brand-cyan-pale/40 px-2.5 py-1.5 text-xs font-semibold text-brand-cyan transition hover:bg-brand-cyan-pale disabled:opacity-50"
+              >
+                <Mail className="h-3.5 w-3.5" />
+                {reenviando ? 'Reenviando…' : 'Reenviar al cliente'}
+              </button>
+            </div>
           )}
 
           <footer className="mt-3 flex items-center gap-2 text-xs text-slate-500">

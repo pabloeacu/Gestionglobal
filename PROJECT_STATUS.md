@@ -157,6 +157,28 @@ Recorrido punta a punta logueado sobre la URL de Vercel. **Cobertura amplia** de
 
 ## 2. Trabajo en curso AHORA
 
+**Reportes JL R1/R2/R3 · CERRADO (2026-08-20).** Tres reportes del doc de JL,
+abordados con cánones completos (§6 doble/triple + e2e BD + build + deploy).
+- **R1 (E-GG-183, mig 0429):** rechazo de pago informado no avisaba por mail al
+  cliente (sólo campanita, con url roto `/portal/cuenta`). Template
+  `pago-rechazado-cliente` + email best-effort con el motivo + url corregida a
+  `/portal/cuenta-corriente` (también en `pago_conciliar`). Caso SANCLAUDIO.
+- **R2 (E-GG-184, mig 0430 + edge dispatch-emails v21 + front):** los adjuntos de
+  una línea de avance (bucket privado `gestor-uploads`) no viajaban en el mail al
+  cliente y no había reenvío. Helper `gestor_uploads_attachments`, `notificar`
+  adjunta, RPC `tracking_reenviar_avance_cliente` (staff, líneas publicadas),
+  `ATTACH_BUCKETS += gestor-uploads`, botón "Reenviar al cliente" en
+  `LineaTrackingCard`. Caso Sardón (Ficha+Boleta+Circular).
+- **R3 (E-GG-185, mig 0431 + front):** convertir un avance en Pedido de Doc
+  duplicaba el texto (header del pedido == único ítem). Front pasa header vacío +
+  texto como ítem; la RPC usa fallback a ítems para mail/campanita/línea (para no
+  dejar el aviso vacío — regresión que cazó el §6). Espejado también en
+  `AgregarLineaDrawer`.
+- **§6:** workflow 3 frentes + refutación → 2 hallazgos menores confirmados (la
+  regresión del aviso y el parity gap del drawer), ambos cerrados en el mismo
+  chunk. Smokes e2e BEGIN/ROLLBACK OK en los 3. Falta: prueba en vivo + comentar
+  en el doc de JL como Pablo.
+
 **Campus Fase 3 · Zoom + Webinars · BACKBONE COMPLETO (2026-05-22).** Browser automation + DB + edge functions:
 - ✅ **App 1 (S2S OAuth) "Gestion Global Campus"** creada, ACTIVADA, 4 scopes granulares (meeting:write/read:meeting:admin, report:read:list_meeting_participants:admin, cloud_recording:read:list_recording_files:admin).
 - ✅ **App 2 (General App) "Gestion Global Campus SDK"** creada con feature **Embed → Meeting SDK** habilitada. Client ID/Secret = SDK Key/Secret.

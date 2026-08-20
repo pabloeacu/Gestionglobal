@@ -10336,6 +10336,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      tracking_reenviar_avance_cliente: {
+        Args: { p_linea_id: string }
+        Returns: undefined
+      }
       tramite_avisar_cancelacion: {
         Args: { p_tramite_id: string }
         Returns: Json

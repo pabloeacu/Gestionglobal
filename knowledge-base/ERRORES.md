@@ -5350,3 +5350,88 @@ operando.
 evaluación/auditoría debe ser read-only para el sujeto y mutar sólo por RPC
 SECURITY DEFINER. Al capitalizar cualquier bug de una tabla, auditar sus
 policies de WRITE con el JWT del rol menos privilegiado, no sólo la RPC.
+
+### E-GG-183 · Rechazo de pago informado: nunca salía mail al cliente + URL de campanita rota (caso SANCLAUDIO) — 2026-08-20
+
+**Reporte JL.** "La clienta SANCLAUDIO informa un pago que ya estaba cargado, se
+rechazó con motivo, pero no veo mail disparado a la clienta; tal vez se notifica
+en su portal, cosa que no puedo ver."
+
+**Causa raíz.** `pago_rechazar(p_pago_id, p_motivo)` sólo insertaba una campanita
+in-app (`notificaciones_internas`) — NUNCA encolaba email. Peor: esa campanita
+enlazaba a `/portal/cuenta`, ruta que NO existe (la real es
+`/portal/cuenta-corriente`) → caía al catch-all `<Navigate to="/">`. Mismo url
+roto en `pago_conciliar`. El toast del front ("Avisamos al cliente") prometía
+algo que no ocurría.
+
+**Fix (mig 0429).** Template `pago-rechazado-cliente` (manaxer-v1, from `general`)
+con `{{nombre}}/{{monto_frase}}/{{motivo}}/{{portal_url}}`. `pago_rechazar` ahora
+encola ese email con el motivo, dentro de un sub-bloque `BEGIN…EXCEPTION WHEN
+OTHERS THEN NULL` (best-effort: un fallo de mail jamás aborta el rechazo, que ya
+persistió). URL de ambas campanitas corregida a `/portal/cuenta-corriente`.
+Smoke e2e (BEGIN/ROLLBACK, JWT gerente): encoló mail al destinatario correcto +
+campanita con url válido.
+
+**Lección.** Un toast que afirma "avisamos al cliente" es un contrato: si el
+backend no manda el mail, es mentira user-visible. Y toda URL hardcodeada en una
+campanita/mail debe validarse contra `App.tsx` (R15 aplicada a rutas de notif).
+
+### E-GG-184 · Adjuntos de la línea de avance no viajaban en el mail al cliente + sin reenvío (caso Sardón) — 2026-08-20
+
+**Reporte JL.** "Los adjuntos (Ficha con la Boleta de Pago y Circular) no se
+enviaron; los mandó la gestoría, yo edité el texto y lo envié al cliente. En las
+Líneas de Avance del Portal de Gerencia SÍ están los adjuntos, pero no pude hacer
+desde el Sistema un nuevo envío con los adjuntos que no le llegaron."
+
+**Causa raíz.** `private.tracking_notificar_avance_cliente` encolaba
+`tracking-avance-cliente` con descripción + link al portal, pero NUNCA seteaba
+`email_queue.attachments_jsonb`. Los archivos viven en el bucket privado
+`gestor-uploads` (accesibles en el portal vía signed URL cuando la línea es
+`visible_cliente`, pero no en el mail). Y no existía forma de re-disparar el
+aviso.
+
+**Fix (mig 0430 + edge + front).** (1) Helper `private.gestor_uploads_attachments
+(text[])` mapea las URLs de la línea a `{filename, storage_bucket, storage_path,
+content_type}` (nombre limpio, sólo bucket gestor-uploads). (2) `notificar` hace
+`UPDATE email_queue SET attachments_jsonb` tras encolar. (3) RPC pública
+`tracking_reenviar_avance_cliente(linea)` staff-only + sólo líneas
+`visible_cliente` → el "nuevo envío" que pedía JL. (4) Edge `dispatch-emails`:
+`ATTACH_BUCKETS += 'gestor-uploads'` (seguro: `email_queue` RLS insert/update =
+`is_staff()`; los únicos productores de esos adjuntos son las 2 RPCs SECURITY
+DEFINER controladas o staff, que ya tiene acceso total al bucket). (5) Botón
+"Reenviar al cliente" en `LineaTrackingCard` (gerencia, líneas publicadas con
+adjuntos, `useConfirm` R13). Smoke e2e: reenvío encoló mail con
+`attachments_jsonb` = los PDFs de la línea, bucket correcto.
+
+**Lección.** Un archivo visible en gerencia no implica que le llegó al cliente:
+cada canal (portal vs mail) es un side-effect distinto que hay que verificar por
+separado. Y todo aviso al cliente con adjuntos necesita un camino de reenvío.
+
+### E-GG-185 · Convertir avance en Pedido de Documentación duplicaba el texto (título == ítem) + regresión del aviso — 2026-08-20
+
+**Reporte JL.** "Cuando editás lo que se recibe de Gestoría, lo que ponés en
+texto también queda como título."
+
+**Causa raíz.** `ModeracionPage.onConvertirEnPedido` (y su gemelo
+`AgregarLineaDrawer` en modo "requiere respuesta") llamaban
+`crearPedidoDoc(tramite_id, desc, [desc])` — el mismo texto como descripción
+(header del pedido) Y como único ítem. En el portal (`PedidosDocPanel`) el header
+y el ítem se renderizan por separado → el cliente veía la frase dos veces.
+
+**Fix + regresión capitalizada en el §6.** Front: `crearPedidoDoc(tramite_id, '',
+[desc])` → header cae al default 'Documentación requerida', el texto va como
+único ítem. La doble auditoría §6 detectó la regresión colateral: con
+`p_descripcion=''`, la RPC `tramite_pedido_doc_crear` dejaba el MAIL
+(`tramite-docs-pendientes`), la CAMPANITA y la LÍNEA DE TRACKING visible SIN el
+texto de qué se pide (sólo "N documento(s) pendiente(s)"). Fix (mig 0431):
+`v_desc_notif := COALESCE(NULLIF(btrim(p_descripcion),''),
+array_to_string(items_no_vacíos,' · '),'Documentación requerida')` para esas 3
+superficies de aviso, dejando el header en su default → informa sin re-duplicar.
+El parity gap en `AgregarLineaDrawer` se espejó en el mismo chunk. Smoke e2e con
+`desc=''`: header genérico, mail/campanita/línea con el texto del ítem.
+
+**Lección.** Un pedido tiene un header (general) y una lista de ítems
+(específicos): pasar el mismo string a ambos es duplicación. Y al vaciar un
+campo que alimentaba varias superficies, revisar TODAS (portal + mail +
+campanita + línea) — el §6 (revisar + ejercitar) lo cazó donde la lectura del
+diff no.

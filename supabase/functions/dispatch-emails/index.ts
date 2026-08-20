@@ -134,7 +134,14 @@ interface QueueRow {
 // Cierra el vector "encolo un mail con path arbitrario y exfiltro un bucket
 // privado por email". Ampliar SOLO con revisión de seguridad.
 // gestoria-adjuntos: ahí sube únicamente staff desde el wizard de derivación.
-const ATTACH_BUCKETS = ['email-assets', 'gestoria-adjuntos'];
+// gestor-uploads (JL-R2, mig 0430): archivos que la gestoría sube a una línea
+// de avance. Seguro de whitelistear: email_queue tiene RLS INSERT/UPDATE gated
+// por private.is_staff() → un cliente NO puede encolar mails ni setear
+// attachments_jsonb. Los únicos productores de adjuntos gestor-uploads son las
+// RPCs SECURITY DEFINER tracking_notificar/reenviar_avance_cliente (derivan el
+// path de la propia línea, mandan al cliente del mismo tenant) o staff, que ya
+// tiene acceso total al bucket. No hay vector de exfil nuevo.
+const ATTACH_BUCKETS = ['email-assets', 'gestoria-adjuntos', 'gestor-uploads'];
 
 // Tope de base64 total de adjuntos por mail: el payload JSON del endpoint de
 // Gmail admite ~10MB; con más de ~7MB de adjuntos el raw se pasa y el envío

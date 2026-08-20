@@ -688,6 +688,18 @@ export async function editarAvanceLinea(
   return ok(true);
 }
 
+/** JL-R2 · Reenvía al cliente el aviso de este avance (mail con los adjuntos de
+ *  la línea + push + campanita). Sólo gerencia y sólo líneas ya publicadas al
+ *  cliente (la RPC valida private.is_staff y visible_cliente). */
+export async function reenviarAvanceCliente(lineaId: string): Promise<ApiResponse<true>> {
+  const { error } = await supabase.rpc(
+    'tracking_reenviar_avance_cliente' as never,
+    { p_linea_id: lineaId } as never,
+  );
+  if (error) return fail('TRACKING_REENVIAR', error.message, error);
+  return ok(true);
+}
+
 // ============================================================================
 // F4 (DGG-66) · Moderación de aportes del gestor externo.
 // ============================================================================
