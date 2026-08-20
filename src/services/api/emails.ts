@@ -51,26 +51,33 @@ export type DeliveryEstado =
   | 'delivery_delayed'
   | 'bounced'
   | 'complained'
-  | 'failed';
+  | 'failed'
+  | 'opened'
+  | 'clicked';
 
 export interface EnvioListItem {
   id: string;
+  /** REG · lado del registro: 'historico' (ya enviado — vive en sent_emails,
+   *  incluye los envíos DIRECTOS como constancias/certificados/comprobantes/CJ)
+   *  o 'cola' (aún en vuelo/errado en email_queue). Gobierna el INTENTO visible
+   *  y qué acciones (reintentar/cancelar) aplican. */
+  lane: 'historico' | 'cola';
   template_slug: string | null;
   to_email: string;
   to_nombre: string | null;
   subject: string | null;
   enviado_at: string | null;
-  intento: number;
-  max_intentos: number;
+  /** null en envíos directos (no pasan por la cola, no tienen reintentos). */
+  intento: number | null;
+  max_intentos: number | null;
   ultimo_error: string | null;
   programado_para: string | null;
-  prioridad: number;
   administracion_id: string | null;
   estado: EstadoEmail;
   casilla: FromCasilla | null;
   template_nombre: string | null;
   administracion_nombre: string | null;
-  /** D2-bis: estado post-envío leído del DSN harvester. */
+  /** D2-bis: estado post-envío (sent/bounced/complained/...) nativo de sent_emails. */
   delivery_estado: DeliveryEstado | null;
   delivery_error: string | null;
 }
@@ -91,17 +98,6 @@ export interface ListEnviosFilters {
   offset?: number;
 }
 
-// DGG-124 · El "estado" es DERIVADO (enviado_at / ultimo_error / intento vs
-// max_intentos), no una columna — para paginar server-side lo traducimos a
-// filtros PostgREST exactos. PostgREST no compara columna contra columna, así
-// que "intento >= max_intentos" se expande por los valores reales del dominio
-// de max_intentos (hoy 3 y 5). Si algún flujo suma otro max_intentos, agregar
-// el tramo acá y en contarEnviosKpis.
-const FALLIDO_SIN_ENVIAR =
-  'and(enviado_at.is.null,max_intentos.eq.3,intento.gte.3),and(enviado_at.is.null,max_intentos.eq.5,intento.gte.5)';
-const PENDIENTE_OR =
-  'and(max_intentos.eq.3,intento.lt.3),and(max_intentos.eq.5,intento.lt.5)';
-
 // Sanitiza el texto de búsqueda para el .or(ilike) de PostgREST: comas y
 // paréntesis rompen la sintaxis del or; % y _ son wildcards de ilike.
 function sanearBusqueda(s: string): string {
@@ -109,28 +105,32 @@ function sanearBusqueda(s: string): string {
 }
 
 /**
- * DGG-124 · KPIs sobre el universo COMPLETO (espíritu R19) sin traer filas:
- * counts head-only por estado. `pendientes` sale por resta para que la suma
- * siempre cierre contra el total.
+ * REG · KPIs sobre el universo COMPLETO del registro (espíritu R19) sin traer
+ * filas: counts head-only por estado directamente sobre la vista unificada
+ * `v_email_registro`. El estado es una columna real, así que cada KPI es un
+ * `count` exacto (ya no hace falta la resta ni las expansiones de dominio).
  */
 export async function contarEnviosKpis(): Promise<
   ApiResponse<{ total: number; pendientes: number; enviados: number; fallidos: number }>
 > {
   const base = () =>
-    supabase.from('email_queue').select('id', { count: 'exact', head: true }).eq('kind', 'workflow');
+    supabase.from('v_email_registro').select('id', { count: 'exact', head: true });
 
-  const [tot, env, fall] = await Promise.all([
+  const [tot, pend, env, fall] = await Promise.all([
     base(),
-    base().not('enviado_at', 'is', null).is('ultimo_error', null),
-    base().or(`and(enviado_at.not.is.null,ultimo_error.not.is.null),${FALLIDO_SIN_ENVIAR}`),
+    base().eq('estado', 'pendiente'),
+    base().eq('estado', 'enviado'),
+    base().eq('estado', 'fallido'),
   ]);
-  const err = tot.error ?? env.error ?? fall.error;
+  const err = tot.error ?? pend.error ?? env.error ?? fall.error;
   if (err) return fail('ENVIOS_KPIS', err.message, err);
 
-  const total = tot.count ?? 0;
-  const enviados = env.count ?? 0;
-  const fallidos = fall.count ?? 0;
-  return ok({ total, enviados, fallidos, pendientes: Math.max(0, total - enviados - fallidos) });
+  return ok({
+    total: tot.count ?? 0,
+    pendientes: pend.count ?? 0,
+    enviados: env.count ?? 0,
+    fallidos: fall.count ?? 0,
+  });
 }
 
 // --- templates -----------------------------------------------------------
@@ -265,81 +265,67 @@ export async function encolarEmail(input: EncolarEmailInput): Promise<ApiRespons
 
 // --- envíos --------------------------------------------------------------
 
-function estadoDe(row: Pick<EmailQueueRow, 'enviado_at' | 'intento' | 'max_intentos' | 'ultimo_error'>): EstadoEmail {
-  if (row.enviado_at && !row.ultimo_error) return 'enviado';
-  if (row.enviado_at && row.ultimo_error) return 'fallido';
-  if (!row.enviado_at && row.intento >= row.max_intentos) return 'fallido';
-  return 'pendiente';
-}
-
-interface RawJoined {
+interface RawRegistro {
   id: string;
+  lane: 'historico' | 'cola';
   template_slug: string | null;
+  template_nombre: string | null;
   to_email: string;
   to_nombre: string | null;
   subject: string | null;
   enviado_at: string | null;
-  intento: number;
-  max_intentos: number;
-  ultimo_error: string | null;
   programado_para: string | null;
-  prioridad: number;
+  intento: number | null;
+  max_intentos: number | null;
+  ultimo_error: string | null;
+  estado: string;
+  delivery_estado: string | null;
+  delivery_error: string | null;
+  casilla: FromCasilla | null;
   administracion_id: string | null;
-  kind: string;
-  email_templates: { slug: string; nombre: string; from_casilla: FromCasilla } | null;
-  administraciones: { nombre: string } | null;
+  administracion_nombre: string | null;
 }
 
+// REG (pedido Pablo · 2026-08-20) · El grid "Correos enviados" lee el REGISTRO
+// UNIFICADO `v_email_registro` = sent_emails (TODO lo enviado, incluidos los
+// envíos directos como constancias/certificados/comprobantes/CJ) ∪ email_queue
+// con status<>'sent' (aún en vuelo/errado). El estado es una COLUMNA real de la
+// vista, así que filtro/orden/paginado/estado son server-side directos (ya no
+// hace falta traducir el estado derivado a filtros PostgREST) y el delivery
+// estado viene nativo (adiós al segundo query por email_queue_id, que además
+// apuntaba a una columna inexistente y nunca pintaba el badge).
 export async function listEnvios(
   filters: ListEnviosFilters = {},
 ): Promise<ApiResponse<{ rows: EnvioListItem[]; total: number }>> {
   const limit = filters.limit ?? 100;
   const offset = filters.offset ?? 0;
 
+  // El UI ordena por 'programado_para'|'to_email'|'template_slug'|'intento'; en
+  // la vista la fecha unificada (enviado_at ‖ programado_para) es `fecha`.
+  const ordenCol = (
+    {
+      programado_para: 'fecha',
+      to_email: 'to_email',
+      template_slug: 'template_slug',
+      intento: 'intento',
+    } as const
+  )[filters.orden ?? 'programado_para'] ?? 'fecha';
+
   let q = supabase
-    .from('email_queue')
+    .from('v_email_registro')
     .select(
-      'id, template_slug, to_email, to_nombre, subject, enviado_at, intento, max_intentos, ultimo_error, programado_para, prioridad, administracion_id, kind, email_templates:template_slug(slug,nombre,from_casilla), administraciones:administracion_id(nombre)',
+      'id, lane, template_slug, template_nombre, to_email, to_nombre, subject, enviado_at, programado_para, intento, max_intentos, ultimo_error, estado, delivery_estado, delivery_error, casilla, administracion_id, administracion_nombre',
       { count: 'exact' },
     )
-    .eq('kind', 'workflow')
-    .order(filters.orden ?? 'programado_para', { ascending: (filters.dir ?? 'desc') === 'asc' })
+    .order(ordenCol, { ascending: (filters.dir ?? 'desc') === 'asc', nullsFirst: false })
     .range(offset, offset + limit - 1);
 
-  // DGG-124 · Estado server-side (antes se filtraba en memoria post-fetch, lo
-  // que rompía el paginado). Condiciones exactas del estado derivado.
-  if (filters.estado === 'enviado') {
-    q = q.not('enviado_at', 'is', null).is('ultimo_error', null);
-  } else if (filters.estado === 'fallido') {
-    q = q.or(`and(enviado_at.not.is.null,ultimo_error.not.is.null),${FALLIDO_SIN_ENVIAR}`);
-  } else if (filters.estado === 'pendiente') {
-    q = q.is('enviado_at', null).or(PENDIENTE_OR);
-  }
-
-  // DGG-124 · Rango de fechas (un solo calendario en la UI). Los límites son
-  // días locales del usuario → Date local → ISO UTC para el timestamptz.
-  if (filters.desde) {
-    q = q.gte('programado_para', new Date(`${filters.desde}T00:00:00`).toISOString());
-  }
-  if (filters.hasta) {
-    q = q.lte('programado_para', new Date(`${filters.hasta}T23:59:59.999`).toISOString());
-  }
-
-  // DGG-124 · Filtro multi de plantillas desde el encabezado.
-  if (filters.plantillas && filters.plantillas.length > 0) {
-    q = q.in('template_slug', filters.plantillas);
-  }
-
-  if (filters.casilla && filters.casilla !== 'todas') {
-    // filtramos por template.from_casilla via inner join no es trivial sin RPC;
-    // hacemos un sub-select de slugs.
-    const { data: slugs } = await supabase
-      .from('email_templates').select('slug').eq('from_casilla', filters.casilla);
-    const slugList = (slugs ?? []).map(s => s.slug);
-    if (slugList.length === 0) return ok({ rows: [], total: 0 });
-    q = q.in('template_slug', slugList);
-  }
-
+  if (filters.estado && filters.estado !== 'todos') q = q.eq('estado', filters.estado);
+  if (filters.casilla && filters.casilla !== 'todas') q = q.eq('casilla', filters.casilla);
+  if (filters.plantillas && filters.plantillas.length > 0) q = q.in('template_slug', filters.plantillas);
+  // Rango de fechas (un solo calendario): días locales → ISO UTC, sobre `fecha`.
+  if (filters.desde) q = q.gte('fecha', new Date(`${filters.desde}T00:00:00`).toISOString());
+  if (filters.hasta) q = q.lte('fecha', new Date(`${filters.hasta}T23:59:59.999`).toISOString());
   if (filters.search) {
     const s = sanearBusqueda(filters.search);
     if (s) q = q.or(`to_email.ilike.%${s}%,subject.ilike.%${s}%`);
@@ -348,57 +334,30 @@ export async function listEnvios(
   const { data, error, count } = await q;
   if (error) return fail('ENVIOS_LIST', error.message, error);
 
-  // D2-bis · join client-side con sent_emails para conocer el delivery
-  // estado real (sent/bounced/complained/...). No hay FK formal, hacemos
-  // un segundo query por email_queue_id IN (lista).
-  const queueIds = (data ?? []).map((r) => (r as { id: string }).id);
-  const deliveryByQueueId = new Map<string, { estado: DeliveryEstado; error_msg: string | null }>();
-  if (queueIds.length > 0) {
-    const { data: sentRows } = await supabase
-      .from('sent_emails')
-      .select('email_queue_id, estado, error_msg')
-      // email_queue_id no está en los types regenerados pero sí en BD (mig 0154 lo confirma)
-      .in('email_queue_id' as never, queueIds);
-    for (const sr of (sentRows ?? []) as unknown as Array<unknown>) {
-      const row = sr as { email_queue_id: string | null; estado: string; error_msg: string | null };
-      if (!row.email_queue_id) continue;
-      if (['sent','delivered','delivery_delayed','bounced','complained','failed'].includes(row.estado)) {
-        deliveryByQueueId.set(row.email_queue_id, {
-          estado: row.estado as DeliveryEstado,
-          error_msg: row.error_msg,
-        });
-      }
-    }
-  }
+  const rows: EnvioListItem[] = ((data ?? []) as unknown as RawRegistro[]).map((r) => ({
+    id: r.id,
+    lane: r.lane,
+    template_slug: r.template_slug,
+    to_email: r.to_email,
+    to_nombre: r.to_nombre,
+    subject: r.subject,
+    enviado_at: r.enviado_at,
+    programado_para: r.programado_para,
+    intento: r.intento,
+    max_intentos: r.max_intentos,
+    ultimo_error: r.ultimo_error,
+    administracion_id: r.administracion_id,
+    estado: (r.estado as EstadoEmail) ?? 'pendiente',
+    casilla: r.casilla,
+    template_nombre: r.template_nombre,
+    administracion_nombre: r.administracion_nombre,
+    delivery_estado: (r.delivery_estado as DeliveryEstado | null) ?? null,
+    delivery_error: r.delivery_error,
+  }));
 
-  const rows: EnvioListItem[] = ((data ?? []) as unknown as RawJoined[]).map((r) => {
-    const delivery = deliveryByQueueId.get(r.id);
-    return {
-      id: r.id,
-      template_slug: r.template_slug,
-      to_email: r.to_email,
-      to_nombre: r.to_nombre,
-      subject: r.subject,
-      enviado_at: r.enviado_at,
-      intento: r.intento,
-      max_intentos: r.max_intentos,
-      ultimo_error: r.ultimo_error,
-      programado_para: r.programado_para,
-      prioridad: r.prioridad,
-      administracion_id: r.administracion_id,
-      estado: estadoDe(r),
-      casilla: r.email_templates?.from_casilla ?? null,
-      template_nombre: r.email_templates?.nombre ?? null,
-      administracion_nombre: r.administraciones?.nombre ?? null,
-      delivery_estado: delivery?.estado ?? null,
-      delivery_error: delivery?.error_msg ?? null,
-    };
-  });
-
-  // DGG-124 · El estado ya se filtró server-side (paginado consistente); el
-  // count exacto ES el total del universo filtrado.
-  const safeTotal = count ?? rows.length;
-  return ok({ rows, total: safeTotal });
+  // El estado ya se filtró server-side (paginado consistente); el count exacto
+  // ES el total del universo filtrado (R19).
+  return ok({ rows, total: count ?? rows.length });
 }
 
 // --- preview ------------------------------------------------------------
@@ -417,44 +376,100 @@ export interface EnvioPreview {
 export async function getEnvioPreview(
   envioId: string,
 ): Promise<ApiResponse<EnvioPreview>> {
+  // REG · el id puede ser de la cola (email_queue) o de un envío DIRECTO que
+  // vive sólo en sent_emails (constancia/certificado/comprobante/CJ). Probamos
+  // la cola primero — así siguen andando Trackings y AlarmasHoy, que abren el
+  // preview con ids de cola — y caemos a sent_emails si no está.
   const { data, error } = await supabase
     .from('email_queue')
     .select('id, subject, to_email, to_nombre, html_body, enviado_at, template_slug, variables, attachments_jsonb')
     .eq('id', envioId)
     .maybeSingle();
   if (error) return fail('ENVIO_PREVIEW', error.message, error);
-  if (!data) return fail('ENVIO_NOT_FOUND', 'Email no encontrado');
-  // Si el queue.html_body está vacío, intentamos traer el HTML real desde sent_emails
-  // matcheando por template_slug + to_email + ventana de tiempo cercana al enviado_at.
-  let htmlFinal: string | null = data.html_body ?? null;
-  if (!htmlFinal && data.enviado_at) {
-    const { data: sent } = await supabase
-      .from('sent_emails')
-      .select('html')
-      .eq('to_email', data.to_email)
-      .eq('template_slug', data.template_slug ?? '')
-      .gte('enviado_at', new Date(new Date(data.enviado_at).getTime() - 60_000).toISOString())
-      .lte('enviado_at', new Date(new Date(data.enviado_at).getTime() + 60_000).toISOString())
+  if (data) {
+    // Si el queue.html_body está vacío, traemos el HTML real desde sent_emails
+    // matcheando por template_slug + to_email + ventana de tiempo cercana.
+    let htmlFinal: string | null = data.html_body ?? null;
+    if (!htmlFinal && data.enviado_at) {
+      const { data: sent } = await supabase
+        .from('sent_emails')
+        .select('html')
+        .eq('to_email', data.to_email)
+        .eq('template_slug', data.template_slug ?? '')
+        .gte('enviado_at', new Date(new Date(data.enviado_at).getTime() - 60_000).toISOString())
+        .lte('enviado_at', new Date(new Date(data.enviado_at).getTime() + 60_000).toISOString())
+        .order('enviado_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      htmlFinal = (sent?.html as string | undefined) ?? null;
+    }
+    // Adjuntos: pueden venir como attachments_jsonb [{filename,...}, ...]
+    let filenames: string[] | null = null;
+    try {
+      const arr = data.attachments_jsonb as Array<{ filename?: string }> | null | undefined;
+      if (Array.isArray(arr)) filenames = arr.map(a => a.filename ?? '(sin nombre)');
+    } catch { /* noop */ }
+    return ok({
+      id: data.id,
+      subject: data.subject,
+      to_email: data.to_email,
+      to_nombre: data.to_nombre,
+      html_body: htmlFinal,
+      enviado_at: data.enviado_at,
+      template_slug: data.template_slug,
+      variables: (data.variables as Record<string, unknown> | null) ?? null,
+      attachments_filenames: filenames,
+    });
+  }
+
+  // Fila de sent_emails: el HTML y los metadatos viven ahí.
+  const { data: se, error: seErr } = await supabase
+    .from('sent_emails')
+    .select('id, asunto, to_email, html, enviado_at, template_slug, attachments_filenames')
+    .eq('id', envioId)
+    .maybeSingle();
+  if (seErr) return fail('ENVIO_PREVIEW', seErr.message, seErr);
+  if (!se) return fail('ENVIO_NOT_FOUND', 'Email no encontrado');
+
+  // REG · Si esta fila proviene de la cola (email workflow ya enviado que en el
+  // grid aparece por su espejo de sent_emails), hidratamos to_nombre/variables/
+  // adjuntos desde email_queue por match (to_email + template_slug + ventana),
+  // para no perder el "Para: Nombre" ni el panel Variables respecto del grid
+  // viejo. En envíos directos puros (constancia/certificado) no habrá match y
+  // simplemente quedan en null — sin romper nada.
+  let toNombre: string | null = null;
+  let variables: Record<string, unknown> | null = null;
+  let filenames: string[] | null = (se.attachments_filenames as string[] | null) ?? null;
+  if (se.enviado_at) {
+    const { data: q2 } = await supabase
+      .from('email_queue')
+      .select('to_nombre, variables, attachments_jsonb')
+      .eq('to_email', se.to_email)
+      .eq('template_slug', se.template_slug ?? '')
+      .gte('enviado_at', new Date(new Date(se.enviado_at).getTime() - 60_000).toISOString())
+      .lte('enviado_at', new Date(new Date(se.enviado_at).getTime() + 60_000).toISOString())
       .order('enviado_at', { ascending: false })
       .limit(1)
       .maybeSingle();
-    htmlFinal = (sent?.html as string | undefined) ?? null;
+    if (q2) {
+      toNombre = q2.to_nombre ?? null;
+      variables = (q2.variables as Record<string, unknown> | null) ?? null;
+      if (!filenames) {
+        const arr = q2.attachments_jsonb as Array<{ filename?: string }> | null | undefined;
+        if (Array.isArray(arr)) filenames = arr.map(a => a.filename ?? '(sin nombre)');
+      }
+    }
   }
-  // Adjuntos: pueden venir como attachments_jsonb [{filename,...}, ...]
-  let filenames: string[] | null = null;
-  try {
-    const arr = data.attachments_jsonb as Array<{ filename?: string }> | null | undefined;
-    if (Array.isArray(arr)) filenames = arr.map(a => a.filename ?? '(sin nombre)');
-  } catch { /* noop */ }
+
   return ok({
-    id: data.id,
-    subject: data.subject,
-    to_email: data.to_email,
-    to_nombre: data.to_nombre,
-    html_body: htmlFinal,
-    enviado_at: data.enviado_at,
-    template_slug: data.template_slug,
-    variables: (data.variables as Record<string, unknown> | null) ?? null,
+    id: se.id,
+    subject: se.asunto,
+    to_email: se.to_email,
+    to_nombre: toNombre,
+    html_body: (se.html as string | null) ?? null,
+    enviado_at: se.enviado_at,
+    template_slug: se.template_slug,
+    variables,
     attachments_filenames: filenames,
   });
 }

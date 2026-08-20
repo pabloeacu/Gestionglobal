@@ -9,7 +9,7 @@ const TABS = [
   { to: '/gerencia/configuracion/emisores', label: 'Emisores fiscales', icon: ShieldCheck, end: true },
   { to: '/gerencia/configuracion/arca/cola', label: 'Cola de emisión', icon: Layers },
   { to: '/gerencia/configuracion/emails/templates', label: 'Plantillas email', icon: Mail },
-  { to: '/gerencia/configuracion/emails/cola', label: 'Cola de envíos', icon: Send },
+  { to: '/gerencia/configuracion/emails/cola', label: 'Correos enviados', icon: Send },
 ];
 
 export function ConfiguracionLayout() {

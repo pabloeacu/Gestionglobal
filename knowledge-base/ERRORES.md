@@ -5435,3 +5435,36 @@ El parity gap en `AgregarLineaDrawer` se espejó en el mismo chunk. Smoke e2e co
 campo que alimentaba varias superficies, revisar TODAS (portal + mail +
 campanita + línea) — el §6 (revisar + ejercitar) lo cazó donde la lectura del
 diff no.
+
+## E-GG-186 · Envíos directos invisibles en el grid de correos + delivery-badge muerto
+- **Síntoma:** Pablo (2026-08-20) emite una constancia de alumno regular a
+  delacruzosvaldo432 con "Enviar por mail"; el mail SÍ sale (queda en
+  `sent_emails`, `provider_msg_id` real, sin rebote) pero NO aparece en el grid
+  de gerencia ("Cola de envíos") ni siquiera como pendiente.
+- **Causa raíz (dos cosas):**
+  1. El grid leía SÓLO `email_queue` con `.eq('kind','workflow')`. Las 5 vías de
+     envío DIRECTO (send-constancia-email, send-certificado-email,
+     send-comprobante-email, cj-enviar-pdf, notify-vencimientos) NO pasan por la
+     cola: mandan sincrónico por Gmail/SMTP y registran únicamente en
+     `sent_emails`. Nunca tocaban `email_queue` → invisibles en el grid.
+  2. **Bug latente colateral:** el enriquecimiento del badge de entrega hacía
+     `sent_emails.select('email_queue_id, …')`, pero esa columna NO existe en la
+     BD (el código la asumía por la mig 0154). El query fallaba en silencio
+     (destructuring sin manejar el error) → el badge bounced/complained nunca se
+     pintaba.
+- **Fix:** vista `v_email_registro` (mig 0432, ver DGG-141) que unifica
+  `sent_emails` (todo lo enviado) + `email_queue WHERE status<>'sent'`
+  (pendiente/errado); el grid pasa a llamarse "Correos enviados" y la lee. El
+  `delivery_estado` ahora es nativo de la vista (viene de `sent_emails.estado`)
+  → se elimina el segundo query roto y el badge vuelve a funcionar.
+  INTENTO/Reintentar/Cancelar se gatean a `lane='cola'`; el preview resuelve por
+  id tanto en cola como en envío directo (con hidratación de to_nombre/variables
+  desde la cola cuando el mail vino del workflow).
+- **Prevención:** cuando existan DOS registros de la misma entidad (cola vs
+  ledger), la superficie de "todo" debe leer el superset (o una vista que los
+  una), no una de las dos mitades — corolario de R19. Doble §6 (3 agentes +
+  refutación + e2e `BEGIN`/`ROLLBACK` con 7 aserciones de dedupe/estado/RLS).
+  Refutados 0; 3 higiene menores aplicadas (REVOKE anon sobre la vista, rama
+  muerta `'error'` del CASE, `opened`/`clicked` al `DeliveryEstado`).
+- **Fecha / módulo:** 2026-08-20 · configuración/emails, services/api/emails.ts,
+  supabase/migrations/0432.

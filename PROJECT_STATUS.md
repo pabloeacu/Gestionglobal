@@ -157,6 +157,27 @@ Recorrido punta a punta logueado sobre la URL de Vercel. **Cobertura amplia** de
 
 ## 2. Trabajo en curso AHORA
 
+**REG · Grid "Correos enviados" = registro unificado · CERRADO (2026-08-20).**
+Pablo emitió una constancia de alumno regular (delacruzosvaldo432) con "Enviar por
+mail" y no la vio en el grid de gerencia. Diagnóstico: el grid leía SÓLO
+`email_queue` (kind='workflow'); las 5 vías de envío DIRECTO (constancias,
+certificados, comprobantes, CJ, vencimientos) saltean la cola y sólo viven en
+`sent_emails`. Fix (DGG-141 / E-GG-186): vista `v_email_registro` =
+`sent_emails` (todo lo enviado) ∪ `email_queue(status<>'sent')` (pendiente/errado),
+dedupe limpio (0 huérfanos; el dispatcher marca 'sent' ANTES de insertar el
+espejo), `security_invoker` respeta la RLS multi-tenant. El grid se renombró a
+**"Correos enviados"** (mig 0432 + emails.ts + EmailQueuePage + ConfiguracionLayout
++ types). Colateral: se arregló el delivery-badge muerto (join a
+`sent_emails.email_queue_id` inexistente) — ahora `delivery_estado` es nativo de
+la vista. INTENTO/Reintentar/Cancelar gateados a `lane='cola'`; preview resuelve
+cola y envío directo.
+- **§6:** 3 agentes (migración/vista · servicio+página · regresiones laterales) +
+  e2e `BEGIN`/`ROLLBACK` con 7 aserciones (dedupe/estado/RLS/casilla) → 0 crítico;
+  1 GAP real (realtime KPIs al llegar un envío directo) + 3 higiene (REVOKE anon,
+  rama muerta 'error', opened/clicked al DeliveryEstado), todo aplicado. EXPLAIN
+  ANALYZE 3.4ms. Build limpio.
+- **Falta sólo:** prueba en vivo en el sitio (post-deploy) + push.
+
 **Reportes JL R1/R2/R3 · CERRADO (2026-08-20).** Tres reportes del doc de JL,
 abordados con cánones completos (§6 doble/triple + e2e BD + build + deploy).
 - **R1 (E-GG-183, mig 0429):** rechazo de pago informado no avisaba por mail al
@@ -176,8 +197,8 @@ abordados con cánones completos (§6 doble/triple + e2e BD + build + deploy).
   `AgregarLineaDrawer`.
 - **§6:** workflow 3 frentes + refutación → 2 hallazgos menores confirmados (la
   regresión del aviso y el parity gap del drawer), ambos cerrados en el mismo
-  chunk. Smokes e2e BEGIN/ROLLBACK OK en los 3. Falta: prueba en vivo + comentar
-  en el doc de JL como Pablo.
+  chunk. Smokes e2e BEGIN/ROLLBACK OK en los 3. Prueba en vivo del reenvío +
+  comentarios en el doc de JL como Pablo (R1/R2/R3): HECHO.
 
 **Campus Fase 3 · Zoom + Webinars · BACKBONE COMPLETO (2026-05-22).** Browser automation + DB + edge functions:
 - ✅ **App 1 (S2S OAuth) "Gestion Global Campus"** creada, ACTIVADA, 4 scopes granulares (meeting:write/read:meeting:admin, report:read:list_meeting_participants:admin, cloud_recording:read:list_recording_files:admin).

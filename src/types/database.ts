@@ -7917,6 +7917,31 @@ export type Database = {
         }
         Relationships: []
       }
+      v_email_registro: {
+        Row: {
+          administracion_id: string | null
+          administracion_nombre: string | null
+          casilla: string | null
+          delivery_error: string | null
+          delivery_estado: string | null
+          enviado_at: string | null
+          estado: string | null
+          fecha: string | null
+          id: string | null
+          intento: number | null
+          lane: string | null
+          max_intentos: number | null
+          programado_para: string | null
+          provider_msg_id: string | null
+          subject: string | null
+          template_nombre: string | null
+          template_slug: string | null
+          to_email: string | null
+          to_nombre: string | null
+          ultimo_error: string | null
+        }
+        Relationships: []
+      }
       vw_accesos_externos_aperturas: {
         Row: {
           token: string | null

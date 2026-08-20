@@ -4947,3 +4947,28 @@ movida después del retome). (3) Menor front: `previos` quedaba stale tras
 Cancelar (mostraba "Comenzar" en vez de "Continuar") → Cancelar refresca
 previos + confirma ("lo marcado no se guarda, el intento queda abierto y
 retomable"). Refutados: 0.
+
+## DGG-141 · Grid de correos = registro unificado ("Correos enviados")
+
+- **Origen** (Pablo, 2026-08-20): emitió una constancia de alumno regular a
+  delacruzosvaldo432 con "Enviar por mail" y NO la vio en el grid de gerencia
+  (antes "Cola de envíos"). Se envió OK (registrada en `sent_emails`, salió por
+  SMTP de Workspace con `provider_msg_id`), pero el grid leía SÓLO `email_queue`
+  (`kind='workflow'`), y las 5 vías de envío DIRECTO (constancias, certificados,
+  comprobantes, documentos CJ, vencimientos) saltean la cola y sólo viven en
+  `sent_emails`. Pablo: "la onda es que aquí aparezcan TODOS los correos que se
+  emitan desde la plataforma".
+- **Decisión**: el grid pasa a llamarse **"Correos enviados"** y lee una vista
+  nueva `public.v_email_registro` = `sent_emails` (todo lo enviado; superset
+  verificado: cada envío deja 1 fila, 924/924 de la cola tienen espejo, 0
+  huérfanos) **∪** `email_queue WHERE status<>'sent'` (lo aún en vuelo/errado,
+  que por definición todavía no tiene espejo → dedupe limpio sin clave de join,
+  garantizado porque el dispatcher marca `status='sent'` ANTES de insertar el
+  espejo). `security_invoker=on` respeta la RLS de las tablas base (gerentes ven
+  todo; un administrador sólo su propia admin). Mig 0432.
+- **Alternativas descartadas**: (a) hacer que los envíos directos también
+  encolen — más invasivo, vuelve el envío asíncrono (pierde la inmediatez del
+  botón) y es un footgun (cada vía nueva debe acordarse de encolar); (b) link
+  duro `sent_emails.email_queue_id` — innecesario para el dedupe (el invariante
+  `status='sent' ⇒ espejo` alcanza) y el backfill histórico requeriría heurística.
+- **Fecha**: 2026-08-20.

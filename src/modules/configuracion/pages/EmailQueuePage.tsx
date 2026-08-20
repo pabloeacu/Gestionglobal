@@ -1,5 +1,7 @@
-// EmailQueuePage · cola de emails workflow + envíos recientes. Realtime sobre
-// email_queue. Tabla con: timestamp, template, to, estado, casilla, intento.
+// EmailQueuePage · "Correos enviados": registro unificado de TODO lo que emite
+// la plataforma (envíos directos que sólo viven en sent_emails —constancias,
+// certificados, comprobantes, CJ— + lo que pasa por la cola email_queue), vía
+// la vista v_email_registro (REG). Realtime sobre ambas tablas.
 // Cita: D01 (cola persistida + Realtime), regla 13 (useConfirm).
 // DGG-124 (pedido Pablo 31/07): grilla paginada server-side (50 por defecto),
 // rango de fechas en un solo calendario y encabezados que ordenan/filtran/
@@ -76,7 +78,7 @@ export function EmailQueuePage() {
       offset: (page - 1) * pageSize,
     });
     if (res.ok) { setRows(res.data.rows); setTotal(res.data.total); }
-    else toast.error('No pudimos cargar la cola', { description: humanizeError(res.error) });
+    else toast.error('No pudimos cargar los correos', { description: humanizeError(res.error) });
     setLoading(false);
   }
 
@@ -102,7 +104,9 @@ export function EmailQueuePage() {
     const ch = supabase
       .channel('email-queue-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'email_queue' }, () => { void refresh(); void refreshKpis(); })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'sent_emails' },  () => { void refresh(); })
+      // REG · los KPIs ahora abarcan sent_emails (envíos directos incluidos), así
+      // que un cambio en sent_emails también debe recomputar las tarjetas.
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'sent_emails' },  () => { void refresh(); void refreshKpis(); })
       .subscribe();
     return () => { void supabase.removeChannel(ch); };
     // eslint-disable-next-line
@@ -141,10 +145,12 @@ export function EmailQueuePage() {
       <header>
         <p className="kicker text-brand-cyan">Configuración · Emails</p>
         <h1 className="font-display text-2xl font-bold text-brand-ink">
-          Cola de envíos
+          Correos enviados
         </h1>
         <p className="mt-1 text-sm text-brand-muted">
-          Throttle global hard <strong>5 min</strong> entre envíos (E42/D05). El cron procesa cada minuto.
+          Registro completo de todo lo que emite la plataforma — envíos directos
+          (constancias, certificados, comprobantes…) y los que pasan por la cola.
+          Throttle global hard <strong>5 min</strong> (E42/D05); el cron procesa cada minuto.
         </p>
       </header>
 
@@ -272,7 +278,10 @@ export function EmailQueuePage() {
                   {r.casilla ? (CASILLAS.find(c => c.value === r.casilla)?.label ?? r.casilla) : '—'}
                 </td>
                 <td className="px-4 py-2 text-right tabular text-xs">
-                  {r.intento}/{r.max_intentos}
+                  {/* REG · reintentos sólo aplican a la cola; los envíos directos van "—" */}
+                  {r.lane === 'cola' && r.intento != null
+                    ? `${r.intento}/${r.max_intentos}`
+                    : '—'}
                 </td>
                 <td className="px-4 py-2 max-w-xs">
                   <p className="truncate text-xs text-red-700">{r.ultimo_error ?? '—'}</p>
@@ -287,7 +296,7 @@ export function EmailQueuePage() {
                     >
                       <Eye size={11} /> Ver
                     </button>
-                    {r.estado !== 'enviado' && (
+                    {r.lane === 'cola' && r.estado !== 'enviado' && (
                       <button
                         type="button"
                         onClick={() => void handleReintentar(r.id)}
@@ -296,7 +305,7 @@ export function EmailQueuePage() {
                         <RotateCcw size={11} /> Reintentar
                       </button>
                     )}
-                    {r.estado === 'pendiente' && (
+                    {r.lane === 'cola' && r.estado === 'pendiente' && (
                       <button
                         type="button"
                         onClick={() => void handleCancelar(r.id)}
@@ -389,6 +398,8 @@ function DeliveryBadge({
     bounced: { label: 'Rebotado', cls: 'bg-red-100 text-red-700', icon: AlertCircle },
     complained: { label: 'Marcó spam', cls: 'bg-rose-100 text-rose-700', icon: AlertCircle },
     failed: { label: 'Falló', cls: 'bg-red-100 text-red-700', icon: AlertCircle },
+    opened: { label: 'Abierto', cls: 'bg-emerald-100 text-emerald-700', icon: CheckCircle2 },
+    clicked: { label: 'Clickeado', cls: 'bg-cyan-100 text-cyan-700', icon: CheckCircle2 },
   } as const;
   const m = map[estado];
   if (!m) return null;
