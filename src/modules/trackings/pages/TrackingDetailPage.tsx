@@ -383,6 +383,8 @@ export function TrackingDetailPage() {
         gestor_label: l.gestor_label,
         descripcion: l.descripcion,
         archivos_urls: l.archivos_urls ?? [],
+        administracion_id: data.administracion_id ?? null,
+        servicio_vigencia_meses: data.servicio?.vigencia_meses ?? null,
         created_at: l.created_at,
       }));
   }, [data]);
