@@ -5481,3 +5481,29 @@ diff no.
      `sent_emails`. Fix: las 3 lo registran (`[pdfFilename]`) + `getEnvioPreview`
      cae a `attachments_meta` (comprobantes) + data-fix de las constancias
      existentes (CONST-2026-00001/00002). El modal ya renderiza el chip.
+
+## E-GG-187 · Build local "verde" enmascaró un error de tsc → deploy de Vercel en ERROR (2026-08-21)
+
+**Síntoma:** el commit 5704a0b (fixes §6 de DGG-142 E3) falló el build en
+Vercel (`TS2345: ... missing administracion_id, servicio_vigencia_meses`)
+aunque el build local había reportado exit 0 y producción quedó corriendo el
+commit anterior sin los fixes.
+
+**Causa raíz (dos capas):**
+1. Al extender `ModeracionPendiente` (+2 campos) se actualizó el tipo y sus
+   consumidores directos, pero `TrackingDetailPage` arma su PROPIA lista de
+   pendientes con un mapper local sobre `data.lineas` (línea ~373) que quedó
+   sin los campos nuevos. Grep por el tipo no lo atrapa: el objeto es un
+   literal anónimo tipado por el `useMemo<ModeracionPendiente[]>`.
+2. El build "verde" era mentira: `npm run build 2>&1 | tail -N` devuelve el
+   exit code de `tail`, no del build. tsc falló y el pipe lo tragó.
+
+**Fix:** mapper con los 2 campos desde el contexto del detail (hotfix
+c9510c7) + hábito corregido: `set -o pipefail` SIEMPRE que el build se
+pipee, o verificar `PIPESTATUS`. Verificado: deploy READY y live QA completo.
+
+**Lección (suma al canon §5):** el "build limpio" del ciclo de cierre debe
+probarse con exit code real (pipefail), no con la ausencia visual de errores
+en el tail. Y al extender un tipo compartido, grep también por los USOS que
+construyen literales (`useMemo<Tipo[]>`, mappers locales), no sólo por el
+nombre del tipo.

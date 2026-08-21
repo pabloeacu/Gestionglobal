@@ -157,7 +157,27 @@ Recorrido punta a punta logueado sobre la URL de Vercel. **Cobertura amplia** de
 
 ## 2. Trabajo en curso AHORA
 
-**DGG-142 · Etapa 3 EN CIERRE (2026-08-21, mig 0440 + front).** "TODO cierre
+**DGG-142 · Etapa 3 CERRADA (2026-08-21, commits 458e929+5704a0b+c9510c7,
+migs 0440-0441).** §6 (3 agentes + refutación): 6 fixes aplicados — (1)
+`tracking_cerrar_ciclo` v3 IDEMPOTENTE (re-programar supersede al vigente
+previo → 'renovado'; se acabaron los avisos duplicados) + gate de rechazo en
+el sync a ficha (espejo del trigger 0439: agenda sí, ficha no); (2)
+`tracking_moderacion_pendientes` +administracion_id +vigencia (DROP+CREATE
+R16) → moderación no ofrece a huérfanos y sugiere por vigencia; (3) key={id}
+en modales kanban/lista; (4) vencimiento_ligado filtra 'vigente'; (5)
+CrearServicioInput tipa vigencia_meses; (6) copys condicionados a admin.
+Incidente del cierre: el deploy 5704a0b FALLÓ en Vercel por un mapper local
+de ModeracionPendiente sin los campos nuevos — el build local lo enmascaró
+porque `npm run build | tail` devuelve el exit de tail (LECCIÓN: pipefail
+siempre); hotfix c9510c7. LIVE QA en prod (Chrome real, gerente): cierre por
+botón del kanban → modal auto-abre → Programar → vencimiento vigente en BD ✓;
+cierre por lista → modal → Cancelar → 0 rows ✓; re-programar desde detail →
+supersede verificado (1 vigente nuevo, viejo 'renovado') ✓; consola sin
+errores de app; datos QA eliminados a 0 (5 tablas verificadas). No cubierto
+en vivo: drag del kanban (mismo hook/callback que el botón, probado por
+equivalencia), moderación V7 (requiere aporte real de gestoría; e2e BD sí la
+cubrió) y mobile 360 (la ventana del Chrome real no se dejó redimensionar;
+el modal no cambió respecto de su QA 360 previo). "TODO cierre
 ofrece Programar próximo vencimiento": (a) `useAvanzarTramite` ganó callback
 `onCerrado` → kanban (drag + botón →) y lista montan el ProgramarVencimientoModal
 tras cada cierre exitoso (incluye la rama "cerrar sin cobrar"; trámites sin
