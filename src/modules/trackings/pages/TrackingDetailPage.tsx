@@ -183,10 +183,6 @@ export function TrackingDetailPage() {
   // revertir el cierre (error de gerencia, documentación tardía del cliente,
   // etc.). Pide motivo + opt-in para notificar al cliente.
   const [reabrirOpen, setReabrirOpen] = useState(false);
-  // Después de cerrar, si el servicio tiene vigencia_meses, encadenamos al
-  // ProgramarVencimientoModal (FIX-V4). Memorizamos el flag al abrir el
-  // cerrar dialog para usarlo en el callback.
-  const [cerrarTieneRenovacion, setCerrarTieneRenovacion] = useState(false);
   // DEEP-1 · drawer para editar metadata del trámite post-alta. Antes los
   // campos titulo/categoria/prioridad/vence_at/admin/consorcio/solicitante
   // sólo se podían setear durante el alta.
@@ -587,31 +583,31 @@ export function TrackingDetailPage() {
   // archivo además de URL externa. Abre `CerrarTramiteDialog`.
   async function handleCerrar() {
     if (!data) return;
-    const tieneRenovacion = (data.servicio?.vigencia_meses ?? null) !== null;
-
-    if (data.estado !== 'aprobado' && data.estado !== 'resuelto') {
+    // ('aprobado' no es un slug del pipeline — la condición real es "no resuelto")
+    if (data.estado !== 'resuelto') {
       const cont = await confirm({
-        title: tieneRenovacion ? 'Cerrar trámite y programar próximo vencimiento' : 'Cerrar trámite',
+        title: 'Cerrar trámite y programar próximo vencimiento',
         message: `El estado actual es "${data.estado}". ¿Cerrarlo igualmente?`,
         confirmLabel: 'Continuar',
         danger: true,
       });
       if (!cont) return;
     }
-    setCerrarTieneRenovacion(tieneRenovacion);
     setCerrarOpen(true);
   }
 
   // Callback del CerrarTramiteDialog tras un cierre exitoso (subió archivo o
-  // pegó URL). Encadena al ProgramarVencimientoModal si corresponde.
+  // pegó URL). DGG-142 E3 · TODO cierre encadena al ProgramarVencimientoModal
+  // (antes sólo servicios con vigencia_meses); la vigencia sólo pre-llena la
+  // fecha sugerida. Trámites sin administración no pueden programar
+  // (tracking_cerrar_ciclo la exige) → cierre simple.
   function handleCerradoOk() {
-    if (cerrarTieneRenovacion) {
-      void load();
+    void load();
+    if (data?.administracion_id) {
       toast.success('Trámite cerrado · programá el próximo vencimiento');
       setProgramarOpen(true);
     } else {
       toast.success('Trámite cerrado');
-      void load();
     }
   }
 
@@ -727,7 +723,7 @@ export function TrackingDetailPage() {
             </div>
             <button
               type="button"
-              onClick={() => { setCerrarTieneRenovacion(true); setCerrarOpen(true); }}
+              onClick={() => setCerrarOpen(true)}
               className="inline-flex items-center gap-2 rounded-xl bg-brand-cyan px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:brightness-110"
             >
               <CheckCircle2 size={15} /> Cerrar y programar próximo vencimiento
@@ -747,7 +743,15 @@ export function TrackingDetailPage() {
           </div>
           <ul className="space-y-3">
             {pendientesModeracion.map((p) => (
-              <li key={p.linea_id}><ModeracionCard item={p} onResuelto={() => void load()} /></li>
+              <li key={p.linea_id}>
+                <ModeracionCard
+                  item={p}
+                  onResuelto={() => void load()}
+                  // DGG-142 E3 (V7) · publicar cerrando el trámite ofrece
+                  // programar el próximo vencimiento (modal ya montado acá).
+                  onCerradoTramite={() => setProgramarOpen(true)}
+                />
+              </li>
             ))}
           </ul>
         </section>
@@ -961,9 +965,7 @@ export function TrackingDetailPage() {
                 data-tour="tracking-cerrar"
               >
                 <CheckCircle2 className="h-4 w-4" />{' '}
-                {data.servicio?.vigencia_meses
-                  ? 'Cerrar trámite y programar próximo vencimiento'
-                  : 'Cerrar trámite'}
+                Cerrar trámite y programar próximo vencimiento
               </Button>
             )}
             {/* DGG-95 (reporte JL) · Cancelar el trámite con cascada a la cta cte

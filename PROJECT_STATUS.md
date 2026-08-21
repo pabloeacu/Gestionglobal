@@ -157,6 +157,24 @@ Recorrido punta a punta logueado sobre la URL de Vercel. **Cobertura amplia** de
 
 ## 2. Trabajo en curso AHORA
 
+**DGG-142 · Etapa 3 EN CIERRE (2026-08-21, mig 0440 + front).** "TODO cierre
+ofrece Programar próximo vencimiento": (a) `useAvanzarTramite` ganó callback
+`onCerrado` → kanban (drag + botón →) y lista montan el ProgramarVencimientoModal
+tras cada cierre exitoso (incluye la rama "cerrar sin cobrar"; trámites sin
+administración se saltean porque tracking_cerrar_ciclo la exige); (b) el detail
+dejó de gatear por `vigencia_meses` (ofrece SIEMPRE; la vigencia sólo pre-llena
+la fecha) y se limpió la condición inerte `estado !== 'aprobado'`; (c) moderación
+de gestoría (página + card inline del detail) encadena el modal al publicar con
+"Pasar a: Cerrado" — el modal vive en el host porque la card se desmonta al
+recargar; (d) mig 0440 regulariza el DRIFT de `servicios.vigencia_meses` (columna
+sin migración, regla 6) + seed por matriz DGG-143 (inscripciones PF/PJ 12,
+RPA CABA 12, CJ 4, certificado 3; formación/capacitación/plataforma NULL
+deliberado) + editor en el drawer de Servicios (R14); (e) banner del portal
+"MATRÍCULA VENCIDA" (card urgente) para días<0 — antes el gate 0..60 lo ocultaba.
+e2e: seeds + banner vencida/renovación con cliente QA sintético en rollback, 0
+residuos. V8 latente documentada (tracking_agregar_linea admite 'cerrado' por
+RPC pero ningún slug de UI lo alcanza). Falta: §6 + live QA + docs finales.
+
 **DGG-143 · Regla B v3 (2026-08-21, migs 0438+0439).** Pablo resolvió el
 pendiente de renovaciones: la fecha de vencimiento es "fluida" (trámite
 anual) — al cerrar una renovación QUE PROSPERÓ, si la fecha existente es del

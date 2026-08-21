@@ -42,6 +42,10 @@ type Draft = {
   permite_multiples_consorcios: boolean;
   habilita_campus: boolean;
   campus_vigencia_meses: string;
+  // DGG-142 E3 (R14) · vigencia del servicio en meses: pre-llena la fecha del
+  // modal "Programar próximo vencimiento" al cerrar trámites. La columna
+  // existía como drift de BD sin editor — regularizada en mig 0440.
+  vigencia_meses: string;
   habilitado_formulario_publico: boolean;
   formulario_publico_slug: string;
   observaciones: string;
@@ -60,6 +64,7 @@ const EMPTY: Draft = {
   permite_multiples_consorcios: false,
   habilita_campus: false,
   campus_vigencia_meses: '',
+  vigencia_meses: '',
   habilitado_formulario_publico: false,
   formulario_publico_slug: '',
   observaciones: '',
@@ -95,6 +100,7 @@ export function ServicioFormDrawer({
         permite_multiples_consorcios: servicio.permite_multiples_consorcios,
         habilita_campus: servicio.habilita_campus,
         campus_vigencia_meses: servicio.campus_vigencia_meses?.toString() ?? '',
+        vigencia_meses: servicio.vigencia_meses?.toString() ?? '',
         habilitado_formulario_publico: servicio.habilitado_formulario_publico,
         formulario_publico_slug: servicio.formulario_publico_slug ?? '',
         observaciones: servicio.observaciones ?? '',
@@ -153,6 +159,7 @@ export function ServicioFormDrawer({
       campus_vigencia_meses: draft.campus_vigencia_meses
         ? Number(draft.campus_vigencia_meses)
         : null,
+      vigencia_meses: draft.vigencia_meses ? Number(draft.vigencia_meses) : null,
       habilitado_formulario_publico: draft.habilitado_formulario_publico,
       formulario_publico_slug:
         draft.formulario_publico_slug.trim() || null,
@@ -341,7 +348,18 @@ export function ServicioFormDrawer({
               placeholder="12"
             />
           </Field>
-          <div />
+          <Field
+            label="Vigencia del servicio (meses)"
+            hint="Pre-llena la fecha sugerida al programar el próximo vencimiento"
+          >
+            <Input
+              type="number"
+              min="1"
+              value={draft.vigencia_meses}
+              onChange={(e) => setDraft({ ...draft, vigencia_meses: e.target.value })}
+              placeholder="Sin vigencia"
+            />
+          </Field>
         </div>
 
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">

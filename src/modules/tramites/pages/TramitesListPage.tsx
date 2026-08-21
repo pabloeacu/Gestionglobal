@@ -15,6 +15,7 @@ import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
 import { formatDateTime } from '@/lib/dates';
 import { cn } from '@/lib/cn';
 import { TramiteFormDrawer } from '../components/TramiteFormDrawer';
+import { ProgramarVencimientoModal } from '@/modules/trackings/components/ProgramarVencimientoModal';
 import { TramitesSegmentos, TramitesFilterBar } from '../components/TramitesFiltros';
 import { useAvanzarTramite } from '../lib/useAvanzarTramite';
 import {
@@ -196,6 +197,10 @@ export function TramitesListPage() {
 
   useRealtimeRefresh(['tramites', 'tramite_comentarios'], () => void load());
 
+  // DGG-142 E3 · trámite recién cerrado al que se le ofrece programar el
+  // próximo vencimiento (montaje condicional: cada cierre abre un modal fresco).
+  const [programarTramite, setProgramarTramite] = useState<TramiteListItem | null>(null);
+
   // DGG-87 · atajo de avance de estado en la lista — MISMO flujo que el kanban
   // (hook compartido: gate de cobranza + updateTramite + toasts). La BD es la
   // única fuente de verdad; lo que cambie acá se refleja en el kanban y viceversa.
@@ -203,6 +208,11 @@ export function TramitesListPage() {
     onOptimistic: (id, nuevoEstado) =>
       setUniverse((prev) => prev.map((r) => (r.id === id ? { ...r, estado: nuevoEstado } : r))),
     onError: () => void load(),
+    // DGG-142 E3 · todo cierre ofrece "Programar próximo vencimiento" (V3).
+    onCerrado: (t) => {
+      const row = t as TramiteListItem;
+      if (row.administracion_id) setProgramarTramite(row);
+    },
   });
 
   const counts = useMemo(() => countSegments(universe), [universe]);
@@ -563,6 +573,22 @@ export function TramitesListPage() {
       </section>
 
       <TramiteFormDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} onCreated={() => void load()} />
+
+      {/* DGG-142 E3 · ofrecimiento post-cierre (V3 botón → de la lista). */}
+      {programarTramite && (
+        <ProgramarVencimientoModal
+          open
+          onClose={() => setProgramarTramite(null)}
+          trackingId={programarTramite.id}
+          trackingTitulo={programarTramite.titulo}
+          periodoSugeridoDias={
+            programarTramite.servicio_vigencia_meses != null
+              ? Math.round(programarTramite.servicio_vigencia_meses * 30.4375)
+              : undefined
+          }
+          onProgramado={() => setProgramarTramite(null)}
+        />
+      )}
     </div>
   );
 }

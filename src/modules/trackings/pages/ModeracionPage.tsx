@@ -26,12 +26,17 @@ import {
 } from '@/services/api/trackings';
 import { TRAMITE_ESTADOS, TRAMITE_ESTADO_LABEL, type TramiteEstado } from '@/services/api/tramites';
 import { crearPedidoDoc } from '@/services/api/tramitePedidosDoc';
+import { ProgramarVencimientoModal } from '../components/ProgramarVencimientoModal';
 
 export function ModeracionPage() {
   const [items, setItems] = useState<ModeracionPendiente[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const firstRef = useRef(false);
+  // DGG-142 E3 (V7) · al publicar un aporte que CIERRA el trámite, ofrecer
+  // programar el próximo vencimiento. Vive a nivel página porque la card se
+  // desmonta al recargar la cola (el aporte sale de pendientes).
+  const [programar, setProgramar] = useState<{ tramiteId: string; codigo: string } | null>(null);
 
   async function load() {
     if (firstRef.current) setRefreshing(true); else setLoading(true);
@@ -67,16 +72,38 @@ export function ModeracionPage() {
         <ul className="space-y-4">
           {items.map((it) => (
             <li key={it.linea_id}>
-              <ModeracionCard item={it} onResuelto={() => void load()} />
+              <ModeracionCard
+                item={it}
+                onResuelto={() => void load()}
+                onCerradoTramite={(t) => setProgramar(t)}
+              />
             </li>
           ))}
         </ul>
+      )}
+
+      {/* DGG-142 E3 · ofrecimiento post-cierre desde moderación (V7). */}
+      {programar && (
+        <ProgramarVencimientoModal
+          open
+          onClose={() => setProgramar(null)}
+          trackingId={programar.tramiteId}
+          trackingTitulo={programar.codigo}
+          onProgramado={() => setProgramar(null)}
+        />
       )}
     </div>
   );
 }
 
-export function ModeracionCard({ item, onResuelto }: { item: ModeracionPendiente; onResuelto: () => void }) {
+export function ModeracionCard({ item, onResuelto, onCerradoTramite }: {
+  item: ModeracionPendiente;
+  onResuelto: () => void;
+  /** DGG-142 E3 (V7) · avisa al host que la publicación CERRÓ el trámite, para
+   *  ofrecer "Programar próximo vencimiento". Vive en el host (página o detail)
+   *  porque esta card se desmonta al salir de la cola de pendientes. */
+  onCerradoTramite?: (t: { tramiteId: string; codigo: string }) => void;
+}) {
   const confirm = useConfirm();
   const prompt = usePrompt();
   const [editando, setEditando] = useState(false);
@@ -122,6 +149,12 @@ export function ModeracionCard({ item, onResuelto }: { item: ModeracionPendiente
     toast.success(
       accion === 'publicar' ? 'Publicado al cliente' : accion === 'interno' ? 'Guardado como nota interna' : 'Aporte descartado',
     );
+    // DGG-142 E3 (V7) · publicar con "Pasar a: Cerrado" es una vía de cierre →
+    // el host ofrece programar el próximo vencimiento. Antes de onResuelto:
+    // la recarga desmonta esta card.
+    if (accion === 'publicar' && estado === 'cerrado') {
+      onCerradoTramite?.({ tramiteId: item.tramite_id, codigo: item.tramite_codigo });
+    }
     onResuelto();
   }
 

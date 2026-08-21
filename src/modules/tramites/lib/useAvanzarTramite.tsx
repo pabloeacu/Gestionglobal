@@ -197,6 +197,10 @@ interface Opts {
   onError?: () => void;
   /** Sonido opcional (lo usa el kanban). */
   play?: (sound: 'click' | 'success') => void;
+  /** DGG-142 E3 · Se invoca tras persistir un cierre exitoso (incluye la rama
+   *  "cerrar sin cobrar"). Las vistas lo usan para ofrecer el modal
+   *  "Programar próximo vencimiento" en TODA vía de cierre (V1-V4). */
+  onCerrado?: (t: MovableTramite) => void;
 }
 
 export function useAvanzarTramite(opts: Opts = {}) {
@@ -294,6 +298,7 @@ export function useAvanzarTramite(opts: Opts = {}) {
     }
     opts.play?.('success');
     toast.success(`Trámite ${t.codigo} → ${TRAMITE_ESTADO_LABEL[nuevoEstado]}`);
+    if (nuevoEstado === 'cerrado') opts.onCerrado?.(t);
     return true;
   };
 }

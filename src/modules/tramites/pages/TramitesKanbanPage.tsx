@@ -7,6 +7,7 @@ import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
 import { useSounds } from '@/contexts/SoundContext';
 import { cn } from '@/lib/cn';
 import { TramiteFormDrawer } from '../components/TramiteFormDrawer';
+import { ProgramarVencimientoModal } from '@/modules/trackings/components/ProgramarVencimientoModal';
 import { TramitesSegmentos, TramitesFilterBar } from '../components/TramitesFiltros';
 import { useAvanzarTramite } from '../lib/useAvanzarTramite';
 import {
@@ -59,6 +60,9 @@ export function TramitesKanbanPage() {
   const [dragId, setDragId] = useState<string | null>(null);
   const [dragOverCol, setDragOverCol] = useState<TramiteEstado | null>(null);
   const [f, setF] = useState<TramitesFilterState>(INITIAL_TRAMITES_FILTER);
+  // DGG-142 E3 · trámite recién cerrado al que se le ofrece programar el
+  // próximo vencimiento (montaje condicional: cada cierre abre un modal fresco).
+  const [programarTramite, setProgramarTramite] = useState<TramiteListItem | null>(null);
   const { play } = useSounds();
 
   function update(patch: Partial<TramitesFilterState>) {
@@ -121,6 +125,13 @@ export function TramitesKanbanPage() {
       setUniverse((prev) => prev.map((r) => (r.id === id ? { ...r, estado: nuevoEstado } : r))),
     onError: () => void load(),
     play,
+    // DGG-142 E3 · todo cierre ofrece "Programar próximo vencimiento". El hook
+    // devuelve el mismo row que le pasamos (TramiteListItem). Trámites sin
+    // administración se saltean: tracking_cerrar_ciclo la exige.
+    onCerrado: (t) => {
+      const row = t as TramiteListItem;
+      if (row.administracion_id) setProgramarTramite(row);
+    },
   });
 
   return (
@@ -287,6 +298,22 @@ export function TramitesKanbanPage() {
       )}
 
       <TramiteFormDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} onCreated={() => void load()} />
+
+      {/* DGG-142 E3 · ofrecimiento post-cierre (V1 drag + V2 botón →). */}
+      {programarTramite && (
+        <ProgramarVencimientoModal
+          open
+          onClose={() => setProgramarTramite(null)}
+          trackingId={programarTramite.id}
+          trackingTitulo={programarTramite.titulo}
+          periodoSugeridoDias={
+            programarTramite.servicio_vigencia_meses != null
+              ? Math.round(programarTramite.servicio_vigencia_meses * 30.4375)
+              : undefined
+          }
+          onProgramado={() => setProgramarTramite(null)}
+        />
+      )}
     </div>
   );
 }
