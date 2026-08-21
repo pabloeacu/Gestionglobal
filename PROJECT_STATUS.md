@@ -157,15 +157,27 @@ Recorrido punta a punta logueado sobre la URL de Vercel. **Cobertura amplia** de
 
 ## 2. Trabajo en curso AHORA
 
+**DGG-143 · Regla B v3 (2026-08-21, migs 0438+0439).** Pablo resolvió el
+pendiente de renovaciones: la fecha de vencimiento es "fluida" (trámite
+anual) — al cerrar una renovación QUE PROSPERÓ, si la fecha existente es del
+mismo año (o anterior) al del cierre es la de la renovación previa y se PISA
+con cierre+12m (ART); si es del año siguiente la cargó el gerente a mano y
+se conserva; rechazos del RPAC (cierre_satisfactorio=false) no tocan NADA
+(0439 extendió el gate también al relleno-si-vacío); el relleno-si-vacío se
+mantiene para los 3 servicios de matrícula en cierres que prosperaron.
+Bonus §6 (0439): `tracking_cerrar_ciclo` ahora sincroniza la fecha del modal
+"Programar próximo vencimiento" a la ficha (`matricula_rpac_vencimiento`)
+en servicios RPAC — cierra la divergencia ficha↔agenda; la fecha explícita
+del gerente manda sobre el default del trigger. e2e 7 ramas en verde con
+rollback. 4 notas de negocio en DECISIONES DGG-143 (renovación anticipada
+1er trimestre; kanban sin flag; impago vs rechazo; reabrir no restaura).
+
 **DGG-142 · Etapa 2 CERRADA (2026-08-21, commit 81a055b).** Live QA OK sobre
 TRM-2026-00007: banner-asistente visible ("El alumno completó… · Cerrar y
 programar próximo vencimiento"), chip con ✕ Desvincular, consola limpia. §6 de
 E2: 5 menores confirmados y cerrados (Regla B en ART + match por codigo;
 desvincular verifica filas; ✕ accesible + refetch; placeholder; snippet R17
 del CLAUDE.md), 1 refutado (salto de confirm deliberado, documentado).
-PENDIENTE DECISIÓN PABLO (en DECISIONES DGG-143): renovación cerrada sin
-asistente conserva fecha de vencimiento vieja — ¿status quo (A) o el trigger
-actualiza fechas ya pasadas (B)?
 
 **DGG-142 · Etapa 2 detalle (histórico) — asistente "matrícula completada".**
 Matriz de ofrecimientos DGG-143 formalizada en DECISIONES (reglas de Pablo +

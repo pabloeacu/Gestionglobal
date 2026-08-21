@@ -5084,9 +5084,35 @@ retomable"). Refutados: 0.
   crasheaba con aggregates → se agregó `p.prokind='f'`. Dato: al momento de
   la auditoría ya había 59/59 matrículas vinculadas (el wizard linkea solo
   en producción real desde el deploy de E1).
-- **PENDIENTE de decisión (Pablo)**: en una RENOVACIÓN cerrada sin pasar por
-  el asistente, el campo de vencimiento conserva la fecha VIEJA (ya vencida)
-  — la Regla B sólo rellena vacíos, jamás pisa. Opción A (status quo,
-  vigente): la fecha nueva la pone siempre el asistente/gerencia. Opción B:
-  que en renovaciones el trigger también actualice cuando la fecha existente
-  ya pasó. No se aplica B sin OK explícito.
+- **RESUELTO 2026-08-21 (Pablo) → Regla B v3 (mig 0438)**: la fecha de
+  vencimiento es "fluida" (trámite anual) — al cerrar una RENOVACIÓN que
+  prosperó no puede quedar una fecha vencida. Heurística por año, verbatim:
+  "si al momento del cierre existe una fecha del año siguiente al calendario
+  del trámite, la ingresó el gerente a mano y es válida (conservar); si es
+  del mismo año del trámite, es la fecha de la renovación previa y deberá
+  pisarse con la fecha del cierre" (+12 meses, calendario ART). Excepción
+  explícita de Pablo: cierres por rechazo del RPAC (ajenos a la empresa) →
+  discriminados con `cierre_satisfactorio = false`, no tocan nada. La regla
+  de relleno-si-vacío se mantiene para los 3 servicios de matrícula; el
+  pisado aplica sólo a `rpac_renovacion` satisfactoria con año de la fecha
+  existente <= año del cierre. **§6 (3 agentes + refutación) → mig 0439**:
+  (1) el gate de rechazo ahora cubre TAMBIÉN la rama de relleno (un rechazo
+  con campo vacío ya no asienta +12m de una matrícula nunca otorgada — en
+  rechazo, vacío es la verdad; el "nunca vacío" aplica a cierres que
+  prosperaron); (2) WARNING forense con tramite/admin; (3)
+  `tracking_cerrar_ciclo` (modal "Programar próximo vencimiento") ahora
+  sincroniza la fecha del gerente a `matricula_rpac_vencimiento` en
+  servicios RPAC — antes la ficha quedaba con el default del trigger y la
+  agenda con la fecha del modal (dos vencimientos divergentes); la fecha
+  explícita del gerente MANDA. e2e 7 ramas en verde (pisa / conserva
+  año-siguiente / conserva rechazo / inscripción no pisa / rellena NULL /
+  rechazo+NULL no rellena / modal pisa default del trigger + row en
+  `vencimientos`). NOTAS al dueño (sin desviarse del verbatim): (a)
+  renovación ANTICIPADA con vencimiento en el 1er trimestre del año
+  siguiente cerrada en nov–dic → la heurística por año la conserva y queda
+  corta ~11 meses (alternativa: pisar si fecha < cierre+6m); (b) cierre por
+  drag del kanban no setea cierre_satisfactorio → un rechazo cerrado así
+  pisa igual (el rechazo debe cerrarse por el diálogo con motivo; E3 lo
+  desambigua); (c) "cerrar sin cobrar" (flag=false por impago) no pisa
+  aunque la renovación haya prosperado; (d) reabrir no restaura una fecha
+  pisada (recuperable vía auditoria_cambios).
