@@ -393,6 +393,9 @@ function construirOps(
           administracionId: ctx.administracionId,
           profileId,
           estadoPago,
+          // DGG-142: la matrícula queda vinculada al trámite recién creado
+          // por la op 1 (trazabilidad matrícula↔trámite).
+          tramiteId: ctx.trackingId ?? null,
         });
         if (!r.ok) throw new Error(humanizeError(r.error));
         return `Alumno matriculado (${estadoPago.replace('_', ' ')})`;

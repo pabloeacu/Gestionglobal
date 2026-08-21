@@ -468,8 +468,8 @@ export function CursoDetalleAlumnoPage() {
               title="Tu acceso a este curso finalizó"
               description={
                 <>
-                  Completaste “{data.curso.titulo}” y ya pasó el período de
-                  repaso. Si necesitás volver a acceder, escribile a tu
+                  Completaste “{data.curso.titulo}” y ya finalizó tu plazo de
+                  gracia. Si necesitás volver a acceder, escribile a tu
                   administrador.
                 </>
               }

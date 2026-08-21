@@ -22,6 +22,7 @@ import {
   CalendarRange,
   Ban,
   CheckCircle2,
+  GraduationCap,
   Clock,
   Copy,
   Download,
@@ -108,6 +109,12 @@ import {
   getSolicitudVinculadaTramite,
   type SolicitudVinculadaTramite,
 } from '@/services/api/solicitudes';
+// DGG-142 · chip "Matrícula vinculada" (paridad R14 del vínculo matrícula↔trámite)
+import {
+  fetchMatriculaDeTramite,
+  MATRICULA_ESTADO_LABEL,
+  type MatriculaDeTramite,
+} from '@/services/api/campus';
 import { PedidosDocPanel } from '@/components/common/PedidosDocPanel';
 // DGG-41 (2026-06-02 · José Luis): la tab Documentación debe mostrar
 // también los archivos del flujo PedidoDoc (cliente sube docs por bucket
@@ -152,6 +159,16 @@ export function TrackingDetailPage() {
   });
   // 2.C · estado de generación del PDF (para deshabilitar el botón mientras corre)
   const [pdfBusy, setPdfBusy] = useState(false);
+  // DGG-142 · matrícula de campus vinculada a este trámite (chip en el header).
+  const [matVinculada, setMatVinculada] = useState<MatriculaDeTramite | null>(null);
+  useEffect(() => {
+    if (!id || !isStaff) { setMatVinculada(null); return; }
+    let cancel = false;
+    void fetchMatriculaDeTramite(id).then((r) => {
+      if (!cancel) setMatVinculada(r.ok ? r.data : null);
+    });
+    return () => { cancel = true; };
+  }, [id, isStaff]);
   const [drawerOpen, setDrawerOpen] = useState(false);
   // JL 2 · obs 1 · atajo "Generar comprobante" del trámite (cuando comprobante_pendiente).
   const [genCompOpen, setGenCompOpen] = useState(false);
@@ -745,6 +762,17 @@ export function TrackingDetailPage() {
                   </span>
                 ) : null;
               })()}
+              {/* DGG-142 · matrícula de campus que satisface este trámite (link al curso) */}
+              {matVinculada && (
+                <Link
+                  to={`/gerencia/campus/${matVinculada.curso_id}`}
+                  title={`Matrícula vinculada · ${matVinculada.curso_titulo}`}
+                  className="inline-flex items-center gap-1 rounded-full bg-brand-cyan/10 px-2.5 py-1 text-xs font-medium text-brand-cyan ring-1 ring-brand-cyan/20 transition hover:bg-brand-cyan/20"
+                >
+                  <GraduationCap className="h-3.5 w-3.5" />
+                  Matrícula · {MATRICULA_ESTADO_LABEL[matVinculada.estado]}
+                </Link>
+              )}
               {/* DEEP-1 · Editar metadata: visible solo para staff. Abrimos
                   drawer lateral con titulo/categoria/prioridad/vence_at +
                   admin+consorcio dependiente + solicitante. */}

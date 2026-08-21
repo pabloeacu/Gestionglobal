@@ -21,6 +21,8 @@ import { cn } from '@/lib/cn';
 import {
   CONDICION_TIPO_LABEL,
   ESTADO_PAGO_LABEL,
+  MATRICULA_ESTADO_LABEL,
+  type MatriculaEstado,
   certificadoParaPdf,
   desasignarAlumno,
   emitirCertificado,
@@ -269,7 +271,9 @@ export function GestionMatriculasTab({ data }: { data: CursoDetalle }) {
           format: (r) => r.administracion_nombre ?? '—' },
         { key: 'inscripto_at', label: 'Fecha matrícula', width: '14%',
           format: (r) => fmtFecha(r.inscripto_at) },
-        { key: 'estado', label: 'Estado', width: '10%' },
+        { key: 'estado', label: 'Estado', width: '10%',
+          // §6 DGG-142: exportar el LABEL, no el valor interno de BD.
+          format: (r) => MATRICULA_ESTADO_LABEL[r.estado as MatriculaEstado] ?? r.estado },
         { key: 'condiciones_resumen', label: 'Condiciones', width: '10%',
           format: (r) => r.condiciones_resumen },
         { key: 'nota_examen', label: 'Nota examen', width: '10%',
@@ -294,7 +298,9 @@ export function GestionMatriculasTab({ data }: { data: CursoDetalle }) {
           value: (r) => r.administracion_nombre ?? '' },
         { key: 'inscripto_at', label: 'Fecha matrícula', width: 16,
           value: (r) => r.inscripto_at ? new Date(r.inscripto_at) : null },
-        { key: 'estado', label: 'Estado', width: 14 },
+        { key: 'estado', label: 'Estado', width: 14,
+          // §6 DGG-142: exportar el LABEL, no el valor interno de BD.
+          value: (r) => MATRICULA_ESTADO_LABEL[r.estado as MatriculaEstado] ?? r.estado },
         { key: 'condiciones_resumen', label: 'Condiciones', width: 14,
           value: (r) => r.condiciones_resumen },
         { key: 'nota_examen', label: 'Nota examen', width: 14,

@@ -157,6 +157,26 @@ Recorrido punta a punta logueado sobre la URL de Vercel. **Cobertura amplia** de
 
 ## 2. Trabajo en curso AHORA
 
+**DGG-142 · Circuito de ofrecimientos continuos — Etapa 1 EN CIERRE (2026-08-21).**
+Plan maestro de 7 etapas definido con Pablo (ver DECISIONES DGG-142 y el análisis
+del caso Selalle/JL): 1) vínculo matrícula↔trámite ✔ (mig 0434, backfill 56/56,
+wizard+drawer+chip, labels "Plazo de gracia"/"Completada"); 2) asistente
+"matrícula completada" (alerta + vincular + cerrar + programar, apagar paso
+muerto del cron 0253); 3) todo cierre ofrece "Programar próximo vencimiento"
+(7 vías manuales; hoy sólo 1 de 8 lo ofrece y sólo para 3 servicios con
+vigencia_meses); 4) triple canal por alarma de ofrecimiento (banner ya existe;
+push al cliente FALTA en dispatch-vencimientos — 18 clientes ya suscriptos;
+plantillas de ofrecimiento POR SERVICIO — hoy sólo 1 genérica
+vencimiento_alerta_cliente); 5) modal gestoría "Inscripción/Renovación
+otorgada" (matrícula/legajo/emisión/vencimiento → moderación → ficha);
+6) Tramix para GERENCIA (rama staff en tramix-consulta — hoy gerentes quedan
+SIN_ADMIN — + botón en Trámites con legajo prefill); 7) informe a JL en el
+Google Doc con capturas. Datos clave: administraciones.matricula_rpac_vencimiento
+EXISTE desde mig 0002 con UI completa pero 0/69 cargado; tabla vencimientos
+0 filas; banner renovacion_matricula listo esperando el dato; 0 trámites
+'cerrado' en prod. Insumos pendientes de Pablo: vigencias de los 8 servicios
+restantes + fechas de vencimiento de matrículas actuales + copy de plantillas.
+
 **REG · Grid "Correos enviados" = registro unificado · CERRADO (2026-08-20).**
 Pablo emitió una constancia de alumno regular (delacruzosvaldo432) con "Enviar por
 mail" y no la vio en el grid de gerencia. Diagnóstico: el grid leía SÓLO

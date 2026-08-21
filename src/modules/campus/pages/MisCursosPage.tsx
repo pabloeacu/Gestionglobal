@@ -28,12 +28,13 @@ import { MisCertificadosSection } from '@/modules/campus/components/MisCertifica
 
 // DGG-82: leyenda de felicitaciones en el card cuando el alumno terminó el
 // curso y conserva acceso (ventana post-finalización). dias = vigencia − hoy.
+// DGG-142: la ventana se llama "plazo de gracia" en todas las superficies.
 function leyendaFelicitaciones(dias: number): string {
   if (dias <= 0)
-    return '¡Felicitaciones! Ya terminaste el curso. Hoy es tu último día para repasar lo que quieras.';
+    return '¡Felicitaciones! Ya terminaste el curso. Hoy es el último día de tu plazo de gracia para repasar lo que quieras.';
   if (dias === 1)
-    return '¡Felicitaciones! Ya terminaste el curso. Te queda 1 día para acceder y repasar lo que quieras.';
-  return `¡Felicitaciones! Ya terminaste el curso. Te quedan ${dias} días para acceder y repasar lo que quieras!`;
+    return '¡Felicitaciones! Ya terminaste el curso. Te queda 1 día de plazo de gracia para acceder y repasar lo que quieras.';
+  return `¡Felicitaciones! Ya terminaste el curso. Te quedan ${dias} días de plazo de gracia para acceder y repasar lo que quieras!`;
 }
 
 // "Mis cursos" para el alumno (portal). DGG-10: sin autoservicio — el alumno

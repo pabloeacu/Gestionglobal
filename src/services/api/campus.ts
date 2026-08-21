@@ -112,17 +112,22 @@ export const MATRICULA_ESTADOS = [
 ] as const;
 export type MatriculaEstado = (typeof MATRICULA_ESTADOS)[number];
 
+// DGG-142 (Pablo, 2026-08-21): renombrado SEMÁNTICO sólo de etiquetas — los
+// valores internos ('completada'/'vencida') NO cambian (viven en gates RLS,
+// cron y triggers; renombrarlos sería riesgo sin beneficio visible).
+//   interno 'completada' (terminó, corre la ventana de repaso) → "Plazo de gracia"
+//   interno 'vencida'    (la ventana expiró; ciclo cumplido)   → "Completada"
 export const MATRICULA_ESTADO_LABEL: Record<MatriculaEstado, string> = {
   activa: 'Activa',
-  completada: 'Completada',
-  vencida: 'Vencida',
+  completada: 'Plazo de gracia',
+  vencida: 'Completada',
   anulada: 'Anulada',
 };
 
 export const MATRICULA_ESTADO_BADGE: Record<MatriculaEstado, string> = {
   activa: 'bg-emerald-50 text-emerald-700 border-emerald-200',
   completada: 'bg-brand-cyan/10 text-brand-cyan border-brand-cyan/20',
-  vencida: 'bg-amber-50 text-amber-700 border-amber-200',
+  vencida: 'bg-teal-50 text-teal-700 border-teal-200',
   anulada: 'bg-red-50 text-red-700 border-red-200',
 };
 
@@ -302,6 +307,9 @@ export interface MatricularInput {
 // DGG-10: el autoservicio se cerró. La inscripción del alumno la crea staff
 // vía `asignarAlumno` (RPC curso_asignar_alumno). `matricularUsuario` queda
 // como utilitario de compat para staff (la RPC valida is_staff server-side).
+/** @deprecated §6 DGG-142 · 0 callers. La RPC `curso_matricular` no conoce
+ *  `tramite_id` ni `fuente` → todo alta staff debe usar `asignarAlumno`
+ *  (`curso_asignar_alumno`). Candidata a DROP en la Etapa 2. */
 export async function matricularUsuario(
   input: MatricularInput,
 ): Promise<ApiResponse<string>> {
@@ -337,7 +345,11 @@ export async function contarMatriculasKpis(): Promise<
     supabase.from('curso_matriculas').select('id', { count: 'exact', head: true });
   const [act, comp] = await Promise.all([
     base().eq('estado', 'activa'),
-    base().eq('estado', 'completada'),
+    // DGG-142 (§6): "Cursadas completadas" = todas las que TERMINARON el curso
+    // (interno 'completada' = plazo de gracia + 'vencida' = ciclo cumplido).
+    // Antes contaba sólo 'completada', que tras el rename de labels habría
+    // contradicho al badge "Completada" (interno 'vencida').
+    base().in('estado', ['completada', 'vencida']),
   ]);
   const err = act.error ?? comp.error;
   if (err) return fail('MATRICULAS_KPIS', err.message, err);
@@ -1261,6 +1273,9 @@ export interface AsignarAlumnoInput {
   profileId?: string | null;
   // DGG-119: estado de pago declarado al matricular (default BD: 'adeudado').
   estadoPago?: EstadoPagoMatricula;
+  // DGG-142: trámite VIGENTE que esta matrícula satisface (trazabilidad).
+  // El wizard lo pasa siempre (ctx.trackingId); el drawer lo ofrece opcional.
+  tramiteId?: string | null;
 }
 
 export async function asignarAlumno(
@@ -1271,9 +1286,86 @@ export async function asignarAlumno(
     p_administracion_id: input.administracionId,
     p_profile_id: (input.profileId ?? null) as unknown as string,
     p_estado_pago: (input.estadoPago ?? null) as unknown as string,
+    p_tramite_id: (input.tramiteId ?? null) as unknown as string,
   });
   if (error) return fail('CURSO_ASIGNAR', error.message, error);
   return ok(data as string);
+}
+
+// ---------------------------------------------------------------------------
+// DGG-142 · Vínculo matrícula ↔ trámite (trazabilidad, sin automatismos)
+// ---------------------------------------------------------------------------
+
+export interface TramiteVinculable {
+  id: string;
+  codigo: string;
+  titulo: string;
+  estado: string;
+  /** §6 DGG-142: ya tiene una matrícula vinculada (no se preselecciona). */
+  ya_vinculado: boolean;
+}
+
+/** Trámites de categoría curso del cliente, no cerrados/cancelados — para el
+ *  selector opcional "Vincular a trámite" del drawer de asignación (staff).
+ *  §6 DGG-142: `ya_vinculado` marca los que ya tienen una matrícula apuntando
+ *  (se muestran igual — re-vincular a propósito es válido — pero NO se
+ *  preseleccionan, para no crear vínculos N:1 por defecto). */
+export async function listTramitesCursoDeAdmin(
+  administracionId: string,
+): Promise<ApiResponse<TramiteVinculable[]>> {
+  const { data, error } = await supabase
+    .from('tramites')
+    .select('id, codigo, titulo, estado, curso_matriculas!curso_matriculas_tramite_id_fkey(id)')
+    .eq('administracion_id', administracionId)
+    .eq('categoria', 'curso')
+    .not('estado', 'in', '(cerrado,cancelado)')
+    .order('created_at', { ascending: false });
+  if (error) return fail('TRAMITES_CURSO_ADMIN', error.message, error);
+  const rows = (data ?? []) as unknown as Array<{
+    id: string; codigo: string; titulo: string; estado: string;
+    curso_matriculas: Array<{ id: string }> | null;
+  }>;
+  return ok(rows.map((r) => ({
+    id: r.id,
+    codigo: r.codigo,
+    titulo: r.titulo,
+    estado: r.estado,
+    ya_vinculado: (r.curso_matriculas?.length ?? 0) > 0,
+  })));
+}
+
+export interface MatriculaDeTramite {
+  id: string;
+  estado: MatriculaEstado;
+  curso_id: string;
+  curso_titulo: string;
+}
+
+/** Matrícula vinculada a un trámite (chip en el detalle del trámite — R14). */
+export async function fetchMatriculaDeTramite(
+  tramiteId: string,
+): Promise<ApiResponse<MatriculaDeTramite | null>> {
+  const { data, error } = await supabase
+    .from('curso_matriculas')
+    .select('id, estado, curso_id, cursos:curso_id(titulo)')
+    .eq('tramite_id', tramiteId)
+    // §6 DGG-142: determinismo si N matrículas comparten trámite — gana la
+    // más reciente (semántica "vigente").
+    .order('inscripto_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) return fail('MATRICULA_DE_TRAMITE', error.message, error);
+  if (!data) return ok(null);
+  const row = data as unknown as {
+    id: string; estado: MatriculaEstado; curso_id: string;
+    cursos: { titulo: string } | null;
+  };
+  return ok({
+    id: row.id,
+    estado: row.estado,
+    curso_id: row.curso_id,
+    curso_titulo: row.cursos?.titulo ?? 'Curso',
+  });
 }
 
 // JL #4 (DGG-92): desasignar (baja manual) un alumno de un curso. DELETE físico

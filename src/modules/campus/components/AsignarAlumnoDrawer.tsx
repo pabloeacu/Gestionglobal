@@ -7,8 +7,10 @@ import {
   ESTADO_PAGO_LABEL,
   asignarAlumno,
   listAdministracionesParaAsignar,
+  listTramitesCursoDeAdmin,
   type AdministracionParaAsignar,
   type EstadoPagoMatricula,
+  type TramiteVinculable,
 } from '@/services/api/campus';
 import { humanizeError } from '@/lib/errors';
 
@@ -34,6 +36,30 @@ export function AsignarAlumnoDrawer({
   const [asignando, setAsignando] = useState(false);
   // DGG-119: estado de pago obligatorio al matricular (gate del certificado).
   const [estadoPago, setEstadoPago] = useState<EstadoPagoMatricula>('adeudado');
+  // DGG-142: vínculo opcional al trámite de curso del cliente (trazabilidad).
+  const [tramites, setTramites] = useState<TramiteVinculable[]>([]);
+  const [tramiteId, setTramiteId] = useState<string>('');
+
+  // Al elegir cliente, cargamos sus trámites de curso abiertos; si tiene
+  // exactamente uno SIN matrícula ya vinculada, lo preseleccionamos (caso
+  // típico). Ambiguo o ya-vinculado → "Sin vincular" (§6 DGG-142: no crear
+  // vínculos N:1 por defecto).
+  useEffect(() => {
+    if (!selected) { setTramites([]); setTramiteId(''); return; }
+    let cancel = false;
+    void listTramitesCursoDeAdmin(selected.id).then((r) => {
+      if (cancel) return;
+      if (r.ok) {
+        setTramites(r.data);
+        const libres = r.data.filter((t) => !t.ya_vinculado);
+        setTramiteId(libres.length === 1 ? (libres[0]?.id ?? '') : '');
+      } else {
+        setTramites([]);
+        setTramiteId('');
+      }
+    });
+    return () => { cancel = true; };
+  }, [selected]);
 
   useEffect(() => {
     if (!open) return;
@@ -70,6 +96,7 @@ export function AsignarAlumnoDrawer({
       cursoId,
       administracionId: selected.id,
       estadoPago,
+      tramiteId: tramiteId || null,
     });
     setAsignando(false);
     if (!res.ok) {
@@ -171,6 +198,24 @@ export function AsignarAlumnoDrawer({
               );
             })}
           </ul>
+        )}
+
+        {/* DGG-142 · vínculo opcional al trámite de curso del cliente. Si el
+            cliente tiene exactamente uno abierto, viene preseleccionado. */}
+        {selected && tramites.length > 0 && (
+          <Field
+            label="Vincular a trámite (opcional)"
+            hint="Deja rastro de qué trámite satisface esta matrícula. No cierra ni cambia el trámite. Si la matrícula ya estaba vinculada a un trámite, «Sin vincular» conserva el vínculo existente."
+          >
+            <Select value={tramiteId} onChange={(e) => setTramiteId(e.target.value)}>
+              <option value="">Sin vincular</option>
+              {tramites.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.codigo} · {t.titulo}{t.ya_vinculado ? ' · ya vinculado a otra matrícula' : ''}
+                </option>
+              ))}
+            </Select>
+          </Field>
         )}
 
         <p className="text-xs text-brand-muted">

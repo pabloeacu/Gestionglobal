@@ -4972,3 +4972,55 @@ retomable"). Refutados: 0.
   duro `sent_emails.email_queue_id` — innecesario para el dedupe (el invariante
   `status='sent' ⇒ espejo` alcanza) y el backfill histórico requeriría heurística.
 - **Fecha**: 2026-08-20.
+
+## DGG-142 · Circuito de ofrecimientos · Etapa 1: vínculo matrícula↔trámite + naming "Plazo de gracia"
+
+- **Origen** (caso Selalle/JL + análisis conceptual con Pablo, 2026-08-21):
+  el auto-cierre de trámites de curso (DGG-88, mig 0253) dependía de
+  `curso_matriculas.submission_origen`, columna que NUNCA tuvo escritor
+  (56/56 NULL) → 40 trámites de curso "resueltos" incierrables. El wizard de
+  activación SÍ matricula (53/56) y tiene el trámite en la mano
+  (`ctx.trackingId`), pero la RPC no tenía cómo recibirlo.
+- **Doctrina rectora** (Pablo): "Resuelto" es un estado MANUAL de gerencia —
+  ningún automatismo asume nada desde él; los automatismos AVISAN, el humano
+  decide. El vínculo nuevo es para TRAZABILIDAD, no para re-automatizar cierres.
+- **Decisión A — vínculo directo** (mig 0434): `curso_matriculas.tramite_id`
+  (FK `tramites` ON DELETE SET NULL). Semántica: "el trámite VIGENTE que esta
+  matrícula satisface"; re-matricular con otro trámite lo pisa; NULL = sin
+  vínculo. El wizard lo pasa siempre; el drawer de Campus lo ofrece opcional
+  (preselecciona si el cliente tiene exactamente 1 trámite de curso abierto);
+  el detalle del trámite muestra chip "Matrícula · estado" → curso (R14).
+  Guard server-side: el trámite debe pertenecer a la MISMA administración.
+  Backfill: sólo pares 1:1 inequívocos por administración → 56/56 linkeadas
+  (0 ambiguos al día de la mig). `submission_origen` queda como columna
+  legacy muerta (no se borra en este chunk).
+- **Decisión B — naming** (pedido Pablo: "vencida suena negativo; completada
+  se emparenta con resuelto"): renombrar SÓLO ETIQUETAS de UI, valores
+  internos intactos (viven en gates RLS/cron/triggers — renombrarlos sería
+  riesgo sin beneficio visible): interno `completada` → **"Plazo de gracia"**
+  (terminó el curso, corre la ventana de repaso de 30 días, badge cyan);
+  interno `vencida` → **"Completada"** (la ventana expiró, ciclo cumplido,
+  badge teal — desaparece el tono negativo). La leyenda del alumno menciona
+  "plazo de gracia".
+- **Alternativas descartadas**: poblar `submission_origen` (no cubre trámites
+  manuales y mantiene 2 saltos frágiles); renombrar valores de BD (riesgo en
+  cadena sobre RLS/cron sin beneficio); automatizar el cierre con el vínculo
+  (contradice la doctrina — eso será un ASISTENTE con humano en Etapa 2).
+- **§6 (12 agentes: 3 frentes + refutación por hallazgo)**: 7 confirmados
+  (2 críticos + 5 menores), 0 refutados — TODOS cerrados en el mismo chunk:
+  (1c) exports PDF/XLS de matrículas imprimían el estado interno crudo →
+  format/value con MATRICULA_ESTADO_LABEL; (2c) KPI "Cursadas completadas"
+  contaba sólo interno 'completada' (= plazo de gracia) → ahora
+  in('completada','vencida') = todas las que terminaron; (3m) guard de la RPC
+  ahora exige categoria='curso' (invariante en la API, no sólo en el front);
+  (4m) submission_origen COMMENT DEPRECADA (¡no dropear sin reescribir
+  gg_campus_vencer_matriculas y trg_certificado_cierra_tramite_curso_fn que la
+  referencian — patrón E-GG-42!); (5m) curso_matricular COMMENT deprecada +
+  JSDoc @deprecated (candidata a DROP en Etapa 2); (6m) "Sin vincular" en
+  re-asignación conserva el vínculo (hint lo aclara; acción "Desvincular" queda
+  como GAP R14 para Etapa 2); (7m) copy del gate del alumno "período de repaso"
+  → "plazo de gracia" + preselección del drawer excluye trámites ya vinculados
+  + fetch del chip con order determinista (gana la matrícula más reciente).
+  Semántica decidida: N matrículas→1 trámite es VÁLIDO (re-vincular a
+  propósito), el chip muestra la más reciente.
+- **Fecha**: 2026-08-21.
