@@ -268,6 +268,10 @@ export interface CrearServicioInput {
   permite_multiples_consorcios?: boolean;
   habilita_campus?: boolean;
   campus_vigencia_meses?: number | null;
+  // DGG-142 E3 §6 · antes se colaba por spread sin estar declarada (el
+  // excess-property check de TS no inspecciona spreads) — funcionaba de
+  // casualidad. Vigencia del servicio para la fecha sugerida del modal.
+  vigencia_meses?: number | null;
   habilitado_formulario_publico?: boolean;
   formulario_publico_slug?: string | null;
   observaciones?: string | null;

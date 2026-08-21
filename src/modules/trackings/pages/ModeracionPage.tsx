@@ -36,7 +36,11 @@ export function ModeracionPage() {
   // DGG-142 E3 (V7) · al publicar un aporte que CIERRA el trámite, ofrecer
   // programar el próximo vencimiento. Vive a nivel página porque la card se
   // desmonta al recargar la cola (el aporte sale de pendientes).
-  const [programar, setProgramar] = useState<{ tramiteId: string; codigo: string } | null>(null);
+  const [programar, setProgramar] = useState<{
+    tramiteId: string;
+    codigo: string;
+    vigenciaMeses: number | null;
+  } | null>(null);
 
   async function load() {
     if (firstRef.current) setRefreshing(true); else setLoading(true);
@@ -85,10 +89,16 @@ export function ModeracionPage() {
       {/* DGG-142 E3 · ofrecimiento post-cierre desde moderación (V7). */}
       {programar && (
         <ProgramarVencimientoModal
+          key={programar.tramiteId}
           open
           onClose={() => setProgramar(null)}
           trackingId={programar.tramiteId}
           trackingTitulo={programar.codigo}
+          periodoSugeridoDias={
+            programar.vigenciaMeses != null
+              ? Math.round(programar.vigenciaMeses * 30.4375)
+              : undefined
+          }
           onProgramado={() => setProgramar(null)}
         />
       )}
@@ -102,7 +112,7 @@ export function ModeracionCard({ item, onResuelto, onCerradoTramite }: {
   /** DGG-142 E3 (V7) · avisa al host que la publicación CERRÓ el trámite, para
    *  ofrecer "Programar próximo vencimiento". Vive en el host (página o detail)
    *  porque esta card se desmonta al salir de la cola de pendientes. */
-  onCerradoTramite?: (t: { tramiteId: string; codigo: string }) => void;
+  onCerradoTramite?: (t: { tramiteId: string; codigo: string; vigenciaMeses: number | null }) => void;
 }) {
   const confirm = useConfirm();
   const prompt = usePrompt();
@@ -151,9 +161,14 @@ export function ModeracionCard({ item, onResuelto, onCerradoTramite }: {
     );
     // DGG-142 E3 (V7) · publicar con "Pasar a: Cerrado" es una vía de cierre →
     // el host ofrece programar el próximo vencimiento. Antes de onResuelto:
-    // la recarga desmonta esta card.
-    if (accion === 'publicar' && estado === 'cerrado') {
-      onCerradoTramite?.({ tramiteId: item.tramite_id, codigo: item.tramite_codigo });
+    // la recarga desmonta esta card. Sin administración no se ofrece
+    // (tracking_cerrar_ciclo la exige — mismo guard que kanban/lista/detail).
+    if (accion === 'publicar' && estado === 'cerrado' && item.administracion_id) {
+      onCerradoTramite?.({
+        tramiteId: item.tramite_id,
+        codigo: item.tramite_codigo,
+        vigenciaMeses: item.servicio_vigencia_meses,
+      });
     }
     onResuelto();
   }

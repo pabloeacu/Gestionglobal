@@ -586,7 +586,9 @@ export function TrackingDetailPage() {
     // ('aprobado' no es un slug del pipeline — la condición real es "no resuelto")
     if (data.estado !== 'resuelto') {
       const cont = await confirm({
-        title: 'Cerrar trámite y programar próximo vencimiento',
+        title: data.administracion_id
+          ? 'Cerrar trámite y programar próximo vencimiento'
+          : 'Cerrar trámite',
         message: `El estado actual es "${data.estado}". ¿Cerrarlo igualmente?`,
         confirmLabel: 'Continuar',
         danger: true,
@@ -749,7 +751,11 @@ export function TrackingDetailPage() {
                   onResuelto={() => void load()}
                   // DGG-142 E3 (V7) · publicar cerrando el trámite ofrece
                   // programar el próximo vencimiento (modal ya montado acá).
-                  onCerradoTramite={() => setProgramarOpen(true)}
+                  // La card ya suprime trámites sin administración; doble
+                  // cinturón por si el host se reusa.
+                  onCerradoTramite={() => {
+                    if (data?.administracion_id) setProgramarOpen(true);
+                  }}
                 />
               </li>
             ))}
@@ -965,7 +971,9 @@ export function TrackingDetailPage() {
                 data-tour="tracking-cerrar"
               >
                 <CheckCircle2 className="h-4 w-4" />{' '}
-                Cerrar trámite y programar próximo vencimiento
+                {data.administracion_id
+                  ? 'Cerrar trámite y programar próximo vencimiento'
+                  : 'Cerrar trámite'}
               </Button>
             )}
             {/* DGG-95 (reporte JL) · Cancelar el trámite con cascada a la cta cte

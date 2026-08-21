@@ -577,6 +577,7 @@ export function TramitesListPage() {
       {/* DGG-142 E3 · ofrecimiento post-cierre (V3 botón → de la lista). */}
       {programarTramite && (
         <ProgramarVencimientoModal
+          key={programarTramite.id}
           open
           onClose={() => setProgramarTramite(null)}
           trackingId={programarTramite.id}

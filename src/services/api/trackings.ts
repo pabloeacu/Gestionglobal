@@ -235,11 +235,14 @@ export async function getTracking(id: string): Promise<ApiResponse<TrackingDetai
       .order('created_at', { ascending: false }),
     listEstadosConfig(tt.servicio_id ?? null),
     listCategoriasConfig(tt.servicio_id ?? null),
-    // 2.G · vencimiento ligado al tracking (más próximo, prioriza vigentes).
+    // 2.G · vencimiento ligado al tracking (más próximo). §6 E3: SOLO vigentes
+    // — el comentario original prometía "prioriza vigentes" pero la query no
+    // filtraba, y un row viejo renovado/cancelado podía tapar al vigente.
     supabase
       .from('vencimientos')
       .select('id, fecha_vencimiento, alarmas_offsets, notificar_cliente, estado')
       .eq('tracking_id', id)
+      .eq('estado', 'vigente')
       .order('fecha_vencimiento', { ascending: true })
       .limit(1),
   ]);
@@ -741,6 +744,11 @@ export interface ModeracionPendiente {
   descripcion: string;
   archivos_urls: string[];
   created_at: string;
+  // DGG-142 E3 §6 (mig 0441) · para el ofrecimiento post-cierre: sin
+  // administración no se ofrece programar (tracking_cerrar_ciclo la exige) y
+  // la vigencia pre-llena la fecha sugerida como en kanban/lista.
+  administracion_id: string | null;
+  servicio_vigencia_meses: number | null;
 }
 
 /** Cola de aportes del gestor pendientes de moderación (todos los trámites). */

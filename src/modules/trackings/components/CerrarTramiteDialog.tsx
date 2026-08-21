@@ -51,9 +51,9 @@ interface CerrarTramiteDialogProps {
    */
   categoria: TramiteCategoria;
   /**
-   * Se llama después de un cierre exitoso. El padre típicamente recarga el
-   * detalle y dispara el flujo de "programar próximo vencimiento" si el
-   * servicio tiene `vigencia_meses`.
+   * Se llama después de un cierre exitoso. El padre recarga el detalle y
+   * (DGG-142 E3) encadena el flujo de "programar próximo vencimiento" en TODO
+   * cierre con administración — `vigencia_meses` sólo pre-llena la fecha.
    */
   onCerrado: () => void;
 }
