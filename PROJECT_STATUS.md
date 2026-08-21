@@ -157,7 +157,17 @@ Recorrido punta a punta logueado sobre la URL de Vercel. **Cobertura amplia** de
 
 ## 2. Trabajo en curso AHORA
 
-**DGG-142 · Etapa 2 EN CIERRE (2026-08-21) — asistente "matrícula completada".**
+**DGG-142 · Etapa 2 CERRADA (2026-08-21, commit 81a055b).** Live QA OK sobre
+TRM-2026-00007: banner-asistente visible ("El alumno completó… · Cerrar y
+programar próximo vencimiento"), chip con ✕ Desvincular, consola limpia. §6 de
+E2: 5 menores confirmados y cerrados (Regla B en ART + match por codigo;
+desvincular verifica filas; ✕ accesible + refetch; placeholder; snippet R17
+del CLAUDE.md), 1 refutado (salto de confirm deliberado, documentado).
+PENDIENTE DECISIÓN PABLO (en DECISIONES DGG-143): renovación cerrada sin
+asistente conserva fecha de vencimiento vieja — ¿status quo (A) o el trigger
+actualiza fechas ya pasadas (B)?
+
+**DGG-142 · Etapa 2 detalle (histórico) — asistente "matrícula completada".**
 Matriz de ofrecimientos DGG-143 formalizada en DECISIONES (reglas de Pablo +
 4 precisiones confirmadas). Hecho: mig 0435 rename "Plataforma de gestión";
 mig 0436 cron sin paso de cierre + Regla B (cierre de Inscripción/Renovación
