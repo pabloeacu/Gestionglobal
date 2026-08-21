@@ -312,7 +312,7 @@ export function ConsorcioFormDrawer({
             <StepPanel
               stepKey="composicion"
               title="Composición"
-              subtitle="Para Administración Global el precio se calcula por unidad funcional."
+              subtitle="Para Plataforma de gestión el precio se calcula por unidad funcional."
             >
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
                 <Field

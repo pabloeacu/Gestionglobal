@@ -176,7 +176,7 @@ export function WebinarBodyContent({ resp, countdown, hideProspectoCta }: Props)
           </h3>
           <p className="mt-2 text-sm text-brand-muted">
             Si te resultó útil este evento, te interesará conocer todo lo que hacemos: matriculación RPAC,
-            DDJJ, jurídico, Administración Global SaaS y más.
+            DDJJ, jurídico, Plataforma de gestión y más.
           </p>
           <a
             href="https://gestionglobal.ar"

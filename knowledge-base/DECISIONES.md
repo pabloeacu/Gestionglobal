@@ -5024,3 +5024,47 @@ retomable"). Refutados: 0.
   Semántica decidida: N matrículas→1 trámite es VÁLIDO (re-vincular a
   propósito), el chip muestra la más reciente.
 - **Fecha**: 2026-08-21.
+
+## DGG-143 · Matriz de ofrecimientos por servicio (Pablo, 2026-08-21)
+
+> Reglas de negocio completas del circuito de ofrecimientos continuos.
+> **Canal: SIEMPRE triple — banner (portal) + push + email.** Switch
+> "Notificar al cliente" **prendido por defecto**. Patrón global de avisos
+> con fecha límite: **45 / 30 / 15 días antes**.
+
+- **Elegibilidad base**: clientes "RPAC" (matriculados PBA o en circuito PBA).
+  Los clientes **SOLO-CABA** (hicieron únicamente el curso CABA) reciben
+  exclusivamente: Consultoría Jurídica, Plataforma de gestión y Capacitación
+  gratuita. No hay gestoría para CABA (por ahora; circuitos CABA futuros).
+
+| Servicio | Regla de ofrecimiento |
+|---|---|
+| **Inscripción al RPAC** (cerrada) | Dispara 3 relojes: (a) renovación a los **12 meses** (avisos 45/30/15 antes); (b) curso de Actualización a los **11 meses**; (c) certificado de acreditación **cada 90 días** (sólo si no contrató uno en los últimos 90 — el reloj se resetea con cada contratación; podría necesitarlo para una asamblea). |
+| **Renovación de matrícula RPAC** | Igual que Inscripción: reinicia los relojes de 12/11 meses. |
+| **Declaraciones juradas** | Vencen en **MARZO para todos** (fecha fija anual). Ofrecer **cada 30 días desde noviembre hasta marzo inclusive** (5 toques) a todos los clientes RPAC, **exceptuando** a quienes ya la contrataron dentro del ciclo (nov–mar). |
+| **Consultoría Jurídica** | **Cada 4 meses** a todos los que no la hayan contratado en los **últimos 120 días** (reloj móvil; se resetea al contratar). Aplica también a SOLO-CABA. |
+| **Plataforma de gestión** (ex "Administración Global", renombrado en mig 0435) | **Sin recordatorio automático.** Aplica también a SOLO-CABA (ofrecible manualmente). |
+| **Capacitación gratuita** | **Una única invitación** el mismo día que se publica el formulario/capacitación, a todos los clientes no inscriptos. Sin repetición. Aplica también a SOLO-CABA. |
+| **Curso de Formación (inicial PBA)** | **No se recuerda jamás** (curso inicial por única vez; el form queda abierto para casos extraordinarios). |
+| **Curso de Actualización RPAC** | Requisito anual para renovar. Recordar **cada 60 días** a clientes RPAC que (a) no hayan renovado la matrícula dentro de esos 60 días y (b) no hayan realizado el curso en los **últimos 12 meses móviles**. |
+| **Curso de Actualización RPA (CABA)** | Sólo a quienes ya hicieron ese mismo curso: secuencia **30/15/el día** del aniversario (el toque de los 11 meses ES el de 30 días antes de los 12). |
+
+- **Regla B — el campo vencimiento de matrícula NUNCA queda vacío**: al pasar
+  a "cerrado" un trámite de Inscripción/Renovación RPAC, si
+  `administraciones.matricula_rpac_vencimiento` está vacío → se asigna
+  **fecha de cierre + 12 meses** (aniversario). El campo puede completarse
+  antes por gerencia (ficha), por el cliente (form) o por la gestoría (modal
+  "otorgada", Etapa 5) — cualquier vía manda sobre el default; los avisos
+  rigen igual sea cual fuere la vía. Automatismo EXPLÍCITAMENTE pedido por
+  Pablo (excepción documentada a la doctrina "los automatismos sólo avisan":
+  éste rellena un dato, no toma decisiones de negocio).
+- **Precisiones confirmadas** (4 preguntas, 2026-08-21): vencimiento default =
+  cierre+12m; certificado 90d = reloj móvil desde última contratación;
+  "año calendario" de Actualización RPAC = últimos 12 meses móviles;
+  CABA = secuencia 30/15/día del aniversario.
+- **Implementación**: las cadencias móviles (90/120/60/30-estacional) van en
+  un motor diario de ofrecimientos (cron) que registra cada toque
+  (idempotencia + auditoría) y dispara los 3 canales; las de fecha límite
+  (renovación, CABA) viajan como `vencimientos` con offsets {45,30,15}.
+  Plantilla de email POR SERVICIO (seed editable en Plantillas email),
+  fallback genérica. Detalle por etapas en PROJECT_STATUS (plan DGG-142).
