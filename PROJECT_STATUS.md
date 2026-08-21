@@ -157,7 +157,14 @@ Recorrido punta a punta logueado sobre la URL de Vercel. **Cobertura amplia** de
 
 ## 2. Trabajo en curso AHORA
 
-**DGG-142 · Circuito de ofrecimientos continuos — Etapa 1 EN CIERRE (2026-08-21).**
+**DGG-142 · Circuito de ofrecimientos continuos — Etapa 1 CERRADA (2026-08-21).**
+Cierre en vivo verificado (commit 46b7ba0): chip "MATRÍCULA · PLAZO DE GRACIA"
+visible en TRM-2026-00007 (Selalle) junto a RESUELTO; drawer "Asignar alumno"
+con selector "Vincular a trámite (opcional)" que marca "ya vinculado a otra
+matrícula" y NO preselecciona vinculados; consola limpia; §6 12 agentes →
+7 hallazgos (2 críticos + 5 menores) todos cerrados en el chunk. GAP diferido
+a Etapa 2 (R14, documentado): acción "Desvincular" (hoy «Sin vincular» en
+re-asignación conserva el vínculo — el hint lo aclara).
 Plan maestro de 7 etapas definido con Pablo (ver DECISIONES DGG-142 y el análisis
 del caso Selalle/JL): 1) vínculo matrícula↔trámite ✔ (mig 0434, backfill 56/56,
 wizard+drawer+chip, labels "Plazo de gracia"/"Completada"); 2) asistente
