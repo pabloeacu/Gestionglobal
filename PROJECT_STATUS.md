@@ -176,7 +176,20 @@ cola y envío directo.
   1 GAP real (realtime KPIs al llegar un envío directo) + 3 higiene (REVOKE anon,
   rama muerta 'error', opened/clicked al DeliveryEstado), todo aplicado. EXPLAIN
   ANALYZE 3.4ms. Build limpio.
-- **Falta sólo:** prueba en vivo en el sitio (post-deploy) + push.
+- **Follow-ups del mismo día (salidos de la prueba en vivo), CERRADOS:**
+  - **KPIs 503 → RPC (mig 0433).** Las 4 tarjetas disparaban 4 `count=exact`
+    HEAD concurrentes; bajo pico daban 503 esporádico → números erráticos
+    (97/105/115). Fix: RPC `gerencia_email_registro_kpis` (SECURITY INVOKER,
+    `count() FILTER` en 1 pasada). Verificado en vivo: Total 933 estable.
+  - **REG-6 · adjunto PDF en el preview (reporte Pablo).** Las 3 edge fns de
+    envío directo (constancia/certificado/cj) no guardaban `attachments_filenames`
+    en sent_emails → el "Ver" no mostraba el chip del PDF. Fix: las 3 lo
+    registran (deployadas v2/v2/v7) + `getEnvioPreview` cae a `attachments_meta`
+    + data-fix de constancias (CONST-2026-00001/00002). Verificado en vivo:
+    el preview de la constancia de Osvaldo muestra `Constancia-CONST-2026-00002.pdf`.
+- **Cierre en vivo (URL Vercel, sesión gerente):** grid "Correos enviados" con
+  Total/Enviados **933**, constancia de Osvaldo visible (INTENTO "—" = directo),
+  adjunto PDF en el preview, consola sin errores. **CERRADO.**
 
 **Reportes JL R1/R2/R3 · CERRADO (2026-08-20).** Tres reportes del doc de JL,
 abordados con cánones completos (§6 doble/triple + e2e BD + build + deploy).
