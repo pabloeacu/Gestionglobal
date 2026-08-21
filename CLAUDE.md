@@ -133,7 +133,8 @@ gerentes, portal de administradores clientes, formularios públicos sin login.
     )
     SELECT t.relname AS tabla, p.proname AS funcion
     FROM rls_tables_no_write t
-    JOIN pg_proc p ON pg_get_functiondef(p.oid)
+    JOIN pg_proc p ON p.prokind = 'f'  -- sin aggregates: pg_get_functiondef explota con ellos
+                   AND pg_get_functiondef(p.oid)
                        ~* ('insert\s+into\s+(public\.)?'||t.relname)
     WHERE NOT p.prosecdef;
     ```

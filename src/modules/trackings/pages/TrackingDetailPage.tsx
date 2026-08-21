@@ -23,6 +23,7 @@ import {
   Ban,
   CheckCircle2,
   GraduationCap,
+  X,
   Clock,
   Copy,
   Download,
@@ -110,7 +111,9 @@ import {
   type SolicitudVinculadaTramite,
 } from '@/services/api/solicitudes';
 // DGG-142 · chip "Matrícula vinculada" (paridad R14 del vínculo matrícula↔trámite)
+// + E2: asistente de cierre cuando el alumno completó + desvincular.
 import {
+  desvincularMatriculaDeTramite,
   fetchMatriculaDeTramite,
   MATRICULA_ESTADO_LABEL,
   type MatriculaDeTramite,
@@ -698,6 +701,40 @@ export function TrackingDetailPage() {
         </div>,
         document.body,
       )}
+      {/* DGG-142 E2 · asistente: el alumno completó el curso → cerrar el ciclo
+          en una operación (cerrar trámite → programar próximo vencimiento).
+          §6: el salto del confirm genérico de handleCerrar es DELIBERADO — el
+          banner ya provee el contexto, y el CerrarTramiteDialog (motivo +
+          constancia obligatorios) garantiza el cierre consciente igual. */}
+      {isStaff && matVinculada
+        && (matVinculada.estado === 'completada' || matVinculada.estado === 'vencida')
+        && data.estado !== 'cerrado' && data.estado !== 'cancelado' && (
+        <section className="rounded-3xl border border-brand-cyan/40 bg-brand-cyan/5 p-4 sm:p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <GraduationCap size={22} className="shrink-0 text-brand-cyan" />
+              <div>
+                <p className="font-display text-base font-bold text-brand-ink">
+                  El alumno completó «{matVinculada.curso_titulo}»
+                </p>
+                <p className="text-sm text-brand-muted">
+                  {matVinculada.estado === 'completada'
+                    ? 'Está en su plazo de gracia. '
+                    : 'Su plazo de gracia ya finalizó. '}
+                  Cerrá el trámite y programá el próximo vencimiento en un solo paso.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => { setCerrarTieneRenovacion(true); setCerrarOpen(true); }}
+              className="inline-flex items-center gap-2 rounded-xl bg-brand-cyan px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:brightness-110"
+            >
+              <CheckCircle2 size={15} /> Cerrar y programar próximo vencimiento
+            </button>
+          </div>
+        </section>
+      )}
       {/* F4 (DGG-66) · aportes del gestor PENDIENTES de revisión (inline) */}
       {pendientesModeracion.length > 0 && (
         <section className="rounded-3xl border border-amber-300 bg-amber-50/50 p-4 sm:p-5">
@@ -762,16 +799,49 @@ export function TrackingDetailPage() {
                   </span>
                 ) : null;
               })()}
-              {/* DGG-142 · matrícula de campus que satisface este trámite (link al curso) */}
+              {/* DGG-142 · matrícula de campus que satisface este trámite (link al curso)
+                  + E2: ✕ para desvincular (única vía a NULL — cierre del GAP R14 de E1). */}
               {matVinculada && (
-                <Link
-                  to={`/gerencia/campus/${matVinculada.curso_id}`}
-                  title={`Matrícula vinculada · ${matVinculada.curso_titulo}`}
-                  className="inline-flex items-center gap-1 rounded-full bg-brand-cyan/10 px-2.5 py-1 text-xs font-medium text-brand-cyan ring-1 ring-brand-cyan/20 transition hover:bg-brand-cyan/20"
-                >
-                  <GraduationCap className="h-3.5 w-3.5" />
-                  Matrícula · {MATRICULA_ESTADO_LABEL[matVinculada.estado]}
-                </Link>
+                <span className="inline-flex items-center gap-0.5 rounded-full bg-brand-cyan/10 pl-2.5 pr-1 py-1 text-xs font-medium text-brand-cyan ring-1 ring-brand-cyan/20">
+                  <Link
+                    to={`/gerencia/campus/${matVinculada.curso_id}`}
+                    title={`Matrícula vinculada · ${matVinculada.curso_titulo}`}
+                    className="inline-flex items-center gap-1 transition hover:opacity-70"
+                  >
+                    <GraduationCap className="h-3.5 w-3.5" />
+                    Matrícula · {MATRICULA_ESTADO_LABEL[matVinculada.estado]}
+                  </Link>
+                  <button
+                    type="button"
+                    title="Desvincular la matrícula de este trámite"
+                    aria-label="Desvincular matrícula"
+                    onClick={() => {
+                      void (async () => {
+                        const okConfirm = await confirm({
+                          title: 'Desvincular matrícula',
+                          message: `¿Desvinculás la matrícula de «${matVinculada.curso_titulo}» de este trámite? La matrícula y el trámite se conservan; sólo se quita la relación.`,
+                          confirmLabel: 'Desvincular',
+                          danger: true,
+                        });
+                        if (!okConfirm) return;
+                        const r = await desvincularMatriculaDeTramite(matVinculada.id);
+                        if (!r.ok) { toast.error(humanizeError(r.error)); return; }
+                        toast.success('Matrícula desvinculada');
+                        // §6 E2: refetch (no set null seco) — si N matrículas
+                        // compartieran el trámite, el chip muestra la restante.
+                        if (id) {
+                          const r2 = await fetchMatriculaDeTramite(id);
+                          setMatVinculada(r2.ok ? r2.data : null);
+                        } else {
+                          setMatVinculada(null);
+                        }
+                      })();
+                    }}
+                    className="-m-0.5 rounded-full p-1.5 transition hover:bg-brand-cyan/20"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </span>
               )}
               {/* DEEP-1 · Editar metadata: visible solo para staff. Abrimos
                   drawer lateral con titulo/categoria/prioridad/vence_at +

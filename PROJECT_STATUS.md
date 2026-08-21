@@ -157,6 +157,21 @@ Recorrido punta a punta logueado sobre la URL de Vercel. **Cobertura amplia** de
 
 ## 2. Trabajo en curso AHORA
 
+**DGG-142 · Etapa 2 EN CIERRE (2026-08-21) — asistente "matrícula completada".**
+Matriz de ofrecimientos DGG-143 formalizada en DECISIONES (reglas de Pablo +
+4 precisiones confirmadas). Hecho: mig 0435 rename "Plataforma de gestión";
+mig 0436 cron sin paso de cierre + Regla B (cierre de Inscripción/Renovación
+RPAC rellena matricula_rpac_vencimiento = cierre+12m si vacío — e2e 4 ramas OK);
+mig 0437 DROP del auto-resuelto muerto + DROP COLUMN submission_origen (0 refs)
++ trigger aviso "matrícula completada" → notify_all_gerentes con URL al trámite
+(e2e OK); front: banner-asistente en TrackingDetailPage ("Cerrar y programar
+próximo vencimiento" → CerrarTramiteDialog encadenando ProgramarVencimientoModal)
++ ✕ Desvincular en el chip (cierra el GAP R14 de E1). Types regenerados, build
+limpio. **Falta:** resultado del §6 (workflow corriendo) + fixes + live + push.
+Próximas: E3 (todo cierre ofrece programar), E4 (motor diario de ofrecimientos
+banner+push+mail con la matriz DGG-143 + plantillas por servicio), E5 (modal
+gestoría "otorgada"), E6 (Tramix gerencia), E7 (informe a JL en el doc).
+
 **DGG-142 · Circuito de ofrecimientos continuos — Etapa 1 CERRADA (2026-08-21).**
 Cierre en vivo verificado (commit 46b7ba0): chip "MATRÍCULA · PLAZO DE GRACIA"
 visible en TRM-2026-00007 (Selalle) junto a RESUELTO; drawer "Asignar alumno"

@@ -60,12 +60,17 @@ BEGIN
      AND EXISTS (
        SELECT 1 FROM public.servicios s
         WHERE s.id = NEW.servicio_id
-          AND (s.nombre ILIKE 'Inscripción al RPAC%'
-               OR s.nombre ILIKE 'Renovación de matrícula RPAC%')
+          -- §6 E2: match por codigo ESTABLE (el nombre es editable por UI y
+          -- este mismo chunk renombró un servicio — mig 0435).
+          AND s.codigo IN ('rpac_inscripcion','rpac_inscripcion_juridica','rpac_renovacion')
      )
   THEN
     UPDATE public.administraciones
-       SET matricula_rpac_vencimiento = (CURRENT_DATE + INTERVAL '12 months')::date,
+       -- §6 E2: fecha en calendario ARGENTINA (la BD corre en UTC; un cierre
+       -- 21:00-23:59 ART caía en el día UTC siguiente). Convención 0245/0253.
+       SET matricula_rpac_vencimiento =
+             ((now() AT TIME ZONE 'America/Argentina/Buenos_Aires')::date
+               + INTERVAL '12 months')::date,
            updated_at = now()
      WHERE id = NEW.administracion_id
        AND matricula_rpac_vencimiento IS NULL; -- sólo rellena si está vacío

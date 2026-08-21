@@ -2677,7 +2677,6 @@ export type Database = {
           inscripto_at: string
           observaciones: string | null
           profile_id: string
-          submission_origen: string | null
           tramite_id: string | null
           updated_at: string
           vigencia_hasta: string | null
@@ -2695,7 +2694,6 @@ export type Database = {
           inscripto_at?: string
           observaciones?: string | null
           profile_id: string
-          submission_origen?: string | null
           tramite_id?: string | null
           updated_at?: string
           vigencia_hasta?: string | null
@@ -2713,7 +2711,6 @@ export type Database = {
           inscripto_at?: string
           observaciones?: string | null
           profile_id?: string
-          submission_origen?: string | null
           tramite_id?: string | null
           updated_at?: string
           vigencia_hasta?: string | null
@@ -2738,13 +2735,6 @@ export type Database = {
             columns: ["profile_id"]
             isOneToOne: false
             referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "curso_matriculas_submission_origen_fkey"
-            columns: ["submission_origen"]
-            isOneToOne: false
-            referencedRelation: "formulario_submissions"
             referencedColumns: ["id"]
           },
           {

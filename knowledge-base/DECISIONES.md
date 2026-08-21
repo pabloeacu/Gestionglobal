@@ -5068,3 +5068,25 @@ retomable"). Refutados: 0.
   (renovación, CABA) viajan como `vencimientos` con offsets {45,30,15}.
   Plantilla de email POR SERVICIO (seed editable en Plantillas email),
   fallback genérica. Detalle por etapas en PROJECT_STATUS (plan DGG-142).
+- **§6 Etapa 2** (9 agentes, 3 frentes + refutación): 5 menores confirmados y
+  cerrados en el chunk — (1) Regla B computaba el aniversario en calendario
+  UTC (cierre 21-24hs ART caía +1 día) → `now() AT TIME ZONE` ART; (2) la
+  Regla B matcheaba servicios por nombre ILIKE (frágil: el nombre es editable
+  y este mismo chunk renombró uno) → match por `servicios.codigo` estable
+  (rpac_inscripcion / rpac_inscripcion_juridica / rpac_renovacion); (3)
+  desvincular reportaba éxito con 0 filas → `.select('id')` + error explícito;
+  (4) ✕ del chip sin aria-label y hit-area de 16px → accesible + refetch
+  post-desvincular (cubre N:1); (5) placeholder "ADMINISTRACIÓN GLOBAL"
+  pre-existente en el editor de templates → "GESTIÓN GLOBAL". 1 refutado
+  (el salto del confirm genérico en el banner-asistente es deliberado — el
+  diálogo de cierre con motivo+constancia garantiza el cierre consciente;
+  documentado en comentario). Bonus del §6: el snippet R17 del CLAUDE.md
+  crasheaba con aggregates → se agregó `p.prokind='f'`. Dato: al momento de
+  la auditoría ya había 59/59 matrículas vinculadas (el wizard linkea solo
+  en producción real desde el deploy de E1).
+- **PENDIENTE de decisión (Pablo)**: en una RENOVACIÓN cerrada sin pasar por
+  el asistente, el campo de vencimiento conserva la fecha VIEJA (ya vencida)
+  — la Regla B sólo rellena vacíos, jamás pisa. Opción A (status quo,
+  vigente): la fecha nueva la pone siempre el asistente/gerencia. Opción B:
+  que en renovaciones el trigger también actualice cuando la fecha existente
+  ya pasó. No se aplica B sin OK explícito.

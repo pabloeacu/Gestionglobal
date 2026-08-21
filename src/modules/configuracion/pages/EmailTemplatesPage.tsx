@@ -378,7 +378,7 @@ function TemplateEditor({ template, userEmail, onSaved }: EditorProps) {
               <Input
                 value={kicker}
                 onChange={(e) => setKicker(e.target.value)}
-                placeholder="ADMINISTRACIÓN GLOBAL"
+                placeholder="GESTIÓN GLOBAL"
                 style={{ textTransform: 'uppercase', letterSpacing: '0.1em' }}
               />
             </Field>

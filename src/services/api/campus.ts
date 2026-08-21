@@ -1341,6 +1341,26 @@ export interface MatriculaDeTramite {
   curso_titulo: string;
 }
 
+/** E2 (§6 E1 GAP R14): desvincula la matrícula de su trámite (tramite_id →
+ *  NULL). Update directo single-table (regla 4); RLS `curso_matriculas_cud`
+ *  exige staff. */
+export async function desvincularMatriculaDeTramite(
+  matriculaId: string,
+): Promise<ApiResponse<true>> {
+  const { data, error } = await supabase
+    .from('curso_matriculas')
+    .update({ tramite_id: null })
+    .eq('id', matriculaId)
+    .select('id');
+  if (error) return fail('MATRICULA_DESVINCULAR', error.message, error);
+  // §6 E2: sin .select() PostgREST devuelve 204 aunque 0 filas matcheen
+  // (p.ej. matrícula desasignada en paralelo) — no reportar éxito en falso.
+  if (!data || data.length === 0) {
+    return fail('MATRICULA_DESVINCULAR', 'La matrícula ya no existe o fue desasignada');
+  }
+  return ok(true);
+}
+
 /** Matrícula vinculada a un trámite (chip en el detalle del trámite — R14). */
 export async function fetchMatriculaDeTramite(
   tramiteId: string,
