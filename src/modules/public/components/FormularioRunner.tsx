@@ -81,6 +81,17 @@ function mimeDeArchivo(f: File): string {
 const MAX_TOTAL_ADJUNTOS_MB = 60;
 const MAX_TOTAL_ADJUNTOS_BYTES = MAX_TOTAL_ADJUNTOS_MB * 1024 * 1024;
 
+// JL-R5 · detecta campos de matrícula/legajo por name o label (espejo del
+// patrón esCampoCuit). Estos campos son numéricos con separadores; el
+// autofill de dirección de Chrome los confundía con provincia/ciudad.
+function esCampoMatriculaLegajo(field: {
+  name?: string | null;
+  label?: string | null;
+}): boolean {
+  const hay = (s?: string | null) => !!s && /matr[íi]cula|legajo/i.test(s);
+  return hay(field.name) || hay(field.label);
+}
+
 // E-GG-171: extensiones equivalentes de cada MIME de la whitelist. El accept
 // se emite SIEMPRE como extensiones porque iOS solo transcodifica HEIC→JPEG
 // cuando el accept no admite HEIC (un accept `image/*` lo admite → la foto
@@ -357,6 +368,10 @@ export function FormularioRunner({
 
   function validate(): string[] {
     const errors: string[] = [];
+    // JL-R5 · matrícula/legajo RPAC: el autofill de dirección de Chrome
+    // rellenaba estos inputs con provincia/ciudad del perfil ("Buenos Aires"
+    // en matricula_rpac) y el required quedaba satisfecho con basura. Los
+    // valores reales son numéricos con separadores ("1503", "2/298878").
     // Bonificación 100% = no requiere comprobante de pago. Los campos file
     // requeridos del formulario quedan "soft-optional" en ese caso (caso de
     // uso: voucher 100% sobre un servicio que normalmente exige adjuntar el
@@ -425,6 +440,17 @@ export function FormularioRunner({
         if (esCampoCuit(field)) {
           const cuitErr = validarCuit(String(val));
           if (cuitErr) errors.push(`${field.label}: ${cuitErr}`);
+        }
+        // JL-R5 · matrícula/legajo: sin NINGÚN dígito no sale (caso "Buenos
+        // Aires" metido por el autofill). No se exige sólo-números porque hay
+        // matrículas reales con siglas ("832 AVN y 797 ACP") — el invariante
+        // es que siempre incluyen un número.
+        if (
+          esCampoMatriculaLegajo(field) &&
+          field.type !== 'number' &&
+          !/\d/.test(String(val))
+        ) {
+          errors.push(`${field.label}: tiene que incluir el número (ej.: 1503)`);
         }
       }
     }
@@ -1010,6 +1036,25 @@ function FieldRenderer({ field, value, prefilled = false, onChange, files, onFil
         return (
           <Field label={fieldLabel(field, prefilled)} required={field.required} hint={field.hint}>
             <PasswordRevealInput
+              value={String(value ?? '')}
+              onChange={(e) => onChange(e.target.value)}
+              placeholder={field.placeholder}
+              required={field.required}
+            />
+          </Field>
+        );
+      }
+      // JL-R5 · matrícula/legajo: autofill APAGADO. El autofill de dirección
+      // de Chrome rellenaba estos campos con la provincia/ciudad del perfil
+      // ("Buenos Aires"/"CABA") y el required se daba por cumplido con basura.
+      // No se filtran letras al tipear (hay matrículas reales con siglas);
+      // validate() exige al menos un dígito.
+      if (esCampoMatriculaLegajo(field) && (field.type === 'text' || !field.type)) {
+        return (
+          <Field label={fieldLabel(field, prefilled)} required={field.required} hint={field.hint}>
+            <Input
+              type="text"
+              autoComplete="off"
               value={String(value ?? '')}
               onChange={(e) => onChange(e.target.value)}
               placeholder={field.placeholder}

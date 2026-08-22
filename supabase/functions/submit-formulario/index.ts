@@ -293,6 +293,18 @@ Deno.serve(async (req) => {
       if ((field.type === 'select' || field.type === 'radio') && field.options && !field.options.includes(String(val))) {
         validationErrors.push(`${field.label}: valor no permitido`);
       }
+      // JL-R5 · matrícula/legajo: el autofill de dirección de Chrome metía
+      // "Buenos Aires"/"CABA" en estos campos y el required quedaba
+      // satisfecho con basura (caso García 21/08). Espejo del runner: sin
+      // NINGÚN dígito se rechaza. No se exige sólo-números porque hay
+      // matrículas reales con siglas ("832 AVN y 797 ACP").
+      if (
+        field.type !== "number" &&
+        /matr[íi]cula|legajo/i.test(`${field.name ?? ""} ${field.label ?? ""}`) &&
+        !/\d/.test(String(val))
+      ) {
+        validationErrors.push(`${field.label}: tiene que incluir el número (ej.: 1503)`);
+      }
     }
   }
   // E-GG-171: tope combinado — espejo del runner (ver MAX_TOTAL_BYTES).
