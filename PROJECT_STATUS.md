@@ -157,6 +157,28 @@ Recorrido punta a punta logueado sobre la URL de Vercel. **Cobertura amplia** de
 
 ## 2. Trabajo en curso AHORA
 
+**DGG-142 · Etapa 4 F1-F4 IMPLEMENTADAS (2026-08-21, migs 0442-0445 + edge
+dispatch-vencimientos v9, commits 3063cfa/0a63231/e51ae4e).** El circuito de
+ofrecimientos DGG-143 completo en BD: F1 fundaciones (ofrecimientos_log con
+UNIQUE por ventana, switch administraciones.ofrecimientos_habilitados default
+ON, cursos.jurisdiccion, helpers private.gg_admin_es_rpac/solo_caba); F2 las
+7 plantillas por servicio (manaxer-v1, CTA ?origen=ofrecimiento, editables en
+Plantillas email); F3 riel de fechas límite (trigger ficha→vencimientos
+renovacion_rpac {45,30,15} + backfill; tipo curso_rpa_caba {30,15,0}; edge v9
+con canal push_cliente vía gg_notif_emitir_cliente y plantilla por tipo); F4
+motor gg_ofrecimientos_diario (DDJJ nov-mar 30d > curso 60d > certificado 90d
+> CJ 120d incl. SOLO-CABA + capacitación one-shot con
+formularios.publicado_notificado_at; máx 1 regla/cliente/día, cap 40/corrida,
+triple canal best-effort). R18: motor ejercitado 2× sobre los 72 clientes
+reales en ROLLBACK — cap 40, 120 logs, 30+ emails, 0 duplicados, 0 residuos.
+⚠️ **CRON gg-ofrecimientos-diario DESAGENDADO A PROPÓSITO**: la primera
+corrida real tocaría ~40 clientes con copy que Pablo aún no revisó. Para
+activar (tras revisar Plantillas email → ofrecimiento-*):
+`SELECT cron.schedule('gg-ofrecimientos-diario','30 12 * * *','SELECT public.gg_ofrecimientos_diario();');`
+FALTAN: F5 (banner del portal alineado a la matriz: DDJJ nov→mar, curso 60d
+móviles, CJ para SOLO-CABA, card forzada el día del toque + switch
+Ofrecimientos en la ficha R14) y F6 (doble §6 + live QA + docs finales).
+
 **DGG-142 · Etapa 3 CERRADA (2026-08-21, commits 458e929+5704a0b+c9510c7,
 migs 0440-0441).** §6 (3 agentes + refutación): 6 fixes aplicados — (1)
 `tracking_cerrar_ciclo` v3 IDEMPOTENTE (re-programar supersede al vigente
