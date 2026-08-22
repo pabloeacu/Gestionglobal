@@ -157,7 +157,25 @@ Recorrido punta a punta logueado sobre la URL de Vercel. **Cobertura amplia** de
 
 ## 2. Trabajo en curso AHORA
 
-**DGG-142 · Etapa 5 CERRADA (2026-08-22, migs 0448-0449).** Otorgamiento de
+**DGG-142 · Etapa 5 CERRADA (2026-08-22, migs 0448-0449, commits 6a422c9 +
+0f8baaa).** LIVE QA en prod (Chrome real, deploy v0f8baaa con SW-bust) sobre
+token de gestoría QA efímero: sección "Informar otorgamiento" visible sólo en
+RPAC, validación venc<emisión inline, guard beforeunload + borrador
+localStorage con otorgamiento (rehidratación completa tras recarga forzada),
+envío → chip RECIBIDO + draft limpio + fila pendiente con propuesto exacto;
+Moderación: diff Propuesto|Ficha prefillado (M-VIEJA-1/15-feb-26 en "hoy"),
+checkbox ON, copys de alarma y COALESCE visibles, matrícula EDITADA en la
+card → Publicar → ficha con el valor editado + UNA alarma renovacion_rpac
+{45,30,15} 2027-08-31 + jsonb propuesto≠aplicado con autor; consola sin
+errores de app; datos QA limpiados a 0 verificado en 8 tablas; el aporte
+REAL de gestor360 (TRM-2026-00015, 21-ago) quedó intacto en la cola —
+⚠️ ese caso es EXACTAMENTE el uso de E5 (matrícula otorgada informada por
+la gestoría, enviado antes del feature: sin bloque de otorgamiento; gerencia
+puede cargar los datos a mano en el diff… no, ese aporte no trae propuesta —
+cargarlos por la ficha del cliente al publicar). Mobile 360: no emulable
+(ventana macOS no baja de 1440px, limitación ya documentada); la sección usa
+grid-cols-1 bajo `sm`, mismo patrón responsive ya validado del panel.
+Detalle del chunk: otorgamiento de
 gestoría end-to-end: el gestor externo (link público por token de solicitud)
 propone matrícula/legajo/fecha emisión/fecha vencimiento junto a su avance
 (sección "Informar otorgamiento" en el panel, sólo servicios RPAC, campos
