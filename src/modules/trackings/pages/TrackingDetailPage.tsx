@@ -32,6 +32,7 @@ import {
   FileText,
   GitBranch,
   History,
+  Landmark,
   Layers,
   Link2,
   List,
@@ -71,6 +72,9 @@ import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import { BrandLoader } from '@/components/brand/BrandLoader';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
+// DGG-142 E6 · consulta TRAMIX desde el trámite (mismo modal del portal; la
+// edge ya tiene rama staff — el gerente no cae en SIN_ADMIN).
+import { TramixConsultaModal } from '@/modules/portal/components/TramixConsultaModal';
 import { formatDateShort, formatDateTime } from '@/lib/dates';
 import { cn } from '@/lib/cn';
 import {
@@ -192,6 +196,8 @@ export function TrackingDetailPage() {
   const [editandoCronograma, setEditandoCronograma] = useState(false);
   // 2.B · estado del modal "Compartir externo"
   const [compartirOpen, setCompartirOpen] = useState(false);
+  // DGG-142 E6 · modal TRAMIX (Mesa de Entradas PBA) con legajo de la ficha.
+  const [tramixOpen, setTramixOpen] = useState(false);
   // 5.C · accesos externos del tracking + sus aperturas.
   const [accesos, setAccesos] = useState<AccesoConAperturas[]>([]);
   // DGG-90 (JL #2) · derivación a gestoría del trámite (para el botón "Avisar a la gestoría")
@@ -944,6 +950,21 @@ export function TrackingDetailPage() {
                 <Share2 className="h-4 w-4" /> Compartir externo
               </Button>
             )}
+            {/* DGG-142 E6 · consulta TRAMIX (Mesa de Entradas Virtual DPPJ-PBA)
+                desde el trámite: sólo servicios de matrícula RPAC, con el
+                legajo de la ficha del cliente prefillado (editable en el modal). */}
+            {isStaff &&
+              ['rpac_inscripcion', 'rpac_inscripcion_juridica', 'rpac_renovacion'].includes(
+                data.servicio?.codigo ?? '',
+              ) && (
+                <Button
+                  variant="ghost"
+                  onClick={() => setTramixOpen(true)}
+                  title="Consultar el expediente en la Mesa de Entradas Virtual PBA (TRAMIX) con el legajo de la ficha"
+                >
+                  <Landmark className="h-4 w-4" /> Mesa de Entradas PBA
+                </Button>
+              )}
             {/* DGG-133 · insistencia al CLIENTE: recordatorio visible (email +
                 push + tracking) + ojito para ver el último mail que le llegó. */}
             {isStaff && data.estado !== 'cerrado' && data.estado !== 'cancelado' && (
@@ -1457,6 +1478,13 @@ export function TrackingDetailPage() {
               }
             : null
         }
+      />
+
+      {/* DGG-142 E6 · modal TRAMIX con el legajo de la ficha del cliente. */}
+      <TramixConsultaModal
+        open={tramixOpen}
+        onClose={() => setTramixOpen(false)}
+        legajoInicial={data.administracion?.legajo_rpac ?? ''}
       />
 
       {/* 2.B · modal "Compartir externo" — genera token, copia URL, envía mail. */}

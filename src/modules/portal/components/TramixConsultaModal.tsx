@@ -212,7 +212,17 @@ function DetalleView({ detalle, detalleRef, legajo }: { detalle: TramixDetalle; 
   );
 }
 
-export function TramixConsultaModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function TramixConsultaModal({ open, onClose, legajoInicial }: {
+  open: boolean;
+  onClose: () => void;
+  /**
+   * DGG-142 E6 · prefill para gerencia: al abrir desde el botón de un trámite,
+   * se busca DIRECTO este legajo (el de la ficha del cliente) y le gana al
+   * "último consultado" recordado — el gerente clickeó sobre ESTE trámite.
+   * Vacío/undefined → flujo original (recordado o ficha propia).
+   */
+  legajoInicial?: string;
+}) {
   const [mode, setMode] = useState<'form' | 'results'>('results');
   const [legajoInput, setLegajoInput] = useState('');
   const [searchedLegajo, setSearchedLegajo] = useState('');
@@ -281,6 +291,13 @@ export function TramixConsultaModal({ open, onClose }: { open: boolean; onClose:
     // F3: purga one-time de la clave global vieja (limpia el legajo de test de QA
     // que pudo quedar en este navegador, compartido entre usuarios).
     try { localStorage.removeItem(LS_KEY_LEGACY); } catch { /* noop */ }
+    // DGG-142 E6: el prefill del trámite (gerencia) gana al recordado.
+    const inicial = onlyDigits(legajoInicial || '');
+    if (inicial) {
+      setLegajoInput(inicial);
+      buscar(inicial, false);
+      return;
+    }
     const remembered = readLast(lsKey);
     if (remembered) {
       // Reapertura: gano los pasos intermedios y auto-busco el último legajo.
@@ -289,7 +306,7 @@ export function TramixConsultaModal({ open, onClose }: { open: boolean; onClose:
     } else {
       initFromFicha();
     }
-  }, [open, buscar, initFromFicha]);
+  }, [open, buscar, initFromFicha, legajoInicial]);
 
   const cambiarLegajo = () => {
     setMode('form');

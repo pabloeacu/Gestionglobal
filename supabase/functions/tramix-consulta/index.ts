@@ -119,11 +119,21 @@ Deno.serve(async (req) => {
     const user = ures?.user;
     if (!user) return json({ resultado: "NO_AUTH" }, 401);
 
-    const { data: prof } = await svc.from("profiles").select("administracion_id").eq("id", user.id).maybeSingle();
+    // DGG-142 E6 · rama STAFF: gerentes/operadores no tienen administración
+    // propia — antes caían en SIN_ADMIN y no podían consultar. Ahora saltan el
+    // gate: su legajo default es vacío (lo manda el botón del trámite con el de
+    // la ficha del cliente, o lo tipean) y el log registra administracion NULL
+    // (columna nullable, verificado). El resto del circuito (gate anti-martilleo
+    // por usuario, cache por legajo, circuit-breaker) es idéntico.
+    const { data: prof } = await svc.from("profiles").select("administracion_id, role").eq("id", user.id).maybeSingle();
     const adminId = prof?.administracion_id ?? null;
-    if (!adminId) return json({ resultado: "SIN_ADMIN" });
-    const { data: adm } = await svc.from("administraciones").select("legajo_rpac").eq("id", adminId).maybeSingle();
-    const legajoDefault = String(adm?.legajo_rpac ?? "").replace(/[^0-9]/g, "");
+    const esStaff = prof?.role === "gerente" || prof?.role === "operador";
+    if (!adminId && !esStaff) return json({ resultado: "SIN_ADMIN" });
+    let legajoDefault = "";
+    if (adminId) {
+      const { data: adm } = await svc.from("administraciones").select("legajo_rpac").eq("id", adminId).maybeSingle();
+      legajoDefault = String(adm?.legajo_rpac ?? "").replace(/[^0-9]/g, "");
+    }
 
     const b = await req.json().catch(() => ({} as any));
     const action = b.action ?? "consultar";
