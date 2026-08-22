@@ -4,7 +4,7 @@
 >
 > **Mantenimiento**: actualizar después de cada chunk de trabajo verificado y cerrado. No esperar al final. Si un paso se postergó, registrarlo abajo en "Pateado para el final".
 
-**Última actualización**: 2026-08-14 (**DGG-139 · "Compartir tracking" ahora envía el mail que prometía** — RPC tramite_compartir_acceso (migs 0425-0426): token 20d renovable + email real al cliente (template tramite-acceso-compartido con admin/consorcio para trazabilidad) + línea de tracking; toasts honestos + validación de email client-side; §6 6 agentes con 3 menores fixeados. Antes: **DGG-138 · Vigencia del enlace a gestoría: 20 días RENOVABLES** — caso gestor360 con link muerto (mail 29/7, vencido 12/8 pese a 24 visitas): la política era 14d fijos desde la generación y ni reavisos ni visitas renovaban. Ahora: 20d al crear + cada envío de aviso y cada visita del gestor renuevan a GREATEST(vence_at, now()+20d); revocación manual sigue ganando. Mig 0423 (RPC acceso_externo_registrar_visita sólo service_role + reaviso extiende + defaults v1/v2/v3 unificados con DO-block dinámico anti-drift) + edge acceso-externo v8 (visita→RPC, devuelve vence renovado) + front con constante única DIAS_VALIDEZ_ENLACE_EXTERNO=20. R16 0 overloads · R18 e2e 6 tests con rollback · data-fix: los 2 links del caso revividos y probados en vivo (panel abre, expira 3/9). Antes en el día: **DGG-137 pop-up promocional Curso de Formación en la landing** con video 9:16 en marco de celular exacto, autoplay muted + botón sonido, Inscribirme→/formulario/curso-formacion, cada visita + botón flotante; fix de encuadre y audio estéreo 160k tras feedback de Pablo.)
+**Última actualización**: 2026-08-22 (**DGG-142 · Etapa 5 CERRADA** — otorgamiento de gestoría end-to-end: propuesta del gestor → moderación con diff editable → ficha + alarma 45/30/15; migs 0448-0449 con §6 doble (3 agentes + refutación) y fix-pack incl. [E-GG-189] anti-forja de líneas de gestoría. Detalle en §2. Anterior: **DGG-139 · "Compartir tracking" ahora envía el mail que prometía** — RPC tramite_compartir_acceso (migs 0425-0426): token 20d renovable + email real al cliente (template tramite-acceso-compartido con admin/consorcio para trazabilidad) + línea de tracking; toasts honestos + validación de email client-side; §6 6 agentes con 3 menores fixeados. Antes: **DGG-138 · Vigencia del enlace a gestoría: 20 días RENOVABLES** — caso gestor360 con link muerto (mail 29/7, vencido 12/8 pese a 24 visitas): la política era 14d fijos desde la generación y ni reavisos ni visitas renovaban. Ahora: 20d al crear + cada envío de aviso y cada visita del gestor renuevan a GREATEST(vence_at, now()+20d); revocación manual sigue ganando. Mig 0423 (RPC acceso_externo_registrar_visita sólo service_role + reaviso extiende + defaults v1/v2/v3 unificados con DO-block dinámico anti-drift) + edge acceso-externo v8 (visita→RPC, devuelve vence renovado) + front con constante única DIAS_VALIDEZ_ENLACE_EXTERNO=20. R16 0 overloads · R18 e2e 6 tests con rollback · data-fix: los 2 links del caso revividos y probados en vivo (panel abre, expira 3/9). Antes en el día: **DGG-137 pop-up promocional Curso de Formación en la landing** con video 9:16 en marco de celular exacto, autoplay muted + botón sonido, Inscribirme→/formulario/curso-formacion, cada visita + botón flotante; fix de encuadre y audio estéreo 160k tras feedback de Pablo.)
 **OLD**: 2026-07-21 (**🔐 E-GG-144 · sesión de JL revocada + lentitud (carrera de refresh multi-pestaña)** [commits 8b5e80f+880691e, solo frontend]: el refresh manual (E-GG-07) usaba el refresh_token EN MEMORIA de cada pestaña; tras una suspensión los timers despertaban juntos y GoTrue detectaba reuso fuera de la ventana de 10s → revocaba la familia entera (pares token_refreshed+token_revoked en auditlog: 11:58/13:24/14:23 sobrevividos, 17:26 fatal). Fix 3 capas: re-leer gg.auth.session antes de refrescar + adoptar el token de otra pestaña, lock cross-tab puntual navigator.locks('gg-auth-refresh'), listener 'storage' que adopta rotaciones/logouts al instante. Auditoría §6 sumó: error de RED transitorio ya no borra la sesión (reintento 30s, ídem bootstrap offline), guards DGG-93 en el listener (la pestaña /restablecer no adopta sesiones ajenas), signOut() limpia incondicional, loadProfile-fallo → signOut scope local. Probado en vivo con 2 pestañas reales llegando juntas al vencimiento natural: ambas sobreviven con el mismo token renovado, convergencia en 75 ms sin revocación de familia ni re-login. Rondas 2-3 (fc2df04+35a3574, pedido de garantías): auditoría adversarial del propio delta (3 auditores + refutadores, 37 invariantes OK) encontró y cerró 1 crítico (3ª salida SPA de /restablecer dejaba la pestaña envenenada) + 5 menores; e2e en vivo con QA efímero (0 residuos): bootstrap, delegación lockeada <5s, logout cross-tab instantáneo, recovery aislada.)
 **OLD**: 2026-07-21 (**📣 DGG-112 · Recordatorio del día del encuentro sincrónico** [migs 0369/0370 · commits bc5a5ac+fixes]: gerencia ve SOLO presentes en asistencia (pase de lista conservado: selector + click-quita); mail entusiasta 8:00 AR el día de cada fecha alternativa de módulos obligatorios a matriculados vigentes sin asistencia en el módulo (template campus-encuentro-recordatorio-dia + testigo a gerentes con lista de destinatarios, idempotente, registrado en sent_emails); banner del día en portal del alumno con join gateado F9-ter (10 min). Auditoría §6 atrapó pre-corrida: CHECK kind='workflow', RPCs ciegas a sesiones compartidas (fix 0370 LEFT JOIN+COALESCE), testigo sin {{url}}. e2e completo con rollback + live (pase de lista real + banner con método QA canónico, 0 residuos). Diferidos documentados: throttle 5min serializa (ok para clases 18:30), curso Formación PBA con 0 condiciones (checklist al activar).)
 **OLD**: 2026-07-21 (**🎥 E-GG-143 · fix "sala Zoom creada pero no guardada en el campus"**: `curso_encuentro_set_zoom` era el 5° caller service_role que el sweep de E-GG-127 no atrapó (llamada REST cruda, no `.rpc(`) → mig 0368 lo pasa a `is_staff_or_service()`. Barrido definitivo: 0 RPCs restantes con guard puro llamadas por edge fns. e2e 4 contextos + flujo real re-ejecutado en vivo: Encuentro Agosto (Actualización RPAC PBA) quedó con sala 81085183995 programada. Queda una sala huérfana del intento fallido en el portal Zoom para borrar a mano.)
@@ -156,6 +156,47 @@ Recorrido punta a punta logueado sobre la URL de Vercel. **Cobertura amplia** de
 ---
 
 ## 2. Trabajo en curso AHORA
+
+**DGG-142 · Etapa 5 CERRADA (2026-08-22, migs 0448-0449).** Otorgamiento de
+gestoría end-to-end: el gestor externo (link público por token de solicitud)
+propone matrícula/legajo/fecha emisión/fecha vencimiento junto a su avance
+(sección "Informar otorgamiento" en el panel, sólo servicios RPAC, campos
+opcionales, incluida en el borrador localStorage E-GG-177); gerencia ve en
+Moderación el diff "Propuesto (editable) | En la ficha hoy" con checkbox
+"Asentar en la ficha al publicar" y chip honesto de la alarma 45/30/15; al
+PUBLICAR la RPC aplica los valores EDITADOS por gerencia (nunca el propuesto
+crudo), DESPUÉS del cambio de estado (pisa la Regla B), con COALESCE por
+clave presente (vaciar un campo conserva la ficha, no la borra) y guarda
+`{propuesto, aplicado, aplicado_at, aplicado_por}` como auditoría en la
+línea; el sync ficha→agenda (0444) crea UNA sola alarma renovacion_rpac.
+El modal V7 "Programar próximo vencimiento" se SUPRIME sólo cuando el
+otorgamiento realmente agendó (fecha futura y distinta de la ficha); fecha
+pasada → warning honesto "matrícula VENCIDA, sin alarma". BD: mig 0448
+(columna jsonb + sanitizador private.gg_sanitizar_otorgamiento + 4 RPCs,
+R16 DROP+CREATE+re-GRANT) y mig 0449 (fix-pack del §6). **§6 doble (3
+agentes + refutación adversarial): 0 críticos; 2 medias + 1 media-latente
+encontradas y CERRADAS en 0449**: [E-GG-189] tl_admin_insert permitía a un
+cliente autenticado FORJAR líneas 'gestor_avance' pendientes con
+gestor_label arbitrario y otorgamiento sin sanitizar (policy endurecida:
+categoria/moderacion_estado/gestor_label/otorgamiento vedados al INSERT del
+cliente); sanitizador aceptaba 'infinity'/fechas BC/año 3000 (isfinite +
+rango 1900-2200 + STABLE); gate de servicio asimétrico captura vs moderación
+(unión solicitud/trámite); FOR UPDATE anti doble-publicación (doble email);
+menores: checkbox arranca OFF y deshabilitado sin administración vinculada,
+confirms de Interno/Descartar/Pedir-doc avisan que la propuesta no se
+asienta, copy "campo vacío conserva la ficha", key={token} en PanelGestor
+(sangrado de borrador entre tokens por history SPA), re-validación del
+draft rehidratado (largo 40 + fecha ISO), min/max en date inputs, mensajes
+22023 del server ya no aplastados por el genérico (código GESTOR_AVANCE),
+realtime de administraciones en las 2 superficies de moderación, fallback
+solicitante_nombre en el mapper inline (paridad RPC). R18: e2e con
+E2E_OK_ROLLBACK ×2 (circuito completo pre y post fix-pack, incl. Regla B
+pisando fecha vieja + re-moderación bloqueada) + smokes S1 (fechas
+hostiles), S2 (forja bloqueada / nota legítima OK), R16 0 overloads;
+residuos QA 0 verificado. Diferidos documentados: combo
+'cancelado'+otorgamiento permitido (gerencia-driven, DECISIONES); drafts
+localStorage de tokens viejos no se limpian (higiene); duplicado posible si
+el draft sobrevive a un envío in-flight (mejor duplicar que perder).
 
 **DGG-142 · Etapa 4 F1-F4 IMPLEMENTADAS (2026-08-21, migs 0442-0445 + edge
 dispatch-vencimientos v9, commits 3063cfa/0a63231/e51ae4e).** El circuito de

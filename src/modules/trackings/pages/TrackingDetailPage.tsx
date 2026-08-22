@@ -340,7 +340,9 @@ export function TrackingDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  useRealtimeRefresh(['tramites', 'tracking_lineas'], () => void load());
+  // §6 C#8 (DGG-142 E5): administraciones alimenta "En la ficha hoy" del diff
+  // de otorgamiento en la moderación inline — refrescar si la ficha cambia.
+  useRealtimeRefresh(['tramites', 'tracking_lineas', 'administraciones'], () => void load());
 
   const categoriaConfigMap = useMemo(() => {
     const m = new Map<string, TrackingDetail['categorias_disponibles'][number]>();
@@ -379,12 +381,23 @@ export function TrackingDetailPage() {
         tramite_id: data.id,
         tramite_codigo: data.codigo ?? '',
         servicio_nombre: data.servicio?.nombre ?? data.titulo ?? null,
-        cliente_nombre: data.administracion?.nombre ?? null,
+        // §6 A#13: mismo fallback que la RPC de la cola (solicitante cuando
+        // el trámite no tiene administración vinculada).
+        cliente_nombre: data.administracion?.nombre ?? data.solicitante_nombre ?? null,
         gestor_label: l.gestor_label,
         descripcion: l.descripcion,
         archivos_urls: l.archivos_urls ?? [],
         administracion_id: data.administracion_id ?? null,
         servicio_vigencia_meses: data.servicio?.vigencia_meses ?? null,
+        // DGG-142 E5 (mig 0448) · diff Propuesto|Ficha del otorgamiento RPAC
+        // en la moderación inline (mismo shape que la RPC de la cola).
+        servicio_codigo: data.servicio?.codigo ?? null,
+        otorgamiento: (l.otorgamiento ?? null) as ModeracionPendiente['otorgamiento'],
+        ficha_matricula_rpac: data.administracion?.matricula_rpac ?? null,
+        ficha_legajo_rpac: data.administracion?.legajo_rpac ?? null,
+        ficha_matricula_rpac_fecha: data.administracion?.matricula_rpac_fecha ?? null,
+        ficha_matricula_rpac_vencimiento:
+          data.administracion?.matricula_rpac_vencimiento ?? null,
         created_at: l.created_at,
       }));
   }, [data]);

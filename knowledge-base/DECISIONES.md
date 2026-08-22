@@ -5116,3 +5116,37 @@ retomable"). Refutados: 0.
   desambigua); (c) "cerrar sin cobrar" (flag=false por impago) no pisa
   aunque la renovación haya prosperado; (d) reabrir no restaura una fecha
   pisada (recuperable vía auditoria_cambios).
+
+## DGG-144 · Otorgamiento de gestoría (DGG-142 E5): semántica de aplicación (2026-08-22)
+
+Decisiones de diseño del circuito "el gestor informa el otorgamiento RPAC":
+
+1. **La propuesta nunca escribe la ficha.** `gestor_cargar_avance` guarda
+   `{propuesto:{matricula,legajo,fecha_emision,fecha_vencimiento}}` (whitelist
+   + sanitizado, sólo servicios RPAC) en `tracking_lineas.otorgamiento`. La
+   ficha la escribe SOLO `tracking_moderar_gestor_avance` al PUBLICAR, con los
+   valores EDITADOS por gerencia (re-sanitizados) — jamás el propuesto crudo.
+2. **Se aplica DESPUÉS del cambio de estado**: si el publicar cierra el
+   trámite y la Regla B (0439) rellena/pisa el vencimiento heurístico, el
+   valor explícito aprobado por gerencia PISA la heurística. El sync 0444
+   agenda la única alarma 45/30/15.
+3. **COALESCE por clave presente**: un campo vacío en el diff conserva el
+   valor actual de la ficha — desde moderación NO se puede blanquear un dato
+   (para eso está el editor de la ficha, R14). El copy de la card lo dice.
+4. **Checkbox "Asentar en la ficha al publicar"**: default ON con
+   administración vinculada; OFF y deshabilitado sin ella (la RPC exige
+   admin). Interno/Descartar/Pedir-doc avisan que la propuesta no se asienta.
+5. **Supresión del modal V7 sólo cuando el otorgamiento realmente agendó**
+   (fecha futura y distinta de la ficha). Fecha pasada → warning "matrícula
+   VENCIDA, sin alarma" (el sync la nace 'vencido'); fecha igual a la ficha →
+   se sigue ofreciendo el modal (el trigger no dispara por IS DISTINCT FROM).
+6. **Gate RPAC por unión solicitud/trámite en la moderación** (espejo ⊇ del
+   gate de captura COALESCE(solicitud, trámite)) — una propuesta aceptada
+   siempre puede aplicarse aunque diverjan.
+7. **Combo `cancelado` + otorgamiento: PERMITIDO** (gerencia-driven; caso
+   real: el RPAC otorgó pero el trámite se cancela administrativamente y se
+   quiere asentar el dato igual). Documentado como intencional.
+8. **Auditoría**: la línea conserva `propuesto` (inmutable) + `aplicado` +
+   `aplicado_at/por`; el diff old/new de la ficha queda en auditoria_cambios.
+
+Fix-pack §6 en mig 0449 (fechas hostiles, FOR UPDATE, [[E-GG-189]] anti-forja).

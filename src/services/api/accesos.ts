@@ -266,20 +266,34 @@ export async function fetchGestorAvances(
  * decide publicar/interno/descartar. El cliente NO se entera hasta que se publica.
  * Pública (anon, valida token).
  */
+export interface OtorgamientoPropuesta {
+  matricula?: string;
+  legajo?: string;
+  fecha_emision?: string;      // YYYY-MM-DD
+  fecha_vencimiento?: string;  // YYYY-MM-DD
+}
+
 export async function gestorCargarAvance(
   token: string,
   descripcion: string,
   archivosUrls: string[] = [],
+  // DGG-142 E5 · propuesta de otorgamiento RPAC (todos los campos opcionales).
+  // La BD la sanitiza (whitelist + fechas tipadas) y sólo la acepta en
+  // trámites de matrícula RPAC. Viaja como PROPUESTA: la ficha la escribe
+  // gerencia al moderar.
+  otorgamiento?: OtorgamientoPropuesta | null,
 ): Promise<ApiResponse<string>> {
   try {
     const args = {
       p_token: token,
       p_descripcion: descripcion,
       p_archivos_urls: archivosUrls,
+      p_otorgamiento: otorgamiento ?? null,
     } as unknown as {
       p_token: string;
       p_descripcion: string;
       p_archivos_urls: string[];
+      p_otorgamiento: OtorgamientoPropuesta | null;
     };
     const { data, error } = await supabase.rpc(
       'gestor_cargar_avance' as never,
@@ -289,6 +303,11 @@ export async function gestorCargarAvance(
     return ok(data as unknown as string);
   } catch (e) {
     const err = toApiError(e);
-    return fail(err.code, err.message, err.details);
+    // §6 C#6 (DGG-142 E5): la RPC emite mensajes cuidados en español con
+    // ERRCODE 22023, pero humanizeError resuelve por código ANTES que por
+    // mensaje y 22023 mapea a un genérico. Código propio → se muestra el
+    // mensaje real del server (ej. "El otorgamiento sólo aplica a trámites
+    // de matrícula RPAC").
+    return fail('GESTOR_AVANCE', err.message, err.details);
   }
 }

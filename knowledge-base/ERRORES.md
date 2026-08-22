@@ -5530,3 +5530,39 @@ Verificado con upsert e2e: 1 fila, resultado actualizado.
 silencioso garantizado — para tablas con upsert por columnas, usar SIEMPRE
 constraint UNIQUE (o índice total). Sweep sugerido: buscar otros `.upsert(`
 del repo cuyo target sea índice parcial.
+
+## E-GG-189 · Un cliente autenticado podía forjar "aportes de la gestoría" (policy tl_admin_insert demasiado laxa) (2026-08-22, §6 E5)
+
+**Síntoma (latente desde mig 0036, agravado por E5):** la policy
+`tl_admin_insert` de `tracking_lineas` sólo exigía `autor_id = auth.uid()`,
+`estado_asociado IS NULL` y tenancy. Un administrador cliente autenticado
+podía INSERTar directo (PostgREST) una línea con `categoria='gestor_avance'`,
+`moderacion_estado='pendiente'`, `gestor_label` ARBITRARIO (impersonando al
+estudio real, ej. "gestor360") y — desde mig 0448 — `otorgamiento` con
+cualquier jsonb SIN pasar por el sanitizador. Esa fila aparecía en la cola de
+Moderación disfrazada de aporte de la gestoría, con el bloque de otorgamiento
+pre-cargado y "Asentar en la ficha" tildado por defecto. La ficha seguía
+gateada por gerencia (la RPC de moderación re-sanitiza y aplica sólo lo que
+gerencia edita/aprueba — no había camino directo), pero era spoofing de
+procedencia hacia el moderador humano.
+
+**Cómo se encontró:** refutación adversarial del §6 de DGG-142 E5 (hipótesis
+"el gestor no puede escribir la ficha" — resistió para el gestor anónimo,
+pero el refutador encontró el vector lateral del CLIENTE autenticado
+verificándolo contra las policies vivas). Tell forense: las líneas genuinas
+de gestoría tienen `autor_id NULL` (las inserta la RPC SECURITY DEFINER);
+las forjadas lo tienen NOT NULL.
+
+**Fix (mig 0449):** policy endurecida — el INSERT del cliente ahora exige
+además `categoria <> 'gestor_avance' AND moderacion_estado IS NULL AND
+gestor_label IS NULL AND otorgamiento IS NULL`. El front nunca insertaba
+directo (todo va por RPC), así que no rompe ningún flujo vivo. Smoke S2 en
+prod: forja de gestor_avance → 42501; nota con otorgamiento → bloqueada;
+nota normal del cliente → sigue pasando (todo en rollback).
+
+**Lección:** cuando una tabla gana columnas "de rol" (gestor_label,
+moderacion_estado, otorgamiento — columnas que sólo un flujo privilegiado
+debería setear), las policies de INSERT abiertas a otros roles deben
+RE-AUDITARSE en la misma mig: la policy vieja era correcta para el schema
+viejo y quedó laxa con cada columna nueva. Checklist §6: por cada columna
+nueva, "¿quién puede escribirla vía PostgREST directo?".

@@ -14,6 +14,9 @@
 import { supabase } from '@/lib/supabase';
 import { ok, fail, type ApiResponse } from '@/lib/errors';
 import type { Database } from '@/types/database';
+// DGG-142 E5 · misma forma que propone la gestoría (accesos.gestorCargarAvance).
+import type { OtorgamientoPropuesta } from '@/services/api/accesos';
+export type { OtorgamientoPropuesta };
 
 // ----------------------------------------------------------------------------
 // Tipos base (re-exportamos del schema)
@@ -166,7 +169,17 @@ export interface TrackingDetail extends TrackingRow {
     // JL 2 · obs 1: precio_base para pre-fill del atajo "Generar comprobante".
     precio_base: number | null;
   } | null;
-  administracion: { id: string; nombre: string; email: string | null } | null;
+  // DGG-142 E5 · los campos matricula/legajo RPAC alimentan la columna
+  // "En la ficha hoy" del diff de otorgamiento en la moderación inline.
+  administracion: {
+    id: string;
+    nombre: string;
+    email: string | null;
+    matricula_rpac: string | null;
+    legajo_rpac: string | null;
+    matricula_rpac_fecha: string | null;
+    matricula_rpac_vencimiento: string | null;
+  } | null;
   consorcio: { id: string; nombre: string } | null;
   parent: { id: string; periodo: string | null; estado: string } | null;
   lineas: TrackingLineaRow[];
@@ -199,7 +212,7 @@ export async function getTracking(id: string): Promise<ApiResponse<TrackingDetai
       `*,
        comprobante_pendiente,
        servicio:servicios(id,nombre,codigo,sla_dias,vigencia_meses,precio_base),
-       administracion:administraciones(id,nombre,email),
+       administracion:administraciones(id,nombre,email,matricula_rpac,legajo_rpac,matricula_rpac_fecha,matricula_rpac_vencimiento),
        consorcio:consorcios(id,nombre),
        comprobante:comprobantes(id,tipo,punto_venta,numero)`,
     )
@@ -713,6 +726,12 @@ export interface ModerarGestorAvanceInput {
   archivosUrls?: string[] | null; // si se provee, reemplaza los adjuntos (b)
   estadoAsociado?: string | null; // al publicar, cambia el estado del trámite (c)
   motivo?: string | null;         // motivo de descarte (e)
+  /**
+   * DGG-142 E5 (mig 0448) · otorgamiento RPAC a asentar en la ficha. SOLO
+   * válido con accion='publicar' (interno/descartar con otorgamiento → 22023
+   * server-side). Se aplica DESPUÉS del cambio de estado, así pisa la Regla B.
+   */
+  otorgamiento?: OtorgamientoPropuesta | null;
 }
 
 /** Modera un aporte del gestor pendiente: publicar (a/b/c) / interno (d) /
@@ -729,6 +748,7 @@ export async function moderarGestorAvance(
     p_archivos_urls: input.archivosUrls ?? null,
     p_estado_asociado: input.estadoAsociado ?? null,
     p_motivo: input.motivo ?? null,
+    p_otorgamiento: input.otorgamiento ?? null,
   } as never);
   if (error) return fail('TRACKING_MODERAR', error.message, error);
   return ok(true as const);
@@ -749,6 +769,20 @@ export interface ModeracionPendiente {
   // la vigencia pre-llena la fecha sugerida como en kanban/lista.
   administracion_id: string | null;
   servicio_vigencia_meses: number | null;
+  // DGG-142 E5 (mig 0448) · bloque diff "Propuesto | En la ficha hoy" del
+  // otorgamiento RPAC. `otorgamiento.propuesto` es lo que cargó la gestoría
+  // (inmutable); las columnas ficha_* son el estado actual de la administración.
+  servicio_codigo: string | null;
+  otorgamiento: {
+    propuesto?: OtorgamientoPropuesta;
+    aplicado?: OtorgamientoPropuesta;
+    aplicado_at?: string;
+    aplicado_por?: string;
+  } | null;
+  ficha_matricula_rpac: string | null;
+  ficha_legajo_rpac: string | null;
+  ficha_matricula_rpac_fecha: string | null;       // YYYY-MM-DD
+  ficha_matricula_rpac_vencimiento: string | null; // YYYY-MM-DD
 }
 
 /** Cola de aportes del gestor pendientes de moderación (todos los trámites). */

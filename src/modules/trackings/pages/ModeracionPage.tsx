@@ -8,6 +8,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ShieldCheck, Send, EyeOff, Trash2, Pencil, X, Paperclip, Briefcase, Clock, FileInput,
+  Award, AlertCircle,
 } from 'lucide-react';
 import { Button, Select, Textarea, Skeleton, useConfirm, usePrompt, RefreshIndicator } from '@/components/common';
 import { IllustratedEmpty } from '@/components/brand/IllustratedEmpty';
@@ -15,7 +16,7 @@ import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
 import { toast } from '@/lib/toast';
 import { humanizeError } from '@/lib/errors';
-import { formatDateTime } from '@/lib/dates';
+import { formatDateTime, formatDateShort } from '@/lib/dates';
 import { abrirArchivoProtegido } from '@/lib/storageUrls';
 import {
   fetchModeracionPendientes,
@@ -50,7 +51,9 @@ export function ModeracionPage() {
     setItems(res.data);
   }
   useEffect(() => { void load(); }, []);
-  useRealtimeRefresh(['tracking_lineas'], () => void load());
+  // §6 C#8 (E5): la columna "En la ficha hoy" del diff de otorgamiento sale de
+  // administraciones — refrescar también cuando la ficha cambia por otra vía.
+  useRealtimeRefresh(['tracking_lineas', 'administraciones'], () => void load());
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
@@ -131,6 +134,32 @@ export function ModeracionCard({ item, onResuelto, onCerradoTramite }: {
   const [subiendo, setSubiendo] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  // DGG-142 E5 (mig 0448) · otorgamiento RPAC propuesto por la gestoría.
+  // `propuesto` es inmutable (lo que cargó el gestor); acá gerencia lo edita
+  // antes de asentarlo. `aplicarOtorg` permite publicar SIN tocar la ficha.
+  // §6 A#8/C#7: sin administración vinculada la RPC rechaza el asiento (22023)
+  // → arranca destildado y deshabilitado con copy, en vez de fallar al publicar.
+  const propuesto = item.otorgamiento?.propuesto ?? null;
+  const tienePropuesta = !!propuesto && Object.values(propuesto).some((v) => !!v);
+  const [aplicarOtorg, setAplicarOtorg] = useState(!!item.administracion_id);
+  // §6 A#4/B GAP-1: los valores del propuesto vienen de un jsonb que pudo
+  // forjarse — se re-validan acá (largo 40 / fecha ISO) antes de entrar a
+  // inputs controlados, porque un date input renderiza VACÍO un valor no-ISO
+  // pero el estado lo retendría y viajaría invisible al publicar.
+  const fechaISO = (v: string | undefined) =>
+    v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : '';
+  const [otorgEdit, setOtorgEdit] = useState({
+    matricula: (propuesto?.matricula ?? '').slice(0, 40),
+    legajo: (propuesto?.legajo ?? '').slice(0, 40),
+    fecha_emision: fechaISO(propuesto?.fecha_emision),
+    fecha_vencimiento: fechaISO(propuesto?.fecha_vencimiento),
+  });
+  const otorgEditTiene = Object.values(otorgEdit).some((v) => v.trim().length > 0);
+  const otorgFechasIncoherentes =
+    !!otorgEdit.fecha_emision &&
+    !!otorgEdit.fecha_vencimiento &&
+    otorgEdit.fecha_vencimiento < otorgEdit.fecha_emision;
+
   const editado = texto.trim() !== item.descripcion.trim() || archivos.length !== (item.archivos_urls?.length ?? 0);
 
   async function onAgregarArchivo(file: File) {
@@ -147,36 +176,91 @@ export function ModeracionCard({ item, onResuelto, onCerradoTramite }: {
 
   async function ejecutar(accion: ModeracionAccion, extra: { motivo?: string } = {}) {
     if (accion === 'publicar' && !texto.trim()) { toast.error('El texto no puede quedar vacío'); return; }
+    // DGG-142 E5 · el otorgamiento SOLO viaja al publicar (la RPC rechaza
+    // interno/descartar con otorgamiento — 22023) y sólo si gerencia dejó
+    // activo "Asentar en la ficha". Se envían los valores EDITADOS.
+    const mandaOtorg = accion === 'publicar' && tienePropuesta && aplicarOtorg && otorgEditTiene;
+    if (mandaOtorg && otorgFechasIncoherentes) {
+      toast.error('La fecha de vencimiento de la matrícula no puede ser anterior a la de emisión.');
+      return;
+    }
     setBusy(accion);
     const res = await moderarGestorAvance(item.linea_id, accion, {
       descripcion: (accion !== 'descartar' && editado) ? texto.trim() : undefined,
       archivosUrls: (accion !== 'descartar' && editado) ? archivos : undefined,
       estadoAsociado: accion === 'publicar' && estado ? estado : undefined,
       motivo: extra.motivo,
+      // §6 B GAP-1 (cinturón): sólo viajan fechas ISO estrictas — cualquier
+      // literal raro que hubiera sobrevivido en el estado se descarta acá y
+      // el sanitizador de BD (0449) lo rechazaría igual.
+      otorgamiento: mandaOtorg
+        ? {
+            ...(otorgEdit.matricula.trim() ? { matricula: otorgEdit.matricula.trim() } : {}),
+            ...(otorgEdit.legajo.trim() ? { legajo: otorgEdit.legajo.trim() } : {}),
+            ...(/^\d{4}-\d{2}-\d{2}$/.test(otorgEdit.fecha_emision)
+              ? { fecha_emision: otorgEdit.fecha_emision }
+              : {}),
+            ...(/^\d{4}-\d{2}-\d{2}$/.test(otorgEdit.fecha_vencimiento)
+              ? { fecha_vencimiento: otorgEdit.fecha_vencimiento }
+              : {}),
+          }
+        : undefined,
     });
     setBusy(null);
     if (!res.ok) { toast.error('No pudimos procesar', { description: humanizeError(res.error) }); return; }
     toast.success(
       accion === 'publicar' ? 'Publicado al cliente' : accion === 'interno' ? 'Guardado como nota interna' : 'Aporte descartado',
+      mandaOtorg
+        ? { description: 'Otorgamiento asentado en la ficha del cliente.' }
+        : undefined,
     );
     // DGG-142 E3 (V7) · publicar con "Pasar a: Cerrado" es una vía de cierre →
     // el host ofrece programar el próximo vencimiento. Antes de onResuelto:
     // la recarga desmonta esta card. Sin administración no se ofrece
     // (tracking_cerrar_ciclo la exige — mismo guard que kanban/lista/detail).
+    // E5: si el otorgamiento recién asentado trae fecha de vencimiento, el
+    // sync ficha→agenda (mig 0444) YA creó la alarma 45/30/15 — ofrecer el
+    // modal duplicaría el pedido de una fecha que ya quedó agendada.
+    // §6 A#7/B#15: el toast sólo afirma lo que el sync realmente hizo —
+    // (a) fecha IGUAL a la de la ficha: el trigger no dispara (IS DISTINCT
+    //     FROM) → se sigue ofreciendo el modal (adopta la fila canónica si
+    //     existe; la crea si no — sin duplicados, cerrar_ciclo v4);
+    // (b) fecha PASADA: el sync la nace 'vencido' sin alarma → warning honesto.
     if (accion === 'publicar' && estado === 'cerrado' && item.administracion_id) {
-      onCerradoTramite?.({
-        tramiteId: item.tramite_id,
-        codigo: item.tramite_codigo,
-        vigenciaMeses: item.servicio_vigencia_meses,
-      });
+      const fechaAplicada = mandaOtorg ? otorgEdit.fecha_vencimiento : '';
+      const cambiaFicha =
+        !!fechaAplicada && fechaAplicada !== (item.ficha_matricula_rpac_vencimiento ?? '');
+      const hoyISO = new Date().toISOString().slice(0, 10);
+      if (cambiaFicha && fechaAplicada > hoyISO) {
+        toast.info('Próximo vencimiento agendado', {
+          description: 'La alarma 45/30/15 al cliente quedó programada desde el otorgamiento.',
+        });
+      } else if (cambiaFicha) {
+        toast.warning('Fecha de vencimiento ya pasada', {
+          description:
+            'La ficha quedó con la matrícula VENCIDA; no se agenda alarma de aviso al cliente.',
+        });
+      } else {
+        onCerradoTramite?.({
+          tramiteId: item.tramite_id,
+          codigo: item.tramite_codigo,
+          vigenciaMeses: item.servicio_vigencia_meses,
+        });
+      }
     }
     onResuelto();
   }
 
+  // §6 A#11: si el aporte trae un otorgamiento propuesto, Interno/Descartar/
+  // Pedir doc lo dejan sólo como registro — avisarlo antes de confirmar.
+  const notaOtorgPerdido = tienePropuesta
+    ? ' Este aporte trae un otorgamiento propuesto que NO se asentará en la ficha.'
+    : '';
+
   async function onDescartar() {
     const motivo = await prompt({
       title: 'Descartar aporte',
-      message: '¿Por qué lo descartás? (queda como registro de auditoría, no se publica)',
+      message: `¿Por qué lo descartás? (queda como registro de auditoría, no se publica)${notaOtorgPerdido}`,
       placeholder: 'Motivo (opcional)',
       confirmLabel: 'Descartar',
     });
@@ -187,7 +271,7 @@ export function ModeracionCard({ item, onResuelto, onCerradoTramite }: {
   async function onInterno() {
     const ok = await confirm({
       title: 'Dejar como interno',
-      message: 'Queda como registro de gerencia (NO visible al cliente). ¿Confirmás?',
+      message: `Queda como registro de gerencia (NO visible al cliente).${notaOtorgPerdido} ¿Confirmás?`,
       confirmLabel: 'Dejar interno',
     });
     if (!ok) return;
@@ -203,7 +287,7 @@ export function ModeracionCard({ item, onResuelto, onCerradoTramite }: {
     setCreandoPedido(true);
     const ok = await confirm({
       title: 'Pedir documentación al cliente',
-      message: 'Se le abre al cliente una casilla para subir lo pedido y se le avisa por portal, push y email. ¿Confirmás?',
+      message: `Se le abre al cliente una casilla para subir lo pedido y se le avisa por portal, push y email.${notaOtorgPerdido} ¿Confirmás?`,
       confirmLabel: 'Pedir al cliente',
     });
     if (!ok) { setCreandoPedido(false); return; }
@@ -282,6 +366,158 @@ export function ModeracionCard({ item, onResuelto, onCerradoTramite }: {
               </li>
             ))}
           </ul>
+        )}
+
+        {/* DGG-142 E5 · diff "Propuesto | En la ficha hoy" del otorgamiento RPAC.
+            Gerencia edita los valores propuestos y decide si se asientan en la
+            ficha al publicar. La propuesta original queda inmutable en la línea
+            (auditoría propuesto vs aplicado). */}
+        {tienePropuesta && (
+          <div className="mt-4 rounded-xl border border-brand-orange/40 bg-orange-50/40 p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="kicker inline-flex items-center gap-1 text-brand-orange">
+                <Award size={12} /> Otorgamiento informado por la gestoría
+              </p>
+              <label className="inline-flex cursor-pointer items-center gap-1.5 text-xs font-medium text-brand-ink">
+                <input
+                  type="checkbox"
+                  checked={aplicarOtorg}
+                  onChange={(e) => setAplicarOtorg(e.target.checked)}
+                  disabled={busy !== null || creandoPedido || !item.administracion_id}
+                  className="h-3.5 w-3.5 rounded border-slate-300 text-brand-cyan focus:ring-brand-cyan/30"
+                />
+                Asentar en la ficha al publicar
+              </label>
+            </div>
+            {/* §6 A#8: sin administración la RPC rechaza el asiento — decirlo acá. */}
+            {!item.administracion_id && (
+              <p className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-amber-700">
+                <AlertCircle size={12} className="shrink-0" />
+                Este trámite no tiene administración vinculada — vinculala primero
+                para poder asentar el otorgamiento en la ficha.
+              </p>
+            )}
+
+            <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div>
+                <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-brand-muted">
+                  Propuesto (editable)
+                </p>
+                <div className="space-y-1.5">
+                  <label className="block">
+                    <span className="text-[11px] font-semibold text-brand-ink">Nº de matrícula</span>
+                    <input
+                      type="text"
+                      maxLength={40}
+                      value={otorgEdit.matricula}
+                      onChange={(e) => setOtorgEdit((p) => ({ ...p, matricula: e.target.value }))}
+                      disabled={!aplicarOtorg || busy !== null || creandoPedido}
+                      className="mt-0.5 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-sm text-brand-ink shadow-sm transition focus:border-brand-cyan focus:outline-none focus:ring-2 focus:ring-brand-cyan/20 disabled:bg-slate-50 disabled:text-brand-muted"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-[11px] font-semibold text-brand-ink">Nº de legajo</span>
+                    <input
+                      type="text"
+                      maxLength={40}
+                      value={otorgEdit.legajo}
+                      onChange={(e) => setOtorgEdit((p) => ({ ...p, legajo: e.target.value }))}
+                      disabled={!aplicarOtorg || busy !== null || creandoPedido}
+                      className="mt-0.5 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-sm text-brand-ink shadow-sm transition focus:border-brand-cyan focus:outline-none focus:ring-2 focus:ring-brand-cyan/20 disabled:bg-slate-50 disabled:text-brand-muted"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-[11px] font-semibold text-brand-ink">Fecha de emisión</span>
+                    <input
+                      type="date"
+                      min="1990-01-01"
+                      max="2100-12-31"
+                      value={otorgEdit.fecha_emision}
+                      onChange={(e) => setOtorgEdit((p) => ({ ...p, fecha_emision: e.target.value }))}
+                      disabled={!aplicarOtorg || busy !== null || creandoPedido}
+                      className="mt-0.5 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-sm text-brand-ink shadow-sm transition focus:border-brand-cyan focus:outline-none focus:ring-2 focus:ring-brand-cyan/20 disabled:bg-slate-50 disabled:text-brand-muted"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-[11px] font-semibold text-brand-ink">Fecha de vencimiento</span>
+                    <input
+                      type="date"
+                      min="1990-01-01"
+                      max="2100-12-31"
+                      value={otorgEdit.fecha_vencimiento}
+                      onChange={(e) => setOtorgEdit((p) => ({ ...p, fecha_vencimiento: e.target.value }))}
+                      disabled={!aplicarOtorg || busy !== null || creandoPedido}
+                      className="mt-0.5 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-sm text-brand-ink shadow-sm transition focus:border-brand-cyan focus:outline-none focus:ring-2 focus:ring-brand-cyan/20 disabled:bg-slate-50 disabled:text-brand-muted"
+                    />
+                  </label>
+                </div>
+              </div>
+              <div>
+                <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-brand-muted">
+                  En la ficha hoy
+                </p>
+                <dl className="space-y-1.5 rounded-lg bg-white/70 p-2.5 text-sm">
+                  <div className="flex justify-between gap-2">
+                    <dt className="text-brand-muted">Matrícula</dt>
+                    <dd className="font-medium text-brand-ink">{item.ficha_matricula_rpac || '—'}</dd>
+                  </div>
+                  <div className="flex justify-between gap-2">
+                    <dt className="text-brand-muted">Legajo</dt>
+                    <dd className="font-medium text-brand-ink">{item.ficha_legajo_rpac || '—'}</dd>
+                  </div>
+                  <div className="flex justify-between gap-2">
+                    <dt className="text-brand-muted">Emisión</dt>
+                    <dd className="font-medium text-brand-ink">
+                      {item.ficha_matricula_rpac_fecha ? formatDateShort(item.ficha_matricula_rpac_fecha) : '—'}
+                    </dd>
+                  </div>
+                  <div className="flex justify-between gap-2">
+                    <dt className="text-brand-muted">Vencimiento</dt>
+                    <dd className="font-medium text-brand-ink">
+                      {item.ficha_matricula_rpac_vencimiento
+                        ? formatDateShort(item.ficha_matricula_rpac_vencimiento)
+                        : '—'}
+                    </dd>
+                  </div>
+                </dl>
+              </div>
+            </div>
+
+            {otorgFechasIncoherentes && aplicarOtorg && (
+              <p className="mt-2 flex items-center gap-1.5 text-xs font-medium text-rose-600">
+                <AlertCircle size={12} className="shrink-0" />
+                La fecha de vencimiento no puede ser anterior a la de emisión.
+              </p>
+            )}
+            {/* §6 A#7/A#9/B#15: cada rama dice EXACTAMENTE lo que va a pasar. */}
+            {!aplicarOtorg ? (
+              <p className="mt-2 text-[11px] text-brand-muted">
+                La ficha del cliente NO se toca; la propuesta queda sólo como
+                registro en el aporte.
+              </p>
+            ) : !otorgEditTiene ? (
+              <p className="mt-2 text-[11px] text-brand-muted">
+                Sin datos cargados — al publicar no se asienta nada en la ficha.
+              </p>
+            ) : otorgEdit.fecha_vencimiento &&
+              otorgEdit.fecha_vencimiento <= new Date().toISOString().slice(0, 10) ? (
+              <p className="mt-2 flex items-center gap-1.5 text-[11px] font-medium text-amber-700">
+                <AlertCircle size={12} className="shrink-0" />
+                Esta fecha ya pasó: la ficha quedará con la matrícula VENCIDA y no
+                se agenda alarma de aviso al cliente.
+              </p>
+            ) : otorgEdit.fecha_vencimiento ? (
+              <p className="mt-2 text-[11px] text-brand-muted">
+                Al publicar, la alarma de renovación (45/30/15 días) al cliente se
+                agenda automáticamente con esta fecha de vencimiento.
+              </p>
+            ) : null}
+            {aplicarOtorg && (
+              <p className="mt-1 text-[11px] text-brand-muted">
+                Un campo vacío conserva el valor actual de la ficha (no lo borra).
+              </p>
+            )}
+          </div>
         )}
 
         <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">

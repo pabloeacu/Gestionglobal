@@ -17,6 +17,7 @@ import {
   Paperclip,
   X as XIcon,
   UploadCloud,
+  Award,
 } from 'lucide-react';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import { cn } from '@/lib/cn';
@@ -27,6 +28,7 @@ import {
   registrarApertura,
   type AccesoExternoPayload,
   type GestorAvanceLinea,
+  type OtorgamientoPropuesta,
 } from '@/services/api/accesos';
 import {
   obtenerInfoSolicitudPorToken,
@@ -202,7 +204,10 @@ export function AccesoExternoPage() {
                 5.F · print: oculto en papel (es interactivo, no aporta al PDF) */}
             {data.acceso?.tipo === 'solicitud' && token && (
               <div className="print:hidden">
-                <PanelGestor token={token} />
+                {/* §6 C#5 (E5): key por token — sin esto, una navegación SPA
+                    entre dos tokens NO remonta el panel y el borrador del
+                    trámite A se escribiría bajo el draftKey del trámite B. */}
+                <PanelGestor key={token} token={token} />
               </div>
             )}
 
@@ -486,12 +491,42 @@ interface AdjuntoStaged {
 // restricción de formato). Rechazo con mensaje claro ANTES de subir.
 const LIMITES_GESTOR: LimitesAdjunto = { maxMB: 20 };
 
+// DGG-142 E5 · códigos de servicio con matrícula RPAC: habilitan la sección
+// "Informar otorgamiento" del panel gestor. Espeja el gate server-side de
+// gestor_cargar_avance (mig 0448) — si el front fallara, la BD rechaza igual.
+const SERVICIOS_OTORGAMIENTO_RPAC = new Set([
+  'rpac_inscripcion',
+  'rpac_inscripcion_juridica',
+  'rpac_renovacion',
+]);
+
+// Borrador local del otorgamiento: strings controladas para los inputs.
+// El límite 40 espeja el sanitizador de la BD (gg_sanitizar_otorgamiento).
+type OtorgamientoDraft = {
+  matricula: string;
+  legajo: string;
+  fecha_emision: string;
+  fecha_vencimiento: string;
+};
+const OTORGAMIENTO_VACIO: OtorgamientoDraft = {
+  matricula: '',
+  legajo: '',
+  fecha_emision: '',
+  fecha_vencimiento: '',
+};
+
 // Bloque K (obs nueva): info que ve el gestor sobre la solicitud original.
 // Le permite descargar lo que el cliente envió: datos del formulario +
 // adjuntos. Antes solo subía avances sin contexto.
 type InfoSolicitud = {
   solicitud_id: string;
   servicio: string;
+  /**
+   * Código del servicio (DGG-142 E5, mig 0448). Gatea la sección "Informar
+   * otorgamiento" en trámites de matrícula RPAC. Opcional: payloads viejos
+   * cacheados no lo traen.
+   */
+  servicio_codigo?: string | null;
   solicitante_nombre: string;
   solicitante_email: string;
   solicitante_telefono: string;
@@ -551,6 +586,21 @@ function PanelGestor({ token }: { token: string }) {
   const [enviado, setEnviado] = useState(false);
   // #154 · adjuntos ilimitados
   const [adjuntos, setAdjuntos] = useState<AdjuntoStaged[]>([]);
+  // DGG-142 E5 · propuesta de otorgamiento RPAC (matrícula/legajo/fechas).
+  // Viaja junto al avance como PROPUESTA: gerencia la revisa al moderar y
+  // recién ahí se asienta en la ficha del cliente. Nunca escribe directo.
+  const [otorg, setOtorg] = useState<OtorgamientoDraft>(OTORGAMIENTO_VACIO);
+  const [otorgAbierto, setOtorgAbierto] = useState(false);
+  const otorgTieneDatos = Object.values(otorg).some((v) => v.trim().length > 0);
+  const esServicioRpac =
+    !!info?.servicio_codigo && SERVICIOS_OTORGAMIENTO_RPAC.has(info.servicio_codigo);
+
+  function setOtorgCampo(campo: keyof OtorgamientoDraft, valor: string) {
+    setOtorg((prev) => ({ ...prev, [campo]: valor }));
+    // Simétrico al reset de descripcion/onFilesPicked: editar el otorgamiento
+    // arranca OTRO borrador — el chip "Recibido" no puede afirmar nada sobre él.
+    if (enviado) setEnviado(false);
+  }
 
   // E-GG-177 (caso Spotti 06/08): los archivos se suben al storage apenas se
   // eligen, pero el AVANCE recién existe al apretar "Enviar". Una recarga en el
@@ -562,7 +612,7 @@ function PanelGestor({ token }: { token: string }) {
   // §6: sin `!enviando` — la ventana in-flight del envío es justamente donde
   // el gestor impaciente recarga; el guard debe seguir armado ahí también.
   const borradorPendiente =
-    adjuntos.length > 0 || descripcion.trim().length >= 3;
+    adjuntos.length > 0 || descripcion.trim().length >= 3 || otorgTieneDatos;
   useEffect(() => {
     if (!borradorPendiente) return;
     const handler = (e: BeforeUnloadEvent) => {
@@ -584,11 +634,34 @@ function PanelGestor({ token }: { token: string }) {
     try {
       const raw = window.localStorage.getItem(draftKey);
       if (!raw) return;
-      const d = JSON.parse(raw) as { descripcion?: string; adjuntos?: AdjuntoStaged[] };
+      const d = JSON.parse(raw) as {
+        descripcion?: string;
+        adjuntos?: AdjuntoStaged[];
+        otorgamiento?: Partial<OtorgamientoDraft>;
+      };
       const adj = (d.adjuntos ?? []).filter((a) => a.url && !a.uploading && !a.error);
-      if (!d.descripcion?.trim() && adj.length === 0) return;
+      // DGG-142 E5: el otorgamiento también es parte del borrador — perderlo en
+      // una recarga sería el mismo huérfano de E-GG-177 con otra cara.
+      // §6 A#4: se re-valida al rehidratar (largo 40 / fecha ISO) — un valor
+      // corrupto en un date input renderiza VACÍO pero el estado lo retendría
+      // y viajaría invisible al enviar.
+      const texto40 = (v: unknown) => (typeof v === 'string' ? v.slice(0, 40) : '');
+      const fechaISO = (v: unknown) =>
+        typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : '';
+      const ot: OtorgamientoDraft = {
+        matricula: texto40(d.otorgamiento?.matricula),
+        legajo: texto40(d.otorgamiento?.legajo),
+        fecha_emision: fechaISO(d.otorgamiento?.fecha_emision),
+        fecha_vencimiento: fechaISO(d.otorgamiento?.fecha_vencimiento),
+      };
+      const otTiene = Object.values(ot).some((v) => v.trim().length > 0);
+      if (!d.descripcion?.trim() && adj.length === 0 && !otTiene) return;
       if (d.descripcion) setDescripcion(d.descripcion);
       if (adj.length > 0) setAdjuntos(adj);
+      if (otTiene) {
+        setOtorg(ot);
+        setOtorgAbierto(true);
+      }
       toast.info('Recuperamos tu borrador sin enviar', {
         description: 'Revisalo y apretá «Enviar avance» para que le llegue a la gerencia.',
       });
@@ -599,16 +672,20 @@ function PanelGestor({ token }: { token: string }) {
     if (!draftListo) return;
     const settled = adjuntos.filter((a) => a.url && !a.uploading && !a.error);
     try {
-      if (descripcion.trim().length === 0 && settled.length === 0) {
+      if (descripcion.trim().length === 0 && settled.length === 0 && !otorgTieneDatos) {
         window.localStorage.removeItem(draftKey);
       } else {
         window.localStorage.setItem(
           draftKey,
-          JSON.stringify({ descripcion, adjuntos: settled }),
+          JSON.stringify({
+            descripcion,
+            adjuntos: settled,
+            ...(otorgTieneDatos ? { otorgamiento: otorg } : {}),
+          }),
         );
       }
     } catch { /* storage lleno → banner + guard siguen cubriendo */ }
-  }, [descripcion, adjuntos, draftListo, draftKey]);
+  }, [descripcion, adjuntos, draftListo, draftKey, otorg, otorgTieneDatos]);
 
   async function cargarAvances() {
     setLoadingAvances(true);
@@ -756,9 +833,36 @@ function PanelGestor({ token }: { token: string }) {
       toast.error('Hay archivos que no se pudieron subir. Quitalos o reintentá antes de enviar.');
       return;
     }
+    // DGG-142 E5 · coherencia de fechas antes de viajar (la BD igual valida:
+    // gg_sanitizar_otorgamiento rechaza venc < emisión con 22023).
+    if (
+      otorg.fecha_emision &&
+      otorg.fecha_vencimiento &&
+      otorg.fecha_vencimiento < otorg.fecha_emision
+    ) {
+      toast.error(
+        'La fecha de vencimiento de la matrícula no puede ser anterior a la de emisión.',
+      );
+      return;
+    }
+    // La propuesta viaja si tiene algún dato — el gate por servicio lo decide
+    // la BD (fuente de verdad); el front sólo muestra la sección en RPAC.
+    // §6 B GAP-1 (cinturón): sólo viajan fechas ISO estrictas.
+    const propuesta: OtorgamientoPropuesta | null = otorgTieneDatos
+      ? {
+          ...(otorg.matricula.trim() ? { matricula: otorg.matricula.trim() } : {}),
+          ...(otorg.legajo.trim() ? { legajo: otorg.legajo.trim() } : {}),
+          ...(/^\d{4}-\d{2}-\d{2}$/.test(otorg.fecha_emision)
+            ? { fecha_emision: otorg.fecha_emision }
+            : {}),
+          ...(/^\d{4}-\d{2}-\d{2}$/.test(otorg.fecha_vencimiento)
+            ? { fecha_vencimiento: otorg.fecha_vencimiento }
+            : {}),
+        }
+      : null;
     const urls = adjuntos.filter((a) => !a.error && a.url).map((a) => a.url);
     setEnviando(true);
-    const res = await gestorCargarAvance(token, descripcion.trim(), urls);
+    const res = await gestorCargarAvance(token, descripcion.trim(), urls, propuesta);
     setEnviando(false);
     if (!res.ok) {
       toast.error(humanizeError(res.error));
@@ -768,6 +872,8 @@ function PanelGestor({ token }: { token: string }) {
     setEnviado(true);
     setDescripcion('');
     setAdjuntos([]);
+    setOtorg(OTORGAMIENTO_VACIO);
+    setOtorgAbierto(false);
     void cargarAvances();
   }
 
@@ -1048,6 +1154,107 @@ function PanelGestor({ token }: { token: string }) {
             </p>
           )}
         </div>
+
+        {/* DGG-142 E5 · Informar otorgamiento — sólo trámites de matrícula RPAC.
+            El gestor PROPONE matrícula/legajo/fechas; no escribe la ficha:
+            gerencia revisa y aplica al moderar (mig 0448). También se muestra
+            si hay borrador rehidratado aunque `info` no haya cargado, para que
+            el dato recuperado nunca viaje invisible. */}
+        {(esServicioRpac || otorgTieneDatos) && (
+          <div className="rounded-xl border border-brand-orange/40 bg-orange-50/40 p-3">
+            <button
+              type="button"
+              onClick={() => setOtorgAbierto((v) => !v)}
+              className="flex w-full items-center justify-between gap-2 text-left"
+              aria-expanded={otorgAbierto}
+            >
+              <span className="kicker inline-flex items-center gap-1 text-brand-orange">
+                <Award size={12} /> Informar otorgamiento
+                {otorgTieneDatos && !otorgAbierto ? ' · datos cargados' : ''}
+              </span>
+              <span className="shrink-0 rounded-lg border border-brand-orange/30 px-2.5 py-1 text-xs font-medium text-brand-orange">
+                {otorgAbierto ? 'Ocultar' : otorgTieneDatos ? 'Editar' : 'Completar'}
+              </span>
+            </button>
+            {otorgAbierto && (
+              <div className="mt-2 space-y-2">
+                <p className="text-xs text-brand-muted">
+                  Si el RPAC ya otorgó (o renovó) la matrícula, cargá acá los
+                  datos. Son opcionales y pasan por revisión de la gerencia
+                  antes de asentarse en la ficha del cliente.
+                </p>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <label className="block">
+                    <span className="text-[11px] font-semibold text-brand-ink">
+                      Nº de matrícula
+                    </span>
+                    <input
+                      type="text"
+                      maxLength={40}
+                      value={otorg.matricula}
+                      onChange={(e) => setOtorgCampo('matricula', e.target.value)}
+                      placeholder="Ej.: 1234"
+                      className="mt-0.5 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-sm text-brand-ink shadow-sm transition focus:border-brand-cyan focus:outline-none focus:ring-2 focus:ring-brand-cyan/20"
+                      disabled={enviando}
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-[11px] font-semibold text-brand-ink">
+                      Nº de legajo
+                    </span>
+                    <input
+                      type="text"
+                      maxLength={40}
+                      value={otorg.legajo}
+                      onChange={(e) => setOtorgCampo('legajo', e.target.value)}
+                      placeholder="Ej.: 5678"
+                      className="mt-0.5 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-sm text-brand-ink shadow-sm transition focus:border-brand-cyan focus:outline-none focus:ring-2 focus:ring-brand-cyan/20"
+                      disabled={enviando}
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-[11px] font-semibold text-brand-ink">
+                      Fecha de emisión
+                    </span>
+                    <input
+                      type="date"
+                      min="1990-01-01"
+                      max="2100-12-31"
+                      value={otorg.fecha_emision}
+                      onChange={(e) => setOtorgCampo('fecha_emision', e.target.value)}
+                      className="mt-0.5 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-sm text-brand-ink shadow-sm transition focus:border-brand-cyan focus:outline-none focus:ring-2 focus:ring-brand-cyan/20"
+                      disabled={enviando}
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-[11px] font-semibold text-brand-ink">
+                      Fecha de vencimiento
+                    </span>
+                    <input
+                      type="date"
+                      min="1990-01-01"
+                      max="2100-12-31"
+                      value={otorg.fecha_vencimiento}
+                      onChange={(e) =>
+                        setOtorgCampo('fecha_vencimiento', e.target.value)
+                      }
+                      className="mt-0.5 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-sm text-brand-ink shadow-sm transition focus:border-brand-cyan focus:outline-none focus:ring-2 focus:ring-brand-cyan/20"
+                      disabled={enviando}
+                    />
+                  </label>
+                </div>
+                {otorg.fecha_emision &&
+                  otorg.fecha_vencimiento &&
+                  otorg.fecha_vencimiento < otorg.fecha_emision && (
+                    <p className="flex items-center gap-1.5 text-xs font-medium text-rose-600">
+                      <AlertCircle size={12} className="shrink-0" />
+                      La fecha de vencimiento no puede ser anterior a la de emisión.
+                    </p>
+                  )}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* E-GG-177: el tilde verde del archivo se leía como "enviado". Mientras
             haya borrador sin enviar, se dice explícito qué falta. */}
