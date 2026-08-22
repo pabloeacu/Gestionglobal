@@ -18,6 +18,13 @@
 //
 // Plantilla mail: `vencimiento_alerta_cliente` (seedeada en mig 0041).
 //
+// v2 (DGG-142 E4 · mig 0444): tercer canal `push_cliente` — campanita in-app
+// + web push al usuario del portal del cliente vía RPC gg_notif_emitir_cliente
+// (wrapper service-role de private.notif_emitir). Y ruteo de plantilla por
+// tipo: los vencimientos del motor de ofrecimientos (renovacion_rpac,
+// curso_rpa_caba) usan su plantilla de servicio (mig 0443) con CTA al
+// formulario; el resto sigue con la genérica.
+//
 // Compat con dias_alerta_1/2/3: el motor LEGACY de mig 0025 escribe flags
 // `alerta_NNd_enviada` en la propia tabla vencimientos. Acá NO escribimos
 // esos flags — el nuevo motor usa alarmas_offsets per-vencimiento y la
@@ -45,6 +52,8 @@ interface AdministracionRow {
   email: string | null;
   responsable_nombre: string | null;
   responsable_apellido: string | null;
+  user_id: string | null;
+  ofrecimientos_habilitados: boolean;
 }
 
 interface ConsorcioRow {
@@ -61,6 +70,9 @@ interface ErrorLog {
 
 const TIPO_LABEL: Record<string, string> = {
   matricula_rpac: 'Matrícula RPAC',
+  renovacion_rpac: 'Matrícula RPAC',
+  curso_actualizacion: 'Curso de actualización',
+  curso_rpa_caba: 'Actualización RPA (CABA)',
   ddjj_anual: 'Declaración Jurada Anual',
   certificado_arca: 'Certificado ARCA',
   seguro_consorcio: 'Seguro del consorcio',
@@ -69,6 +81,17 @@ const TIPO_LABEL: Record<string, string> = {
   libro_administracion: 'Libro de administración',
   revision_ascensor: 'Revisión de ascensor',
   otro: 'Vencimiento',
+};
+
+// DGG-142 E4 · plantilla + destino del click por tipo de vencimiento del
+// motor de ofrecimientos. Fallback: la genérica de mig 0041.
+const TEMPLATE_BY_TIPO: Record<string, string> = {
+  renovacion_rpac: 'ofrecimiento-rpac-renovacion',
+  curso_rpa_caba: 'ofrecimiento-rpa-caba',
+};
+const CLICK_URL_BY_TIPO: Record<string, string> = {
+  renovacion_rpac: '/formulario/renovacion-rpac?origen=ofrecimiento',
+  curso_rpa_caba: '/formulario/curso-actualizacion-caba?origen=ofrecimiento',
 };
 
 Deno.serve(async (req) => {
@@ -89,6 +112,7 @@ Deno.serve(async (req) => {
   );
 
   let pushEncolados = 0;
+  let pushClienteEncolados = 0;
   let emailEncolados = 0;
   let skippedIdempotente = 0;
   const errores: ErrorLog[] = [];
@@ -123,7 +147,7 @@ Deno.serve(async (req) => {
     const adminsRes = adminIds.length
       ? await supabase
           .from('administraciones')
-          .select('id, nombre, email, responsable_nombre, responsable_apellido')
+          .select('id, nombre, email, responsable_nombre, responsable_apellido, user_id, ofrecimientos_habilitados')
           .in('id', adminIds)
       : { data: [], error: null };
     if (adminsRes.error) throw new Error(`cargar admins: ${adminsRes.error.message}`);
@@ -218,53 +242,85 @@ Deno.serve(async (req) => {
 
       // -- b) email al cliente --------------------------------------------
       if (!p.notificar_cliente) continue;
+
+      const nombreContacto =
+        [admin?.responsable_nombre, admin?.responsable_apellido]
+          .filter(Boolean)
+          .join(' ')
+          .trim() || admin?.nombre || '—';
+
       const emailKey = `${p.vencimiento_id}::${p.offset_dias}::email_cliente`;
       if (yaProcesado.has(emailKey)) {
         skippedIdempotente++;
-        continue;
-      }
-      if (!admin || !admin.email || !admin.email.trim()) {
+      } else if (!admin || !admin.email || !admin.email.trim()) {
         await registrarItem(supabase, p, 'email_cliente', 'skipped', 'sin_email');
-        continue;
+      } else {
+        const variables = {
+          // superset: la genérica usa nombre_contacto/tipo_label/…; las de
+          // ofrecimiento (mig 0443) usan nombre/dias_restantes/fecha_vencimiento.
+          nombre: nombreContacto,
+          nombre_contacto: nombreContacto,
+          tipo_label: tipoLabel,
+          admin_o_consorcio: adminONombre,
+          fecha_vencimiento: p.fecha_vencimiento,
+          dias_restantes: p.offset_dias,
+        };
+
+        const enc = await safeEncolarEmail(supabase, {
+          template: TEMPLATE_BY_TIPO[p.tipo] ?? 'vencimiento_alerta_cliente',
+          toEmail: admin.email.trim(),
+          toNombre: nombreContacto,
+          variables,
+          administracionId: p.administracion_id,
+          consorcioId: p.consorcio_id,
+          relatedTable: 'vencimientos',
+          relatedId: p.vencimiento_id,
+          prioridad: p.offset_dias <= 7 ? 2 : 5,
+        });
+
+        if (enc.ok) {
+          emailEncolados++;
+          await registrarItem(supabase, p, 'email_cliente', 'ok', null);
+        } else {
+          errores.push({
+            vencimiento_id: p.vencimiento_id,
+            offset_dias: p.offset_dias,
+            canal: 'email_cliente',
+            mensaje: enc.error,
+          });
+          await registrarItem(supabase, p, 'email_cliente', 'error', enc.error);
+        }
       }
 
-      const nombreContacto =
-        [admin.responsable_nombre, admin.responsable_apellido]
-          .filter(Boolean)
-          .join(' ')
-          .trim() || admin.nombre;
-
-      const variables = {
-        nombre_contacto: nombreContacto,
-        tipo_label: tipoLabel,
-        admin_o_consorcio: adminONombre,
-        fecha_vencimiento: p.fecha_vencimiento,
-        dias_restantes: p.offset_dias,
-      };
-
-      const enc = await safeEncolarEmail(supabase, {
-        template: 'vencimiento_alerta_cliente',
-        toEmail: admin.email.trim(),
-        toNombre: nombreContacto,
-        variables,
-        administracionId: p.administracion_id,
-        consorcioId: p.consorcio_id,
-        relatedTable: 'vencimientos',
-        relatedId: p.vencimiento_id,
-        prioridad: p.offset_dias <= 7 ? 2 : 5,
-      });
-
-      if (enc.ok) {
-        emailEncolados++;
-        await registrarItem(supabase, p, 'email_cliente', 'ok', null);
+      // -- c) push + campanita al CLIENTE (DGG-142 E4) --------------------
+      // gg_notif_emitir_cliente (mig 0444, sólo service_role) = campanita
+      // in-app SIEMPRE + web push si el usuario del portal tiene suscripción.
+      const pushCliKey = `${p.vencimiento_id}::${p.offset_dias}::push_cliente`;
+      if (yaProcesado.has(pushCliKey)) {
+        skippedIdempotente++;
+      } else if (!admin || !admin.user_id) {
+        await registrarItem(supabase, p, 'push_cliente', 'skipped', 'sin_usuario_portal');
       } else {
-        errores.push({
-          vencimiento_id: p.vencimiento_id,
-          offset_dias: p.offset_dias,
-          canal: 'email_cliente',
-          mensaje: enc.error,
+        const { error: errNotif } = await supabase.rpc('gg_notif_emitir_cliente', {
+          p_user: admin.user_id,
+          p_titulo: p.offset_dias === 0
+            ? `${tipoLabel}: vence hoy`
+            : `${tipoLabel}: vence en ${p.offset_dias} días`,
+          p_cuerpo: `Tu ${tipoLabel.toLowerCase()} vence el ${p.fecha_vencimiento}. Iniciá la gestión con un click.`,
+          p_url: CLICK_URL_BY_TIPO[p.tipo] ?? '/portal',
         });
-        await registrarItem(supabase, p, 'email_cliente', 'error', enc.error);
+        if (errNotif) {
+          errores.push({
+            vencimiento_id: p.vencimiento_id,
+            offset_dias: p.offset_dias,
+            canal: 'push_cliente',
+            mensaje: errNotif.message,
+          });
+          await registrarItem(supabase, p, 'push_cliente', 'error', errNotif.message);
+        } else {
+          pushClienteEncolados++;
+          await registrarItem(supabase, p, 'push_cliente', 'ok', null);
+        }
       }
     }
   } catch (e) {
@@ -278,6 +334,7 @@ Deno.serve(async (req) => {
     {
       ok: true,
       push: pushEncolados,
+      push_cliente: pushClienteEncolados,
       emails: emailEncolados,
       skipped: skippedIdempotente,
       errores_count: errores.length,
@@ -290,7 +347,7 @@ Deno.serve(async (req) => {
 async function registrarItem(
   supabase: SupabaseClient,
   p: PlanRow,
-  canal: 'push' | 'email_cliente',
+  canal: 'push' | 'email_cliente' | 'push_cliente',
   resultado: 'ok' | 'skipped' | 'error',
   detalle: string | null,
 ): Promise<void> {
