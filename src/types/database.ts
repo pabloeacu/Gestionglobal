@@ -6711,6 +6711,7 @@ export type Database = {
           moderacion_estado: string | null
           moderada_at: string | null
           moderada_por: string | null
+          otorgamiento: Json | null
           postergada_motivo: string | null
           postergada_veces: number
           tramite_id: string
@@ -6732,6 +6733,7 @@ export type Database = {
           moderacion_estado?: string | null
           moderada_at?: string | null
           moderada_por?: string | null
+          otorgamiento?: Json | null
           postergada_motivo?: string | null
           postergada_veces?: number
           tramite_id: string
@@ -6753,6 +6755,7 @@ export type Database = {
           moderacion_estado?: string | null
           moderada_at?: string | null
           moderada_por?: string | null
+          otorgamiento?: Json | null
           postergada_motivo?: string | null
           postergada_veces?: number
           tramite_id?: string
@@ -9635,6 +9638,7 @@ export type Database = {
         Args: {
           p_archivos_urls?: string[]
           p_descripcion: string
+          p_otorgamiento?: Json
           p_token: string
         }
         Returns: string
@@ -10423,8 +10427,14 @@ export type Database = {
           cliente_nombre: string
           created_at: string
           descripcion: string
+          ficha_legajo_rpac: string
+          ficha_matricula_rpac: string
+          ficha_matricula_rpac_fecha: string
+          ficha_matricula_rpac_vencimiento: string
           gestor_label: string
           linea_id: string
+          otorgamiento: Json
+          servicio_codigo: string
           servicio_nombre: string
           servicio_vigencia_meses: number
           tramite_codigo: string
@@ -10439,6 +10449,7 @@ export type Database = {
           p_estado_asociado?: string
           p_linea_id: string
           p_motivo?: string
+          p_otorgamiento?: Json
         }
         Returns: undefined
       }
