@@ -5566,3 +5566,43 @@ debería setear), las policies de INSERT abiertas a otros roles deben
 RE-AUDITARSE en la misma mig: la policy vieja era correcta para el schema
 viejo y quedó laxa con cada columna nueva. Checklist §6: por cada columna
 nueva, "¿quién puede escribirla vía PostgREST directo?".
+
+## E-GG-190 · Autofill de Chrome llenaba matrícula/legajo con provincia/ciudad → required satisfecho con basura (2026-08-22, JL-R5)
+
+**Síntoma (reporte JL, caso García Alejandra 21/08):** en el form público
+`curso-actualizacion` llegó una inscripción con `matricula_rpac: "Buenos
+Aires"` y `legajo_rpac: "Ciudad Autónoma de Buenos Aires"`. La usuaria no
+completó esos campos ("Perdón antes no complete matricula y legajo" en su
+2º envío) — el autofill de DIRECCIÓN de Chrome los clasificó como
+provincia/ciudad y los rellenó con su perfil. Ambos campos eran
+`required: true`, pero el required se dio por satisfecho con la basura.
+
+**Causa raíz:** inputs de texto sin `autocomplete="off"` con labels que el
+heurístico de Chrome asocia a dirección + validación que sólo exigía
+no-vacío. Hallazgo lateral: 2 fichas reales ya tenían la misma huella
+asentada (matrícula "La Plata", legajo "Buenos Aires") — el fenómeno venía
+ocurriendo silencioso.
+
+**Fix (commit 8e4ea1e, 3 capas):** (1) helper `esCampoMatriculaLegajo`
+(espejo del patrón `esCampoCuit`) → esos inputs renderizan con
+`autocomplete="off"`; (2) `validate()` del runner exige AL MENOS UN dígito
+— "Buenos Aires" no sale, con mensaje "tiene que incluir el número (ej.:
+1503)"; (3) espejo server-side en la edge `submit-formulario` (v15,
+deployada por CLI desde el repo — `~/.supabase/access-token` existe, no
+hace falta transcribir edges al MCP). NO se exige sólo-números: hay
+matrículas reales con siglas ("832 AVN y 797 ACP"), verificado contra las
+72 fichas antes de elegir el criterio — un filtro de letras habría
+bloqueado casos legítimos.
+
+**Verificado en vivo:** POST crafteado con letras → 422 con el mensaje
+exacto; POST con "832 AVN y 797 ACP" + "2/298878" → pasa (sólo frena el
+comprobante requerido); form real en prod con "Buenos Aires" → toast
+"Revisá el formulario" con ambos errores y el envío bloqueado; 0
+submissions QA residuales.
+
+**Lección:** todo campo de texto cuyo label pueda confundirse con dirección
+(provincia, ciudad, calle, código) es candidato a basura de autofill; el
+`required` NO protege contra valores auto-rellenados. Checklist de forms:
+campos de identificadores numéricos → `autocomplete="off"` + validación de
+forma (no sólo presencia). Y el criterio de validación se elige mirando los
+DATOS REALES primero (la regla estricta obvia rompía casos legítimos).
