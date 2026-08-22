@@ -5507,3 +5507,26 @@ probarse con exit code real (pipefail), no con la ausencia visual de errores
 en el tail. Y al extender un tipo compartido, grep también por los USOS que
 construyen literales (`useMemo<Tipo[]>`, mappers locales), no sólo por el
 nombre del tipo.
+
+## E-GG-188 · La idempotencia de dispatch-vencimientos nunca funcionó (índice único PARCIAL vs upsert de PostgREST) (2026-08-21, §6 E4)
+
+**Síntoma (latente desde mig 0041):** `dispatch_vencimientos_log` tenía **0
+filas de item en todo su historial** — sólo filas-resumen. El upsert de la
+edge (`.upsert(..., { onConflict: 'vencimiento_id,offset_dias,canal' })`)
+fallaba SIEMPRE con 42P10 silencioso (sólo console.error).
+
+**Causa raíz:** `uq_dispatch_log_item` era un índice único **parcial**
+(`WHERE vencimiento_id IS NOT NULL`). PostgREST genera `ON CONFLICT (cols)`
+sin el predicado, y Postgres NO infiere índices parciales sin él. Ninguna
+tríada se registró jamás; la idempotencia entre corridas dependía de que el
+cron corriera exactamente 1 vez/día (cada tríada matchea un único día — por
+eso no hubo duplicados visibles).
+
+**Fix (mig 0447):** DROP del índice parcial + `ADD CONSTRAINT ... UNIQUE`
+real (NULLS DISTINCT default → las filas-resumen con NULLs no chocan).
+Verificado con upsert e2e: 1 fila, resultado actualizado.
+
+**Lección:** un upsert de PostgREST contra índice único PARCIAL es un bug
+silencioso garantizado — para tablas con upsert por columnas, usar SIEMPRE
+constraint UNIQUE (o índice total). Sweep sugerido: buscar otros `.upsert(`
+del repo cuyo target sea índice parcial.

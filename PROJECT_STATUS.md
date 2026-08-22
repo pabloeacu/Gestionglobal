@@ -175,9 +175,30 @@ reales en ROLLBACK — cap 40, 120 logs, 30+ emails, 0 duplicados, 0 residuos.
 corrida real tocaría ~40 clientes con copy que Pablo aún no revisó. Para
 activar (tras revisar Plantillas email → ofrecimiento-*):
 `SELECT cron.schedule('gg-ofrecimientos-diario','30 12 * * *','SELECT public.gg_ofrecimientos_diario();');`
-FALTAN: F5 (banner del portal alineado a la matriz: DDJJ nov→mar, curso 60d
-móviles, CJ para SOLO-CABA, card forzada el día del toque + switch
-Ofrecimientos en la ficha R14) y F6 (doble §6 + live QA + docs finales).
+F5 HECHA (mig 0446 + front): dashboard v3 — DDJJ nov→mar, actualización 12
+meses móviles por jurisdicción, CJ visible para SOLO-CABA, card forzada el
+día del toque (respeta el posponer del cliente), opt-out silencia
+ofrecimientos (las cards duras de fecha quedan); switch "Ofrecimientos
+automáticos" en AdministracionFormDrawer (R14). F6 HECHA (mig 0447, §6 de
+3 agentes + refutación + simulación día-1 sobre prod): (1) [E-GG-188]
+constraint UNIQUE real en dispatch_vencimientos_log — el upsert de la edge
+contra el índice PARCIAL falló silencioso desde 0041 (0 items históricos);
+(2) tracking_cerrar_ciclo v4: para RPAC satisfactorio adopta LA fila
+canónica del sync (antes dejaba 2 vigentes 'otro'+'renovacion_rpac' → doble
+alerta); (3) capacitación one-shot: dedupe por-admin por codigo + el form
+sólo se marca si el loop terminó sin corte de cap (derrame a días
+siguientes sin duplicar); (4) capacitación corre ANTES de cadencias + salta
+tocados-hoy; (5) ventana de GRACIA 7 días entre reglas (sin esto 48/49
+encadenaban certificado→CJ en días corridos); (6) morosos: cross-sell pago
+(certificado/CJ/curso) saltea deuda>0, DDJJ no filtra — criterio propio a
+confirmar por Pablo; (7) riel CABA + gates activo/baja + notificar espeja
+switch; (8) curso 60d dedupe también por trámite contratado. e2e: 3 corridas
+(cap → derrame 9 → 0; nadie con 2 reglas en ventana), cerrar_ciclo v4 = 1
+sola fila adoptada con offsets del gerente, upsert del log OK; residuos 0.
+NOTAS a Pablo: 49 fichas RPAC SIN fecha de vencimiento (el riel 45/30/15
+arranca mudo hasta cargarlas); tensión "11 meses vs 60d" entre filas de la
+matriz; cards forzadas de DDJJ/capacitación diferidas (mail+push sí salen);
+opt-out no apaga el banner de renovación por fecha (aviso de estado).
 
 **DGG-142 · Etapa 3 CERRADA (2026-08-21, commits 458e929+5704a0b+c9510c7,
 migs 0440-0441).** §6 (3 agentes + refutación): 6 fixes aplicados — (1)
