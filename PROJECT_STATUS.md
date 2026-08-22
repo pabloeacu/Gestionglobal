@@ -157,6 +157,28 @@ Recorrido punta a punta logueado sobre la URL de Vercel. **Cobertura amplia** de
 
 ## 2. Trabajo en curso AHORA
 
+**DGG-142 · Etapa 7 CERRADA (2026-08-22) → PLAN DGG-142 COMPLETO (E1-E7).**
+Informe para JL escrito en el Google Doc compartido (tab "PARA VER", al
+final), como Pablo, en lenguaje simple: los 6 bloques integrados (vínculo
+matrícula↔trámite + labels; aviso curso completado + asistente de cierre;
+programar vencimiento en todos los cierres + Regla B; avisos 45/30/15 +
+banner vencida + motor de ofrecimientos LISTO PERO APAGADO hasta revisar
+copy; otorgamiento de gestoría con moderación; botón Mesa de Entradas PBA)
++ sección "qué necesitamos" (cargar fechas en las 49 fichas RPAC + revisar
+plantillas ofrecimiento-*) + acuse del reporte nuevo de JL. Nota honesta:
+el plan pedía "capturas reales" — la automatización del browser no puede
+pegar imágenes en Docs; quedó en texto con referencias concretas (ej.
+"probalo en el trámite de renovación de Isla").
+**⚠️ REPORTE NUEVO DE JL (JL-R5, pendiente):** en el mismo tab, arriba del
+informe: el FORMULARIO CURSO DE ACTUALIZACIÓN dejó pasar un envío con
+"Buenos Aires"/"Ciudad Autónoma de Buenos Aires" en los campos NÚMERO DE
+MATRÍCULA VIGENTE y NÚMERO DE LEGAJO (valores de provincia mapeados a esos
+campos — captura de García Alejandra, DNI 16844875; el 2º envío corrigió a
+1503/284859 con "Perdón antes no complete matricula y legajo"). Hipótesis a
+investigar: mapeo corrido en la máscara/datos del form o los campos
+DGG-134 no obligatorios/mal referenciados en curso-actualizacion. Le
+respondí a JL "lo estoy investigando".
+
 **DGG-142 · Etapa 6 CERRADA (2026-08-22, commits 4972d71 + c39cbfd, edges
 tramix-consulta v9 + tramix-doc-proxy v5).** Tramix para GERENCIA: rama staff
 en AMBAS edges (gerente/operador salta el gate SIN_ADMIN; legajo default
