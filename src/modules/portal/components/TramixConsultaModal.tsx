@@ -292,10 +292,20 @@ export function TramixConsultaModal({ open, onClose, legajoInicial }: {
     // que pudo quedar en este navegador, compartido entre usuarios).
     try { localStorage.removeItem(LS_KEY_LEGACY); } catch { /* noop */ }
     // DGG-142 E6: el prefill del trámite (gerencia) gana al recordado.
-    const inicial = onlyDigits(legajoInicial || '');
-    if (inicial) {
-      setLegajoInput(inicial);
-      buscar(inicial, false);
+    // §6 E6 #2: '' ≠ undefined — si gerencia abre desde un trámite SIN legajo
+    // en ficha, va DIRECTO al formulario (no al último legajo consultado por
+    // el gerente, que sería el de OTRO cliente bajo un tooltip que promete
+    // "el de la ficha"). undefined = portal → flujo original intacto.
+    if (legajoInicial != null) {
+      const inicial = onlyDigits(legajoInicial);
+      if (inicial) {
+        setLegajoInput(inicial);
+        buscar(inicial, false);
+      } else {
+        setLegajoInput('');
+        setMode('form');
+        setTimeout(() => inputRef.current?.focus(), 30);
+      }
       return;
     }
     const remembered = readLast(lsKey);
@@ -399,7 +409,7 @@ export function TramixConsultaModal({ open, onClose, legajoInicial }: {
               {r?.resultado === 'SIN_LEGAJO' ? (
                 <p className="mt-2 inline-flex items-start gap-1.5 text-[11px] text-amber-600">
                   <AlertTriangle size={13} className="mt-px shrink-0" />
-                  No tenés un legajo guardado en tu ficha. Ingresá uno para consultar.
+                  No hay un legajo guardado en la ficha. Ingresá uno para consultar.
                 </p>
               ) : (
                 <p className="mt-2 text-[11px] text-brand-muted">
