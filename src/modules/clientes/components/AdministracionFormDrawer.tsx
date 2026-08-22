@@ -54,6 +54,8 @@ type FormState = {
   matricula_rpac_fecha: string;
   matricula_rpac_vencimiento: string;
   matricula_rpa: string;
+  // DGG-142 E4 (R14) · switch del motor de ofrecimientos (banner+push+mail).
+  ofrecimientos_habilitados: boolean;
   // AJL-3 · Datos personales del administrador titular (RPAC los pide)
   padre_apellido_nombre: string;
   madre_apellido_nombre: string;
@@ -90,6 +92,7 @@ const EMPTY: FormState = {
   matricula_rpac_fecha: '',
   matricula_rpac_vencimiento: '',
   matricula_rpa: '',
+  ofrecimientos_habilitados: true,
   padre_apellido_nombre: '',
   madre_apellido_nombre: '',
   legajo_rpac: '',
@@ -123,6 +126,8 @@ function rowToForm(r: AdministracionRow): FormState {
     matricula_rpac_fecha: r.matricula_rpac_fecha ?? '',
     matricula_rpac_vencimiento: r.matricula_rpac_vencimiento ?? '',
     matricula_rpa: r.matricula_rpa ?? '',
+    ofrecimientos_habilitados:
+      (r as { ofrecimientos_habilitados?: boolean | null }).ofrecimientos_habilitados ?? true,
     padre_apellido_nombre: (r as { padre_apellido_nombre?: string | null }).padre_apellido_nombre ?? '',
     madre_apellido_nombre: (r as { madre_apellido_nombre?: string | null }).madre_apellido_nombre ?? '',
     legajo_rpac: (r as { legajo_rpac?: string | null }).legajo_rpac ?? '',
@@ -226,6 +231,7 @@ export function AdministracionFormDrawer({
       matricula_rpac_fecha: form.matricula_rpac_fecha || null,
       matricula_rpac_vencimiento: form.matricula_rpac_vencimiento || null,
       matricula_rpa: form.matricula_rpa.trim() || null,
+      ofrecimientos_habilitados: form.ofrecimientos_habilitados,
       padre_apellido_nombre: form.padre_apellido_nombre.trim() || null,
       madre_apellido_nombre: form.madre_apellido_nombre.trim() || null,
       legajo_rpac: form.legajo_rpac.trim() || null,
@@ -690,6 +696,26 @@ export function AdministracionFormDrawer({
                   />
                 </Field>
               </div>
+
+              {/* DGG-142 E4 (R14) · switch del motor de ofrecimientos DGG-143.
+                  Prendido por defecto (decisión E). Apagarlo silencia banner,
+                  push y mails de ofrecimiento para este cliente. */}
+              <label className="mt-2 flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 p-4">
+                <input
+                  type="checkbox"
+                  checked={form.ofrecimientos_habilitados}
+                  onChange={(e) => setField('ofrecimientos_habilitados', e.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-slate-300 text-brand-cyan focus:ring-brand-cyan"
+                />
+                <span className="text-sm">
+                  <span className="font-semibold text-brand-ink">
+                    Ofrecimientos automáticos (banner + push + email)
+                  </span>
+                  <span className="mt-0.5 block text-xs text-brand-muted">
+                    Recordatorios de renovación, DDJJ, certificado, consultoría y cursos según la matriz de servicios. Apagalo si el cliente pidió no recibirlos.
+                  </span>
+                </span>
+              </label>
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field
                   label="Origen / Canal"

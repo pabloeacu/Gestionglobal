@@ -168,6 +168,7 @@ export type Database = {
           nombre: string
           nombre_normalizado: string
           observaciones: string | null
+          ofrecimientos_habilitados: boolean
           origen: string | null
           padre_apellido_nombre: string | null
           provincia: string | null
@@ -210,6 +211,7 @@ export type Database = {
           nombre: string
           nombre_normalizado: string
           observaciones?: string | null
+          ofrecimientos_habilitados?: boolean
           origen?: string | null
           padre_apellido_nombre?: string | null
           provincia?: string | null
@@ -252,6 +254,7 @@ export type Database = {
           nombre?: string
           nombre_normalizado?: string
           observaciones?: string | null
+          ofrecimientos_habilitados?: boolean
           origen?: string | null
           padre_apellido_nombre?: string | null
           provincia?: string | null
@@ -3001,6 +3004,7 @@ export type Database = {
           instructor_bio: string | null
           instructor_foto_url: string | null
           instructor_nombre: string | null
+          jurisdiccion: string | null
           modalidad: string
           observaciones: string | null
           precio_lista: number | null
@@ -3038,6 +3042,7 @@ export type Database = {
           instructor_bio?: string | null
           instructor_foto_url?: string | null
           instructor_nombre?: string | null
+          jurisdiccion?: string | null
           modalidad?: string
           observaciones?: string | null
           precio_lista?: number | null
@@ -3075,6 +3080,7 @@ export type Database = {
           instructor_bio?: string | null
           instructor_foto_url?: string | null
           instructor_nombre?: string | null
+          jurisdiccion?: string | null
           modalidad?: string
           observaciones?: string | null
           precio_lista?: number | null
@@ -3933,6 +3939,7 @@ export type Database = {
           notificar_a_emails: string[]
           orden: number
           pdf_descargable_url: string | null
+          publicado_notificado_at: string | null
           publico: boolean
           redirect_url_after: string | null
           schema: Json
@@ -3962,6 +3969,7 @@ export type Database = {
           notificar_a_emails?: string[]
           orden?: number
           pdf_descargable_url?: string | null
+          publicado_notificado_at?: string | null
           publico?: boolean
           redirect_url_after?: string | null
           schema: Json
@@ -3991,6 +3999,7 @@ export type Database = {
           notificar_a_emails?: string[]
           orden?: number
           pdf_descargable_url?: string | null
+          publicado_notificado_at?: string | null
           publico?: boolean
           redirect_url_after?: string | null
           schema?: Json
@@ -4930,6 +4939,50 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      ofrecimientos_log: {
+        Row: {
+          administracion_id: string
+          canal: string
+          ciclo_ancla: string
+          codigo: string
+          detalle: string | null
+          enviado_at: string
+          id: string
+          resultado: string
+          template_slug: string | null
+        }
+        Insert: {
+          administracion_id: string
+          canal: string
+          ciclo_ancla: string
+          codigo: string
+          detalle?: string | null
+          enviado_at?: string
+          id?: string
+          resultado?: string
+          template_slug?: string | null
+        }
+        Update: {
+          administracion_id?: string
+          canal?: string
+          ciclo_ancla?: string
+          codigo?: string
+          detalle?: string | null
+          enviado_at?: string
+          id?: string
+          resultado?: string
+          template_slug?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ofrecimientos_log_administracion_id_fkey"
+            columns: ["administracion_id"]
+            isOneToOne: false
+            referencedRelation: "administraciones"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       pagos_reportados: {
         Row: {
@@ -8066,6 +8119,20 @@ export type Database = {
           administracion_id: string
         }[]
       }
+      _gg_ofrecimiento_tocar: {
+        Args: {
+          p_admin: string
+          p_ancla: string
+          p_codigo: string
+          p_contacto: string
+          p_email: string
+          p_fecha_detalle?: string
+          p_form_url?: string
+          p_titulo?: string
+          p_user: string
+        }
+        Returns: undefined
+      }
       acceso_externo_registrar_visita: {
         Args: { p_token: string }
         Returns: string
@@ -9653,6 +9720,16 @@ export type Database = {
       gg_cursos_visibilizar_por_fecha: { Args: never; Returns: Json }
       gg_emails_redactar_passwords: { Args: never; Returns: number }
       gg_encuentros_recordatorio_diario: { Args: never; Returns: Json }
+      gg_notif_emitir_cliente: {
+        Args: {
+          p_cuerpo: string
+          p_titulo: string
+          p_url: string
+          p_user: string
+        }
+        Returns: undefined
+      }
+      gg_ofrecimientos_diario: { Args: never; Returns: Json }
       gg_profile_marcar_pwa: {
         Args: { p_installed: boolean }
         Returns: undefined
@@ -10341,6 +10418,7 @@ export type Database = {
       tracking_moderacion_pendientes: {
         Args: never
         Returns: {
+          administracion_id: string
           archivos_urls: string[]
           cliente_nombre: string
           created_at: string
@@ -10348,6 +10426,7 @@ export type Database = {
           gestor_label: string
           linea_id: string
           servicio_nombre: string
+          servicio_vigencia_meses: number
           tramite_codigo: string
           tramite_id: string
         }[]
