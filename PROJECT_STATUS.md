@@ -157,6 +157,33 @@ Recorrido punta a punta logueado sobre la URL de Vercel. **Cobertura amplia** de
 
 ## 2. Trabajo en curso AHORA
 
+**DGG-145 · Ofrecimientos SIN filtro de morosos en los 3 canales
+(2026-08-22, migs 0450+0451).** Pablo definió los 3 pendientes del plan
+DGG-142: (1) confirmado el automatismo de fechas al cierre (los 4 trámites
+RPAC abiertos piden fecha al cerrar; las 45 fichas restantes SIN trámite se
+pueblan hablando con los clientes / gestoría / carga manual); (2) **opción b
+sobre morosos**: el ofrecimiento no discrimina estado de cuenta. Mig 0450 =
+motor v3 (quita `v_deuda`/`cliente_deuda_neta` y los 3 predicados `v_deuda=0`
+de certificado_90/cj_120/curso_actualizacion_60; DDJJ nunca filtró; resto
+byte-idéntico a v2 — diff verificado por agente §6-A). Mig 0451 = hallazgo
+§6-B/C: la RECURRENCIA del banner del portal (`cliente_portal_dashboard`
+0446) seguía gateada por deuda vía `v_puede_crosssell` → v4 con
+`v_puede_crosssell := NOT v_recien_llegado` (gracia 15 días se conserva;
+card informativa "SALDO PENDIENTE" DGG-45r intacta y aditiva) + hallazgo
+§6-A#10: cron desagendado TAMBIÉN en el linaje (guard cron.unschedule —
+antes 0445 lo agendaba y un rebuild limpio lo revivía). e2e R18 en ROLLBACK
+×2: deudor sintético recibió certificado_90 por los 3 canales (motor) y la
+card certificado_acreditacion con tiene_deuda=true (dashboard impersonando
+al cliente); patch por md5 byte-exacto contra la definición viva (drift
+0446 archivo↔vivo = sólo comentarios); residuos 0; overloads R16 = 0.
+Refutación §6-C: NO hay gate downstream que bloquee a un moroso que quiera
+contratar (hipótesis "te ofrecí pero no te dejo" refutada con evidencia).
+Notas para la activación: recupero y motor comparten minuto 09:30 ART
+(colisión dunning+oferta el mismo día — desfasar si molesta); día-1 satura
+antes el cap 40 (derrame auto-sanante). ⚠️ El cron sigue DESAGENDADO
+(0 filas en cron.job) hasta el "activá el motor" explícito de Pablo, tras
+revisar las plantillas `ofrecimiento-*`.
+
 **DGG-142 · Etapa 7 CERRADA (2026-08-22) → PLAN DGG-142 COMPLETO (E1-E7).**
 Informe para JL escrito en el Google Doc compartido (tab "PARA VER", al
 final), como Pablo, en lenguaje simple: los 6 bloques integrados (vínculo
@@ -169,7 +196,12 @@ plantillas ofrecimiento-*) + acuse del reporte nuevo de JL. Nota honesta:
 el plan pedía "capturas reales" — la automatización del browser no puede
 pegar imágenes en Docs; quedó en texto con referencias concretas (ej.
 "probalo en el trámite de renovación de Isla").
-**⚠️ REPORTE NUEVO DE JL (JL-R5, pendiente):** en el mismo tab, arriba del
+**✅ REPORTE JL-R5 RESUELTO (2026-08-22, commits 8e4ea1e+379f2fb, [E-GG-190]):
+autofill de Chrome llenaba matrícula/legajo con provincia/ciudad; fix 3 capas
+(autoComplete="off" + validación "al menos un dígito" en runner Y edge
+submit-formulario v15 — NO sólo-números: hay matrículas reales con siglas) +
+respuesta RESUELTO a JL en el doc + las 2 fichas contaminadas señaladas para
+corrección de gerencia.** Reporte original:
 informe: el FORMULARIO CURSO DE ACTUALIZACIÓN dejó pasar un envío con
 "Buenos Aires"/"Ciudad Autónoma de Buenos Aires" en los campos NÚMERO DE
 MATRÍCULA VIGENTE y NÚMERO DE LEGAJO (valores de provincia mapeados a esos
@@ -295,8 +327,9 @@ sólo se marca si el loop terminó sin corte de cap (derrame a días
 siguientes sin duplicar); (4) capacitación corre ANTES de cadencias + salta
 tocados-hoy; (5) ventana de GRACIA 7 días entre reglas (sin esto 48/49
 encadenaban certificado→CJ en días corridos); (6) morosos: cross-sell pago
-(certificado/CJ/curso) saltea deuda>0, DDJJ no filtra — criterio propio a
-confirmar por Pablo; (7) riel CABA + gates activo/baja + notificar espeja
+(certificado/CJ/curso) salteaba deuda>0, DDJJ no filtraba — **SUPERSEDIDO
+por DGG-145/mig 0450 (2026-08-22): Pablo eligió opción b, el ofrecimiento no
+discrimina estado de cuenta**; (7) riel CABA + gates activo/baja + notificar espeja
 switch; (8) curso 60d dedupe también por trámite contratado. e2e: 3 corridas
 (cap → derrame 9 → 0; nadie con 2 reglas en ventana), cerrar_ciclo v4 = 1
 sola fila adoptada con offsets del gerente, upsert del log OK; residuos 0.

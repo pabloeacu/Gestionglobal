@@ -5150,3 +5150,52 @@ Decisiones de diseño del circuito "el gestor informa el otorgamiento RPAC":
    `aplicado_at/por`; el diff old/new de la ficha queda en auditoria_cambios.
 
 Fix-pack §6 en mig 0449 (fechas hostiles, FOR UPDATE, [[E-GG-189]] anti-forja).
+
+## DGG-145 · Ofrecimientos: el estado de cuenta NO filtra (2026-08-22)
+
+Pablo eligió la **opción (b)** sobre morosos en el motor de ofrecimientos
+(DGG-142 E4): *"le vamos a ofrecer de todos modos a todos los clientes,
+únicamente basado en las fechas… si alguno nos debe algo y necesita
+contratar otra cosa, la alarma de ese otro servicio puede ser lo que les
+empuje de modo indirecto a regularizar. El ofrecimiento no discrimina
+estado de cuenta — lo mismo para todos"*.
+
+- **Mig 0450** (motor v3): se eliminan `v_deuda`, la llamada a
+  `cliente_deuda_neta()` y los tres predicados `v_deuda = 0` de
+  `gg_ofrecimientos_diario` (certificado_90 / cj_120 /
+  curso_actualizacion_60). La DDJJ nunca filtró. Cambio quirúrgico:
+  el resto del motor v2 (0447) queda idéntico — riel CABA, capacitación
+  one-shot, gracia 7 días, dedupes por regla, cap 40.
+- Reemplaza el criterio provisorio "§6 (6)" de 0447 (deuda bloqueaba
+  cross-sell pago), que estaba explícitamente "pendiente de confirmación
+  de Pablo".
+- **Mig 0451** (hallazgo §6-B/§6-C de la auditoría de 0450): la decisión
+  aplica a los TRES canales. La recurrencia propia del banner del portal
+  (`cliente_portal_dashboard`, mig 0446) seguía gateada por deuda vía
+  `v_puede_crosssell` — un moroso no veía las cards certificado/CJ salvo
+  el día exacto del toque del motor (y con el cron apagado, nunca).
+  v4: `v_puede_crosssell := NOT v_recien_llegado` — se CONSERVA la gracia
+  de 15 días del recién llegado (onboarding, no es estado de cuenta).
+  De DGG-45r sobrevive sólo la pieza informativa: la card "SALDO
+  PENDIENTE" (estado de cuenta) sigue idéntica y convive con las de
+  ofrecimiento (son cards independientes, aditivas).
+- **Mig 0451 (2)** (hallazgo §6-A #10): el cron `gg-ofrecimientos-diario`
+  queda desagendado TAMBIÉN en el linaje (guard `cron.unschedule`
+  idempotente) — antes lo agendaba 0445 y el "apagado" vivía sólo en
+  runtime: un entorno reconstruido desde cero arrancaba el motor solo.
+- e2e R18 (rollback, ambas migs): (0450) deudor sintético con
+  saldo_pendiente forjado recibió `certificado_90` por banner+email+push
+  en la primera corrida del motor v3; (0451) impersonando al cliente con
+  deuda forjada, `cliente_portal_dashboard` devuelve la card
+  `certificado_acreditacion` con `tiene_deuda=true` — antes ambos
+  escenarios eran salteados. Patch del dashboard verificado por md5
+  byte-exacto contra la definición viva.
+- Notas §6 para la activación (decisiones NO tomadas aún, avisar a Pablo):
+  (a) `dispatch-recupero-diario` corre en el MISMO minuto ('30 12 * * *')
+  — un moroso puede recibir el mail de recupero y un ofrecimiento el
+  mismo día (coherente con el racional, pero si molesta se desfasa el
+  cron); (b) día-1 con audiencia ampliada satura antes el cap 40 — el
+  derrame es auto-sanante pero tarda más.
+- El cron sigue **DESAGENDADO** (0 filas en cron.job, verificado): se
+  activa sólo con orden explícita de Pablo, tras revisar las plantillas
+  `ofrecimiento-*`.
