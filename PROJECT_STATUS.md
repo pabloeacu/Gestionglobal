@@ -157,6 +157,24 @@ Recorrido punta a punta logueado sobre la URL de Vercel. **Cobertura amplia** de
 
 ## 2. Trabajo en curso AHORA
 
+**DGG-146 · Acceso libre a TRAMIX desde el Inicio de gerencia (2026-08-22).**
+Pedido de Pablo: botón "Mesa de Entradas PBA" en el header de `GerenciaHome`
+(mismo botón/ícono que el del trámite, paridad E6) que abre
+`TramixConsultaModal` con `legajoInicial=""` → formulario manual directo, SIN
+heredar el "último legajo consultado" — caso de uso: potenciales clientes que
+llaman sin trámite abierto. Cero backend nuevo (edges v9/v5 ya aceptan
+gerente/operador sin admin; la ruta `/gerencia` permite exactamente esos 2
+roles). Header ahora flex-wrap (el botón cae debajo del título en mobile).
+§6 (3 agentes) halló 1 GAP real (4b) — CERRADO: el modal compartido no
+cancelaba consultas en vuelo; cerrar mid-fetch y reabrir precargaba el form
+"manual" con el legajo anterior (violaba "sin legajo por defecto"). Fix:
+guard de generación (`genRef`) + reset de `loading`/`searchedLegajo` en el
+effect de `open`. HEADS-UP a Pablo (no fix, decisión suya): el cap TRAMIX
+de 30 consultas/hora/usuario (mig 0198) casi nunca se tocaba con 1 legajo
+por trámite; con consultas libres de potenciales clientes (sin cache) se
+puede alcanzar, y el copy dice "probá en unos segundos" cuando es 1 hora.
+Cierre: build pipefail OK + docs + push + live QA.
+
 **DGG-145 · Ofrecimientos SIN filtro de morosos en los 3 canales
 (2026-08-22, migs 0450+0451).** Pablo definió los 3 pendientes del plan
 DGG-142: (1) confirmado el automatismo de fechas al cierre (los 4 trámites

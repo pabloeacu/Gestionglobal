@@ -5606,3 +5606,37 @@ submissions QA residuales.
 campos de identificadores numéricos → `autocomplete="off"` + validación de
 forma (no sólo presencia). Y el criterio de validación se elige mirando los
 DATOS REALES primero (la regla estricta obvia rompía casos legítimos).
+
+## E-GG-191 · Circuit-breaker global de TRAMIX contaba legajos inexistentes como caída de infra (2026-08-22, DGG-146 §6 #12)
+
+**Síntoma latente (encontrado por auditoría §6 antes de romper en prod):** el
+circuit-breaker de TRAMIX vive en `tramix_throttle` como fila **singleton
+GLOBAL**; 5 fallos consecutivos abren `circuito_abierto_hasta = now + 10 min`
+para TODA la plataforma. En `tramix_record` (mig 0198) la lista de fallos
+incluía `PARSE_ERROR`. Pero la edge `tramix-consulta` devuelve `PARSE_ERROR`
+cuando un legajo NO matchea o está mal tipeado (`index.ts:198`), no sólo
+cuando el markup cambió.
+
+**Causa raíz:** conflación de dos cosas distintas bajo `PARSE_ERROR` — "no
+hay resultado para este legajo" (evento normal) vs "no pudimos parsear la
+respuesta de TRAMIX" (evento de infra). Mientras el único punto de consulta
+era 1 legajo por trámite (cacheado 15 min), el tope de fallos no se tocaba.
+DGG-146 (acceso libre desde el Inicio para consultar potenciales clientes)
+invita a tipear legajos que probablemente no existan → 5 tipeos errados
+seguidos habrían abierto el breaker 10 min, dejando a los CLIENTES del portal
+sin poder consultar su propio expediente (CIRCUIT_OPEN).
+
+**Fix (mig 0452):** `PARSE_ERROR` sale de `v_is_fail`. Una caída real de
+TRAMIX se manifiesta como `TRAMIX_DOWN`/`TIMEOUT` (error de red/timeout),
+`ERROR` (500) o `TC_BLOCKED` (pared de T&C) — esos SIGUEN abriendo el
+breaker. Un cambio de markup produciría PARSE_ERROR en todos los legajos,
+pero el breaker no es la herramienta para eso (abriría y reabriría cada 10
+min con la misma UX rota; requiere fix de código). e2e R18 en rollback: 6
+PARSE_ERROR seguidos → breaker cerrado; 5 TRAMIX_DOWN → breaker abierto.
+
+**Lección:** un back-off/circuit-breaker debe disparar SÓLO por fallos de
+infraestructura, nunca por resultados de negocio esperables ("no encontrado").
+Antes de exponer una superficie nueva que cambia el patrón de tráfico (acá:
+de "1 legajo caliente por cliente" a "N legajos fríos por staff"), revisar
+que los gates/topes/breakers pensados para el patrón viejo no se vuelvan
+hostiles con el nuevo.

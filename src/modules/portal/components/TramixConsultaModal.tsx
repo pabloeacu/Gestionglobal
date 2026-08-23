@@ -232,19 +232,32 @@ export function TramixConsultaModal({ open, onClose, legajoInicial }: {
   const [detalles, setDetalles] = useState<Record<string, { loading: boolean; data?: TramixDetalle; error?: string }>>({});
   const [showInfo, setShowInfo] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  // DGG-146 §6 (4b): generación de apertura — una consulta en vuelo de una
+  // apertura anterior (o del modal ya cerrado) NO puede escribir estado: sin
+  // esto, cerrar mid-fetch y reabrir precargaba el form "manual" con el
+  // legajo abandonado (hasta ~24s de ventana por el timeout+retry del edge).
+  const genRef = useRef(0);
   const { user } = useAuth();
   // F3: la clave "recordar último legajo" se scopea por USUARIO (no por navegador).
   const lsKey = useMemo(() => (user?.id ? lsKeyForUser(user.id) : null), [user?.id]);
+  // DGG-146 §6 (9): sólo el flujo del PORTAL (legajoInicial ausente) persiste el
+  // "último legajo". Desde el Inicio de gerencia (legajoInicial="") se consultan
+  // legajos de potenciales clientes que NO deben quedar guardados en la máquina
+  // del gerente (residuo de privacidad). Con prefill de trámite tampoco: el
+  // legajo ya viene de la ficha, no hace falta recordarlo.
+  const recordar = legajoInicial == null;
 
   // Busca un legajo concreto y muestra resultados (modo 'results').
   const buscar = useCallback(async (rawLegajo: string, force: boolean) => {
     const legajo = onlyDigits(rawLegajo);
     if (!legajo) { setMode('form'); setTimeout(() => inputRef.current?.focus(), 30); return; }
+    const gen = genRef.current;
     setMode('results');
     setLoading(true);
     setExpandido(null);
     setDetalles({});
     const r = await consultarTramix(legajo, force);
+    if (gen !== genRef.current) return; // el modal se cerró/reabrió: descartar
     setLoading(false);
     if (!r.ok) {
       setResp({ resultado: 'ERROR', legajo });
@@ -256,15 +269,17 @@ export function TramixConsultaModal({ open, onClose, legajoInicial }: {
     const used = r.data.legajo || legajo;
     setSearchedLegajo(used);
     setLegajoInput(used);
-    saveLast(lsKey, used);
+    if (recordar) saveLast(lsKey, used);
     if (force && r.data.resultado === 'OK') toast.success('Consulta actualizada');
-  }, [lsKey]);
+  }, [lsKey, recordar]);
 
   // Primera apertura sin legajo recordado: usa el de la ficha (server) o pide uno.
   const initFromFicha = useCallback(async () => {
+    const gen = genRef.current;
     setMode('results');
     setLoading(true);
     const r = await consultarTramix(undefined, false);
+    if (gen !== genRef.current) return; // el modal se cerró/reabrió: descartar
     setLoading(false);
     if (!r.ok) { setResp({ resultado: 'ERROR' }); return; }
     setResp(r.data);
@@ -279,15 +294,19 @@ export function TramixConsultaModal({ open, onClose, legajoInicial }: {
     }
     setSearchedLegajo(def);
     setLegajoInput(def);
-    saveLast(lsKey, def);
-  }, [lsKey]);
+    if (recordar) saveLast(lsKey, def);
+  }, [lsKey, recordar]);
 
   useEffect(() => {
+    // DGG-146 §6 (4b): cada transición open/close invalida lo que esté en vuelo.
+    genRef.current += 1;
     if (!open) return;
     setResp(null);
     setDetalles({});
     setExpandido(null);
     setShowInfo(false);
+    setLoading(false);
+    setSearchedLegajo('');
     // F3: purga one-time de la clave global vieja (limpia el legajo de test de QA
     // que pudo quedar en este navegador, compartido entre usuarios).
     try { localStorage.removeItem(LS_KEY_LEGACY); } catch { /* noop */ }
@@ -413,7 +432,9 @@ export function TramixConsultaModal({ open, onClose, legajoInicial }: {
                 </p>
               ) : (
                 <p className="mt-2 text-[11px] text-brand-muted">
-                  Lo autocompletamos desde tu ficha o tu última consulta. Podés editarlo y consultar cualquier legajo.
+                  {recordar
+                    ? 'Lo autocompletamos desde tu ficha o tu última consulta. Podés editarlo y consultar cualquier legajo.'
+                    : 'Ingresá el número de legajo RPAC que querés consultar.'}
                 </p>
               )}
             </div>
@@ -426,7 +447,7 @@ export function TramixConsultaModal({ open, onClose, legajoInicial }: {
             {/* Barra superior: campo legajo + Actualizar + Cambiar de legajo */}
             {r.resultado !== 'SIN_ADMIN' && (
               <form
-                onSubmit={(e) => { e.preventDefault(); if (legajoInput) buscar(legajoInput, true); }}
+                onSubmit={(e) => { e.preventDefault(); if (legajoInput) buscar(legajoInput, legajoInput === searchedLegajo); }}
                 className="rounded-xl border border-slate-200 bg-white p-2.5"
               >
                 <label htmlFor="tramix-legajo-bar" className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-brand-muted">

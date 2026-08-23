@@ -5199,3 +5199,46 @@ estado de cuenta — lo mismo para todos"*.
 - El cron sigue **DESAGENDADO** (0 filas en cron.job, verificado): se
   activa sólo con orden explícita de Pablo, tras revisar las plantillas
   `ofrecimiento-*`.
+
+## DGG-146 · Acceso libre a TRAMIX desde el Inicio de gerencia (2026-08-22)
+
+Pedido de Pablo: además del botón dentro de cada trámite (DGG-142 E6),
+un acceso directo e independiente en el dashboard de gerencia — caso de
+uso: **potenciales clientes que llaman a hacer consultas** y no tienen
+trámite abierto ni relación previa.
+
+- Botón "Mesa de Entradas PBA" en el header de `GerenciaHome` (mismo
+  componente, ícono y label que el del trámite — paridad E6).
+- Abre `TramixConsultaModal` con `legajoInicial=""`: formulario manual
+  directo, **sin heredar** el "último legajo consultado" de otro
+  contexto (semántica '' ≠ undefined definida en E6). Gerencia tipea el
+  legajo a mano — requisito explícito.
+- Cero backend nuevo: las edges `tramix-consulta` v9 y `tramix-doc-proxy`
+  v5 ya aceptan staff (gerente/operador) sin administración — la ruta
+  `/gerencia` permite exactamente esos dos roles (match verificado).
+- No duplica el sidebar (anti-patrón "Atajos" removido 2026-06-02):
+  TRAMIX no tiene ninguna otra entrada de navegación global.
+
+Doble §6 (3 agentes) — 1 crítico + 4 correctness cerrados en el chunk:
+- **#12 [E-GG-191] CRÍTICO** (mig 0452): el circuit-breaker global contaba
+  `PARSE_ERROR` (legajo inexistente/mal tipeado) como fallo de infra → 5
+  tipeos errados desde el Inicio abrían el breaker 10 min para TODA la
+  plataforma (clientes del portal incluidos). Fix: PARSE_ERROR fuera del
+  breaker; sólo TRAMIX_DOWN/TIMEOUT/ERROR/TC_BLOCKED lo abren. e2e R18.
+- **#4b** guard de generación (`genRef`) + reset de `loading`/`searchedLegajo`
+  en el modal compartido: cerrar mid-fetch y reabrir ya no precarga el legajo
+  abandonado en el form "manual".
+- **#9** el modal sólo persiste el "último legajo" en el flujo portal
+  (`legajoInicial == null`): desde el Inicio no queda residuo de privacidad
+  (legajo del potencial cliente) en la máquina del gerente.
+- **#16** la barra de resultados fuerza refresco (saltea cache) sólo si el
+  legajo no cambió; consultar otro legajo usa cache.
+- **#4** el modal se lazy-carga en GerenciaHome (era eager → viajaba en el
+  chunk de entrada de todos, portal incluido) + **#19** copy del form neutro
+  en contexto staff ("Ingresá el número…", no "desde tu ficha").
+- DECISIÓN DE PABLO PENDIENTE (no tocado, ops tradeoff): el gate se afinó
+  para 1 cliente con su legajo cacheado — staff barriendo legajos fríos
+  puede tocar el cap 30/h (copy dice "unos segundos", es 1 h) y el throttle
+  global de 3,5 s (abrir un detalle justo tras buscar → salvavidas en vez de
+  "esperá"). Subir límites para staff acerca el riesgo de que TRAMIX bloquee
+  la IP de la organización → es llamada de Pablo, no la tomo solo.

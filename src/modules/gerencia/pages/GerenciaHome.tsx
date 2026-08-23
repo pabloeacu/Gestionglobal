@@ -1,5 +1,15 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, lazy, Suspense } from 'react';
+import { Landmark } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { Button } from '@/components/common';
+// DGG-146 §6 (4): lazy — GerenciaHome es eager en el router; importar el modal
+// de forma directa lo metía en el chunk de entrada que descargan TODOS los
+// usuarios (incluidos clientes del portal). Con lazy sólo viaja al abrirlo.
+const TramixConsultaModal = lazy(() =>
+  import('@/modules/portal/components/TramixConsultaModal').then((m) => ({
+    default: m.TramixConsultaModal,
+  })),
+);
 import { ProximosVencimientosWidget } from '@/modules/vencimientos';
 import { MorososWidget } from '@/modules/cta_cte';
 import { ProximosSeguimientosWidget } from '@/modules/gerencia/components/ProximosSeguimientosWidget';
@@ -32,6 +42,10 @@ export function GerenciaHome() {
   const { user } = useAuth();
   const [kpis, setKpis] = useState<DashboardKpis | null>(null);
   const [loadingKpis, setLoadingKpis] = useState(true);
+  // DGG-146 · acceso libre a TRAMIX desde el Inicio: consultas de potenciales
+  // clientes que llaman sin trámite abierto. legajoInicial="" = formulario
+  // manual directo, sin heredar el "último legajo consultado" (semántica E6).
+  const [tramixOpen, setTramixOpen] = useState(false);
 
   const reload = useCallback(async () => {
     const res = await getDashboardGlobal(30);
@@ -52,14 +66,26 @@ export function GerenciaHome() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-8">
-      <header>
-        <p className="kicker text-brand-cyan">Inicio</p>
-        <h1 className="font-display text-3xl font-bold text-brand-ink sm:text-4xl">
-          Hola{user?.fullName ? `, ${user.fullName.split(' ')[0]}` : ''}.
-        </h1>
-        <p className="mt-2 text-brand-muted">
-          Todo el ecosistema en un solo panel. Elegí por dónde arrancar.
-        </p>
+      <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
+        <div>
+          <p className="kicker text-brand-cyan">Inicio</p>
+          <h1 className="font-display text-3xl font-bold text-brand-ink sm:text-4xl">
+            Hola{user?.fullName ? `, ${user.fullName.split(' ')[0]}` : ''}.
+          </h1>
+          <p className="mt-2 text-brand-muted">
+            Todo el ecosistema en un solo panel. Elegí por dónde arrancar.
+          </p>
+        </div>
+        {/* DGG-146 · consulta TRAMIX sin trámite: mismo botón que en el
+            detalle del trámite (E6), pero con legajo a mano — caso típico:
+            potencial cliente que llama a hacer una consulta. */}
+        <Button
+          variant="ghost"
+          onClick={() => setTramixOpen(true)}
+          title="Consultar un expediente en la Mesa de Entradas Virtual PBA (TRAMIX) — el legajo se ingresa a mano"
+        >
+          <Landmark className="h-4 w-4" /> Mesa de Entradas PBA
+        </Button>
       </header>
 
       {/* F7 (Lista JL · DGG-62): banner de solicitudes nuevas EN TIEMPO REAL,
@@ -119,6 +145,19 @@ export function GerenciaHome() {
       <section className="grid gap-6 lg:grid-cols-1">
         <ProximosSeguimientosWidget dias={7} limit={8} />
       </section>
+
+      {/* DGG-146 · legajoInicial="" (no undefined): formulario manual directo,
+          sin heredar el último legajo consultado de otro contexto. Sólo se
+          monta al abrir (chunk lazy) — inerte mientras tramixOpen=false. */}
+      {tramixOpen && (
+        <Suspense fallback={null}>
+          <TramixConsultaModal
+            open={tramixOpen}
+            onClose={() => setTramixOpen(false)}
+            legajoInicial=""
+          />
+        </Suspense>
+      )}
     </div>
   );
 }
