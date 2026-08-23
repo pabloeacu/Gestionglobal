@@ -5242,3 +5242,91 @@ Doble §6 (3 agentes) — 1 crítico + 4 correctness cerrados en el chunk:
   global de 3,5 s (abrir un detalle justo tras buscar → salvavidas en vez de
   "esperá"). Subir límites para staff acerca el riesgo de que TRAMIX bloquee
   la IP de la organización → es llamada de Pablo, no la tomo solo.
+
+## DGG-147 · El aviso de cierre aparece al TERMINAR la gracia, no al rendir el examen (2026-08-23)
+
+Pablo: "el aviso no tiene que estar cuando hacen el examen… cuando hacen el
+examen debe pasar a plazo de gracia y cuando termina ese plazo ENTONCES
+aparecer el aviso para cerrar el trámite".
+
+Estado previo: el asistente "Cerrar y programar próximo vencimiento"
+(TrackingDetailPage) aparecía con la matrícula en `completada` (label "Plazo
+de gracia") O en `vencida` — es decir, desde el momento del examen, durante
+toda la ventana de repaso.
+
+Cambio (front-only, DGG-147): el asistente aparece sólo cuando
+`estado='vencida'` (el cron `gg-campus-matriculas-vencer` la pasa a vencida
+al expirar `vigencia_hasta`) O `estado='completada' AND vigencia_hasta IS
+NULL` (curso sin ventana de repaso / matrícula grandfather previa al feature:
+el cron nunca las pasa a vencida, así que sin este caso perderían el
+asistente para siempre). Durante la gracia vigente ya NO aparece. El botón
+normal de cerrar sigue disponible siempre (no se quita la posibilidad de
+cerrar antes).
+
+- `MatriculaDeTramite` (campus.ts) suma `vigencia_hasta` al fetch/tipo.
+- Verificado en prod: 2 matrículas `completada` con gracia vigente (vence
+  26/08 y 07/09) → ahora ocultas (antes se mostraban); 0 `vencida`; 0
+  grandfather (el guard es defensivo). Cron activo diario → lag máx ~24h
+  entre fin de gracia y aparición del aviso (aceptable).
+- Aclaración de arquitectura (para el modelo mental): la matrícula llega a
+  "Completada" (interno 'vencida') SOLA por tiempo (cron al expirar la
+  gracia), no por la acción de cerrar el trámite. El cierre es el wrap-up
+  administrativo, en carril separado del estado de la matrícula.
+- §6 A1 (mig 0453): había un SEGUNDO canal que yo había pasado por alto — el
+  trigger `trg_matricula_completada_avisa` (mig 0437) SÍ manda campanita + push
+  + email a gerencia, y lo hacía al INICIO de la gracia (→completada) diciendo
+  "cerrá el trámite desde el detalle" → llevaba a un detalle sin el botón.
+  Reubicado: el aviso ahora dispara al FIN de la gracia (→vencida) o grandfather
+  sin vigencia — espejo EXACTO del gate del asistente. e2e: →completada con
+  gracia vigente = 0 avisos; →vencida = avisa; grandfather = avisa.
+- CORRECCIÓN de mi afirmación previa (era falsa): la finalización del curso SÍ
+  avisa por campanita+push+email (trigger 0437) — no es "sólo el asistente".
+  Lo que cambió es el TIMING (ahora al terminar la gracia, no al empezarla).
+- Precisión (§6 A4): `vigencia_hasta IS NULL` = matrícula grandfather previa al
+  feature; un "curso sin ventana de repaso" (dias_acceso_post=0) deja
+  vigencia_hasta = fecha de completado (no null), así que lo vence el cron.
+
+## DGG-148 · Matrícula/legajo obligatorios por INVARIANTE (2026-08-23, E-GG-192)
+
+Reporte JL: "un formulario que pudo avanzar sin datos que deberían ser
+obligatorios" (matrícula/legajo). Investigación (2 agentes): el caso García
+(basura autofill) YA estaba cerrado por E-GG-190 (digit-check) y hoy no hay
+hueco vivo (todos los campos matrícula/legajo son `required` en el schema).
+PERO había una **fragilidad latente (Gap A)**: el digit-check corre DESPUÉS de
+`if (empty) continue`, así que NO protege el blanco por sí solo — el blanco lo
+bloquea únicamente la marca `required`. Si el builder o una mig futura crea un
+campo matrícula/legajo sin `required`, vuelve el hueco de JL.
+
+Fix (runner `FormularioRunner.tsx` + edge `submit-formulario` v21): matrícula/
+legajo obligatorios por invariante — `(field.required || esCampoMatriculaLegajo)
+&& empty → requerido`. Corren DESPUÉS del skip de campos ocultos (PF/PJ no se
+fuerzan). §6 B3: el matcher se acotó a `type='text'` — antes pegaba en radios
+("¿A nombre de quién está la matrícula?" → "Persona física") y el digit-check
+los rechazaba con "tiene que incluir el número" (bug pre-existente de E-GG-190,
+latente: 0 envíos desde el 22/08; ahora cerrado). Aclaración a Pablo: el
+"Formulario de Inscripción" del reporte es `curso-actualizacion` (inscripción
+al curso); `matriculacion-rpac` no tiene esos campos por diseño.
+
+## DGG-149 · Gerencia puede enviar archivos al cliente durante el trámite (2026-08-23)
+
+Reporte JL: "no se puede hacer desde el Sistema un nuevo envío con los adjuntos
+que no le llegaron [al cliente] o con alguna otra cosa que se le deba pedir…
+una vez iniciado el trámite". Investigación: el hueco real era que gerencia
+**no podía subir un archivo de su equipo y mandárselo al cliente** — el único
+camino visible al cliente (AgregarLineaDrawer) aceptaba URLs pegadas, no
+archivos; todo upload (drag&drop) era interno.
+
+Fix (front-only, 0 backend): file-picker en AgregarLineaDrawer (patrón de
+AvisarGestoria) que sube por `subirAdjuntoTracking` (bucket gestor-uploads,
+R20 safeStorageKey) y pasa las URLs como `archivos_urls`. Con "¿El cliente lo
+ve?" tildado, el trigger + mig 0430 adjuntan los archivos reales al email del
+cliente automáticamente. e2e: línea visible con adjunto → `tracking-avance-
+cliente` al cliente con `ficha_rpac.pdf` en attachments_jsonb. §6: subida al
+guardar (anti-huérfanos), cache de retry, tope 4,5 MB (límite del email),
+limpieza al cerrar (C6) y al pasar a "requiere respuesta" (C13).
+
+Aclaración a Pablo: la capacidad de PEDIRLE algo nuevo al cliente durante el
+trámite YA existe (PedidosDocPanel en Resumen + checkbox "El cliente debe
+responder o adjuntar algo" en el drawer → portal + push + email). "A excepción
+del wizard no se puede pedir" no es exacto — lo que faltaba era el adjunto
+SALIENTE (mandarle un archivo nuestro), que es lo que DGG-149 agrega.

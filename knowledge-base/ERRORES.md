@@ -5640,3 +5640,33 @@ Antes de exponer una superficie nueva que cambia el patrón de tráfico (acá:
 de "1 legajo caliente por cliente" a "N legajos fríos por staff"), revisar
 que los gates/topes/breakers pensados para el patrón viejo no se vuelvan
 hostiles con el nuevo.
+
+## E-GG-192 · matrícula/legajo: blanco sólo bloqueado por `required` (fragilidad) + matcher que pegaba en radios (2026-08-23, DGG-148)
+
+**Contexto:** reporte JL de "formulario que avanzó sin datos obligatorios".
+El caso concreto (García, autofill "Buenos Aires") ya estaba cerrado por
+E-GG-190. Pero la auditoría encontró dos problemas de diseño en el mismo
+mecanismo:
+
+1. **Fragilidad (Gap A):** el digit-check de E-GG-190 (`!/\d/` → error) corre
+   DESPUÉS de `if (empty) continue` en runner y edge, así que NO valida el
+   valor vacío. El blanco lo bloqueaba SÓLO la marca `required` del campo. Un
+   campo matrícula/legajo creado sin `required` (builder/mig futura) volvería
+   a dejar pasar el envío en blanco — el temor exacto de JL. Fix: obligatorio
+   por invariante `(field.required || esCampoMatriculaLegajo) && empty`.
+
+2. **Matcher demasiado amplio (§6 B3):** `/matr[íi]cula|legajo/i` sobre
+   name+label pegaba en RADIOS cuyo label contiene la palabra —
+   `tipo_persona_solicitante` "¿A nombre de quién está la matrícula?"
+   (certificado-rpac, renovacion-rpac) con opciones "Persona física/jurídica",
+   y `eventos.rol` "¿Sos administrador matriculado?" con "no". El digit-check
+   los rechazaba con "tiene que incluir el número" → bloqueaba esas formas.
+   Latente (0 envíos desde que E-GG-190 shipeó, 2026-08-22) pero real. Fix: el
+   matcher exige `type='text'` (el identificador), excluyendo radio/select.
+
+**Lección:** (a) una validación de "formato" ubicada tras el short-circuit del
+vacío NO es defensa del "requerido" — si el invariante es "siempre presente y
+con formato", el check de presencia debe ser independiente de la config. (b)
+Un matcher por substring de label es frágil: "matrícula/matriculado" aparece en
+preguntas que NO son el número. Acotar por tipo de campo (o marca explícita en
+el schema), no sólo por texto.

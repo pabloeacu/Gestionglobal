@@ -724,9 +724,16 @@ export function TrackingDetailPage() {
           en una operación (cerrar trámite → programar próximo vencimiento).
           §6: el salto del confirm genérico de handleCerrar es DELIBERADO — el
           banner ya provee el contexto, y el CerrarTramiteDialog (motivo +
-          constancia obligatorios) garantiza el cierre consciente igual. */}
+          constancia obligatorios) garantiza el cierre consciente igual.
+          DGG-147 (Pablo): el aviso NO aparece durante el plazo de gracia —
+          ese no es el momento de cerrar el trámite. Aparece cuando la gracia
+          TERMINÓ ('vencida', que el cron setea al expirar vigencia_hasta) o
+          cuando NO hay ventana de gracia ('completada' sin vigencia_hasta:
+          curso sin repaso posterior o matrícula grandfather; el cron nunca
+          las pasa a 'vencida', así que sin este caso perderían el asistente). */}
       {isStaff && matVinculada
-        && (matVinculada.estado === 'completada' || matVinculada.estado === 'vencida')
+        && (matVinculada.estado === 'vencida'
+            || (matVinculada.estado === 'completada' && !matVinculada.vigencia_hasta))
         && data.estado !== 'cerrado' && data.estado !== 'cancelado' && (
         <section className="rounded-3xl border border-brand-cyan/40 bg-brand-cyan/5 p-4 sm:p-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -737,9 +744,9 @@ export function TrackingDetailPage() {
                   El alumno completó «{matVinculada.curso_titulo}»
                 </p>
                 <p className="text-sm text-brand-muted">
-                  {matVinculada.estado === 'completada'
-                    ? 'Está en su plazo de gracia. '
-                    : 'Su plazo de gracia ya finalizó. '}
+                  {matVinculada.estado === 'vencida'
+                    ? 'Su plazo de gracia ya finalizó. '
+                    : ''}
                   Cerrá el trámite y programá el próximo vencimiento en un solo paso.
                 </p>
               </div>

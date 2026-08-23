@@ -1,14 +1,28 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { Paperclip, X as XIcon, Loader2 } from 'lucide-react';
 import { toast } from '@/lib/toast';
 import { Drawer, Button, Field, Select, Textarea } from '@/components/common';
 import {
   agregarLinea,
+  subirAdjuntoTracking,
   type TrackingCategoriaConfigRow,
   type TrackingEstadoConfigRow,
 } from '@/services/api/trackings';
 import { crearPedidoDoc } from '@/services/api/tramitePedidosDoc';
 import { humanizeError } from '@/lib/errors';
 import { addDiasHabiles } from '@/lib/diasHabiles';
+import { motivoRechazoAdjunto, type LimitesAdjunto } from '@/lib/adjuntos';
+
+// DGG-149 (hueco JL): gerencia no podía SUBIR un archivo de su equipo y
+// enviárselo al cliente durante el trámite — el único camino visible aceptaba
+// URLs pegadas. Con este file-picker, una línea visible con adjuntos le llega
+// al cliente por email (el trigger + mig 0430 adjuntan los archivos reales de
+// `gestor-uploads` automáticamente; cero backend nuevo). Tope = el del email
+// (el despachador corta ~5,25 MB TOTALES y omite el excedente en silencio).
+const MAX_TOTAL_MB = 4.5;
+const MAX_ADJUNTOS = 10;
+const LIMITES: LimitesAdjunto = { maxMB: MAX_TOTAL_MB };
+interface ArchivoItem { id: string; file: File; url?: string }
 
 export interface AgregarLineaDrawerProps {
   open: boolean;
@@ -33,6 +47,7 @@ export function AgregarLineaDrawer({
   const [descripcion, setDescripcion] = useState('');
   const [estadoAsociado, setEstadoAsociado] = useState<string>('');
   const [archivosTxt, setArchivosTxt] = useState('');
+  const [archivos, setArchivos] = useState<ArchivoItem[]>([]);
   const [alertaEn, setAlertaEn] = useState('');
   const [visibleCliente, setVisibleCliente] = useState(false);
   // Doc JL 2026-07-12 (hilo "línea de avance" + caso "Número de Legajo"): si
@@ -48,15 +63,48 @@ export function AgregarLineaDrawer({
   const [alarmaPedidoDias, setAlarmaPedidoDias] = useState('');
   const [saving, setSaving] = useState(false);
 
+  // §6 DGG-149 (C6): el drawer está siempre montado (sin key). Sin esto, elegir
+  // archivos, cerrar sin guardar y reabrir dejaba los adjuntos staged del intento
+  // anterior — y podían enviarse al cliente sin querer. Al cerrar, se descartan.
+  useEffect(() => { if (!open) setArchivos([]); }, [open]);
+
   function reset() {
     setCategoria(categorias[0]?.slug ?? 'seguimiento_interno');
     setDescripcion('');
     setEstadoAsociado('');
     setArchivosTxt('');
+    setArchivos([]);
     setAlertaEn('');
     setVisibleCliente(false);
     setRequiereRespuesta(false);
     setAlarmaPedidoDias('');
+  }
+
+  // DGG-149: staging (sin subir todavía — la subida es al guardar, evita
+  // huérfanos como E-GG-177). Tope total = límite del email (visible=true).
+  function onFilesPicked(fl: FileList | null) {
+    if (!fl || fl.length === 0) return;
+    const nuevos: ArchivoItem[] = [];
+    for (const f of Array.from(fl)) {
+      const motivo = motivoRechazoAdjunto(f, LIMITES);
+      if (motivo) { toast.error(motivo); continue; }
+      nuevos.push({ id: crypto.randomUUID(), file: f });
+    }
+    setArchivos((prev) => {
+      let merged = [...prev, ...nuevos];
+      if (merged.length > MAX_ADJUNTOS) {
+        toast.error(`Hasta ${MAX_ADJUNTOS} archivos`);
+        merged = merged.slice(0, MAX_ADJUNTOS);
+      }
+      while (
+        merged.reduce((acc, x) => acc + x.file.size, 0) > MAX_TOTAL_MB * 1024 * 1024 &&
+        merged.length > prev.length
+      ) {
+        toast.error(`Los adjuntos no pueden superar ${MAX_TOTAL_MB} MB en total (límite del email)`);
+        merged = merged.slice(0, -1);
+      }
+      return merged;
+    });
   }
 
   async function handleSave() {
@@ -108,10 +156,29 @@ export function AgregarLineaDrawer({
       return;
     }
 
-    const urls = archivosTxt
+    // DGG-149: subir los archivos staged a gestor-uploads. Cache incremental:
+    // si falla el 3º, el retry salta los ya subidos (sin duplicar). Un archivo
+    // subido sin línea (si agregarLinea falla después) queda como huérfano en
+    // gestor-uploads — el cron E-GG-177 lo DETECTA y avisa a gerencia (no lo
+    // borra); es cruft acotado en un bucket privado, sin fuga.
+    const conUrl: ArchivoItem[] = [];
+    for (const a of archivos) {
+      if (a.url) { conUrl.push(a); continue; }
+      const up = await subirAdjuntoTracking(trackingId, a.file);
+      if (!up.ok) {
+        setArchivos((prev) => prev.map((x) => conUrl.find((c) => c.id === x.id) ?? x));
+        setSaving(false);
+        toast.error(`No pudimos subir "${a.file.name}"`, { description: humanizeError(up.error) });
+        return;
+      }
+      conUrl.push({ ...a, url: up.data });
+    }
+
+    const urlsPegadas = archivosTxt
       .split('\n')
       .map((s) => s.trim())
       .filter((s) => s.length > 0);
+    const urls = [...conUrl.map((c) => c.url!).filter(Boolean), ...urlsPegadas];
     const res = await agregarLinea(trackingId, {
       categoria,
       descripcion: descripcion.trim(),
@@ -125,7 +192,11 @@ export function AgregarLineaDrawer({
       toast.error(humanizeError(res.error));
       return;
     }
-    toast.success('Línea agregada');
+    toast.success(
+      visibleCliente && urls.length > 0
+        ? 'Línea agregada y enviada al cliente con los adjuntos'
+        : 'Línea agregada',
+    );
     reset();
     onSaved();
     onClose();
@@ -170,6 +241,13 @@ export function AgregarLineaDrawer({
               // §6 DGG-133: al destildar se limpia el N de días — el drawer no se
               // desmonta al cerrar y un valor viejo re-crearía la alarma sin querer.
               if (!e.target.checked) setAlarmaPedidoDias('');
+              // §6 DGG-149 (C#13): este modo oculta el file-picker; si había
+              // archivos elegidos, se descartarían en silencio. Los limpiamos y
+              // avisamos (en este modo los adjunta el CLIENTE, no gerencia).
+              if (e.target.checked && archivos.length > 0) {
+                setArchivos([]);
+                toast.info('Quitamos los archivos elegidos: en este modo los adjunta el cliente al responder.');
+              }
             }}
             className="mt-0.5 h-4 w-4 cursor-pointer rounded border-slate-300 text-amber-600 focus:ring-amber-500"
           />
@@ -224,9 +302,63 @@ export function AgregarLineaDrawer({
 
         {!requiereRespuesta && (
           <>
-            <Field label="Adjuntos (1 URL por línea, opcional)">
+            {/* DGG-149 · adjuntar archivos de NUESTRO equipo para enviarle al
+                cliente. Si "¿El cliente lo ve?" está tildado, viajan en el email. */}
+            <Field
+              label="Adjuntar archivos (opcional)"
+              hint="Si tildás «¿El cliente lo ve?», estos archivos le llegan adjuntos en el email."
+            >
+              <div className="rounded-xl border border-dashed border-cyan-300 bg-white p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="inline-flex items-center gap-1 text-xs font-semibold text-cyan-700">
+                    <Paperclip size={12} /> Archivos{archivos.length > 0 ? ` (${archivos.length})` : ''}
+                  </span>
+                  <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-cyan-50 px-3 py-1.5 text-xs font-medium text-cyan-700 transition hover:bg-cyan-100">
+                    <Paperclip size={12} /> Agregar archivo
+                    <input
+                      type="file"
+                      multiple
+                      className="sr-only"
+                      disabled={saving}
+                      onChange={(e) => { onFilesPicked(e.target.files); e.target.value = ''; }}
+                    />
+                  </label>
+                </div>
+                {archivos.length > 0 ? (
+                  <ul className="mt-2 space-y-1.5">
+                    {archivos.map((a) => (
+                      <li key={a.id} className="flex items-center justify-between gap-2 rounded-lg bg-slate-50 px-2.5 py-1.5 text-xs">
+                        <span className="flex min-w-0 items-center gap-1.5">
+                          <Paperclip size={11} className="shrink-0 text-cyan-600" />
+                          <span className="truncate text-slate-800">{a.file.name}</span>
+                          <span className="shrink-0 text-slate-500">({Math.max(1, Math.round(a.file.size / 1024))} KB)</span>
+                        </span>
+                        <span className="flex items-center gap-2">
+                          {saving && !a.url ? <Loader2 size={11} className="animate-spin text-slate-400" /> : null}
+                          <button
+                            type="button"
+                            disabled={saving}
+                            onClick={() => setArchivos((prev) => prev.filter((x) => x.id !== a.id))}
+                            className="rounded p-0.5 text-slate-400 hover:bg-slate-200 hover:text-slate-700"
+                            aria-label="Quitar"
+                          >
+                            <XIcon size={11} />
+                          </button>
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="mt-1 text-xs text-slate-500">
+                    Opcional (hasta {MAX_ADJUNTOS}, {MAX_TOTAL_MB} MB en total). Se suben al guardar.
+                  </p>
+                )}
+              </div>
+            </Field>
+
+            <Field label="…o pegá una URL (1 por línea, opcional)">
               <Textarea
-                rows={3}
+                rows={2}
                 value={archivosTxt}
                 onChange={(e) => setArchivosTxt(e.target.value)}
                 placeholder="https://…"

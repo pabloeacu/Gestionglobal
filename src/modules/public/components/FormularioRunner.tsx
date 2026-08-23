@@ -87,7 +87,14 @@ const MAX_TOTAL_ADJUNTOS_BYTES = MAX_TOTAL_ADJUNTOS_MB * 1024 * 1024;
 function esCampoMatriculaLegajo(field: {
   name?: string | null;
   label?: string | null;
+  type?: string | null;
 }): boolean {
+  // §6 B3 (DGG-148): sólo campos de TEXTO libre (el identificador). Sin este
+  // gate el regex pegaba en radios cuyo label contiene "matrícula/matriculado"
+  // (ej. "¿A nombre de quién está la matrícula?" → "Persona física", o "¿Sos
+  // administrador matriculado?" → "no") y el digit-check los rechazaba con
+  // "tiene que incluir el número", rompiendo certificado-rpac/renovacion-rpac.
+  if (field.type && field.type !== 'text') return false;
   const hay = (s?: string | null) => !!s && /matr[íi]cula|legajo/i.test(s);
   return hay(field.name) || hay(field.label);
 }
@@ -407,7 +414,13 @@ export function FormularioRunner({
           val === null ||
           val === '' ||
           (Array.isArray(val) && val.length === 0);
-        if (field.required && empty) {
+        // DGG-148 (E-GG-192): matrícula/legajo son OBLIGATORIOS por INVARIANTE,
+        // no por config. El digit-check de E-GG-190 corre DESPUÉS del
+        // `if (empty) continue`, así que no protege el blanco por sí solo — hoy
+        // el blanco lo bloquea sólo la marca `required`. Si un form (o el
+        // builder) crea un campo matrícula/legajo sin `required`, el envío en
+        // blanco volvería a pasar en silencio (el temor de JL). Este OR lo cierra.
+        if ((field.required || esCampoMatriculaLegajo(field)) && empty) {
           errors.push(`${field.label}: requerido`);
           continue;
         }

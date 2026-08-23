@@ -271,7 +271,16 @@ Deno.serve(async (req) => {
         }
         continue;
       }
-      if (field.required && empty) { validationErrors.push(`${field.label}: requerido`); continue; }
+      // DGG-148 (E-GG-192): matrícula/legajo obligatorios por INVARIANTE, no
+      // por config (espejo del runner). El digit-check de más abajo corre sólo
+      // con valor no vacío, así que sin este OR un campo matrícula/legajo sin
+      // `required` dejaría pasar el envío en blanco (la fragilidad de JL).
+      // §6 B3: sólo campos de TEXTO — sin este gate el regex pegaba en radios
+      // ("¿A nombre de quién está la matrícula?" → "Persona física") y el
+      // digit-check los rechazaba, rompiendo certificado-rpac/renovacion-rpac.
+      const esMatrLegajo = (!field.type || field.type === "text") &&
+        /matr[íi]cula|legajo/i.test(`${field.name ?? ""} ${field.label ?? ""}`);
+      if ((field.required || esMatrLegajo) && empty) { validationErrors.push(`${field.label}: requerido`); continue; }
       if (empty) continue;
       if (field.type === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(val))) {
         validationErrors.push(`${field.label}: email inválido`);
@@ -298,11 +307,7 @@ Deno.serve(async (req) => {
       // satisfecho con basura (caso García 21/08). Espejo del runner: sin
       // NINGÚN dígito se rechaza. No se exige sólo-números porque hay
       // matrículas reales con siglas ("832 AVN y 797 ACP").
-      if (
-        field.type !== "number" &&
-        /matr[íi]cula|legajo/i.test(`${field.name ?? ""} ${field.label ?? ""}`) &&
-        !/\d/.test(String(val))
-      ) {
+      if (esMatrLegajo && !/\d/.test(String(val))) {
         validationErrors.push(`${field.label}: tiene que incluir el número (ej.: 1503)`);
       }
     }

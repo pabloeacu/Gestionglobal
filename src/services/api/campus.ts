@@ -1339,6 +1339,10 @@ export interface MatriculaDeTramite {
   estado: MatriculaEstado;
   curso_id: string;
   curso_titulo: string;
+  // DGG-147: fecha de fin del plazo de gracia (null = curso sin ventana de
+  // repaso, o matrícula grandfather previa al feature). Gobierna cuándo el
+  // asistente de cierre aparece (sólo con la gracia terminada o inexistente).
+  vigencia_hasta: string | null;
 }
 
 /** E2 (§6 E1 GAP R14): desvincula la matrícula de su trámite (tramite_id →
@@ -1367,7 +1371,7 @@ export async function fetchMatriculaDeTramite(
 ): Promise<ApiResponse<MatriculaDeTramite | null>> {
   const { data, error } = await supabase
     .from('curso_matriculas')
-    .select('id, estado, curso_id, cursos:curso_id(titulo)')
+    .select('id, estado, curso_id, vigencia_hasta, cursos:curso_id(titulo)')
     .eq('tramite_id', tramiteId)
     // §6 DGG-142: determinismo si N matrículas comparten trámite — gana la
     // más reciente (semántica "vigente").
@@ -1378,6 +1382,7 @@ export async function fetchMatriculaDeTramite(
   if (!data) return ok(null);
   const row = data as unknown as {
     id: string; estado: MatriculaEstado; curso_id: string;
+    vigencia_hasta: string | null;
     cursos: { titulo: string } | null;
   };
   return ok({
@@ -1385,6 +1390,7 @@ export async function fetchMatriculaDeTramite(
     estado: row.estado,
     curso_id: row.curso_id,
     curso_titulo: row.cursos?.titulo ?? 'Curso',
+    vigencia_hasta: row.vigencia_hasta,
   });
 }
 

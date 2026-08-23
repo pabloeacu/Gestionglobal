@@ -157,6 +157,26 @@ Recorrido punta a punta logueado sobre la URL de Vercel. **Cobertura amplia** de
 
 ## 2. Trabajo en curso AHORA
 
+**DGG-147/148/149 · 3 frentes de Pablo+JL (2026-08-23, migs 0453 + edge v21 +
+front).** Doble §6 (corrección + refutación) con 2 CONFIRMADA-ROMPE cerradas:
+- **DGG-147 (cierre al fin de gracia):** el asistente de cierre + el AVISO
+  proactivo (trigger 0437, campanita+push+email) ya NO disparan al rendir el
+  examen. §6 A1 destapó que yo sólo había tocado el asistente visual; el aviso
+  real (0437) seguía saliendo al INICIO de la gracia diciendo "cerrá desde el
+  detalle" → llevaba a un detalle sin botón. Mig 0453 lo reubica al FIN de la
+  gracia (→vencida) o grandfather, espejo del gate del asistente. e2e OK.
+  Corregí mi afirmación previa (falsa): la finalización SÍ avisa por los 3
+  canales; cambió el timing, no los canales.
+- **DGG-148/E-GG-192 (matrícula/legajo obligatorios por invariante):** el caso
+  García ya estaba cerrado (E-GG-190) pero quedaba una fragilidad (el blanco
+  sólo lo frenaba `required`) → ahora obligatorios por invariante en runner +
+  edge v21. §6 B3: el matcher se acotó a `type=text` (antes rechazaba radios
+  como "Persona física" en certificado/renovacion-rpac — bug latente cerrado).
+- **DGG-149 (enviar archivos al cliente durante el trámite):** file-picker en
+  la línea de avance (0 backend); con "el cliente lo ve", la mig 0430 adjunta
+  los archivos al email. e2e: adjunto real al cliente. La capacidad de PEDIR
+  ya existía (PedidosDocPanel) — se aclara a Pablo.
+
 **DGG-146 · Acceso libre a TRAMIX desde el Inicio de gerencia (2026-08-22).**
 Pedido de Pablo: botón "Mesa de Entradas PBA" en el header de `GerenciaHome`
 (mismo botón/ícono que el del trámite, paridad E6) que abre
