@@ -79,8 +79,10 @@ export function GerenciaHome() {
         {/* DGG-146 · consulta TRAMIX sin trámite: mismo botón que en el
             detalle del trámite (E6), pero con legajo a mano — caso típico:
             potencial cliente que llama a hacer una consulta. */}
+        {/* DGG-146 §UI: `tonal` (cyan suave + ring) — parecía título con
+            `ghost` (sólo texto). Es un acceso secundario, no el CTA primario. */}
         <Button
-          variant="ghost"
+          variant="tonal"
           onClick={() => setTramixOpen(true)}
           title="Consultar un expediente en la Mesa de Entradas Virtual PBA (TRAMIX) — el legajo se ingresa a mano"
         >
