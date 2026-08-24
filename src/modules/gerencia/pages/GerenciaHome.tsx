@@ -79,10 +79,16 @@ export function GerenciaHome() {
         {/* DGG-146 · consulta TRAMIX sin trámite: mismo botón que en el
             detalle del trámite (E6), pero con legajo a mano — caso típico:
             potencial cliente que llama a hacer una consulta. */}
-        {/* DGG-146 §UI: `tonal` (cyan suave + ring) — parecía título con
-            `ghost` (sólo texto). Es un acceso secundario, no el CTA primario. */}
+        {/* DGG-146 §UI (fix Pablo 2026-08-24): `primary` (bg-brand-cyan sólido).
+            El `tonal` previo usaba `bg-cyan-100` → queda FUERA del selector D.5
+            del tema gg-brand (`:where(.bg-brand-cyan, …)`), así que no recibía ni
+            Oswald-mayúsculas ni el hover de offset duro → se veía lavado y no como
+            "nuestro botón". `primary` sí entra en D.5 y, con A.2 aplanando el
+            radio, renderiza esquinas rectas + Oswald MAYÚSCULAS + cyan sólido:
+            la "forma nueva" de la marca (idéntico al botón ACTIVAR). Ver
+            memoria `feedback_canon_boton_marca`. */}
         <Button
-          variant="tonal"
+          variant="primary"
           onClick={() => setTramixOpen(true)}
           title="Consultar un expediente en la Mesa de Entradas Virtual PBA (TRAMIX) — el legajo se ingresa a mano"
         >
