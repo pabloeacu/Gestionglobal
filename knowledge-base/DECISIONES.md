@@ -5330,3 +5330,22 @@ trámite YA existe (PedidosDocPanel en Resumen + checkbox "El cliente debe
 responder o adjuntar algo" en el drawer → portal + push + email). "A excepción
 del wizard no se puede pedir" no es exacto — lo que faltaba era el adjunto
 SALIENTE (mandarle un archivo nuestro), que es lo que DGG-149 agrega.
+
+## DGG-146 addendum (2026-08-24) · Botón "Mesa de Entradas PBA" con la forma de marca
+
+Pablo rechazó el `variant="tonal"` que había puesto en el botón del Inicio:
+se veía lavado/pálido y "no como nuestro botón" ("atenta contra la estética…
+nuestros botones tienen la forma nueva!!!"). **Canon estético capitalizado**:
+el botón de marca del tema gg-brand (DGG-136) NO se logra con `tonal`
+(`bg-cyan-100`), porque esa clase queda FUERA del selector D.5 de
+`gg-theme.css` (`:is(button,a):where(.bg-brand-cyan, .bg-brand-ink, …)`) — no
+recibe ni Oswald-MAYÚSCULAS ni el hover de offset duro ni el chamfer del
+sólido; sólo el aplanado de radio (A.2). Se logra con **`variant="primary"`**
+(`bg-brand-cyan text-white`): entra en D.5 → esquinas rectas + bisel (chamfer
++ puntita) + Oswald MAYÚSCULAS blanco + hover 3px = la "forma nueva",
+idéntica al botón ACTIVAR. Fix: `tonal` → `primary` en `GerenciaHome.tsx`.
+Regla de dedo para futuro: "que luzca como nuestro botón" ⇒ `primary`
+(sólido) o `secondary` (borde), **nunca** `tonal`/`ghost`.
+Verificación: prueba fiel con el CSS compilado de prod (Tailwind + gg-theme)
+bajo `data-theme="gg-brand"` — el `primary` renderiza pixel-idéntico al
+ACTIVAR de referencia (desktop y mobile 360px).
