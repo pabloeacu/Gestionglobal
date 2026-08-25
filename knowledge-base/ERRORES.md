@@ -5670,3 +5670,46 @@ con formato", el check de presencia debe ser independiente de la config. (b)
 Un matcher por substring de label es frágil: "matrícula/matriculado" aparece en
 preguntas que NO son el número. Acotar por tipo de campo (o marca explícita en
 el schema), no sólo por texto.
+
+## E-GG-193 · TRAMIX: la consulta de expedientes mostraba sólo la 1ª página (10 de N) (2026-08-25, reporte JL, legajo 282055)
+
+**Síntoma (reporte JL, ejemplo concreto):** el modal "Mesa de Entradas Virtual
+PBA" de un cliente con muchos expedientes mostraba sólo los primeros 10. El
+sitio real de PBA lista el legajo 282055 (Alberto Alejandro Arturo Guinis) en
+**2 páginas** (10 + 3 = 13 expedientes); nuestra ventana cortaba en los 10 de
+la página 1 y perdía EXP 53921/25, 77029/26 y 102926/26.
+
+**Causa raíz:** `tramix-consulta` hacía UN solo `GET /QueryExped?...&orderBy=LEGAJO`
++ un solo `parseResults()` (`index.ts:207-209`). `QueryExped` **pagina de a 10**
+con enlaces "Anterior/Siguiente"; nunca se seguía el "Siguiente". El bug era
+**silencioso**: la página 1 se autorreporta "Se han encontrado 10 expedientes
+que coinciden" y parseábamos 10 → `count === expedientes.length` → sin PARSE_ERROR,
+parecía completo. Latente hasta que un cliente con >10 expedientes lo notó.
+
+**Fix (edge, sin migración):** helper `parseNextHref()` extrae el `<a>` cuyo
+href contiene `direccion=SIGUIENTE`, y un loop en CONSULTAR sigue "Siguiente"
+acumulando expedientes de todas las páginas (dedupe por `o:n:a`), con guard de
+25 páginas y degradación graciosa (si una página falla, devuelve lo acumulado —
+mejor que perder todo). **Dos gotchas del scraping que costaron el fix:**
+1. El href de "Siguiente" arrastra el estado de la página previa **sin
+   URL-encodear** (`denominacionInicial=ALBERTO ALEJANDRO ARTURO GUINIS`,
+   `numeroInicial=EXP/225943/23`) → espacios literales que hacen fallar
+   `fetch()`/curl con "URL malformed". Hay que `.replace(/ /g,'%20')` antes de
+   seguirlo.
+2. El href es `/TRAMIX/QueryExped?...` (path absoluto). Resolverlo con `BASE +
+   path` duplicaría el `/TRAMIX` → hay que usar `ORIGIN` (host:port sin
+   `/TRAMIX`), como ya hacía el manejo de redirects en `hit()`.
+
+**Verificación:** algoritmo simulado sobre el HTML real de ambas páginas (10 +
+3 → 13 únicos; `parseNextHref` sólo dispara en pág. 1). Deploy (v10) + e2e en
+vivo contra la edge desplegada con un gerente QA efímero: `legajo 282055,
+force:true` → `resultado OK, 13 expedientes, 1365ms`. Guinis es cliente real
+→ su `tramix_cache` quedó pre-cargado correcto y completo. QA a 0 (0 users
+`@gestionglobal.qa`, 2 gerentes reales intactos).
+
+**Lección:** al scrapear un sistema legado paginado, la señal "página se
+autorreporta N y parseé N" NO significa "traje todo" — N puede ser el conteo
+de ESA página. La completitud se garantiza siguiendo la paginación hasta
+agotarla, no comparando contra un contador local. Y todo href generado por el
+servidor puede venir sin encodear: normalizar (espacios→%20, resolver contra
+el origen) antes de seguirlo.

@@ -13,6 +13,7 @@ import { DOMParser, type Element } from "jsr:@b-fuze/deno-dom";
 // ============================================================================
 
 const BASE = Deno.env.get("TRAMIX_BASE_URL") ?? "http://tramix.persjuri.gba.gov.ar:8080/TRAMIX";
+const ORIGIN = BASE.replace(/\/TRAMIX$/, ""); // origen host:port, para resolver hrefs "/TRAMIX/..." sin duplicar el path
 const UA = "GestionGlobal-PortalClientes/1.0 (consulta informativa de expedientes; +https://gestionglobal.ar)";
 const TIMEOUT_MS = 12000;
 const CACHE_FRESH_MS = 15 * 60 * 1000;
@@ -73,6 +74,17 @@ function parseResults(html: string) {
     expedientes.push({ legajo: at(-1), numero: clean(a.textContent || ""), alcance: at(1), denominacion: at(2), tramite: at(3), estado: at(4), fecha: at(5), detalle_ref: ref });
   }
   return { count, expedientes };
+}
+
+// QueryExped pagina de a 10. El enlace "Siguiente" lleva el estado de la página
+// previa en el querystring SIN URL-encodear (espacios y '/' literales), por eso
+// hay que %20-escaparlo antes de seguirlo. Devuelve el href o null (última página).
+function parseNextHref(html: string): string | null {
+  const doc = new DOMParser().parseFromString(html, "text/html"); if (!doc) return null;
+  for (const a of [...doc.querySelectorAll('a[href*="direccion=SIGUIENTE"]')] as Element[]) {
+    if (clean(a.textContent || "").toLowerCase().includes("siguiente")) { const h = a.getAttribute("href"); if (h) return h; }
+  }
+  return null;
 }
 const DET_LABELS = ["Legajo", "Domicilio", "Partido", "Expediente Nº", "Ingresado el", "Tipo de trámite", "Trámites", "Ubicación actual", "Estado", "Nro.de Resolución", "Fecha de Resolución"];
 function matchLabel(t: string) { const tl = t.toLowerCase(); for (const L of DET_LABELS) { const lc = L.toLowerCase(); if (tl === lc + ":" || tl === lc) return { key: L, inline: "" }; if (tl.startsWith(lc + ":")) return { key: L, inline: t.slice(L.length + 1).trim() }; } return null; }
@@ -196,6 +208,22 @@ Deno.serve(async (req) => {
       if (looksTC(r.body)) { cookie = await getCookie(svc, true); r = await hit(`/QueryExped?${qs}`, { cookie, follow: true }); if (looksTC(r.body)) { await svc.rpc("tramix_record", { p_user: user.id, p_administracion: adminId, p_legajo: legajo, p_resultado: "TC_BLOCKED" }); return cache ? okList(cache.payload, { desde_cache: true, consultado_at: cache.consultado_at, throttle_note: "TC_BLOCKED" }) : json({ resultado: "TC_BLOCKED", legajo, legajo_default: legajoDefault }); } }
       const p = parseResults(r.body);
       if (!p.expedientes.length && p.count !== 0) { await svc.rpc("tramix_record", { p_user: user.id, p_administracion: adminId, p_legajo: legajo, p_resultado: "PARSE_ERROR" }); return cache ? okList(cache.payload, { desde_cache: true, consultado_at: cache.consultado_at, throttle_note: "PARSE_ERROR" }) : json({ resultado: "PARSE_ERROR", legajo, legajo_default: legajoDefault }); }
+      // Paginación (E-GG-…): PBA muestra 10 expedientes por página. Seguimos el
+      // enlace "Siguiente" y acumulamos TODOS (dedupe por ref). Sin esto, un legajo
+      // con >10 expedientes mostraba sólo los primeros 10 (reporte JL, legajo 282055).
+      // Guard de 25 páginas + degradación graciosa: si una página falla, devolvemos
+      // lo acumulado (mejor que perder todo).
+      { const refKey = (e: any) => (e?.detalle_ref ? `${e.detalle_ref.o}:${e.detalle_ref.n}:${e.detalle_ref.a}` : (e?.numero || ""));
+        const seenRef = new Set<string>(p.expedientes.map(refKey)); let nextHref = parseNextHref(r.body); let pages = 1;
+        while (nextHref && pages < 25) {
+          const abs = (nextHref.startsWith("http") ? nextHref : ORIGIN + (nextHref.startsWith("/") ? nextHref : "/" + nextHref)).replace(/ /g, "%20");
+          let rn; try { rn = await hit(abs, { cookie, follow: true }); } catch { break; }
+          if (rn.cookie) cookie = rn.cookie;
+          const pn = parseResults(rn.body); if (!pn.expedientes.length) break;
+          for (const e of pn.expedientes) { const k = refKey(e); if (!seenRef.has(k)) { seenRef.add(k); p.expedientes.push(e); } }
+          nextHref = parseNextHref(rn.body); pages++;
+        }
+      }
       const titular = p.expedientes[0]?.denominacion ?? "";
       const payload = { titular, expedientes: p.expedientes };
       const hash = await estadoHash(p.expedientes);
