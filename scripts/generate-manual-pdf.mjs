@@ -27,6 +27,7 @@
 //   node scripts/generate-manual-pdf.mjs
 
 import fs from 'node:fs/promises';
+import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import puppeteer from 'puppeteer';
@@ -54,16 +55,16 @@ const GERENTE = cred('GERENTE');
 const CLIENTE = cred('CLIENTE');
 const PARTNER = cred('PARTNER');
 
+// La lista SHOTS actual sólo usa la cuenta de gerente (+ login público).
+// CLIENTE/PARTNER quedan disponibles por si se agregan shots de esos roles.
 if (process.env.SKIP_SHOTS !== '1') {
-  for (const [rol, c] of [['GERENTE', GERENTE], ['CLIENTE', CLIENTE], ['PARTNER', PARTNER]]) {
-    if (!c.email || !c.password) {
-      console.error(
-        `✗ Falta MANUAL_${rol}_EMAIL / MANUAL_${rol}_PASSWORD. ` +
-        `Las credenciales de captura van por variable de entorno (usá cuentas QA efímeras). ` +
-        `Para sólo re-renderizar sin capturar, corré con SKIP_SHOTS=1.`,
-      );
-      process.exit(1);
-    }
+  if (!GERENTE.email || !GERENTE.password) {
+    console.error(
+      '✗ Falta MANUAL_GERENTE_EMAIL / MANUAL_GERENTE_PASSWORD. ' +
+      'Las credenciales de captura van por variable de entorno (usá una cuenta QA efímera). ' +
+      'Para sólo re-renderizar sin capturar, corré con SKIP_SHOTS=1.',
+    );
+    process.exit(1);
   }
 }
 
@@ -76,22 +77,33 @@ const DISMISS_FLAGS = {
   'gg.gerencia.tramitesTourCompleted': '1',
 };
 
+// v2: capturamos las pantallas de gerencia (una sola cuenta de gerente QA
+// efímera ve todos los datos → salen pobladas y en gg-brand). Las pantallas
+// que dependen de un :id o de datos por-cliente (portal/partner/detalle) quedan
+// con placeholder gg-brand en el render.
 const SHOTS = [
   { id: 'login', url: `${BASE}/ingresar`, login: null },
   { id: 'gerencia-inicio', url: `${BASE}/gerencia`, login: GERENTE },
   { id: 'gerencia-agenda', url: `${BASE}/gerencia/agenda`, login: 'reuse' },
+  { id: 'gerencia-solicitudes', url: `${BASE}/gerencia/solicitudes`, login: 'reuse' },
   { id: 'gerencia-clientes', url: `${BASE}/gerencia/clientes`, login: 'reuse' },
   { id: 'gerencia-tramites', url: `${BASE}/gerencia/tramites`, login: 'reuse' },
-  { id: 'gerencia-comunicaciones', url: `${BASE}/gerencia/comunicaciones`, login: 'reuse' },
+  { id: 'gerencia-moderacion', url: `${BASE}/gerencia/moderacion`, login: 'reuse' },
   { id: 'gerencia-facturacion', url: `${BASE}/gerencia/facturacion`, login: 'reuse' },
+  { id: 'gerencia-pagos-informados', url: `${BASE}/gerencia/facturacion/pagos-informados`, login: 'reuse' },
   { id: 'gerencia-cuenta-corriente', url: `${BASE}/gerencia/cuenta-corriente`, login: 'reuse' },
+  { id: 'gerencia-recupero', url: `${BASE}/gerencia/recupero`, login: 'reuse' },
   { id: 'gerencia-finanzas', url: `${BASE}/gerencia/finanzas`, login: 'reuse' },
+  { id: 'gerencia-conciliacion', url: `${BASE}/gerencia/finanzas/conciliacion`, login: 'reuse' },
   { id: 'gerencia-campus', url: `${BASE}/gerencia/campus`, login: 'reuse' },
+  { id: 'gerencia-eventos', url: `${BASE}/gerencia/formularios/webinars`, login: 'reuse' },
+  { id: 'gerencia-comunicaciones', url: `${BASE}/gerencia/comunicaciones`, login: 'reuse' },
   { id: 'gerencia-analitica', url: `${BASE}/gerencia/analitica`, login: 'reuse' },
-  { id: 'gerencia-plantillas', url: `${BASE}/gerencia/configuracion/emails/templates`, login: 'reuse', clickAfter: '[data-tab="templates"]' },
-  { id: 'portal-home', url: `${BASE}/portal`, login: CLIENTE },
-  { id: 'portal-cuenta-corriente', url: `${BASE}/portal/cuenta-corriente`, login: 'reuse' },
-  { id: 'partner-rendiciones', url: `${BASE}/partner`, login: PARTNER },
+  { id: 'gerencia-servicios', url: `${BASE}/gerencia/servicios`, login: 'reuse' },
+  { id: 'gerencia-emisores', url: `${BASE}/gerencia/configuracion/emisores`, login: 'reuse' },
+  { id: 'gerencia-plantillas', url: `${BASE}/gerencia/configuracion/emails/templates`, login: 'reuse' },
+  { id: 'gerencia-generacion-cj', url: `${BASE}/gerencia/configuracion/generacion-cj`, login: 'reuse' },
+  { id: 'gerencia-salud-sistema', url: `${BASE}/gerencia/configuracion/salud-sistema`, login: 'reuse' },
 ];
 
 async function dismissTours(page) {
@@ -235,7 +247,7 @@ function flowDiagramCaptacion() {
       <rect x="470" y="80" width="120" height="68" rx="10" fill="white" stroke="#cbd5e1"/>
       <text x="530" y="105" text-anchor="middle" font-weight="600">Activar</text>
       <text x="530" y="122" text-anchor="middle" fill="#64748b" font-size="9.5">como cliente</text>
-      <text x="530" y="138" text-anchor="middle" font-size="9" fill="#94a3b8">wizard 3 pasos</text>
+      <text x="530" y="138" text-anchor="middle" font-size="9" fill="#94a3b8">wizard 5-6 pasos</text>
     </g>
     <g>
       <rect x="600" y="80" width="100" height="68" rx="10" fill="url(#cyTeal)" stroke="none"/>
@@ -340,9 +352,15 @@ const FLOW_DIAGRAMS = {
 // ---- Markdown pre-process: expand markers --------------------------------
 
 function expandMarkers(markdown) {
-  // {{shot:id|caption}}
+  // {{shot:id|caption}} — si la captura existe muestra la imagen; si no,
+  // un marco placeholder gg-brand (el manual nunca se rompe por falta de shot).
   let out = markdown.replace(/\{\{shot:([a-z0-9-]+)\|([^}]+)\}\}/g, (_, id, caption) => {
-    return `\n\n<figure class="shot"><img src="manual-assets/${id}.jpg" alt="${id}"><figcaption>${caption.trim()}</figcaption></figure>\n\n`;
+    const cap = caption.trim();
+    const has = existsSync(path.join(ASSETS_DIR, `${id}.jpg`));
+    if (has) {
+      return `\n\n<figure class="shot"><img src="manual-assets/${id}.jpg" alt="${id}"><figcaption>${cap}</figcaption></figure>\n\n`;
+    }
+    return `\n\n<figure class="shot shot-ph"><div class="ph-frame"><span class="ph-dot"></span><span class="ph-dot"></span><span class="ph-dot"></span><span class="ph-url">${id}</span></div><div class="ph-body"><span class="ph-ico">▦</span><span class="ph-label">Vista de <strong>${id}</strong></span></div><figcaption>${cap}</figcaption></figure>\n\n`;
   });
   // {{callout:tone|texto}}
   out = out.replace(/\{\{callout:(tip|why|note)\|([^}]+)\}\}/g, (_, tone, text) => {
@@ -361,37 +379,42 @@ function expandMarkers(markdown) {
   return out;
 }
 
-function brandHtmlShell(bodyHtml, { logoWhite, logoDark }) {
+function brandHtmlShell(bodyHtml, { logoWhite, logoDark, fontsCss }) {
   return `<!doctype html>
 <html lang="es">
 <head>
 <meta charset="utf-8">
 <title>Manual oficial · Gestión Global</title>
 <style>
+${fontsCss}
   :root {
-    --cyan: #06b6d4;
-    --teal: #14b8a6;
-    --cyan-pale: #ecfeff;
-    --teal-pale: #ccfbf1;
-    --ink: #0b1f33;
-    --night: #0b1f33;
-    --muted: #64748b;
-    --slate-100: #f1f5f9;
-    --slate-200: #e2e8f0;
-    --slate-50: #f8fafc;
-    --emerald: #047857;
-    --amber: #b45309;
-    --rose: #be123c;
+    /* gg-brand (DGG-136): navy / petróleo / cyan de acción */
+    --cyan: #009ECA;
+    --teal: #159AA6;
+    --blue: #2E6FB0;
+    --sky: #9CC7E4;
+    --cyan-pale: #E1F3FA;
+    --teal-pale: #E7F1F9;
+    --ink: #0B1F33;
+    --ink2: #122230;
+    --night: #0B1F33;
+    --muted: #5D7284;
+    --slate-100: #EEF3F8;
+    --slate-200: rgba(11,31,51,.14);
+    --slate-50: #F3F7FB;
+    --emerald: #0E9F6E;
+    --amber: #C46A10;
+    --rose: #C22B4A;
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; }
   body {
-    font-family: -apple-system, "SF Pro Text", "Inter", "Segoe UI",
-                 Roboto, sans-serif;
-    color: var(--ink);
+    font-family: 'GG Archivo', -apple-system, "Segoe UI", Roboto, sans-serif;
+    color: var(--ink2);
     font-size: 10.8pt;
     line-height: 1.62;
     background: white;
+    font-feature-settings: "tnum" 1, "lnum" 1;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
@@ -424,22 +447,20 @@ function brandHtmlShell(bodyHtml, { logoWhite, logoDark }) {
   }
   .cover .hero { position: relative; z-index: 2; max-width: 580px; margin-top: 32pt; }
   .cover .kicker {
-    font-size: 11pt; letter-spacing: 4px; text-transform: uppercase;
-    color: var(--cyan); opacity: 0.95; margin-bottom: 22pt;
+    font-family: 'GG Oswald', sans-serif;
+    font-size: 11pt; letter-spacing: 5px; text-transform: uppercase;
+    color: var(--cyan); opacity: 0.95; margin-bottom: 22pt; font-weight: 600;
   }
   .cover h1 {
-    font-size: 46pt; line-height: 1.04; font-weight: 800; margin: 0;
-    letter-spacing: -1.2px;
+    font-family: 'GG Oswald', sans-serif;
+    font-size: 52pt; line-height: 1.0; font-weight: 700; margin: 0;
+    letter-spacing: 0.5px; text-transform: uppercase;
     color: white;
     padding-top: 0;
     page-break-before: auto;
   }
   .cover h1::before { display: none; }
-  .cover h1 .accent {
-    background: linear-gradient(135deg, #67e8f9, #5eead4);
-    -webkit-background-clip: text; background-clip: text;
-    color: transparent;
-  }
+  .cover h1 .accent { color: var(--cyan); }
   .cover .subtitle {
     font-size: 13pt; margin-top: 20pt; line-height: 1.55;
     color: rgba(255,255,255,.88); max-width: 480px;
@@ -467,7 +488,9 @@ function brandHtmlShell(bodyHtml, { logoWhite, logoDark }) {
 
   /* Section openers: h1 con triángulos decorativos */
   h1 {
-    font-size: 26pt; font-weight: 800; letter-spacing: -.6px;
+    font-family: 'GG Oswald', sans-serif;
+    font-size: 27pt; font-weight: 700; letter-spacing: .5px;
+    text-transform: uppercase;
     margin: 36pt 0 16pt; color: var(--ink);
     page-break-before: always; padding-top: 12pt;
     position: relative;
@@ -475,16 +498,19 @@ function brandHtmlShell(bodyHtml, { logoWhite, logoDark }) {
   h1:first-of-type { page-break-before: auto; }
   h1::before {
     content: ''; display: block; width: 64pt; height: 4px;
-    background: linear-gradient(90deg, var(--cyan), var(--teal));
-    margin-bottom: 18pt; border-radius: 2px;
+    background: linear-gradient(90deg, var(--teal) 0 44pt, var(--ink) 44pt);
+    margin-bottom: 18pt;
   }
-  h2 { font-size: 17pt; font-weight: 700; margin: 26pt 0 10pt;
-       color: var(--ink); letter-spacing: -.15px;
+  h2 { font-family: 'GG Oswald', sans-serif;
+       font-size: 17pt; font-weight: 600; margin: 26pt 0 10pt;
+       color: var(--ink); letter-spacing: .04em; text-transform: uppercase;
        border-bottom: 1px solid var(--slate-200); padding-bottom: 6pt; }
-  h3 { font-size: 13pt; font-weight: 700; margin: 20pt 0 8pt;
-       color: var(--ink); }
-  h4 { font-size: 11pt; font-weight: 700; margin: 14pt 0 4pt;
-       color: var(--ink); }
+  h3 { font-family: 'GG Oswald', sans-serif;
+       font-size: 13.5pt; font-weight: 600; margin: 20pt 0 8pt;
+       color: var(--ink); letter-spacing: .02em; }
+  h4 { font-family: 'GG Oswald', sans-serif;
+       font-size: 11pt; font-weight: 600; margin: 14pt 0 4pt;
+       color: var(--ink); text-transform: uppercase; letter-spacing: .03em; }
   p { margin: 6pt 0; }
   ul, ol { margin: 6pt 0 10pt; padding-left: 18pt; }
   li { margin: 3pt 0; }
@@ -559,13 +585,13 @@ function brandHtmlShell(bodyHtml, { logoWhite, logoDark }) {
   hr { border: none; border-top: 1px solid var(--slate-200);
        margin: 22pt 0; }
 
-  /* Screenshot card (figure) */
+  /* Screenshot card (figure) — forma de marca: recta + offset duro */
   figure.shot {
     margin: 16pt 0;
     border: 1px solid var(--slate-200);
-    border-radius: 10px;
+    border-radius: 0;
     overflow: hidden;
-    box-shadow: 0 1px 3px rgba(11,31,51,.08), 0 1px 2px rgba(11,31,51,.05);
+    box-shadow: 4px 4px 0 rgba(11,31,51,.07);
     background: white;
     page-break-inside: avoid;
   }
@@ -574,16 +600,36 @@ function brandHtmlShell(bodyHtml, { logoWhite, logoDark }) {
     padding: 9pt 14pt;
     font-size: 9pt;
     color: var(--muted);
-    background: linear-gradient(180deg, var(--slate-50), white);
+    background: var(--slate-50);
     border-top: 1px solid var(--slate-200);
     line-height: 1.4;
   }
   figure.shot figcaption::before {
-    content: '◆ ';
+    content: '▸ ';
     color: var(--cyan);
     font-size: 8pt;
     margin-right: 4pt;
   }
+  /* Placeholder de captura pendiente (gg-brand) */
+  figure.shot-ph .ph-frame {
+    display: flex; align-items: center; gap: 6pt;
+    height: 22pt; padding: 0 12pt;
+    background: var(--slate-50); border-bottom: 1px solid var(--slate-200);
+  }
+  figure.shot-ph .ph-dot { width: 7pt; height: 7pt; border-radius: 50%; background: #cdd8e2; }
+  figure.shot-ph .ph-url {
+    margin-left: 6pt; font-size: 8pt; color: var(--muted);
+    background: white; border: 1px solid var(--slate-200); padding: 1pt 10pt;
+  }
+  figure.shot-ph .ph-body {
+    height: 120pt; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 6pt;
+    background: repeating-linear-gradient(135deg, #fafcfe, #fafcfe 12pt, #f3f7fb 12pt, #f3f7fb 24pt);
+    color: var(--muted);
+  }
+  figure.shot-ph .ph-ico { font-size: 22pt; color: var(--sky); }
+  figure.shot-ph .ph-label { font-size: 9pt; }
+  figure.shot-ph .ph-label strong { color: var(--ink); font-family: 'GG Oswald', sans-serif; letter-spacing: .03em; }
 
   /* Callouts (balloons) */
   aside.callout {
@@ -677,7 +723,7 @@ function buildCoverHtml({ logoWhite }) {
   <div class="tri-bl">${trBL}</div>
   <div class="logo-row"><img src="${logoWhite}" alt="Gestión Global"></div>
   <div class="hero">
-    <div class="kicker">Manual oficial · v1.1</div>
+    <div class="kicker">Manual oficial · v2.0</div>
     <h1>Aliados de tu <span class="accent">tiempo</span>.</h1>
     <p class="subtitle">
       La guía para usar la plataforma de Gestión Global todos los días.
@@ -688,7 +734,7 @@ function buildCoverHtml({ logoWhite }) {
   <div class="meta">
     <div class="meta-item">
       <div class="label">Versión</div>
-      <div class="value">1.1</div>
+      <div class="value">2.0</div>
     </div>
     <div class="meta-item">
       <div class="label">Publicado</div>
@@ -702,6 +748,17 @@ function buildCoverHtml({ logoWhite }) {
 </section>`;
 }
 
+function buildFontsCss() {
+  const FONTS_DIR = path.join(ROOT, 'marketing', 'guia-bienvenida', 'fonts');
+  const b64 = (f) => readFileSync(path.join(FONTS_DIR, f)).toString('base64');
+  const face = (family, file) =>
+    `@font-face{font-family:'${family}';src:url(data:font/woff2;base64,${b64(file)}) format('woff2');font-weight:400 700;font-display:swap;}`;
+  return [
+    face('GG Oswald', 'gg-oswald-latin.woff2'),
+    face('GG Archivo', 'gg-archivo-latin.woff2'),
+  ].join('\n');
+}
+
 async function renderHtml() {
   const rawMd = await fs.readFile(MD_PATH, 'utf8');
   const expanded = expandMarkers(rawMd);
@@ -710,9 +767,10 @@ async function renderHtml() {
     fileToBase64(LOGO_WHITE_PATH),
     fileToBase64(LOGO_DARK_PATH),
   ]);
+  const fontsCss = buildFontsCss();
   return brandHtmlShell(
     buildCoverHtml({ logoWhite }) + `<main>${bodyHtml}</main>`,
-    { logoWhite, logoDark },
+    { logoWhite, logoDark, fontsCss },
   );
 }
 
