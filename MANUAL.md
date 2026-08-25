@@ -1893,7 +1893,7 @@ gerencia hizo visible para mí, en orden cronológico, y si un avance trae
 Y hay una función que uso bastante: el botón **"Consultar en Mesa de
 Entradas Virtual PBA"**.
 
-{{shot:portal-tramix|El modal de la Mesa de Entradas Virtual PBA: busco por número de legajo y veo mis expedientes con su estado, expandibles para ver los movimientos.}}
+{{shot:portal-tramix|El buscador de la Mesa de Entradas Virtual PBA: ingreso (o edito) mi número de legajo RPAC y consulto. Cuando hay expedientes, aparecen con su estado y se expanden para ver los movimientos.}}
 
 Es una **consulta a la Mesa de Entradas Virtual** de la Dirección
 Provincial de Personas Jurídicas de la Provincia (TRAMIX/DPPJ). Se abre un

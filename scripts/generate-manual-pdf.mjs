@@ -126,6 +126,10 @@ const SHOTS = [
   { id: 'portal-solicitar', url: `${BASE}/portal/nuevo`, login: 'reuse' },
   { id: 'portal-consorcios', url: `${BASE}/portal/consorcios`, login: 'reuse' },
   { id: 'portal-perfil', url: `${BASE}/portal/perfil`, login: 'reuse' },
+  // Modal Mesa de Entradas Virtual PBA: se abre y se captura el estado ya
+  // asentado (buscador por legajo + resultado en vivo de PBA, sin expedientes
+  // para el legajo demo). login propio para que MANUAL_ONLY lo capture solo.
+  { id: 'portal-tramix', url: `${BASE}/portal/gestiones`, login: CLIENTE, openTramix: true },
 
   // ── Gerencia · pantallas de detalle (sobre el tenant demo) ──────────────
   // Ancla del bloque gerente = kanban (ruta sin :id, siempre presente).
@@ -234,6 +238,22 @@ async function captureShots() {
         document.querySelectorAll('[data-tour-overlay], [data-onboarding-tour], [role="dialog"][aria-label*="tour" i]')
           .forEach((el) => (el.style.display = 'none'));
       });
+      // Shots que abren un modal antes de capturar (p.ej. Mesa de Entradas PBA).
+      if (shot.openTramix) {
+        await page.evaluate(() => {
+          const b = Array.from(document.querySelectorAll('button'))
+            .find((x) => /Mesa de Entradas Virtual PBA/i.test(x.textContent || ''));
+          if (b) b.click();
+        });
+        // Esperar a que el modal deje de mostrar el spinner de carga inicial
+        // (la consulta a PBA puede tardar hasta ~24s con su timeout+retry).
+        await page.waitForFunction(() => {
+          const dlg = document.querySelector('[role="dialog"]');
+          if (!dlg) return false;
+          return !/Consultando la Mesa de Entradas Virtual/i.test(dlg.textContent || '');
+        }, { timeout: 32_000 }).catch(() => {});
+        await new Promise((r) => setTimeout(r, 1500));
+      }
       const out = path.join(ASSETS_DIR, `${shot.id}.jpg`);
       await page.screenshot({
         path: out,
