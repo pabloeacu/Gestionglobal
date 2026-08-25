@@ -55,26 +55,35 @@ const GERENTE = cred('GERENTE');
 const CLIENTE = cred('CLIENTE');
 const PARTNER = cred('PARTNER');
 
-// La lista SHOTS actual sólo usa la cuenta de gerente (+ login público).
-// CLIENTE/PARTNER quedan disponibles por si se agregan shots de esos roles.
-if (process.env.SKIP_SHOTS !== '1') {
-  if (!GERENTE.email || !GERENTE.password) {
-    console.error(
-      '✗ Falta MANUAL_GERENTE_EMAIL / MANUAL_GERENTE_PASSWORD. ' +
-      'Las credenciales de captura van por variable de entorno (usá una cuenta QA efímera). ' +
-      'Para sólo re-renderizar sin capturar, corré con SKIP_SHOTS=1.',
-    );
-    process.exit(1);
-  }
-}
+// IDs del tenant demo efímero (para shots que dependen de :id/:slug). Se pasan
+// por env en la corrida de captura y quedan '' en el repo: los datos demo se
+// borran tras capturar, así que esos shots no se re-capturan solos (quedan con
+// la última captura versionada). Ver reference_manual_oficial en memoria.
+const DEMO = {
+  adminId: process.env.MANUAL_DEMO_ADMIN_ID ?? '',
+  tramiteId: process.env.MANUAL_DEMO_TRAMITE_ID ?? '',
+  cursoId: process.env.MANUAL_DEMO_CURSO_ID ?? '',
+  cursoSlug: process.env.MANUAL_DEMO_CURSO_SLUG ?? '',
+  gestorToken: process.env.MANUAL_DEMO_GESTOR_TOKEN ?? '',
+};
+
+// MANUAL_ONLY=id1,id2 → captura sólo esos ids (respetando el orden del array,
+// para no romper las cadenas de login 'reuse'). Vacío = captura todo.
+const ONLY = (process.env.MANUAL_ONLY ?? '')
+  .split(',').map((s) => s.trim()).filter(Boolean);
 
 const VIEWPORT = { width: 1280, height: 800, deviceScaleFactor: 1 };
 
-// Flags a setear post-login para dismissar wizards.
+// Flags a setear post-login para dismissar wizards/overlays (gerencia + portal).
 const DISMISS_FLAGS = {
+  // Gerencia
   'gg.gerencia.tourCompleted': '1',
   'gg.gerencia.agendaTourCompleted': '1',
   'gg.gerencia.tramitesTourCompleted': '1',
+  // Portal del cliente: tour de onboarding + asistentes PWA/push (que tapan la UI)
+  'gg_portal_tour_v1': JSON.stringify({ completed_at: '2026-01-01T00:00:00.000Z' }),
+  'gg_portal_pwa_dismissed_until_v1': '2099-01-01T00:00:00.000Z',
+  'gg_portal_push_dismissed_until_v1': '2099-01-01T00:00:00.000Z',
 };
 
 // v2: capturamos las pantallas de gerencia (una sola cuenta de gerente QA
@@ -104,7 +113,65 @@ const SHOTS = [
   { id: 'gerencia-plantillas', url: `${BASE}/gerencia/configuracion/emails/templates`, login: 'reuse' },
   { id: 'gerencia-generacion-cj', url: `${BASE}/gerencia/configuracion/generacion-cj`, login: 'reuse' },
   { id: 'gerencia-salud-sistema', url: `${BASE}/gerencia/configuracion/salud-sistema`, login: 'reuse' },
+
+  // ── Portal del cliente (cuenta administrador demo) ──────────────────────
+  { id: 'portal-home', url: `${BASE}/portal`, login: CLIENTE },
+  { id: 'portal-campus', url: `${BASE}/portal/campus`, login: 'reuse' },
+  ...(DEMO.cursoSlug
+    ? [{ id: 'portal-curso', url: `${BASE}/portal/campus/${DEMO.cursoSlug}`, login: 'reuse' }]
+    : []),
+  { id: 'portal-gestiones', url: `${BASE}/portal/gestiones`, login: 'reuse' },
+  { id: 'portal-cuenta-corriente', url: `${BASE}/portal/cuenta-corriente`, login: 'reuse' },
+  { id: 'portal-eventos', url: `${BASE}/portal/webinars`, login: 'reuse' },
+  { id: 'portal-solicitar', url: `${BASE}/portal/nuevo`, login: 'reuse' },
+  { id: 'portal-consorcios', url: `${BASE}/portal/consorcios`, login: 'reuse' },
+  { id: 'portal-perfil', url: `${BASE}/portal/perfil`, login: 'reuse' },
+
+  // ── Gerencia · pantallas de detalle (sobre el tenant demo) ──────────────
+  // Ancla del bloque gerente = kanban (ruta sin :id, siempre presente).
+  { id: 'gerencia-tramites-kanban', url: `${BASE}/gerencia/tramites/kanban`, login: GERENTE },
+  { id: 'gerencia-finanzas-reportes', url: `${BASE}/gerencia/finanzas/reportes`, login: 'reuse' },
+  { id: 'gerencia-campus-plantillas', url: `${BASE}/gerencia/campus/plantillas`, login: 'reuse' },
+  { id: 'gerencia-correos-enviados', url: `${BASE}/gerencia/configuracion/emails/cola`, login: 'reuse' },
+  { id: 'gerencia-cortina', url: `${BASE}/gerencia`, login: 'reuse' },
+  ...(DEMO.adminId
+    ? [{ id: 'gerencia-cliente-ficha', url: `${BASE}/gerencia/clientes/${DEMO.adminId}`, login: 'reuse' }]
+    : []),
+  ...(DEMO.tramiteId
+    ? [{ id: 'gerencia-tramite-detalle', url: `${BASE}/gerencia/tramites/${DEMO.tramiteId}`, login: 'reuse' }]
+    : []),
+  ...(DEMO.cursoId
+    ? [{ id: 'gerencia-campus-curso', url: `${BASE}/gerencia/campus/${DEMO.cursoId}`, login: 'reuse' }]
+    : []),
+
+  // ── Portal del partner (cuenta partner demo) ────────────────────────────
+  { id: 'partner-rendiciones', url: `${BASE}/partner`, login: PARTNER },
+
+  // ── Panel del gestor externo (acceso por token, sin login) ──────────────
+  ...(DEMO.gestorToken
+    ? [{ id: 'gestor-externo', url: `${BASE}/externo/${DEMO.gestorToken}`, login: null }]
+    : []),
 ];
+
+// Filtrado por MANUAL_ONLY (respeta el orden del array → cadenas 'reuse' intactas).
+const ACTIVE = ONLY.length ? SHOTS.filter((s) => ONLY.includes(s.id)) : SHOTS;
+
+// Guard de credenciales: exigir sólo las de los roles realmente usados por ACTIVE.
+if (process.env.SKIP_SHOTS !== '1') {
+  const usesRole = (c) => ACTIVE.some((s) => s.login === c);
+  const missing = [];
+  if (usesRole(GERENTE) && (!GERENTE.email || !GERENTE.password)) missing.push('GERENTE');
+  if (usesRole(CLIENTE) && (!CLIENTE.email || !CLIENTE.password)) missing.push('CLIENTE');
+  if (usesRole(PARTNER) && (!PARTNER.email || !PARTNER.password)) missing.push('PARTNER');
+  if (missing.length) {
+    console.error(
+      `✗ Faltan credenciales para: ${missing.join(', ')} ` +
+      '(MANUAL_<rol>_EMAIL / MANUAL_<rol>_PASSWORD, usá cuentas QA efímeras). ' +
+      'Para sólo re-renderizar sin capturar, corré con SKIP_SHOTS=1.',
+    );
+    process.exit(1);
+  }
+}
 
 async function dismissTours(page) {
   await page.evaluate((flags) => {
@@ -148,7 +215,7 @@ async function captureShots() {
     const page = await browser.newPage();
     await page.setViewport(VIEWPORT);
 
-    for (const shot of SHOTS) {
+    for (const shot of ACTIVE) {
       if (shot.login && shot.login !== 'reuse') {
         console.log(`  → login (${shot.login.email}) para ${shot.id}`);
         await logIn(page, shot.login);
