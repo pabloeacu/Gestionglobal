@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Guía de Bienvenida · Gestión Global</title>
+<style>
+@font-face{font-family:'GG Oswald';src:url('fonts/gg-oswald-latin.woff2') format('woff2');font-weight:400 700;font-display:swap}
+@font-face{font-family:'GG Archivo';src:url('fonts/gg-archivo-latin.woff2') format('woff2');font-weight:400 700;font-display:swap}
+
+:root{
+  --ink:#0B1F33; --ink2:#122230; --petrol:#159AA6; --petrol-d:#0F7C86;
+  --cyan:#009ECA; --blue:#2E6FB0; --sky:#9CC7E4;
+  --pale:#E7F1F9; --paper:#F3F7FB; --slate:#5D7284;
+  --line:rgba(11,31,51,.14); --line2:rgba(11,31,51,.08);
+  --ok:#0E9F6E; --ok-bg:#E6F6EF; --warn:#C46A10; --warn-bg:#FBEEDD;
+  --bad:#C22B4A; --bad-bg:#FBE7EC;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+@page{size:A4;margin:0}
+html{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+body{font-family:'GG Archivo',system-ui,sans-serif;color:var(--ink2);background:#fff;
+  font-feature-settings:"tnum" 1,"lnum" 1;-webkit-font-smoothing:antialiased}
+.num{font-variant-numeric:tabular-nums}
+em{font-style:normal;color:var(--cyan)}
+
+.page{width:210mm;height:297mm;padding:13mm 14mm 10mm;position:relative;overflow:hidden;background:#fff;
+  page-break-after:always;display:flex;flex-direction:column}
+.page:last-child{page-break-after:auto}
+.page .motif{position:absolute;right:-38px;top:-38px;width:250px;height:250px;opacity:.06;color:var(--blue);
+  background-image:linear-gradient(135deg,transparent 49%,currentColor 50%);background-size:27px 27px;pointer-events:none}
+
+/* header / footer */
+.dhead{flex:none;display:flex;align-items:center;justify-content:space-between;padding-bottom:13px;border-bottom:1px solid var(--line);position:relative;z-index:1}
+.dhead img.logo{height:36px}
+.dhead .htag{font-family:'GG Oswald';text-transform:uppercase;letter-spacing:.14em;font-weight:600;font-size:10.5px;color:var(--petrol)}
+.badge-guia{font-family:'GG Oswald';text-transform:uppercase;letter-spacing:.1em;font-weight:600;font-size:10.5px;color:#fff;background:var(--cyan);padding:7px 15px;
+  clip-path:polygon(0 0,calc(100% - 8px) 0,100% 8px,100% 100%,0 100%)}
+.pbody{flex:1;display:flex;flex-direction:column;justify-content:space-between;padding-top:18px;position:relative;z-index:1;min-height:0}
+.pbody.center{justify-content:center;gap:26px}
+.dfoot{flex:none;margin-top:12px;padding-top:10px;border-top:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;font-size:9.5px;color:var(--slate);position:relative;z-index:1}
+.dfoot b{color:var(--ink)}
+.dfoot .pg{font-family:'GG Oswald';font-weight:600;letter-spacing:.05em;color:var(--ink)}
+
+.kick{font-family:'GG Oswald';text-transform:uppercase;letter-spacing:.15em;font-weight:600;font-size:11.5px;color:var(--petrol)}
+.h1{font-family:'GG Oswald';font-weight:700;font-size:36px;line-height:1.02;color:var(--ink);letter-spacing:.005em;text-transform:uppercase}
+.h1.sm{font-size:26px}
+.lead{font-size:13.5px;line-height:1.55;color:var(--slate);max-width:97%}
+
+.secbar{display:flex;align-items:center;margin-bottom:16px}
+.secbar .sico{width:38px;height:38px;background:var(--pale);border:1px solid var(--line);border-right:none;display:grid;place-items:center;color:var(--ink)}
+.secbar .sico svg{width:19px;height:19px}
+.secbar .sbar{flex:1;height:38px;background:#fff;border:1px solid var(--line);display:flex;align-items:center;padding:0 16px;position:relative;
+  clip-path:polygon(0 0,calc(100% - 14px) 0,100% 14px,100% 100%,0 100%)}
+.secbar .sbar h2{font-family:'GG Oswald';text-transform:uppercase;letter-spacing:.06em;font-weight:600;font-size:16px;color:var(--ink)}
+.secbar .sbar .rule{position:absolute;left:0;bottom:0;height:3px;width:100%;background:linear-gradient(90deg,var(--petrol) 0 40px,var(--ink) 40px 70px,transparent 70px)}
+
+/* panel bienvenida */
+.panel{background:#fff;border:1px solid var(--line);border-left:3px solid var(--cyan);padding:22px 22px 20px;position:relative}
+.panel .ptag{font-family:'GG Oswald';text-transform:uppercase;letter-spacing:.1em;font-weight:600;font-size:11px;color:var(--petrol);display:flex;align-items:center;gap:8px}
+.panel h3{font-family:'GG Oswald';font-weight:600;font-size:22px;color:var(--ink);margin:9px 0 6px;line-height:1.06}
+.panel p.pd{font-size:12.5px;line-height:1.5;color:var(--slate)}
+.mailrow{display:flex;gap:13px;margin-top:17px}
+.mailrow .mi{width:34px;height:34px;flex:none;background:var(--pale);border:1px solid var(--line);display:grid;place-items:center;color:var(--blue)}
+.mailrow .mi svg{width:17px;height:17px}
+.mailrow .mt{font-family:'GG Oswald';text-transform:uppercase;letter-spacing:.02em;font-weight:600;font-size:13px;color:var(--ink)}
+.mailrow .md{font-size:12px;line-height:1.4;color:var(--slate);margin-top:2px}
+.note{background:var(--pale);border:1px solid var(--line);padding:12px 15px;font-size:12px;color:var(--ink2);line-height:1.45}
+.note b{color:var(--ink)}
+
+.appbox .ptag{color:var(--petrol)}
+.appbox ul{list-style:none;margin-top:10px}
+.appbox li{font-size:12.5px;color:var(--ink2);line-height:1.6;padding-left:15px;position:relative;margin-top:6px}
+.appbox li::before{content:"";position:absolute;left:0;top:8px;width:0;height:0;border-style:solid;border-width:3px 0 3px 6px;border-color:transparent transparent transparent var(--cyan)}
+
+/* pasos */
+.steps{display:flex;flex-direction:column;gap:16px}
+.step{display:flex;gap:14px;align-items:flex-start}
+.step .sn{width:30px;height:30px;flex:none;background:var(--cyan);color:#fff;font-family:'GG Oswald';font-weight:600;font-size:15px;display:grid;place-items:center;
+  clip-path:polygon(0 0,calc(100% - 7px) 0,100% 7px,100% 100%,0 100%)}
+.step .st{font-family:'GG Oswald';text-transform:uppercase;letter-spacing:.02em;font-weight:600;font-size:14px;color:var(--ink)}
+.step .sd{font-size:12px;line-height:1.45;color:var(--slate);margin-top:2px}
+
+/* bullets */
+.blist{list-style:none}
+.blist li{font-size:12.5px;line-height:1.55;color:var(--ink2);padding-left:17px;position:relative;margin-top:12px}
+.blist li:first-child{margin-top:0}
+.blist li::before{content:"";position:absolute;left:0;top:6px;width:7px;height:7px;background:var(--petrol);transform:rotate(45deg)}
+.blist li b{color:var(--ink);font-weight:600}
+
+/* menú (page 3) — tarjetas grandes */
+.menu{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+.mcell{display:flex;gap:15px;align-items:flex-start;border:1px solid var(--line);padding:17px 18px;position:relative;background:#fff;
+  clip-path:polygon(0 0,calc(100% - 12px) 0,100% 12px,100% 100%,0 100%)}
+.mcell .mci{width:42px;height:42px;flex:none;background:var(--pale);border:1px solid var(--line);display:grid;place-items:center;color:var(--blue)}
+.mcell .mci svg{width:21px;height:21px}
+.mcell .ct{font-family:'GG Oswald';text-transform:uppercase;letter-spacing:.03em;font-weight:600;font-size:15px;color:var(--ink)}
+.mcell .cd{font-size:12px;line-height:1.4;color:var(--slate);margin-top:3px}
+
+/* quadrants (page 4) */
+.quad{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.qbox{border:1px solid var(--line);padding:20px 20px;background:#fff;position:relative;
+  clip-path:polygon(0 0,calc(100% - 14px) 0,100% 14px,100% 100%,0 100%)}
+.qbox .qh{display:flex;align-items:center;gap:11px;margin-bottom:10px}
+.qbox .qh .qi{width:32px;height:32px;background:var(--pale);border:1px solid var(--line);display:grid;place-items:center;color:var(--petrol)}
+.qbox .qh .qi svg{width:17px;height:17px}
+.qbox .qh h3{font-family:'GG Oswald';text-transform:uppercase;letter-spacing:.04em;font-weight:600;font-size:15px;color:var(--ink)}
+
+/* features (page 5) */
+.feat{display:grid;grid-template-columns:1fr 1fr;gap:18px 22px}
+.fcell{display:flex;gap:13px}
+.fcell .fi{width:34px;height:34px;flex:none;background:var(--pale);border:1px solid var(--line);display:grid;place-items:center;color:var(--blue)}
+.fcell .fi svg{width:17px;height:17px}
+.fcell .ft{font-family:'GG Oswald';text-transform:uppercase;letter-spacing:.02em;font-weight:600;font-size:13.5px;color:var(--ink)}
+.fcell .fd{font-size:11.5px;line-height:1.45;color:var(--slate);margin-top:3px}
+.certband{background:linear-gradient(115deg,var(--ink),#123a5c 70%);color:#fff;padding:20px 22px;position:relative;overflow:hidden;display:flex;align-items:center;gap:16px}
+.certband .cbm{position:absolute;inset:0;opacity:.12;background-image:linear-gradient(135deg,#fff 25%,transparent 25%);background-size:42px 42px;pointer-events:none}
+.certband .cbi{width:46px;height:46px;flex:none;position:relative;z-index:1;color:var(--cyan);background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.2);display:grid;place-items:center}
+.certband .cbt{position:relative;z-index:1}
+.certband .cbt h4{font-family:'GG Oswald';text-transform:uppercase;letter-spacing:.05em;font-weight:600;font-size:16px}
+.certband .cbt p{font-size:11.5px;color:#cfe0ef;line-height:1.5;margin-top:4px}
+
+/* servicios (page 6) */
+.svc{display:grid;grid-template-columns:1fr 1fr;gap:13px 20px}
+.srow{display:flex;gap:13px;border:1px solid var(--line);padding:14px 16px;background:#fff;
+  clip-path:polygon(0 0,calc(100% - 10px) 0,100% 10px,100% 100%,0 100%)}
+.srow .sn{width:28px;height:28px;flex:none;background:var(--pale);color:var(--blue);font-family:'GG Oswald';font-weight:700;font-size:14px;display:grid;place-items:center}
+.srow .st{font-family:'GG Oswald';text-transform:uppercase;letter-spacing:.02em;font-weight:600;font-size:13px;color:var(--ink)}
+.srow .sd{font-size:11.5px;line-height:1.4;color:var(--slate);margin-top:2px}
+.contact{background:linear-gradient(120deg,var(--ink),#0e2a45 75%);color:#fff;padding:26px 28px;position:relative;overflow:hidden;display:flex;align-items:center;justify-content:space-between;gap:22px}
+.contact .cm{position:absolute;inset:0;opacity:.10;background-image:linear-gradient(135deg,#fff 25%,transparent 25%);background-size:46px 46px;pointer-events:none}
+.contact .cl{position:relative;z-index:1;max-width:60%}
+.contact img.lw{height:32px;margin-bottom:14px}
+.contact h3{font-family:'GG Oswald';font-weight:700;text-transform:uppercase;font-size:26px;letter-spacing:.02em}
+.contact p{font-size:12px;color:#cfe0ef;line-height:1.55;margin-top:8px}
+.contact .cinfo{display:flex;flex-direction:column;gap:7px;margin-top:15px;font-size:12px;color:#e6f0f8}
+.contact .cinfo .ci{display:flex;align-items:center;gap:9px}
+.contact .cinfo .ci svg{width:15px;height:15px;color:var(--cyan)}
+.contact .cinfo b{color:#fff}
+.contact .cr{position:relative;z-index:1;text-align:center}
+.contact .cr .qrbox{background:#fff;padding:11px;display:inline-block}
+.contact .cr img.qr{width:128px;height:128px;display:block}
+.contact .cr .wa{font-family:'GG Oswald';text-transform:uppercase;letter-spacing:.08em;font-size:11px;color:var(--sky);margin-top:9px;display:flex;align-items:center;justify-content:center;gap:6px}
+.waphone{font-family:'GG Oswald';font-weight:700;font-size:19px;color:#fff;margin-top:3px}
+.hashtag{font-family:'GG Oswald';text-transform:uppercase;letter-spacing:.06em;font-size:11px;color:var(--petrol);font-weight:600;margin-top:16px}
+
+/* franja marketinera (page 3) */
+.promo{background:linear-gradient(120deg,var(--ink),#0e2a45 78%);color:#fff;padding:24px 28px;position:relative;overflow:hidden}
+.promo .pm{position:absolute;inset:0;opacity:.10;background-image:linear-gradient(135deg,#fff 25%,transparent 25%);background-size:42px 42px;pointer-events:none}
+.promo .pk{font-family:'GG Oswald';text-transform:uppercase;letter-spacing:.14em;font-size:10.5px;color:var(--sky);font-weight:600;position:relative;z-index:1}
+.promo h3{font-family:'GG Oswald';font-weight:700;text-transform:uppercase;font-size:23px;line-height:1.1;margin-top:7px;position:relative;z-index:1;max-width:90%}
+.promo h3 em{color:var(--cyan);font-style:normal}
+.promo .pillars{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:18px;position:relative;z-index:1}
+.promo .pil{display:flex;gap:10px;align-items:flex-start}
+.promo .pil .pi{width:32px;height:32px;flex:none;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.2);display:grid;place-items:center;color:var(--cyan)}
+.promo .pil .pi svg{width:16px;height:16px}
+.promo .pil .pt{font-family:'GG Oswald';text-transform:uppercase;letter-spacing:.03em;font-weight:600;font-size:12px;color:#fff}
+.promo .pil .pd{font-size:10px;color:#cfe0ef;line-height:1.45;margin-top:3px}
+.promo .ptag{font-family:'GG Oswald';text-transform:uppercase;letter-spacing:.08em;font-size:10px;color:var(--sky);font-weight:600;margin-top:16px;position:relative;z-index:1}
+
+/* =========================================================
+   CAPTURAS — mockups gg-brand
+   ========================================================= */
+.browser{border:1px solid var(--line);background:#fff;overflow:hidden;box-shadow:6px 6px 0 rgba(11,31,51,.06)}
+.browser .bbar{height:26px;background:var(--paper);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:5px;padding:0 10px}
+.bdot{width:8px;height:8px;border-radius:50%;background:#cdd8e2}
+.burl{margin-left:8px;font:600 9px 'GG Archivo';color:var(--slate);background:#fff;border:1px solid var(--line);padding:2px 13px 2px 9px}
+.burl::before{content:"🔒";font-size:7px;margin-right:4px;filter:grayscale(1)}
+
+.mp{display:grid;grid-template-columns:44px 1fr}
+.mp .rail{background:var(--ink);display:flex;flex-direction:column;align-items:center;padding:10px 0;position:relative;overflow:hidden}
+.mp .rail::after{content:"";position:absolute;left:0;right:0;bottom:0;height:90px;
+  background-image:linear-gradient(135deg,transparent 49%,rgba(21,154,166,.25) 50%);background-size:18px 18px;opacity:.6}
+.mp .rail .rl{width:24px;height:24px;margin-bottom:14px;position:relative;z-index:1}
+.mp .rail .ri{width:28px;height:28px;display:grid;place-items:center;color:#8ba6c1;margin:4px 0;position:relative;z-index:1;border-left:2px solid transparent}
+.mp .rail .ri svg{width:15px;height:15px}
+.mp .rail .ri.on{color:#fff;background:linear-gradient(90deg,rgba(0,158,202,.25),transparent);border-left-color:var(--cyan)}
+.mp .body{min-width:0}
+.mp .mtop{background:#fff;border-bottom:1px solid var(--line);height:40px;display:flex;align-items:center;justify-content:space-between;padding:0 14px}
+.mp .mtop .te{font-family:'GG Oswald';text-transform:uppercase;letter-spacing:.1em;font-size:8.5px;color:var(--petrol);font-weight:600}
+.mp .mtop .ts{font-family:'GG Oswald';font-weight:600;font-size:13px;color:var(--ink);line-height:1}
+.mp .mtop .tools{display:flex;align-items:center;gap:9px}
+.mp .mtop .bell{width:27px;height:27px;background:var(--paper);border:1px solid var(--line);display:grid;place-items:center;color:var(--ink);position:relative}
+.mp .mtop .bell svg{width:13px;height:13px}
+.mp .mtop .bell .bd{position:absolute;top:-6px;right:-6px;background:var(--bad);color:#fff;font-family:'GG Oswald';font-size:8px;padding:0 4px;line-height:1.5}
+.mp .mtop .avt{width:27px;height:27px;background:linear-gradient(135deg,var(--petrol),var(--cyan));color:#fff;display:grid;place-items:center;font-family:'GG Oswald';font-weight:600;font-size:10px}
+.mp .mc{padding:11px 13px}
+
+.mhero{display:flex;justify-content:space-between;gap:16px;background:#fff;border:1px solid var(--line);border-left:3px solid var(--cyan);padding:13px 15px;position:relative;overflow:hidden}
+.mhero .hm{position:absolute;right:-20px;top:-20px;width:130px;height:130px;opacity:.09;color:var(--blue);background-image:linear-gradient(135deg,transparent 49%,currentColor 50%);background-size:18px 18px}
+.mhero .he{font-family:'GG Oswald';text-transform:uppercase;letter-spacing:.1em;font-size:9px;color:var(--slate);font-weight:600}
+.mhero h4{font-family:'GG Oswald';font-weight:700;font-size:20px;color:var(--ink);line-height:1;margin:3px 0 4px}
+.mhero .hmeta{font-size:10px;color:var(--slate)}
+.bmat{display:inline-flex;align-items:center;gap:6px;margin-top:11px;font-family:'GG Oswald';text-transform:uppercase;letter-spacing:.05em;font-size:9.5px;font-weight:600;color:var(--ok);background:var(--ok-bg);padding:4px 11px;
+  clip-path:polygon(0 0,calc(100% - 6px) 0,100% 6px,100% 100%,0 100%)}
+.bmat::before{content:"";width:6px;height:6px;background:var(--ok);transform:rotate(45deg)}
+.mhero .hst{display:flex;gap:22px;text-align:right;position:relative;z-index:1}
+.mhero .hst .n{font-family:'GG Oswald';font-weight:700;font-size:24px;color:var(--ink);line-height:1}
+.mhero .hst .l{font-family:'GG Oswald';text-transform:uppercase;letter-spacing:.06em;font-size:8.5px;color:var(--slate);font-weight:600;margin-top:3px}
+
+.mq{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:14px}
+.mqc{background:#fff;border:1px solid var(--line);padding:11px;position:relative;
+  clip-path:polygon(0 0,calc(100% - 9px) 0,100% 9px,100% 100%,0 100%)}
+.mqc .qi{width:28px;height:28px;background:var(--pale);border:1px solid var(--line);color:var(--blue);display:grid;place-items:center;margin-bottom:8px}
+.mqc .qi svg{width:15px;height:15px}
+.mqc .qt{font-family:'GG Oswald';text-transform:uppercase;letter-spacing:.02em;font-weight:600;font-size:11px;color:var(--ink)}
+.mqc .qd{font-size:9px;color:var(--slate);margin-top:2px}
+
+.mremind{display:flex;align-items:center;gap:12px;background:linear-gradient(90deg,#E1F3FA,#fff 72%);border:1px solid var(--line);border-left:3px solid var(--cyan);padding:10px 13px;margin-top:9px}
+.mremind .rri{width:32px;height:32px;background:#fff;border:1px solid var(--line);display:grid;place-items:center;color:var(--cyan);flex:none}
+.mremind .rri svg{width:16px;height:16px}
+.mremind .rtag{font-family:'GG Oswald';text-transform:uppercase;letter-spacing:.1em;font-size:8.5px;color:var(--petrol);font-weight:600}
+.mremind .rt{font-family:'GG Oswald';font-weight:600;font-size:13px;color:var(--ink);margin:1px 0}
+.mremind .rd{font-size:9.5px;color:var(--slate);line-height:1.35}
+.mremind .grow{flex:1}
+.btnp{font-family:'GG Oswald';text-transform:uppercase;letter-spacing:.05em;font-weight:600;font-size:10px;color:#fff;background:var(--cyan);padding:8px 13px;display:inline-flex;align-items:center;gap:7px;
+  clip-path:polygon(0 0,calc(100% - 7px) 0,100% 7px,100% 100%,0 100%)}
+.tri{width:0;height:0;border-style:solid;border-width:3px 0 3px 6px;border-color:transparent transparent transparent currentColor}
+
+.shotcap{font-size:10px;color:var(--slate);text-align:center;margin-top:9px;font-style:italic}
+
+/* login shot */
+.login{display:grid;grid-template-columns:1fr 1fr;min-height:238px}
+.login .ll{background:linear-gradient(150deg,var(--ink),#0e2a45 75%);color:#fff;padding:32px 26px;position:relative;overflow:hidden;display:flex;flex-direction:column;justify-content:center}
+.login .ll .lm{position:absolute;right:-15px;top:-15px;width:170px;height:170px;opacity:.14;background-image:linear-gradient(135deg,#fff 25%,transparent 25%);background-size:28px 28px}
+.login .ll img{height:30px;margin-bottom:22px;position:relative;z-index:1}
+.login .ll h3{font-family:'GG Oswald';font-weight:700;text-transform:uppercase;font-size:27px;line-height:1.05;position:relative;z-index:1}
+.login .ll p{font-size:11px;color:#cfe0ef;margin-top:11px;position:relative;z-index:1;line-height:1.55;max-width:92%}
+.login .lr{background:#fff;padding:32px 30px;display:flex;flex-direction:column;justify-content:center}
+.login .lr .le{font-family:'GG Oswald';text-transform:uppercase;letter-spacing:.1em;font-size:9px;color:var(--petrol);font-weight:600}
+.login .lr h4{font-family:'GG Oswald';font-weight:700;text-transform:uppercase;font-size:22px;color:var(--ink);margin:4px 0 18px}
+.login .lr .fl{font-family:'GG Oswald';text-transform:uppercase;letter-spacing:.04em;font-size:9px;color:var(--slate);font-weight:600;margin-bottom:4px}
+.login .lr .fi{border:1px solid var(--line);background:var(--paper);height:36px;margin-bottom:15px;display:flex;align-items:center;padding:0 12px;font-size:11px;color:var(--slate)}
+.login .lr .btnp{justify-content:center;width:100%;padding:11px;font-size:11px;margin-top:4px}
+.login .lr .forgot{font-size:10px;color:var(--cyan);margin-top:12px}
+
+/* phone shot — alto y estilizado */
+.phone{width:216px;border:11px solid #0B1F33;border-radius:38px;overflow:hidden;background:#0B1F33;box-shadow:9px 11px 0 rgba(11,31,51,.10);position:relative}
+.phone .island{position:absolute;top:11px;left:50%;transform:translateX(-50%);width:78px;height:19px;background:#0B1F33;border-radius:11px;z-index:3}
+.phone .pscr{background:var(--paper);padding:26px 11px 12px}
+.phone .ptop{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.phone .ptop .pe{font-family:'GG Oswald';text-transform:uppercase;letter-spacing:.08em;font-size:8px;color:var(--petrol);font-weight:600}
+.phone .ptop .pav{width:24px;height:24px;background:linear-gradient(135deg,var(--petrol),var(--cyan));color:#fff;display:grid;place-items:center;font-family:'GG Oswald';font-weight:600;font-size:9px}
+.pcard{background:#fff;border:1px solid var(--line);padding:11px 12px;margin-bottom:9px;position:relative}
+.pcard.cls{border-left:3px solid var(--cyan)}
+.pcard .ptg{font-family:'GG Oswald';text-transform:uppercase;letter-spacing:.08em;font-size:7.5px;color:var(--petrol);font-weight:600}
+.pcard .pt{font-family:'GG Oswald';font-weight:600;font-size:13px;color:var(--ink);line-height:1.08;margin:2px 0}
+.pcard .pd{font-size:8.5px;color:var(--slate);line-height:1.35}
+.pcard .prow{display:flex;gap:18px;margin-top:7px}
+.pcard .prow .n{font-family:'GG Oswald';font-weight:700;font-size:17px;color:var(--ink);line-height:1}
+.pcard .prow .l{font-family:'GG Oswald';text-transform:uppercase;font-size:6.5px;letter-spacing:.05em;color:var(--slate);font-weight:600;margin-top:2px}
+.pcard.notif{border-left:3px solid var(--cyan);background:linear-gradient(90deg,#E1F3FA,#fff 72%)}
+.pcard .pbtn{font-family:'GG Oswald';text-transform:uppercase;letter-spacing:.05em;font-weight:600;font-size:9px;color:#fff;background:var(--cyan);padding:6px 11px;display:inline-flex;align-items:center;gap:6px;margin-top:8px;
+  clip-path:polygon(0 0,calc(100% - 6px) 0,100% 6px,100% 100%,0 100%)}
+.pquick{display:flex;gap:7px;margin-bottom:9px}
+.pquick .pqi{flex:1;background:#fff;border:1px solid var(--line);padding:8px 6px;text-align:center;
+  clip-path:polygon(0 0,calc(100% - 7px) 0,100% 7px,100% 100%,0 100%)}
+.pquick .pqi svg{width:14px;height:14px;color:var(--blue)}
+.pquick .pqi span{display:block;font-family:'GG Oswald';text-transform:uppercase;letter-spacing:.02em;font-size:6.5px;font-weight:600;color:var(--ink);margin-top:4px}
+.phome{width:96px;height:4px;background:#0B1F33;border-radius:3px;margin:12px auto 2px}
+</style>
+</head>
+<body>
+
+<!-- ================= PÁGINA 1 · BIENVENIDA ================= -->
+<section class="page">
+  <div class="motif"></div>
+  <div class="dhead"><img class="logo" src="logo.png" alt="Gestión Global"><span class="badge-guia">Guía de Bienvenida</span></div>
+  <div class="pbody">
+    <div>
+      <span class="kick">Ya sos parte</span>
+      <div class="h1" style="margin-top:8px">¡Bienvenido a la familia<br>de <em>Gestión Global</em>!</div>
+      <p class="lead" style="margin-top:12px">Desde hoy tenés un <b style="color:var(--ink2)">ecosistema digital que lo integra todo</b>: tus trámites, tus cursos, tus eventos, tu facturación y tu cuenta — en un solo lugar, siempre a mano y con nuestro equipo del otro lado. Esta guía de 6 páginas te muestra todo lo que ya podés hacer.</p>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1.12fr .88fr;gap:24px;align-items:stretch">
+      <div class="panel">
+        <div class="ptag"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14"/><path d="M3 7l9 6 9-6"/></svg> Una aclaración importante</div>
+        <h3>Vas a recibir varios correos.<br>Y eso es una <span style="color:var(--warn)">buena noticia.</span></h3>
+        <p class="pd">Cada correo es nuestro equipo trabajando para vos: te avisa, te recuerda y te confirma cada paso — para que nunca tengas que perseguirnos para saber cómo va lo tuyo. Algunos ejemplos:</p>
+        <div class="mailrow"><div class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg></div><div><div class="mt">Tu usuario y contraseña</div><div class="md">El correo de bienvenida con tu acceso al portal (¡probablemente ya lo tengas!).</div></div></div>
+        <div class="mailrow"><div class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M3 17l6-6 4 4 8-8"/><path d="M21 3v6h-6"/></svg></div><div><div class="mt">«Novedad en tu trámite»</div><div class="md">Cada avance de tus gestiones, apenas sucede.</div></div></div>
+        <div class="mailrow"><div class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M6 9a6 6 0 1112 0c0 5 2 6 2 6H4s2-1 2-6z"/><path d="M10 20a2 2 0 004 0"/></svg></div><div><div class="mt">«¡Hoy se dicta tu clase!»</div><div class="md">Recordatorios de tus clases en vivo y de tus eventos, para que no te pierdas ninguno.</div></div></div>
+        <div class="mailrow"><div class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="4" y="4" width="16" height="16"/><path d="M8 4v16M4 9h4"/></svg></div><div><div class="mt">Comprobantes y vencimientos</div><div class="md">Cada comprobante emitido y avisos con tiempo antes de cada vencimiento.</div></div></div>
+        <div class="note" style="margin-top:18px"><b>No te asustes por el movimiento:</b> estamos abocados enteramente al servicio y a la confianza que nos diste.</div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:18px">
+        <div style="display:flex;justify-content:center">
+          <div class="phone">
+            <div class="island"></div>
+            <div class="pscr">
+              <div class="ptop"><span class="pe">Portal · Inicio</span><span class="pav">ME</span></div>
+              <div class="pcard cls"><div class="ptg">Tu clase es hoy</div><div class="pt">Asambleas Virtuales</div><div class="pd">Actualización RPAC · 18:30 · 120 min</div></div>
+              <div class="pcard"><div class="ptg">Buenas tardes</div><div class="pt">María, bienvenida</div><div class="prow"><div><div class="n num">1</div><div class="l">Cursos</div></div><div><div class="n num">1</div><div class="l">Gestiones</div></div></div></div>
+              <div class="pquick">
+                <div class="pqi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 8l9-4 9 4-9 4z"/><path d="M7 11v5c0 1 2.2 2.5 5 2.5s5-1.5 5-2.5v-5"/></svg><span>Cursos</span></div>
+                <div class="pqi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="5" y="3" width="14" height="18"/><path d="M9 8h6M9 12h6"/></svg><span>Gestiones</span></div>
+                <div class="pqi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="6" width="18" height="12"/><path d="M3 10h18"/></svg><span>Cuenta</span></div>
+              </div>
+              <div class="pcard notif"><div class="ptg">Activá las notificaciones</div><div class="pd" style="margin-top:2px">No te pierdas ninguna novedad, incluso con la app cerrada.</div><span class="pbtn">Activar <span class="tri"></span></span></div>
+              <div class="phome"></div>
+            </div>
+          </div>
+        </div>
+        <div class="panel appbox" style="border-left-color:var(--petrol);padding:18px 20px">
+          <div class="ptag"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg> Llevala como app</div>
+          <p class="pd" style="margin-top:6px">Se ve y se usa como una app, con avisos al instante:</p>
+          <ul>
+            <li><b style="color:var(--ink)">Android:</b> abrí <b style="color:var(--ink)">gestionglobal.ar</b> en Chrome → menú → «Instalar app».</li>
+            <li><b style="color:var(--ink)">iPhone:</b> abrila en Safari → Compartir → «Agregar a inicio».</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="dfoot"><span><b>Gestión Global</b> · Aliados de tu tiempo</span><span>gestionglobal.ar</span><span class="pg">1 / 6</span></div>
+</section>
+
+<!-- ================= PÁGINA 2 · PRIMER INGRESO + INICIO ================= -->
+<section class="page">
+  <div class="motif"></div>
+  <div class="dhead"><img class="logo" src="logo.png" alt="Gestión Global"><span class="htag">Guía de Bienvenida · Primeros pasos</span></div>
+  <div class="pbody">
+    <div>
+      <span class="kick">Empecemos</span>
+      <div class="h1 sm" style="margin-top:6px">Tu primer ingreso</div>
+      <div style="display:grid;grid-template-columns:.92fr 1.08fr;gap:24px;margin-top:16px;align-items:center">
+        <div>
+          <div class="steps">
+            <div class="step"><div class="sn">1</div><div><div class="st">Entrá a gestionglobal.ar</div><div class="sd">Tocá el botón «Ingresar», arriba a la derecha.</div></div></div>
+            <div class="step"><div class="sn">2</div><div><div class="st">Usá tus credenciales</div><div class="sd">El email y la contraseña que te llegaron en el correo de bienvenida.</div></div></div>
+            <div class="step"><div class="sn">3</div><div><div class="st">¡Listo!</div><div class="sd">Un único acceso: te llevamos directo a tu Portal del Administrador.</div></div></div>
+          </div>
+          <div class="note" style="border-left:3px solid var(--warn);margin-top:16px"><b>¿Perdiste la contraseña?</b> Debajo del botón está «¿Olvidaste tu contraseña?» — te mandamos un enlace para crear una nueva. Y desde <b>Mi perfil</b> podés cambiarla cuando quieras.</div>
+        </div>
+        <div>
+          <div class="browser">
+            <div class="bbar"><span class="bdot"></span><span class="bdot"></span><span class="bdot"></span><span class="burl">gestionglobal.ar</span></div>
+            <div class="login">
+              <div class="ll"><div class="lm"></div><img src="logo-white.png" alt=""><h3>Todo fluye<br>cuando todo<br>está conectado.</h3><p>Clientes, trámites, facturación, cuenta corriente, campus y reportes — desde un único lugar.</p></div>
+              <div class="lr"><span class="le">Acceso al portal</span><h4>Ingresá a tu cuenta</h4><div class="fl">Email</div><div class="fi">maria@gestion.com</div><div class="fl">Contraseña</div><div class="fi">••••••••••</div><span class="btnp">Ingresar <span class="tri"></span></span><div class="forgot">¿Olvidaste tu contraseña?</div></div>
+            </div>
+          </div>
+          <div class="shotcap">Así se ve el ingreso en gestionglobal.ar</div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <span class="kick">Al entrar</span>
+      <div class="h1 sm" style="margin-top:6px">Tu Inicio, de un vistazo</div>
+      <div style="display:grid;grid-template-columns:1.4fr .9fr;gap:24px;margin-top:16px;align-items:center">
+        <div class="browser">
+          <div class="bbar"><span class="bdot"></span><span class="bdot"></span><span class="bdot"></span><span class="burl">gestionglobal.ar/portal</span></div>
+          <div class="mp">
+            <div class="rail">
+              <svg class="rl" viewBox="0 0 64 64"><path d="M32 12 L54 20 L32 28 L10 20 Z" fill="#9CC7E4"/><path d="M32 20 L54 28 L32 36 L10 28 Z" fill="#2E6FB0"/><path d="M32 28 L54 36 L32 44 L10 36 Z" fill="#009ECA"/><path d="M14 44 C22 52 42 52 50 44" stroke="#0F7C86" stroke-width="3.4" fill="none"/></svg>
+              <div class="ri on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 11l8-7 8 7"/><path d="M6 10v9h12v-9"/></svg></div>
+              <div class="ri"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 8l9-4 9 4-9 4z"/><path d="M7 11v5c0 1 2.2 2.5 5 2.5s5-1.5 5-2.5v-5"/></svg></div>
+              <div class="ri"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="5" y="3" width="14" height="18"/><path d="M9 8h6M9 12h6"/></svg></div>
+              <div class="ri"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="6" width="13" height="12"/><path d="M16 10l5-3v10l-5-3z"/></svg></div>
+              <div class="ri"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="6" width="18" height="12"/><path d="M3 10h18"/></svg></div>
+            </div>
+            <div class="body">
+              <div class="mtop"><div><div class="te">Portal del administrador</div><div class="ts">Inicio</div></div><div class="tools"><div class="bell"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 9a6 6 0 1112 0c0 5 2 6 2 6H4s2-1 2-6z"/><path d="M10 20a2 2 0 004 0"/></svg><span class="bd num">3</span></div><div class="avt">ME</div></div></div>
+              <div class="mc">
+                <div class="mhero"><div class="hm"></div><div><div class="he">Buenas tardes</div><h4>María, bienvenida</h4><div class="hmeta">López María Eugenia · María Eugenia</div><span class="bmat">Matrícula activa</span></div><div class="hst"><div><div class="n num">1</div><div class="l">Cursos activos</div></div><div><div class="n num">1</div><div class="l">Gestiones</div></div></div></div>
+                <div class="mq">
+                  <div class="mqc"><div class="qi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 8l9-4 9 4-9 4z"/><path d="M7 11v5c0 1 2.2 2.5 5 2.5s5-1.5 5-2.5v-5"/></svg></div><div class="qt">Mis cursos</div><div class="qd">Clases</div></div>
+                  <div class="mqc"><div class="qi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="5" y="3" width="14" height="18"/><path d="M9 8h6M9 12h6"/></svg></div><div class="qt">Gestiones</div><div class="qd">Trámites</div></div>
+                  <div class="mqc"><div class="qi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="6" width="13" height="12"/><path d="M16 10l5-3v10l-5-3z"/></svg></div><div class="qt">Eventos</div><div class="qd">En vivo</div></div>
+                  <div class="mqc"><div class="qi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg></div><div class="qt">Solicitar</div><div class="qd">Nuevo</div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <ul class="blist">
+          <li><b>Te saluda y te resume:</b> tus cursos activos y tus gestiones abiertas, en números grandes.</li>
+          <li><b>Te avisa solo cuando hace falta:</b> clase de hoy, novedades, documentación pendiente o saldo a regularizar.</li>
+          <li><b>Atajos con novedades:</b> cada sección marca cuántas cosas nuevas te esperan.</li>
+          <li><b>La primera vez</b> un tour guiado te presenta todo, paso a paso.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  <div class="dfoot"><span><b>Gestión Global</b> · Aliados de tu tiempo</span><span>gestionglobal.ar</span><span class="pg">2 / 6</span></div>
+</section>
+
+<!-- ================= PÁGINA 3 · EL MENÚ ================= -->
+<section class="page">
+  <div class="motif"></div>
+  <div class="dhead"><img class="logo" src="logo.png" alt="Gestión Global"><span class="htag">Guía de Bienvenida · Tu portal</span></div>
+  <div class="pbody" style="justify-content:flex-start">
+    <div>
+      <span class="kick">El mapa de tu portal</span>
+      <div class="h1 sm" style="margin-top:6px">El menú, completo</div>
+      <p class="lead" style="margin-top:10px">Todo lo que sigue está siempre a un toque, desde el menú lateral. Estas son las ocho secciones de tu Portal del Administrador:</p>
+    </div>
+    <div class="menu" style="margin-top:20px">
+      <div class="mcell"><div class="mci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 11l8-7 8 7"/><path d="M6 10v9h12v-9"/></svg></div><div><div class="ct">Inicio</div><div class="cd">Tu tablero: resumen, avisos y atajos, todo en una pantalla.</div></div></div>
+      <div class="mcell"><div class="mci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 8l9-4 9 4-9 4z"/><path d="M7 11v5c0 1 2.2 2.5 5 2.5s5-1.5 5-2.5v-5"/></svg></div><div><div class="ct">Mis cursos</div><div class="cd">El campus virtual con tus clases, materiales y certificados.</div></div></div>
+      <div class="mcell"><div class="mci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="5" y="3" width="14" height="18"/><path d="M9 8h6M9 12h6"/></svg></div><div><div class="ct">Mis gestiones</div><div class="cd">Tus trámites, con cada avance en tiempo real y sus adjuntos.</div></div></div>
+      <div class="mcell"><div class="mci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="6" width="13" height="12"/><path d="M16 10l5-3v10l-5-3z"/></svg></div><div><div class="ct">Mis eventos</div><div class="cd">Capacitaciones en vivo y presenciales, con inscripción directa.</div></div></div>
+      <div class="mcell"><div class="mci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg></div><div><div class="ct">Solicitar</div><div class="cd">Iniciá un nuevo servicio, guiado paso a paso por nuestro equipo.</div></div></div>
+      <div class="mcell"><div class="mci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="6" width="18" height="12"/><path d="M3 10h18"/></svg></div><div><div class="ct">Mi cuenta</div><div class="cd">Saldo, movimientos y comprobantes, siempre al día.</div></div></div>
+      <div class="mcell"><div class="mci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 21V8l8-5 8 5v13"/><path d="M9 21v-6h6v6"/><path d="M9 11h.01M15 11h.01"/></svg></div><div><div class="ct">Consorcios</div><div class="cd">Los edificios que administrás, con unidades y datos fiscales.</div></div></div>
+      <div class="mcell"><div class="mci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg></div><div><div class="ct">Mi perfil</div><div class="cd">Tus datos, contraseña, verificación en dos pasos y notificaciones.</div></div></div>
+    </div>
+    <div class="promo" style="margin-top:auto">
+      <div class="pm"></div>
+      <div class="pk">Por qué Gestión Global</div>
+      <h3>Vos administrás. De <em>todo lo demás</em>, nos ocupamos nosotros.</h3>
+      <div class="pillars">
+        <div class="pil"><div class="pi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 8l9-4 9 4-9 4z"/><path d="M7 11v5c0 1 2.2 2.5 5 2.5s5-1.5 5-2.5v-5"/></svg></div><div><div class="pt">Menos fricción</div><div class="pd">Trámites, cursos, eventos y facturación en un solo lugar.</div></div></div>
+        <div class="pil"><div class="pi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l7 3v6c0 4-3 7-7 9-4-2-7-5-7-9V6z"/><path d="M9 12l2 2 4-4"/></svg></div><div><div class="pt">Más respaldo</div><div class="pd">Un equipo humano del otro lado, en cada paso de tu gestión.</div></div></div>
+        <div class="pil"><div class="pi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div><div><div class="pt">Sin sorpresas</div><div class="pd">Vencimientos y matrículas siempre al día, avisados a tiempo.</div></div></div>
+      </div>
+      <div class="ptag">#AliadosDeTuTiempo</div>
+    </div>
+  </div>
+  <div class="dfoot"><span><b>Gestión Global</b> · Aliados de tu tiempo</span><span>gestionglobal.ar</span><span class="pg">3 / 6</span></div>
+</section>
+
+<!-- ================= PÁGINA 4 · EL PORTAL POR DENTRO ================= -->
+<section class="page">
+  <div class="motif"></div>
+  <div class="dhead"><img class="logo" src="logo.png" alt="Gestión Global"><span class="htag">Guía de Bienvenida · El portal por dentro</span></div>
+  <div class="pbody">
+    <div>
+      <span class="kick">Sección por sección</span>
+      <div class="h1 sm" style="margin-top:6px">Todo lo que podés hacer desde tu portal</div>
+    </div>
+    <div class="quad">
+      <div class="qbox">
+        <div class="qh"><div class="qi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="5" y="3" width="14" height="18"/><path d="M9 8h6M9 12h6M9 16h4"/></svg></div><h3>Mis gestiones</h3></div>
+        <ul class="blist">
+          <li><b>Cada trámite con su historia:</b> timeline de avances en orden, con adjuntos descargables.</li>
+          <li><b>¿Te pedimos documentación?</b> La subís ahí mismo, ítem por ítem, y la enviás en un click.</li>
+          <li><b>Mesa de Entradas Virtual PBA:</b> consultá tus expedientes oficiales sin salir del portal.</li>
+        </ul>
+      </div>
+      <div class="qbox">
+        <div class="qh"><div class="qi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="6" width="18" height="12"/><path d="M3 10h18"/></svg></div><h3>Mi cuenta</h3></div>
+        <ul class="blist">
+          <li><b>Tu saldo siempre claro:</b> extracto con cargos, cobranzas y el detalle de qué servicio corresponde cada uno.</li>
+          <li><b>Comprobantes con su PDF</b> para descargar cuando lo necesites.</li>
+          <li><b>«Informar un pago»:</b> avisás que pagaste, adjuntás el comprobante y nosotros lo conciliamos y te confirmamos.</li>
+        </ul>
+      </div>
+      <div class="qbox">
+        <div class="qh"><div class="qi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="6" width="13" height="12"/><path d="M16 10l5-3v10l-5-3z"/></svg></div><h3>Mis eventos</h3></div>
+        <ul class="blist">
+          <li><b>Inscripción en un click</b> a nuestras capacitaciones online y presenciales.</li>
+          <li><b>Recordatorios automáticos</b> 24 h y 1 h antes — y el botón «Unirme» se enciende solo cuando empieza.</li>
+          <li><b>Certificado de asistencia</b> descargable después de cada evento.</li>
+        </ul>
+      </div>
+      <div class="qbox">
+        <div class="qh"><div class="qi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg></div><h3>Solicitar · Consorcios · Mi perfil</h3></div>
+        <ul class="blist">
+          <li><b>Solicitar:</b> el catálogo completo de servicios; elegís, te guiamos y nuestro equipo arranca tu gestión.</li>
+          <li><b>Consorcios:</b> tus edificios con unidades, abono y datos fiscales, de sólo lectura.</li>
+          <li><b>Mi perfil:</b> tu foto, tus datos, tu contraseña, verificación en dos pasos y sesiones activas.</li>
+        </ul>
+      </div>
+    </div>
+    <div>
+      <div class="browser">
+        <div class="bbar"><span class="bdot"></span><span class="bdot"></span><span class="bdot"></span><span class="burl">gestionglobal.ar/portal/gestiones</span></div>
+        <div class="mp">
+          <div class="rail">
+            <svg class="rl" viewBox="0 0 64 64"><path d="M32 12 L54 20 L32 28 L10 20 Z" fill="#9CC7E4"/><path d="M32 20 L54 28 L32 36 L10 28 Z" fill="#2E6FB0"/><path d="M32 28 L54 36 L32 44 L10 36 Z" fill="#009ECA"/><path d="M14 44 C22 52 42 52 50 44" stroke="#0F7C86" stroke-width="3.4" fill="none"/></svg>
+            <div class="ri"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 11l8-7 8 7"/><path d="M6 10v9h12v-9"/></svg></div>
+            <div class="ri on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="5" y="3" width="14" height="18"/><path d="M9 8h6M9 12h6"/></svg></div>
+            <div class="ri"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="6" width="18" height="12"/><path d="M3 10h18"/></svg></div>
+          </div>
+          <div class="body">
+            <div class="mtop"><div><div class="te">Portal · Gestiones</div><div class="ts">Mis gestiones</div></div><div class="tools"><span class="btnp" style="font-size:8.5px;padding:6px 10px">Mesa de Entradas PBA</span><div class="avt">ME</div></div></div>
+            <div class="mc">
+              <div style="display:flex;gap:28px;padding:6px 0 14px;border-bottom:1px solid var(--line)">
+                <div><div style="font-family:'GG Oswald';font-weight:700;font-size:22px;color:var(--ink)" class="num">1</div><div style="font-family:'GG Oswald';text-transform:uppercase;font-size:8.5px;letter-spacing:.06em;color:var(--slate);font-weight:600">Abierta</div></div>
+                <div><div style="font-family:'GG Oswald';font-weight:700;font-size:22px;color:var(--slate)" class="num">0</div><div style="font-family:'GG Oswald';text-transform:uppercase;font-size:8.5px;letter-spacing:.06em;color:var(--slate);font-weight:600">Pendientes</div></div>
+                <div><div style="font-family:'GG Oswald';font-weight:700;font-size:22px;color:var(--ok)" class="num">0</div><div style="font-family:'GG Oswald';text-transform:uppercase;font-size:8.5px;letter-spacing:.06em;color:var(--slate);font-weight:600">Resueltas</div></div>
+              </div>
+              <div style="display:flex;align-items:center;gap:12px;border:1px solid var(--line);border-left:3px solid var(--cyan);padding:12px 14px;margin-top:12px;background:#fff">
+                <div style="width:30px;height:30px;background:var(--pale);border:1px solid var(--line);display:grid;place-items:center;color:var(--blue)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="5" y="3" width="14" height="18"/><path d="M9 8h6M9 12h6"/></svg></div>
+                <div style="flex:1"><div style="font-family:'GG Oswald';font-weight:600;font-size:12.5px;color:var(--ink)">Curso de Actualización RPAC (Pcia. de Bs. As.)</div><div style="font-size:9.5px;color:var(--slate)">López María Eugenia · Última novedad: hoy</div></div>
+                <span class="bmat" style="color:var(--cyan);background:#E1F3FA">En curso</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="shotcap">Tus gestiones, con contadores arriba y cada trámite con su timeline · así se ve hoy en el portal</div>
+    </div>
+  </div>
+  <div class="dfoot"><span><b>Gestión Global</b> · Aliados de tu tiempo</span><span>gestionglobal.ar</span><span class="pg">4 / 6</span></div>
+</section>
+
+<!-- ================= PÁGINA 5 · CAMPUS ================= -->
+<section class="page">
+  <div class="motif"></div>
+  <div class="dhead"><img class="logo" src="logo.png" alt="Gestión Global"><span class="htag">Guía de Bienvenida · Campus virtual</span></div>
+  <div class="pbody">
+    <div>
+      <span class="kick">Mis cursos</span>
+      <div class="h1 sm" style="margin-top:6px">Tu carrera profesional, centralizada en el <em>campus</em></div>
+      <p class="lead" style="margin-top:9px">Cada curso que curses con nosotros vive acá: las clases, los docentes, los materiales, los exámenes y tu certificado. Así se ve por dentro:</p>
+    </div>
+
+    <div class="browser">
+      <div class="bbar"><span class="bdot"></span><span class="bdot"></span><span class="bdot"></span><span class="burl">gestionglobal.ar/portal/campus</span></div>
+      <div class="mp">
+        <div class="rail">
+          <svg class="rl" viewBox="0 0 64 64"><path d="M32 12 L54 20 L32 28 L10 20 Z" fill="#9CC7E4"/><path d="M32 20 L54 28 L32 36 L10 28 Z" fill="#2E6FB0"/><path d="M32 28 L54 36 L32 44 L10 36 Z" fill="#009ECA"/><path d="M14 44 C22 52 42 52 50 44" stroke="#0F7C86" stroke-width="3.4" fill="none"/></svg>
+          <div class="ri"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 11l8-7 8 7"/><path d="M6 10v9h12v-9"/></svg></div>
+          <div class="ri on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 8l9-4 9 4-9 4z"/><path d="M7 11v5c0 1 2.2 2.5 5 2.5s5-1.5 5-2.5v-5"/></svg></div>
+        </div>
+        <div class="body">
+          <div class="mtop"><div><div class="te">Portal del administrador</div><div class="ts">Mis cursos</div></div><div class="avt">ME</div></div>
+          <div class="mc">
+            <div style="position:relative;overflow:hidden;background:linear-gradient(115deg,var(--ink),#123a5c 45%,var(--blue));padding:18px 20px;border:1px solid var(--line)">
+              <div style="position:absolute;inset:0;opacity:.14;background-image:linear-gradient(135deg,#fff 25%,transparent 25%),linear-gradient(225deg,#fff 25%,transparent 25%);background-size:28px 28px;background-position:0 0,14px 14px"></div>
+              <div style="position:absolute;right:18px;top:16px;background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.22);padding:7px 12px;text-align:center;z-index:1"><div style="font-family:'GG Oswald';text-transform:uppercase;letter-spacing:.1em;font-size:7.5px;color:var(--sky)">Certifica</div><div style="font-family:'GG Oswald';font-weight:700;color:#fff;font-size:13px">FundPlata</div></div>
+              <div style="position:relative;z-index:1;font-family:'GG Oswald';text-transform:uppercase;letter-spacing:.12em;font-size:8.5px;color:var(--sky);font-weight:600">Campus · Video asincrónico + tutorías</div>
+              <div style="position:relative;z-index:1;font-family:'GG Oswald';font-weight:500;text-transform:uppercase;color:rgba(255,255,255,.72);font-size:12px;margin-top:6px">Curso de</div>
+              <div style="position:relative;z-index:1;font-family:'GG Oswald';font-weight:700;text-transform:uppercase;color:#fff;font-size:29px;line-height:.98;margin-top:1px">Actualización <em>de Administrador de Consorcios</em></div>
+              <div style="position:relative;z-index:1;font-family:'GG Oswald';font-weight:700;font-size:15px;color:var(--sky);margin-top:7px;letter-spacing:.04em">2026 · Habilitación RPAC (PBA)</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:13px;background:#fff;border:1px solid var(--line);border-top:none;padding:11px 16px">
+              <span style="font-family:'GG Oswald';font-weight:700;font-size:16px;color:var(--ink)" class="num">0%</span>
+              <span style="flex:1;max-width:230px;height:7px;background:var(--pale);position:relative;overflow:hidden"><i style="position:absolute;left:0;top:0;bottom:0;width:0;background:linear-gradient(90deg,var(--cyan),var(--petrol))"></i></span>
+              <span style="font-size:10px;color:var(--slate)" class="num">0/19 clases · 0 exámenes aprobados</span>
+            </div>
+            <div style="display:grid;grid-template-columns:165px 1fr;gap:14px;margin-top:14px">
+              <div>
+                <div style="display:flex;align-items:center;gap:9px;background:#fff;border:1px solid var(--line);padding:9px 10px;margin-bottom:8px"><div style="width:26px;height:26px;background:var(--pale);color:var(--petrol);border:1px solid var(--line);display:grid;place-items:center"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 4v11M8 11l4 4 4-4"/></svg></div><div><div style="font-family:'GG Oswald';font-weight:600;font-size:10.5px;color:var(--ink)">Programa</div><div style="font-size:8px;color:var(--slate)">Descargar PDF</div></div></div>
+                <div style="background:#fff;border:1px solid var(--line);padding:9px 10px"><div style="display:flex;gap:8px;align-items:center"><div style="width:22px;height:22px;background:var(--pale);color:var(--blue);font-family:'GG Oswald';font-weight:600;font-size:11px;display:grid;place-items:center;border:1px solid var(--line)">1</div><div style="font-family:'GG Oswald';font-weight:600;font-size:10px;color:var(--ink);line-height:1.1">Comunicación efectiva</div></div><div style="font-size:8px;color:var(--slate);margin-top:6px;padding-left:2px">Clase 1 · Lic. Ximena González</div></div>
+              </div>
+              <div style="background:#fff;border:1px solid var(--line)">
+                <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--line)"><div style="width:32px;height:32px;background:var(--ink);color:#fff;display:grid;place-items:center;font-family:'GG Oswald';font-weight:600;font-size:12px">XG</div><div><div style="font-family:'GG Oswald';text-transform:uppercase;letter-spacing:.1em;font-size:7.5px;color:var(--petrol);font-weight:600">Video asincrónico</div><div style="font-family:'GG Oswald';font-weight:700;font-size:14px;color:var(--ink);line-height:1">Clase 1</div></div></div>
+                <div style="height:126px;background:radial-gradient(circle at 50% 45%,#16344f,#0b1f33);display:grid;place-items:center;position:relative;overflow:hidden"><div style="position:absolute;inset:0;opacity:.14;background-image:linear-gradient(135deg,#fff 25%,transparent 25%);background-size:42px 42px"></div><div style="position:relative;z-index:1;width:46px;height:46px;background:var(--cyan);display:grid;place-items:center;clip-path:polygon(0 0,calc(100% - 8px) 0,100% 8px,100% 100%,0 100%)"><span style="width:0;height:0;border-style:solid;border-width:7px 0 7px 12px;border-color:transparent transparent transparent #fff;margin-left:3px"></span></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="feat">
+      <div class="fcell"><div class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 5h16v14H4z"/><path d="M4 9h16"/></svg></div><div><div class="ft">Módulos y clases</div><div class="fd">Videos, lecturas y materiales, módulo por módulo — cada uno con su docente y CV.</div></div></div>
+      <div class="fcell"><div class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 11l3 3L22 4"/><path d="M21 12v7H3V5h11"/></svg></div><div><div class="ft">Clases en vivo, sin fricción</div><div class="fd">Entrás con un click desde el campus (Zoom integrado) y tu asistencia se registra sola.</div></div></div>
+      <div class="fcell"><div class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 4h14v16H5z"/><path d="M9 9h6M9 13h6"/></svg></div><div><div class="ft">Exámenes online</div><div class="fd">Con corrección instantánea, nota al momento e intentos configurados. Aprobar acredita.</div></div></div>
+      <div class="fcell"><div class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6h16M4 12h16M4 18h10"/></svg></div><div><div class="ft">Programa y bibliografía</div><div class="fd">El programa del curso en PDF y todos los materiales de lectura para descargar.</div></div></div>
+      <div class="fcell"><div class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l2.5 5 5.5.8-4 3.9 1 5.5L12 15.5 7 18.2l1-5.5-4-3.9 5.5-.8z"/></svg></div><div><div class="ft">Encuesta de satisfacción</div><div class="fd">Tu opinión al final del curso — y suma como condición del certificado.</div></div></div>
+      <div class="fcell"><div class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="9" r="5"/><path d="M8 14l-1 7 5-3 5 3-1-7"/></svg></div><div><div class="ft">Mi certificado</div><div class="fd">Un checklist te muestra qué falta. Al cumplir todo, descargás tu certificado en PDF.</div></div></div>
+    </div>
+
+    <div class="certband">
+      <div class="cbm"></div>
+      <div class="cbi"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="9"/></svg></div>
+      <div class="cbt"><h4>Certificados verificables, con QR</h4><p>Cada certificado lleva un código único y un QR que apunta a la verificación pública en gestionglobal.ar — cualquier organismo o empleador puede validar su autenticidad al instante.</p></div>
+    </div>
+  </div>
+  <div class="dfoot"><span><b>Gestión Global</b> · Aliados de tu tiempo</span><span>gestionglobal.ar</span><span class="pg">5 / 6</span></div>
+</section>
+
+<!-- ================= PÁGINA 6 · SERVICIOS + CONTACTO ================= -->
+<section class="page">
+  <div class="motif"></div>
+  <div class="dhead"><img class="logo" src="logo.png" alt="Gestión Global"><span class="htag">Guía de Bienvenida · Nuestros servicios</span></div>
+  <div class="pbody">
+    <div>
+      <span class="kick">Respaldamos cada paso de tu gestión</span>
+      <div class="h1 sm" style="margin-top:6px">Todo lo que podemos hacer por vos</div>
+    </div>
+    <div class="svc">
+      <div class="srow"><div class="sn">1</div><div><div class="st">Inscripción al RPAC</div><div class="sd">Tu matrícula de administrador en PBA, gestionada de punta a punta.</div></div></div>
+      <div class="srow"><div class="sn">2</div><div><div class="st">Renovación de matrícula RPAC</div><div class="sd">La renovación anual, sin que se te pase ninguna fecha.</div></div></div>
+      <div class="srow"><div class="sn">3</div><div><div class="st">Certificado de acreditación RPAC</div><div class="sd">Acreditá tu matrícula vigente ante asambleas y organismos.</div></div></div>
+      <div class="srow"><div class="sn">4</div><div><div class="st">Declaraciones Juradas anuales</div><div class="sd">La DDJJ de cada consorcio, guiada paso a paso.</div></div></div>
+      <div class="srow"><div class="sn">5</div><div><div class="st">Curso de Formación RPAC (PBA)</div><div class="sd">El curso obligatorio de inscripción, con clases en vivo. Junto a FundPlata.</div></div></div>
+      <div class="srow"><div class="sn">6</div><div><div class="st">Curso de Actualización RPAC (PBA)</div><div class="sd">Para tu renovación anual — a ritmo, con tutorías en vivo.</div></div></div>
+      <div class="srow"><div class="sn">7</div><div><div class="st">Curso de Actualización RPA (CABA)</div><div class="sd">100% online y a tu ritmo. Junto a Gestar Educativa.</div></div></div>
+      <div class="srow"><div class="sn">8</div><div><div class="st">Plataforma de gestión</div><div class="sd">Ingresos, gastos, reportes y comunicación con propietarios.</div></div></div>
+      <div class="srow"><div class="sn">9</div><div><div class="st">Asesoramiento jurídico</div><div class="sd">Abogados especializados en propiedad horizontal, a tu alcance.</div></div></div>
+      <div class="srow"><div class="sn">10</div><div><div class="st">Capacitaciones gratuitas</div><div class="sd">Eventos, charlas y webinars para seguir creciendo.</div></div></div>
+    </div>
+    <div class="contact">
+      <div class="cm"></div>
+      <div class="cl">
+        <img class="lw" src="logo-white.png" alt="Gestión Global">
+        <h3>¿Hablamos?</h3>
+        <p>Estamos del otro lado para lo que necesites: una duda, un trámite nuevo o simplemente para que nos cuentes cómo te está yendo. Escribinos por WhatsApp — respondemos personas, no bots.</p>
+        <div class="cinfo">
+          <div class="ci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="14"/><path d="M3 7l9 6 9-6"/></svg> <span>contacto@gestionglobal.ar</span></div>
+          <div class="ci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></svg> <span>gestionglobal.ar</span></div>
+        </div>
+        <div class="hashtag">#AliadosDeTuTiempo</div>
+      </div>
+      <div class="cr">
+        <div class="qrbox"><img class="qr" src="wa-qr.png" alt="WhatsApp"></div>
+        <div class="wa"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 00-8.6 15l-1.4 5 5.1-1.3A10 10 0 1012 2zm0 2a8 8 0 11-4.2 14.8l-.3-.2-3 .8.8-2.9-.2-.3A8 8 0 0112 4z"/></svg> WhatsApp</div>
+        <div class="waphone">+54 9 221 431-7914</div>
+      </div>
+    </div>
+  </div>
+  <div class="dfoot"><span><b>Gestión Global</b> · Aliados de tu tiempo</span><span>gestionglobal.ar</span><span class="pg">6 / 6</span></div>
+</section>
+
+</body>
+</html>
