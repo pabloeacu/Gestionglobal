@@ -14,6 +14,7 @@ import { CalendarClock, Check, Plus, Trash2 } from 'lucide-react';
 import { Button, Field, Input, Modal } from '@/components/common';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/cn';
+import { hoyISO, toISODate } from '@/lib/dates';
 import {
   actualizarVencimiento,
   cerrarCicloTracking,
@@ -84,7 +85,7 @@ export function ProgramarVencimientoModal({
   const [fecha, setFecha] = useState<string>(() => {
     const d = new Date();
     d.setDate(d.getDate() + periodoSugeridoDias);
-    return d.toISOString().slice(0, 10);
+    return toISODate(d);
   });
   const [offsets, setOffsets] = useState<number[]>(OFFSETS_DEFAULT);
   const [customInput, setCustomInput] = useState<string>('');
@@ -103,7 +104,7 @@ export function ProgramarVencimientoModal({
     } else {
       const d = new Date();
       d.setDate(d.getDate() + periodoSugeridoDias);
-      setFecha(d.toISOString().slice(0, 10));
+      setFecha(toISODate(d));
       setOffsets(OFFSETS_DEFAULT);
       setNotificar(true);
     }
@@ -226,7 +227,7 @@ export function ProgramarVencimientoModal({
             type="date"
             value={fecha}
             onChange={(e) => setFecha(e.target.value)}
-            min={new Date().toISOString().slice(0, 10)}
+            min={hoyISO()}
           />
         </Field>
 

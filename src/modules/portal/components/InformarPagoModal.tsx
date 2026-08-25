@@ -8,6 +8,7 @@ import { toast } from '@/lib/toast';
 import { humanizeError } from '@/lib/errors';
 import { motivoRechazoAdjunto, type LimitesAdjunto } from '@/lib/adjuntos';
 import { useAuth } from '@/contexts/AuthContext';
+import { hoyISO } from '@/lib/dates';
 import {
   reportarPago,
   uploadComprobantePago,
@@ -33,10 +34,6 @@ interface Props {
   /** Monto sugerido (ej. el saldo o el importe de la cuota). */
   montoSugerido?: number | null;
   onReported?: () => void;
-}
-
-function hoyISO(): string {
-  return new Date().toISOString().slice(0, 10);
 }
 
 // Parseo robusto de importe en formato argentino (auditoría §6 A#9):

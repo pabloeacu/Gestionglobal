@@ -2,6 +2,7 @@ import { supabase } from '@/lib/supabase';
 import { ok, fail, type ApiResponse } from '@/lib/errors';
 import type { ComprobanteListItem } from './comprobantes';
 import type { Database } from '@/types/database';
+import { toISODate } from '@/lib/dates';
 
 type ComprobanteRow = Database['public']['Tables']['comprobantes']['Row'];
 
@@ -46,7 +47,7 @@ export async function getPortalDashboard(
   const today = new Date();
   const cutoff = new Date(today);
   cutoff.setDate(cutoff.getDate() + 30);
-  const cutoffStr = cutoff.toISOString().slice(0, 10);
+  const cutoffStr = toISODate(cutoff);
 
   const [compsRes, consRes] = await Promise.all([
     supabase
@@ -116,7 +117,7 @@ export async function getPortalDashboard(
 
   // Próximo vencimiento futuro
   const futurosCv = pendientes
-    .filter((r) => r.vencimiento && r.vencimiento >= today.toISOString().slice(0, 10))
+    .filter((r) => r.vencimiento && r.vencimiento >= toISODate(today))
     .sort((a, b) =>
       (a.vencimiento ?? '').localeCompare(b.vencimiento ?? ''),
     );

@@ -16,7 +16,7 @@ import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
 import { toast } from '@/lib/toast';
 import { humanizeError } from '@/lib/errors';
-import { formatDateTime, formatDateShort } from '@/lib/dates';
+import { formatDateTime, formatDateShort, hoyISO } from '@/lib/dates';
 import { abrirArchivoProtegido } from '@/lib/storageUrls';
 import {
   fetchModeracionPendientes,
@@ -230,8 +230,7 @@ export function ModeracionCard({ item, onResuelto, onCerradoTramite }: {
       const fechaAplicada = mandaOtorg ? otorgEdit.fecha_vencimiento : '';
       const cambiaFicha =
         !!fechaAplicada && fechaAplicada !== (item.ficha_matricula_rpac_vencimiento ?? '');
-      const hoyISO = new Date().toISOString().slice(0, 10);
-      if (cambiaFicha && fechaAplicada > hoyISO) {
+      if (cambiaFicha && fechaAplicada > hoyISO()) {
         toast.info('Próximo vencimiento agendado', {
           description: 'La alarma 45/30/15 al cliente quedó programada desde el otorgamiento.',
         });
@@ -500,7 +499,7 @@ export function ModeracionCard({ item, onResuelto, onCerradoTramite }: {
                 Sin datos cargados — al publicar no se asienta nada en la ficha.
               </p>
             ) : otorgEdit.fecha_vencimiento &&
-              otorgEdit.fecha_vencimiento <= new Date().toISOString().slice(0, 10) ? (
+              otorgEdit.fecha_vencimiento <= hoyISO() ? (
               <p className="mt-2 flex items-center gap-1.5 text-[11px] font-medium text-amber-700">
                 <AlertCircle size={12} className="shrink-0" />
                 Esta fecha ya pasó: la ficha quedará con la matrícula VENCIDA y no

@@ -75,7 +75,7 @@ import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
 // DGG-142 E6 · consulta TRAMIX desde el trámite (mismo modal del portal; la
 // edge ya tiene rama staff — el gerente no cae en SIN_ADMIN).
 import { TramixConsultaModal } from '@/modules/portal/components/TramixConsultaModal';
-import { formatDateShort, formatDateTime } from '@/lib/dates';
+import { formatDateShort, formatDateTime, hoyISO } from '@/lib/dates';
 import { cn } from '@/lib/cn';
 import {
   getTracking,
@@ -503,9 +503,7 @@ export function TrackingDetailPage() {
     if (!data) return;
     setPdfBusy(true);
     try {
-      const filename = `tracking-${data.codigo ?? data.id.slice(0, 8)}-${new Date()
-        .toISOString()
-        .slice(0, 10)}.pdf`;
+      const filename = `tracking-${data.codigo ?? data.id.slice(0, 8)}-${hoyISO()}.pdf`;
       const diasAbiertos = Math.max(
         0,
         Math.floor(

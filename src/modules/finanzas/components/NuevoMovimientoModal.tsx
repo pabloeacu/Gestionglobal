@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { History, Paperclip, Plus, X } from 'lucide-react';
 import { Button, Field, Input, Modal, Select, Textarea } from '@/components/common';
 import { toast } from '@/lib/toast';
+import { hoyISO } from '@/lib/dates';
 import {
   crearMovimientoManual, subirAdjuntoMovimiento, listCategoriasFinanzas, buscarAdministraciones,
   listProveedoresFrecuentes, crearProveedorFrecuente, ultimosEgresosDeProveedor,
@@ -41,7 +42,7 @@ export function NuevoMovimientoModal({ cajas, onClose, onCreated }: Props) {
   const [tipo, setTipo] = useState<'ingreso' | 'egreso'>('ingreso');
   const [cajaId, setCajaId] = useState<string>(cajas[0]?.caja_id ?? '');
   const [monto, setMonto] = useState<string>('');
-  const [fecha, setFecha] = useState<string>(new Date().toISOString().slice(0, 10));
+  const [fecha, setFecha] = useState<string>(hoyISO());
   const [descripcion, setDescripcion] = useState('');
   const [referencia, setReferencia] = useState('');
   const [categoriaId, setCategoriaId] = useState<string>('');

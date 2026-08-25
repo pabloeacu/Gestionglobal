@@ -3,6 +3,33 @@
 // formatear con toLocaleDateString. Estos helpers parsean el string como
 // fecha LOCAL (no UTC) para que el día mostrado coincida con el de la BD.
 
+// Fecha de HOY en horario Argentina como 'YYYY-MM-DD'. Usar SIEMPRE para defaults
+// de <input type="date"> y para persistir fechas (cobranzas, comprobantes,
+// movimientos…). `new Date().toISOString().slice(0,10)` da la fecha UTC, que
+// después de las 21 hs AR ya es el día siguiente → fecha contable corrida (E-GG-194,
+// reporte JL). `en-CA` formatea yyyy-mm-dd.
+export function hoyISO(): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Argentina/Buenos_Aires',
+  }).format(new Date());
+}
+
+// hoyISO con desplazamiento en días, en horario AR (p.ej. hoyISOoffset(7) = hoy+7).
+export function hoyISOoffset(dias: number): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Argentina/Buenos_Aires',
+  }).format(new Date(Date.now() + dias * 86400000));
+}
+
+// Formatea CUALQUIER Date a 'YYYY-MM-DD' en horario Argentina. Para fechas ya
+// computadas (vencimientos, rangos, períodos): evita el corrimiento de
+// `.toISOString().slice(0,10)` (UTC) para instantes de la tarde-noche AR (E-GG-194).
+export function toISODate(d: Date): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Argentina/Buenos_Aires',
+  }).format(d);
+}
+
 export function parseLocalDate(d: string): Date {
   // Tolera 'YYYY-MM-DD' y también ISO completo 'YYYY-MM-DDT...'.
   const datePart = d.includes('T') ? d.slice(0, 10) : d;

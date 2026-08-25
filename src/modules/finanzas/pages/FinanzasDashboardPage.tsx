@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
+import { hoyISO } from '@/lib/dates';
 import {
   ArrowRightLeft, Plus, TrendingUp, TrendingDown, Wallet, AlertCircle,
   Banknote, Search, X, RotateCcw, Ban, Landmark, UserCheck, Undo2,
@@ -98,7 +99,7 @@ export function FinanzasDashboardPage() {
 
   async function onExportPdf() {
     await generateReportPdf<MovimientoListadoRow>({
-      filename: `movimientos-${new Date().toISOString().slice(0, 10)}`,
+      filename: `movimientos-${hoyISO()}`,
       titulo: 'Movimientos financieros',
       subtitulo: 'Caja & bancos · Gestión Global',
       filtros: exportFiltros,
@@ -136,7 +137,7 @@ export function FinanzasDashboardPage() {
 
   async function onExportXls() {
     generateReportXls<MovimientoListadoRow>({
-      filename: `movimientos-${new Date().toISOString().slice(0, 10)}`,
+      filename: `movimientos-${hoyISO()}`,
       sheetName: 'Movimientos',
       titulo: 'Movimientos · Gestión Global',
       filtros: exportFiltros,

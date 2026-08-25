@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import { ok, fail, type ApiResponse } from '@/lib/errors';
 import type { Database } from '@/types/database';
+import { hoyISO } from '@/lib/dates';
 
 export type CajaRow = Database['public']['Tables']['cajas']['Row'];
 export type CategoriaFinanzaRow = Database['public']['Tables']['categorias_finanzas']['Row'];
@@ -84,7 +85,7 @@ export function cobroInicial(): CobroAhoraState {
     modo: 'sin_cobro',
     cajaId: '',
     categoriaId: '',
-    fecha: new Date().toISOString().slice(0, 10),
+    fecha: hoyISO(),
     montoParcial: 0,
     referencia: '',
     partnerId: '',

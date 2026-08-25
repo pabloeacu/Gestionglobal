@@ -56,7 +56,7 @@ import { ExportButtons } from '@/components/reports/ExportButtons';
 import { generateReportPdf } from '@/lib/reportPdf';
 import { generateReportXls } from '@/lib/reportXls';
 import { humanizeError } from '@/lib/errors';
-import { parseLocalDate } from '@/lib/dates';
+import { parseLocalDate, hoyISO } from '@/lib/dates';
 
 // `vigencia_hasta` es `date` (date-only) en Postgres. `fmtFecha` usa
 // `new Date(str)` (UTC midnight) y retrocede un día en AR (E-GG-72), así que
@@ -252,7 +252,7 @@ export function GestionMatriculasTab({ data }: { data: CursoDetalle }) {
 
   async function onExportPdf() {
     await generateReportPdf<ExportRow>({
-      filename: `matriculas-${data.curso.slug || data.curso.id}-${new Date().toISOString().slice(0, 10)}`,
+      filename: `matriculas-${data.curso.slug || data.curso.id}-${hoyISO()}`,
       titulo: 'Matrículas del curso',
       subtitulo: data.curso.titulo,
       filtros: [{ label: 'Curso', value: data.curso.titulo }],
@@ -287,7 +287,7 @@ export function GestionMatriculasTab({ data }: { data: CursoDetalle }) {
 
   async function onExportXls() {
     generateReportXls<ExportRow>({
-      filename: `matriculas-${data.curso.slug || data.curso.id}-${new Date().toISOString().slice(0, 10)}`,
+      filename: `matriculas-${data.curso.slug || data.curso.id}-${hoyISO()}`,
       sheetName: 'Matrículas',
       titulo: `Matrículas · ${data.curso.titulo}`,
       filtros: [{ label: 'Curso', value: data.curso.titulo }],

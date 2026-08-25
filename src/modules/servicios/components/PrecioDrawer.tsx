@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { toast } from '@/lib/toast';
 import { Coins, Save } from 'lucide-react';
+import { hoyISO } from '@/lib/dates';
 import {
   Drawer,
   Button,
@@ -44,7 +45,7 @@ type Draft = {
   notas: string;
 };
 
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => hoyISO();
 
 export function PrecioDrawer({
   open,

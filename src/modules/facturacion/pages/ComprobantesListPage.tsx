@@ -25,7 +25,7 @@ import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import { IllustratedEmpty } from '@/components/brand/IllustratedEmpty';
 import { ComprobanteFormDrawer } from '../components/ComprobanteFormDrawer';
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
-import { formatDateShort as formatDate, parseLocalDate } from '@/lib/dates';
+import { formatDateShort as formatDate, parseLocalDate, hoyISO } from '@/lib/dates';
 import {
   listComprobantes,
   kpisComprobantesUniverso,
@@ -187,7 +187,7 @@ export function ComprobantesListPage() {
 
   async function onExportPdf() {
     await generateReportPdf<ComprobanteListItem>({
-      filename: `comprobantes-${periodo?.slice(0, 7) || new Date().toISOString().slice(0, 7)}`,
+      filename: `comprobantes-${periodo?.slice(0, 7) || hoyISO().slice(0, 7)}`,
       titulo: 'Comprobantes',
       subtitulo: `Facturación · ${periodo?.slice(0, 7) || 'todos los periodos'}`,
       filtros: exportFiltros,
@@ -216,7 +216,7 @@ export function ComprobantesListPage() {
 
   async function onExportXls() {
     generateReportXls<ComprobanteListItem>({
-      filename: `comprobantes-${periodo?.slice(0, 7) || new Date().toISOString().slice(0, 7)}`,
+      filename: `comprobantes-${periodo?.slice(0, 7) || hoyISO().slice(0, 7)}`,
       sheetName: 'Comprobantes',
       titulo: 'Comprobantes · Gestión Global',
       subtitulo: periodo ? `Período: ${periodo.slice(0, 7)}` : undefined,

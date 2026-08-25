@@ -17,6 +17,7 @@ import { AlertTriangle, Check, Loader2, RotateCcw, SkipForward } from 'lucide-re
 import { Button } from '@/components/common';
 import { toast } from '@/lib/toast';
 import { humanizeError } from '@/lib/errors';
+import { hoyISO } from '@/lib/dates';
 import {
   activar,
   contarDerivacionesDeSolicitud,
@@ -78,7 +79,7 @@ interface Props {
 }
 
 function hoy(): string {
-  return new Date().toISOString().slice(0, 10);
+  return hoyISO();
 }
 function fmtMoney(n: number): string {
   return `$${n.toLocaleString('es-AR', {

@@ -1,3 +1,4 @@
+import { hoyISO, toISODate } from '@/lib/dates';
 // Helpers de formato local al módulo de cta. cte.
 
 export function formatMoney(n: number, fractionDigits = 2): string {
@@ -10,14 +11,14 @@ export function formatMoney(n: number, fractionDigits = 2): string {
 }
 
 export function todayISO(): string {
-  return new Date().toISOString().slice(0, 10);
+  return hoyISO();
 }
 
 export function defaultDesde(): string {
   // 12 meses atrás.
   const d = new Date();
   d.setMonth(d.getMonth() - 12);
-  return d.toISOString().slice(0, 10);
+  return toISODate(d);
 }
 
 export function defaultHasta(): string {
@@ -26,5 +27,5 @@ export function defaultHasta(): string {
   // ya cuenta → el saldo grande cuadra con la suma del extracto de abajo.
   const d = new Date();
   d.setFullYear(d.getFullYear() + 1, 11, 31);
-  return d.toISOString().slice(0, 10);
+  return toISODate(d);
 }

@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import { ok, fail, type ApiResponse } from '@/lib/errors';
+import { hoyISO, toISODate } from '@/lib/dates';
 import {
   generateComprobantesReportePdf,
   type ComprobanteReporteRow,
@@ -107,7 +108,7 @@ export async function descargarComprobantesPdf(
     administracion: res.data.adminLabel,
   };
   const doc = await generateComprobantesReportePdf(res.data.rows, filtersForPdf);
-  const stamp = new Date().toISOString().slice(0, 10);
+  const stamp = hoyISO();
   const filename = `reporte-comprobantes-${stamp}.pdf`;
   savePdf(doc, filename);
   return ok({ filename });
@@ -124,7 +125,7 @@ export async function descargarComprobantesXlsx(
     administracion: res.data.adminLabel,
   };
   const blob = await generateComprobantesReporteXlsx(res.data.rows, filtersForXlsx);
-  const stamp = new Date().toISOString().slice(0, 10);
+  const stamp = hoyISO();
   const filename = `reporte-comprobantes-${stamp}.xlsx`;
   downloadBlob(blob, filename);
   return ok({ filename });
@@ -175,8 +176,8 @@ async function fetchCtaCteData(
   // cargos + cobranzas imputadas + saldo a favor, todo coherente con el saldo.
   const hoy = new Date();
   const desde = filters.desde
-    ?? new Date(hoy.getTime() - 365 * 24 * 3600 * 1000).toISOString().slice(0, 10);
-  const hasta = filters.hasta ?? hoy.toISOString().slice(0, 10);
+    ?? toISODate(new Date(hoy.getTime() - 365 * 24 * 3600 * 1000));
+  const hasta = filters.hasta ?? toISODate(hoy);
 
   const { data: ext, error: extErr } = await supabase.rpc(
     'cuenta_corriente_extracto' as never,
@@ -228,7 +229,7 @@ export async function descargarCtaCtePdf(
     desde: filters.desde,
     hasta: filters.hasta,
   });
-  const stamp = new Date().toISOString().slice(0, 10);
+  const stamp = hoyISO();
   const slug = res.data.cliente.nombre.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 30);
   const filename = `cta-cte-${slug}-${stamp}.pdf`;
   savePdf(doc, filename);
@@ -247,7 +248,7 @@ export async function descargarCtaCteXlsx(
     desde: filters.desde,
     hasta: filters.hasta,
   });
-  const stamp = new Date().toISOString().slice(0, 10);
+  const stamp = hoyISO();
   const slug = res.data.cliente.nombre.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 30);
   const filename = `cta-cte-${slug}-${stamp}.xlsx`;
   downloadBlob(blob, filename);
@@ -332,7 +333,7 @@ export async function descargarRecuperoPdf(
   const doc = await generateRecuperoReportePdf({
     desde: filters.desde, hasta: filters.hasta, rows: res.data.rows,
   });
-  const stamp = new Date().toISOString().slice(0, 10);
+  const stamp = hoyISO();
   const filename = `reporte-recupero-${stamp}.pdf`;
   savePdf(doc, filename);
   return ok({ filename });
@@ -393,7 +394,7 @@ export async function descargarTabuladorXlsx(): Promise<ApiResponse<{ filename: 
   });
 
   const blob = await generateTabuladorXlsx(rows);
-  const stamp = new Date().toISOString().slice(0, 10);
+  const stamp = hoyISO();
   const filename = `tabulador-${stamp}.xlsx`;
   downloadBlob(blob, filename);
   return ok({ filename });

@@ -6,6 +6,7 @@
 import { useEffect, useState } from 'react';
 import { Banknote, Receipt, PiggyBank } from 'lucide-react';
 import { Field, Input, Select, StepPanel } from '@/components/common';
+import { hoyISOoffset } from '@/lib/dates';
 import {
   listCajasActivas,
   listCategoriasIngreso,
@@ -208,7 +209,7 @@ export function PasoComprobante({ state, set }: PasoProps) {
                   type="date"
                   value={c.fechaPago}
                   min="2020-01-01"
-                  max={new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10)}
+                  max={hoyISOoffset(7)}
                   onChange={(e) => patchC({ fechaPago: e.target.value })}
                 />
               </Field>

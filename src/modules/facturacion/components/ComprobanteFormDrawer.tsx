@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { toast } from '@/lib/toast';
+import { hoyISO, toISODate } from '@/lib/dates';
 import {
   Receipt,
   Save,
@@ -113,13 +114,13 @@ function newItem(): ItemRow {
 }
 
 function todayISO(): string {
-  return new Date().toISOString().slice(0, 10);
+  return hoyISO();
 }
 
 function inDaysISO(d: number): string {
   const t = new Date();
   t.setDate(t.getDate() + d);
-  return t.toISOString().slice(0, 10);
+  return toISODate(t);
 }
 
 export function ComprobanteFormDrawer({

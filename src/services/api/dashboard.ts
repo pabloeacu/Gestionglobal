@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import { fail, ok, type ApiResponse } from '@/lib/errors';
+import { toISODate } from '@/lib/dates';
 
 // Forma del JSONB devuelto por public.kpis_dashboard_global. Mantenido en
 // sync con supabase/migrations/0033_kpis_dashboard.sql.
@@ -48,7 +49,7 @@ export async function getDashboardGlobal(
 ): Promise<ApiResponse<DashboardKpis>> {
   const desde = new Date();
   desde.setDate(desde.getDate() - diasAtras);
-  const desdeStr = desde.toISOString().slice(0, 10);
+  const desdeStr = toISODate(desde);
 
   const rpc: RawRpc = (name, args) =>
     (supabase.rpc as unknown as RawRpc).call(supabase, name, args);

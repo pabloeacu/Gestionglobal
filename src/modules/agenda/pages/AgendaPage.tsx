@@ -6,6 +6,7 @@
 // resolución de overrides en la Lista (E10), modal con panel LATERAL (E8),
 // AccionesMenu con clamp robusto (E7), bloque con HH:MM redondeado (E9).
 import { useEffect, useMemo, useState } from 'react';
+import { hoyISO } from '@/lib/dates';
 import {
   CalendarDays,
   CalendarPlus,
@@ -476,7 +477,7 @@ export function AgendaPage({ initialTab }: AgendaPageProps = {}) {
       return;
     }
     const ics = eventosToIcs(items);
-    const stamp = new Date().toISOString().slice(0, 10);
+    const stamp = hoyISO();
     downloadIcs(
       ics,
       `agenda-gestion-global-${modo}-${stamp}.ics`,

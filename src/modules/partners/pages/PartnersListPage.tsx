@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { hoyISO, toISODate } from '@/lib/dates';
 import {
   Plus,
   Search,
@@ -97,7 +98,7 @@ export function PartnersListPage() {
     // periodo_hasta cae en los últimos 31 días.
     const hace31 = new Date();
     hace31.setDate(hace31.getDate() - 31);
-    const corte = hace31.toISOString().slice(0, 10);
+    const corte = toISODate(hace31);
     const ingresos = rendiciones
       .filter((r) => r.periodo_hasta >= corte)
       .reduce((acc, r) => acc + Number(r.total_ingresos_atribuidos ?? 0), 0);
@@ -117,7 +118,7 @@ export function PartnersListPage() {
     const map = new Map<string, number>();
     const hace31 = new Date();
     hace31.setDate(hace31.getDate() - 31);
-    const corte = hace31.toISOString().slice(0, 10);
+    const corte = toISODate(hace31);
     for (const r of rendiciones) {
       if (r.periodo_hasta < corte) continue;
       const cur = map.get(r.partner_id) ?? 0;
@@ -142,7 +143,7 @@ export function PartnersListPage() {
 
   async function onExportPdf() {
     await generateReportPdf<PartnerListItem>({
-      filename: `partners-${new Date().toISOString().slice(0, 10)}`,
+      filename: `partners-${hoyISO()}`,
       titulo: 'Partners',
       subtitulo: 'Convenios y rendiciones · Gestión Global',
       filtros: exportFiltros,
@@ -168,7 +169,7 @@ export function PartnersListPage() {
 
   async function onExportXls() {
     generateReportXls<PartnerListItem>({
-      filename: `partners-${new Date().toISOString().slice(0, 10)}`,
+      filename: `partners-${hoyISO()}`,
       sheetName: 'Partners',
       titulo: 'Partners · Gestión Global',
       filtros: exportFiltros,

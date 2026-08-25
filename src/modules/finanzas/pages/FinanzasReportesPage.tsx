@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { hoyISO } from '@/lib/dates';
 import {
   ArrowLeft, TrendingUp, BarChart3, PieChart, GitCompareArrows,
   Download, ArrowUp, ArrowDown, Minus,
@@ -392,7 +393,7 @@ function PyGTab() {
   const [data, setData] = useState<PygRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [desde, setDesde] = useState(`${ANIO_ACTUAL}-01-01`);
-  const [hasta, setHasta] = useState(() => new Date().toISOString().slice(0, 10));
+  const [hasta, setHasta] = useState(() => hoyISO());
 
   useEffect(() => {
     (async () => {

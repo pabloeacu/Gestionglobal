@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { toast } from '@/lib/toast';
+import { hoyISO } from '@/lib/dates';
 import {
   Wallet, Save, ArrowLeft, ArrowRight, CreditCard, Sparkles,
 } from 'lucide-react';
@@ -35,7 +36,7 @@ const STEPS: { key: StepKey; label: string }[] = [
 ];
 
 function todayISO(): string {
-  return new Date().toISOString().slice(0, 10);
+  return hoyISO();
 }
 
 export function RegistrarCobranzaDrawer({

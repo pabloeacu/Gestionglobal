@@ -12,7 +12,7 @@ import {
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import { IllustratedEmpty } from '@/components/brand/IllustratedEmpty';
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
-import { formatDateTime } from '@/lib/dates';
+import { formatDateTime, formatDateShort, parseLocalDate, hoyISO } from '@/lib/dates';
 import { cn } from '@/lib/cn';
 import { TramiteFormDrawer } from '../components/TramiteFormDrawer';
 import { ProgramarVencimientoModal } from '@/modules/trackings/components/ProgramarVencimientoModal';
@@ -265,7 +265,7 @@ export function TramitesListPage() {
 
   async function onExportPdf() {
     await generateReportPdf<TramiteListItem>({
-      filename: `tramites-${new Date().toISOString().slice(0, 10)}`,
+      filename: `tramites-${hoyISO()}`,
       titulo: 'Trámites',
       subtitulo: 'Expedientes y solicitudes · Gestión Global',
       filtros: exportFiltros,
@@ -280,7 +280,9 @@ export function TramitesListPage() {
         { key: 'administracion_nombre', label: 'Cliente', width: '20%', format: (r) => r.administracion_nombre ?? r.solicitante_nombre ?? '—' },
         { key: 'estado', label: 'Estado', width: '14%', format: (r) => TRAMITE_ESTADO_LABEL[r.estado as TramiteEstado] ?? r.estado },
         { key: 'created_at', label: 'Creación', width: '12%', format: (r) => formatFecha(r.created_at) },
-        { key: 'vence_at', label: 'Objetivo', width: '14%', format: (r) => formatFecha(r.vence_at) },
+        // vence_at es date-only guardado como timestamptz a medianoche-UTC →
+        // leer con formatDateShort (slice+local), NO formatFecha TZ-aware (E-GG-194 §6/C#1).
+        { key: 'vence_at', label: 'Objetivo', width: '14%', format: (r) => formatDateShort(r.vence_at) },
       ],
       rows: sorted,
     });
@@ -288,7 +290,7 @@ export function TramitesListPage() {
 
   async function onExportXls() {
     generateReportXls<TramiteListItem>({
-      filename: `tramites-${new Date().toISOString().slice(0, 10)}`,
+      filename: `tramites-${hoyISO()}`,
       sheetName: 'Trámites',
       titulo: 'Trámites · Gestión Global',
       filtros: exportFiltros,
@@ -301,7 +303,7 @@ export function TramitesListPage() {
         { key: 'estado', label: 'Estado', width: 16, value: (r) => TRAMITE_ESTADO_LABEL[r.estado as TramiteEstado] ?? r.estado },
         { key: 'prioridad', label: 'Prioridad', width: 12, value: (r) => TRAMITE_PRIORIDAD_LABEL[r.prioridad as TramitePrioridad] ?? r.prioridad },
         { key: 'created_at', label: 'Creación', width: 14, value: (r) => (r.created_at ? new Date(r.created_at) : null) },
-        { key: 'vence_at', label: 'Objetivo', width: 14, value: (r) => (r.vence_at ? new Date(r.vence_at) : null) },
+        { key: 'vence_at', label: 'Objetivo', width: 14, value: (r) => (r.vence_at ? parseLocalDate(r.vence_at) : null) },
       ],
       rows: sorted,
     });

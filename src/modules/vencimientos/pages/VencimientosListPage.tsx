@@ -36,7 +36,7 @@ import { VencimientoCard } from '../components/VencimientoCard';
 import { MiniMapaVencimientos } from '../components/MiniMapaVencimientos';
 import { useUrlFilters } from '@/lib/useUrlFilters';
 import { usePullToRefresh } from '@/lib/usePullToRefresh';
-import { parseLocalDate } from '@/lib/dates';
+import { parseLocalDate, hoyISO } from '@/lib/dates';
 import { CheckSquare, RefreshCcw as RefreshIcon, Square, X as CloseIcon } from 'lucide-react';
 import {
   getProximosVencimientos,
@@ -253,7 +253,7 @@ export function VencimientosListPage() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `vencimientos-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `vencimientos-${hoyISO()}.csv`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -281,7 +281,7 @@ export function VencimientosListPage() {
 
   async function onExportPdf() {
     await generateReportPdf<ProximoVencimiento>({
-      filename: `vencimientos-${new Date().toISOString().slice(0, 10)}`,
+      filename: `vencimientos-${hoyISO()}`,
       titulo: 'Vencimientos',
       subtitulo: `Próximos ${horizonte} días · Gestión Global`,
       filtros: exportFiltros,
@@ -307,7 +307,7 @@ export function VencimientosListPage() {
 
   async function onExportXls() {
     generateReportXls<ProximoVencimiento>({
-      filename: `vencimientos-${new Date().toISOString().slice(0, 10)}`,
+      filename: `vencimientos-${hoyISO()}`,
       sheetName: 'Vencimientos',
       titulo: 'Vencimientos · Gestión Global',
       filtros: exportFiltros,

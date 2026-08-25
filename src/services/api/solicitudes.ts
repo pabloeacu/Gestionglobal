@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase';
 import { DIAS_VALIDEZ_ENLACE_EXTERNO } from './accesos';
 import { ok, fail, type ApiResponse } from '@/lib/errors';
 import type { Database, Json } from '@/types/database';
+import { hoyISO } from '@/lib/dates';
 
 export type SolicitudRow = Database['public']['Tables']['solicitudes']['Row'];
 export type SolicitudDerivacionRow =
@@ -686,7 +687,7 @@ export async function matchClienteParaSolicitud(
 }
 
 export async function getKpis(): Promise<ApiResponse<SolicitudesKpis>> {
-  const todayIso = new Date().toISOString().slice(0, 10);
+  const todayIso = hoyISO();
   const [r, er, der, act] = await Promise.all([
     supabase
       .from('solicitudes')

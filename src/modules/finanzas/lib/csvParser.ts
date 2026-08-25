@@ -1,5 +1,6 @@
 import Papa from 'papaparse';
 import type { HistoricoLineaInput } from '@/services/api/finanzas';
+import { toISODate } from '@/lib/dates';
 
 // DGG-22 · Formato propio del usuario (universal sin importar el banco).
 // Columnas esperadas (case-insensitive, flexible orden):
@@ -88,7 +89,7 @@ function parseFecha(raw: unknown): string | null {
   // Date object via JS
   const dt = new Date(s);
   if (!isNaN(dt.getTime())) {
-    return dt.toISOString().slice(0, 10);
+    return toISODate(dt);
   }
   return null;
 }

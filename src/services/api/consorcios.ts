@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import { ok, fail, type ApiResponse } from '@/lib/errors';
 import type { Database } from '@/types/database';
+import { hoyISO } from '@/lib/dates';
 
 export type ConsorcioRow = Database['public']['Tables']['consorcios']['Row'];
 export type ConsorcioInsert = Database['public']['Tables']['consorcios']['Insert'];
@@ -87,6 +88,6 @@ export async function setConsorcioActivo(
   return updateConsorcio(id, {
     activo,
     baja_motivo: activo ? null : (motivo ?? null),
-    baja_fecha: activo ? null : new Date().toISOString().slice(0, 10),
+    baja_fecha: activo ? null : hoyISO(),
   });
 }

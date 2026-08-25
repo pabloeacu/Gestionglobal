@@ -6,6 +6,7 @@
 // window.alert/confirm. Tipo X coherente con #150 (siempre arranca simple).
 
 import { useEffect, useState } from 'react';
+import { hoyISO, hoyISOoffset } from '@/lib/dates';
 import {
   FileText,
   Plus,
@@ -267,10 +268,8 @@ function ModalGenerarComprobante({
   onClose: () => void;
   onCreado: (id: string) => void;
 }) {
-  const hoy = new Date().toISOString().slice(0, 10);
-  const venceDefault = new Date(Date.now() + 15 * 86_400_000)
-    .toISOString()
-    .slice(0, 10);
+  const hoy = hoyISO();
+  const venceDefault = hoyISOoffset(15);
 
   const [descripcion, setDescripcion] = useState(
     servicioNombre ?? 'Servicio profesional',
@@ -472,7 +471,7 @@ function ModalRegistrarPago({
   onClose: () => void;
   onPagado: () => void;
 }) {
-  const hoy = new Date().toISOString().slice(0, 10);
+  const hoy = hoyISO();
   const [cajas, setCajas] = useState<CajaRow[]>([]);
   const [cajaId, setCajaId] = useState('');
   const [fecha, setFecha] = useState(hoy);

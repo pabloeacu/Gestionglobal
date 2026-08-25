@@ -9803,6 +9803,10 @@ export type Database = {
           run_at: string
         }[]
       }
+      hoy_ar: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
       import_comprobantes_batch: {
         Args: { p_archivo: string; p_filas: Json }
         Returns: Json

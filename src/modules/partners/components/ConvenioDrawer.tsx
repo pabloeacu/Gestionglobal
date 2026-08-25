@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Percent } from 'lucide-react';
 import { toast } from '@/lib/toast';
+import { hoyISO } from '@/lib/dates';
 import {
   Drawer,
   Button,
@@ -27,7 +28,7 @@ export function ConvenioDrawer({
   partnerNombre,
   onSaved,
 }: Props) {
-  const [desde, setDesde] = useState(() => new Date().toISOString().slice(0, 10));
+  const [desde, setDesde] = useState(() => hoyISO());
   const [hasta, setHasta] = useState('');
   const [porcIngresos, setPorcIngresos] = useState('30.00');
   const [porcCostos, setPorcCostos] = useState('30.00');
@@ -37,7 +38,7 @@ export function ConvenioDrawer({
 
   useEffect(() => {
     if (!open) return;
-    setDesde(new Date().toISOString().slice(0, 10));
+    setDesde(hoyISO());
     setHasta('');
     setPorcIngresos('30.00');
     setPorcCostos('30.00');

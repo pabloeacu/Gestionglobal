@@ -4,6 +4,7 @@ import { toast } from '@/lib/toast';
 import { Modal, Button, Field, Input } from '@/components/common';
 import { crearRendicion } from '@/services/api/partners';
 import { humanizeError } from '@/lib/errors';
+import { toISODate } from '@/lib/dates';
 
 interface Props {
   open: boolean;
@@ -16,13 +17,13 @@ interface Props {
 function firstDayOfMonth(): string {
   const d = new Date();
   d.setDate(1);
-  return d.toISOString().slice(0, 10);
+  return toISODate(d);
 }
 
 function lastDayOfMonth(): string {
   const d = new Date();
   d.setMonth(d.getMonth() + 1, 0);
-  return d.toISOString().slice(0, 10);
+  return toISODate(d);
 }
 
 export function NuevaRendicionModal({

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { toast } from '@/lib/toast';
+import { hoyISO } from '@/lib/dates';
 import {
   Plus,
   Search,
@@ -117,7 +118,7 @@ export function AdministracionesListPage() {
 
   async function onExportPdf() {
     await generateReportPdf<AdministracionListItem>({
-      filename: `administraciones-${new Date().toISOString().slice(0, 10)}`,
+      filename: `administraciones-${hoyISO()}`,
       titulo: 'Administraciones',
       subtitulo: 'Clientes contractuales · Gestión Global',
       filtros: exportFiltros,
@@ -142,7 +143,7 @@ export function AdministracionesListPage() {
 
   async function onExportXls() {
     generateReportXls<AdministracionListItem>({
-      filename: `administraciones-${new Date().toISOString().slice(0, 10)}`,
+      filename: `administraciones-${hoyISO()}`,
       sheetName: 'Administraciones',
       titulo: 'Administraciones · Gestión Global',
       filtros: exportFiltros,

@@ -18,7 +18,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { CalendarPlus, Loader2, RefreshCcw, Wand2 } from 'lucide-react';
 import { Button, Field, Input, Modal } from '@/components/common';
 import { toast } from '@/lib/toast';
-import { formatDateLong } from '@/lib/dates';
+import { formatDateLong, toISODate } from '@/lib/dates';
 import { cn } from '@/lib/cn';
 import {
   marcarRenovadosMasivo,
@@ -43,7 +43,7 @@ interface RowState {
 function plusOneYear(iso: string): string {
   const d = new Date(iso + 'T00:00:00');
   d.setFullYear(d.getFullYear() + 1);
-  return d.toISOString().slice(0, 10);
+  return toISODate(d);
 }
 
 export function BulkRenovarModal({
@@ -68,7 +68,7 @@ export function BulkRenovarModal({
     // Default "aplicar a todos" = hoy + 1 año (típico para matrículas).
     const hoy = new Date();
     hoy.setFullYear(hoy.getFullYear() + 1);
-    setAplicarTodos(hoy.toISOString().slice(0, 10));
+    setAplicarTodos(toISODate(hoy));
   }, [open, vencimientos]);
 
   function setNextFor(id: string, value: string) {

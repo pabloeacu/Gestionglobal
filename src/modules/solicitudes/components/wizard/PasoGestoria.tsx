@@ -9,6 +9,7 @@ import { Send } from 'lucide-react';
 import { Field, Input, Select, StepPanel, Textarea } from '@/components/common';
 import { toast } from '@/lib/toast';
 import { DIAS_VALIDEZ_ENLACE_EXTERNO } from '@/services/api/accesos';
+import { hoyISOoffset } from '@/lib/dates';
 import {
   uploadAdjuntoGestoria,
   listGestoriaDestinatarios,
@@ -188,7 +189,7 @@ export function PasoGestoria({ solicitud, state, set }: PasoProps) {
                     type="date"
                     value={g.fechaPago}
                     min="2020-01-01"
-                    max={new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10)}
+                    max={hoyISOoffset(7)}
                     onChange={(e) => patchG({ fechaPago: e.target.value })}
                   />
                 </Field>

@@ -14,7 +14,7 @@ import { generateReportPdf } from '@/lib/reportPdf';
 import { generateReportXls } from '@/lib/reportXls';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/cn';
-import { formatDateShort } from '@/lib/dates';
+import { formatDateShort, hoyISO } from '@/lib/dates';
 import {
   fetchPartnerSabana,
   fetchAdjuntosMovimiento,
@@ -97,7 +97,7 @@ export function SabanaPartner({
 
   async function onExportPdf() {
     await generateReportPdf<SabanaLinea>({
-      filename: `sabana-partner-${new Date().toISOString().slice(0, 10)}`,
+      filename: `sabana-partner-${hoyISO()}`,
       titulo: 'Resumen de cuenta · Partner',
       subtitulo: (partnerNombre ?? '') + ' · Gestión Global',
       filtros: exportFiltros,
@@ -129,7 +129,7 @@ export function SabanaPartner({
 
   async function onExportXls() {
     generateReportXls<SabanaLinea>({
-      filename: `sabana-partner-${new Date().toISOString().slice(0, 10)}`,
+      filename: `sabana-partner-${hoyISO()}`,
       sheetName: 'Resumen de cuenta',
       titulo: `Resumen de cuenta · ${partnerNombre ?? 'Partner'} · Gestión Global`,
       filtros: exportFiltros,

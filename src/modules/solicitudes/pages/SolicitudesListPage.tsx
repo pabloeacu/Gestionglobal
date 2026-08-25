@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Inbox, Eye, Send, Sparkles, XCircle, Archive, Search, AlertTriangle } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import { hoyISO } from '@/lib/dates';
 import {
   Input,
   RefreshIndicator,
@@ -166,7 +167,7 @@ export function SolicitudesListPage() {
 
   async function onExportPdf() {
     await generateReportPdf<SolicitudListItem>({
-      filename: `solicitudes-${new Date().toISOString().slice(0, 10)}`,
+      filename: `solicitudes-${hoyISO()}`,
       titulo: 'Solicitudes recibidas',
       subtitulo: 'Centro de solicitudes · Gestión Global',
       filtros: exportFiltros,
@@ -188,7 +189,7 @@ export function SolicitudesListPage() {
 
   async function onExportXls() {
     generateReportXls<SolicitudListItem>({
-      filename: `solicitudes-${new Date().toISOString().slice(0, 10)}`,
+      filename: `solicitudes-${hoyISO()}`,
       sheetName: 'Solicitudes',
       titulo: 'Solicitudes recibidas · Gestión Global',
       filtros: exportFiltros,

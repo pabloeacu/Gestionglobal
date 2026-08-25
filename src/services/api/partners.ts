@@ -4,6 +4,7 @@
 import { supabase } from '@/lib/supabase';
 import { ok, fail, type ApiResponse } from '@/lib/errors';
 import type { Database } from '@/types/database';
+import { hoyISO } from '@/lib/dates';
 
 // ============================================================================
 // Tipos base (regla 4 — todo query vive acá)
@@ -255,7 +256,7 @@ export async function listPartners(
     >;
   };
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = hoyISO();
   const rows: PartnerListItem[] = (data as unknown as RawRow[] | null ?? []).map(
     (r) => {
       const vigente = (r.partner_convenios ?? []).find(

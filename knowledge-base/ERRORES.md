@@ -5746,3 +5746,77 @@ de la RPC). Verificado en vivo v11: legajo 282055 → OK, 13 exp, `parcial:false
 limpia. **Lección meta:** un fix de scraping "que anda" (13 en el caso feliz)
 puede ser inseguro (SSRF) y frágil (parcial→cache-poisoning) en los caminos de
 error; la §6 adversarial sobre el propio fix reciente los sacó a la luz.
+
+## E-GG-194 · Fecha contable corrida un día después de las 21 hs (BD + front en UTC) — barrido exhaustivo (2026-08-25, reporte JL)
+
+**Síntoma (reporte JL, capturas):** una cobranza registrada el **24/08/2026 21:36
+ART** quedó fechada **25-ago** — en la caja y en la Cta. Cte. del cliente (Cler
+Oscar, $80.000). Fecha contable adelantada un día.
+
+**Causa raíz:** la BD (PostgreSQL 17.6) corre en **UTC** y el front computaba
+"hoy" con `new Date().toISOString().slice(0,10)` (= fecha **UTC**). Después de las
+**21:00 ART** (= 00:00 UTC del día siguiente), tanto el front como los defaults
+de columna (`now()::date`/`CURRENT_DATE`) y las RPC que resuelven "hoy"
+server-side devolvían el **día siguiente**. 21:36 ART = 00:36 UTC del 25 → fecha
+25.
+
+**Fix (barrido exhaustivo, aprobado por Pablo). NO se hizo `ALTER DATABASE SET
+timezone`** (habría cambiado la serialización de TODOS los `timestamptz` de +00 a
+-03, con riesgo en los string-slices crudos que aún existen — ver deuda abajo).
+En su lugar:
+- **Backend mig 0454:** helper `public.hoy_ar()` = `(now() at time zone
+  'America/Argentina/Buenos_Aires')::date`; 4 defaults de columna de fecha de
+  negocio (`comprobantes.fecha/periodo`, `movimientos.fecha`,
+  `tabulador_precios.vigente_desde`) → `hoy_ar()`; **29** funciones que resuelven
+  `current_date`/`now()::date` con `ALTER FUNCTION … SET TimeZone='America/
+  Argentina/Buenos_Aires'` (hace que `current_date` DENTRO de la función resuelva
+  en AR **sin** reescribir el cuerpo ni cambiar la serialización de ningún
+  `timestamptz`).
+- **Backend mig 0455 (anexo, §6 Agente B):** 12 funciones más con `now()`/
+  `current_date` crudos → `hoy_ar()` / `date_trunc('month', now(), 'AR')` de 3
+  args (preserva tipo). Cubre: defaults de parámetro `DEFAULT CURRENT_DATE` (el
+  `SET TimeZone` NO llega al default del parámetro — se evalúa en la tz de sesión
+  antes del cuerpo), analitica mensual/ventana, y el año de los códigos de
+  certificado/trámite (`to_char(now(),'YYYY')`).
+- **Frontend:** 3 helpers en `src/lib/dates.ts` — `hoyISO()`, `hoyISOoffset(n)`,
+  `toISODate(Date)` (Intl `en-CA` timeZone AR) — aplicados a **~45** sitios que
+  persistían/mostraban "hoy" en UTC (defaults de `<input date>`, cobranzas,
+  comprobantes, movimientos, vencimientos, rangos, stamps de filename…).
+- **Edge:** `dispatch-vencimientos` computaba `hoyIso` en UTC → AR (espejo del
+  gate de BD; hoy inocuo por el cron 09:00 AR, defensivo).
+- **Data-fix:** 3 comprobantes + 1 movimiento corridos → `fecha =
+  (created_at at time zone 'AR')::date` (todos a 24-ago). Barrido de la firma
+  `fecha=UTC-day AND fecha<>AR-day` → **0 filas** remanentes.
+
+**§6 doble auditoría (3 agentes + e2e).** Agente A (front): 4 gaps del patrón
+`.toISOString()` **partido en varias líneas** que el reemplazo single-line no vio
+(2 críticos = defaults de vencimiento hoy+15 persistidos → `hoyISOoffset(15)`; 2
+menores de filename) — fixeados. Agente B (backend): 5 gaps MENOR, 0 críticos —
+todos fixeados en mig 0455. Agente C (colaterales): confirmó el data-fix (0
+huecos) y descubrió una **familia distinta** de bug pre-existente (date-only
+guardado como `timestamptz` y leído con dos convenciones). **e2e:** demostrado el
+escenario JL (`'2026-08-25 00:36+00'` → UTC-date 25 vs AR-date 24) + INSERT real
+rollbackeado confirmando el default `hoy_ar()`.
+
+**Gotcha capitalizada:** el GUC de timezone se guarda en `pg_proc.proconfig` como
+`TimeZone` (capitalizado), NO `timezone` — un smoke check case-sensitive da
+falso-0. Y `date_trunc` de 3 args (`date_trunc('month', now(), 'AR')`, PG16+)
+trunca en otra tz **preservando `timestamptz`** — mejor que `at time zone` cuando
+no querés cambiar el tipo del resultado.
+
+**Deuda documentada (familia date-only↔timestamptz, §6 Agente C — chunk propio
+pendiente):** se fixearon los 2 confirmados visibles (C#1 lista de trámites
+`vence_at` mostraba 10/9 vs editor 11/9 → `formatDateShort` slice-local; C#2
+voucher `expira_at` lista 24 vs drawer 25 + arrastre al re-guardar →
+`toISODate(new Date())`). Quedan como deuda para un barrido dedicado de
+convención de almacenamiento: **C#4** agenda `start_at.slice(0,10)` agrupa por día
+UTC; **C#5** comunicaciones `visible_hasta` a medianoche-UTC (banner expira ~3h
+antes); **C#7/#11** los helpers de *display* (`formatTimestampDate`,
+`formatDateTime`, `TramitesListPage.formatFecha`) usan la TZ del **browser** (no
+fuerzan AR) — coherentes para gerente en AR (single-tenant), frágiles fuera.
+
+**Lección:** en un sistema con BD en UTC y usuarios en una sola zona, "hoy" es
+ambiguo en la ventana nocturna. `hoy_ar()` (tz-independiente) es la fuente de
+verdad server-side y `hoyISO()` la del front. Y date-only guardado como
+`timestamptz` es una trampa doble: la convención de guardado (medianoche-UTC vs
+EOD-AR) determina si el read correcto es `.slice()` o TZ-aware — nunca mezclar.

@@ -121,7 +121,12 @@ Deno.serve(async (req) => {
     // ---------------------------------------------------------------------
     // 1. Plan del día — RPC gg_vencimientos_planificar_alertas.
     // ---------------------------------------------------------------------
-    const hoyIso = new Date().toISOString().slice(0, 10);
+    // "Hoy" en horario Argentina (Deno corre en UTC): evita que, si el cron se
+    // moviera a la ventana 00-03 UTC (21-24 AR), la planificación caiga un día
+    // corrido. Espejo del gate de BD `(now() AT TIME ZONE 'AR')::date`. E-GG-194 §6/C#6.
+    const hoyIso = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Argentina/Buenos_Aires',
+    }).format(new Date());
     const { data: planData, error: errPlan } = await supabase.rpc(
       'gg_vencimientos_planificar_alertas',
       { p_fecha: hoyIso },

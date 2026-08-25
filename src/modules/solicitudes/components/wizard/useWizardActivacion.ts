@@ -6,6 +6,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { SolicitudDetalle } from '@/services/api/solicitudes';
 import { DIAS_VALIDEZ_ENLACE_EXTERNO } from '@/services/api/accesos';
+import { hoyISO } from '@/lib/dates';
 import {
   DOC_OUTCOMES_TERMINALES,
   type DocOutcome,
@@ -117,7 +118,7 @@ function estadoInicial(sol: SolicitudDetalle, flags: SolicitudFlags): WizardStat
       pagoModo: flags.esGratuito ? 'ninguno' : 'total',
       montoCobrado: '',
       cajaId: '',
-      fechaPago: new Date().toISOString().slice(0, 10),
+      fechaPago: hoyISO(),
       referencia: '',
       categoriaId: '',
       compartePartner: false,
@@ -136,7 +137,7 @@ function estadoInicial(sol: SolicitudDetalle, flags: SolicitudFlags): WizardStat
       adjuntos: [],
     },
     periodo: new Date().getFullYear().toString(),
-    fechaInicio: new Date().toISOString().slice(0, 10),
+    fechaInicio: hoyISO(),
     observacionesTracking: '',
     campus: { cursoId: null, webinarId: null },
   };

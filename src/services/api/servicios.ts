@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import { ok, fail, type ApiResponse } from '@/lib/errors';
 import type { Database } from '@/types/database';
+import { hoyISO } from '@/lib/dates';
 
 // ============================================================================
 // Catálogo de servicios + Tabulador de costos (Subsistema 3 + 5 del DM).
@@ -391,7 +392,7 @@ export async function crearPrecio(
     administracion_id: input.administracion_id ?? null,
     consorcio_id: input.consorcio_id ?? null,
     convenio: input.convenio ?? null,
-    vigente_desde: input.vigente_desde ?? new Date().toISOString().slice(0, 10),
+    vigente_desde: input.vigente_desde ?? hoyISO(),
     vigente_hasta: input.vigente_hasta ?? null,
     motivo: input.motivo ?? null,
     notas: input.notas ?? null,
@@ -399,7 +400,7 @@ export async function crearPrecio(
 
   // Si es regla base nueva, primero cerramos la base abierta (uq parcial).
   if (!insert.administracion_id && !insert.consorcio_id && !insert.convenio) {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = hoyISO();
     await supabase
       .from('tabulador_precios')
       .update({ vigente_hasta: today })
@@ -423,7 +424,7 @@ export async function cerrarPrecio(
   precioId: string,
   vigenteHasta?: string,
 ): Promise<ApiResponse<true>> {
-  const hasta = vigenteHasta ?? new Date().toISOString().slice(0, 10);
+  const hasta = vigenteHasta ?? hoyISO();
   const { error } = await supabase
     .from('tabulador_precios')
     .update({ vigente_hasta: hasta })

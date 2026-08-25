@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { RefreshCcw } from 'lucide-react';
 import { toast } from '@/lib/toast';
 import { Modal, Button, Field, Input } from '@/components/common';
-import { formatDateLong } from '@/lib/dates';
+import { formatDateLong, toISODate } from '@/lib/dates';
 import {
   marcarRenovado,
   VENCIMIENTO_TIPO_LABEL,
@@ -29,7 +29,7 @@ export function RenovarModal({ open, onClose, venc, onRenewed }: Props) {
     // Default: misma fecha + 1 año (típico para matrículas / DDJJ).
     const f = new Date(venc.fecha_vencimiento + 'T00:00:00');
     f.setFullYear(f.getFullYear() + 1);
-    setNuevaFecha(f.toISOString().slice(0, 10));
+    setNuevaFecha(toISODate(f));
   }, [open, venc]);
 
   async function onSubmit() {

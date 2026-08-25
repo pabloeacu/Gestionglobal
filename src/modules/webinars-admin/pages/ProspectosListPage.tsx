@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { hoyISO } from '@/lib/dates';
 import {
   CalendarClock,
   CheckCircle2,
@@ -165,7 +166,7 @@ export function ProspectosListPage() {
       { key: 'created_at', label: 'Capturado', format: (r) => fmtFecha(r.created_at) },
     ]);
     const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
-    const hoy = new Date().toISOString().slice(0, 10);
+    const hoy = hoyISO();
     const sufijo = eventoSel ? '-' + eventoSel.titulo.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') : '';
     downloadBlob(blob, `prospectos${sufijo}-${hoy}.csv`);
     toast.success('CSV exportado');

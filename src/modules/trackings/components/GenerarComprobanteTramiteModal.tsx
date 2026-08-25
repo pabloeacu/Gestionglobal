@@ -16,6 +16,7 @@ import { Button, Field, Input, Modal, Textarea } from '@/components/common';
 import { toast } from '@/lib/toast';
 import { emitirComprobanteManual } from '@/services/api/comprobantes';
 import { updateTramite } from '@/services/api/tramites';
+import { hoyISO, hoyISOoffset } from '@/lib/dates';
 import {
   setSolicitudComprobanteSiVacio,
   type SolicitudVinculadaTramite,
@@ -69,10 +70,8 @@ export function GenerarComprobanteTramiteModal({
   onClose: () => void;
   onGenerado: () => void;
 }) {
-  const hoy = new Date().toISOString().slice(0, 10);
-  const venceDefault = new Date(Date.now() + 15 * 86_400_000)
-    .toISOString()
-    .slice(0, 10);
+  const hoy = hoyISO();
+  const venceDefault = hoyISOoffset(15);
 
   const [descripcion, setDescripcion] = useState(
     servicioNombre ?? 'Servicio profesional',

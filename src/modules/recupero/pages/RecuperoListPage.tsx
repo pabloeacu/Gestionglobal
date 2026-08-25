@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { hoyISO } from '@/lib/dates';
 import {
   Search,
   Filter,
@@ -127,7 +128,7 @@ export function RecuperoListPage() {
 
   async function onExportPdf() {
     await generateReportPdf<AccionListItem>({
-      filename: `recupero-${new Date().toISOString().slice(0, 10)}`,
+      filename: `recupero-${hoyISO()}`,
       titulo: 'Acciones de recupero',
       subtitulo: 'Gestión progresiva de mora · Gestión Global',
       filtros: exportFiltros,
@@ -157,7 +158,7 @@ export function RecuperoListPage() {
 
   async function onExportXls() {
     generateReportXls<AccionListItem>({
-      filename: `recupero-${new Date().toISOString().slice(0, 10)}`,
+      filename: `recupero-${hoyISO()}`,
       sheetName: 'Recupero',
       titulo: 'Recupero · Gestión Global',
       filtros: exportFiltros,

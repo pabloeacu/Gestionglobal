@@ -26,7 +26,7 @@ import {
 import { crearUsuarioPartner } from '@/services/api/usuarios';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
-import { formatDateLong } from '@/lib/dates';
+import { formatDateLong, hoyISO } from '@/lib/dates';
 import { cn } from '@/lib/cn';
 import { PartnerFormDrawer } from '../components/PartnerFormDrawer';
 import { ConvenioDrawer } from '../components/ConvenioDrawer';
@@ -137,7 +137,7 @@ export function PartnerDetailPage() {
       danger: true,
     });
     if (!okConf) return;
-    const hoy = new Date().toISOString().slice(0, 10);
+    const hoy = hoyISO();
     const res = await cerrarConvenio(c.id, hoy);
     if (!res.ok) {
       toast.error(humanizeError(res.error));
@@ -165,7 +165,7 @@ export function PartnerDetailPage() {
 
   const condicion = partner.condicion_iva as CondicionIva | null;
   const convenioVigente = convenios.find((c) => {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = hoyISO();
     return (
       c.activo &&
       c.vigencia_desde <= today &&

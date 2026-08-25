@@ -4,6 +4,7 @@ import { Button, Field, Input, Modal, Select, Textarea } from '@/components/comm
 import { toast } from '@/lib/toast';
 import { crearTransferencia, type CajaConSaldoRow } from '@/services/api/finanzas';
 import { humanizeError } from '@/lib/errors';
+import { hoyISO } from '@/lib/dates';
 
 interface Props {
   cajas: CajaConSaldoRow[];
@@ -20,7 +21,7 @@ export function TransferenciaModal({ cajas, onClose, onCreated }: Props) {
   const [origenId, setOrigenId] = useState<string>(cajas[0]?.caja_id ?? '');
   const [destinoId, setDestinoId] = useState<string>(cajas[1]?.caja_id ?? '');
   const [monto, setMonto] = useState<string>('');
-  const [fecha, setFecha] = useState<string>(new Date().toISOString().slice(0, 10));
+  const [fecha, setFecha] = useState<string>(hoyISO());
   const [descripcion, setDescripcion] = useState('');
   const [referencia, setReferencia] = useState('');
   const [creating, setCreating] = useState(false);

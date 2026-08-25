@@ -3,6 +3,7 @@
 
 import { useEffect, useState, type FormEvent } from 'react';
 import { toast } from '@/lib/toast';
+import { toISODate } from '@/lib/dates';
 import { Ticket, Save } from 'lucide-react';
 import {
   Drawer,
@@ -62,7 +63,9 @@ export function VoucherDrawer({
         descuento_pct: String(voucher.descuento_pct),
         alcance: voucher.alcance as VoucherAlcance,
         expira_at: voucher.expira_at
-          ? voucher.expira_at.slice(0, 10) // ISO → YYYY-MM-DD
+          ? // expira_at es un instante real (guardado 23:59:59 AR → UTC): leer
+            // TZ-aware, no slice crudo (evita mostrar +1 día y arrastrar al re-guardar). E-GG-194 §6/C#2.
+            toISODate(new Date(voucher.expira_at))
           : '',
         max_usos: voucher.max_usos != null ? String(voucher.max_usos) : '',
         observaciones: voucher.observaciones ?? '',
