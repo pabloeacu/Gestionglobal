@@ -10,6 +10,7 @@
 // Reglas: 4 (api en services/), 13 (DialogProvider).
 
 import { useEffect, useMemo, useState } from 'react';
+import { toISODate } from '@/lib/dates';
 import {
   Megaphone,
   Users as UsersIcon,
@@ -127,7 +128,9 @@ export function ComunicacionFormDrawer({ open, onClose, editing, onSaved }: Prop
       setBannerEstilo(editing.banner_estilo);
       setVisibleHasta(
         editing.visible_hasta
-          ? editing.visible_hasta.slice(0, 10)
+          ? // visible_hasta se guarda como fin-de-día AR (instante real) → leer
+            // TZ-aware, no slice crudo (E-GG-194 §6/C#5).
+            toISODate(new Date(editing.visible_hasta))
           : '',
       );
     } else {
@@ -236,7 +239,11 @@ export function ComunicacionFormDrawer({ open, onClose, editing, onSaved }: Prop
       canal_email: canalEmail,
       canal_push: canalPush,
       banner_estilo: bannerEstilo,
-      visible_hasta: visibleHasta ? new Date(visibleHasta).toISOString() : null,
+      // Anclar a FIN de día en horario AR: "visible hasta el 24" queda visible
+      // todo el 24 AR (no expira a las 21hs por guardarse en medianoche-UTC). E-GG-194 §6/C#5.
+      visible_hasta: visibleHasta
+        ? new Date(`${visibleHasta}T23:59:59-03:00`).toISOString()
+        : null,
     };
     const res = isEdit
       ? await actualizarComunicacion(editing!.id, payload)

@@ -68,11 +68,14 @@ export function formatTimestampDate(
   style: 'short' | 'long' = 'short',
 ): string {
   if (!d) return '—';
+  // timeZone AR fijo (single-tenant Argentina): un timestamptz de la
+  // tarde-noche AR se muestra en su día AR correcto sin depender de la TZ del
+  // browser del usuario (E-GG-194 §6/C#11).
   return new Date(d).toLocaleDateString(
     'es-AR',
     style === 'long'
-      ? { day: '2-digit', month: 'long', year: 'numeric' }
-      : { day: '2-digit', month: 'short', year: '2-digit' },
+      ? { day: '2-digit', month: 'long', year: 'numeric', timeZone: 'America/Argentina/Buenos_Aires' }
+      : { day: '2-digit', month: 'short', year: '2-digit', timeZone: 'America/Argentina/Buenos_Aires' },
   );
 }
 
@@ -84,9 +87,11 @@ export function formatDateTime(d: string | null | undefined): string {
   return `${dt.toLocaleDateString('es-AR', {
     day: '2-digit',
     month: 'short',
+    timeZone: 'America/Argentina/Buenos_Aires',
   })} · ${dt.toLocaleTimeString('es-AR', {
     hour: '2-digit',
     minute: '2-digit',
+    timeZone: 'America/Argentina/Buenos_Aires',
   })}`;
 }
 

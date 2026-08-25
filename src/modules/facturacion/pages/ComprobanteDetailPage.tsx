@@ -37,6 +37,7 @@ import {
 import {
   formatDateShort,
   formatDateTime,
+  formatTimestampDate,
   parseLocalDate,
 } from '@/lib/dates';
 import {
@@ -708,7 +709,12 @@ export function ComprobanteDetailPage() {
                       style={{ animationDelay: `${Math.min(idx, 6) * 30}ms` }}
                     >
                       <td className="px-4 py-3 tabular text-brand-muted">
-                        {formatDateShort(esCredito ? c.created_at : c.movimiento.fecha)}
+                        {/* crédito: created_at es timestamptz (instante) → TZ-aware AR,
+                            no formatDateShort/date-only que retrocedería de noche (E-GG-194 §6/B#1).
+                            movimiento.fecha es date-only → formatDateShort. */}
+                        {esCredito
+                          ? formatTimestampDate(c.created_at)
+                          : formatDateShort(c.movimiento.fecha)}
                       </td>
                       <td className="px-4 py-3 text-brand-ink">
                         {esCredito ? (

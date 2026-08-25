@@ -5820,3 +5820,39 @@ ambiguo en la ventana nocturna. `hoy_ar()` (tz-independiente) es la fuente de
 verdad server-side y `hoyISO()` la del front. Y date-only guardado como
 `timestamptz` es una trampa doble: la convención de guardado (medianoche-UTC vs
 EOD-AR) determina si el read correcto es `.slice()` o TZ-aware — nunca mezclar.
+
+**Anexo — chunk de normalización date-only↔timestamptz (2026-08-25, misma
+sesión, OK de Pablo).** Se cerró la familia que la §6/C descubrió, code-only
+**sin migración de datos** (verificado: `agenda_events` y `comunicaciones` tienen
+**0 filas** hoy → los fixes son forward-only). Cambios:
+- **C#11 (raíz del display):** `formatTimestampDate` + `formatDateTime`
+  (`src/lib/dates.ts`) fuerzan `timeZone: 'America/Argentina/Buenos_Aires'`.
+  Para single-tenant AR es idéntico para un browser AR y **corrige** el caso de
+  browser en otra TZ (mostraba el día del browser, no el AR). Igual en
+  `TramitesListPage.formatFecha` (created_at).
+- **B#1 (§6, real visible):** `ComprobanteDetailPage.tsx` mostraba la fecha de
+  una **nota de crédito** con `formatDateShort(created_at)` — `created_at` es
+  timestamptz, y `formatDateShort` lo trata date-only → una NC creada de noche
+  AR mostraba el día siguiente. Fix: `formatTimestampDate(created_at)` (el bug
+  **inverso** de la familia: instante leído como date-only).
+- **C#5:** `comunicaciones.visible_hasta` se guarda ahora a **fin-de-día AR**
+  (`${v}T23:59:59-03:00`) en vez de medianoche-UTC (antes "visible hasta el 24"
+  expiraba 21hs del 23 AR). El único lector server (`comunicaciones_vigentes_
+  cliente`, mig 0156) compara `visible_hasta > now()` → coherente. Prefill →
+  `toISODate(new Date())` (round-trip cerrado).
+- **C#7:** `comprobantes.ts esComprobanteVencido` computaba "hoy" con getters
+  del browser → `hoyISO()` (AR). `vencimiento` es `date` → slice correcto.
+
+**§6 (3 agentes) del chunk:** A verificó los **21 call-sites** de
+`formatTimestampDate`/`formatDateTime` contra las `CREATE TABLE` reales → todos
+reciben `timestamptz` (ningún date-only llega a esos helpers = 0 regresión de
+corrimiento). B/C: 0 regresiones en los 5 archivos; storage↔filtro backend
+coherente.
+
+**Deuda asumida (documentada, NO barrida — estabilidad primero):** ~28 formatters
+`toLocaleString('es-AR')` **inline** (sin `timeZone`), incl. el display de
+**agenda** (`agenda/` no usa los helpers AR — verificado) y el comparador de sort
+por `slice(0,10)` de agenda. Todos dependen de la TZ del browser → **AR-correctos
+para todos los usuarios reales** (single-tenant AR); sólo divergirían en un
+browser no-AR. Barrer 28 formatters inline en vivo agrega superficie de regresión
+por beneficio real cero → se deja como hardening opcional futuro.

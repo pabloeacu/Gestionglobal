@@ -260,7 +260,7 @@ export function TramitesListPage() {
 
   function formatFecha(s: string | null): string {
     if (!s) return '—';
-    try { return new Date(s).toLocaleDateString('es-AR'); } catch { return s; }
+    try { return new Date(s).toLocaleDateString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires' }); } catch { return s; }
   }
 
   async function onExportPdf() {

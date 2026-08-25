@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import { ok, fail, type ApiResponse } from '@/lib/errors';
+import { hoyISO } from '@/lib/dates';
 import type { Database, Json } from '@/types/database';
 
 export type ComprobanteRow = Database['public']['Tables']['comprobantes']['Row'];
@@ -47,11 +48,9 @@ export function esComprobanteVencido(c: {
   if (c.estado === 'anulado' || c.estado === 'borrador' || c.estado === 'rechazado') {
     return false;
   }
-  const now = new Date();
-  const hoy = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(
-    now.getDate(),
-  ).padStart(2, '0')}`;
-  return c.vencimiento.slice(0, 10) < hoy;
+  // "hoy" en horario AR (no la TZ del browser) para consistencia con el resto
+  // post-E-GG-194 (§6/C#7). vencimiento es date-only → slice es correcto.
+  return c.vencimiento.slice(0, 10) < hoyISO();
 }
 
 export interface ComprobanteListItem extends ComprobanteRow {
