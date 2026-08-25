@@ -41,18 +41,31 @@ const LOGO_WHITE_PATH = path.join(ROOT, 'public', 'brand', 'logo-h-white.png');
 const LOGO_DARK_PATH = path.join(ROOT, 'public', 'brand', 'logo-h-dark.png');
 
 const BASE = process.env.MANUAL_BASE_URL ?? 'https://www.gestionglobal.ar';
-const GERENTE = {
-  email: process.env.MANUAL_GERENTE_EMAIL ?? 'pabloeacu@gmail.com',
-  password: process.env.MANUAL_GERENTE_PASSWORD ?? 'EagleView2026',
-};
-const CLIENTE = {
-  email: process.env.MANUAL_CLIENTE_EMAIL ?? 'pabloeacu+maria@gmail.com',
-  password: process.env.MANUAL_CLIENTE_PASSWORD ?? 'MariaTest2026!',
-};
-const PARTNER = {
-  email: process.env.MANUAL_PARTNER_EMAIL ?? 'partner@funplata.qa',
-  password: process.env.MANUAL_PARTNER_PASSWORD ?? 'PartnerTest2026!',
-};
+
+// Credenciales de captura: SOLO por variable de entorno — NUNCA hardcodeadas.
+// (Antes vivían acá en texto plano; se removieron por seguridad.)
+// Para regenerar capturas exportá MANUAL_{GERENTE,CLIENTE,PARTNER}_{EMAIL,PASSWORD}
+// usando cuentas QA efímeras (no cuentas reales). Con SKIP_SHOTS=1 no se necesitan.
+const cred = (rol) => ({
+  email: process.env[`MANUAL_${rol}_EMAIL`] ?? '',
+  password: process.env[`MANUAL_${rol}_PASSWORD`] ?? '',
+});
+const GERENTE = cred('GERENTE');
+const CLIENTE = cred('CLIENTE');
+const PARTNER = cred('PARTNER');
+
+if (process.env.SKIP_SHOTS !== '1') {
+  for (const [rol, c] of [['GERENTE', GERENTE], ['CLIENTE', CLIENTE], ['PARTNER', PARTNER]]) {
+    if (!c.email || !c.password) {
+      console.error(
+        `✗ Falta MANUAL_${rol}_EMAIL / MANUAL_${rol}_PASSWORD. ` +
+        `Las credenciales de captura van por variable de entorno (usá cuentas QA efímeras). ` +
+        `Para sólo re-renderizar sin capturar, corré con SKIP_SHOTS=1.`,
+      );
+      process.exit(1);
+    }
+  }
+}
 
 const VIEWPORT = { width: 1280, height: 800, deviceScaleFactor: 1 };
 
