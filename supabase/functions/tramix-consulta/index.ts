@@ -208,28 +208,49 @@ Deno.serve(async (req) => {
       if (looksTC(r.body)) { cookie = await getCookie(svc, true); r = await hit(`/QueryExped?${qs}`, { cookie, follow: true }); if (looksTC(r.body)) { await svc.rpc("tramix_record", { p_user: user.id, p_administracion: adminId, p_legajo: legajo, p_resultado: "TC_BLOCKED" }); return cache ? okList(cache.payload, { desde_cache: true, consultado_at: cache.consultado_at, throttle_note: "TC_BLOCKED" }) : json({ resultado: "TC_BLOCKED", legajo, legajo_default: legajoDefault }); } }
       const p = parseResults(r.body);
       if (!p.expedientes.length && p.count !== 0) { await svc.rpc("tramix_record", { p_user: user.id, p_administracion: adminId, p_legajo: legajo, p_resultado: "PARSE_ERROR" }); return cache ? okList(cache.payload, { desde_cache: true, consultado_at: cache.consultado_at, throttle_note: "PARSE_ERROR" }) : json({ resultado: "PARSE_ERROR", legajo, legajo_default: legajoDefault }); }
-      // Paginación (E-GG-…): PBA muestra 10 expedientes por página. Seguimos el
-      // enlace "Siguiente" y acumulamos TODOS (dedupe por ref). Sin esto, un legajo
-      // con >10 expedientes mostraba sólo los primeros 10 (reporte JL, legajo 282055).
-      // Guard de 25 páginas + degradación graciosa: si una página falla, devolvemos
-      // lo acumulado (mejor que perder todo).
-      { const refKey = (e: any) => (e?.detalle_ref ? `${e.detalle_ref.o}:${e.detalle_ref.n}:${e.detalle_ref.a}` : (e?.numero || ""));
-        const seenRef = new Set<string>(p.expedientes.map(refKey)); let nextHref = parseNextHref(r.body); let pages = 1;
-        while (nextHref && pages < 25) {
-          const abs = (nextHref.startsWith("http") ? nextHref : ORIGIN + (nextHref.startsWith("/") ? nextHref : "/" + nextHref)).replace(/ /g, "%20");
-          let rn; try { rn = await hit(abs, { cookie, follow: true }); } catch { break; }
+      // Paginación (E-GG-193): PBA muestra 10 expedientes por página; seguimos el
+      // enlace "Siguiente" y acumulamos TODOS (dedupe por o:t:n:a). Sin esto, un
+      // legajo con >10 expedientes mostraba sólo los primeros 10 (reporte JL, 282055).
+      // Hardening §6 (E-GG-193 add.): (1) SAME-ORIGIN obligatorio — el sitio es HTTP
+      // plano, así que resolver el href con new URL(_, BASE) y descartar cualquier
+      // cross-origin evita SSRF por un "Siguiente" inyectado (y de paso URL-encodea
+      // bien todos los chars, no sólo espacios). (2) corte por 0-expedientes-nuevos.
+      // (3) re-login si aparece la pared de T&C a mitad de paginación. (4) marca
+      // `parcial`: un scrape INCOMPLETO no se cachea como completo (si no, el propio
+      // fix se rompe por la vía de fallo y sirve una lista parcial 15 min a todos).
+      let parcial = false;
+      { const refKey = (e: any, i: number) => (e?.detalle_ref?.o || e?.detalle_ref?.n || e?.detalle_ref?.a)
+          ? `${e.detalle_ref.o}:${e.detalle_ref.t}:${e.detalle_ref.n}:${e.detalle_ref.a}` : (e?.numero || `#${i}`);
+        const seen = new Set<string>(p.expedientes.map((e, i) => refKey(e, i)));
+        let nextHref = parseNextHref(r.body); let pages = 1;
+        while (nextHref) {
+          if (pages >= 25) { parcial = true; break; }                       // tope → parcial (no silent)
+          let abs: string;
+          try { const u = new URL(nextHref, BASE); if (u.origin !== ORIGIN) { parcial = true; break; } abs = u.href; }
+          catch { parcial = true; break; }
+          let rn; try { rn = await hit(abs, { cookie, follow: true }); } catch { parcial = true; break; }
           if (rn.cookie) cookie = rn.cookie;
-          const pn = parseResults(rn.body); if (!pn.expedientes.length) break;
-          for (const e of pn.expedientes) { const k = refKey(e); if (!seenRef.has(k)) { seenRef.add(k); p.expedientes.push(e); } }
+          if (looksTC(rn.body)) {                                            // T&C / sesión caída a mitad
+            cookie = await getCookie(svc, true);
+            try { rn = await hit(abs, { cookie, follow: true }); } catch { parcial = true; break; }
+            if (rn.cookie) cookie = rn.cookie;
+            if (looksTC(rn.body)) { parcial = true; break; }
+          }
+          const pn = parseResults(rn.body);
+          let added = 0;
+          for (const e of pn.expedientes) { const k = refKey(e, seen.size); if (!seen.has(k)) { seen.add(k); p.expedientes.push(e); added++; } }
+          if (added === 0) break;                                           // página sin nuevos → fin
           nextHref = parseNextHref(rn.body); pages++;
         }
       }
       const titular = p.expedientes[0]?.denominacion ?? "";
       const payload = { titular, expedientes: p.expedientes };
-      const hash = await estadoHash(p.expedientes);
-      await svc.from("tramix_cache").upsert({ legajo, payload, estado_hash: hash, consultado_at: new Date().toISOString() });
+      if (!parcial) {                                                        // sólo cacheamos scrapes COMPLETOS
+        const hash = await estadoHash(p.expedientes);
+        await svc.from("tramix_cache").upsert({ legajo, payload, estado_hash: hash, consultado_at: new Date().toISOString() });
+      }
       await svc.rpc("tramix_record", { p_user: user.id, p_administracion: adminId, p_legajo: legajo, p_resultado: p.expedientes.length ? "OK" : "NOT_FOUND" });
-      return okList(payload, { desde_cache: false, consultado_at: new Date().toISOString(), ms: Math.round(performance.now() - t0) });
+      return okList(payload, { desde_cache: false, consultado_at: new Date().toISOString(), parcial, ms: Math.round(performance.now() - t0) });
     } catch (e) {
       const res = e instanceof TramixTimeout ? "TIMEOUT" : "TRAMIX_DOWN";
       await svc.rpc("tramix_record", { p_user: user.id, p_administracion: adminId, p_legajo: legajo, p_resultado: res });

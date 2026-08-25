@@ -5713,3 +5713,36 @@ de ESA página. La completitud se garantiza siguiendo la paginación hasta
 agotarla, no comparando contra un contador local. Y todo href generado por el
 servidor puede venir sin encodear: normalizar (espacios→%20, resolver contra
 el origen) antes de seguirlo.
+
+**Hardening §6 (2026-08-25, misma sesión, edge v11):** la auditoría §6 (3
+agentes adversariales) encontró 5 hallazgos mayores en el fix inicial, todos
+corregidos antes de cerrar:
+1. **SSRF (seguridad):** seguíamos `nextHref.startsWith("http") ? nextHref`
+   verbatim. TRAMIX viaja por **HTTP plano** (MITM factible): un "Siguiente"
+   inyectado con host arbitrario se habría fetcheado. Fix: resolver SIEMPRE con
+   `new URL(nextHref, BASE)` y **descartar cross-origin** (`u.origin !== ORIGIN`).
+   Bonus: `new URL` URL-encodea TODOS los chars (no sólo espacios), más robusto
+   que el `.replace(/ /g,"%20")` manual.
+2. **Parcial cacheado como completo (correctitud, reintroduce el propio bug):**
+   si una página fallaba (`catch break`) o se tocaba el tope, igual cacheábamos
+   la lista parcial como fresca + `OK` → durante 15 min TODOS veían la lista
+   incompleta servida como universo completo (choca con R19). Fix: flag
+   `parcial` (en catch/tope/T&C-no-resuelto/cross-origin) → **no** upsert a
+   `tramix_cache` cuando `parcial`, y `parcial` viaja en la respuesta.
+3. **Tope de 25 páginas = truncación silenciosa (regla "no silent caps"):** un
+   legajo con >250 exp. se cortaba sin avisar. Fix: `pages>=25 → parcial=true`.
+4. **T&C / caída de sesión a mitad de paginación:** la 1ª consulta re-loguea
+   ante `looksTC`, pero el loop no → una pared de T&C intermedia truncaba y se
+   cacheaba como completo. Fix: `looksTC` dentro del loop, `getCookie(svc,true)`
+   + reintento una vez, si sigue → `parcial`.
+5. **Corte débil:** sólo cortaba por página vacía; un "Siguiente" persistente
+   re-fetcheaba hasta 25×. Fix: `break` si la página no aportó expedientes
+   nuevos (contador `added===0`). También refKey ahora incluye `t` y usa
+   `#${i}` para filas degeneradas (no colapsan a "").
+Residual aceptado (menores): sin presupuesto de tiempo global (acotado por
+timeout×25) y `tramix_record` no distingue OK_PARCIAL (requeriría tocar el enum
+de la RPC). Verificado en vivo v11: legajo 282055 → OK, 13 exp, `parcial:false`,
+975ms. Prueba en browser (gerente QA, desktop + 360px): 13 expedientes, consola
+limpia. **Lección meta:** un fix de scraping "que anda" (13 en el caso feliz)
+puede ser inseguro (SSRF) y frágil (parcial→cache-poisoning) en los caminos de
+error; la §6 adversarial sobre el propio fix reciente los sacó a la luz.
