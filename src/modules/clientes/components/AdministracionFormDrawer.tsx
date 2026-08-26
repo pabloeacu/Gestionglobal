@@ -177,6 +177,15 @@ export function AdministracionFormDrawer({
 
   const stepErrors = useMemo(() => stepValidations(form), [form]);
 
+  // E-GG-195 (C#1) · Si el cliente ya tiene usuario de portal (user_id seteado),
+  // el email es su LOGIN. Editarlo sólo acá pisaría administraciones.email (y sus
+  // snapshots vía trigger) pero NO auth.users.email → el cliente quedaría con el
+  // mail nuevo en las comunicaciones y el viejo para ingresar: split silencioso.
+  // Para eso está el asistente "Corregir mail de acceso" (edge corregir-email-acceso,
+  // DGG-117 FC), que actualiza login + ficha juntos. Acá el campo queda de sólo
+  // lectura y se deriva a ese asistente. En alta nueva (sin user_id) sí es editable.
+  const clienteTienePortal = Boolean(editing?.user_id);
+
   function validateStep(idx: number): boolean {
     const errs = stepErrors[idx] ?? {};
     if (Object.keys(errs).length === 0) return true;
@@ -563,7 +572,19 @@ export function AdministracionFormDrawer({
                     value={form.email}
                     onChange={(e) => setField('email', e.target.value)}
                     placeholder="contacto@administracion.com"
+                    disabled={clienteTienePortal}
+                    readOnly={clienteTienePortal}
                   />
+                  {clienteTienePortal && (
+                    <p className="mt-1.5 flex items-start gap-1.5 text-xs text-brand-muted">
+                      <KeyRound size={13} className="mt-px shrink-0 text-brand-cyan" />
+                      <span>
+                        Este email es el <span className="font-medium text-brand-ink">usuario de acceso</span> del cliente.
+                        Para cambiarlo usá <span className="font-medium text-brand-ink">“Corregir mail de acceso”</span> desde
+                        la ficha, así se actualiza el login y las comunicaciones juntos.
+                      </span>
+                    </p>
+                  )}
                 </Field>
                 <Field label="Teléfono">
                   <Input

@@ -5856,3 +5856,68 @@ por `slice(0,10)` de agenda. Todos dependen de la TZ del browser → **AR-correc
 para todos los usuarios reales** (single-tenant AR); sólo divergirían en un
 browser no-AR. Barrer 28 formatters inline en vivo agrega superficie de regresión
 por beneficio real cero → se deja como hardening opcional futuro.
+
+## E-GG-195 · El avance del trámite rebotó al email VIEJO pese a la corrección del wizard (persistencia de dato viejo — caso TABOADA, reporte JL) — 2026-08-26
+
+**Síntoma (reporte JL):** un alumno/cliente (TABOADA) se registró con su propio
+email mal escrito. La plataforma lo detectó por el **rebote del 1er mail** (aviso
+de formulario recibido) — funcionó perfecto y él informó el correcto. En el
+**wizard de admisión** se corrigió el email. A partir de ahí, los mails de las
+distintas instancias (bienvenida, servicio activado) **empezaron a llegar** bien.
+**PERO** el último mail (reporte de un avance del trámite) **rebotó al email
+errado** — el que se suponía "pisado de modo definitivo" por la corrección.
+
+**Causa raíz — snapshot viejo del email en el trámite.** El email del cliente
+vive en varios lugares: `administraciones.email` (canónico), `auth.users.email`
+(login del portal), y **snapshots** copiados en el momento: `tramites.
+solicitante_email` y `solicitudes.solicitante_email`. La corrección del wizard
+actualizó **sólo** `administraciones.email`. En `solicitud_activar` (al admitir),
+el trámite **snapshotea** `solicitante_email` **desde la SOLICITUD**
+(`v_sol.solicitante_email` = el email ORIGINAL errado del formulario), no desde
+la administración corregida. Resultado: `administraciones.email`=correcto,
+`tramites.solicitante_email`=viejo. La resolución del destinatario del avance
+(mig 0319) es `admin_login_email(admin) → tramites.solicitante_email →
+administraciones.email`: mientras el cliente **no tiene usuario de portal**,
+`admin_login_email` devuelve vacío y **cae al snapshot viejo**, que tapa el
+canónico corregido → rebote. Los mails de bienvenida/servicio llegaban porque
+esos leen `administraciones.email` directo (canónico).
+
+**Fix de fondo (mig 0456 + 0457) — "que ningún otro caso similar suceda esto de
+la persistencia de un dato viejo" (pedido literal de Pablo):**
+- **0456 P1 · el trámite snapshotea el email CANÓNICO del admin**, no el de la
+  solicitud: `v_email_admin` con fallback al de la solicitud sólo si el admin no
+  tiene (técnica `pg_get_functiondef + replace + EXECUTE`, token único verificado).
+- **0456 P2 · trigger `sync_tramite_email_on_admin_email_change`** (`AFTER UPDATE
+  OF email ON administraciones`, **SECURITY DEFINER** por R17 — `tramites` tiene
+  RLS con write): si el email del admin se corrige **después**, propaga a
+  `tramites.solicitante_email`. Cubre las correcciones post-admisión.
+- **0456 P3 · backfill** de los trámites ya rotos (snapshot ≠ canónico) → canónico.
+- **0457 (hallazgos §6) · rama ELSE de `solicitud_activar`** (A#1: cuando la
+  solicitud ya tenía `cliente_id` vinculado, `v_email_admin` nunca se poblaba →
+  mismo bug por otra rama) ahora hace `SELECT email,nombre INTO v_email_admin,…`;
+  y la RPC + el trigger extendido pisan también **`solicitudes.solicitante_email`**
+  (A#2/B#1: el modal "Responder" de gerencia escribía a la dirección vieja) +
+  backfill de solicitudes activadas.
+- **Frontend (C#1) · `AdministracionFormDrawer`:** el campo **Email queda de sólo
+  lectura** cuando el cliente ya tiene usuario de portal (`user_id` seteado), con
+  hint a **"Corregir mail de acceso"**. Editar sólo la ficha pisaría el canónico y
+  sus snapshots (vía trigger) pero **NO** `auth.users.email` (login) → split
+  silencioso. El asistente `corregir-email-acceso` (edge, DGG-117 FC) actualiza
+  login + ficha juntos. En alta nueva (sin `user_id`) sigue editable.
+
+**§6 doble auditoría (3 agentes) + e2e (R18).** El núcleo (0456) quedó correcto,
+no-recursivo (el UPDATE a `tramites` dispara backfill admin→tramites que NO toca
+`email` → el trigger `AFTER UPDATE OF email` no re-dispara) y R17-compliant.
+Hallazgos residuales A#1/A#2/B#1/C#1 → cerrados en 0457 + frontend. **e2e
+demostrado con `BEGIN`-equiv/`RAISE EXCEPTION`-rollback:** (1) activación por rama
+ELSE → `tramite_email` y `solicitud_email` quedan **canónicos** (antes: viejos);
+(2) corrección post-activación del email del admin → trigger sincroniza `tramites`
+**y** `solicitudes`. R16 verificado (0 overloads ambiguos).
+
+**Prevención / lección:** cuando un dato del cliente (email, nombre, teléfono) se
+**snapshotea** en tablas hijas al crear un registro, la fuente del snapshot debe
+ser el **canónico** (`administraciones.*`), nunca un snapshot intermedio (la
+solicitud, que congela lo que tipeó el usuario). Y toda corrección del canónico
+necesita **propagación a los snapshots** (trigger) + **backfill** de lo ya roto.
+El email es doble-trampa porque además es el **login** (`auth.users.email`):
+editarlo requiere el asistente que toca ambos, no un UPDATE suelto a la ficha.
