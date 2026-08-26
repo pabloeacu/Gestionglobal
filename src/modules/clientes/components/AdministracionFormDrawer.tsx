@@ -175,8 +175,6 @@ export function AdministracionFormDrawer({
     if (errors[key]) setErrors((e) => ({ ...e, [key]: undefined }));
   }
 
-  const stepErrors = useMemo(() => stepValidations(form), [form]);
-
   // E-GG-195 (C#1) · Si el cliente ya tiene usuario de portal (user_id seteado),
   // el email es su LOGIN. Editarlo sólo acá pisaría administraciones.email (y sus
   // snapshots vía trigger) pero NO auth.users.email → el cliente quedaría con el
@@ -185,6 +183,12 @@ export function AdministracionFormDrawer({
   // DGG-117 FC), que actualiza login + ficha juntos. Acá el campo queda de sólo
   // lectura y se deriva a ese asistente. En alta nueva (sin user_id) sí es editable.
   const clienteTienePortal = Boolean(editing?.user_id);
+
+  // Con el email bloqueado, no se valida su formato (no es editable acá) — E-GG-195 §6.
+  const stepErrors = useMemo(
+    () => stepValidations(form, clienteTienePortal),
+    [form, clienteTienePortal],
+  );
 
   function validateStep(idx: number): boolean {
     const errs = stepErrors[idx] ?? {};
@@ -808,6 +812,12 @@ export function AdministracionFormDrawer({
 // ---------------- validation per step ----------------
 function stepValidations(
   form: FormState,
+  // E-GG-195 (§6, borde latente): si el Email está bloqueado (cliente con portal),
+  // NO se puede editar desde el drawer → validar su formato sólo soft-lockearía el
+  // guardado de una ficha cuyo email ni siquiera cambia. La corrección del login
+  // vive en "Corregir mail de acceso". Con emailLocked se saltea la validación de
+  // formato. En alta / clientes sin portal (emailLocked=false) el chequeo es idéntico.
+  emailLocked = false,
 ): Array<Partial<Record<keyof FormState, string>>> {
   const out: Array<Partial<Record<keyof FormState, string>>> = [{}, {}, {}, {}];
   if (!form.codigo.trim()) out[0]!.codigo = 'Requerido';
@@ -821,7 +831,7 @@ function stepValidations(
     const cuitErr = validarCuit(form.cuit);
     if (cuitErr) out[1]!.cuit = cuitErr;
   }
-  if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))
+  if (!emailLocked && form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))
     out[2]!.email = 'Email inválido';
   return out;
 }
