@@ -10,12 +10,14 @@ import {
   FileBadge,
   Lock,
   Loader2,
+  Search,
   ShieldCheck,
   UserMinus,
   UserPlus,
   Users,
+  X,
 } from 'lucide-react';
-import { AnimatedNumber, Button, useConfirm } from '@/components/common';
+import { AnimatedNumber, Button, Input, Select, useConfirm } from '@/components/common';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/cn';
 import {
@@ -70,6 +72,57 @@ function fmtFechaSoloDia(s: string | null | undefined): string {
   });
 }
 
+// DGG-149 · buscador + filtros de condiciones para la lista de asignados.
+// Normaliza (sin acentos, minúsculas) para que "Gomez" matchee "Gómez".
+function normalizar(s: string): string {
+  return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+}
+
+type CatFiltro = 'todos' | 'completo' | 'pendiente';
+
+// Estado de una CATEGORÍA de condición para un alumno: 'na' (no tiene condición
+// de ese tipo), 'completo' (todas las de ese tipo cumplidas), 'pendiente' (falta
+// alguna). Los sincrónicos pueden ser varios (Asambleas, IA…): 'completo' sólo
+// si están TODOS. Sólo cuentan las condiciones activas.
+function estadoCategoria(
+  conds: MatriculaCondicionItem[],
+  tipo: CondicionTipo,
+): 'na' | 'completo' | 'pendiente' {
+  const delTipo = conds.filter((c) => c.activa && c.tipo === tipo);
+  if (delTipo.length === 0) return 'na';
+  return delTipo.every((c) => c.cumplida) ? 'completo' : 'pendiente';
+}
+
+// Select compacto de filtro por categoría (Todos / Completo / Pendiente).
+function FiltroCat({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: CatFiltro;
+  onChange: (v: CatFiltro) => void;
+}) {
+  return (
+    <label className="flex items-center gap-1.5 text-xs font-medium text-brand-muted">
+      {label}
+      <Select
+        value={value}
+        onChange={(e) => onChange(e.target.value as CatFiltro)}
+        className={cn(
+          '!w-auto !py-1.5 pr-7 text-xs',
+          value !== 'todos' && 'border-brand-cyan/50 bg-brand-cyan/5 text-brand-ink',
+        )}
+        aria-label={`Filtrar por ${label}`}
+      >
+        <option value="todos">Todos</option>
+        <option value="completo">Completo</option>
+        <option value="pendiente">Pendiente</option>
+      </Select>
+    </label>
+  );
+}
+
 // Tab de gestión de matrículas: lista de alumnos asignados al curso con su
 // checklist de condiciones tildable por staff (DGG-10). El examen aparece
 // auto-tildado y read-only.
@@ -93,7 +146,25 @@ export function GestionMatriculasTab({ data }: { data: CursoDetalle }) {
   const [desasignando, setDesasignando] = useState<string | null>(null);
   // Chunk CONST · constancia de inscripción a demanda por alumno.
   const [constanciaTarget, setConstanciaTarget] = useState<MatriculaListItem | null>(null);
+  // DGG-149 · buscador (nombre/email) + filtros por categoría de condición.
+  const [busqueda, setBusqueda] = useState('');
+  const [fPago, setFPago] = useState<CatFiltro>('todos');
+  const [fEncuesta, setFEncuesta] = useState<CatFiltro>('todos');
+  const [fSincronico, setFSincronico] = useState<CatFiltro>('todos');
   const confirm = useConfirm();
+
+  const hayFiltro =
+    busqueda.trim() !== '' ||
+    fPago !== 'todos' ||
+    fEncuesta !== 'todos' ||
+    fSincronico !== 'todos';
+
+  function limpiarFiltros() {
+    setBusqueda('');
+    setFPago('todos');
+    setFEncuesta('todos');
+    setFSincronico('todos');
+  }
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -250,6 +321,25 @@ export function GestionMatriculasTab({ data }: { data: CursoDetalle }) {
 
   type ExportRow = (typeof exportRows)[number];
 
+  // DGG-149 · lista visible = universo filtrado en memoria (regla 19: los KPIs
+  // y el total siguen sobre el universo completo; el filtro es sólo de la vista).
+  const matriculasVisibles = useMemo(() => {
+    const q = normalizar(busqueda);
+    return matriculas.filter((m) => {
+      if (q) {
+        const enNombre = normalizar(m.alumno_nombre ?? '').includes(q);
+        const enEmail = normalizar(emails[m.profile_id] ?? '').includes(q);
+        const enAdmin = normalizar(m.administracion_nombre ?? '').includes(q);
+        if (!enNombre && !enEmail && !enAdmin) return false;
+      }
+      const conds = condiciones[m.id] ?? [];
+      if (fPago !== 'todos' && estadoCategoria(conds, 'pago') !== fPago) return false;
+      if (fEncuesta !== 'todos' && estadoCategoria(conds, 'encuesta') !== fEncuesta) return false;
+      if (fSincronico !== 'todos' && estadoCategoria(conds, 'asistencia') !== fSincronico) return false;
+      return true;
+    });
+  }, [matriculas, condiciones, emails, busqueda, fPago, fEncuesta, fSincronico]);
+
   async function onExportPdf() {
     await generateReportPdf<ExportRow>({
       filename: `matriculas-${data.curso.slug || data.curso.id}-${hoyISO()}`,
@@ -359,6 +449,44 @@ export function GestionMatriculasTab({ data }: { data: CursoDetalle }) {
           </div>
         </header>
 
+        {/* DGG-149 · buscador (nombre/email) + filtros por categoría de
+            condición. La lista son muchos alumnos y el scroll no alcanza. */}
+        {matriculas.length > 0 && (
+          <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-slate-100 pt-4">
+            <div className="relative min-w-[220px] flex-1">
+              <Search
+                size={15}
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-brand-muted"
+              />
+              <Input
+                type="search"
+                value={busqueda}
+                onChange={(e) => setBusqueda(e.target.value)}
+                placeholder="Buscar por nombre o email…"
+                className="pl-9"
+                aria-label="Buscar alumno por nombre o email"
+              />
+            </div>
+            <FiltroCat label="Pago" value={fPago} onChange={setFPago} />
+            <FiltroCat label="Encuesta" value={fEncuesta} onChange={setFEncuesta} />
+            <FiltroCat label="Sincrónicos" value={fSincronico} onChange={setFSincronico} />
+            {hayFiltro && (
+              <button
+                type="button"
+                onClick={limpiarFiltros}
+                className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-semibold text-brand-muted transition hover:bg-slate-100 hover:text-brand-ink"
+              >
+                <X size={13} /> Limpiar
+              </button>
+            )}
+            {hayFiltro && (
+              <span className="ml-auto text-xs tabular text-brand-muted">
+                {matriculasVisibles.length} de {matriculas.length}
+              </span>
+            )}
+          </div>
+        )}
+
         {matriculas.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center">
             <Users size={28} className="mx-auto mb-2 text-slate-300" />
@@ -369,9 +497,23 @@ export function GestionMatriculasTab({ data }: { data: CursoDetalle }) {
               El acceso al curso lo habilitás vos: tocá “Asignar alumno”.
             </p>
           </div>
+        ) : matriculasVisibles.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center">
+            <Search size={26} className="mx-auto mb-2 text-slate-300" />
+            <p className="text-sm font-medium text-brand-ink">
+              Ningún alumno coincide con la búsqueda o los filtros
+            </p>
+            <button
+              type="button"
+              onClick={limpiarFiltros}
+              className="mt-3 inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-brand-cyan transition hover:bg-brand-cyan/5"
+            >
+              <X size={13} /> Limpiar filtros
+            </button>
+          </div>
         ) : (
           <ul className="space-y-3">
-            {matriculas.map((m) => {
+            {matriculasVisibles.map((m) => {
               const conds = (condiciones[m.id] ?? []).filter((c) => c.activa);
               const total = conds.length;
               const cumplidas = conds.filter((c) => c.cumplida).length;
