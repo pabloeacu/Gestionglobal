@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5"
+    PostgrestVersion: "14.17"
   }
   public: {
     Tables: {
@@ -8860,6 +8860,10 @@ export type Database = {
         Args: { p_encuentro_id: string; p_participantes: Json }
         Returns: Json
       }
+      curso_encuentro_registrar_acceso: {
+        Args: { p_encuentro_id: string }
+        Returns: Json
+      }
       curso_encuentro_set_zoom: {
         Args: {
           p_duracion_min?: number
@@ -9803,10 +9807,7 @@ export type Database = {
           run_at: string
         }[]
       }
-      hoy_ar: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
+      hoy_ar: { Args: never; Returns: string }
       import_comprobantes_batch: {
         Args: { p_archivo: string; p_filas: Json }
         Returns: Json

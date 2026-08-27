@@ -478,6 +478,23 @@ export async function marcarCompletada(
   return ok(true);
 }
 
+// E-GG-196: el click del alumno logueado en el acceso a la clase en vivo marca
+// su asistencia con su MATRÍCULA (identidad dura, tiempo real, sin depender de
+// Zoom). Fire-and-forget desde el front: si falla (fuera de ventana, sin
+// matrícula) no bloquea que abra Zoom — la red secundaria (reconciliación por
+// nombre al cierre) sigue existiendo. Devuelve cuántas asistencias marcó (1, o
+// 2 si el encuentro es una sesión compartida entre 2 cursos del alumno).
+export async function registrarAccesoEncuentro(
+  encuentroId: string,
+): Promise<ApiResponse<{ marcadas: number }>> {
+  const { data, error } = await supabase.rpc('curso_encuentro_registrar_acceso', {
+    p_encuentro_id: encuentroId,
+  });
+  if (error) return fail('ENCUENTRO_ACCESO', error.message, error);
+  const marcadas = (data as { marcadas?: number } | null)?.marcadas ?? 0;
+  return ok({ marcadas });
+}
+
 export interface ProgresoResumen {
   total_clases: number;
   completadas: number;

@@ -20,6 +20,7 @@ import {
 import { cn } from '@/lib/cn';
 import {
   fmtFechaHora,
+  registrarAccesoEncuentro,
   type CursoEncuentroRow,
   type ModalidadSincronica,
   type ModuloSincronicoRow,
@@ -80,6 +81,20 @@ function useNow(intervalMs = 30_000) {
 }
 
 const GATE_PREV_MS = 10 * 60_000; // habilita 10 min antes del horario
+
+// E-GG-196: cuando el alumno entra por el link externo/app de Zoom (no por el
+// embed del campus con customerKey), Zoom NO manda su mail — sólo el nombre que
+// tipea. Pre-cargamos su nombre INSCRIPTO en el link (`uname=`), así el
+// `user_name` que reporta el webhook = su nombre de perfil y la reconciliación
+// por nombre (zoom_norm_tokens) lo resuelve determinísticamente. El alumno puede
+// pisarlo, pero por defecto entra identificado con su nombre real.
+function zoomJoinConNombre(url: string | null | undefined, nombre: string): string {
+  if (!url) return '';
+  const n = (nombre ?? '').trim();
+  if (!n || n === 'Alumno') return url;
+  const sep = url.includes('?') ? '&' : '?';
+  return `${url}${sep}uname=${encodeURIComponent(n)}`;
+}
 
 // SDK Component View natural 720×874 (aspect ~0.82 vertical).
 //
@@ -177,6 +192,7 @@ export function EncuentrosEnVivoAlumno({
   encuentros,
   sesionesCompartidasRelevantes,
   modulos,
+  userName,
   activoEncuentroId,
   onEntrar,
 }: Props) {
@@ -248,6 +264,7 @@ export function EncuentrosEnVivoAlumno({
                   enc={enc}
                   now={now}
                   isMobile={isMobile}
+                  userName={userName}
                   onEntrar={onEntrar}
                   sesionesCompartidasRelevantes={sesionesCompartidasRelevantes}
                 />
@@ -306,12 +323,14 @@ function EncuentroLi({
   enc,
   now,
   isMobile,
+  userName,
   onEntrar,
   sesionesCompartidasRelevantes,
 }: {
   enc: CursoEncuentroRow;
   now: number;
   isMobile: boolean;
+  userName: string;
   onEntrar: (encuentroId: string) => void;
   sesionesCompartidasRelevantes?: ReadonlySet<string>;
 }) {
@@ -418,7 +437,10 @@ function EncuentroLi({
                     !isMobile &&
                     (puedeUnirse ? (
                       <button
-                        onClick={() => onEntrar(enc.id)}
+                        onClick={() => {
+                          void registrarAccesoEncuentro(enc.id);
+                          onEntrar(enc.id);
+                        }}
                         className={cn(
                           'inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-xs font-bold text-white shadow-sm transition',
                           isLive
@@ -440,9 +462,12 @@ function EncuentroLi({
                     puedeUnirse &&
                     enc.zoom_join_url && (
                       <a
-                        href={enc.zoom_join_url}
+                        href={zoomJoinConNombre(enc.zoom_join_url, userName)}
                         target="_blank"
                         rel="noopener noreferrer"
+                        onClick={() => {
+                          void registrarAccesoEncuentro(enc.id);
+                        }}
                         className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-brand-muted transition hover:bg-slate-50 hover:text-brand-ink"
                         title="Abrir la reunión en la app oficial de Zoom"
                       >
@@ -458,9 +483,12 @@ function EncuentroLi({
                     isMobile &&
                     (puedeUnirse && enc.zoom_join_url ? (
                       <a
-                        href={enc.zoom_join_url}
+                        href={zoomJoinConNombre(enc.zoom_join_url, userName)}
                         target="_blank"
                         rel="noopener noreferrer"
+                        onClick={() => {
+                          void registrarAccesoEncuentro(enc.id);
+                        }}
                         className="inline-flex items-center gap-1.5 rounded-lg bg-brand-cyan px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-brand-cyan/90"
                       >
                         <Smartphone size={13} /> Unirme a la clase Zoom
@@ -476,7 +504,10 @@ function EncuentroLi({
                     !isMobile &&
                     (puedeUnirse ? (
                       <button
-                        onClick={() => onEntrar(enc.id)}
+                        onClick={() => {
+                          void registrarAccesoEncuentro(enc.id);
+                          onEntrar(enc.id);
+                        }}
                         className={cn(
                           'inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-xs font-bold text-white shadow-sm transition',
                           isLive
@@ -511,14 +542,13 @@ function EncuentroLi({
                 </div>
               </div>
 
-              {/* Asistencia automática (E-GG-145: embed = tiempo real;
-                  Zoom oficial/app = se registra al cierre de la clase). */}
+              {/* E-GG-196: el click del acceso desde el campus (botón o link)
+                  marca la asistencia al instante con la matrícula del alumno.
+                  Desktop y mobile igual. */}
               {!finalizado && isZoom && (
                 <p className="mt-2 flex items-center gap-1.5 text-[11px] text-brand-muted">
                   <CheckCircle2 size={12} className="text-emerald-600" />
-                  {isMobile
-                    ? 'Tu asistencia se registra al cierre de la clase.'
-                    : 'Entrando por el campus tu asistencia se registra al instante; por Zoom oficial, al cierre de la clase.'}
+                  Al entrar a la clase desde acá, tu asistencia queda registrada automáticamente.
                 </p>
               )}
 
@@ -692,9 +722,12 @@ export function ClaseEnVivoFullLayout({
             {/* Botón link externo Zoom (opción A: app/web nativa) */}
             {(encuentro as any).zoom_join_url && (
               <a
-                href={(encuentro as any).zoom_join_url as string}
+                href={zoomJoinConNombre((encuentro as any).zoom_join_url, userName)}
                 target="_blank"
                 rel="noopener noreferrer"
+                onClick={() => {
+                  void registrarAccesoEncuentro(encuentro.id);
+                }}
                 className="group flex items-center gap-2.5 rounded-2xl border border-brand-cyan/40 bg-brand-cyan/5 p-3 transition hover:bg-brand-cyan/10"
                 title="Abrir la reunión en la app o web de Zoom para acceder a TODAS las funciones (compartir pantalla, vista cuadrícula, salas pequeñas, etc.)"
               >
