@@ -19,6 +19,7 @@ import { DocsClientePendientesWidget } from '@/modules/gerencia/components/DocsC
 import { PagosInformadosWidget } from '@/modules/gerencia/components/PagosInformadosWidget';
 import { EmailsRebotadosWidget } from '@/modules/gerencia/components/EmailsRebotadosWidget';
 import { CertsRetenidosWidget } from '@/modules/gerencia/components/CertsRetenidosWidget';
+import { ListoParaCerrarWidget } from '@/modules/gerencia/components/ListoParaCerrarWidget';
 import { AlarmasHoyWidget } from '@/modules/gerencia/components/AlarmasHoyWidget';
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
 import { getDashboardGlobal, type DashboardKpis } from '@/services/api/dashboard';
@@ -118,6 +119,11 @@ export function GerenciaHome() {
 
       {/* DGG-119: certificados retenidos por estado de pago */}
       <CertsRetenidosWidget />
+
+      {/* DGG-148 (pedido Pablo): banner que refuerza el aviso "Listo para cerrar"
+          (mail + campanita, mig 0453) — alumnos que terminaron el curso y su
+          plazo de gracia finalizó, con el trámite todavía abierto. */}
+      <ListoParaCerrarWidget />
 
       {/* J1 · checklist "Primeros 5 minutos" para nuevos gerentes.
           Auto-oculto cuando se completa o el user lo descarta. */}

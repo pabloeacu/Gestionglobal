@@ -8957,6 +8957,17 @@ export type Database = {
         Args: { p_intento_id: string; p_respuestas: Json }
         Returns: Json
       }
+      dashboard_listo_para_cerrar: {
+        Args: never
+        Returns: {
+          cliente_nombre: string
+          curso_titulo: string
+          listo_desde: string
+          matricula_estado: string
+          matricula_id: string
+          tramite_id: string
+        }[]
+      }
       db_health_metrics: { Args: never; Returns: Json }
       derivacion_reavisar_gestoria: {
         Args: { p_adjuntos?: Json; p_mensaje?: string; p_tramite_id: string }

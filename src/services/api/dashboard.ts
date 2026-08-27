@@ -60,3 +60,24 @@ export async function getDashboardGlobal(
   if (error) return fail('DASH_KPIS', error.message, error);
   return ok(data as DashboardKpis);
 }
+
+// DGG-148 · banner "Listo para cerrar" del Inicio de gerencia. Espejo del gate
+// del asistente de cierre (TrackingDetailPage) y del aviso por mail/campanita
+// (mig 0453): matrículas con el plazo de gracia terminado y el trámite todavía
+// abierto. La RPC se auto-gatea a staff (regla 2).
+export interface ListoParaCerrarRow {
+  matricula_id: string;
+  tramite_id: string;
+  curso_titulo: string | null;
+  cliente_nombre: string;
+  matricula_estado: string;
+  listo_desde: string; // ISO
+}
+
+export async function fetchListoParaCerrar(): Promise<
+  ApiResponse<ListoParaCerrarRow[]>
+> {
+  const { data, error } = await supabase.rpc('dashboard_listo_para_cerrar');
+  if (error) return fail('LISTO_CERRAR', error.message, error);
+  return ok((data ?? []) as ListoParaCerrarRow[]);
+}
