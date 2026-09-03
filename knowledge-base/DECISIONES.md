@@ -5349,3 +5349,29 @@ Regla de dedo para futuro: "que luzca como nuestro botón" ⇒ `primary`
 Verificación: prueba fiel con el CSS compilado de prod (Tailwind + gg-theme)
 bajo `data-theme="gg-brand"` — el `primary` renderiza pixel-idéntico al
 ACTIVAR de referencia (desktop y mobile 360px).
+
+## DGG-150 · Botón "Mesa de Entradas PBA" (TRAMIX) también en Certificado de acreditación RPAC (2026-08-27, pedido Pablo)
+
+**Contexto:** el botón de consulta TRAMIX (Mesa de Entradas Virtual DPPJ-PBA)
+desde el detalle del trámite (DGG-142 E6) estaba gateado a los servicios
+`rpac_inscripcion`, `rpac_inscripcion_juridica`, `rpac_renovacion`. En los
+trámites de **Certificado de acreditación RPAC** (`rpac_certificado`) no aparecía.
+
+**Decisión (Pablo):** "como todos los trámites de gestoría, requerimos hacer los
+controles" → el botón debe estar en el certificado también. Se agregó
+`rpac_certificado` a la lista del gate en `TrackingDetailPage.tsx`. Sigue
+prefillando el legajo de la ficha (`administracion.legajo_rpac`) — los 7
+certificados vigentes tienen legajo.
+
+**Tradeoff / alcance:** cambio quirúrgico de una línea (array de códigos de
+servicio), sin migración (puro frontend). Los cursos (`curso_*`) siguen SIN el
+botón porque no son expedientes de Mesa de Entradas. **Pendiente de confirmar con
+Pablo:** `rpac_ddjj` (Declaraciones Juradas Anuales) es el otro trámite de
+gestoría RPAC sin el botón — si sus DDJJ se consultan por TRAMIX, agregarlo con el
+mismo criterio.
+
+**Takeaway transferible:** los gates de UI por "tipo de servicio" hardcodeados en
+una lista son frágiles cuando el catálogo crece; cada servicio nuevo de la misma
+familia hay que acordarse de sumarlo. Alternativa futura: una bandera
+`consulta_mesa_entradas` en la tabla `servicios` en vez de una lista de códigos en
+el front.
