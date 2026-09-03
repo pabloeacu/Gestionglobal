@@ -956,12 +956,12 @@ export function TrackingDetailPage() {
               </Button>
             )}
             {/* DGG-142 E6 · consulta TRAMIX (Mesa de Entradas Virtual DPPJ-PBA)
-                desde el trámite: servicios de gestoría RPAC (inscripción,
-                renovación y certificado de acreditación — DGG-150, pedido Pablo:
-                todos los trámites de gestoría requieren el control en la Mesa),
-                con el legajo de la ficha del cliente prefillado (editable). */}
+                desde el trámite: TODOS los servicios de gestoría RPAC — inscripción,
+                renovación, certificado de acreditación (DGG-150) y DDJJ anuales
+                (DGG-155, pedido Pablo: todos los trámites de gestoría requieren el
+                control en la Mesa) —, con el legajo de la ficha prefillado (editable). */}
             {isStaff &&
-              ['rpac_inscripcion', 'rpac_inscripcion_juridica', 'rpac_renovacion', 'rpac_certificado'].includes(
+              ['rpac_inscripcion', 'rpac_inscripcion_juridica', 'rpac_renovacion', 'rpac_certificado', 'rpac_ddjj'].includes(
                 data.servicio?.codigo ?? '',
               ) && (
                 <Button

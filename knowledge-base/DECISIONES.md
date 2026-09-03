@@ -5485,3 +5485,17 @@ Verificado live (45→1 por nombre, por mail; filtros discriminan; mobile 360px 
 
 **Takeaway:** cuando una grilla crece, el buscador+filtros en memoria (sin re-fetch)
 es la solución R19-friendly; los KPIs/contadores siguen sobre el universo completo.
+
+## DGG-155 · Botón "Mesa de Entradas PBA" (TRAMIX) también en DDJJ anuales RPAC (2026-09-03, pedido Pablo)
+
+Extensión de DGG-150: se sumó `rpac_ddjj` (Declaraciones Juradas Anuales) al gate del
+botón TRAMIX en `TrackingDetailPage` — mecánica idéntica al certificado (mismo modal,
+mismo prefill de legajo). Pablo confirmó que las DDJJ, como todo trámite de gestoría
+RPAC, requieren el control en la Mesa de Entradas Virtual DPPJ-PBA.
+
+**Nota de verificación:** hoy hay **0 trámites `rpac_ddjj`** en prod, así que no se
+pudo probar en vivo sobre uno real; la mecánica es la misma que se auditó (§6 3
+revisores) y probó en vivo en DGG-150. Cambio de una línea (agregar el código al
+array del gate), sin migración. **Deuda documentada (DGG-150):** el gate por lista de
+códigos es frágil — a futuro conviene una bandera `consulta_mesa_entradas` en la tabla
+`servicios` para que cada servicio de gestoría lo herede solo.
