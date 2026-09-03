@@ -5398,3 +5398,46 @@ sólo del export.
 los renderiza en pantalla — la grilla, el buscador (DGG-149) y los filtros siguen
 idénticos. Los otros consumidores de listMatriculas (CampusList, MisCursos,
 EncuentrosTab) reciben los campos extra y los ignoran.
+
+## DGG-152 · "Regenerar certificado" (sólo gerencia) — corrige nombres mal cargados (2026-09-03, pedido Pablo)
+
+**Contexto:** un alumno se inscribió con el nombre de fantasía de su empresa ("Grupo
+Florín") siendo persona física; hizo el curso y el certificado salió a nombre de la
+empresa. El cert congela el nombre en `certificados.payload_snapshot.alumno_nombre`
+al emitir (como un comprobante snapshotea al receptor), así que corregir
+`profiles.full_name` NO lo cambia. Caso recurrente (también: apellido mal tipeado
+que se nota recién en el cert).
+
+**Decisión:** RPC `regenerar_certificado(p_matricula_id)` (mig 0460, staff-only) que
+pisa el snapshot con los datos ACTUALES (nombre de la ficha, nota, curso, esquema),
+**conservando código, verificacion_hash y emitido_at** → la URL de verificación y
+el link ya compartido siguen válidos; sólo se corrige el contenido. Como el PDF se
+genera del snapshot (client-side), la corrección propaga a la descarga de gerencia,
+la del alumno en el portal y la verificación pública. Frontend: botón "Regenerar"
+en el bloque del certificado de `GestionMatriculasTab` (sólo superficie de
+gerencia), con confirmación (R13). NO re-notifica por mail (el alumno ve el
+corregido en su próxima descarga).
+
+**§6 (3 revisores adversariales + e2e con rollback):** el RPC quedó correcto y
+seguro (gate `is_staff` falla-cerrado verificado con anon/administrador/sin-jwt →
+42501; R16 sin overloads; grants OK; preserva inmutables; propaga a todas las
+superficies). 4 hallazgos cerrados en **mig 0461**: (1) `nota_examen =
+COALESCE(recompute, nota_actual)` — nunca blanquea una nota emitida si se borraron
+los intentos aprobados; (2) `pdf_storage_path = NULL` — descarta cualquier PDF viejo
+guardado (el mail adjunta ese archivo; latente hoy: 0 certs de curso lo usan); (3)
+historial de auditoría liviano en `payload_snapshot._regen_historial` (actor, nombre
+anterior→nuevo, fecha) — un doc oficial no se reescribe sin rastro; (4) copy "sólo
+gerencia" → "equipo de gestión" (el gate admite gerente y operador, consistente con
+emitir_certificado).
+
+**Intencional (NO se toca):** regenerar re-lee TODOS los datos del curso/examen, no
+sólo el nombre — es el pedido explícito de Pablo ("asume los datos nuevamente… el
+examen, el curso, todo va a coincidir"). Sólo se blindó la nota. **Deuda anotada:**
+el bloque del certificado no distingue certs revocados (gap pre-existente; regenerar
+sobre revocado devuelve 22023 con mensaje claro).
+
+**Takeaway transferible:** un documento oficial con datos congelados (snapshot)
+necesita una vía explícita de "re-snapshot" para correcciones, que preserve la
+identidad (código/hash/fecha) y deje rastro de auditoría; nunca re-derivar datos
+sobre un registro emitido sin un guard contra degradación silenciosa (p.ej. una nota
+que se vuelve NULL).

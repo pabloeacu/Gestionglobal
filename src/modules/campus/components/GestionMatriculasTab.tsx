@@ -10,6 +10,7 @@ import {
   FileBadge,
   Lock,
   Loader2,
+  RefreshCw,
   Search,
   ShieldCheck,
   UserMinus,
@@ -28,6 +29,7 @@ import {
   certificadoParaPdf,
   desasignarAlumno,
   emitirCertificado,
+  regenerarCertificado,
   fmtFecha,
   listAlumnosEmails,
   listCertificadosPorCurso,
@@ -144,6 +146,7 @@ export function GestionMatriculasTab({ data }: { data: CursoDetalle }) {
   const [previewCert, setPreviewCert] = useState<CertificadoParaPdf | null>(null);
   const [previewEsquema, setPreviewEsquema] = useState<EsquemaCertSnapshot | null>(null);
   const [desasignando, setDesasignando] = useState<string | null>(null);
+  const [regenerando, setRegenerando] = useState<string | null>(null);
   // Chunk CONST · constancia de inscripción a demanda por alumno.
   const [constanciaTarget, setConstanciaTarget] = useState<MatriculaListItem | null>(null);
   // DGG-149 · buscador (nombre/email) + filtros por categoría de condición.
@@ -244,6 +247,29 @@ export function GestionMatriculasTab({ data }: { data: CursoDetalle }) {
       return;
     }
     toast.success('Certificado emitido');
+    void load();
+  }
+
+  // DGG-152 · regenerar el certificado con los datos actuales de la ficha (corrige
+  // nombres mal cargados). Pisa el snapshot; conserva código y fecha de emisión.
+  async function onRegenerar(m: MatriculaListItem) {
+    const ok = await confirm({
+      title: 'Regenerar certificado',
+      message: `Vas a regenerar el certificado de ${m.alumno_nombre ?? 'este alumno'} tomando los datos ACTUALES de su ficha (nombre, nota, curso). Se pisa el contenido del certificado actual manteniendo el mismo código y fecha de emisión — sirve cuando el nombre había quedado mal cargado.`,
+      confirmLabel: 'Regenerar',
+      cancelLabel: 'Volver',
+    });
+    if (!ok) return;
+    setRegenerando(m.id);
+    const res = await regenerarCertificado(m.id);
+    setRegenerando(null);
+    if (!res.ok) {
+      toast.error('No se pudo regenerar el certificado', {
+        description: humanizeError(res.error),
+      });
+      return;
+    }
+    toast.success('Certificado regenerado con los datos actuales de la ficha');
     void load();
   }
 
@@ -713,6 +739,21 @@ export function GestionMatriculasTab({ data }: { data: CursoDetalle }) {
                         >
                           <ShieldCheck size={13} /> Verificar
                         </a>
+                        {/* DGG-152 · sólo gerencia (este tab lo es): regenera el
+                            certificado con los datos actuales de la ficha. */}
+                        <button
+                          onClick={() => void onRegenerar(m)}
+                          disabled={regenerando === m.id}
+                          title="Regenerar con los datos actuales de la ficha (corrige nombres mal cargados). Mantiene el mismo código y fecha de emisión."
+                          className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand-cyan hover:underline disabled:opacity-50"
+                        >
+                          {regenerando === m.id ? (
+                            <Loader2 size={13} className="animate-spin" />
+                          ) : (
+                            <RefreshCw size={13} />
+                          )}
+                          Regenerar
+                        </button>
                       </div>
                       {/* DGG-119: trazabilidad de la emisión — cuándo, a qué
                           casilla fue el mail, y si el alumno ya lo descargó. */}

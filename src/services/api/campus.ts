@@ -2695,6 +2695,21 @@ export async function emitirCertificado(
   return ok(data as string);
 }
 
+// DGG-152 · regenerar (sólo gerencia): pisa el snapshot del certificado con los
+// datos actuales de la ficha (nombre corregido, nota, curso, esquema), sin
+// cambiar código, hash ni fecha de emisión. Resuelve nombres mal cargados
+// (empresa vs persona física, faltas de ortografía). El PDF se genera del
+// snapshot → corrige descarga de gerencia, del alumno y verificación.
+export async function regenerarCertificado(
+  matriculaId: string,
+): Promise<ApiResponse<string>> {
+  const { data, error } = await supabase.rpc('regenerar_certificado', {
+    p_matricula_id: matriculaId,
+  });
+  if (error) return fail('CERT_REGENERAR', error.message, error);
+  return ok(data as string);
+}
+
 export interface VerificacionResultado {
   valido: boolean;
   estado: 'valido' | 'revocado' | 'no_encontrado';
