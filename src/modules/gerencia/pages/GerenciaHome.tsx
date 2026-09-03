@@ -120,7 +120,7 @@ export function GerenciaHome() {
       {/* DGG-119: certificados retenidos por estado de pago */}
       <CertsRetenidosWidget />
 
-      {/* DGG-148 (pedido Pablo): banner que refuerza el aviso "Listo para cerrar"
+      {/* DGG-153 (pedido Pablo): banner que refuerza el aviso "Listo para cerrar"
           (mail + campanita, mig 0453) — alumnos que terminaron el curso y su
           plazo de gracia finalizó, con el trámite todavía abierto. */}
       <ListoParaCerrarWidget />

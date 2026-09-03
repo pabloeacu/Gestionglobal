@@ -1,5 +1,5 @@
 // ============================================================================
-// ListoParaCerrarWidget · Dashboard gerencia (DGG-148, pedido de Pablo)
+// ListoParaCerrarWidget · Dashboard gerencia (DGG-153, pedido de Pablo)
 //
 // "El aviso 'Listo para cerrar' [mail + campanita, mig 0453] también tiene que
 //  aparecer como banner en el Inicio, para reforzarlo y que no se nos pase."

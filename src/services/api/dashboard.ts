@@ -61,7 +61,7 @@ export async function getDashboardGlobal(
   return ok(data as DashboardKpis);
 }
 
-// DGG-148 · banner "Listo para cerrar" del Inicio de gerencia. Espejo del gate
+// DGG-153 · banner "Listo para cerrar" del Inicio de gerencia. Espejo del gate
 // del asistente de cierre (TrackingDetailPage) y del aviso por mail/campanita
 // (mig 0453): matrículas con el plazo de gracia terminado y el trámite todavía
 // abierto. La RPC se auto-gatea a staff (regla 2).

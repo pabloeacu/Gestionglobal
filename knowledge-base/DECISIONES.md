@@ -5441,3 +5441,47 @@ necesita una vía explícita de "re-snapshot" para correcciones, que preserve la
 identidad (código/hash/fecha) y deje rastro de auditoría; nunca re-derivar datos
 sobre un registro emitido sin un guard contra degradación silenciosa (p.ej. una nota
 que se vuelve NULL).
+
+## DGG-153 · Banner "Listo para cerrar" en el dashboard de gerencia (2026-08-27, pedido Pablo)
+
+> **Nota de numeración:** esta decisión se commiteó originalmente como "DGG-148"
+> (commit `0e55989`) colisionando con la DGG-148 real (matrícula/legajo por
+> invariante). Se renumeró a **DGG-153**. El archivo de migración conserva el
+> nombre `0459_dgg148_dashboard_listo_para_cerrar.sql` a propósito: ya está
+> aplicado a producción y renombrarlo rompería el registro de migraciones.
+
+**Contexto:** el aviso "Listo para cerrar · <alumno>" (mail + campanita, mig 0453)
+sólo llegaba por esos canales; Pablo pidió reforzarlo con un banner en el Inicio de
+gerencia para que no se pase.
+
+**Decisión:** RPC `dashboard_listo_para_cerrar()` (mig 0459, STABLE, SECURITY
+DEFINER, staff-gated) que devuelve las matrículas "listas para cerrar" — ESPEJO
+EXACTO del gate del asistente de cierre (TrackingDetailPage) y del trigger del aviso
+(0453): plazo de gracia terminado (`estado='vencida'`) o curso sin ventana de repaso
+(`completada` sin `vigencia_hasta`), con el trámite ≠ cerrado/cancelado. Widget
+`ListoParaCerrarWidget` (brand-cyan, realtime sobre curso_matriculas+tramites,
+dismissible) en `GerenciaHome`. Verificado live (mostró a Selalle Fernando Ariel).
+
+**Takeaway:** un aviso importante conviene reforzarlo en más de un canal (mail +
+campanita + banner del dashboard), y el banner debe compartir EXACTAMENTE el mismo
+gate que la acción que promueve, para no mostrar algo que el asistente no deja hacer.
+
+## DGG-154 · Buscador + filtros de condiciones en "Alumnos asignados" (2026-08-27, pedido Pablo)
+
+> **Nota de numeración:** se commiteó originalmente como "DGG-149" (commit
+> `e1e2ac5`) colisionando con la DGG-149 real (gerencia envía archivos al cliente).
+> Se renumeró a **DGG-154**. Sin migración (frontend puro).
+
+**Contexto:** la lista de asignados de un curso tiene muchos alumnos y el scroll no
+es cómodo. Pablo pidió un buscador y filtros por condición, dejando la grilla intacta.
+
+**Decisión:** en `GestionMatriculasTab` — buscador por nombre/email/administración
+(normalizado sin acentos, NFD) + 3 filtros por categoría de condición
+(Pago/Encuesta/Sincrónicos, cada uno Todos/Completo/Pendiente; "Completo" sólo si
+TODAS las de ese tipo están cumplidas). Filtro 100% en memoria (regla 19): el
+universo y el contador del header siguen sobre el total; sólo la vista se filtra
+(`useMemo`). Contador "X de Y" + "Limpiar" con filtro activo; empty state propio.
+Verificado live (45→1 por nombre, por mail; filtros discriminan; mobile 360px OK).
+
+**Takeaway:** cuando una grilla crece, el buscador+filtros en memoria (sin re-fetch)
+es la solución R19-friendly; los KPIs/contadores siguen sobre el universo completo.

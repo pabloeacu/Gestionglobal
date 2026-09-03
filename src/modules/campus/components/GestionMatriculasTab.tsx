@@ -74,7 +74,7 @@ function fmtFechaSoloDia(s: string | null | undefined): string {
   });
 }
 
-// DGG-149 · buscador + filtros de condiciones para la lista de asignados.
+// DGG-154 · buscador + filtros de condiciones para la lista de asignados.
 // Normaliza (sin acentos, minúsculas) para que "Gomez" matchee "Gómez".
 function normalizar(s: string): string {
   return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
@@ -149,7 +149,7 @@ export function GestionMatriculasTab({ data }: { data: CursoDetalle }) {
   const [regenerando, setRegenerando] = useState<string | null>(null);
   // Chunk CONST · constancia de inscripción a demanda por alumno.
   const [constanciaTarget, setConstanciaTarget] = useState<MatriculaListItem | null>(null);
-  // DGG-149 · buscador (nombre/email) + filtros por categoría de condición.
+  // DGG-154 · buscador (nombre/email) + filtros por categoría de condición.
   const [busqueda, setBusqueda] = useState('');
   const [fPago, setFPago] = useState<CatFiltro>('todos');
   const [fEncuesta, setFEncuesta] = useState<CatFiltro>('todos');
@@ -350,7 +350,7 @@ export function GestionMatriculasTab({ data }: { data: CursoDetalle }) {
 
   type ExportRow = (typeof exportRows)[number];
 
-  // DGG-149 · lista visible = universo filtrado en memoria (regla 19: los KPIs
+  // DGG-154 · lista visible = universo filtrado en memoria (regla 19: los KPIs
   // y el total siguen sobre el universo completo; el filtro es sólo de la vista).
   const matriculasVisibles = useMemo(() => {
     const q = normalizar(busqueda);
@@ -487,7 +487,7 @@ export function GestionMatriculasTab({ data }: { data: CursoDetalle }) {
           </div>
         </header>
 
-        {/* DGG-149 · buscador (nombre/email) + filtros por categoría de
+        {/* DGG-154 · buscador (nombre/email) + filtros por categoría de
             condición. La lista son muchos alumnos y el scroll no alcanza. */}
         {matriculas.length > 0 && (
           <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-slate-100 pt-4">
