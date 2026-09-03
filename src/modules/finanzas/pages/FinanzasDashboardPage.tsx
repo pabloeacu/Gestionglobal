@@ -1,17 +1,21 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { hoyISO } from '@/lib/dates';
+import { hoyISO, hoyISOoffset } from '@/lib/dates';
 import {
   ArrowRightLeft, Plus, TrendingUp, TrendingDown, Wallet, AlertCircle,
   Banknote, Search, X, RotateCcw, Ban, Landmark, UserCheck, Undo2,
 } from 'lucide-react';
-import { Button, Input, Select, useConfirm } from '@/components/common';
+import {
+  Button, Input, Select, useConfirm,
+  Paginador, PAGE_SIZE_DEFAULT, FiltroRangoFechas, type RangoFechas,
+} from '@/components/common';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import { toast } from '@/lib/toast';
 import {
   getCajasConSaldo, getDashboardKpis, listarMovimientos,
   anularMovimiento, revertirMovimiento, desidentificarMovimiento,
   type CajaConSaldoRow, type DashboardKpis, type MovimientoListadoRow,
+  type ListarMovimientosFiltros,
 } from '@/services/api/finanzas';
 import { cn } from '@/lib/cn';
 import { NuevoMovimientoModal } from '../components/NuevoMovimientoModal';
@@ -40,39 +44,86 @@ export function FinanzasDashboardPage() {
   const [cajas, setCajas] = useState<CajaConSaldoRow[]>([]);
   const [kpis, setKpis] = useState<DashboardKpis>({ saldo_total: 0, ingresos_mes: 0, egresos_mes: 0, movs_pendientes: 0, cajas_activas: 0 });
   const [movs, setMovs] = useState<MovimientoListadoRow[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true);          // cajas + KPIs (carga inicial)
+  const [movsLoading, setMovsLoading] = useState(true);  // sólo la lista de movimientos
   const [filtroCaja, setFiltroCaja] = useState<string>('');
   const [filtroTipo, setFiltroTipo] = useState<string>('');
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  // DGG-156 · "Movimientos": rango por defecto últimos 30 días (modificable) +
+  // paginado 50 con total exacto del backend.
+  const [rango, setRango] = useState<RangoFechas>(() => ({
+    desde: hoyISOoffset(-30),
+    hasta: hoyISO(),
+  }));
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
   const [nuevoOpen, setNuevoOpen] = useState(false);
   const [transferOpen, setTransferOpen] = useState(false);
   // JL-W8-3 · movimiento pendiente elegido para identificar
   const [identificarTarget, setIdentificarTarget] = useState<MovimientoListadoRow | null>(null);
+  // DGG-156 (§6 hallazgo B#10) · token incremental para descartar respuestas
+  // fuera de orden: con clicks rápidos en los filtros, la respuesta lenta de un
+  // filtro viejo no debe pisar la del filtro visible.
+  const reqMovsRef = useRef(0);
 
-  async function recargar() {
-    setLoading(true);
-    const [r1, r2, r3] = await Promise.all([
-      getCajasConSaldo(),
-      getDashboardKpis(),
-      listarMovimientos({
-        cajaId: filtroCaja || null,
-        tipo: (filtroTipo as 'ingreso' | 'egreso' | null) || null,
-        search: search || null,
-        limit: 20,
-      }),
-    ]);
-    setLoading(false);
+  // Cajas + KPIs: cambian sólo tras una mutación (nuevo/revertir/anular/identificar)
+  // o en la carga inicial. NO dependen de los filtros de la lista → no se re-piden
+  // al paginar/buscar (evita parpadeo de la grilla de cajas). R19.
+  async function cargarCajasKpis() {
+    const [r1, r2] = await Promise.all([getCajasConSaldo(), getDashboardKpis()]);
     if (r1.ok) setCajas(r1.data);
     if (r2.ok) setKpis(r2.data);
-    if (r3.ok) setMovs(r3.data.rows);
   }
-  useEffect(() => { void recargar(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [filtroCaja, filtroTipo]);
 
-  // debounce search
+  // Movimientos: la lista paginada. Se re-pide ante cualquier filtro/página. El
+  // backend (fz_listar_movimientos, mig 0462) devuelve rows de la página + total.
+  async function cargarMovs() {
+    const my = ++reqMovsRef.current;
+    setMovsLoading(true);
+    const r = await listarMovimientos({
+      cajaId: filtroCaja || null,
+      tipo: (filtroTipo as ListarMovimientosFiltros['tipo']) || null,
+      fechaDesde: rango.desde,
+      fechaHasta: rango.hasta,
+      search: debouncedSearch || null,
+      limit: PAGE_SIZE_DEFAULT,
+      offset: (page - 1) * PAGE_SIZE_DEFAULT,
+    });
+    // Respuesta obsoleta (llegó otra petición más nueva mientras esperábamos) → descartar.
+    if (my !== reqMovsRef.current) return;
+    if (r.ok) {
+      // Si caímos más allá del final (p.ej. bajó el total tras anular/filtrar),
+      // la página vuelve vacía y total_count no viaja → volver a la 1 y el effect
+      // re-dispara la carga. Evita un "sin movimientos" falso.
+      if (r.data.rows.length === 0 && page > 1) { setPage(1); return; }
+      setMovs(r.data.rows);
+      setTotal(r.data.total);
+    }
+    setMovsLoading(false);
+  }
+
+  // Tras una mutación que cambia saldos: refrescar cajas/KPIs + la página actual.
+  async function refrescar() { await Promise.all([cargarCajasKpis(), cargarMovs()]); }
+
+  // Carga inicial de cajas + KPIs (una sola vez).
   useEffect(() => {
-    const t = setTimeout(() => { void recargar(); }, 300);
-    return () => clearTimeout(t);
+    let alive = true;
+    void (async () => { await cargarCajasKpis(); if (alive) setLoading(false); })();
+    return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Lista de movimientos: filtros + paginado (también dispara la carga inicial).
+  useEffect(() => {
+    void cargarMovs();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtroCaja, filtroTipo, rango.desde, rango.hasta, debouncedSearch, page]);
+
+  // Debounce del buscador → aplica el término y vuelve a la página 1.
+  useEffect(() => {
+    const t = setTimeout(() => { setDebouncedSearch(search); setPage(1); }, 300);
+    return () => clearTimeout(t);
   }, [search]);
 
   const balanceNeto = useMemo(() => kpis.ingresos_mes - kpis.egresos_mes, [kpis]);
@@ -93,11 +144,41 @@ export function FinanzasDashboardPage() {
       };
       items.push({ label: 'Tipo', value: label[filtroTipo] ?? filtroTipo });
     }
-    if (search.trim()) items.push({ label: 'Búsqueda', value: search.trim() });
+    if (rango.desde || rango.hasta) {
+      items.push({
+        label: 'Período',
+        value: `${rango.desde ? fmtFecha(rango.desde) : '…'} → ${rango.hasta ? fmtFecha(rango.hasta) : 'hoy'}`,
+      });
+    }
+    if (debouncedSearch.trim()) items.push({ label: 'Búsqueda', value: debouncedSearch.trim() });
     return items;
-  }, [filtroCaja, filtroTipo, search, cajas]);
+  }, [filtroCaja, filtroTipo, rango, debouncedSearch, cajas]);
+
+  // DGG-156 (§6 hallazgos B#6a / C#15) · el export debe abarcar TODO el set del
+  // filtro activo (todas las páginas), no sólo la página visible. Recorre en
+  // bloques de 200 (tope del RPC) hasta agotar, con un techo de seguridad.
+  async function fetchMovsParaExport(): Promise<MovimientoListadoRow[]> {
+    const acc: MovimientoListadoRow[] = [];
+    const LOTE = 200;
+    for (let off = 0; off < 20000; off += LOTE) {
+      const r = await listarMovimientos({
+        cajaId: filtroCaja || null,
+        tipo: (filtroTipo as ListarMovimientosFiltros['tipo']) || null,
+        fechaDesde: rango.desde,
+        fechaHasta: rango.hasta,
+        search: debouncedSearch || null,
+        limit: LOTE,
+        offset: off,
+      });
+      if (!r.ok) break;
+      acc.push(...r.data.rows);
+      if (r.data.rows.length < LOTE) break;
+    }
+    return acc;
+  }
 
   async function onExportPdf() {
+    const rowsExport = await fetchMovsParaExport();
     await generateReportPdf<MovimientoListadoRow>({
       filename: `movimientos-${hoyISO()}`,
       titulo: 'Movimientos financieros',
@@ -131,11 +212,12 @@ export function FinanzasDashboardPage() {
                 ? 'Anulado'
                 : 'Identificado') + (r.revertido_at ? ' · revertido' : '') },
       ],
-      rows: movs,
+      rows: rowsExport,
     });
   }
 
   async function onExportXls() {
+    const rowsExport = await fetchMovsParaExport();
     generateReportXls<MovimientoListadoRow>({
       filename: `movimientos-${hoyISO()}`,
       sheetName: 'Movimientos',
@@ -163,7 +245,7 @@ export function FinanzasDashboardPage() {
                 ? 'Anulado'
                 : 'Identificado') + (r.revertido_at ? ' · revertido' : '') },
       ],
-      rows: movs,
+      rows: rowsExport,
     });
   }
 
@@ -185,7 +267,7 @@ export function FinanzasDashboardPage() {
       return;
     }
     toast.success('Movimiento revertido');
-    void recargar();
+    void refrescar();
   }
 
   async function onAnular(m: MovimientoListadoRow) {
@@ -202,7 +284,7 @@ export function FinanzasDashboardPage() {
       return;
     }
     toast.success('Movimiento anulado');
-    void recargar();
+    void refrescar();
   }
 
   // JL-W8-3 · deshacer una identificación errónea ("reconocí al cliente
@@ -229,7 +311,7 @@ export function FinanzasDashboardPage() {
       return;
     }
     toast.success('El movimiento volvió a "sin identificar"');
-    void recargar();
+    void refrescar();
   }
 
   return (
@@ -325,7 +407,7 @@ export function FinanzasDashboardPage() {
                 <button
                   type="button"
                   key={c.caja_id}
-                  onClick={() => setFiltroCaja(isActive ? '' : c.caja_id)}
+                  onClick={() => { setFiltroCaja(isActive ? '' : c.caja_id); setPage(1); }}
                   title={isActive ? 'Quitar filtro' : 'Filtrar movimientos por esta caja'}
                   className={cn(
                     'group relative overflow-hidden rounded-2xl border bg-white p-5 text-left shadow-sm transition',
@@ -359,8 +441,10 @@ export function FinanzasDashboardPage() {
       {/* Movimientos */}
       <section>
         <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-brand-muted">Movimientos recientes</h2>
-          <div className="flex flex-wrap gap-2">
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-brand-muted">Movimientos</h2>
+          <div className="flex flex-wrap items-center gap-2">
+            {/* DGG-156 · rango por defecto últimos 30 días, modificable (1 calendario) */}
+            <FiltroRangoFechas valor={rango} onChange={(r) => { setRango(r); setPage(1); }} />
             <div className="relative">
               <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-brand-muted" />
               <Input
@@ -375,13 +459,13 @@ export function FinanzasDashboardPage() {
                 </button>
               )}
             </div>
-            <Select value={filtroCaja} onChange={(e) => setFiltroCaja(e.target.value)} className="h-9 w-40">
+            <Select value={filtroCaja} onChange={(e) => { setFiltroCaja(e.target.value); setPage(1); }} className="h-9 w-40">
               <option value="">Todas las cajas</option>
               {cajas.filter((c) => c.activo).map((c) => (
                 <option key={c.caja_id} value={c.caja_id}>{c.nombre}</option>
               ))}
             </Select>
-            <Select value={filtroTipo} onChange={(e) => setFiltroTipo(e.target.value)} className="h-9 w-36">
+            <Select value={filtroTipo} onChange={(e) => { setFiltroTipo(e.target.value); setPage(1); }} className="h-9 w-36">
               <option value="">Todos los tipos</option>
               <option value="ingreso">Ingresos</option>
               <option value="egreso">Egresos</option>
@@ -391,18 +475,21 @@ export function FinanzasDashboardPage() {
           </div>
         </div>
 
-        {loading ? (
+        {movsLoading ? (
           <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center text-sm text-brand-muted">
             Cargando…
           </div>
         ) : movs.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center text-sm text-brand-muted">
-            Sin movimientos con esos filtros.
+            Sin movimientos en este período.
           </div>
         ) : (
           <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            {/* DGG-156 · scroll interno: la lista pagina de a 50 pero el alto del
+                card queda acotado para que la página no se estire. thead sticky. */}
+            <div className="max-h-[560px] overflow-auto">
             <table className="min-w-full divide-y divide-slate-200 text-sm">
-              <thead className="bg-slate-50">
+              <thead className="sticky top-0 z-10 bg-slate-50 shadow-[0_1px_0_rgba(15,23,42,0.08)]">
                 <tr>
                   <th className="px-4 py-2 text-left text-[10px] font-semibold uppercase tracking-wider text-brand-muted">Fecha</th>
                   <th className="px-4 py-2 text-left text-[10px] font-semibold uppercase tracking-wider text-brand-muted">Tipo</th>
@@ -507,6 +594,15 @@ export function FinanzasDashboardPage() {
                 ))}
               </tbody>
             </table>
+            </div>
+            {/* DGG-156 · paginado 50 con total exacto del backend */}
+            <Paginador
+              page={page}
+              pageSize={PAGE_SIZE_DEFAULT}
+              total={total}
+              onPage={setPage}
+              className="border-t border-slate-200 px-4"
+            />
           </div>
         )}
       </section>
@@ -515,14 +611,14 @@ export function FinanzasDashboardPage() {
         <NuevoMovimientoModal
           cajas={cajas.filter((c) => c.activo)}
           onClose={() => setNuevoOpen(false)}
-          onCreated={() => { setNuevoOpen(false); void recargar(); }}
+          onCreated={() => { setNuevoOpen(false); void refrescar(); }}
         />
       )}
       {transferOpen && (
         <TransferenciaModal
           cajas={cajas.filter((c) => c.activo)}
           onClose={() => setTransferOpen(false)}
-          onCreated={() => { setTransferOpen(false); void recargar(); }}
+          onCreated={() => { setTransferOpen(false); void refrescar(); }}
         />
       )}
       {/* JL-W8-3 · identificar ingreso pendiente */}
@@ -530,7 +626,7 @@ export function FinanzasDashboardPage() {
         <IdentificarMovimientoModal
           movimiento={identificarTarget}
           onClose={() => setIdentificarTarget(null)}
-          onIdentificado={() => { setIdentificarTarget(null); void recargar(); }}
+          onIdentificado={() => { setIdentificarTarget(null); void refrescar(); }}
         />
       )}
     </div>

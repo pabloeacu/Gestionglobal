@@ -5499,3 +5499,47 @@ revisores) y probó en vivo en DGG-150. Cambio de una línea (agregar el código
 array del gate), sin migración. **Deuda documentada (DGG-150):** el gate por lista de
 códigos es frágil — a futuro conviene una bandera `consulta_mesa_entradas` en la tabla
 `servicios` para que cada servicio de gestoría lo herede solo.
+
+## DGG-156 · "Movimientos" del dashboard de finanzas: paginado + rango de fechas + scroll interno + optimización (2026-09-03, pedido Pablo)
+
+**Contexto:** en el dashboard de finanzas, el widget "Movimientos recientes" sólo
+mostraba los últimos ~20 movimientos, sin forma de ver el histórico ni filtrar por
+fechas. Pablo pidió NO agregar una sección nueva sino capitalizar la existente:
+(1) renombrar el título a "Movimientos"; (2) filtro por rango de fechas, default
+últimos 30 días, modificable; (3) paginado 50 con scroll interno (para que la página
+no se estire); (4) optimizar la consulta para que no se clave con muchas filas.
+
+**Decisión backend (mig 0462):** el RPC `fz_listar_movimientos` YA soportaba
+caja/tipo/fechas/búsqueda/paginado (limit/offset con clamp 1..200 + total_count).
+Se reescribió la implementación (misma firma y RETURNS TABLE, byte-idénticos → sin
+overload R16, GRANTs preservados por `CREATE OR REPLACE`) con CTEs `base` (sólo el
+filtro, escaneado una vez) → `total` (count liviano) → `page` (orden + limit/offset)
+→ SELECT final que hace los joins de nombres y el subquery `adjuntos_count` SÓLO
+sobre las ≤50 filas de la página, en vez de sobre todo el universo filtrado. Se sumó
+índice `idx_mov_fecha_orden (fecha DESC, created_at DESC, id DESC)` para el path
+"todas las cajas + rango de fechas" que antes no tenía índice usable (R11).
+
+**Decisión frontend (`FinanzasDashboardPage.tsx`):** título "Movimientos";
+`<FiltroRangoFechas>` (1 calendario, default últimos 30 días vía `hoyISOoffset(-30)`);
+`<Paginador>` (50/pág, total exacto del backend) con la tabla envuelta en
+`max-h-[560px] overflow-auto` + `thead sticky`. Se separó la carga: `cargarCajasKpis`
+(inicial + tras mutación) vs `cargarMovs` (lista paginada) con estados de loading
+independientes → al paginar/filtrar NO parpadea la grilla de cajas ni se re-piden
+KPIs (R19: los KPIs/saldos siguen sobre RPCs de universo completo, ajenos al filtro
+de la lista).
+
+**Auditoría §6 (3 revisores + e2e):** sin regresiones. Hallazgos cerrados en el mismo
+chunk: guard de respuestas fuera de orden en `cargarMovs` (token incremental — con
+clicks rápidos una respuesta lenta ya no pisa el filtro visible); el export PDF/XLS
+ahora abarca TODO el set del filtro (recorre todas las páginas), no sólo la visible;
+chip "Búsqueda" usa el término debounced; cast de tipo de `filtroTipo` que incluye
+transferencias. E2E en BD: total_count == crudo en 5 escenarios, 0 solapamiento entre
+páginas, adjuntos_count == crudo (y =1 con adjunto sintético en BEGIN/ROLLBACK),
+INNER JOIN cajas no descarta filas (0 movs sin caja válida por la FK NOT NULL +
+ON DELETE RESTRICT), EXPLAIN usa el índice nuevo (6ms).
+
+**Takeaway:** cuando una lista "reciente" necesita volverse histórica, conviene
+capitalizar el widget existente (título + rango de fechas + paginado con scroll
+interno acotado) antes que sumar otra sección; y en la RPC, diferir los joins de
+display y los subqueries correlacionados a las filas de la página (no al universo
+filtrado) es la optimización que evita que se clave al crecer.
