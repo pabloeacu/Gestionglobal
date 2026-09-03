@@ -365,6 +365,10 @@ export interface MatriculaListItem extends CursoMatriculaRow {
   > | null;
   alumno_nombre: string | null;
   administracion_nombre: string | null;
+  // DGG-151 · datos de la ficha del cliente para el export (NO para la grilla).
+  administracion_telefono: string | null;
+  administracion_matricula_rpac: string | null;
+  administracion_legajo_rpac: string | null;
 }
 
 export async function listMatriculas(
@@ -376,7 +380,7 @@ export async function listMatriculas(
       `*,
        cursos:curso_id(id, slug, titulo, modalidad, banner_url, activo, publicar_at, despublicar_at),
        profiles!curso_matriculas_profile_id_fkey(id, full_name),
-       administraciones(id, nombre)`,
+       administraciones(id, nombre, telefono, whatsapp, matricula_rpac, legajo_rpac)`,
     )
     .order('inscripto_at', { ascending: false });
   if (params.cursoId) q = q.eq('curso_id', params.cursoId);
@@ -393,7 +397,14 @@ export async function listMatriculas(
       'id' | 'slug' | 'titulo' | 'modalidad' | 'banner_url' | 'activo' | 'publicar_at' | 'despublicar_at'
     > | null;
     profiles: { id: string; full_name: string | null } | null;
-    administraciones: { id: string; nombre: string } | null;
+    administraciones: {
+      id: string;
+      nombre: string;
+      telefono: string | null;
+      whatsapp: string | null;
+      matricula_rpac: string | null;
+      legajo_rpac: string | null;
+    } | null;
   };
   let rows: MatriculaListItem[] = (data as unknown as RawRow[] | null ?? []).map(
     (r) => ({
@@ -401,6 +412,10 @@ export async function listMatriculas(
       curso: r.cursos,
       alumno_nombre: r.profiles?.full_name ?? null,
       administracion_nombre: r.administraciones?.nombre ?? null,
+      administracion_telefono:
+        r.administraciones?.telefono ?? r.administraciones?.whatsapp ?? null,
+      administracion_matricula_rpac: r.administraciones?.matricula_rpac ?? null,
+      administracion_legajo_rpac: r.administraciones?.legajo_rpac ?? null,
     }),
   );
   if (params.search && params.search.trim().length > 0) {

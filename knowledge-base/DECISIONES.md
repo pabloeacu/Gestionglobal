@@ -5375,3 +5375,26 @@ una lista son frágiles cuando el catálogo crece; cada servicio nuevo de la mis
 familia hay que acordarse de sumarlo. Alternativa futura: una bandera
 `consulta_mesa_entradas` en la tabla `servicios` en vez de una lista de códigos en
 el front.
+
+## DGG-151 · Export XLS de matrículas: sumar contacto + matrícula/legajo de la ficha (2026-08-27, pedido Pablo)
+
+**Contexto:** el Excel de "Alumnos asignados" de un curso exportaba nombre,
+administración, fecha, estado, condiciones, nota y certificado. Pablo pidió sumar
+datos de la ficha del cliente para los controles: **Email, Teléfono, Nº de
+Matrícula RPAC y Legajo**. La GRILLA en pantalla queda **intacta** — el cambio es
+sólo del export.
+
+**Decisión / implementación:**
+- `listMatriculas` (campus.ts) suma al select de `administraciones`:
+  `telefono, whatsapp, matricula_rpac, legajo_rpac`, y expone en `MatriculaListItem`
+  `administracion_telefono` (telefono ?? whatsapp), `administracion_matricula_rpac`,
+  `administracion_legajo_rpac`. El email es el login del alumno, ya cargado en el
+  mapa `emails` (listAlumnosEmails).
+- `GestionMatriculasTab.onExportXls` agrega 4 columnas (Email, Teléfono, Matrícula
+  RPAC, Legajo RPAC) tras "Administración". `exportRows` suma `alumno_email` y
+  `emails` a sus deps. El PDF y la grilla no cambian (pedido: sólo el Excel).
+
+**Nota:** los datos nuevos viajan en el objeto de matrícula pero NINGÚN componente
+los renderiza en pantalla — la grilla, el buscador (DGG-149) y los filtros siguen
+idénticos. Los otros consumidores de listMatriculas (CampusList, MisCursos,
+EncuentrosTab) reciben los campos extra y los ignoran.

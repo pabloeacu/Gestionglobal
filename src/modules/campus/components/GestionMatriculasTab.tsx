@@ -315,9 +315,12 @@ export function GestionMatriculasTab({ data }: { data: CursoDetalle }) {
         certificado_emitido: !!cert,
         // DGG-119: mejor nota aprobada del examen (vacía si no rindió/aprobó).
         nota_examen: nota ? `${nota.nota}/100` : '',
+        // DGG-151 · datos de contacto/ficha para el export (email = login del
+        // alumno; teléfono/matrícula/legajo de la ficha del cliente).
+        alumno_email: emails[m.profile_id] ?? '',
       };
     });
-  }, [matriculas, condiciones, certificados, notas]);
+  }, [matriculas, condiciones, certificados, notas, emails]);
 
   type ExportRow = (typeof exportRows)[number];
 
@@ -386,6 +389,15 @@ export function GestionMatriculasTab({ data }: { data: CursoDetalle }) {
           value: (r) => r.alumno_nombre ?? '' },
         { key: 'administracion_nombre', label: 'Administración', width: 26,
           value: (r) => r.administracion_nombre ?? '' },
+        // DGG-151 · datos extra de contacto/ficha (sólo en el Excel, no en la grilla).
+        { key: 'alumno_email', label: 'Email', width: 30,
+          value: (r) => r.alumno_email ?? '' },
+        { key: 'administracion_telefono', label: 'Teléfono', width: 18,
+          value: (r) => r.administracion_telefono ?? '' },
+        { key: 'administracion_matricula_rpac', label: 'Matrícula RPAC', width: 16,
+          value: (r) => r.administracion_matricula_rpac ?? '' },
+        { key: 'administracion_legajo_rpac', label: 'Legajo RPAC', width: 16,
+          value: (r) => r.administracion_legajo_rpac ?? '' },
         { key: 'inscripto_at', label: 'Fecha matrícula', width: 16,
           value: (r) => r.inscripto_at ? new Date(r.inscripto_at) : null },
         { key: 'estado', label: 'Estado', width: 14,
