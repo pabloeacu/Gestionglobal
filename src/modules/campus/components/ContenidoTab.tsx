@@ -7,13 +7,12 @@
 //     módulo, clase y bibliografía. Mig 0140.
 //   · Imágenes: ícono por módulo, foto del instructor en clases asincrónicas.
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   ArrowDown,
   ArrowUp,
   BookOpen,
   ChevronDown,
-  ChevronUp,
   Paperclip,
   Plus,
   Save,
@@ -49,6 +48,8 @@ import {
   crearModulo,
   estadoPublicacion,
   fmtFechaHora,
+  swapOrdenModulo,
+  swapOrdenClase,
   type ClaseTipo,
   type CursoBibliografiaRow,
   type CursoClaseRow,
@@ -67,6 +68,9 @@ interface ContenidoTabProps {
 export function ContenidoTab({ data, onChanged }: ContenidoTabProps) {
   const [nuevoModulo, setNuevoModulo] = useState('');
   const [creandoModulo, setCreandoModulo] = useState(false);
+  // Guard in-flight: evita que un doble-click en las flechas dispare 2 swaps
+  // solapados (§6 B#15).
+  const reordenandoRef = useRef(false);
 
   async function addModulo() {
     if (!nuevoModulo.trim()) {
@@ -90,26 +94,23 @@ export function ContenidoTab({ data, onChanged }: ContenidoTabProps) {
   // El badge muestra la posición (i+1), así que el `orden` sólo importa como
   // clave de ordenamiento; intercambiarlo con el vecino mueve el módulo un lugar.
   async function moverModulo(i: number, dir: -1 | 1) {
+    if (reordenandoRef.current) return; // ya hay un swap en vuelo
     const j = i + dir;
     if (j < 0 || j >= data.modulos.length) return;
     const a = data.modulos[i];
     const b = data.modulos[j];
     if (!a || !b) return; // narrowing para noUncheckedIndexedAccess (j ya está en rango)
-    const [r1, r2] = await Promise.all([
-      actualizarModulo(a.id, { orden: b.orden }),
-      actualizarModulo(b.id, { orden: a.orden }),
-    ]);
-    if (!r1.ok) {
-      toast.error(humanizeError(r1.error));
-      onChanged(); // resync UI ↔ BD ante un fallo parcial
-      return;
-    }
-    if (!r2.ok) {
-      toast.error(humanizeError(r2.error));
+    reordenandoRef.current = true;
+    try {
+      const res = await swapOrdenModulo(a.id, b.id); // swap ATÓMICO (mig 0463)
+      if (!res.ok) {
+        toast.error(humanizeError(res.error));
+        return;
+      }
       onChanged();
-      return;
+    } finally {
+      reordenandoRef.current = false;
     }
-    onChanged();
   }
 
   return (
@@ -182,6 +183,8 @@ function ModuloEditor({
   // Colapsado por defecto: con varios módulos, el editor es más manejable
   // arrancando cerrado (pedido Pablo). El gerente expande el que va a editar.
   const [expanded, setExpanded] = useState(false);
+  // Guard in-flight del reorden de clases (§6 B#15).
+  const reordenandoClaseRef = useRef(false);
   const [titulo, setTitulo] = useState(modulo.titulo);
   const [descripcion, setDescripcion] = useState(modulo.descripcion ?? '');
   const [icono, setIcono] = useState<string | null>(modulo.icono_url ?? null);
@@ -256,26 +259,23 @@ function ModuloEditor({
   // Reordenar clases = SWAP del `orden` con la vecina (mismo criterio que los
   // módulos: `orden ± 1` colisionaba). El badge de la clase muestra la posición.
   async function moverClase(idx: number, dir: -1 | 1) {
+    if (reordenandoClaseRef.current) return; // ya hay un swap en vuelo
     const j = idx + dir;
     if (j < 0 || j >= modulo.clases.length) return;
     const a = modulo.clases[idx];
     const b = modulo.clases[j];
     if (!a || !b) return; // narrowing para noUncheckedIndexedAccess (j ya está en rango)
-    const [r1, r2] = await Promise.all([
-      actualizarClase(a.id, { orden: b.orden }),
-      actualizarClase(b.id, { orden: a.orden }),
-    ]);
-    if (!r1.ok) {
-      toast.error(humanizeError(r1.error));
-      onChanged(); // resync UI ↔ BD ante un fallo parcial
-      return;
-    }
-    if (!r2.ok) {
-      toast.error(humanizeError(r2.error));
+    reordenandoClaseRef.current = true;
+    try {
+      const res = await swapOrdenClase(a.id, b.id); // swap ATÓMICO (mig 0463)
+      if (!res.ok) {
+        toast.error(humanizeError(res.error));
+        return;
+      }
       onChanged();
-      return;
+    } finally {
+      reordenandoClaseRef.current = false;
     }
-    onChanged();
   }
 
   return (
@@ -1067,6 +1067,7 @@ function MaterialItem({
       <button
         type="button"
         onClick={() => setExpanded((v) => !v)}
+        aria-expanded={expanded}
         className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left text-sm transition hover:bg-white"
       >
         <span className="block min-w-0">
@@ -1075,9 +1076,14 @@ function MaterialItem({
             {item.archivo_url ? 'Archivo' : item.url ? 'Link' : 'Sin contenido'}
           </span>
         </span>
-        <span className="text-brand-muted">
-          {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-        </span>
+        <ChevronDown
+          size={14}
+          className={cn(
+            'shrink-0 text-brand-muted transition-transform duration-300',
+            expanded && 'rotate-180',
+          )}
+          aria-hidden
+        />
       </button>
       {expanded && (
         <div className="space-y-3 border-t border-slate-200 bg-white p-3">
@@ -1314,6 +1320,7 @@ function BiblioItem({
       <button
         type="button"
         onClick={() => setExpanded((v) => !v)}
+        aria-expanded={expanded}
         className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left text-sm transition hover:bg-white"
       >
         <span className="block min-w-0">
@@ -1331,9 +1338,14 @@ function BiblioItem({
         >
           {estado.label}
         </span>
-        <span className="text-brand-muted">
-          {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-        </span>
+        <ChevronDown
+          size={14}
+          className={cn(
+            'shrink-0 text-brand-muted transition-transform duration-300',
+            expanded && 'rotate-180',
+          )}
+          aria-hidden
+        />
       </button>
       {expanded && (
         <div className="space-y-3 border-t border-slate-200 bg-white p-3">

@@ -5595,3 +5595,35 @@ clave de ordenamiento interna (que puede tener huecos por borrados). Y al cambia
 default de UI (expandido→colapsado), revisar cómo revalida el padre: un `reload` que
 re-dispara el `loading` global remonta el subárbol y hace visible un colapso que antes
 quedaba oculto.
+
+### DGG-157 · Addendum (saldado de deudas menores §6, 2026-09-05)
+
+Se cerraron las 2 deudas menores que la §6 de DGG-157 había dejado anotadas, con
+metodología completa (3 revisores + e2e):
+
+- **Reorden ATÓMICO (deuda A#3/C#4b):** el swap de `orden` de módulos/clases pasó de
+  2 UPDATE sueltos en el front (`Promise.all`, que ante fallo parcial dejaban dos
+  filas con el mismo `orden`) a una RPC transaccional. Migs **0463** (RPCs
+  `curso_modulos_swap_orden` / `curso_clases_swap_orden`, `SECURITY DEFINER`, gate
+  `private.is_staff()` espejo de la policy `*_cud`, validan existencia P0002 y mismo
+  curso/módulo 22023) + **0464** (hardening: `FOR UPDATE ORDER BY id` antes de
+  leer/escribir → serializa swaps concurrentes solapados, deadlock-safe, cierra el
+  lost-update que el revisor A#4b encontró). Services `swapOrdenModulo`/`swapOrdenClase`
+  en `campus.ts`; `moverModulo`/`moverClase` hacen UNA llamada atómica (ya no se
+  llama `onChanged()` en error: con swap atómico un error = 0 cambios en BD). e2e
+  (BEGIN/RAISE/rollback): swap 3↔4 OK, sin colisión, self-swap no corrompe, gate
+  no-staff→42501, cross-curso→22023, R16=1 firma c/u. R11: 2 UPDATE por PK, trivial.
+
+- **Idiom de colapsar unificado (deuda B):** MaterialItem/BiblioItem pasaron del
+  swap `{expanded ? ChevronUp : ChevronDown}` al `ChevronDown` rotante (rotate-180) +
+  `aria-expanded`, igual que ModuloEditor/ClaseEditor. Los 4 toggles del editor usan
+  ahora el MISMO idiom; `ChevronUp` se eliminó del import. El reorden usa flechas
+  sólidas ↑↓ (distintas del chevron) → separación colapsar-vs-mover consistente.
+
+- **Extras del §6:** guard in-flight (`reordenandoRef`) contra doble-click en las
+  flechas de reorden (B#15, pre-existente); podado el param `orden` muerto de las
+  firmas de `actualizarModulo`/`actualizarClase` (C#1c, ya nadie reordena por esa vía).
+
+Todo frontend + 2 migs de función (sin cambio de schema de tabla). `tsc --noEmit`
+limpio local (el cuelgue ambiental fue transitorio). Verificado e2e en BD + build
+Vercel autoritativo.

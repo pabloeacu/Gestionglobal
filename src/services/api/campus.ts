@@ -510,6 +510,21 @@ export async function registrarAccesoEncuentro(
   return ok({ marcadas });
 }
 
+// DGG-157 · reorden ATÓMICO: swapea el `orden` de dos filas vecinas en UNA
+// transacción (mig 0463). Reemplaza los 2 UPDATE sueltos del front, que ante
+// fallo parcial dejaban dos filas con el mismo `orden`.
+export async function swapOrdenModulo(a: string, b: string): Promise<ApiResponse<null>> {
+  const { error } = await supabase.rpc('curso_modulos_swap_orden', { p_a: a, p_b: b });
+  if (error) return fail('MODULO_SWAP', error.message, error);
+  return ok(null);
+}
+
+export async function swapOrdenClase(a: string, b: string): Promise<ApiResponse<null>> {
+  const { error } = await supabase.rpc('curso_clases_swap_orden', { p_a: a, p_b: b });
+  if (error) return fail('CLASE_SWAP', error.message, error);
+  return ok(null);
+}
+
 export interface ProgresoResumen {
   total_clases: number;
   completadas: number;
@@ -755,7 +770,6 @@ export async function actualizarModulo(
       CursoModuloRow,
       | 'titulo'
       | 'descripcion'
-      | 'orden'
       | 'icono_url'
       | 'docente_nombre'
       | 'docente_foto_url'
@@ -836,7 +850,7 @@ export async function crearClase(
 
 export async function actualizarClase(
   id: string,
-  patch: Partial<ClaseInput> & { orden?: number },
+  patch: Partial<ClaseInput>,
 ): Promise<ApiResponse<CursoClaseRow>> {
   const { data, error } = await supabase
     .from('curso_clases')

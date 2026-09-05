@@ -8851,6 +8851,10 @@ export type Database = {
           matricula_id: string
         }[]
       }
+      curso_clases_swap_orden: {
+        Args: { p_a: string; p_b: string }
+        Returns: undefined
+      }
       curso_desasignar_alumno: {
         Args: { p_matricula_id: string }
         Returns: string
@@ -8939,6 +8943,10 @@ export type Database = {
           p_profile_id: string
         }
         Returns: string
+      }
+      curso_modulos_swap_orden: {
+        Args: { p_a: string; p_b: string }
+        Returns: undefined
       }
       curso_progreso_resumen: {
         Args: { p_matricula_id: string }
