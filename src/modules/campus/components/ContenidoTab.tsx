@@ -9,6 +9,8 @@
 
 import { useState } from 'react';
 import {
+  ArrowDown,
+  ArrowUp,
   BookOpen,
   ChevronDown,
   ChevronUp,
@@ -52,7 +54,6 @@ import {
   type CursoClaseRow,
   type CursoDetalle,
   type CursoModuloMaterialRow,
-  type CursoModuloRow,
 } from '@/services/api/campus';
 import { ImageUploader } from './ImageUploader';
 import { PublicacionEditor, type PublicacionState } from './PublicacionEditor';
@@ -84,12 +85,27 @@ export function ContenidoTab({ data, onChanged }: ContenidoTabProps) {
     onChanged();
   }
 
-  async function moverModulo(m: CursoModuloRow, dir: -1 | 1) {
-    const orden = (m.orden ?? 0) + dir;
-    if (orden < 0) return;
-    const res = await actualizarModulo(m.id, { orden });
-    if (!res.ok) {
-      toast.error(humanizeError(res.error));
+  // Reordenar = SWAP del `orden` con el módulo vecino (no `orden ± 1`: eso dejaba
+  // dos módulos con el mismo valor → sort inestable y numeración impredecible).
+  // El badge muestra la posición (i+1), así que el `orden` sólo importa como
+  // clave de ordenamiento; intercambiarlo con el vecino mueve el módulo un lugar.
+  async function moverModulo(i: number, dir: -1 | 1) {
+    const j = i + dir;
+    if (j < 0 || j >= data.modulos.length) return;
+    const a = data.modulos[i];
+    const b = data.modulos[j];
+    const [r1, r2] = await Promise.all([
+      actualizarModulo(a.id, { orden: b.orden }),
+      actualizarModulo(b.id, { orden: a.orden }),
+    ]);
+    if (!r1.ok) {
+      toast.error(humanizeError(r1.error));
+      onChanged(); // resync UI ↔ BD ante un fallo parcial
+      return;
+    }
+    if (!r2.ok) {
+      toast.error(humanizeError(r2.error));
+      onChanged();
       return;
     }
     onChanged();
@@ -124,10 +140,11 @@ export function ContenidoTab({ data, onChanged }: ContenidoTabProps) {
           <ModuloEditor
             key={m.id}
             modulo={m}
+            posicion={i + 1}
             esPrimero={i === 0}
             esUltimo={i === data.modulos.length - 1}
             onChanged={onChanged}
-            onMove={(d) => void moverModulo(m, d)}
+            onMove={(d) => void moverModulo(i, d)}
           />
         ))
       )}
@@ -147,19 +164,23 @@ export function ContenidoTab({ data, onChanged }: ContenidoTabProps) {
 // ============================================================================
 function ModuloEditor({
   modulo,
+  posicion,
   esPrimero,
   esUltimo,
   onChanged,
   onMove,
 }: {
   modulo: CursoDetalle['modulos'][number];
+  posicion: number;
   esPrimero: boolean;
   esUltimo: boolean;
   onChanged: () => void;
   onMove: (dir: -1 | 1) => void;
 }) {
   const confirm = useConfirm();
-  const [expanded, setExpanded] = useState(true);
+  // Colapsado por defecto: con varios módulos, el editor es más manejable
+  // arrancando cerrado (pedido Pablo). El gerente expande el que va a editar.
+  const [expanded, setExpanded] = useState(false);
   const [titulo, setTitulo] = useState(modulo.titulo);
   const [descripcion, setDescripcion] = useState(modulo.descripcion ?? '');
   const [icono, setIcono] = useState<string | null>(modulo.icono_url ?? null);
@@ -231,13 +252,46 @@ function ModuloEditor({
     onChanged();
   }
 
+  // Reordenar clases = SWAP del `orden` con la vecina (mismo criterio que los
+  // módulos: `orden ± 1` colisionaba). El badge de la clase muestra la posición.
+  async function moverClase(idx: number, dir: -1 | 1) {
+    const j = idx + dir;
+    if (j < 0 || j >= modulo.clases.length) return;
+    const a = modulo.clases[idx];
+    const b = modulo.clases[j];
+    const [r1, r2] = await Promise.all([
+      actualizarClase(a.id, { orden: b.orden }),
+      actualizarClase(b.id, { orden: a.orden }),
+    ]);
+    if (!r1.ok) {
+      toast.error(humanizeError(r1.error));
+      onChanged(); // resync UI ↔ BD ante un fallo parcial
+      return;
+    }
+    if (!r2.ok) {
+      toast.error(humanizeError(r2.error));
+      onChanged();
+      return;
+    }
+    onChanged();
+  }
+
   return (
     <article className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-      {/* Header con ícono + título + chip estado + acciones */}
-      <header className="flex items-start justify-between gap-3 border-b border-slate-100 bg-brand-zebra/30 p-4">
-        <div className="flex min-w-0 flex-1 items-center gap-3">
+      {/* Header: toda la franja (badge + título + estado) es el toggle de
+          colapsar/expandir — un solo chevron rotante lo indica. Las acciones de
+          reordenar (flechas agrupadas) y eliminar viven en un cluster APARTE, con
+          iconos distintos del chevron, para no confundir "colapsar" con "mover". */}
+      <header className="flex items-stretch justify-between gap-2 border-b border-slate-100 bg-brand-zebra/30">
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          aria-expanded={expanded}
+          title={expanded ? 'Colapsar módulo' : 'Expandir módulo'}
+          className="flex min-w-0 flex-1 items-center gap-3 p-4 text-left transition hover:bg-white/50"
+        >
           <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-brand-cyan/10 text-xs font-bold text-brand-cyan">
-            {modulo.orden}
+            {posicion}
           </span>
           {modulo.icono_url ? (
             <img
@@ -246,11 +300,11 @@ function ModuloEditor({
               className="h-10 w-10 shrink-0 rounded-lg border border-slate-200 object-cover"
             />
           ) : null}
-          <div className="min-w-0 flex-1">
-            <p className="truncate font-display text-base font-semibold text-brand-ink">
+          <span className="min-w-0 flex-1">
+            <span className="block truncate font-display text-base font-semibold text-brand-ink">
               {modulo.titulo}
-            </p>
-            <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-brand-muted">
+            </span>
+            <span className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-brand-muted">
               <span>{modulo.clases.length} clase(s)</span>
               <span>·</span>
               <span
@@ -269,39 +323,49 @@ function ModuloEditor({
                   desde {fmtFechaHora(modulo.publicar_at)}
                 </span>
               )}
-            </div>
+            </span>
+          </span>
+          <ChevronDown
+            size={18}
+            className={cn(
+              'shrink-0 text-brand-muted transition-transform duration-300',
+              expanded && 'rotate-180',
+            )}
+            aria-hidden
+          />
+        </button>
+
+        {/* Acciones (separadas del toggle): reordenar + eliminar */}
+        <div className="flex items-center gap-1.5 self-center pl-1 pr-3">
+          {/* Grupo de reorden: flechas SÓLIDAS agrupadas en una pastilla — se
+              lee como un control único de "mover", distinto del chevron. */}
+          <div className="flex items-center overflow-hidden rounded-lg border border-slate-200 bg-white">
+            <button
+              type="button"
+              onClick={() => onMove(-1)}
+              disabled={esPrimero}
+              className="px-1.5 py-1.5 text-brand-muted transition hover:bg-slate-50 hover:text-brand-ink disabled:opacity-25"
+              title="Subir módulo"
+              aria-label="Subir módulo"
+            >
+              <ArrowUp size={14} />
+            </button>
+            <span className="h-4 w-px bg-slate-200" aria-hidden />
+            <button
+              type="button"
+              onClick={() => onMove(1)}
+              disabled={esUltimo}
+              className="px-1.5 py-1.5 text-brand-muted transition hover:bg-slate-50 hover:text-brand-ink disabled:opacity-25"
+              title="Bajar módulo"
+              aria-label="Bajar módulo"
+            >
+              <ArrowDown size={14} />
+            </button>
           </div>
-        </div>
-        <div className="flex items-center gap-1 text-brand-muted">
           <button
-            onClick={() => onMove(-1)}
-            disabled={esPrimero}
-            className="rounded-md p-1 hover:bg-white disabled:opacity-30"
-            title="Subir módulo"
-            aria-label="Subir módulo"
-          >
-            <ChevronUp size={14} />
-          </button>
-          <button
-            onClick={() => onMove(1)}
-            disabled={esUltimo}
-            className="rounded-md p-1 hover:bg-white disabled:opacity-30"
-            title="Bajar módulo"
-            aria-label="Bajar módulo"
-          >
-            <ChevronDown size={14} />
-          </button>
-          <button
-            onClick={() => setExpanded((v) => !v)}
-            className="rounded-md p-1 hover:bg-white"
-            title={expanded ? 'Colapsar' : 'Expandir'}
-            aria-label="Colapsar/expandir"
-          >
-            {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-          </button>
-          <button
+            type="button"
             onClick={() => void eliminar()}
-            className="rounded-md p-1 hover:bg-red-50 hover:text-red-600"
+            className="rounded-md p-1.5 text-brand-muted transition hover:bg-red-50 hover:text-red-600"
             title="Eliminar módulo"
             aria-label="Eliminar módulo"
           >
@@ -436,9 +500,11 @@ function ModuloEditor({
                   <ClaseEditor
                     key={c.id}
                     clase={c}
+                    posicion={idx + 1}
                     esPrimero={idx === 0}
                     esUltimo={idx === modulo.clases.length - 1}
                     onChanged={onChanged}
+                    onMove={(d) => void moverClase(idx, d)}
                   />
                 ))}
               </ol>
@@ -464,14 +530,18 @@ function ModuloEditor({
 // ============================================================================
 function ClaseEditor({
   clase,
+  posicion,
   esPrimero,
   esUltimo,
   onChanged,
+  onMove,
 }: {
   clase: CursoClaseRow;
+  posicion: number;
   esPrimero: boolean;
   esUltimo: boolean;
   onChanged: () => void;
+  onMove: (dir: -1 | 1) => void;
 }) {
   const confirm = useConfirm();
   const [expanded, setExpanded] = useState(false);
@@ -538,16 +608,6 @@ function ClaseEditor({
     onChanged();
   }
 
-  async function moverOrden(dir: -1 | 1) {
-    const next = Math.max(1, (clase.orden ?? 1) + dir);
-    const res = await actualizarClase(clase.id, { orden: next });
-    if (!res.ok) {
-      toast.error(humanizeError(res.error));
-      return;
-    }
-    onChanged();
-  }
-
   async function eliminar() {
     const ok = await confirm({
       title: 'Eliminar clase',
@@ -576,10 +636,11 @@ function ClaseEditor({
       <button
         type="button"
         onClick={() => setExpanded((v) => !v)}
+        aria-expanded={expanded}
         className="flex w-full items-center gap-3 px-3 py-2.5 text-left transition hover:bg-white"
       >
         <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-white text-xs font-semibold text-brand-cyan ring-1 ring-slate-200">
-          {clase.orden}
+          {posicion}
         </span>
         {clase.instructor_foto_url ? (
           <img
@@ -588,19 +649,19 @@ function ClaseEditor({
             className="h-8 w-8 shrink-0 rounded-full object-cover ring-1 ring-slate-200"
           />
         ) : null}
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold text-brand-ink">
+        <span className="block min-w-0 flex-1">
+          <span className="block truncate text-sm font-semibold text-brand-ink">
             {clase.titulo}
-          </p>
-          <p className="truncate text-xs text-brand-muted">
+          </span>
+          <span className="block truncate text-xs text-brand-muted">
             <span className="inline-flex items-center gap-1">
               {tipoIcon}
               {CLASE_TIPO_LABEL[clase.tipo as ClaseTipo]}
             </span>
             {clase.zoom_fecha_hora && ` · ${fmtFechaHora(clase.zoom_fecha_hora)}`}
             {clase.duracion_min ? ` · ${clase.duracion_min} min` : ''}
-          </p>
-        </div>
+          </span>
+        </span>
         <span
           className={cn(
             'shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold',
@@ -612,39 +673,48 @@ function ClaseEditor({
         >
           {estado.label}
         </span>
-        <span className="text-brand-muted">
-          {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-        </span>
+        <ChevronDown
+          size={14}
+          className={cn(
+            'shrink-0 text-brand-muted transition-transform duration-300',
+            expanded && 'rotate-180',
+          )}
+          aria-hidden
+        />
       </button>
 
       {expanded && (
         <div className="space-y-3 border-t border-slate-200 bg-white p-3">
-          {/* Acciones de orden + borrar */}
-          <div className="flex items-center justify-end gap-1 text-brand-muted">
-            <button
-              type="button"
-              onClick={() => void moverOrden(-1)}
-              disabled={esPrimero}
-              className="rounded-md p-1 hover:bg-slate-100 disabled:opacity-30"
-              title="Subir clase"
-              aria-label="Subir clase"
-            >
-              <ChevronUp size={13} />
-            </button>
-            <button
-              type="button"
-              onClick={() => void moverOrden(1)}
-              disabled={esUltimo}
-              className="rounded-md p-1 hover:bg-slate-100 disabled:opacity-30"
-              title="Bajar clase"
-              aria-label="Bajar clase"
-            >
-              <ChevronDown size={13} />
-            </button>
+          {/* Acciones de orden + borrar — flechas sólidas en pastilla (mismo
+              idiom que los módulos), distintas del chevron de colapsar. */}
+          <div className="flex items-center justify-end gap-1.5 text-brand-muted">
+            <div className="flex items-center overflow-hidden rounded-lg border border-slate-200 bg-white">
+              <button
+                type="button"
+                onClick={() => onMove(-1)}
+                disabled={esPrimero}
+                className="px-1.5 py-1 transition hover:bg-slate-50 hover:text-brand-ink disabled:opacity-25"
+                title="Subir clase"
+                aria-label="Subir clase"
+              >
+                <ArrowUp size={13} />
+              </button>
+              <span className="h-4 w-px bg-slate-200" aria-hidden />
+              <button
+                type="button"
+                onClick={() => onMove(1)}
+                disabled={esUltimo}
+                className="px-1.5 py-1 transition hover:bg-slate-50 hover:text-brand-ink disabled:opacity-25"
+                title="Bajar clase"
+                aria-label="Bajar clase"
+              >
+                <ArrowDown size={13} />
+              </button>
+            </div>
             <button
               type="button"
               onClick={() => void eliminar()}
-              className="rounded-md p-1 hover:bg-red-50 hover:text-red-600"
+              className="rounded-md p-1.5 transition hover:bg-red-50 hover:text-red-600"
               title="Eliminar clase"
               aria-label="Eliminar clase"
             >
@@ -997,12 +1067,12 @@ function MaterialItem({
         onClick={() => setExpanded((v) => !v)}
         className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left text-sm transition hover:bg-white"
       >
-        <div className="min-w-0">
-          <p className="truncate font-semibold text-brand-ink">{item.titulo}</p>
-          <p className="truncate text-xs text-brand-muted">
+        <span className="block min-w-0">
+          <span className="block truncate font-semibold text-brand-ink">{item.titulo}</span>
+          <span className="block truncate text-xs text-brand-muted">
             {item.archivo_url ? 'Archivo' : item.url ? 'Link' : 'Sin contenido'}
-          </p>
-        </div>
+          </span>
+        </span>
         <span className="text-brand-muted">
           {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
         </span>
@@ -1244,10 +1314,10 @@ function BiblioItem({
         onClick={() => setExpanded((v) => !v)}
         className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left text-sm transition hover:bg-white"
       >
-        <div className="min-w-0">
-          <p className="truncate font-semibold text-brand-ink">{item.titulo}</p>
-          {item.autor && <p className="text-xs text-brand-muted">{item.autor}</p>}
-        </div>
+        <span className="block min-w-0">
+          <span className="block truncate font-semibold text-brand-ink">{item.titulo}</span>
+          {item.autor && <span className="block text-xs text-brand-muted">{item.autor}</span>}
+        </span>
         <span
           className={cn(
             'shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold',

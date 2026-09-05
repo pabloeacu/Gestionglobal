@@ -55,18 +55,27 @@ export function CursoEditorPage() {
   // OJO: este hook DEBE estar antes de cualquier early return (React #310).
   const [activeKey, setActiveKey] = useState('datos');
 
+  // Revalidación SIN re-disparar el `loading` global: si `reload` volviera a poner
+  // loading=true, el early-return del spinner (abajo) DESMONTA <ContenidoTab/> y se
+  // pierde el estado colapsado/expandido de cada módulo en cada onChanged
+  // (guardar / reordenar / subir imagen) — molesto sobre todo con los módulos
+  // colapsados por defecto (§6 A#7). El spinner sólo se muestra en la carga inicial
+  // (o al cambiar de curso), no en las revalidaciones.
   const reload = useCallback(async () => {
-    setLoading(true);
     const d = await getCurso(id);
-    setLoading(false);
     if (!d.ok) {
       toast.error(humanizeError(d.error));
+      setLoading(false);
       return;
     }
     setData(d.data);
+    setLoading(false);
   }, [id]);
 
   useEffect(() => {
+    // Cambio de curso (o montaje): resetear a spinner hasta traer el nuevo.
+    setData(null);
+    setLoading(true);
     void reload();
   }, [reload]);
 

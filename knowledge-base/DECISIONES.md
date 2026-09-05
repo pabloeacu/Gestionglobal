@@ -5543,3 +5543,55 @@ capitalizar el widget existente (título + rango de fechas + paginado con scroll
 interno acotado) antes que sumar otra sección; y en la RPC, diferir los joins de
 display y los subqueries correlacionados a las filas de la página (no al universo
 filtrado) es la optimización que evita que se clave al crecer.
+
+## DGG-157 · Editor de contenido del curso: colapsado por defecto + botones diferenciados + numeración por posición + reorden por swap (2026-09-05, pedido Pablo)
+
+**Contexto (3 pedidos de Pablo sobre el editor de módulos del gerente, `ContenidoTab`):**
+(1) los módulos aparecían EXPANDIDOS por defecto → con varios, difícil de organizar;
+(2) el botón de colapsar se confundía con los de subir/bajar (había 3 chevrons casi
+idénticos en fila: subir=ChevronUp, bajar=ChevronDown, colapsar=ChevronUp/Down);
+(3) con 2 módulos el badge mostraba "3" y "4" en vez de "1" y "2".
+
+**Por qué numeraba 3 y 4 (causa raíz de (3)):** el badge mostraba el valor CRUDO de
+la columna `orden`, que es una **clave de ordenamiento interna, no la posición**.
+`crearModulo`/`crearClase` asignan `orden = max(orden existente) + 1` y **al borrar
+nunca se renumera**. El curso "Curso Integral de formación…" tuvo módulos con `orden`
+1 y 2 que se borraron → quedaron el 3 y el 4. Es sistémico (otros cursos: 1,2,3,15 y
+1,2,4). No es un bug de datos: el `orden` cumple su función (ordenar); lo que estaba
+mal era MOSTRARLO como si fuera el número de módulo.
+
+**Decisiones (todo frontend, sin migración):**
+- **(1) Colapsado por defecto:** `ModuloEditor` arranca `expanded=false`.
+- **(2) Diferenciar colapsar de mover:** toda la franja del header (badge+título+
+  estado) es el toggle de colapsar, con UN chevron rotante (mismo idiom que la vista
+  del alumno y ClaseEditor); el reorden pasó a una **pastilla aparte con flechas
+  SÓLIDAS ↑↓** (ArrowUp/ArrowDown, no chevrons) + el tacho separado. Se replicó el
+  patrón a `ClaseEditor` (flechas en pastilla + chevron rotante + `aria-expanded`).
+- **(3) Numerar por POSICIÓN:** el badge muestra `i+1` (editor, sobre TODOS los
+  módulos) y `mi+1` (alumno, sobre los VISIBLES). La divergencia es intencional: el
+  alumno no debe ver huecos que delaten contenido despublicado. `orden` sigue siendo
+  sólo la clave de sort (fetch `.order('orden')` intacto). Idem badge de clase.
+- **(+) Reorden por SWAP:** `moverModulo`/`moverClase` intercambian el `orden` con el
+  vecino en vez de `orden ± 1` (que dejaba dos filas con el mismo `orden` → sort
+  inestable, numeración impredecible). Sin `UNIQUE(curso_id,orden)` → swap client-side
+  seguro; ante fallo parcial se llama `onChanged()` para resync UI↔BD.
+
+**§6 (3 revisores + e2e):** cazó una **regresión que introdujo el default-colapsado**
+(A#7): el `reload()` del padre `CursoEditorPage` hacía `setLoading(true)` antes del
+await → el early-return del spinner DESMONTABA `ContenidoTab` en cada `onChanged`
+(guardar/reordenar/subir) → todos los módulos se re-colapsaban con un flash. Antes no
+se notaba (default expandido). Fix: `reload` revalida SIN tocar el `loading` global
+(sólo la carga inicial / cambio de curso muestran spinner) → con `key={m.id}` estable,
+el estado colapsado/expandido de cada módulo se preserva entre acciones. También se
+corrigió markup inválido preexistente (`<p>` dentro de `<button>` en ClaseEditor/
+MaterialItem/BiblioItem → `<span className="block">`) y se eliminó un campo muerto
+(`moduloOrden`). e2e con BEGIN/ROLLBACK: el swap reordena limpio, sin colisión.
+**Deuda documentada (no regresión):** el swap son 2 UPDATE en `Promise.all` (no una
+RPC transaccional); ante fallo de la 2ª quedaría `orden` duplicado — tolerado porque
+el badge es por posición y el siguiente reorden lo sana; a futuro, RPC `swap_orden`.
+
+**Takeaway:** un número que se le muestra a una persona debe ser la POSICIÓN, no la
+clave de ordenamiento interna (que puede tener huecos por borrados). Y al cambiar un
+default de UI (expandido→colapsado), revisar cómo revalida el padre: un `reload` que
+re-dispara el `loading` global remonta el subárbol y hace visible un colapso que antes
+quedaba oculto.

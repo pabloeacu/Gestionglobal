@@ -255,7 +255,6 @@ export function CursoDetalleAlumnoPage() {
         m.clases.map((c) => ({
           ...c,
           modulo: m.titulo,
-          moduloOrden: m.orden,
           docenteNombre: m.docente_nombre,
           docenteFoto: m.docente_foto_url,
           docenteCv: m.docente_cv_url,
@@ -648,7 +647,7 @@ export function CursoDetalleAlumnoPage() {
                 onClick={() => seleccionar({ tipo: 'enlace' })}
               />
             )}
-            {modulosVisibles.map((m) => {
+            {modulosVisibles.map((m, mi) => {
               const open = openModuloEfectivo === m.id;
               const tieneActiva =
                 claseActiva != null &&
@@ -672,7 +671,7 @@ export function CursoDetalleAlumnoPage() {
                     className="flex w-full items-center gap-2 px-3 py-2.5 text-left transition hover:bg-slate-50"
                   >
                     <span className="grid h-6 w-6 shrink-0 place-items-center rounded-lg bg-brand-cyan/10 text-[11px] font-bold text-brand-cyan">
-                      {m.orden}
+                      {mi + 1}
                     </span>
                     {m.icono_url && (
                       <img
