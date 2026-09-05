@@ -94,6 +94,7 @@ export function ContenidoTab({ data, onChanged }: ContenidoTabProps) {
     if (j < 0 || j >= data.modulos.length) return;
     const a = data.modulos[i];
     const b = data.modulos[j];
+    if (!a || !b) return; // narrowing para noUncheckedIndexedAccess (j ya está en rango)
     const [r1, r2] = await Promise.all([
       actualizarModulo(a.id, { orden: b.orden }),
       actualizarModulo(b.id, { orden: a.orden }),
@@ -259,6 +260,7 @@ function ModuloEditor({
     if (j < 0 || j >= modulo.clases.length) return;
     const a = modulo.clases[idx];
     const b = modulo.clases[j];
+    if (!a || !b) return; // narrowing para noUncheckedIndexedAccess (j ya está en rango)
     const [r1, r2] = await Promise.all([
       actualizarClase(a.id, { orden: b.orden }),
       actualizarClase(b.id, { orden: a.orden }),
