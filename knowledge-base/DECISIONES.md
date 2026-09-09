@@ -5627,3 +5627,61 @@ metodología completa (3 revisores + e2e):
 Todo frontend + 2 migs de función (sin cambio de schema de tabla). `tsc --noEmit`
 limpio local (el cuelgue ambiental fue transitorio). Verificado e2e en BD + build
 Vercel autoritativo.
+
+## DGG-158 · Cierre de trámite sin adjunto + CUIT y acceso directo al cliente en la ficha (2026-09-09, pedido Pablo)
+
+Tres pedidos sobre la ficha/cierre de trámites (`TrackingDetailPage`, panel de
+gerencia). El 4º pedido (vencimientos automáticos múltiples) quedó pendiente de
+definición de reglas — ver más abajo.
+
+**(Task 1) El cierre NUNCA pide subir un archivo.** Antes, los motivos "Concluyó el
+curso" (certificado) y "Matrícula/Renovación otorgada" / "DDJJ presentada"
+(constancia) exigían adjuntar un documento. Pablo: el certificado de curso lo genera
+la propia plataforma (y el cierre de curso lo auto-asocia al trámite vía
+`documento_final_url`, migs 0181/0253); las constancias de inscripción/renovación/DDJJ
+las emite el Estado y se las manda directo al cliente — la gestoría no las sube.
+- `tramites.ts`: se eliminó el concepto `requiere_documento`/`tipo_documento` de
+  `MotivoCierreOpcion` y de todos los motivos; se borraron `tipoDocumentoLabel` y
+  `subirDocumentoFinalTramite`. El bucket `tramite-documento-final` se conserva (lo
+  lee la ficha para trámites cerrados antes del cambio + el certificado auto de curso).
+- `CerrarTramiteDialog`: reescrito sin el paso de documento (sólo motivo +
+  observaciones). Pasa `documentoUrl=null` a `cerrarTracking`; el `p_documento_final_url`
+  de la RPC `tracking_cerrar` se conserva por compat (lo usa el auto-certificado de
+  curso, server-side). El encadenado a `ProgramarVencimientoModal` queda intacto.
+
+**(Task 3) CUIT del cliente en la ficha** (panel Datos), formateado XX-XXXXXXXX-X con
+`formatCuit()`. Se sumó `cuit` al embed `administracion:administraciones(...)` de
+`getTracking` + al tipo `TrackingDetail.administracion`. RLS: el gerente (staff) lee
+`cuit` sin restricción.
+
+**(Task 4) Acceso directo a la ficha del cliente:** el nombre de la administración
+—en el panel Datos y en el header del trámite— linkea a `/gerencia/clientes/:id`
+(`data.administracion_id`), con guard si el trámite no tiene administración. Cierra
+además un gap de paridad R15 (el legacy `TramiteDetailPage`, hoy archivado/redirigido,
+ya linkeaba el nombre; el `TrackingDetailPage` nuevo no lo tenía).
+
+**§6 (3 revisores + prueba en vivo):** sin regresiones. Hallazgos cerrados en el chunk:
+comentarios doc-drift actualizados (cerrarTracking, handleCerrar), CUIT formateado
+(consistencia contable), `min-w-0` para elipsis del link en mobile, nombre del header
+también link. Descartado ocultar la fila "Documento final" cuando es null: el revisor C
+detectó que el cierre de CURSO la auto-popula con el certificado de la plataforma
+(justo lo que Pablo quiere ver). Prueba en vivo (gerente QA, desktop + 360px, consola
+limpia): cierre sin upload aun eligiendo "Renovación otorgada"; CUIT 20-32988518-7;
+link al cliente navega a la ficha completa; 0px de overflow horizontal a 360px. Todo
+FRONTEND, sin migración. tsc `--noEmit` limpio local.
+
+**Takeaway:** un cierre de trámite no debe pedir subir lo que el sistema ya produce
+(certificado propio) o lo que produce un tercero y no pasa por la gestoría (constancia
+estatal). Y la ficha de un trámite gana mucho con un salto de un click a la ficha
+completa del cliente (patrón `to={/gerencia/clientes/:id}` ya canónico en la app).
+
+### DGG-159 (PENDIENTE de definición de Pablo) · Vencimientos automáticos múltiples
+Pablo pidió: al otorgar inscripción/renovación, capturar la fecha de matriculación y
+que el sistema sugiera automáticamente las fechas de renovar matrícula, presentar DDJJ,
+curso de actualización, etc. (con lápiz para editar). HOY el sistema sólo materializa
+**una** alarma automática por matrícula (`renovacion_rpac` = otorgamiento + 12 meses,
+vía trigger de ficha, mig 0444); DDJJ y curso NO se generan como vencimientos fechados
+(van por el motor de ofrecimientos, sin fecha). No existe tabla de reglas con offsets
+por tipo. Es una feature nueva y los plazos son normativos RPAC-PBA → se le pidieron a
+Pablo las reglas exactas (periodicidad de renovación/DDJJ/curso + si van en mes fijo)
+antes de implementar.
