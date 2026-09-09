@@ -68,27 +68,18 @@ export const TRAMITE_CATEGORIA_LABEL: Record<TramiteCategoria, string> = {
 // DGG-38 EXT (2026-06-02 · José Luis) · Catálogo de motivos de cierre por
 // categoría de trámite. La RPC `tracking_cerrar` admite motivo libre (text)
 // pero el frontend ofrece estos predeterminados como guía. Cada motivo tiene
-// `satisfactorio` (resultado positivo o frustrado) y `requiere_documento`
-// (true para "Concluyó el curso", "Matrícula otorgada", "Trámite resuelto"
-// — donde el adjunto es importante para constancia).
+// `satisfactorio` (resultado positivo o frustrado).
+//
+// DGG-158 (2026-09-09 · Pablo): el cierre NUNCA pide adjuntar un archivo. El
+// certificado de curso lo genera la propia plataforma (tabla `certificados`,
+// ligado al trámite); las constancias de inscripción/renovación/DDJJ las emite
+// el Estado y se las manda directo al cliente — la gestoría no las sube. Por eso
+// se eliminó el concepto `requiere_documento`/`tipo_documento` de este catálogo.
 // ============================================================================
 export interface MotivoCierreOpcion {
   value: string;          // texto persistido en tramites.motivo_cierre
   label: string;          // copy mostrado en UI
   satisfactorio: boolean; // true = resuelto OK; false = frustrado
-  requiere_documento: boolean;  // true → mostrar/forzar paso de adjunto
-  /**
-   * Tipo del documento esperado — controla el badge en el dialog y el copy
-   * del campo de adjunto. José Luis (2026-06-02) marcó la distinción:
-   *   - 'certificado': solo los 3 cursos (formación RPAC, actualización RPAC,
-   *      actualización RPA) emiten certificado/diploma propiamente dicho.
-   *   - 'constancia':  matriculación, renovación de matrícula y DDJJ tienen
-   *      "constancia de gestoría" (el documento que la administración
-   *      pública entrega al cerrar el trámite).
-   *   - 'documento':   genérico para cuando no es ni certificado ni constancia
-   *      pero igual conviene adjuntar (resoluciones, dictámenes, etc).
-   */
-  tipo_documento?: 'certificado' | 'constancia' | 'documento';
   descripcion?: string;   // tooltip / hint en UI
 }
 
@@ -97,29 +88,24 @@ const MOTIVOS_CURSO: MotivoCierreOpcion[] = [
     value: 'Concluyó el curso',
     label: 'Concluyó el curso',
     satisfactorio: true,
-    requiere_documento: true,
-    tipo_documento: 'certificado',
-    descripcion: 'El alumno aprobó. Adjuntá el certificado o diploma.',
+    descripcion: 'El alumno aprobó. El certificado lo emite la plataforma.',
   },
   {
     value: 'Abandonó el curso',
     label: 'Abandonó el curso',
     satisfactorio: false,
-    requiere_documento: false,
     descripcion: 'El alumno dejó de cursar antes de finalizar.',
   },
   {
     value: 'Desaprobó',
     label: 'Desaprobó',
     satisfactorio: false,
-    requiere_documento: false,
     descripcion: 'El alumno no alcanzó las condiciones para aprobar.',
   },
   {
     value: 'Se arrepintió o se equivocó en la solicitud',
     label: 'Se arrepintió o se equivocó en la solicitud',
     satisfactorio: false,
-    requiere_documento: false,
   },
 ];
 
@@ -128,21 +114,17 @@ const MOTIVOS_MATRICULA: MotivoCierreOpcion[] = [
     value: 'Matrícula otorgada',
     label: 'Matrícula otorgada',
     satisfactorio: true,
-    requiere_documento: true,
-    tipo_documento: 'constancia',
-    descripcion: 'Adjuntá la constancia de gestoría / resolución del organismo.',
+    descripcion: 'El organismo otorgó la matrícula.',
   },
   {
     value: 'Matrícula rechazada',
     label: 'Matrícula rechazada',
     satisfactorio: false,
-    requiere_documento: false,
   },
   {
     value: 'Abandono del trámite',
     label: 'Abandono del trámite',
     satisfactorio: false,
-    requiere_documento: false,
   },
 ];
 
@@ -151,21 +133,17 @@ const MOTIVOS_RENOVACION: MotivoCierreOpcion[] = [
     value: 'Renovación otorgada',
     label: 'Renovación otorgada',
     satisfactorio: true,
-    requiere_documento: true,
-    tipo_documento: 'constancia',
-    descripcion: 'Adjuntá la constancia de gestoría de la renovación.',
+    descripcion: 'El organismo aprobó la renovación de la matrícula.',
   },
   {
     value: 'Renovación rechazada',
     label: 'Renovación rechazada',
     satisfactorio: false,
-    requiere_documento: false,
   },
   {
     value: 'Abandono del trámite',
     label: 'Abandono del trámite',
     satisfactorio: false,
-    requiere_documento: false,
   },
 ];
 
@@ -174,21 +152,17 @@ const MOTIVOS_DJ: MotivoCierreOpcion[] = [
     value: 'DDJJ presentada',
     label: 'DDJJ presentada',
     satisfactorio: true,
-    requiere_documento: true,
-    tipo_documento: 'constancia',
-    descripcion: 'Adjuntá la constancia de gestoría / acuse de presentación.',
+    descripcion: 'La declaración jurada quedó presentada ante el organismo.',
   },
   {
     value: 'DDJJ rechazada',
     label: 'DDJJ rechazada',
     satisfactorio: false,
-    requiere_documento: false,
   },
   {
     value: 'Abandono del trámite',
     label: 'Abandono del trámite',
     satisfactorio: false,
-    requiere_documento: false,
   },
 ];
 
@@ -197,21 +171,18 @@ const MOTIVOS_GENERICOS: MotivoCierreOpcion[] = [
     value: 'Satisfactorio',
     label: 'Satisfactorio',
     satisfactorio: true,
-    requiere_documento: false,
     descripcion: 'Trámite resuelto con el resultado esperado.',
   },
   {
     value: 'Sin éxito',
     label: 'Sin éxito',
     satisfactorio: false,
-    requiere_documento: false,
     descripcion: 'No se obtuvo el resultado esperado.',
   },
   {
     value: 'Abandono del trámite',
     label: 'Abandono del trámite',
     satisfactorio: false,
-    requiere_documento: false,
   },
 ];
 
@@ -224,16 +195,6 @@ export const MOTIVOS_CIERRE_POR_CATEGORIA: Record<TramiteCategoria, MotivoCierre
   reclamo: MOTIVOS_GENERICOS,
   otro: MOTIVOS_GENERICOS,
 };
-
-/** Mapea tipo_documento a label humano para el badge del dialog y el campo. */
-export function tipoDocumentoLabel(tipo: MotivoCierreOpcion['tipo_documento']): string {
-  switch (tipo) {
-    case 'certificado': return 'Certificado';
-    case 'constancia':  return 'Constancia';
-    case 'documento':   return 'Documento';
-    default:            return 'Adjunto';
-  }
-}
 
 // El siguiente estado natural cuando hacés "Avanzar" desde la kanban / la card.
 export const NEXT_ESTADO: Record<TramiteEstado, TramiteEstado | null> = {
@@ -855,29 +816,11 @@ export async function urlFirmadaAdjunto(
   return ok(data.signedUrl);
 }
 
-// DGG-38 (2026-06-02) · Sube el documento final que cierra el trámite
-// (certificado, diploma, PDF de aprobación, etc.). Bucket PRIVADO desde mig
-// 0364 (E-GG-126): la URL getPublicUrl se persiste como identificador estable
-// y los lectores la resuelven a signed URL on-click (src/lib/storageUrls.ts).
-export async function subirDocumentoFinalTramite(
-  tramite_id: string,
-  file: File,
-): Promise<ApiResponse<string>> {
-  // E-GG-40 sweep
-  const { safeStorageKey } = await import('@/lib/storageKeys');
-  const path = `${tramite_id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${safeStorageKey(file.name)}`;
-  const { error } = await supabase.storage
-    .from('tramite-documento-final')
-    .upload(path, normalizarAdjunto(file), {
-      cacheControl: '3600',
-      upsert: false,
-    });
-  if (error) return fail('UPLOAD_DOC_FINAL', error.message, error);
-  const { data } = supabase.storage
-    .from('tramite-documento-final')
-    .getPublicUrl(path);
-  return ok(data.publicUrl);
-}
+// DGG-158 (2026-09-09) · Se eliminó `subirDocumentoFinalTramite`: el cierre ya
+// no adjunta ningún archivo (el certificado de curso lo emite la plataforma y
+// las constancias RPAC las manda el Estado directo al cliente). El bucket
+// `tramite-documento-final` se conserva para leer los documentos de trámites
+// cerrados ANTES de este cambio (se muestran en la ficha vía storageUrls).
 
 export async function eliminarAdjunto(
   adjunto: TramiteAdjuntoRow,

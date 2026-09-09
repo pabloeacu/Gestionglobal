@@ -175,6 +175,7 @@ export interface TrackingDetail extends TrackingRow {
     id: string;
     nombre: string;
     email: string | null;
+    cuit: string | null;
     matricula_rpac: string | null;
     legajo_rpac: string | null;
     matricula_rpac_fecha: string | null;
@@ -212,7 +213,7 @@ export async function getTracking(id: string): Promise<ApiResponse<TrackingDetai
       `*,
        comprobante_pendiente,
        servicio:servicios(id,nombre,codigo,sla_dias,vigencia_meses,precio_base),
-       administracion:administraciones(id,nombre,email,matricula_rpac,legajo_rpac,matricula_rpac_fecha,matricula_rpac_vencimiento),
+       administracion:administraciones(id,nombre,email,cuit,matricula_rpac,legajo_rpac,matricula_rpac_fecha,matricula_rpac_vencimiento),
        consorcio:consorcios(id,nombre),
        comprobante:comprobantes(id,tipo,punto_venta,numero)`,
     )
@@ -385,13 +386,13 @@ export async function getUltimoEnvioClienteId(
 
 // ----------------------------------------------------------------------------
 // CERRAR TRACKING (RPC, staff only)
-// DGG-38 EXT (2026-06-02 · José Luis): firma extendida con motivo,
-// satisfactorio, observaciones y documento opcional. El motivo es
-// obligatorio y se vuelve parte de la última línea de tracking
-// ("Trámite cerrado: <motivo>. <observaciones>"). El documento es
-// opcional — sólo se exige para motivos como "Concluyó el curso" o
-// "Matrícula otorgada" (donde el catálogo `MOTIVOS_CIERRE_POR_CATEGORIA`
-// marca requiere_documento=true).
+// DGG-38 EXT (2026-06-02 · José Luis): motivo obligatorio + satisfactorio +
+// observaciones; el motivo se vuelve parte de la última línea del tracking
+// ("Trámite cerrado: <motivo>. <observaciones>").
+// DGG-158 (2026-09-09 · Pablo): el cierre NO adjunta documento desde la UI
+// (`CerrarTramiteDialog` pasa `documentoUrl = null`). El param `p_documento_final_url`
+// se conserva en la RPC por compat: el cierre de CURSO auto-escribe ahí el
+// certificado que genera la plataforma (migs 0181/0253), no un archivo subido.
 // ----------------------------------------------------------------------------
 export async function cerrarTracking(
   trackingId: string,

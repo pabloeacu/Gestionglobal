@@ -29,6 +29,7 @@ import {
   Download,
   Eye,
   EyeOff,
+  ExternalLink,
   FileText,
   GitBranch,
   History,
@@ -77,6 +78,7 @@ import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
 import { TramixConsultaModal } from '@/modules/portal/components/TramixConsultaModal';
 import { formatDateShort, formatDateTime, hoyISO } from '@/lib/dates';
 import { cn } from '@/lib/cn';
+import { formatCuit } from '@/lib/cuit';
 import {
   getTracking,
   colorBadge,
@@ -598,8 +600,9 @@ export function TrackingDetailPage() {
   // el trámite encadenamos al ProgramarVencimientoModal para que el gerente
   // setee la próxima fecha en el mismo flujo. Si vigencia_meses == null,
   // sólo cierra el trámite.
-  // DGG-38 (2026-06-02 · José Luis): el modal de cierre ahora admite subir
-  // archivo además de URL externa. Abre `CerrarTramiteDialog`.
+  // Abre `CerrarTramiteDialog` (motivo + observaciones). DGG-158: el cierre NO
+  // adjunta archivo (el certificado de curso lo emite la plataforma; las
+  // constancias RPAC las manda el Estado directo al cliente).
   async function handleCerrar() {
     if (!data) return;
     // ('aprobado' no es un slug del pipeline — la condición real es "no resuelto")
@@ -617,8 +620,8 @@ export function TrackingDetailPage() {
     setCerrarOpen(true);
   }
 
-  // Callback del CerrarTramiteDialog tras un cierre exitoso (subió archivo o
-  // pegó URL). DGG-142 E3 · TODO cierre encadena al ProgramarVencimientoModal
+  // Callback del CerrarTramiteDialog tras un cierre exitoso.
+  // DGG-142 E3 · TODO cierre encadena al ProgramarVencimientoModal
   // (antes sólo servicios con vigencia_meses); la vigencia sólo pre-llena la
   // fecha sugerida. Trámites sin administración no pueden programar
   // (tracking_cerrar_ciclo la exige) → cierre simple.
@@ -898,7 +901,18 @@ export function TrackingDetailPage() {
               {data.administracion && (
                 <span>
                   <Briefcase className="mr-1 inline h-3.5 w-3.5" />
-                  {data.administracion.nombre}
+                  {/* DGG-158 · acceso directo a la ficha del cliente también desde el header */}
+                  {data.administracion_id ? (
+                    <Link
+                      to={`/gerencia/clientes/${data.administracion_id}`}
+                      className="hover:text-brand-cyan hover:underline"
+                      title="Ver ficha completa del cliente"
+                    >
+                      {data.administracion.nombre}
+                    </Link>
+                  ) : (
+                    data.administracion.nombre
+                  )}
                 </span>
               )}
               {data.fecha_inicio && (
@@ -1130,7 +1144,26 @@ export function TrackingDetailPage() {
             <Dl label="Servicio" value={data.servicio?.nombre ?? '—'} />
             <Dl label="Período" value={data.periodo ?? '—'} />
             <Dl label="Estado" value={estadoConfigActual?.label ?? data.estado} />
-            <Dl label="Administración" value={data.administracion?.nombre ?? '—'} />
+            {/* DGG-158 · acceso directo a la ficha del cliente (task 4): el nombre
+                de la administración linkea a /gerencia/clientes/:id para ver toda
+                su información. Guard: sólo si el trámite tiene administración. */}
+            <div className="flex items-baseline justify-between gap-3 text-sm">
+              <span className="text-brand-muted">Administración</span>
+              {data.administracion_id && data.administracion?.nombre ? (
+                <Link
+                  to={`/gerencia/clientes/${data.administracion_id}`}
+                  className="inline-flex min-w-0 max-w-[60%] items-center justify-end gap-1 text-right font-medium text-brand-cyan hover:underline"
+                  title="Ver ficha completa del cliente"
+                >
+                  <span className="truncate">{data.administracion.nombre}</span>
+                  <ExternalLink size={13} className="shrink-0" />
+                </Link>
+              ) : (
+                <span className="text-brand-ink">{data.administracion?.nombre ?? '—'}</span>
+              )}
+            </div>
+            {/* DGG-158 · CUIT del cliente (task 3), formateado XX-XXXXXXXX-X */}
+            <Dl label="CUIT" value={formatCuit(data.administracion?.cuit) || '—'} />
             <Dl label="Consorcio" value={data.consorcio?.nombre ?? '—'} />
             {/* E-GG-126: el documento final puede vivir en bucket privado -> firmar on-click */}
             <div className="flex items-baseline justify-between gap-3 text-sm">
