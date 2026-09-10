@@ -5921,3 +5921,44 @@ solicitud, que congela lo que tipeó el usuario). Y toda corrección del canóni
 necesita **propagación a los snapshots** (trigger) + **backfill** de lo ya roto.
 El email es doble-trampa porque además es el **login** (`auth.users.email`):
 editarlo requiere el asistente que toca ambos, no un UPDATE suelto a la ficha.
+
+## E-GG-197 · Build de Vercel falló por `noUncheckedIndexedAccess` — esbuild no chequea tipos (2026-09-05, DGG-157)
+
+**Síntoma:** al pushear DGG-157 (commit `cc764d5`), el build de producción de Vercel
+**falló** (`npm run build` → `tsc --noEmit && vite build`, exit 2). Mail de Vercel
+"Production deployment failed". Producción NO se actualizó (Vercel bloquea el deploy
+que no compila; siguió sirviendo el deploy bueno anterior).
+
+**Errores TS (8, todos del mismo patrón):**
+```
+ContenidoTab.tsx(98,24): error TS18048: 'a' is possibly 'undefined'.
+ContenidoTab.tsx(99,24): error TS18048: 'b' is possibly 'undefined'.
+... (moverModulo líneas 98-99 y moverClase 263-264)
+```
+
+**Causa raíz:** el `tsconfig` tiene **`noUncheckedIndexedAccess: true`**, así que un
+acceso indexado (`data.modulos[i]`, `modulo.clases[idx]`) es de tipo `T | undefined`,
+NO `T`. El guard de rango (`if (j < 0 || j >= arr.length) return;`) NO le alcanza a TS
+para narrowear el elemento a definido. Al hacer `a.id` / `b.orden` sobre el swap →
+TS18048.
+
+**Por qué no lo caché localmente:** el `tsc`/`vite build` local se cuelga por un
+problema ambiental de la máquina (0% CPU), así que estaba validando con **esbuild**
+(`--loader:.tsx=tsx`). **esbuild transpila (strippea tipos) pero NO los chequea** →
+pasa código con errores de tipo. Es un sustituto de sintaxis, no de typecheck.
+
+**Fix (commit `8af1830`):** guard explícito que narrowea, antes de usar el elemento:
+```ts
+const a = data.modulos[i]; const b = data.modulos[j];
+if (!a || !b) return; // narrowing para noUncheckedIndexedAccess
+```
+Verificado: `tsc --noEmit` local corrió limpio esa vez (el cuelgue resultó transitorio)
++ Vercel READY.
+
+**Aprendizaje:** (1) esbuild NO reemplaza a `tsc --noEmit` — sólo caza sintaxis, no
+tipos; cuando toco tipos y no puedo correr tsc, el build de Vercel es el único
+validador real y hay que asumir que puede fallar. (2) El cuelgue de `tsc` local es
+**frecuentemente transitorio**: reintentarlo 1-2 veces suele completar (~35-40s, igual
+que Vercel) antes de caer al fallback. (3) Con `noUncheckedIndexedAccess`, todo
+`arr[i]` necesita `if (!x) return` / `?.` — un guard de longitud no basta. Ver memoria
+[[reference_build_validation]].

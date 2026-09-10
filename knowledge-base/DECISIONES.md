@@ -5730,7 +5730,7 @@ del front. **Prueba en vivo** (gerente QA, desktop + 360px, consola limpia salvo
 ruido de cold-start pre-existente): el asistente abre desde el botón "Programar",
 computa renovación/curso a base+12m y DDJJ a próximo marzo, recalcula al cambiar la
 matriculación (probado 10/09→20/11: renovación/curso siguieron, DDJJ quedó en marzo),
-0px de overflow a 360px. No se envió sobre datos reales (RPC probada por e2e).
+0px de overflow a 360px. **Live e2e REAL ejecutado 2026-09-10** (gerente+trámite RPAC QA efímeros): se corrió el submit real del asistente ("Programar") → BD con exactamente 3 vencimientos (renovacion_rpac 2027-09-10 {45,30,15}, ddjj_anual 2027-03-31 {60,30,15}, curso_actualizacion 2027-09-10 {45,30,15}), 1 sola renovación vigente (sin dup Regla-B+asistente), matricula_rpac_fecha/_vencimiento seteados, notificar_cliente=true; consola sólo el ruido 400 de hidratación (reproducible en reload sin interacción); QA limpiado a 0 rastro, 2 gerentes reales intactos.
 
 **Takeaway:** las alarmas normativas (renovación/DDJJ/curso RPAC) valen materializarse
 como vencimientos fechados y tipados desde una única fecha de otorgamiento, con las
