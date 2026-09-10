@@ -5843,8 +5843,15 @@ matriculación=emisión, renovación=vencimiento del otorgamiento).
 **§6:** backend EJERCITADO e2e (rollback): el gate **bloquea** el cierre satisfactorio (true
 y NULL) sin matrícula/legajo, **deja pasar** el no-satisfactorio y el cierre con datos; la
 RPC **escribe** matrícula/legajo/vencimiento + crea **1** alarma renovacion_rpac + habilita
-el cierre; **R16** sin overloads. Frontend: 2 revisores adversariales + prueba en vivo
-(Vercel, gerente QA) — [se completa al cerrar el chunk].
+el cierre; **R16** sin overloads. Frontend: 2 revisores adversariales (hallazgos
+incorporados: eje categoría alineado, pre-fill clampeado, cierre sin admin al diálogo).
+**Prueba en vivo VERIFICADA** (Vercel, gerente QA efímero, 2026-09-10): (1) cerrar como
+"Matrícula otorgada" SIN matrícula/legajo → **bloqueado** por el gate; (2) "Cargar
+otorgamiento" → ficha (matrícula 1454, legajo 284328, venc 2027-09-09) + alarma
+renovacion_rpac {45,30,15} sola; (3) aviso visible al cliente publicado; (4) cerrar como
+otorgada ya **PASA** → asistente RPAC abre **PRE-LLENADO** (matriculación=emisión
+2026-09-09, renovación=venc 2027-09-09, DDJJ 2027-03-31, curso 2027-09-09). QA borrado a
+0 rastro, 2 gerentes reales intactos.
 
 **Deudas anotadas:** (1) pre-fill del asistente con matriculación/emisión PASADA (otorgamiento
 retroactivo): `base+12m` de curso/renovación puede caer en el pasado y la validación
