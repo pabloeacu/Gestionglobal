@@ -6004,3 +6004,32 @@ aceptable (kanban nunca tuvo diálogo de motivo), a revisar si se quiere paridad
 (4) Deuda latente: `TramiteDetailPage` legacy (no ruteado, redirige a TrackingDetail)
 usa `useAvanzarTramite` sin `cerrarConMotivo` — si alguna vez se re-rutea, saltearía el
 gate; borrarlo o marcarlo `@deprecated`.
+
+## E-GG-199 · El Curso de Actualización RPA (CABA) no se podía matricular: categoria='otro' (2026-09-10, DGG-162)
+
+**Síntoma (reporte Pablo):** el "Wizard de activación / Flujo Maestro" de una solicitud de
+**Curso de Actualización RPA (CABA)** (alumna SANCLAUDIO) completaba vínculo+trámite,
+comprobante y cobranza, pero fallaba en **"Matricular en el curso"** con *"El trámite no
+existe, no es de curso o no pertenece a este cliente"*. La alumna ya cursaba otro curso;
+la sospecha era el "2 cursos en simultáneo".
+
+**Causa raíz (NO era lo de los 2 cursos):** el trámite quedó con **`categoria='otro'`**.
+`solicitud_activar` mapea `servicio_slug → categoria` con un CASE que sólo tenía
+`'curso-formacion'` y `'curso-actualizacion'` (RPAC/PBA) como `'curso'`. El curso CABA usa
+el slug **`'curso-actualizacion-caba'`** (servicio `rpa_actualizacion`) → caía en `ELSE
+'otro'`. El guard de `curso_asignar_alumno` (mig 0434) exige `categoria='curso'` → rechazo.
+Un alumno en 2 cursos DISTINTOS no genera conflicto (verificado e2e).
+
+**Fix (mig 0467):** (1) agregar `WHEN 'curso-actualizacion-caba' THEN 'curso'` al CASE;
+(2) DEFENSA por código de servicio de curso (`rpa_actualizacion` / `curso_actualizacion_rpac`
+/ `curso_formacion_rpac` → 'curso') para no depender sólo del slug; (3) backfill del único
+trámite roto (ffae2ad9 → 'curso'). Se parcheó la definición viva con `pg_get_functiondef` +
+`regexp_replace/replace` (patrón de 0457) con guardas fail-safe. §6: rollback-test del patch
+(compila + toma) + no-corrupción (todos los mapeos previos intactos) + matriculación e2e
+EXITOSA con el trámite corregido (alumna en 2 cursos, sin conflicto).
+
+**Aprendizaje:** un mapeo hardcodeado `slug → categoria` es frágil: cada servicio/curso nuevo
+que no matchee cae en `'otro'` y rompe el flujo aguas abajo (acá, la matriculación). La red
+por **código de servicio** lo mitiga; lo ideal sería una bandera `es_curso` en `servicios`
+(deuda anotada). Regla derivada: al sumar un servicio con slug nuevo, revisar el CASE de
+`solicitud_activar`.

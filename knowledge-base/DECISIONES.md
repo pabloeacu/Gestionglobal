@@ -5862,3 +5862,21 @@ matrícula (pre-DGG-159). (3) `TramiteDetailPage` legacy sin `cerrarConMotivo`/g
 **Takeaway:** un "gate en el único trigger de cierre" cubre las 4 superficies de una; y la
 carga del otorgamiento por gerencia reusa la infraestructura de la gestoría (mismas 4
 columnas, mismo sanitizador, mismo trigger de alarma) sin duplicar lógica.
+
+---
+
+## DGG-162 · Fix matriculación del Curso de Actualización RPA (CABA) (2026-09-10)
+
+Bug reportado por Pablo (ver ficha [[E-GG-199]] en ERRORES). El wizard de activación fallaba
+al "Matricular en el curso" para el curso **CABA** porque `solicitud_activar` dejaba el
+trámite con `categoria='otro'` (el slug `'curso-actualizacion-caba'` no estaba en el CASE
+que mapea slug→categoria; sólo estaban los cursos RPAC/PBA). El guard de `curso_asignar_alumno`
+exige `categoria='curso'`. **No era por los 2 cursos simultáneos** (verificado e2e: un alumno
+en 2 cursos distintos no genera conflicto).
+
+**Fix (mig 0467):** patch a la definición viva de `solicitud_activar` (patrón 0457) → agrega
+el slug CABA al CASE + una defensa por CÓDIGO de servicio de curso; + backfill del único
+trámite roto. §6: rollback-test del patch + no-corrupción (mapeos previos intactos) +
+matriculación e2e exitosa. **La alumna ya puede matricularse (Reintentar).**
+
+**Deuda:** el mapeo slug→categoria es hardcodeado; lo robusto sería `servicios.es_curso`.
