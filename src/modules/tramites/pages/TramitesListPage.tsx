@@ -16,6 +16,7 @@ import { formatDateTime, formatDateShort, parseLocalDate, hoyISO } from '@/lib/d
 import { cn } from '@/lib/cn';
 import { TramiteFormDrawer } from '../components/TramiteFormDrawer';
 import { ProgramarVencimientoModal } from '@/modules/trackings/components/ProgramarVencimientoModal';
+import { ProgramarVencimientosRpacModal } from '@/modules/trackings/components/ProgramarVencimientosRpacModal';
 import { TramitesSegmentos, TramitesFilterBar } from '../components/TramitesFiltros';
 import { useAvanzarTramite } from '../lib/useAvanzarTramite';
 import {
@@ -32,6 +33,7 @@ import {
 import {
   listTramites,
   computeSla,
+  esServicioRpacMatricula,
   NEXT_ESTADO,
   TRAMITE_CATEGORIA_LABEL,
   TRAMITE_ESTADO_LABEL,
@@ -200,6 +202,8 @@ export function TramitesListPage() {
   // DGG-142 E3 · trámite recién cerrado al que se le ofrece programar el
   // próximo vencimiento (montaje condicional: cada cierre abre un modal fresco).
   const [programarTramite, setProgramarTramite] = useState<TramiteListItem | null>(null);
+  // DGG-159 · cierre de inscripción/renovación RPAC → asistente de vencimientos RPAC.
+  const [programarRpacTramite, setProgramarRpacTramite] = useState<TramiteListItem | null>(null);
 
   // DGG-87 · atajo de avance de estado en la lista — MISMO flujo que el kanban
   // (hook compartido: gate de cobranza + updateTramite + toasts). La BD es la
@@ -211,7 +215,9 @@ export function TramitesListPage() {
     // DGG-142 E3 · todo cierre ofrece "Programar próximo vencimiento" (V3).
     onCerrado: (t) => {
       const row = t as TramiteListItem;
-      if (row.administracion_id) setProgramarTramite(row);
+      if (!row.administracion_id) return;
+      if (esServicioRpacMatricula(row.servicio_codigo)) setProgramarRpacTramite(row);
+      else setProgramarTramite(row);
     },
   });
 
@@ -590,6 +596,17 @@ export function TramitesListPage() {
               : undefined
           }
           onProgramado={() => setProgramarTramite(null)}
+        />
+      )}
+      {/* DGG-159 · asistente de vencimientos RPAC al cerrar inscripción/renovación. */}
+      {programarRpacTramite && (
+        <ProgramarVencimientosRpacModal
+          key={programarRpacTramite.id}
+          open
+          onClose={() => setProgramarRpacTramite(null)}
+          trackingId={programarRpacTramite.id}
+          trackingTitulo={programarRpacTramite.titulo}
+          onProgramado={() => setProgramarRpacTramite(null)}
         />
       )}
     </div>

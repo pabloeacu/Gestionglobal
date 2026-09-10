@@ -101,12 +101,14 @@ import { InsistirClienteModal } from '../components/InsistirClienteModal';
 import { AvisarGestoriaModal } from '../components/AvisarGestoriaModal';
 import { EmailPreviewModal } from '@/components/common/EmailPreviewModal';
 import { getUltimoEnvioClienteId } from '@/services/api/trackings';
+import { esServicioRpacMatricula } from '@/services/api/tramites';
 import { TrackingMetadataDrawer } from '../components/TrackingMetadataDrawer';
 import { generateReportPdf } from '@/lib/reportPdf';
 import { RecurrenciaList } from '../components/RecurrenciaList';
 import { EstadosConfigManager } from '../components/EstadosConfigManager';
 import { CategoriasConfigManager } from '../components/CategoriasConfigManager';
 import { ProgramarVencimientoModal } from '../components/ProgramarVencimientoModal';
+import { ProgramarVencimientosRpacModal } from '../components/ProgramarVencimientosRpacModal';
 import { CerrarTramiteDialog } from '../components/CerrarTramiteDialog';
 import { useCancelarTramite } from '@/modules/tramites/lib/useAvanzarTramite';
 import { ReabrirTramiteDialog } from '../components/ReabrirTramiteDialog';
@@ -182,6 +184,9 @@ export function TrackingDetailPage() {
   // JL 2 · obs 1 · atajo "Generar comprobante" del trámite (cuando comprobante_pendiente).
   const [genCompOpen, setGenCompOpen] = useState(false);
   const [programarOpen, setProgramarOpen] = useState(false);
+  // DGG-159 · asistente de vencimientos RPAC (renovación + DDJJ + curso) para
+  // inscripción/renovación; el genérico (programarOpen) queda para el resto.
+  const [programarRpacOpen, setProgramarRpacOpen] = useState(false);
   // DGG-38 · Modal de cierre con tabs "Subir archivo" / "Pegar URL".
   // Reemplaza el `usePrompt()` simple que sólo aceptaba URL.
   const [cerrarOpen, setCerrarOpen] = useState(false);
@@ -625,11 +630,22 @@ export function TrackingDetailPage() {
   // (antes sólo servicios con vigencia_meses); la vigencia sólo pre-llena la
   // fecha sugerida. Trámites sin administración no pueden programar
   // (tracking_cerrar_ciclo la exige) → cierre simple.
+  // DGG-159 · para inscripción/renovación RPAC abre el asistente de vencimientos
+  // RPAC (renovación + DDJJ + curso desde la fecha de matriculación); para el
+  // resto, el programador genérico de un único próximo vencimiento.
+  function abrirProgramadorVencimiento() {
+    if (esServicioRpacMatricula(data?.servicio?.codigo)) {
+      setProgramarRpacOpen(true);
+    } else {
+      setProgramarOpen(true);
+    }
+  }
+
   function handleCerradoOk() {
     void load();
     if (data?.administracion_id) {
       toast.success('Trámite cerrado · programá el próximo vencimiento');
-      setProgramarOpen(true);
+      abrirProgramadorVencimiento();
     } else {
       toast.success('Trámite cerrado');
     }
@@ -783,7 +799,7 @@ export function TrackingDetailPage() {
                   // La card ya suprime trámites sin administración; doble
                   // cinturón por si el host se reusa.
                   onCerradoTramite={() => {
-                    if (data?.administracion_id) setProgramarOpen(true);
+                    if (data?.administracion_id) abrirProgramadorVencimiento();
                   }}
                 />
               </li>
@@ -1055,7 +1071,7 @@ export function TrackingDetailPage() {
             {isStaff && (data.estado === 'cerrado' || data.estado === 'resuelto') && (
               <Button
                 variant="tonal"
-                onClick={() => setProgramarOpen(true)}
+                onClick={abrirProgramadorVencimiento}
               >
                 <CalendarClock className="h-4 w-4" /> Programar próximo vencimiento
               </Button>
@@ -1518,6 +1534,15 @@ export function TrackingDetailPage() {
               }
             : null
         }
+      />
+
+      {/* DGG-159 · asistente de vencimientos RPAC (renovación + DDJJ + curso). */}
+      <ProgramarVencimientosRpacModal
+        open={programarRpacOpen}
+        onClose={() => setProgramarRpacOpen(false)}
+        trackingId={data.id}
+        trackingTitulo={data.titulo}
+        onProgramado={() => void load()}
       />
 
       {/* DGG-142 E6 · modal TRAMIX con el legajo de la ficha del cliente. */}

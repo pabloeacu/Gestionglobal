@@ -475,6 +475,42 @@ export async function cerrarCicloTracking(
 }
 
 // ----------------------------------------------------------------------------
+// DGG-159 · Programar los vencimientos RPAC (renovación + DDJJ + curso) a partir
+// de la fecha de matriculación al cerrar una inscripción/renovación. Las 3 fechas
+// llegan ya calculadas/editadas desde la UI; el RPC (mig 0465) valida que sean
+// futuras y persiste atómico (renovación vía la ficha; DDJJ y curso como filas
+// tipadas). Devuelve los ids de los 3 vencimientos.
+// ----------------------------------------------------------------------------
+export interface ProgramarVencimientosRpacInput {
+  trackingId: string;
+  fechaMatriculacion: string; // YYYY-MM-DD
+  fechaRenovacion: string;    // YYYY-MM-DD
+  fechaDdjj: string;          // YYYY-MM-DD
+  fechaCurso: string;         // YYYY-MM-DD
+  notificar?: boolean;
+}
+
+export async function programarVencimientosRpac(
+  input: ProgramarVencimientosRpacInput,
+): Promise<ApiResponse<{ renovacionId: string | null; ddjjId: string | null; cursoId: string | null }>> {
+  const { data, error } = await supabase.rpc('tracking_programar_vencimientos_rpac', {
+    p_tramite_id: input.trackingId,
+    p_fecha_matriculacion: input.fechaMatriculacion,
+    p_fecha_renovacion: input.fechaRenovacion,
+    p_fecha_ddjj: input.fechaDdjj,
+    p_fecha_curso: input.fechaCurso,
+    p_notificar: input.notificar ?? true,
+  });
+  if (error) return fail('TRACKING_PROGRAMAR_RPAC', error.message, error);
+  const r = (data ?? {}) as { renovacion_id?: string; ddjj_id?: string; curso_id?: string };
+  return ok({
+    renovacionId: r.renovacion_id ?? null,
+    ddjjId: r.ddjj_id ?? null,
+    cursoId: r.curso_id ?? null,
+  });
+}
+
+// ----------------------------------------------------------------------------
 // 2.G · EDITAR cronograma de un vencimiento ya programado (modo edit del modal)
 // Actualiza fecha + offsets + notificar_cliente. Pasa por la API de
 // vencimientos (regla 4). Las alarmas se re-planifican en el próximo tick del

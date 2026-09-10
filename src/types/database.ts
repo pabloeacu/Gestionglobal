@@ -10481,6 +10481,17 @@ export type Database = {
         }
         Returns: undefined
       }
+      tracking_programar_vencimientos_rpac: {
+        Args: {
+          p_fecha_curso: string
+          p_fecha_ddjj: string
+          p_fecha_matriculacion: string
+          p_fecha_renovacion: string
+          p_notificar?: boolean
+          p_tramite_id: string
+        }
+        Returns: Json
+      }
       tracking_reabrir: {
         Args: {
           p_motivo: string

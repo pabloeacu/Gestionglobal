@@ -54,6 +54,18 @@ export const TRAMITE_PRIORIDAD_LABEL: Record<TramitePrioridad, string> = {
   urgente: 'Urgente',
 };
 
+// DGG-159 · servicios cuyo cierre (otorgamiento) dispara el asistente de
+// vencimientos RPAC (renovación + DDJJ + curso desde la fecha de matriculación).
+export const SERVICIOS_RPAC_MATRICULA = [
+  'rpac_inscripcion',
+  'rpac_inscripcion_juridica',
+  'rpac_renovacion',
+] as const;
+
+export function esServicioRpacMatricula(codigo: string | null | undefined): boolean {
+  return codigo != null && (SERVICIOS_RPAC_MATRICULA as readonly string[]).includes(codigo);
+}
+
 export const TRAMITE_CATEGORIA_LABEL: Record<TramiteCategoria, string> = {
   matricula: 'Matrícula',
   dj: 'DJ jurada',
@@ -239,6 +251,9 @@ export interface TramiteListItem extends TramiteRow {
   // F8 (DGG-64) · nombre del servicio del catálogo (para el multiselect de
   // filtros). Null si el trámite no tiene servicio vinculado.
   servicio_nombre: string | null;
+  // DGG-159 · código del servicio: para rutear el cierre de inscripción/renovación
+  // RPAC al asistente de vencimientos RPAC también desde kanban/lista (paridad).
+  servicio_codigo: string | null;
   // DGG-142 E3 · vigencia del servicio en meses: pre-llena la fecha sugerida del
   // ProgramarVencimientoModal al cerrar desde kanban/lista. Null = sin vigencia
   // catalogada (el modal usa su default de 365 días).
@@ -293,7 +308,7 @@ interface RawListRow extends TramiteRow {
   administraciones: { id: string; nombre: string } | null;
   consorcios: { id: string; nombre: string } | null;
   asignado: { id: string; full_name: string | null } | null;
-  servicios?: { id: string; nombre: string; vigencia_meses?: number | null } | null; // F8 · sólo en listTramites
+  servicios?: { id: string; nombre: string; codigo?: string | null; vigencia_meses?: number | null } | null; // F8 · sólo en listTramites
   cobro_pendiente?: boolean | null; // DGG-44 · sólo presente en listTramites
   cobro_estado?: 'parcial' | 'sin_cobranza' | null; // DGG-88 · idem
   comprobante_pendiente?: boolean | null; // DGG-55 · idem
@@ -307,6 +322,7 @@ function mapRaw(r: RawListRow): TramiteListItem {
     consorcio_nombre: r.consorcios?.nombre ?? null,
     asignado_nombre: r.asignado?.full_name ?? null,
     servicio_nombre: r.servicios?.nombre ?? null,
+    servicio_codigo: r.servicios?.codigo ?? null,
     servicio_vigencia_meses: r.servicios?.vigencia_meses ?? null,
     cobro_pendiente: r.cobro_pendiente ?? false,
     cobro_estado: r.cobro_estado ?? null,
@@ -332,7 +348,7 @@ export async function listTramites(
        posible_duplicado,
        administraciones(id,nombre),
        consorcios(id,nombre),
-       servicios(id,nombre,vigencia_meses),
+       servicios(id,nombre,codigo,vigencia_meses),
        asignado:profiles!tramites_asignado_a_fkey(id,full_name)`,
       { count: 'exact' },
     )
