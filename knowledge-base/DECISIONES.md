@@ -5685,3 +5685,55 @@ vía trigger de ficha, mig 0444); DDJJ y curso NO se generan como vencimientos f
 por tipo. Es una feature nueva y los plazos son normativos RPAC-PBA → se le pidieron a
 Pablo las reglas exactas (periodicidad de renovación/DDJJ/curso + si van en mes fijo)
 antes de implementar.
+
+## DGG-159 · Vencimientos RPAC automáticos y tipados al otorgar la matrícula (2026-09-10, pedido Pablo · IMPLEMENTADO)
+
+Completa la task 2 de la tanda (la nota "PENDIENTE" de arriba). **Reglas confirmadas
+por Pablo:** renovación anual (matriculación+12m); **DDJJ vence en MARZO para todos**
+—sin importar la fecha de matrícula— con **aviso desde 60 días antes** (es engorroso,
+no dejar para último momento); curso de actualización anual; todo **automático y
+editable con lápiz**.
+
+**Antes:** el sistema sólo materializaba UNA alarma automática por matrícula
+(`renovacion_rpac`, otorgamiento+12m, vía el trigger de la ficha, mig 0444). DDJJ y
+curso iban por el motor de ofrecimientos (sin fecha). No había derivación multi-tipo.
+
+**Backend (mig 0465):** RPC `tracking_programar_vencimientos_rpac(p_tramite_id,
+p_fecha_matriculacion, p_fecha_renovacion, p_fecha_ddjj, p_fecha_curso, p_notificar)`
+—plpgsql, SECURITY DEFINER, search_path, TimeZone AR, gate `private.is_staff()`, sólo
+servicios rpac_inscripcion/_juridica/_renovacion, valida fechas futuras + matriculación
+no nula—. La RENOVACIÓN se materializa por la vía existente (setea
+`administraciones.matricula_rpac_fecha/_vencimiento` → el trigger sync crea/supersede
+`renovacion_rpac {45,30,15}`; con fallback INSERT si el trigger swallowea) y se liga al
+tracking; DDJJ (`ddjj_anual {60,30,15}`) y curso (`curso_actualizacion {45,30,15}`) se
+insertan como filas tipadas, superseeding la vigente previa (idempotente). Atómico.
+
+**Frontend:** `ProgramarVencimientosRpacModal` — fecha de matriculación → 3 fechas
+sugeridas y EDITABLES (renovación=base+12m, DDJJ=próximo 31-mar, curso=base+12m); al
+cambiar la matriculación se recalculan. Helper `esServicioRpacMatricula` +
+`servicio_codigo` en `listTramites`. El cierre RPAC se rutea al asistente desde las
+3 superficies (detalle, kanban, lista); el resto sigue con el `ProgramarVencimientoModal`
+genérico.
+
+**§6 (3 revisores + e2e BD):** sin bugs críticos. e2e con rollback: 1 sola
+`renovacion_rpac` vigente (sin duplicar por la interacción Regla-B + asistente),
+idempotencia (doble corrida = 1 por tipo), offsets correctos, gate 42501,
+validaciones 22023/P0002. Hallazgos cerrados: guard NULL de matriculación (A#9),
+paridad de superficie kanban/lista (C#4). **Deuda documentada (pre-existente, no
+regresión):** (1) el motor de ofrecimientos no filtra admins con vencimiento tipado
+vigente → posible doble-aviso DDJJ/curso; HOY inocuo porque el motor está
+DESAGENDADO en cron → **filtrar antes de reactivarlo** (agregar NOT EXISTS del
+vencimiento vigente a las reglas ddjj_ciclo/curso_actualizacion del motor 0450);
+(2) sin índice único parcial `(administracion_id,tipo) WHERE estado='vigente'` que
+blinde la invariante ante concurrencia; (3) `curso_rpa_caba` sin label en 2 superficies
+del front. **Prueba en vivo** (gerente QA, desktop + 360px, consola limpia salvo el
+ruido de cold-start pre-existente): el asistente abre desde el botón "Programar",
+computa renovación/curso a base+12m y DDJJ a próximo marzo, recalcula al cambiar la
+matriculación (probado 10/09→20/11: renovación/curso siguieron, DDJJ quedó en marzo),
+0px de overflow a 360px. No se envió sobre datos reales (RPC probada por e2e).
+
+**Takeaway:** las alarmas normativas (renovación/DDJJ/curso RPAC) valen materializarse
+como vencimientos fechados y tipados desde una única fecha de otorgamiento, con las
+fechas editables (los plazos legales cambian y JL necesita ajustar); y toda superficie
+que cierre el mismo acto (detalle/kanban/lista) debe disparar el mismo asistente
+(paridad, reglas 14/15).
