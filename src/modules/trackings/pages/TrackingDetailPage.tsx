@@ -613,7 +613,7 @@ export function TrackingDetailPage() {
     // ('aprobado' no es un slug del pipeline — la condición real es "no resuelto")
     if (data.estado !== 'resuelto') {
       const cont = await confirm({
-        title: data.administracion_id
+        title: data.administracion_id && servicioRenueva()
           ? 'Cerrar trámite y programar próximo vencimiento'
           : 'Cerrar trámite',
         message: `El estado actual es "${data.estado}". ¿Cerrarlo igualmente?`,
@@ -633,6 +633,17 @@ export function TrackingDetailPage() {
   // DGG-159 · para inscripción/renovación RPAC abre el asistente de vencimientos
   // RPAC (renovación + DDJJ + curso desde la fecha de matriculación); para el
   // resto, el programador genérico de un único próximo vencimiento.
+  // DGG-160 · un servicio "renueva" (tiene próximo vencimiento) si es matrícula
+  // RPAC (asistente de 3 fechas) o define vigencia_meses (programador genérico).
+  // Los que no renuevan (formación inicial, plataforma de gestión, capacitaciones
+  // gratuitas) no ofrecen programar.
+  function servicioRenueva(): boolean {
+    return (
+      esServicioRpacMatricula(data?.servicio?.codigo) ||
+      data?.servicio?.vigencia_meses != null
+    );
+  }
+
   function abrirProgramadorVencimiento() {
     if (esServicioRpacMatricula(data?.servicio?.codigo)) {
       setProgramarRpacOpen(true);
@@ -641,9 +652,13 @@ export function TrackingDetailPage() {
     }
   }
 
-  function handleCerradoOk() {
+  function handleCerradoOk(info: { satisfactorio: boolean; motivo: string }) {
     void load();
-    if (data?.administracion_id) {
+    // DGG-160 · la 2ª emergente (programar próximo vencimiento) sólo se abre si
+    // el cierre fue SATISFACTORIO y el servicio renueva. Un cierre frustrado
+    // (rechazo/abandono/desaprobado) o un servicio sin vencimiento cierran sin
+    // programar → no se crean vencimientos ni se toca la matrícula por error.
+    if (data?.administracion_id && info.satisfactorio && servicioRenueva()) {
       toast.success('Trámite cerrado · programá el próximo vencimiento');
       abrirProgramadorVencimiento();
     } else {
@@ -764,7 +779,9 @@ export function TrackingDetailPage() {
                   {matVinculada.estado === 'vencida'
                     ? 'Su plazo de gracia ya finalizó. '
                     : ''}
-                  Cerrá el trámite y programá el próximo vencimiento en un solo paso.
+                  {servicioRenueva()
+                    ? 'Cerrá el trámite y programá el próximo vencimiento en un solo paso.'
+                    : 'Cerrá el trámite cuando quieras.'}
                 </p>
               </div>
             </div>
@@ -773,7 +790,8 @@ export function TrackingDetailPage() {
               onClick={() => setCerrarOpen(true)}
               className="inline-flex items-center gap-2 rounded-xl bg-brand-cyan px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:brightness-110"
             >
-              <CheckCircle2 size={15} /> Cerrar y programar próximo vencimiento
+              <CheckCircle2 size={15} />{' '}
+              {servicioRenueva() ? 'Cerrar y programar próximo vencimiento' : 'Cerrar trámite'}
             </button>
           </div>
         </section>
@@ -799,7 +817,9 @@ export function TrackingDetailPage() {
                   // La card ya suprime trámites sin administración; doble
                   // cinturón por si el host se reusa.
                   onCerradoTramite={() => {
-                    if (data?.administracion_id) abrirProgramadorVencimiento();
+                    // DGG-160 · publicar→cerrado es vía de otorgamiento; sólo
+                    // programar si el servicio renueva.
+                    if (data?.administracion_id && servicioRenueva()) abrirProgramadorVencimiento();
                   }}
                 />
               </li>
@@ -1044,7 +1064,7 @@ export function TrackingDetailPage() {
                 data-tour="tracking-cerrar"
               >
                 <CheckCircle2 className="h-4 w-4" />{' '}
-                {data.administracion_id
+                {data.administracion_id && servicioRenueva()
                   ? 'Cerrar trámite y programar próximo vencimiento'
                   : 'Cerrar trámite'}
               </Button>
@@ -1068,7 +1088,7 @@ export function TrackingDetailPage() {
                 cerrado/resuelto (renovable). Genera un vencimiento ligado al
                 tracking via tracking_cerrar_ciclo (mig 0040). */}
             {/* 7.B · variant tonal del sistema (antes hardcode cyan). */}
-            {isStaff && (data.estado === 'cerrado' || data.estado === 'resuelto') && (
+            {isStaff && (data.estado === 'cerrado' || data.estado === 'resuelto') && servicioRenueva() && (
               <Button
                 variant="tonal"
                 onClick={abrirProgramadorVencimiento}

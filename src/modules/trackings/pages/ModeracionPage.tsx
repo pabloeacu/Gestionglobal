@@ -82,7 +82,11 @@ export function ModeracionPage() {
               <ModeracionCard
                 item={it}
                 onResuelto={() => void load()}
-                onCerradoTramite={(t) => setProgramar(t)}
+                // DGG-160 · sólo ofrecer programar si el servicio renueva (tiene
+                // vigencia). Deuda documentada: rutear inscripción/renovación RPAC
+                // al asistente de 3 fechas (hoy abre el genérico) cuidando de no
+                // duplicar la renovación que ya crea el trigger de la ficha.
+                onCerradoTramite={(t) => { if (t.vigenciaMeses != null) setProgramar(t); }}
               />
             </li>
           ))}

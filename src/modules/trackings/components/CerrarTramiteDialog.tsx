@@ -43,11 +43,12 @@ interface CerrarTramiteDialogProps {
    */
   categoria: TramiteCategoria;
   /**
-   * Se llama después de un cierre exitoso. El padre recarga el detalle y
-   * (DGG-142 E3) encadena el flujo de "programar próximo vencimiento" en TODO
-   * cierre con administración — `vigencia_meses` sólo pre-llena la fecha.
+   * Se llama después de un cierre exitoso, con el resultado elegido. DGG-160:
+   * el padre encadena "programar próximo vencimiento" SÓLO si el cierre fue
+   * satisfactorio y el servicio renueva; un cierre frustrado
+   * (rechazo/abandono/desaprobado) cierra sin programar.
    */
-  onCerrado: () => void;
+  onCerrado: (info: { satisfactorio: boolean; motivo: string }) => void;
 }
 
 export function CerrarTramiteDialog({
@@ -92,7 +93,7 @@ export function CerrarTramiteDialog({
       toast.error('No pudimos cerrar el trámite', { description: humanizeError(res.error) });
       return;
     }
-    onCerrado();
+    onCerrado({ satisfactorio: motivo.satisfactorio, motivo: motivo.value });
     onClose();
   }
 

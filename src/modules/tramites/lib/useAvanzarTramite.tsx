@@ -197,10 +197,11 @@ interface Opts {
   onError?: () => void;
   /** Sonido opcional (lo usa el kanban). */
   play?: (sound: 'click' | 'success') => void;
-  /** DGG-142 E3 · Se invoca tras persistir un cierre exitoso (incluye la rama
-   *  "cerrar sin cobrar"). Las vistas lo usan para ofrecer el modal
-   *  "Programar próximo vencimiento" en TODA vía de cierre (V1-V4). */
-  onCerrado?: (t: MovableTramite) => void;
+  /** DGG-160 · si está presente y devuelve true para un cierre, el hook corre los
+   *  gates de cobranza pero NO persiste: delega al caller, que abre el diálogo de
+   *  motivo (paridad con el detalle) y desde ahí cierra + ofrece programar. Se usa
+   *  sólo para servicios que renuevan; el resto cierra directo por el hook. */
+  cerrarConMotivo?: (t: MovableTramite) => boolean;
 }
 
 export function useAvanzarTramite(opts: Opts = {}) {
@@ -253,6 +254,14 @@ export function useAvanzarTramite(opts: Opts = {}) {
       });
       if (!ok) return false;
     }
+    // DGG-160 · cierre de un servicio que renueva → el resultado se captura por el
+    // diálogo de motivo (paridad con el detalle), no por un cierre directo sin
+    // motivo. El caller abre el diálogo, que persiste el cierre + motivo; por eso
+    // no movemos la card ni persistimos acá. Los gates de cobranza de arriba ya
+    // corrieron (un impago se frena antes de llegar acá).
+    if (nuevoEstado === 'cerrado' && opts.cerrarConMotivo?.(t)) {
+      return false;
+    }
     opts.onOptimistic?.(t.id, nuevoEstado);
     opts.play?.('click');
     let res = await updateTramite(t.id, { estado: nuevoEstado });
@@ -298,7 +307,6 @@ export function useAvanzarTramite(opts: Opts = {}) {
     }
     opts.play?.('success');
     toast.success(`Trámite ${t.codigo} → ${TRAMITE_ESTADO_LABEL[nuevoEstado]}`);
-    if (nuevoEstado === 'cerrado') opts.onCerrado?.(t);
     return true;
   };
 }

@@ -9,6 +9,7 @@ import { cn } from '@/lib/cn';
 import { TramiteFormDrawer } from '../components/TramiteFormDrawer';
 import { ProgramarVencimientoModal } from '@/modules/trackings/components/ProgramarVencimientoModal';
 import { ProgramarVencimientosRpacModal } from '@/modules/trackings/components/ProgramarVencimientosRpacModal';
+import { CerrarTramiteDialog } from '@/modules/trackings/components/CerrarTramiteDialog';
 import { TramitesSegmentos, TramitesFilterBar } from '../components/TramitesFiltros';
 import { useAvanzarTramite } from '../lib/useAvanzarTramite';
 import {
@@ -67,6 +68,8 @@ export function TramitesKanbanPage() {
   const [programarTramite, setProgramarTramite] = useState<TramiteListItem | null>(null);
   // DGG-159 · cierre de inscripción/renovación RPAC → asistente de vencimientos RPAC.
   const [programarRpacTramite, setProgramarRpacTramite] = useState<TramiteListItem | null>(null);
+  // DGG-160 · trámite que se cierra por el diálogo de motivo (servicios que renuevan).
+  const [cerrarTramite, setCerrarTramite] = useState<TramiteListItem | null>(null);
   const { play } = useSounds();
 
   function update(patch: Partial<TramitesFilterState>) {
@@ -132,11 +135,17 @@ export function TramitesKanbanPage() {
     // DGG-142 E3 · todo cierre ofrece "Programar próximo vencimiento". El hook
     // devuelve el mismo row que le pasamos (TramiteListItem). Trámites sin
     // administración se saltean: tracking_cerrar_ciclo la exige.
-    onCerrado: (t) => {
+    // DGG-160 · un servicio que renueva se cierra por el diálogo de motivo (paridad
+    // con el detalle): capturamos el resultado antes de decidir si se programa. El
+    // resto de los cierres siguen directos por el hook.
+    cerrarConMotivo: (t) => {
       const row = t as TramiteListItem;
-      if (!row.administracion_id) return;
-      if (esServicioRpacMatricula(row.servicio_codigo)) setProgramarRpacTramite(row);
-      else setProgramarTramite(row);
+      if (!row.administracion_id) return false;
+      const renueva =
+        esServicioRpacMatricula(row.servicio_codigo) || row.servicio_vigencia_meses != null;
+      if (!renueva) return false;
+      setCerrarTramite(row);
+      return true;
     },
   });
 
@@ -330,6 +339,24 @@ export function TramitesKanbanPage() {
           trackingId={programarRpacTramite.id}
           trackingTitulo={programarRpacTramite.titulo}
           onProgramado={() => setProgramarRpacTramite(null)}
+        />
+      )}
+      {/* DGG-160 · cierre por diálogo de motivo (servicios que renuevan). Al cerrar
+          satisfactorio se encadena el programador (asistente RPAC o genérico). */}
+      {cerrarTramite && (
+        <CerrarTramiteDialog
+          open
+          onClose={() => setCerrarTramite(null)}
+          tramiteId={cerrarTramite.id}
+          categoria={cerrarTramite.categoria as TramiteCategoria}
+          onCerrado={(info) => {
+            void load();
+            const row = cerrarTramite;
+            if (info.satisfactorio) {
+              if (esServicioRpacMatricula(row.servicio_codigo)) setProgramarRpacTramite(row);
+              else setProgramarTramite(row);
+            }
+          }}
         />
       )}
     </div>
