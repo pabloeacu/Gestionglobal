@@ -28,6 +28,11 @@ interface ProgramarVencimientosRpacModalProps {
   trackingId: string;
   trackingTitulo?: string;
   onProgramado?: () => void;
+  // DGG-161 · pre-llenado desde el otorgamiento recién cargado. Si viene la fecha
+  // de matriculación (emisión) se usa como base; si viene el vencimiento, la
+  // renovación arranca en ese valor (el otorgamiento ya lo definió) en vez de base+12m.
+  fechaMatriculacionInicial?: string;
+  fechaVencimientoInicial?: string;
 }
 
 // Suma meses conservando el día (mediodía para no cruzar de día por zona horaria).
@@ -45,6 +50,26 @@ function proximoMarzo(iso: string): string {
   return toISODate(target);
 }
 
+// DGG-161 · en un otorgamiento retroactivo (emisión vieja) las fechas anuales
+// derivadas pueden caer en el pasado, y el asistente exige fechas futuras. Para el
+// pre-fill las llevamos al próximo aniversario futuro (así no bloquean el submit).
+function alFuturoAnual(iso: string): string {
+  if (!iso || iso > hoyISO()) return iso;
+  const d = new Date(iso + 'T12:00:00');
+  const h = new Date(hoyISO() + 'T12:00:00');
+  let guard = 0;
+  while (d <= h && guard < 200) {
+    d.setFullYear(d.getFullYear() + 1);
+    guard++;
+  }
+  return toISODate(d);
+}
+// DDJJ: si el marzo derivado quedó en el pasado, el próximo 31-mar desde hoy.
+function alFuturoMarzo(iso: string): string {
+  if (!iso || iso > hoyISO()) return iso;
+  return proximoMarzo(hoyISO());
+}
+
 function fmtLarga(iso: string): string {
   if (!iso) return '—';
   return new Date(iso + 'T12:00:00').toLocaleDateString('es-AR', {
@@ -58,6 +83,8 @@ export function ProgramarVencimientosRpacModal({
   trackingId,
   trackingTitulo,
   onProgramado,
+  fechaMatriculacionInicial,
+  fechaVencimientoInicial,
 }: ProgramarVencimientosRpacModalProps) {
   const [fechaMatric, setFechaMatric] = useState<string>(() => hoyISO());
   const [fechaReno, setFechaReno] = useState<string>('');
@@ -69,14 +96,22 @@ export function ProgramarVencimientosRpacModal({
   // Al abrir: matriculación = hoy y recalcular las 3 sugeridas.
   useEffect(() => {
     if (!open) return;
-    const base = hoyISO();
+    // DGG-161 · base = matriculación del otorgamiento si vino; si no, hoy.
+    const esPrefill = !!(fechaMatriculacionInicial || fechaVencimientoInicial);
+    const base = fechaMatriculacionInicial || hoyISO();
     setFechaMatric(base);
-    setFechaReno(sumarMeses(base, 12));
-    setFechaDdjj(proximoMarzo(base));
-    setFechaCurso(sumarMeses(base, 12));
+    // Si el otorgamiento ya definió el vencimiento, la renovación ES ese valor
+    // (no base+12m); DDJJ (marzo) y curso (base+12m) se derivan de la matriculación.
+    const reno0 = fechaVencimientoInicial || sumarMeses(base, 12);
+    const ddjj0 = proximoMarzo(base);
+    const curso0 = sumarMeses(base, 12);
+    // En pre-fill retroactivo, clampear al próximo futuro para no bloquear el submit.
+    setFechaReno(esPrefill ? alFuturoAnual(reno0) : reno0);
+    setFechaDdjj(esPrefill ? alFuturoMarzo(ddjj0) : ddjj0);
+    setFechaCurso(esPrefill ? alFuturoAnual(curso0) : curso0);
     setNotificar(true);
     setSubmitting(false);
-  }, [open]);
+  }, [open, fechaMatriculacionInicial, fechaVencimientoInicial]);
 
   // Cambiar la fecha de matriculación recalcula las 3 sugerencias (JL puede
   // después editar cada una a mano con su propio campo).

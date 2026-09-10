@@ -5800,3 +5800,58 @@ el gate.
 mera existencia de la entidad; y la paridad entre superficies (R14/R15) obliga a que el
 kanban/lista capturen el mismo motivo que el detalle cuando el acto tiene consecuencias
 (programar vencimientos).
+
+---
+
+## DGG-161 · Otorgamiento manual por gerencia + gate de matrícula/legajo al cierre (2026-09-10)
+
+**Origen:** Pablo, sobre la card de moderación de gestoría (que informa el otorgamiento —
+matrícula, legajo, emisión, vencimiento — como aporte a moderar). Quiere paridad para que
+GERENCIA cargue el otorgamiento cuando no vino por gestoría, lo asiente en la ficha, genere
+el tracking visible al cliente, ofrezca cerrar+programar con esas fechas, y que **no se
+pueda cerrar como otorgada una matrícula/renovación sin la matrícula y el legajo cargados**.
+
+**Decisiones de Pablo (AskUserQuestion + aclaración):**
+- **Q1 — desde dónde:** *"Desde el trámite"* (espeja gestoría). Y siempre que sea
+  MATRICULACIÓN se cargan matrícula+legajo por primera vez; en RENOVACIÓN ya están en la
+  ficha (sin eso el trámite no se puede iniciar) → read-only; lo nuevo/obligatorio es el
+  vencimiento (y la emisión del nuevo ciclo). **El vencimiento es siempre obligatorio.**
+- **Q2 — trámite sin administración:** *"Bloquearlo también"* (una matrícula otorgada
+  siempre es de alguien).
+
+**Backend (mig 0466):**
+- **Gate:** rama (c) en `tramite_cerrar_exige_cobrado` (único trigger BEFORE UPDATE OF
+  estado que cubre detalle+kanban+lista+moderación). Bloquea el cierre con éxito
+  (`cierre_satisfactorio IS DISTINCT FROM false`) de `categoria IN ('matricula','renovacion')`
+  si la ficha del cliente no tiene matrícula **y** legajo (o no hay administración). Un
+  cierre Rechazada/Abandono (`=false`) pasa. CREATE OR REPLACE (sin DROP, R16 ok, R17 ok:
+  SECURITY DEFINER, la rama nueva sólo LEE).
+- **RPC `tracking_cargar_otorgamiento`** (staff, categoria matricula/renovacion, admin no
+  nula, vencimiento obligatorio): reusa `private.gg_sanitizar_otorgamiento` (≤40, fechas
+  finitas 1900-2200, venc≥emisión) y escribe las 4 columnas de la ficha con **COALESCE**
+  (campo vacío conserva). Setear `matricula_rpac_vencimiento` dispara
+  `trg_admin_matricula_venc_sync_fn` → alarma renovacion_rpac {45,30,15} sola.
+
+**Frontend:** botón **"Cargar otorgamiento"** en el detalle (isStaff, matrícula/renovación,
+admin, no cerrado/cancelado) → `CargarOtorgamientoModal` (4 campos; matrícula/legajo
+read-only en renovación). Al guardar encadena: **(3)** ofrece avisar al cliente → publica un
+avance visible (`agregarLinea` categoria `aprobacion`, `visible_cliente=true` → portal +
+email + push); **(4)** ofrece cerrar+programar → el asistente RPAC (DGG-159) abre
+**pre-llenado** con las fechas (props nuevas `fechaMatriculacionInicial`/`fechaVencimientoInicial`:
+matriculación=emisión, renovación=vencimiento del otorgamiento).
+
+**§6:** backend EJERCITADO e2e (rollback): el gate **bloquea** el cierre satisfactorio (true
+y NULL) sin matrícula/legajo, **deja pasar** el no-satisfactorio y el cierre con datos; la
+RPC **escribe** matrícula/legajo/vencimiento + crea **1** alarma renovacion_rpac + habilita
+el cierre; **R16** sin overloads. Frontend: 2 revisores adversariales + prueba en vivo
+(Vercel, gerente QA) — [se completa al cerrar el chunk].
+
+**Deudas anotadas:** (1) pre-fill del asistente con matriculación/emisión PASADA (otorgamiento
+retroactivo): `base+12m` de curso/renovación puede caer en el pasado y la validación
+"fecha futura" del asistente bloquea → hoy se resuelve editando a mano (fallback a próximo
+aniversario futuro pendiente). (2) Moderación abre el programador genérico incluso para RPAC
+matrícula (pre-DGG-159). (3) `TramiteDetailPage` legacy sin `cerrarConMotivo`/gate.
+
+**Takeaway:** un "gate en el único trigger de cierre" cubre las 4 superficies de una; y la
+carga del otorgamiento por gerencia reusa la infraestructura de la gestoría (mismas 4
+columnas, mismo sanitizador, mismo trigger de alarma) sin duplicar lógica.

@@ -511,6 +511,56 @@ export async function programarVencimientosRpac(
 }
 
 // ----------------------------------------------------------------------------
+// DGG-161 · Carga MANUAL del otorgamiento por gerencia (cuando no vino por
+// moderación de gestoría). Escribe las mismas 4 columnas de la ficha del cliente
+// que la gestoría (matrícula, legajo, emisión, vencimiento) con semántica COALESCE;
+// setear el vencimiento arma sola la alarma de renovación {45,30,15}. RPC
+// tracking_cargar_otorgamiento (mig 0466), staff-only, categoría matricula/renovacion.
+// ----------------------------------------------------------------------------
+export interface CargarOtorgamientoInput {
+  trackingId: string;
+  matricula?: string | null;
+  legajo?: string | null;
+  fechaEmision?: string | null;      // YYYY-MM-DD
+  fechaVencimiento: string;          // YYYY-MM-DD (obligatorio)
+}
+
+export interface OtorgamientoFicha {
+  administracionId: string;
+  matriculaRpac: string | null;
+  legajoRpac: string | null;
+  matriculaRpacFecha: string | null;        // YYYY-MM-DD
+  matriculaRpacVencimiento: string | null;  // YYYY-MM-DD
+}
+
+export async function cargarOtorgamiento(
+  input: CargarOtorgamientoInput,
+): Promise<ApiResponse<OtorgamientoFicha>> {
+  const { data, error } = await supabase.rpc('tracking_cargar_otorgamiento', {
+    p_tramite_id: input.trackingId,
+    p_matricula: input.matricula ?? undefined,
+    p_legajo: input.legajo ?? undefined,
+    p_fecha_emision: input.fechaEmision ?? undefined,
+    p_fecha_vencimiento: input.fechaVencimiento,
+  });
+  if (error) return fail('TRACKING_CARGAR_OTORGAMIENTO', error.message, error);
+  const r = (data ?? {}) as {
+    administracion_id?: string;
+    matricula_rpac?: string | null;
+    legajo_rpac?: string | null;
+    matricula_rpac_fecha?: string | null;
+    matricula_rpac_vencimiento?: string | null;
+  };
+  return ok({
+    administracionId: r.administracion_id ?? '',
+    matriculaRpac: r.matricula_rpac ?? null,
+    legajoRpac: r.legajo_rpac ?? null,
+    matriculaRpacFecha: r.matricula_rpac_fecha ?? null,
+    matriculaRpacVencimiento: r.matricula_rpac_vencimiento ?? null,
+  });
+}
+
+// ----------------------------------------------------------------------------
 // 2.G · EDITAR cronograma de un vencimiento ya programado (modo edit del modal)
 // Actualiza fecha + offsets + notificar_cliente. Pasa por la API de
 // vencimientos (regla 4). Las alarmas se re-planifican en el próximo tick del

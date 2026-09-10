@@ -10375,6 +10375,16 @@ export type Database = {
         }
         Returns: string
       }
+      tracking_cargar_otorgamiento: {
+        Args: {
+          p_fecha_emision?: string
+          p_fecha_vencimiento?: string
+          p_legajo?: string
+          p_matricula?: string
+          p_tramite_id: string
+        }
+        Returns: Json
+      }
       tracking_cerrar: {
         Args: {
           p_documento_final_url?: string

@@ -221,6 +221,13 @@ export function TramitesListPage() {
     // resto de los cierres siguen directos por el hook.
     cerrarConMotivo: (t) => {
       const row = t as TramiteListItem;
+      // DGG-161 · matrícula/renovación SIEMPRE por el diálogo de motivo (aun sin
+      // administración): el gate del cierre exige matrícula+legajo para cerrar como
+      // otorgada, y el diálogo permite cerrar como rechazado/abandono (que sí pasa).
+      if (row.categoria === 'matricula' || row.categoria === 'renovacion') {
+        setCerrarTramite(row);
+        return true;
+      }
       if (!row.administracion_id) return false;
       const renueva =
         esServicioRpacMatricula(row.servicio_codigo) || row.servicio_vigencia_meses != null;
@@ -629,8 +636,14 @@ export function TramitesListPage() {
           onCerrado={(info) => {
             void load();
             const row = cerrarTramite;
-            if (info.satisfactorio) {
-              if (esServicioRpacMatricula(row.servicio_codigo)) setProgramarRpacTramite(row);
+            // DGG-161 · matrícula/renovación → asistente RPAC (aunque el servicio no sea rpac_*).
+            if (info.satisfactorio && row.administracion_id) {
+              if (
+                esServicioRpacMatricula(row.servicio_codigo) ||
+                row.categoria === 'matricula' ||
+                row.categoria === 'renovacion'
+              )
+                setProgramarRpacTramite(row);
               else setProgramarTramite(row);
             }
           }}

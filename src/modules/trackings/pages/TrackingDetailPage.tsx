@@ -21,6 +21,7 @@ import {
   CalendarClock,
   CalendarRange,
   Ban,
+  Award,
   CheckCircle2,
   GraduationCap,
   X,
@@ -92,6 +93,7 @@ import {
   type TrackingVencimientoLigado,
   type ModeracionPendiente,
   type DerivacionGestoria,
+  type OtorgamientoFicha,
 } from '@/services/api/trackings';
 import { ModeracionCard } from './ModeracionPage';
 import { LineaTrackingCard } from '../components/LineaTrackingCard';
@@ -109,6 +111,7 @@ import { EstadosConfigManager } from '../components/EstadosConfigManager';
 import { CategoriasConfigManager } from '../components/CategoriasConfigManager';
 import { ProgramarVencimientoModal } from '../components/ProgramarVencimientoModal';
 import { ProgramarVencimientosRpacModal } from '../components/ProgramarVencimientosRpacModal';
+import { CargarOtorgamientoModal } from '../components/CargarOtorgamientoModal';
 import { CerrarTramiteDialog } from '../components/CerrarTramiteDialog';
 import { useCancelarTramite } from '@/modules/tramites/lib/useAvanzarTramite';
 import { ReabrirTramiteDialog } from '../components/ReabrirTramiteDialog';
@@ -187,6 +190,9 @@ export function TrackingDetailPage() {
   // DGG-159 · asistente de vencimientos RPAC (renovación + DDJJ + curso) para
   // inscripción/renovación; el genérico (programarOpen) queda para el resto.
   const [programarRpacOpen, setProgramarRpacOpen] = useState(false);
+  // DGG-161 · carga manual del otorgamiento + pre-fill del asistente de vencimientos.
+  const [cargarOtorgOpen, setCargarOtorgOpen] = useState(false);
+  const [otorgPrefill, setOtorgPrefill] = useState<{ matriculacion: string; vencimiento: string } | null>(null);
   // DGG-38 · Modal de cierre con tabs "Subir archivo" / "Pegar URL".
   // Reemplaza el `usePrompt()` simple que sólo aceptaba URL.
   const [cerrarOpen, setCerrarOpen] = useState(false);
@@ -637,15 +643,24 @@ export function TrackingDetailPage() {
   // RPAC (asistente de 3 fechas) o define vigencia_meses (programador genérico).
   // Los que no renuevan (formación inicial, plataforma de gestión, capacitaciones
   // gratuitas) no ofrecen programar.
-  function servicioRenueva(): boolean {
+  // DGG-161 · un trámite de categoría matrícula/renovación ES un flujo RPAC de
+  // matrícula aunque su servicio no tenga código rpac_* (p. ej. creado a mano sin
+  // servicio_id): renueva y abre el asistente RPAC de 3 fechas (con el pre-fill del
+  // otorgamiento). Así el botón (gateado por categoría) y la cadena quedan alineados.
+  function esFlujoRpacMatricula(): boolean {
     return (
       esServicioRpacMatricula(data?.servicio?.codigo) ||
-      data?.servicio?.vigencia_meses != null
+      data?.categoria === 'matricula' ||
+      data?.categoria === 'renovacion'
     );
   }
 
+  function servicioRenueva(): boolean {
+    return esFlujoRpacMatricula() || data?.servicio?.vigencia_meses != null;
+  }
+
   function abrirProgramadorVencimiento() {
-    if (esServicioRpacMatricula(data?.servicio?.codigo)) {
+    if (esFlujoRpacMatricula()) {
       setProgramarRpacOpen(true);
     } else {
       setProgramarOpen(true);
@@ -664,6 +679,63 @@ export function TrackingDetailPage() {
     } else {
       toast.success('Trámite cerrado');
     }
+  }
+
+  // DGG-161 · tras cargar el otorgamiento manual: refresca la ficha y ofrece
+  // (3) avisar al cliente con un avance visible, y (4) cerrar + programar los
+  // próximos vencimientos con estas fechas (pre-fill del asistente RPAC).
+  async function handleOtorgamientoCargado(
+    ficha: OtorgamientoFicha,
+    fechas: { emision: string; vencimiento: string },
+  ) {
+    if (!data) return;
+    void load();
+    setOtorgPrefill({ matriculacion: fechas.emision || '', vencimiento: fechas.vencimiento });
+
+    // (3) Ofrecer avisar al cliente: avance visible en el portal + email + push.
+    const avisar = await confirm({
+      title: 'Avisar al cliente',
+      message:
+        'Publicar un avance visible en el portal del cliente (con email y push) informando el otorgamiento de la matrícula.',
+      confirmLabel: 'Publicar aviso',
+      cancelLabel: 'Ahora no',
+    });
+    if (avisar) {
+      const partes = [
+        ficha.matriculaRpac ? `N° ${ficha.matriculaRpac}` : null,
+        ficha.legajoRpac ? `legajo ${ficha.legajoRpac}` : null,
+      ]
+        .filter(Boolean)
+        .join(' · ');
+      const venc = ficha.matriculaRpacVencimiento
+        ? ` Vigente hasta el ${formatDateShort(ficha.matriculaRpacVencimiento)}.`
+        : '';
+      const desc = `Matrícula RPAC otorgada${partes ? ` (${partes})` : ''}.${venc}`;
+      const res = await agregarLinea(data.id, {
+        categoria: 'aprobacion',
+        descripcion: desc,
+        visible_cliente: true,
+      });
+      if (res.ok) {
+        toast.success('Aviso publicado · el cliente fue notificado');
+        void load();
+      } else {
+        toast.error('No pudimos publicar el aviso', { description: humanizeError(res.error) });
+      }
+    }
+
+    // (4) Ofrecer cerrar + programar. El cierre pasa por el diálogo de motivo
+    // (elegí "otorgada") → el asistente RPAC abre pre-llenado con estas fechas.
+    const cerrar = await confirm({
+      title: 'Cerrar y programar',
+      message:
+        'Cerrar el trámite como otorgado y programar los próximos vencimientos (renovación, DDJJ y curso) con estas fechas.',
+      confirmLabel: 'Cerrar y programar',
+      cancelLabel: 'Ahora no',
+    });
+    // Si se declina, no dejamos el pre-fill colgado (evita reusarlo en un cierre posterior).
+    if (cerrar) setCerrarOpen(true);
+    else setOtorgPrefill(null);
   }
 
   if (!loading && errorMsg && !data) {
@@ -1055,6 +1127,15 @@ export function TrackingDetailPage() {
                 title={`Avisar a la gestoría (${derivacion.destinatario_email}) que hay información nueva`}
               >
                 <Send className="h-4 w-4" /> Avisar a la gestoría
+              </Button>
+            )}
+            {/* DGG-161 · cargar el otorgamiento manualmente (matrícula/legajo/fechas)
+                cuando no vino por moderación de gestoría → asienta la ficha y encadena
+                aviso al cliente + cierre + programación. Sólo matrícula/renovación. */}
+            {isStaff && data.administracion_id && data.estado !== 'cerrado' && data.estado !== 'cancelado'
+              && (data.categoria === 'matricula' || data.categoria === 'renovacion') && (
+              <Button variant="secondary" onClick={() => setCargarOtorgOpen(true)}>
+                <Award className="h-4 w-4" /> Cargar otorgamiento
               </Button>
             )}
             {isStaff && data.estado !== 'cerrado' && (
@@ -1556,14 +1637,31 @@ export function TrackingDetailPage() {
         }
       />
 
-      {/* DGG-159 · asistente de vencimientos RPAC (renovación + DDJJ + curso). */}
+      {/* DGG-159 · asistente de vencimientos RPAC (renovación + DDJJ + curso).
+          DGG-161 · pre-llenado con las fechas del otorgamiento recién cargado. */}
       <ProgramarVencimientosRpacModal
         open={programarRpacOpen}
-        onClose={() => setProgramarRpacOpen(false)}
+        onClose={() => { setProgramarRpacOpen(false); setOtorgPrefill(null); }}
         trackingId={data.id}
         trackingTitulo={data.titulo}
-        onProgramado={() => void load()}
+        fechaMatriculacionInicial={otorgPrefill?.matriculacion || undefined}
+        fechaVencimientoInicial={otorgPrefill?.vencimiento || undefined}
+        onProgramado={() => { void load(); setOtorgPrefill(null); }}
       />
+
+      {/* DGG-161 · carga manual del otorgamiento (matrícula/legajo/emisión/vencimiento). */}
+      {(data.categoria === 'matricula' || data.categoria === 'renovacion') && (
+        <CargarOtorgamientoModal
+          open={cargarOtorgOpen}
+          onClose={() => setCargarOtorgOpen(false)}
+          trackingId={data.id}
+          categoria={data.categoria as 'matricula' | 'renovacion'}
+          trackingTitulo={data.titulo}
+          fichaMatricula={data.administracion?.matricula_rpac ?? null}
+          fichaLegajo={data.administracion?.legajo_rpac ?? null}
+          onCargado={handleOtorgamientoCargado}
+        />
+      )}
 
       {/* DGG-142 E6 · modal TRAMIX con el legajo de la ficha del cliente. */}
       <TramixConsultaModal
