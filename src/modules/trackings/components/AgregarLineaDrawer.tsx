@@ -32,6 +32,12 @@ export interface AgregarLineaDrawerProps {
   estados: TrackingEstadoConfigRow[];
   permiteCambiarEstado: boolean;  // staff = true
   onSaved: () => void;
+  // DGG-163 · pre-carga opcional al abrir (p. ej. el aviso de otorgamiento: JL
+  // edita el texto sugerido). Si `initialDescripcion` viene definido, al abrir se
+  // siembra la descripción + "¿el cliente lo ve?" con estos valores.
+  initialDescripcion?: string;
+  initialVisibleCliente?: boolean;
+  initialCategoria?: string;
 }
 
 export function AgregarLineaDrawer({
@@ -42,6 +48,9 @@ export function AgregarLineaDrawer({
   estados,
   permiteCambiarEstado,
   onSaved,
+  initialDescripcion,
+  initialVisibleCliente,
+  initialCategoria,
 }: AgregarLineaDrawerProps) {
   const [categoria, setCategoria] = useState<string>(categorias[0]?.slug ?? 'seguimiento_interno');
   const [descripcion, setDescripcion] = useState('');
@@ -63,10 +72,38 @@ export function AgregarLineaDrawer({
   const [alarmaPedidoDias, setAlarmaPedidoDias] = useState('');
   const [saving, setSaving] = useState(false);
 
-  // §6 DGG-149 (C6): el drawer está siempre montado (sin key). Sin esto, elegir
-  // archivos, cerrar sin guardar y reabrir dejaba los adjuntos staged del intento
-  // anterior — y podían enviarse al cliente sin querer. Al cerrar, se descartan.
-  useEffect(() => { if (!open) setArchivos([]); }, [open]);
+  // §6 DGG-149 (C6) + DGG-163 B·G1: el drawer está siempre montado (sin key).
+  // Al cerrar (guardado o cancelado) descartar TODO el estado staged, no sólo los
+  // archivos. Antes sólo se limpiaban los adjuntos; tras sumar la pre-carga del
+  // aviso de otorgamiento (descripcion + visible_cliente=true + categoria), cancelar
+  // ese aviso dejaba el texto y el tilde "¿lo ve el cliente?" activos para la
+  // próxima apertura normal de "Agregar línea" → riesgo de publicarle al cliente
+  // una nota pensada como interna (email + push). Se resetea todo al cerrar.
+  useEffect(() => {
+    if (!open) {
+      setArchivos([]);
+      setDescripcion('');
+      setVisibleCliente(false);
+      setCategoria(categorias[0]?.slug ?? 'seguimiento_interno');
+      setEstadoAsociado('');
+      setArchivosTxt('');
+      setAlertaEn('');
+      setRequiereRespuesta(false);
+      setAlarmaPedidoDias('');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  // DGG-163 · al ABRIR con pre-carga (aviso de otorgamiento), sembrar el texto
+  // sugerido + visibilidad para que JL lo edite. Sólo cuando viene la pre-carga.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (open && initialDescripcion !== undefined) {
+      setDescripcion(initialDescripcion);
+      setVisibleCliente(initialVisibleCliente ?? false);
+      if (initialCategoria) setCategoria(initialCategoria);
+    }
+  }, [open]);
 
   function reset() {
     setCategoria(categorias[0]?.slug ?? 'seguimiento_interno');

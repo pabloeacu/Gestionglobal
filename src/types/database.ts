@@ -10475,6 +10475,7 @@ export type Database = {
           servicio_codigo: string
           servicio_nombre: string
           servicio_vigencia_meses: number
+          tramite_categoria: string
           tramite_codigo: string
           tramite_id: string
         }[]

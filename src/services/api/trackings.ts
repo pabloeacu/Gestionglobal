@@ -845,6 +845,9 @@ export interface ModeracionPendiente {
   linea_id: string;
   tramite_id: string;
   tramite_codigo: string;
+  // DGG-163 · B: categoría REAL del trámite (mig 0468) para elegir los motivos
+  // de cierre correctos al concatenar el cierre del gerente desde la cola.
+  tramite_categoria: string;
   servicio_nombre: string | null;
   cliente_nombre: string | null;
   gestor_label: string | null;

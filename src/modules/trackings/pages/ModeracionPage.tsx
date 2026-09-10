@@ -28,6 +28,8 @@ import {
 import { TRAMITE_ESTADOS, TRAMITE_ESTADO_LABEL, type TramiteEstado } from '@/services/api/tramites';
 import { crearPedidoDoc } from '@/services/api/tramitePedidosDoc';
 import { ProgramarVencimientoModal } from '../components/ProgramarVencimientoModal';
+import { ProgramarVencimientosRpacModal } from '../components/ProgramarVencimientosRpacModal';
+import { CerrarTramiteDialog } from '../components/CerrarTramiteDialog';
 
 export function ModeracionPage() {
   const [items, setItems] = useState<ModeracionPendiente[]>([]);
@@ -41,6 +43,20 @@ export function ModeracionPage() {
     tramiteId: string;
     codigo: string;
     vigenciaMeses: number | null;
+  } | null>(null);
+  // DGG-163 · B: el otorgamiento de la gestoría se concatena — el GERENTE cierra
+  // por diálogo de motivo y programa las 3 fechas RPAC pre-llenadas (la gestoría
+  // nunca cierra). Estados a nivel página (la card se desmonta al recargar).
+  const [cerrarOtorg, setCerrarOtorg] = useState<{
+    tramiteId: string;
+    codigo: string;
+    categoria: 'matricula' | 'renovacion';
+    prefill: { matriculacion: string; vencimiento: string };
+  } | null>(null);
+  const [programarRpac, setProgramarRpac] = useState<{
+    tramiteId: string;
+    codigo: string;
+    prefill: { matriculacion: string; vencimiento: string };
   } | null>(null);
 
   async function load() {
@@ -82,11 +98,25 @@ export function ModeracionPage() {
               <ModeracionCard
                 item={it}
                 onResuelto={() => void load()}
-                // DGG-160 · sólo ofrecer programar si el servicio renueva (tiene
-                // vigencia). Deuda documentada: rutear inscripción/renovación RPAC
-                // al asistente de 3 fechas (hoy abre el genérico) cuidando de no
-                // duplicar la renovación que ya crea el trigger de la ficha.
+                // DGG-160 · cierre SIN otorgamiento que renueva → programador genérico.
                 onCerradoTramite={(t) => { if (t.vigenciaMeses != null) setProgramar(t); }}
+                // DGG-163 · B: otorgamiento de gestoría → el gerente concatena el
+                // cierre por diálogo + el asistente RPAC de 3 fechas pre-llenado.
+                onOtorgamientoParaCerrar={(t) => {
+                  // Categoría REAL del trámite (mig 0468). Fallback a 'matricula'
+                  // sólo por seguridad de tipos: el otorgamiento sólo existe en
+                  // trámites matrícula/renovación (la card no ofrece el bloque en
+                  // otras categorías), así que el fallback es inalcanzable en la
+                  // práctica pero mantiene el union cerrado.
+                  const categoria: 'matricula' | 'renovacion' =
+                    t.categoria === 'renovacion' ? 'renovacion' : 'matricula';
+                  setCerrarOtorg({
+                    tramiteId: t.tramiteId,
+                    codigo: t.codigo,
+                    categoria,
+                    prefill: { matriculacion: t.fechaEmision ?? '', vencimiento: t.fechaVencimiento ?? '' },
+                  });
+                }}
               />
             </li>
           ))}
@@ -109,17 +139,63 @@ export function ModeracionPage() {
           onProgramado={() => setProgramar(null)}
         />
       )}
+
+      {/* DGG-163 · B: cierre por diálogo de motivo del otorgamiento (lo hace el
+          gerente) → al cerrar satisfactorio, asistente RPAC de 3 fechas pre-llenado
+          con las fechas del otorgamiento (idempotente con la alarma ya asentada). */}
+      {cerrarOtorg && (
+        <CerrarTramiteDialog
+          open
+          onClose={() => setCerrarOtorg(null)}
+          tramiteId={cerrarOtorg.tramiteId}
+          categoria={cerrarOtorg.categoria}
+          onCerrado={(info) => {
+            void load();
+            if (info.satisfactorio) {
+              setProgramarRpac({
+                tramiteId: cerrarOtorg.tramiteId,
+                codigo: cerrarOtorg.codigo,
+                prefill: cerrarOtorg.prefill,
+              });
+            }
+          }}
+        />
+      )}
+      {programarRpac && (
+        <ProgramarVencimientosRpacModal
+          key={programarRpac.tramiteId}
+          open
+          onClose={() => setProgramarRpac(null)}
+          trackingId={programarRpac.tramiteId}
+          trackingTitulo={programarRpac.codigo}
+          fechaMatriculacionInicial={programarRpac.prefill.matriculacion || undefined}
+          fechaVencimientoInicial={programarRpac.prefill.vencimiento || undefined}
+          onProgramado={() => setProgramarRpac(null)}
+        />
+      )}
     </div>
   );
 }
 
-export function ModeracionCard({ item, onResuelto, onCerradoTramite }: {
+export function ModeracionCard({ item, onResuelto, onCerradoTramite, onOtorgamientoParaCerrar }: {
   item: ModeracionPendiente;
   onResuelto: () => void;
   /** DGG-142 E3 (V7) · avisa al host que la publicación CERRÓ el trámite, para
    *  ofrecer "Programar próximo vencimiento". Vive en el host (página o detail)
    *  porque esta card se desmonta al salir de la cola de pendientes. */
   onCerradoTramite?: (t: { tramiteId: string; codigo: string; vigenciaMeses: number | null }) => void;
+  /** DGG-163 · B: el gerente publica el OTORGAMIENTO de la gestoría (que sólo
+   *  asienta la ficha; la gestoría NUNCA cierra) y el host CONCATENA el cierre
+   *  por diálogo de motivo + el asistente RPAC de 3 fechas pre-llenado. */
+  onOtorgamientoParaCerrar?: (t: {
+    tramiteId: string;
+    codigo: string;
+    categoria: string;
+    servicioCodigo: string | null;
+    administracionId: string | null;
+    fechaEmision: string | null;
+    fechaVencimiento: string | null;
+  }) => void;
 }) {
   const confirm = useConfirm();
   const prompt = usePrompt();
@@ -188,11 +264,36 @@ export function ModeracionCard({ item, onResuelto, onCerradoTramite }: {
       toast.error('La fecha de vencimiento de la matrícula no puede ser anterior a la de emisión.');
       return;
     }
+    // §6 A·G4: asentar un otorgamiento y a la vez CANCELAR el trámite es
+    // contradictorio (la matrícula se otorgó, no se canceló). Se bloquea.
+    if (mandaOtorg && estado === 'cancelado') {
+      toast.error('No se puede asentar un otorgamiento y cancelar el trámite a la vez. Elegí "Cerrado" para darla por otorgada, o publicá sin asentar en la ficha.');
+      return;
+    }
+    // DGG-163 · B: para matrícula/renovación la gestoría NUNCA cierra — sólo
+    // entrega datos. Si el gerente elige "Cerrado", el cierre NO lo hace la RPC:
+    // publicar SÓLO asienta la ficha y el host CONCATENA el cierre por el diálogo
+    // de motivo + el asistente RPAC de 3 fechas. Por eso, en esas categorías,
+    // NUNCA mandamos estado 'cerrado' a la RPC.
+    // §6 A·G3: antes esto sólo aplicaba si venía otorgamiento (`mandaOtorg`); una
+    // renovación de un ya-matriculado con comprobante cobrado podía cerrar directo
+    // por la RPC (sin motivo/cierre_satisfactorio/línea de cierre), saltándose el
+    // diálogo. Ahora se suprime el cierre por la RPC para TODA matrícula/renovación.
+    const esMatriculaOReno =
+      item.tramite_categoria === 'matricula' || item.tramite_categoria === 'renovacion';
+    const suprimirCierre = accion === 'publicar' && estado === 'cerrado' && esMatriculaOReno;
+    // §6 A·G1: sólo ofrecemos el cierre concatenado si, tras el asiento, la ficha
+    // va a tener matrícula Y legajo (el gate DGG-161 exige ambos). Un otorgamiento
+    // parcial se publica igual, pero no ofrece un cierre que rebotaría (callejón
+    // sin salida en el diálogo).
+    const habraMatricula = Boolean(otorgEdit.matricula.trim() || item.ficha_matricula_rpac);
+    const habraLegajo = Boolean(otorgEdit.legajo.trim() || item.ficha_legajo_rpac);
+    const puedeCerrar = habraMatricula && habraLegajo;
     setBusy(accion);
     const res = await moderarGestorAvance(item.linea_id, accion, {
       descripcion: (accion !== 'descartar' && editado) ? texto.trim() : undefined,
       archivosUrls: (accion !== 'descartar' && editado) ? archivos : undefined,
-      estadoAsociado: accion === 'publicar' && estado ? estado : undefined,
+      estadoAsociado: accion === 'publicar' && estado && !suprimirCierre ? estado : undefined,
       motivo: extra.motivo,
       // §6 B GAP-1 (cinturón): sólo viajan fechas ISO estrictas — cualquier
       // literal raro que hubiera sobrevivido en el estado se descarta acá y
@@ -230,26 +331,33 @@ export function ModeracionCard({ item, onResuelto, onCerradoTramite }: {
     //     FROM) → se sigue ofreciendo el modal (adopta la fila canónica si
     //     existe; la crea si no — sin duplicados, cerrar_ciclo v4);
     // (b) fecha PASADA: el sync la nace 'vencido' sin alarma → warning honesto.
-    if (accion === 'publicar' && estado === 'cerrado' && item.administracion_id) {
-      const fechaAplicada = mandaOtorg ? otorgEdit.fecha_vencimiento : '';
-      const cambiaFicha =
-        !!fechaAplicada && fechaAplicada !== (item.ficha_matricula_rpac_vencimiento ?? '');
-      if (cambiaFicha && fechaAplicada > hoyISO()) {
-        toast.info('Próximo vencimiento agendado', {
-          description: 'La alarma 45/30/15 al cliente quedó programada desde el otorgamiento.',
-        });
-      } else if (cambiaFicha) {
-        toast.warning('Fecha de vencimiento ya pasada', {
-          description:
-            'La ficha quedó con la matrícula VENCIDA; no se agenda alarma de aviso al cliente.',
-        });
-      } else {
-        onCerradoTramite?.({
-          tramiteId: item.tramite_id,
-          codigo: item.tramite_codigo,
-          vigenciaMeses: item.servicio_vigencia_meses,
-        });
-      }
+    if (suprimirCierre && puedeCerrar) {
+      // B · la RPC ya asentó la ficha (si vino otorgamiento; dispara la alarma de
+      // renovación). El GERENTE concatena: cerrar por diálogo de motivo → asistente
+      // RPAC de 3 fechas pre-llenado con las fechas del otorgamiento (idempotente:
+      // adopta la fila de renovación ya creada por el sync, no la duplica).
+      onOtorgamientoParaCerrar?.({
+        tramiteId: item.tramite_id,
+        codigo: item.tramite_codigo,
+        categoria: item.tramite_categoria,
+        servicioCodigo: item.servicio_codigo,
+        administracionId: item.administracion_id,
+        fechaEmision: /^\d{4}-\d{2}-\d{2}$/.test(otorgEdit.fecha_emision) ? otorgEdit.fecha_emision : null,
+        fechaVencimiento: /^\d{4}-\d{2}-\d{2}$/.test(otorgEdit.fecha_vencimiento) ? otorgEdit.fecha_vencimiento : null,
+      });
+    } else if (suprimirCierre && !puedeCerrar) {
+      // §6 A·G1: matrícula/renovación con "Cerrado" pero la ficha aún NO tendrá
+      // matrícula+legajo (otorgamiento parcial o ausente). Se publicó/asentó lo que
+      // vino, pero no ofrecemos un cierre que el gate DGG-161 rebotaría.
+      toast.info('Publicado. Para cerrar como otorgada faltan la matrícula y el legajo en la ficha del cliente.');
+    } else if (accion === 'publicar' && estado === 'cerrado' && item.administracion_id) {
+      // Cierre de categorías NO matrícula/renovación (aporte informativo que además
+      // cierra el trámite): la RPC cerró; ofrecemos el programador genérico.
+      onCerradoTramite?.({
+        tramiteId: item.tramite_id,
+        codigo: item.tramite_codigo,
+        vigenciaMeses: item.servicio_vigencia_meses,
+      });
     }
     onResuelto();
   }

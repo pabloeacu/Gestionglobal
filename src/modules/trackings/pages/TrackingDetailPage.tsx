@@ -193,6 +193,10 @@ export function TrackingDetailPage() {
   // DGG-161 · carga manual del otorgamiento + pre-fill del asistente de vencimientos.
   const [cargarOtorgOpen, setCargarOtorgOpen] = useState(false);
   const [otorgPrefill, setOtorgPrefill] = useState<{ matriculacion: string; vencimiento: string } | null>(null);
+  // DGG-163 · C: el aviso abre el editor pre-cargado (JL edita). El "cerrar +
+  // programar" se encadena tras cerrar el editor (flag), no antes.
+  const [avisoSugerido, setAvisoSugerido] = useState<string | null>(null);
+  const [pendingCerrarProgram, setPendingCerrarProgram] = useState(false);
   // DGG-38 · Modal de cierre con tabs "Subir archivo" / "Pegar URL".
   // Reemplaza el `usePrompt()` simple que sólo aceptaba URL.
   const [cerrarOpen, setCerrarOpen] = useState(false);
@@ -399,6 +403,9 @@ export function TrackingDetailPage() {
         linea_id: l.id,
         tramite_id: data.id,
         tramite_codigo: data.codigo ?? '',
+        // DGG-163 · B (mig 0468): categoría real del trámite, mismo shape que
+        // la RPC de la cola. Acá igual el callback la ignora (reusa data.categoria).
+        tramite_categoria: data.categoria,
         servicio_nombre: data.servicio?.nombre ?? data.titulo ?? null,
         // §6 A#13: mismo fallback que la RPC de la cola (solicitante cuando
         // el trámite no tiene administración vinculada).
@@ -677,6 +684,10 @@ export function TrackingDetailPage() {
       toast.success('Trámite cerrado · programá el próximo vencimiento');
       abrirProgramadorVencimiento();
     } else {
+      // §6 A·G2: cierre no-satisfactorio o servicio que no renueva → no se abre el
+      // asistente RPAC. Limpiar el pre-fill del otorgamiento para no arrastrar
+      // fechas rancias si luego se abre el asistente por el botón "programar".
+      setOtorgPrefill(null);
       toast.success('Trámite cerrado');
     }
   }
@@ -692,40 +703,42 @@ export function TrackingDetailPage() {
     void load();
     setOtorgPrefill({ matriculacion: fechas.emision || '', vencimiento: fechas.vencimiento });
 
-    // (3) Ofrecer avisar al cliente: avance visible en el portal + email + push.
+    // (3) Ofrecer avisar al cliente ABRIENDO EL EDITOR pre-cargado (DGG-163 · C:
+    // JL edita el texto sugerido). El cierre + programación se encadena DESPUÉS de
+    // cerrar el editor (pendingCerrarProgram); si no avisa, se ofrece directo.
     const avisar = await confirm({
       title: 'Avisar al cliente',
       message:
-        'Publicar un avance visible en el portal del cliente (con email y push) informando el otorgamiento de la matrícula.',
-      confirmLabel: 'Publicar aviso',
-      cancelLabel: 'Ahora no',
+        'Abrir el editor para publicar un avance visible en el portal (con email y push). Trae el texto sugerido, editable.',
+      confirmLabel: 'Abrir aviso',
+      cancelLabel: 'No avisar',
     });
     if (avisar) {
-      const partes = [
-        ficha.matriculaRpac ? `N° ${ficha.matriculaRpac}` : null,
-        ficha.legajoRpac ? `legajo ${ficha.legajoRpac}` : null,
-      ]
-        .filter(Boolean)
-        .join(' · ');
-      const venc = ficha.matriculaRpacVencimiento
-        ? ` Vigente hasta el ${formatDateShort(ficha.matriculaRpacVencimiento)}.`
-        : '';
-      const desc = `Matrícula RPAC otorgada${partes ? ` (${partes})` : ''}.${venc}`;
-      const res = await agregarLinea(data.id, {
-        categoria: 'aprobacion',
-        descripcion: desc,
-        visible_cliente: true,
-      });
-      if (res.ok) {
-        toast.success('Aviso publicado · el cliente fue notificado');
-        void load();
-      } else {
-        toast.error('No pudimos publicar el aviso', { description: humanizeError(res.error) });
-      }
+      setAvisoSugerido(textoAvisoOtorgamiento(ficha));
+      setPendingCerrarProgram(true);
+      setDrawerOpen(true);
+      return;
     }
+    await ofrecerCerrarYProgramar();
+  }
 
-    // (4) Ofrecer cerrar + programar. El cierre pasa por el diálogo de motivo
-    // (elegí "otorgada") → el asistente RPAC abre pre-llenado con estas fechas.
+  // Texto sugerido del aviso de otorgamiento (editable por JL en el editor).
+  function textoAvisoOtorgamiento(ficha: OtorgamientoFicha): string {
+    const partes = [
+      ficha.matriculaRpac ? `N° ${ficha.matriculaRpac}` : null,
+      ficha.legajoRpac ? `legajo ${ficha.legajoRpac}` : null,
+    ]
+      .filter(Boolean)
+      .join(' · ');
+    const venc = ficha.matriculaRpacVencimiento
+      ? ` Vigente hasta el ${formatDateShort(ficha.matriculaRpacVencimiento)}.`
+      : '';
+    return `Matrícula RPAC otorgada${partes ? ` (${partes})` : ''}.${venc}`;
+  }
+
+  // (4) Ofrecer cerrar + programar. El cierre pasa por el diálogo de motivo
+  // (elegí "otorgada") → el asistente RPAC abre pre-llenado con estas fechas.
+  async function ofrecerCerrarYProgramar() {
     const cerrar = await confirm({
       title: 'Cerrar y programar',
       message:
@@ -733,7 +746,6 @@ export function TrackingDetailPage() {
       confirmLabel: 'Cerrar y programar',
       cancelLabel: 'Ahora no',
     });
-    // Si se declina, no dejamos el pre-fill colgado (evita reusarlo en un cierre posterior).
     if (cerrar) setCerrarOpen(true);
     else setOtorgPrefill(null);
   }
@@ -893,6 +905,18 @@ export function TrackingDetailPage() {
                     // programar si el servicio renueva.
                     if (data?.administracion_id && servicioRenueva()) abrirProgramadorVencimiento();
                   }}
+                  // DGG-163 · B: la gestoría NUNCA cierra. Cuando el gerente
+                  // publica el otorgamiento (que sólo asienta la ficha), acá
+                  // reusamos la MISMA cadena del detalle: sembrar el pre-fill de
+                  // las 3 fechas RPAC y ofrecer "cerrar + programar" por el
+                  // diálogo de motivo (idéntico al alta manual DGG-161).
+                  onOtorgamientoParaCerrar={(t) => {
+                    setOtorgPrefill({
+                      matriculacion: t.fechaEmision ?? '',
+                      vencimiento: t.fechaVencimiento ?? '',
+                    });
+                    void ofrecerCerrarYProgramar();
+                  }}
                 />
               </li>
             ))}
@@ -1038,7 +1062,7 @@ export function TrackingDetailPage() {
           </div>
 
           <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
-            <Button onClick={() => setDrawerOpen(true)}>
+            <Button onClick={() => { setAvisoSugerido(null); setPendingCerrarProgram(false); setDrawerOpen(true); }}>
               <Plus className="h-4 w-4" /> Agregar línea
             </Button>
             {/* JL 2 · obs 1 · atajo para emitir el comprobante sin volver a
@@ -1542,12 +1566,24 @@ export function TrackingDetailPage() {
 
       <AgregarLineaDrawer
         open={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
+        onClose={() => {
+          setDrawerOpen(false);
+          // DGG-163 · si el editor se abrió como el "aviso" del otorgamiento, al
+          // cerrarlo (haya guardado o no) seguimos con cerrar + programar.
+          if (pendingCerrarProgram) {
+            setPendingCerrarProgram(false);
+            setAvisoSugerido(null);
+            void ofrecerCerrarYProgramar();
+          }
+        }}
         trackingId={data.id}
         categorias={data.categorias_disponibles}
         estados={data.estados_disponibles}
         permiteCambiarEstado={isStaff}
         onSaved={() => void load()}
+        initialDescripcion={avisoSugerido ?? undefined}
+        initialVisibleCliente={avisoSugerido ? true : undefined}
+        initialCategoria={avisoSugerido ? 'aprobacion' : undefined}
       />
 
       {/* DGG-135 · aviso a la gestoría con mensaje + adjuntos opcionales */}

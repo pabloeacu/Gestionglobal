@@ -5880,3 +5880,52 @@ trámite roto. §6: rollback-test del patch + no-corrupción (mapeos previos int
 matriculación e2e exitosa. **La alumna ya puede matricularse (Reintentar).**
 
 **Deuda:** el mapeo slug→categoria es hardcodeado; lo robusto sería `servicios.es_curso`.
+
+## DGG-163 · La gestoría nunca cierra: el otorgamiento se CONCATENA al cierre del gerente + aviso editable (2026-09-10)
+
+Pedido de Pablo (B/C sobre [[DGG-161]]): **"Gestoría JAMÁS cierra un trámite. Lo que hace es
+entregarnos datos."** Cuando el gerente modera y publica el otorgamiento de la gestoría (matrícula,
+legajo, fechas), la operación de cierre **no debe quedar en manos de otro usuario que no sea el
+gerente**: hay que facilitar la experiencia concatenando las acciones con ventanas modales
+("¿Avanzamos y lo cerramos?").
+
+**B — moderación → cierre concatenado (por el gerente).** Publicar un otorgamiento con "Pasar a:
+Cerrado" ahora **NO cierra por la RPC**: `tracking_moderar_gestor_avance` recibe `estadoAsociado=NULL`
+y sólo **asienta la ficha** (dispara la alarma de renovación vía el sync ficha→agenda). El host
+(página `ModeracionPage` **y** la card inline de `TrackingDetailPage` — la card se usa en 2 hosts)
+concatena por callback `onOtorgamientoParaCerrar`: abre `CerrarTramiteDialog` (diálogo de motivo) →
+al cerrar satisfactorio, `ProgramarVencimientosRpacModal` pre-llenado con las fechas del otorgamiento
+(idempotente: adopta la fila de renovación ya creada por el sync, no la duplica — verificado e2e).
+La orquestación vive a nivel PÁGINA porque la card se desmonta al recargar la cola.
+
+**C — aviso editable.** Al cargar el otorgamiento (manual desde el detalle) se ofrece abrir el editor
+de línea (`AgregarLineaDrawer`) **pre-cargado con el texto sugerido, editable por JL**, visible al
+cliente; al cerrar el editor se continúa a cerrar + programar. Sin doble-notificación (B notifica 1
+vez al publicar; C notifica 1 vez con la línea visible — verificado).
+
+**mig 0468:** `tracking_moderacion_pendientes` ahora devuelve `tramite_categoria` (DROP+CREATE por
+cambio de return type — R16; con REVOKE PUBLIC/anon + GRANT authenticated/service_role — R6). Elimina
+la **adivinanza** de categoría desde `servicio_codigo` en la cola standalone (el detalle ya usaba
+`data.categoria`): así el diálogo de motivo muestra "Matrícula otorgada" vs "Renovación otorgada"
+correctamente.
+
+**§6 (doble auditoría: 3 agentes + e2e en BD):** núcleo correcto (asiento no cierra; gate DGG-161 bien
+ubicado; idempotencia; sin carrera de desmontaje; mapeo posicional 0468 18/18 limpio). Hallazgos
+menores fixeados en el mismo chunk:
+- **G3** (vía paralela): matrícula/renovación con "Cerrado" en moderación cerraba directo por la RPC
+  (sin motivo/`cierre_satisfactorio`/línea) cuando la ficha ya cumplía → ahora se **suprime SIEMPRE**
+  el cierre por RPC para esas categorías; el gerente cierra por el diálogo.
+- **G1** (otorgamiento parcial): sólo se ofrece el cierre concatenado si tras el asiento la ficha
+  tendrá matrícula **y** legajo (si no, se publica pero se avisa que falta para poder cerrar).
+- **G4**: bloqueo de `otorgamiento + cancelar` (contradictorio).
+- **G2**: `otorgPrefill` se limpia en la rama no-satisfactoria de `handleCerradoOk` (no arrastra fechas).
+- **B·G1** (media, de cara al cliente): el `AgregarLineaDrawer` está siempre montado y sólo reseteaba
+  al guardar; cancelar el aviso pre-cargado dejaba `visible_cliente=true` + texto para la próxima
+  apertura → riesgo de publicar al cliente algo interno. Ahora resetea TODO el estado staged al cerrar.
+- **REVOKE** faltante en 0468 (endurecimiento del patrón 0215/0441/0448): agregado.
+
+**Deudas anotadas (no bloquean):** (G2-B) otorgamiento retroactivo — el asistente clampa la renovación
+a futuro y pisa `matricula_rpac_vencimiento` con la fecha sintética (la real pasada se pierde de la
+ficha); decisión de producto pendiente. (G3-B) el trigger de sync traga errores (`WHEN OTHERS →
+WARNING`); conviene alerta si el WARNING se dispara. `servicios.es_curso`/`es_rpac` para dejar de
+depender de códigos hardcodeados.
