@@ -5962,3 +5962,45 @@ validador real y hay que asumir que puede fallar. (2) El cuelgue de `tsc` local 
 que Vercel) antes de caer al fallback. (3) Con `noUncheckedIndexedAccess`, todo
 `arr[i]` necesita `if (!x) return` / `?.` — un guard de longitud no basta. Ver memoria
 [[reference_build_validation]].
+
+## E-GG-198 · El cierre de trámite ofrecía "programar próximo vencimiento" sin mirar el resultado (2026-09-10, DGG-160)
+
+**Síntoma (lo detectó Pablo mirando el modal de cierre):** al apretar "Cerrar
+trámite y programar próximo vencimiento", el asistente de vencimientos se abría
+SIEMPRE (con administración), sin importar el motivo elegido. Cerrar una renovación
+RPAC como **RECHAZADA** o **ABANDONO** igual abría el asistente RPAC con matriculación
+= hoy → si JL lo completaba, seteaba `matricula_rpac_fecha/_vencimiento` y creaba 3
+vencimientos vigentes (renovación + DDJJ + curso) por una matrícula que **nunca se
+otorgó** → alarmas y avisos falsos al cliente.
+
+**Causa raíz:** `CerrarTramiteDialog.onCerrado()` se llamaba SIN pasar el resultado, y
+`handleCerradoOk` encadenaba `abrirProgramadorVencimiento()` sólo condicionado a que
+hubiera `administracion_id` — nunca a `motivo.satisfactorio`. El "próximo vencimiento"
+sólo tiene sentido en un cierre satisfactorio (otorgada/presentada/concluyó). Además,
+en kanban/lista el cierre por *drag* ni siquiera capturaba un motivo (`useAvanzarTramite`
+mandaba el equivalente a `satisfactorio=true`), y `ModeracionPage` abría el programador
+sin gatear por servicio.
+
+**Fix (DGG-160):** la 2ª emergente se abre sólo si `satisfactorio && servicioRenueva()`
+(`esServicioRpacMatricula(codigo) || vigencia_meses != null`). El diálogo informa
+`{satisfactorio, motivo}` al padre. En kanban/lista, cerrar un servicio que renueva se
+**enruta al mismo `CerrarTramiteDialog`** (vía `useAvanzarTramite.cerrarConMotivo`, que
+corre los gates de cobranza y delega el cierre al diálogo) → paridad con el detalle
+(decisión de Pablo). Moderación gatea por `vigenciaMeses`. Verificado en vivo (Vercel):
+cerrar Rechazada → 0 vencimientos, matrícula NULL, sin asistente; y el botón del kanban
+abre el diálogo de motivo (no cierre directo).
+
+**Aprendizaje / notas:** (1) todo encadenamiento post-acción tiene que mirar el
+RESULTADO, no sólo la existencia de la entidad. (2) El escape E-GG-139 "cerrar sin
+cobrar" de un arancelado sin comprobante NO se pierde: el diálogo cierra igual
+eligiendo Rechazada/Abandono, porque `tracking_cerrar` setea `cierre_satisfactorio=false`
+y el trigger `tramite_cerrar_exige_cobrado` sólo bloquea si `cierre_satisfactorio IS
+DISTINCT FROM false` — de hecho el propio mensaje del trigger dice "cerralo como
+rechazado/abandono desde el detalle". Lo único imposible (por diseño, en todas las
+superficies) es cerrar un arancelado sin comprobante como SATISFACTORIO. (3) GAP R14/R15
+documentado: en kanban/lista los servicios que NO renuevan cierran por `updateTramite`
+sin capturar motivo → `motivo_cierre`/`cierre_satisfactorio` quedan según la superficie;
+aceptable (kanban nunca tuvo diálogo de motivo), a revisar si se quiere paridad plena.
+(4) Deuda latente: `TramiteDetailPage` legacy (no ruteado, redirige a TrackingDetail)
+usa `useAvanzarTramite` sin `cerrarConMotivo` — si alguna vez se re-rutea, saltearía el
+gate; borrarlo o marcarlo `@deprecated`.

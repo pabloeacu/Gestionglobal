@@ -5737,3 +5737,66 @@ como vencimientos fechados y tipados desde una única fecha de otorgamiento, con
 fechas editables (los plazos legales cambian y JL necesita ajustar); y toda superficie
 que cierre el mismo acto (detalle/kanban/lista) debe disparar el mismo asistente
 (paridad, reglas 14/15).
+
+---
+
+## DGG-160 · El cierre sólo ofrece "programar próximo vencimiento" si el resultado fue satisfactorio y el servicio renueva (2026-09-10)
+
+**Origen:** Pablo, mirando el modal de cierre, preguntó dónde saltaba la programación
+de fechas (¿segunda ventana? ¿wizard?) y si estaba contemplada "la conjugación de todas
+las alternativas de servicios con vencimiento". Al trazar el código apareció un bug
+latente (ficha [[E-GG-198]] en ERRORES): el asistente se abría en TODO cierre con
+administración, sin mirar el motivo → cerrar una renovación como Rechazada/Abandono
+igual abría el asistente RPAC y podía crear 3 vencimientos + matrícula falsa.
+
+**Qué es el flujo (respuesta a Pablo):** NO es un wizard de un solo contenedor; son DOS
+emergentes encadenadas — (1) `CerrarTramiteDialog` (motivo + observaciones) y, al
+cerrar, (2) el programador (asistente RPAC de 3 fechas para matrícula, o genérico de 1
+fecha para el resto). Pablo eligió mantener las 2 emergentes pero **gatear la 2ª**.
+
+**Decisiones de Pablo (AskUserQuestion):**
+- **Q1 — cierre sin motivo en kanban/lista/moderación:** *"Enrutar por el diálogo de
+  motivo"*. En kanban/lista, cerrar (drag o botón →) un servicio que renueva abre el
+  MISMO `CerrarTramiteDialog` que el detalle → captura el resultado antes de programar
+  (paridad real, R14/R15).
+- **Q2 — qué servicios "renuevan":** *"Dejar como está"* = `vigencia_meses != null`
+  (incluye consulta jurídica 4m y certificado 3m, además de matrícula/DDJJ/cursos).
+
+**Implementación:** `servicioRenueva = esServicioRpacMatricula(codigo) || vigencia_meses
+!= null`. Detalle: `CerrarTramiteDialog.onCerrado({satisfactorio,motivo})`;
+`handleCerradoOk` encadena sólo si `satisfactorio && servicioRenueva()`; labels y botón
+manual gateados. Kanban/lista: `useAvanzarTramite` cambió `onCerrado` por
+`cerrarConMotivo(t)=>boolean` — corre los gates de cobranza y, si el servicio renueva,
+delega el cierre al diálogo (montado en ambas páginas) que al cerrar satisfactorio abre
+el programador; el resto cierra directo por el hook. Moderación gatea por `vigenciaMeses`.
+
+**§6 (5 revisores en 2 rondas + prueba en vivo):** core correcto y consistente en las 3
+superficies; sin regresiones; la edición de un cronograma ya ligado NO se pierde (vive
+en `ProximasAlarmasPanel`, ruta aparte del botón gateado); firmas retrocompatibles.
+**Prueba en vivo (Vercel, gerente QA efímero):** (a) botón del kanban de una renovación
+RPAC → abre el diálogo de motivo (no cierre directo); (b) cierre por *Renovación
+rechazada* → trámite cerrado con `cierre_satisfactorio=false`, **0 vencimientos**,
+`matricula_rpac_fecha/_vencimiento` NULL, **sin** asistente; consola limpia; QA borrado
+a 0 rastro, 2 gerentes reales intactos. Label del detalle confirmado: para rpac_renovacion
+dice "…y programar próximo vencimiento".
+
+**Aclaración importante (E-GG-139 "advertir, no limitar"):** el escape "cerrar sin
+cobrar" de un arancelado sin comprobante NO se pierde — el diálogo lo cierra igual
+eligiendo Rechazada/Abandono (satisfactorio=false), porque el trigger
+`tramite_cerrar_exige_cobrado` sólo bloquea el cierre arancelado-sin-comprobante cuando
+`cierre_satisfactorio IS DISTINCT FROM false`; el propio mensaje del trigger ya indica
+"cerralo como rechazado/abandono desde el detalle". Lo único imposible (por diseño, en
+todas las superficies) es cerrar un arancelado sin comprobante como SATISFACTORIO.
+
+**Deudas documentadas:** (1) GAP R14/R15 menor — en kanban/lista los servicios que NO
+renuevan cierran sin capturar motivo (aceptable; kanban nunca tuvo diálogo). (2)
+Moderación abre el genérico incluso para inscripción/renovación RPAC (nunca el asistente
+de 3 fechas) — deuda pre-DGG-159, a saldar cuidando de no duplicar la renovación del
+trigger de la ficha. (3) `TramiteDetailPage` legacy (no ruteado) usa el hook sin
+`cerrarConMotivo` → borrarlo o marcarlo `@deprecated` para que no se re-rutee salteando
+el gate.
+
+**Takeaway:** todo encadenamiento post-acción debe mirar el RESULTADO del acto, no la
+mera existencia de la entidad; y la paridad entre superficies (R14/R15) obliga a que el
+kanban/lista capturen el mismo motivo que el detalle cuando el acto tiene consecuencias
+(programar vencimientos).
