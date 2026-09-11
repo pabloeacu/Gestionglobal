@@ -81,3 +81,22 @@ export async function fetchListoParaCerrar(): Promise<
   if (error) return fail('LISTO_CERRAR', error.message, error);
   return ok((data ?? []) as ListoParaCerrarRow[]);
 }
+
+// DGG-166 · egresados de cursos SIN emisión automática de certificado (p. ej. el
+// curso CABA, cuya certificación depende de terceros): completaron todas las
+// condiciones pero el cert no se emite solo → gerencia debe gestionarlo.
+export interface EgresadoSinCertRow {
+  matricula_id: string;
+  curso_id: string;
+  curso_titulo: string | null;
+  alumno_nombre: string;
+  egreso_desde: string; // ISO
+}
+
+export async function fetchEgresadosSinCert(): Promise<
+  ApiResponse<EgresadoSinCertRow[]>
+> {
+  const { data, error } = await supabase.rpc('dashboard_egresados_sin_cert');
+  if (error) return fail('EGRESADOS_SIN_CERT', error.message, error);
+  return ok((data ?? []) as EgresadoSinCertRow[]);
+}

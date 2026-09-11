@@ -2673,6 +2673,7 @@ export type Database = {
           completada_at: string | null
           created_at: string
           curso_id: string
+          egreso_sin_cert_avisado_at: string | null
           estado: string
           estado_pago: string
           fuente: string | null
@@ -2690,6 +2691,7 @@ export type Database = {
           completada_at?: string | null
           created_at?: string
           curso_id: string
+          egreso_sin_cert_avisado_at?: string | null
           estado?: string
           estado_pago?: string
           fuente?: string | null
@@ -2707,6 +2709,7 @@ export type Database = {
           completada_at?: string | null
           created_at?: string
           curso_id?: string
+          egreso_sin_cert_avisado_at?: string | null
           estado?: string
           estado_pago?: string
           fuente?: string | null
@@ -8964,6 +8967,16 @@ export type Database = {
       curso_responder_examen: {
         Args: { p_intento_id: string; p_respuestas: Json }
         Returns: Json
+      }
+      dashboard_egresados_sin_cert: {
+        Args: never
+        Returns: {
+          alumno_nombre: string
+          curso_id: string
+          curso_titulo: string
+          egreso_desde: string
+          matricula_id: string
+        }[]
       }
       dashboard_listo_para_cerrar: {
         Args: never

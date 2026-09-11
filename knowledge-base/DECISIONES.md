@@ -5984,3 +5984,48 @@ a futuro = agregar `curso_matricula_id` a `movimientos` (reconciliación), no un
 (CABA)** quedó correctamente ligada al trámite TRM-2026-00146 (servicio `rpa_actualizacion`, misma
 administración, `fuente=gerencia_manual`). No existe un trámite de renovación RPAC aparte para esa
 administración; "renovación CABA" es ese curso de actualización. La carga manual de JL está bien.
+
+## DGG-166 · Alerta a gerencia cuando un alumno egresa de un curso sin certificado automático (2026-09-10)
+
+Pedido de Pablo: algunos cursos tienen `cursos.cert_emite_auto=false` a propósito — damos el curso
+pero la certificación depende de terceros (p. ej. "Curso de Actualización RPA (CABA)", cert vía
+Fundplata/Gestar) y se gestiona por afuera. Cuando el alumno cumple TODAS las condiciones (egresa),
+`emitir_certificado_si_corresponde` no emite nada (guard cert_emite_auto) y el egreso podía pasar
+desapercibido.
+
+**Decisión (mig 0471):** avisar a gerencia por los **3 canales** — campanita in-app + push web + mail,
+todo vía `notify_all_gerentes` (que ya cubre los 3: `notif_emitir`→notificaciones_internas +
+push_notifications_queue, y email_queue) — con el mensaje "Egresó del curso el alumno X («curso»). La
+configuración del curso no emite el certificado automáticamente. Es tiempo de gestionarlo para
+completar el ciclo de la graduación." Espejo del patrón `matricula_avisar_cert_retenido`. Idempotente
+(una vez por matrícula) vía `curso_matriculas.egreso_sin_cert_avisado_at`. Trigger
+`trg_matricula_condiciones_avisar_egreso` AFTER UPDATE. Guard de disparo = cert_emite_auto=false +
+todas las condiciones activas cumplidas + gate de encuesta + sin cert + no avisado (idéntico a la
+condición de emisión, salvo el flag auto).
+
+**Banner del dashboard:** además, refuerzo persistente en el Inicio (`EgresadosSinCertWidget`, tono
+ámbar) vía RPC `dashboard_egresados_sin_cert`, que lista los egresados sin cert de cursos
+cert_emite_auto=false; cada item linkea a la pestaña Alumnos del curso (emisión manual del cert). Se
+actualiza en realtime (matricula_condiciones/curso_matriculas/certificados) — aparece al egresar,
+desaparece al emitir el cert. Espejo de `ListoParaCerrarWidget`.
+
+**§6 (3 agentes + e2e BD con rollback):** e2e simuló el egreso de SANCLAUDIO (curso CABA) → campanita
+0→2 (los 2 gerentes), 2 mails encolados, push 0 (ningún gerente con suscripción — mecanismo correcto),
+flag avisado seteado, banner RPC la lista, mensaje exacto; rollback limpio (SANCLAUDIO intacta 1/4).
+Hoy 0 casos vivos (SANCLAUDIO 1/4, único curso cert_emite_auto=false) → sin backfill necesario.
+
+**§6 addendum (mig 0472) · paridad exacta con la emisión de certificado:** los 3 agentes
+convergieron en que el aviso debía dispararse en EXACTAMENTE los mismos puntos que
+`emitir_certificado_si_corresponde`, o si no se perdía push/mail/campanita (el banner siempre lo
+muestra, pero la notificación quedaba muda). Fixes: (1) el trigger pasó a `AFTER INSERT OR UPDATE OF
+cumplida WHEN (NEW.cumplida)` (antes `AFTER UPDATE` sin `OF`/`WHEN`) — arregla eficiencia (A-#1/H8) y
+el caso en que la condición que completa el egreso llega por la rama INSERT de `matricula_sync_*`
+(A-#2); (2) `matricula_sync_encuesta` ahora llama al aviso al final, best-effort, simétrico al emit —
+cierra el caso de la encuesta requerida-no-condición respondida última (B-H1); (3) `egreso_desde` del
+banner usa `COALESCE(egreso_sin_cert_avisado_at, updated_at, created_at)` (instante estable de egreso)
+en vez de `updated_at`, que revivía el banner descartado tras un update no relacionado (B-H3/C-H9).
+e2e post-fix: UPDATE path notifica 1 vez, egreso_desde estable; trigger `AFTER INSERT OR UPDATE`
+verificado. **Deudas documentadas (no bloquean, sin casos vivos):** el aviso `cert_retenido` no
+distingue cert_emite_auto=false (mensaje "para que el cert se emita" es impreciso en esos cursos,
+A-#4); toggle cert_emite_auto true→false post-egreso no re-avisa (el banner cubre, A-#5); push hoy
+inerte (0 gerentes con suscripción, A-#6); carrera inter-tx teórica (el banner cubre, A-#3).

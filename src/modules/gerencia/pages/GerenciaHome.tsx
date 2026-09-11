@@ -20,6 +20,7 @@ import { PagosInformadosWidget } from '@/modules/gerencia/components/PagosInform
 import { EmailsRebotadosWidget } from '@/modules/gerencia/components/EmailsRebotadosWidget';
 import { CertsRetenidosWidget } from '@/modules/gerencia/components/CertsRetenidosWidget';
 import { ListoParaCerrarWidget } from '@/modules/gerencia/components/ListoParaCerrarWidget';
+import { EgresadosSinCertWidget } from '@/modules/gerencia/components/EgresadosSinCertWidget';
 import { AlarmasHoyWidget } from '@/modules/gerencia/components/AlarmasHoyWidget';
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
 import { getDashboardGlobal, type DashboardKpis } from '@/services/api/dashboard';
@@ -124,6 +125,12 @@ export function GerenciaHome() {
           (mail + campanita, mig 0453) — alumnos que terminaron el curso y su
           plazo de gracia finalizó, con el trámite todavía abierto. */}
       <ListoParaCerrarWidget />
+
+      {/* DGG-166 (pedido Pablo): banner que refuerza el aviso de egreso en cursos
+          SIN emisión automática de certificado (p. ej. CABA, cert por terceros) —
+          alumnos que cumplieron todas las condiciones y el cert hay que gestionarlo
+          a mano. El push+mail+campanita los dispara el trigger (mig 0471). */}
+      <EgresadosSinCertWidget />
 
       {/* J1 · checklist "Primeros 5 minutos" para nuevos gerentes.
           Auto-oculto cuando se completa o el user lo descarta. */}
