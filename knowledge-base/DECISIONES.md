@@ -5948,3 +5948,39 @@ sin drift futuro. e2e: las 2 vías rotulan "Cobranza · <item>" sin pisar descri
 Deudas de borde (sin casos en prod, documentadas por §6): desimputar no resetea la descripción
 autoderivada (H2); split muestra el item del 1er comprobante en cta.cte (H3). Deuda general:
 `servicios.es_curso`/`es_rpac` para dejar de depender de códigos hardcodeados.
+
+## DGG-165 · Acreditar una condición de pago cuando el pago YA está registrado (sin duplicar ingreso) (2026-09-10)
+
+Caso (reporte Pablo): **SANCLAUDIO ANA ELIZABETH** pagó el curso CABA; el pago se registró como
+**Pago a Cuenta** (antes de existir la condición). La condición "Pago del curso" quedó sin tildar
+(0/4) y la única acción de la UI para tildarla era **"Registrar pago"**, que crea un ingreso →
+duplicaría el asiento. 
+
+**Decisión:** la pieza segura ya existía — `matricula_tildar_condicion` (staff-only) marca la condición
+cumplida y, para tipo='pago', deja `estado_pago='pago_completo'` **sin generar ningún movimiento**.
+El hueco era sólo de UI. Se agregó, junto a "Registrar pago", un botón de gerencia **"Ya está pagado"**
+(`GestionMatriculasTab`) que confirma ("usalo SÓLO si el pago ya está registrado en otro movimiento;
+no genera un ingreso nuevo") y llama esa RPC. Resuelve el caso y todos los futuros sin corromper el
+proceso blindado (es staff-only, con confirmación explícita y observación de auditoría; no toca la
+contabilidad).
+
+**Data-fix SANCLAUDIO:** se marcó su condición "Pago del curso" vía la RPC real (gerente), con
+observación de trazabilidad; 0 ingresos nuevos (verificado).
+
+**§6:** 2 agentes complementarios (correctitud/regresión + UX/seguridad/layout) + e2e de la RPC (el
+propio data-fix la ejercitó en vivo: marca y NO crea movimiento) + prueba en vivo. La RPC ya estaba
+§6-verificada de chunks previos.
+
+**GAP consciente (aceptado, §6 #6):** "Ya está pagado" deja la matrícula `pago_completo` sin exigir
+que exista el asiento — si se usa mal (pago inexistente), habría condición pagada sin ingreso. Un
+guard `EXISTS(movimiento del alumno/curso)` es **inviable**: `movimientos` no tiene FK a
+`curso_matriculas`/alumno, y el caso que motiva el botón es justamente un pago cargado FUERA de
+`curso_registrar_pago` (Pago a Cuenta / cta.cte) que nunca dejaría un movimiento matcheable; un match
+por monto/título sería heurística frágil. Controles compensatorios: staff-only + confirmación
+enfática + traza (`observaciones` fija greppable + `cumplida_por` + trigger de auditoría). Endurecer
+a futuro = agregar `curso_matricula_id` a `movimientos` (reconciliación), no un guard en el botón.
+
+**Verificación adjunta (pedido de Pablo):** la matrícula de SANCLAUDIO al **Curso de Actualización RPA
+(CABA)** quedó correctamente ligada al trámite TRM-2026-00146 (servicio `rpa_actualizacion`, misma
+administración, `fuente=gerencia_manual`). No existe un trámite de renovación RPAC aparte para esa
+administración; "renovación CABA" es ese curso de actualización. La carga manual de JL está bien.

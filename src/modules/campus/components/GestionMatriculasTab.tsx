@@ -325,6 +325,33 @@ export function GestionMatriculasTab({ data }: { data: CursoDetalle }) {
     void load();
   }
 
+  // DGG-165 · vía de gerencia para el caso "el pago YA está registrado en otro
+  // movimiento" (típico: se cargó como Pago a Cuenta antes de crear la condición).
+  // "Registrar pago" generaría un ingreso duplicado; esto sólo MARCA la condición
+  // (matricula_tildar_condicion, que además deja estado_pago='pago_completo') SIN
+  // crear ningún asiento. Confirmación explícita para no relajar el proceso blindado.
+  async function onMarcarPagadoSinIngreso(c: MatriculaCondicionItem) {
+    const ok = await confirm({
+      title: 'Marcar como pagado (sin registrar ingreso)',
+      message:
+        'Usá esto SÓLO si el pago YA está registrado como movimiento (p. ej. se cargó como Pago a Cuenta antes de crear esta condición). Marca la condición como cumplida y deja el pago como completo, SIN generar un ingreso nuevo (no duplica el asiento). Si el pago todavía no se registró, usá "Registrar pago".',
+      confirmLabel: 'Sí, ya está pagado',
+      cancelLabel: 'Cancelar',
+    });
+    if (!ok) return;
+    const res = await tildarCondicion({
+      matriculaCondicionId: c.id,
+      cumplida: true,
+      observaciones: 'Acreditado por gerencia · el pago ya estaba registrado en otro movimiento (sin ingreso nuevo).',
+    });
+    if (!res.ok) {
+      toast.error(humanizeError(res.error));
+      return;
+    }
+    toast.success('Condición de pago acreditada (sin ingreso nuevo)');
+    void load();
+  }
+
   // DGG-26 · Export a PDF/XLS de las matrículas del curso, con su resumen de
   // condiciones cumplidas y certificado emitido.
   const exportRows = useMemo(() => {
@@ -679,13 +706,29 @@ export function GestionMatriculasTab({ data }: { data: CursoDetalle }) {
                                 <Lock size={11} /> Auto
                               </span>
                             ) : c.tipo === 'pago' && !c.cumplida ? (
-                              <Button
-                                variant="tonal"
-                                className="!px-2.5 !py-1 text-xs"
-                                onClick={() => void onTildar(c)}
-                              >
-                                <Banknote size={12} /> Registrar pago
-                              </Button>
+                              <div className="flex flex-wrap items-center justify-end gap-1.5">
+                                {/* DGG-165 · el pago ya está registrado en otro
+                                    movimiento (Pago a Cuenta previo): marcar la
+                                    condición sin generar un ingreso duplicado.
+                                    §6 #2: sin `shrink-0` en el cluster, para que a
+                                    360px los 2 botones bajen de línea y la etiqueta
+                                    de la condición no se aplaste (quedaba invisible). */}
+                                <button
+                                  type="button"
+                                  onClick={() => void onMarcarPagadoSinIngreso(c)}
+                                  title="El pago ya está registrado en otro movimiento — marca la condición sin generar un ingreso nuevo"
+                                  className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-brand-muted outline-none transition hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-brand-cyan/40"
+                                >
+                                  <Check size={12} /> Ya está pagado
+                                </button>
+                                <Button
+                                  variant="tonal"
+                                  className="!px-2.5 !py-1 text-xs"
+                                  onClick={() => void onTildar(c)}
+                                >
+                                  <Banknote size={12} /> Registrar pago
+                                </Button>
+                              </div>
                             ) : (
                               <button
                                 onClick={() => void onTildar(c)}
