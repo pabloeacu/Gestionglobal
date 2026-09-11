@@ -6029,3 +6029,17 @@ verificado. **Deudas documentadas (no bloquean, sin casos vivos):** el aviso `ce
 distingue cert_emite_auto=false (mensaje "para que el cert se emita" es impreciso en esos cursos,
 A-#4); toggle cert_emite_auto true→false post-egreso no re-avisa (el banner cubre, A-#5); push hoy
 inerte (0 gerentes con suscripción, A-#6); carrera inter-tx teórica (el banner cubre, A-#3).
+
+**Prueba en vivo (canon) cazó un crash que la §6 estática NO vio:** montar
+`EgresadosSinCertWidget` junto al `CertsRetenidosWidget` existente crasheaba TODO el Inicio
+("Algo no funcionó como esperábamos" / ChunkErrorBoundary). Causa: ambos llaman
+`useRealtimeRefresh(['matricula_condiciones','curso_matriculas','certificados'])`, y el hook
+nombraba el canal `rt:${tables.join('+')}` → dos componentes con el MISMO set de tablas pedían el
+MISMO canal → el 2.º `supabase.channel(name)` reusaba el ya suscripto y `.on()` post-subscribe
+tiraba "cannot add postgres_changes callbacks after subscribe()". Bug latente del hook (asumía
+set-de-tablas único), destapado por el 2.º consumidor del trío. Fix (commit aparte): sufijo
+incremental por instancia (`rt:${tables.join('+')}:${id}`) → canales siempre distintos, sin colisión;
+aditivo, no afecta las ~25 suscripciones de un solo consumidor. Re-probado en vivo: Inicio carga
+limpio, consola sin errores, ambos widgets coexisten. **Lección: dos componentes que suscriben el
+mismo set de tablas por realtime necesitan canales únicos; sólo la prueba en vivo con ambos montados
+lo revela.**

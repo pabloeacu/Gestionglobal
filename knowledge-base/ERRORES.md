@@ -6066,3 +6066,30 @@ directo), la lógica de "rotular" el movimiento debe vivir en el punto COMÚN (l
 sólo en uno de los dos caminos de entrada. Regla derivada: `imputar_credito_a_comprobante` es el
 único punto que asienta la cobranza en el movimiento — cualquier vía nueva de imputación debe
 pasar por ahí (o replicar el rótulo).
+
+
+## E-GG-201 · Dos widgets con el mismo set de tablas realtime crasheaban el Inicio (2026-09-10)
+
+**Síntoma:** tras deployar DGG-166, el dashboard de gerencia (Inicio) mostraba "Algo no funcionó
+como esperábamos" (ChunkErrorBoundary). Consola: `cannot add postgres_changes callbacks for
+realtime:rt:matricula_condiciones+curso_matriculas+certificados after subscribe()`.
+
+**Causa raíz:** `useRealtimeRefresh` nombraba el canal Supabase `rt:${tables.join('+')}`. El nuevo
+`EgresadosSinCertWidget` (DGG-166) y el `CertsRetenidosWidget` existente están AMBOS en el Inicio y
+usan el MISMO trío `['matricula_condiciones','curso_matriculas','certificados']` → mismo nombre de
+canal. El 2.º `supabase.channel(name)` devolvía el canal ya suscripto por el 1.º; el `.on()`
+posterior del hook (que corre antes de un `.subscribe()` propio, pero sobre un canal YA suscripto)
+tiraba el error, que el error boundary escalaba a caída de toda la página. Bug LATENTE del hook
+(asumía que el set de tablas era único por canal); el `CertsRetenidosWidget` era el único consumidor
+de ese trío hasta que DGG-166 sumó el segundo.
+
+**Fix:** sufijo incremental por instancia del hook — `rt:${tables.join('+')}:${id}` (id de un
+contador de módulo, asignado una vez por hook). Canales siempre distintos → sin colisión. Aditivo:
+no cambia el comportamiento de las ~25 suscripciones de un solo consumidor.
+
+**Por qué la §6 estática no lo vio:** 3 agentes adversariales + e2e en BD dieron el feature como
+correcto — el bug NO estaba en la lógica de BD ni en un archivo aislado, sino en la INTERACCIÓN de
+dos componentes montados juntos. **Sólo la prueba en vivo obligatoria (Inicio real, ambos widgets)
+lo reveló.** Regla derivada: al agregar un componente que suscribe realtime a un set de tablas,
+grepear si otro componente ya usa ese mismo set; y —cerrado de raíz— el hook ahora garantiza canales
+únicos. Es el caso testigo de por qué el canon exige prueba en vivo además de la doble auditoría.
