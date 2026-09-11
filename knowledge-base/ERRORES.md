@@ -6033,3 +6033,36 @@ que no matchee cae en `'otro'` y rompe el flujo aguas abajo (acá, la matriculac
 por **código de servicio** lo mitiga; lo ideal sería una bandera `es_curso` en `servicios`
 (deuda anotada). Regla derivada: al sumar un servicio con slug nuevo, revisar el CASE de
 `solicitud_activar`.
+
+
+## E-GG-200 · Un Pago a Cuenta imputado a un trámite quedaba "Sin descripción" (2026-09-10)
+
+**Síntoma (reporte Pablo):** la cobranza de **Ayastuy Martin** se cargó como **Pago a Cuenta**
+(el trámite todavía no había ingresado). Cuando el trámite ingresó y se le imputó ese pago a
+cuenta, la descripción del movimiento NO cambió → quedó **"Sin descripción"**. El caso correcto
+(**DEBERNARDI**) muestra **"Cobranza · Inscripción al RPAC"**.
+
+**Causa raíz:** hay DOS vías para "convertir un ingreso en cobranza de un comprobante":
+- `fz_identificar_movimiento` (para un ingreso **pendiente_id**, "Ingreso No Identificado") — deriva
+  la descripción `'Cobranza · <primer item del comprobante>'` **antes** de imputar, y **luego**
+  llama a `imputar_credito_a_comprobante`. Por eso DEBERNARDI salió bien.
+- `imputar_credito_a_comprobante` **directo** (para un pago a cuenta **ya identificado**, que suma
+  saldo a favor). Esta vía inserta en `movimiento_imputaciones` pero **nunca tocaba
+  `movimientos.descripcion`** → el pago a cuenta conservaba su descripción vacía (NULL).
+
+**Fix (mig 0469):** `imputar_credito_a_comprobante`, tras imputar, hace un `UPDATE
+movimientos.descripcion = 'Cobranza · <item>'` (fallback al número de comprobante) **sólo si la
+descripción está vacía** (no pisa lo que el gerente escribió a mano — verificado e2e). + **backfill**
+de la clase completa (2 filas vivas: Ayastuy Martin, Mercerat Virginia → "Cobranza · Renovación de
+matrícula RPAC"). Sólo cambia el TEXTO de display; montos/saldos/imputaciones intactos.
+
+**§6 (3 agentes + e2e BD con rollback):** e2e probó que imputar un pago a cuenta sin descripción
+la setea a "Cobranza · <item>", y que NO pisa una descripción existente. Prueba en vivo (Vercel,
+gerente): la lista "Movimientos" muestra el ingreso de Ayastuy como "Cobranza · Renovación de
+matrícula RPAC", consola limpia.
+
+**Aprendizaje:** cuando dos flujos convergen en el mismo estado final (identificar vs imputar
+directo), la lógica de "rotular" el movimiento debe vivir en el punto COMÚN (la imputación), no
+sólo en uno de los dos caminos de entrada. Regla derivada: `imputar_credito_a_comprobante` es el
+único punto que asienta la cobranza en el movimiento — cualquier vía nueva de imputación debe
+pasar por ahí (o replicar el rótulo).

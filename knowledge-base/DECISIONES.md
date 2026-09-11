@@ -5929,3 +5929,22 @@ a futuro y pisa `matricula_rpac_vencimiento` con la fecha sintética (la real pa
 ficha); decisión de producto pendiente. (G3-B) el trigger de sync traga errores (`WHEN OTHERS →
 WARNING`); conviene alerta si el WARNING se dispara. `servicios.es_curso`/`es_rpac` para dejar de
 depender de códigos hardcodeados.
+
+## DGG-164 · Imputar un pago a cuenta rotula el movimiento como cobranza del servicio (2026-09-10)
+
+Ver ficha [[E-GG-200]]. La descripción de la cobranza se asienta ahora en el punto COMÚN de
+imputación (`imputar_credito_a_comprobante`), no sólo en la vía de identificar. Un pago a cuenta
+imputado a un comprobante toma "Cobranza · <item>" (sólo si estaba vacío; no pisa lo escrito a
+mano). Backfill de la clase (Ayastuy, Mercerat). §6: 3 agentes + e2e con rollback (setea + no pisa)
++ prueba en vivo.
+
+**§6 hallazgo H1 (cerrado en el mismo chunk, mig 0470):** el agente A encontró una vía PARALELA que
+reproduce el bug — `fz_crear_movimiento_manual` con imputación inline (`p_comprobante_imputar_a_id`)
+insertaba la descripción cruda sin derivar "Cobranza · …" (latente: ningún componente pasa ese
+parámetro hoy). Se cerró con un helper ÚNICO `private.gg_desc_cobranza(comprobante_id)` (formato
+byte-idéntico a `fz_identificar_movimiento`/`registrar_cobranza_comprobante`) usado por AMBAS vías
+(imputar_credito refactorizado + fz_crear_movimiento_manual) → una sola fuente de verdad del formato,
+sin drift futuro. e2e: las 2 vías rotulan "Cobranza · <item>" sin pisar descripciones existentes.
+Deudas de borde (sin casos en prod, documentadas por §6): desimputar no resetea la descripción
+autoderivada (H2); split muestra el item del 1er comprobante en cta.cte (H3). Deuda general:
+`servicios.es_curso`/`es_rpac` para dejar de depender de códigos hardcodeados.
