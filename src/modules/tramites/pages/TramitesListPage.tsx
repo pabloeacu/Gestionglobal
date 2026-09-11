@@ -523,10 +523,13 @@ export function TramitesListPage() {
                                   <Copy size={10} /> Posible duplicado
                                 </span>
                               )}
-                              {/* E-GG-116 · P7-A (JL): el cliente tiene saldo pendiente (deuda neta) en su Cta.Cte. */}
+                              {/* DGG-167 (JL): deuda POR TRÁMITE — este trámite tiene algo
+                                  pendiente de cobrar (comprobante con saldo o matrícula de curso
+                                  adeudada). Antes era por cliente (deuda neta) y "contaminaba"
+                                  trámites pagos de un cliente moroso. */}
                               {r.tiene_deuda && (
-                                <span className="mt-1 ml-1 inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-semibold text-rose-700" title="Este cliente tiene saldo pendiente en su Cuenta Corriente">
-                                  <Wallet size={10} /> Con Deuda
+                                <span className="mt-1 ml-1 inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-semibold text-rose-700" title="Este trámite tiene algo pendiente de cobrar (comprobante con saldo o cuota del curso adeudada)">
+                                  <Wallet size={10} /> Con deuda
                                 </span>
                               )}
                             </span>

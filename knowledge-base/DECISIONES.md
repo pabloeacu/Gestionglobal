@@ -6043,3 +6043,45 @@ aditivo, no afecta las ~25 suscripciones de un solo consumidor. Re-probado en vi
 limpio, consola sin errores, ambos widgets coexisten. **Lección: dos componentes que suscriben el
 mismo set de tablas por realtime necesitan canales únicos; sólo la prueba en vivo con ambos montados
 lo revela.**
+
+## DGG-167 · El chip "Con Deuda" de la lista de trámites es POR TRÁMITE, no por cliente (2026-09-11)
+
+Reporte de JL (vía Pablo): SANCLAUDIO mostraba "Con Deuda" en sus DOS trámites de curso, cuando la única
+que adeuda es Formación; la de CABA ya está paga (DGG-165). Causa: el chip usaba
+`administraciones_con_deuda` (deuda NETA del cliente en cta.cte — E-GG-116, pedido previo de JL), así que
+TODOS los trámites de un cliente moroso mostraban el chip. Un badge sobre la fila del trámite se lee como
+"este trámite", pero la lógica era "este cliente" → falso positivo sobre trámites pagos.
+
+**Decisión de Pablo (AskUserQuestion):** pasar el chip a POR TRÁMITE. Condición explícita: los avisos/gates
+de resolver/cerrar trámites con deuda (kanban + manual) DEBEN persistir — "ese control por trámite sigue
+siendo igual de bueno". Ese gate es el trigger de BD `tramite_cerrar_exige_cobrado` (usa `cobro_pendiente`,
+per-trámite), INDEPENDIENTE del chip; no se tocó (verificado: sigue referenciando `cobro_pendiente(NEW)`).
+
+**Implementación (mig 0473):** columna computada `public.tramite_tiene_deuda(t tramites)` (patrón de
+`cobro_pendiente`) = `cobro_pendiente(t) OR (matrícula de curso vinculada adeudada/parcial)`. La 2ª rama es
+clave: 4 cursos vivos tienen deuda de matrícula SIN comprobante pendiente → `cobro_pendiente` solo los
+perdería (Pablo: "no perder de vista si hay algo pendiente de cobrar"). Frontend (`listTramites`): el SELECT
+trae la columna; se ELIMINÓ la llamada batched a `administraciones_con_deuda`. El chip usa `tiene_deuda`
+(ahora per-trámite) con tooltip nuevo.
+
+**Impacto (114 trámites abiertos):** es un cambio de EJE, no un delta fijo. Antes el chip era per-cliente
+(deuda NETA en cta.cte, que VARÍA con los saldos a favor — hoy el RPC `administraciones_con_deuda` devuelve
+0 morosos netos); ahora es per-trámite. Hoy 20 trámites abiertos muestran el chip (comprobante con saldo o
+cuota de curso adeudada). El "delta vs antes" es inestable (depende del neto del momento; en la captura de
+JL, con CABA impaga, SANCLAUDIO era morosa neta y ambos trámites tenían chip); lo que importa es el eje: de
+"este cliente debe algo en algún lado" a "este trámite tiene algo por cobrar". El moroso NETO por cliente NO
+se pierde: sigue en la ficha (`AdministracionDetailPage`: saldo actual/a favor) y en `cuenta_corriente_morosos`.
+
+**§6 (workflow 3 dims + verificación de cada hallazgo + EJERCITAR en BD):** 4/4 cursos con deuda de matrícula
+sin comprobante ahora con chip; 0/68 pagos con chip; gate intacto (sigue en `cobro_pendiente(NEW)`); perf de
+la lista con los computed columns ~50ms (Regla 11 OK); 21/21 matrículas con deuda son `activa` (0 falsos
+positivos por anuladas). 4 hallazgos menores/bajos, todos resueltos: (1) types regenerados; (2) narrativa de
+impacto corregida (arriba); (3) el segmento/filtro "Por cobrar" (`tramitesFilter`) pasó de `cobro_pendiente`
+a `tiene_deuda` para que filtrar "Por cobrar" muestre EXACTAMENTE los trámites con chip; (4) label a
+sentence-case "Con deuda". **Alcance chip/filtro vs gate (intencional):** el chip y "Por cobrar" son un AVISO
+amplio ("algo por cobrar"); el gate de cierre (`tramite_cerrar_exige_cobrado`) es la barrera DURA y bloquea
+sólo por `cobro_pendiente` de comprobante (NO se tocó). Por eso los 4 trámites de curso con deuda sólo de
+matrícula muestran chip/"Por cobrar" pero el gate permite cerrarlos: la cuota de curso vive en la matrícula
+y no bloquea el cierre del trámite. Nota: la captura de JL era de ANTES de DGG-165 (CABA impaga → morosa neta
+→ ambos con chip); al pagar CABA hoy ninguno figura como moroso neto, pero el fix per-trámite resuelve el
+caso y previene la recurrencia.

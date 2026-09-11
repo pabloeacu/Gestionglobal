@@ -272,8 +272,11 @@ export interface TramiteListItem extends TramiteRow {
   // DGG-89 · computed column (Postgrest). TRUE si hay otro trámite no-cancelado del
   // mismo servicio+período+solicitante (email) → probable reenvío. Sólo badge.
   posible_duplicado: boolean;
-  // E-GG-116 · P7-A (JL wave 6). TRUE si la administración tiene deuda NETA>0 en su
-  // Cta.Cte (misma fórmula que la ficha/morosos). Se resuelve batched en listTramites.
+  // DGG-167 (JL) · TRUE si ESTE trámite tiene algo pendiente de cobrar: comprobante
+  // con saldo (cobro_pendiente, mismo metric que el gate de cierre) o una matrícula de
+  // curso vinculada adeudada/parcial. Antes era per-CLIENTE (deuda neta, E-GG-116), lo
+  // que "contaminaba" trámites pagos de un cliente moroso; el moroso por cliente vive
+  // en la lista de Clientes/ficha. Viene como computed column `tramite_tiene_deuda`.
   tiene_deuda: boolean;
 }
 
@@ -313,6 +316,7 @@ interface RawListRow extends TramiteRow {
   cobro_estado?: 'parcial' | 'sin_cobranza' | null; // DGG-88 · idem
   comprobante_pendiente?: boolean | null; // DGG-55 · idem
   posible_duplicado?: boolean | null; // DGG-89 · idem
+  tramite_tiene_deuda?: boolean | null; // DGG-167 · deuda POR TRÁMITE (computed column)
 }
 
 function mapRaw(r: RawListRow): TramiteListItem {
@@ -328,7 +332,7 @@ function mapRaw(r: RawListRow): TramiteListItem {
     cobro_estado: r.cobro_estado ?? null,
     comprobante_pendiente: r.comprobante_pendiente ?? false,
     posible_duplicado: r.posible_duplicado ?? false,
-    tiene_deuda: false, // se completa batched en listTramites (E-GG-116)
+    tiene_deuda: r.tramite_tiene_deuda ?? false, // DGG-167 · deuda POR TRÁMITE (computed column)
   };
 }
 
@@ -346,6 +350,7 @@ export async function listTramites(
        cobro_estado,
        comprobante_pendiente,
        posible_duplicado,
+       tramite_tiene_deuda,
        administraciones(id,nombre),
        consorcios(id,nombre),
        servicios(id,nombre,codigo,vigencia_meses),
@@ -382,19 +387,11 @@ export async function listTramites(
   if (error) return fail('TRAMITES_LIST', error.message, error);
   const rows = (data as unknown as RawListRow[] | null)?.map(mapRaw) ?? [];
 
-  // E-GG-116 · P7-A (JL): chip "Con Deuda". Una sola llamada batched a la RPC de
-  // deuda neta (misma fórmula que la ficha/morosos → consistencia contable),
-  // Set en memoria, y marca cada trámite. Degrada a false si falla: nunca rompe
-  // la lista (aislado con try/catch, no un .select() acoplado — evita 500 R18).
-  try {
-    const { data: deudaIds } = await supabase.rpc('administraciones_con_deuda' as never);
-    const deudaSet = new Set<string>((deudaIds as unknown as string[] | null) ?? []);
-    for (const r of rows) {
-      r.tiene_deuda = !!r.administracion_id && deudaSet.has(r.administracion_id);
-    }
-  } catch {
-    /* si falla, tiene_deuda queda false — no bloqueamos la lista */
-  }
+  // DGG-167 · el chip "Con Deuda" ahora es POR TRÁMITE (computed column
+  // `tramite_tiene_deuda`, resuelto en el mismo SELECT). Se eliminó la llamada
+  // batched a `administraciones_con_deuda` (deuda neta por CLIENTE, E-GG-116): un
+  // trámite pago de un cliente moroso ya no muestra el chip. El indicador de moroso
+  // por cliente sigue en la lista de Clientes/ficha.
 
   return ok({ rows, total: count ?? 0 });
 }

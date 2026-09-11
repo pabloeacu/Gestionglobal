@@ -10598,6 +10598,10 @@ export type Database = {
         Args: { p_tramite_id: string }
         Returns: Json
       }
+      tramite_tiene_deuda: {
+        Args: { t: Database["public"]["Tables"]["tramites"]["Row"] }
+        Returns: boolean
+      }
       tramix_gate: {
         Args: { p_force?: boolean; p_legajo: string; p_user: string }
         Returns: Json
