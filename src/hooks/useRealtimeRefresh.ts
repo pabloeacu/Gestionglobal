@@ -6,6 +6,15 @@ import { supabase } from '@/lib/supabase';
 // múltiples eventos juntos (p.ej. bulk insert).
 // La RLS de la tabla se aplica: solo recibimos eventos de filas visibles.
 
+// DGG-166 §6 (prueba en vivo): el nombre de canal DEBE ser único por instancia.
+// Antes era `rt:${tables.join('+')}` — si DOS componentes montados a la vez usaban
+// el MISMO set de tablas (p. ej. EgresadosSinCertWidget y CertsRetenidosWidget en el
+// Inicio, ambos con matricula_condiciones+curso_matriculas+certificados), el 2.º
+// `supabase.channel(name)` reusaba el canal ya suscripto y `.on()` post-subscribe
+// tiraba "cannot add postgres_changes callbacks after subscribe()", crasheando la
+// página entera. Un id incremental por hook garantiza canales distintos.
+let __rtSeq = 0;
+
 export function useRealtimeRefresh(
   tables: string[],
   onChange: () => void,
@@ -13,6 +22,8 @@ export function useRealtimeRefresh(
 ): void {
   const cbRef = useRef(onChange);
   cbRef.current = onChange;
+  const idRef = useRef(0);
+  if (idRef.current === 0) idRef.current = ++__rtSeq;
 
   useEffect(() => {
     if (tables.length === 0) return;
@@ -23,7 +34,7 @@ export function useRealtimeRefresh(
       timer = window.setTimeout(() => cbRef.current(), debounceMs);
     };
 
-    const channel = supabase.channel(`rt:${tables.join('+')}`);
+    const channel = supabase.channel(`rt:${tables.join('+')}:${idRef.current}`);
     for (const t of tables) {
       channel.on(
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
