@@ -419,6 +419,10 @@ export function App() {
             <Route path="auditoria" element={<AuditoriaPage />} />
             <Route path="errores" element={<ErroresRuntimePage />} />
             <Route path="salud-sistema" element={<SaludSistemaPage />} />
+            {/* Auditoría 2026-09 (A7) · redirect de compat: el push/banner de salud
+                y la fn DB health_flow_record_run apuntaban a /configuracion/salud
+                (ruta inexistente → 404 en plena alerta). El redirect lo tolera. */}
+            <Route path="salud" element={<Navigate to="../salud-sistema" replace />} />
           </Route>
           <Route path="perfil" element={<PerfilPage />} />
         </Route>
