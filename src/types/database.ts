@@ -4689,6 +4689,7 @@ export type Database = {
           fecha: string
           hash_dedup: string | null
           id: string
+          idempotency_key: string | null
           identificado_at: string | null
           identificado_by: string | null
           lote_historico_id: string | null
@@ -4717,6 +4718,7 @@ export type Database = {
           fecha?: string
           hash_dedup?: string | null
           id?: string
+          idempotency_key?: string | null
           identificado_at?: string | null
           identificado_by?: string | null
           lote_historico_id?: string | null
@@ -4745,6 +4747,7 @@ export type Database = {
           fecha?: string
           hash_dedup?: string | null
           id?: string
+          idempotency_key?: string | null
           identificado_at?: string | null
           identificado_by?: string | null
           lote_historico_id?: string | null
@@ -8958,6 +8961,7 @@ export type Database = {
       curso_registrar_pago: {
         Args: {
           p_caja_id: string
+          p_idempotency_key?: string
           p_matricula_id: string
           p_monto: number
           p_observaciones?: string
@@ -10242,6 +10246,7 @@ export type Database = {
           p_comprobante_id: string
           p_descripcion: string
           p_fecha: string
+          p_idempotency_key?: string
           p_monto: number
           p_partner_id_atribucion?: string
           p_permitir_excedente?: boolean

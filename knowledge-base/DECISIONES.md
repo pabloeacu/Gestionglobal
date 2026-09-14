@@ -6119,14 +6119,15 @@ no presumiendo que nada está bien sin probar con todas las hipótesis posibles,
 
 **Decisión de DEJAR EN ESPERA (para cuando Pablo esté disponible), con motivo:**
 
-- **Idempotencia server-side de RPCs de dinero** (`registrar_cobranza_comprobante`, `curso_registrar_pago`;
-  `pago_conciliar` YA es idempotente por su máquina de estados `estado<>'reportado'` bajo FOR UPDATE). El
-  único diseño **provablemente seguro** (sin falsos positivos que bloqueen un segundo pago legítimo de igual
-  monto) es una **idempotency-key provista por el front** (UUID por intención de pago), lo que exige cambios
-  coordinados en el front + prueba en vivo de las UIs de dinero (que crearían registros contables reales).
-  Un hash de contenido con ventana temporal es heurístico y PUEDE bloquear una cuota legítima repetida →
-  descartado por el requisito de Pablo. Cae en el path de escritura de dinero que Pablo pidió tratar con
-  cuidado. **En espera.**
+- **Idempotencia server-side de RPCs de dinero. ✅ CERRADO 2026-09-14 (mig 0479 + front, ver E-GG-205).**
+  Fue el chunk #2 de la tanda "uno por uno". Enfoque elegido por Pablo: idempotency-key provista por el front
+  (UUID por intención de pago), el único sin falsos positivos. Columna `movimientos.idempotency_key` + índice
+  único parcial; `registrar_cobranza_comprobante` y `curso_registrar_pago` reciben `p_idempotency_key` y
+  deduplican (key NULL = comportamiento viejo); hook `useIdempotencyKey` (estable por montaje + renew tras
+  éxito) cableado en RegistrarCobranzaDrawer, ModalRegistrarPago, RegistrarPagoModal y ProcesadorFinal.
+  `pago_conciliar` ya era idempotente. e2e + revisión adversarial §6 (3 lentes, CERRADO_SIN_REGRESION) +
+  verificación de schema-cache de PostgREST. Flujos "emitir+cobrar" quedan fuera (doble-submit = doble
+  comprobante, otra cosa).
 - **Guard explícito en `marcar_renovados_masivo`** (defensa en profundidad): hoy NO es explotable — el inner
   `marcar_renovado` ya hace `IF NOT private.is_staff() THEN RAISE 42501` y todo corre en una transacción, así
   que un no-staff falla en la iteración 1 y no se commitea nada. Se agregará un guard fail-fast propio junto

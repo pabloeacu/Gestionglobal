@@ -26,6 +26,7 @@ export interface CobranzaInput {
   categoria_id?: string | null;
   partner_id_atribucion?: string | null; // #145 · flag "participa partner"
   permitir_excedente?: boolean; // E-GG-113 (P10-A) · sobrepago → saldo a favor
+  idempotencyKey?: string; // A-INTEG · clave de idempotencia (una por intención de pago); evita doble-imputación por doble-click/reintento
 }
 
 export async function registrarCobranza(
@@ -45,6 +46,9 @@ export async function registrarCobranza(
   }
   if (input.permitir_excedente) {
     baseArgs.p_permitir_excedente = true;
+  }
+  if (input.idempotencyKey) {
+    baseArgs.p_idempotency_key = input.idempotencyKey;
   }
   const { data, error } = await supabase.rpc(
     'registrar_cobranza_comprobante',
@@ -116,6 +120,7 @@ export function validarCobroEnEmision(
 export async function registrarCobranzaEnEmision(
   comprobanteId: string,
   cobro: CobroAhoraState,
+  idempotencyKey?: string,
 ): Promise<ApiResponse<{ movimiento_id: string } | null>> {
   if (cobro.modo === 'sin_cobro') return ok(null);
   const { data: comp, error } = await supabase
@@ -136,6 +141,7 @@ export async function registrarCobranzaEnEmision(
     referencia: cobro.referencia,
     categoria_id: cobro.categoriaId || null,
     partner_id_atribucion: cobro.partnerId || null,
+    idempotencyKey,
   });
   if (!r.ok) return r;
   return ok(r.data);

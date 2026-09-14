@@ -8,6 +8,7 @@ import {
   type CajaParaPago,
 } from '@/services/api/campus';
 import { humanizeError } from '@/lib/errors';
+import { useIdempotencyKey } from '@/lib/idempotency';
 
 // Modal para registrar el pago del curso (gerencia). Registra un asiento de
 // ingreso en movimientos + marca la condición 'pago' (DGG-10bis).
@@ -31,6 +32,7 @@ export function RegistrarPagoModal({
   const [monto, setMonto] = useState<number | ''>('');
   const [obs, setObs] = useState('');
   const [saving, setSaving] = useState(false);
+  const idem = useIdempotencyKey();
 
   useEffect(() => {
     if (!open) return;
@@ -61,12 +63,14 @@ export function RegistrarPagoModal({
       monto: Number(monto),
       cajaId,
       observaciones: obs.trim() || null,
+      idempotencyKey: idem.key,
     });
     setSaving(false);
     if (!res.ok) {
       toast.error(humanizeError(res.error));
       return;
     }
+    idem.renew(); // pago OK → clave nueva para el próximo pago legítimo
     toast.success('Pago registrado · asiento de ingreso creado');
     onRegistrado();
     onClose();

@@ -47,6 +47,7 @@ import { listPartnersActivos, type PartnerOpcion } from '@/services/api/partners
 import { CobrarAhoraSection } from '@/modules/facturacion/components/CobrarAhoraSection';
 import { setSolicitudComprobante } from '@/services/api/solicitudes';
 import { humanizeError } from '@/lib/errors';
+import { useIdempotencyKey } from '@/lib/idempotency';
 
 interface Props {
   solicitudId: string;
@@ -486,6 +487,7 @@ function ModalRegistrarPago({
   const [categorias, setCategorias] = useState<CategoriaFinanzaRow[]>([]);
   const [categoriaId, setCategoriaId] = useState('');
   const [enviando, setEnviando] = useState(false);
+  const idem = useIdempotencyKey();
 
   useEffect(() => {
     void listCajasActivas().then((r) => {
@@ -532,12 +534,14 @@ function ModalRegistrarPago({
       referencia: referencia.trim() || undefined,         // DGG-39 (JL)
       categoria_id: categoriaId || null,                  // DGG-39 (JL)
       partner_id_atribucion: partnerId || null,
+      idempotencyKey: idem.key, // A-INTEG (mig 0479): evita doble-imputación por doble-click/reintento
     });
     setEnviando(false);
     if (!r.ok) {
       toast.error(humanizeError(r.error));
       return;
     }
+    idem.renew(); // cobranza OK → clave nueva para la próxima cobranza legítima
     toast.success('Pago registrado');
     onPagado();
   }

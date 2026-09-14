@@ -35,6 +35,7 @@ import {
   type EmitirComprobanteInput,
 } from '@/services/api/comprobantes';
 import { listCobranzasDeComprobante, registrarCobranza } from '@/services/api/cobranzas';
+import { useIdempotencyKey } from '@/lib/idempotency';
 import { asignarAlumno } from '@/services/api/campus';
 import { inscribirManual } from '@/services/api/webinars';
 import { crearPedidoDoc } from '@/services/api/tramitePedidosDoc';
@@ -102,6 +103,7 @@ function construirOps(
   solicitud: SolicitudDetalle,
   flags: SolicitudFlags,
   state: WizardState,
+  cobranzaIdemKey: string,
 ): OpDef[] {
   // ---- TERMINAL (Q2): una sola op, sin activar.
   if (state.docOutcome === 'revision') {
@@ -302,6 +304,7 @@ function construirOps(
           referencia: c.referencia?.trim() || '',
           categoria_id: c.categoriaId || null,
           partner_id_atribucion: c.partnerId,
+          idempotencyKey: cobranzaIdemKey, // A-INTEG (mig 0479): cierra también la carrera check-then-act de esta op
         });
         if (!r.ok) throw new Error(humanizeError(r.error));
         return `Cobranza ${fmtMoney(monto)} registrada`;
@@ -455,7 +458,8 @@ function construirOps(
 }
 
 export function ProcesadorFinal({ solicitud, flags, state, onDone, onRunningChange }: Props) {
-  const ops = useMemo(() => construirOps(solicitud, flags, state), [solicitud, flags, state]);
+  const idem = useIdempotencyKey(); // clave estable por montaje del wizard (finalize one-shot; retry reusa la misma → deduplica la cobranza)
+  const ops = useMemo(() => construirOps(solicitud, flags, state, idem.key), [solicitud, flags, state, idem.key]);
   const [views, setViews] = useState<OpView[]>(() =>
     ops.map((o) => ({ key: o.key, label: o.label, status: 'pending', bestEffort: o.bestEffort })),
   );

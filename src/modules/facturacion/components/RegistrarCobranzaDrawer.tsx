@@ -19,6 +19,7 @@ import {
 import { listPartnersActivos, type PartnerOpcion } from '@/services/api/partners';
 import type { ComprobanteRow } from '@/services/api/comprobantes';
 import { humanizeError } from '@/lib/errors';
+import { useIdempotencyKey } from '@/lib/idempotency';
 
 interface Props {
   open: boolean;
@@ -47,6 +48,7 @@ export function RegistrarCobranzaDrawer({
 }: Props) {
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
+  const idem = useIdempotencyKey();
 
   const [cajaId, setCajaId] = useState('');
   const [categoriaId, setCategoriaId] = useState('');
@@ -156,12 +158,14 @@ export function RegistrarCobranzaDrawer({
       categoria_id: categoriaId || null,
       partner_id_atribucion: partnerId || null, // DGG-39 (JL emparejamiento)
       permitir_excedente: permitirExcedente, // E-GG-113 (P10-A): sobrepago → saldo a favor
+      idempotencyKey: idem.key, // A-INTEG (mig 0479): evita doble-imputación por doble-click/reintento
     });
     setSaving(false);
     if (!res.ok) {
       toast.error('No pudimos registrar la cobranza', { description: humanizeError(res.error) });
       return;
     }
+    idem.renew(); // cobranza OK → clave nueva para la próxima cobranza legítima
     toast.success(
       permitirExcedente && monto > saldo
         ? `Cobranza registrada: ${formatMoney(saldo)} imputados + ${formatMoney(monto - saldo)} a favor`

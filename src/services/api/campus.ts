@@ -2203,17 +2203,28 @@ export interface RegistrarPagoInput {
   monto: number;
   cajaId: string;
   observaciones?: string | null;
+  idempotencyKey?: string; // A-INTEG · clave de idempotencia (una por intención de pago); evita doble-imputación por doble-click/reintento
 }
 
 export async function registrarPagoCurso(
   input: RegistrarPagoInput,
 ): Promise<ApiResponse<{ movimiento_id: string; condicion_pago_id: string | null }>> {
-  const { data, error } = await supabase.rpc('curso_registrar_pago', {
+  const args: Record<string, unknown> = {
     p_matricula_id: input.matriculaId,
     p_monto: input.monto,
     p_caja_id: input.cajaId,
-    p_observaciones: (input.observaciones ?? null) as unknown as string,
-  });
+    p_observaciones: input.observaciones ?? null,
+  };
+  if (input.idempotencyKey) args.p_idempotency_key = input.idempotencyKey;
+  const { data, error } = await supabase.rpc(
+    'curso_registrar_pago',
+    args as unknown as {
+      p_matricula_id: string;
+      p_monto: number;
+      p_caja_id: string;
+      p_observaciones: string;
+    },
+  );
   if (error) return fail('CURSO_PAGO', error.message, error);
   return ok(
     data as unknown as { movimiento_id: string; condicion_pago_id: string | null },
