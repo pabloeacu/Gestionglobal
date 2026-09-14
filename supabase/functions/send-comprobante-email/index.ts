@@ -51,6 +51,16 @@ Deno.serve(async (req) => {
     { global: { headers: { Authorization: authHeader } } },
   );
 
+  // Identificar al caller y su rol (C2b · Auditoría 2026-09). La lectura del
+  // comprobante sigue gateada por RLS bajo el JWT del caller (ownership); acá
+  // sumamos el eje ROL para restringir destinatarios de los NO-staff.
+  const { data: authData, error: authErr } = await supabase.auth.getUser();
+  if (authErr || !authData?.user) return jsonError(401, 'Sesión inválida');
+  const caller = authData.user;
+  const { data: callerProfile } = await supabase
+    .from('profiles').select('role').eq('id', caller.id).maybeSingle();
+  const isStaff = !!callerProfile && ['gerente', 'operador'].includes(callerProfile.role ?? '');
+
   const { data: comp, error: errComp } = await supabase
     .from('comprobantes')
     .select('id, tipo, punto_venta, numero, fecha, vencimiento, total, receptor_razon_social, receptor_numero_documento, administracion_id, consorcio_id, observaciones')
@@ -58,11 +68,61 @@ Deno.serve(async (req) => {
     .single();
   if (errComp || !comp) return jsonError(404, 'comprobante no encontrado o sin acceso');
 
+  // Sanear + validar destinatarios (anti header/MIME injection · aplica a TODOS,
+  // incluido staff). Un email válido NO puede contener CR/LF ni caracteres de
+  // control, así que esto cierra la inyección de encabezados en el MIME builder.
+  // Además unifica el dato que se valida con el que se envía (mismo array limpio).
+  const CTRL_RE = /[\x00-\x1f\x7f]/;
+  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const clean = (arr?: string[]) => (arr ?? []).map((x) => String(x ?? '').trim()).filter(Boolean);
+  const toClean = clean(payload.to);
+  const ccClean = clean(payload.cc);
+  const bccClean = clean(payload.bcc);
+  if (toClean.length === 0) return jsonError(400, 'al menos un destinatario válido');
+  for (const e of [...toClean, ...ccClean, ...bccClean]) {
+    if (CTRL_RE.test(e) || !EMAIL_RE.test(e)) return jsonError(400, `Destinatario inválido: ${e}`);
+  }
+
+  // Restricción de destinatarios para NO-staff (C2b): un cliente del portal sólo
+  // puede enviar a las casillas ACTIVAS de SU administración (administracion_emails
+  // es staff-managed → el cliente NO puede inyectar direcciones) + su propio email
+  // de acceso CONFIRMADO. Staff (gerente/operador): sin límite, personal de confianza.
+  const norm = (e: string) => e.toLowerCase();
+  if (!isStaff) {
+    const { data: adminEmails } = await supabase
+      .from('administracion_emails')
+      .select('email')
+      .eq('administracion_id', comp.administracion_id)
+      .eq('activo', true);
+    const allow = new Set<string>((adminEmails ?? []).map((r) => norm(String(r.email).trim())));
+    if (caller.email && caller.email_confirmed_at) allow.add(norm(caller.email.trim()));
+    const fuera = [...toClean, ...ccClean, ...bccClean].filter((e) => !allow.has(norm(e)));
+    if (fuera.length > 0) {
+      return jsonError(403, `Como cliente sólo podés enviar el comprobante a las casillas registradas de tu administración o a tu propio email de acceso. Fuera de la lista: ${fuera.join(', ')}. Para enviar a otra dirección, pedíselo a Gestión Global.`);
+    }
+  }
+
+  // Validar el adjunto: debe ser un PDF real y de tamaño acotado — evita usar la
+  // casilla de la empresa para adjuntar contenido arbitrario.
+  if (payload.pdf_base64) {
+    const approxBytes = Math.floor(payload.pdf_base64.length * 0.75);
+    if (approxBytes > 15 * 1024 * 1024) return jsonError(400, 'El PDF adjunto es demasiado grande (máximo 15 MB).');
+    let head = '';
+    try { head = atob(payload.pdf_base64.slice(0, 12)); } catch { return jsonError(400, 'El adjunto no es un PDF válido.'); }
+    if (!head.startsWith('%PDF-')) return jsonError(400, 'El adjunto no es un PDF válido.');
+  }
+
   const numStr = comp.numero
     ? `${String(comp.punto_venta).padStart(5, '0')}-${String(comp.numero).padStart(8, '0')}`
     : 'SIN NUMERO';
   const subject = payload.subject ?? `Comprobante ${comp.tipo} ${numStr} · Gestión Global`;
-  const html = payload.html ?? defaultEmailHtml(comp, numStr);
+  // C2b: el cuerpo SIEMPRE lo arma el servidor; se ignora cualquier `html` que
+  // venga en el payload (la UI nunca lo manda — evita inyección de cuerpo phishing).
+  const html = defaultEmailHtml(comp, numStr);
+  // El nombre del adjunto se interpola en headers del MIME (name=, filename=) →
+  // sin CR/LF, comillas, backslash ni control chars (anti MIME/header injection).
+  const safeFilename = ((payload.pdf_filename ?? `comprobante-${numStr}.pdf`)
+    .replace(/[\r\n"\\\x00-\x1f\x7f]/g, '').slice(0, 200)) || `comprobante-${numStr}.pdf`;
 
   const clientId = Deno.env.get('GOOGLE_OAUTH_CLIENT_ID');
   const clientSecret = Deno.env.get('GOOGLE_OAUTH_CLIENT_SECRET');
@@ -87,14 +147,14 @@ Deno.serve(async (req) => {
 
   const mime = buildMimeMessage({
     from: fromHeader,
-    to: payload.to,
-    cc: payload.cc,
-    bcc: payload.bcc,
+    to: toClean,
+    cc: ccClean,
+    bcc: bccClean,
     replyTo: replyTo ?? undefined,
     subject,
     html,
     attachment: payload.pdf_base64
-      ? { filename: payload.pdf_filename ?? `comprobante-${numStr}.pdf`, base64: payload.pdf_base64, mimeType: 'application/pdf' }
+      ? { filename: safeFilename, base64: payload.pdf_base64, mimeType: 'application/pdf' }
       : undefined,
   });
   const raw = base64UrlEncode(mime);
@@ -124,14 +184,14 @@ Deno.serve(async (req) => {
   const { data: logged } = await admin
     .from('sent_emails')
     .insert({
-      to_email: payload.to[0]!,
-      cc: payload.cc?.join(', ') ?? null,
+      to_email: toClean[0]!,
+      cc: ccClean.length > 0 ? ccClean.join(', ') : null,
       from_email: senderEmail,
       reply_to: replyTo,
       asunto: subject,
       plantilla: 'comprobante_default',
       html,
-      attachments_meta: payload.pdf_base64 ? [{ filename: payload.pdf_filename ?? `comprobante-${numStr}.pdf`, kind: 'pdf' }] : null,
+      attachments_meta: payload.pdf_base64 ? [{ filename: safeFilename, kind: 'pdf' }] : null,
       estado: 'sent',
       comprobante_id: comp.id,
       administracion_id: comp.administracion_id,
@@ -146,7 +206,7 @@ Deno.serve(async (req) => {
     .update({ email_enviado_at: new Date().toISOString(), email_envios_count: 1 })
     .eq('id', comp.id);
 
-  return new Response(JSON.stringify({ ok: true, sent_email_id: logged?.id ?? null, to: payload.to, subject }), {
+  return new Response(JSON.stringify({ ok: true, sent_email_id: logged?.id ?? null, to: toClean, subject }), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
 });
