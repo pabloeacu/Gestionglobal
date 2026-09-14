@@ -6148,12 +6148,11 @@ no presumiendo que nada está bien sin probar con todas las hipótesis posibles,
 
 **Hallazgos NUEVOS en espera (para Pablo — detalle en el informe en pantalla del cierre):**
 
-- **`send-comprobante-email` — relay de email autenticado (ALTO).** Sólo valida que el caller pueda LEER el
-  comprobante (RLS bajo su JWT); no restringe rol. Un cliente logueado puede mandar email con `to/cc/subject/
-  pdf` arbitrarios desde la casilla de la empresa (phishing/spam desde el dominio propio, saltea el throttle).
-  NO se puede arreglar con un simple staff-gate porque el modal lo usan TAMBIÉN los clientes del portal para
-  enviarse su propio comprobante. El fix correcto (restringir destinatarios / rate-limit / render server-side /
-  o gate por dueño) necesita decisión de producto + prueba del path de email (que envía mails). En espera.
+- **`send-comprobante-email` — relay de email autenticado (ALTO). ✅ CERRADO 2026-09-14 (edge fn v18, ver
+  E-GG-204).** Decisión de Pablo: restringir destinatarios del cliente. Auth-gate por ROL (staff sin límite;
+  cliente sólo a casillas activas de SU administración + su propio email confirmado); cuerpo server-render;
+  anti-inyección MIME (CRLF en to/cc/bcc + saneo de pdf_filename). Verificado e2e + envío real. Fue el chunk #1
+  de la tanda "uno por uno".
 - **`gmail-pubsub-webhook` — sin firma/secreto (MEDIO).** Un POST anónimo puede falsear el estado de entrega/
   rebote de emails. Fix: verificar el OIDC de Google Pub/Sub o un secreto compartido; necesita conocer la
   config del push de Pub/Sub. En espera.
