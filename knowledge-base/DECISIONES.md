@@ -6085,3 +6085,97 @@ matrícula muestran chip/"Por cobrar" pero el gate permite cerrarlos: la cuota d
 y no bloquea el cierre del trámite. Nota: la captura de JL era de ANTES de DGG-165 (CABA impaga → morosa neta
 → ambos con chip); al pagar CABA hoy ninguno figura como moroso neto, pero el fix per-trámite resuelve el
 caso y previene la recurrencia.
+
+---
+
+## DGG-168 · Remediación autónoma nocturna de la auditoría arquitectónica (2026-09-13)
+
+**Contexto:** tras la auditoría (`knowledge-base/AUDITORIA_ARQUITECTONICA_2026-09.md`), Pablo autorizó
+—de madrugada, sin nadie usando la plataforma y antes de que 100+ usuarios vuelvan a las 9am— cerrar los
+DOS críticos vivos y avanzar los ítems de riesgo bajo-medio testeables en solitario y sin disparar emails,
+dejando en espera la clase de alto riesgo. Condición explícita: tests "altamente detallados y exhaustivos,
+no presumiendo que nada está bien sin probar con todas las hipótesis posibles, incluso las menos probables".
+
+**Hecho y verificado esta noche (todo con e2e + prueba en vivo, sin tocar datos reales ni enviar emails):**
+
+1. **P0 (mig 0474, commit 9acadca) — REVOKE de 10 funciones SECURITY DEFINER** internas/cron/webhook que
+   estaban expuestas a anon/authenticated (notificar_usuario, admin_login_email, _comunicacion_resolver_
+   audiencia, reset_arca_jobs_colgados, gg_agenda_procesar_recordatorios, health_flow_alerts_garbage_collect,
+   4× webex_*). Smoke: anon=f/auth=f/service_role=t en las 10.
+
+2. **C1 (mig 0475, commit 4c49660) — escalada de privilegios vía `profiles.role`.** Ver E-GG-202. REVOKE del
+   UPDATE de tabla a `authenticated` + GRANT de columna sólo `{full_name, phone, avatar_url}`. Suite de 15
+   hipótesis antes/después: baseline VULNERABLE (role/administracion_id/activo/…), post-fix todo 42501 con
+   self-service intacto.
+
+3. **C2 (edge fn v9, commit 3a2f4c0) — la anon key pasaba el auth de `alta-cliente-portal`.** Ver E-GG-203.
+   Auth-gate real (service_role o JWT staff) + anti-secuestro (no re-apuntar `user_id` de una administración
+   ya vinculada). Matriz de roles probada en vivo (anon/publishable/basura/no-staff → rechazados; gerente/
+   operador → aceptados; anti-secuestro → 409, user_id intacto). Revisión adversarial independiente confirmó
+   cierre sin regresión y **ninguna otra edge fn con el mismo anti-patrón**.
+
+4. **FK indexes (mig 0476, commit d2f2f8d) — R11.** Índices en las 4 FKs sin soporte (tablas chicas → CREATE
+   INDEX instantáneo, aditivo). Recuento de FKs sin índice: 0.
+
+**Decisión de DEJAR EN ESPERA (para cuando Pablo esté disponible), con motivo:**
+
+- **Idempotencia server-side de RPCs de dinero** (`registrar_cobranza_comprobante`, `curso_registrar_pago`;
+  `pago_conciliar` YA es idempotente por su máquina de estados `estado<>'reportado'` bajo FOR UPDATE). El
+  único diseño **provablemente seguro** (sin falsos positivos que bloqueen un segundo pago legítimo de igual
+  monto) es una **idempotency-key provista por el front** (UUID por intención de pago), lo que exige cambios
+  coordinados en el front + prueba en vivo de las UIs de dinero (que crearían registros contables reales).
+  Un hash de contenido con ventana temporal es heurístico y PUEDE bloquear una cuota legítima repetida →
+  descartado por el requisito de Pablo. Cae en el path de escritura de dinero que Pablo pidió tratar con
+  cuidado. **En espera.**
+- **Guard explícito en `marcar_renovados_masivo`** (defensa en profundidad): hoy NO es explotable — el inner
+  `marcar_renovado` ya hace `IF NOT private.is_staff() THEN RAISE 42501` y todo corre en una transacción, así
+  que un no-staff falla en la iteración 1 y no se commitea nada. Se agregará un guard fail-fast propio junto
+  con el resto del barrido de defensa en profundidad (ver blast-radius en PROJECT_STATUS).
+- **Alto riesgo, explícitamente en espera:** rotación de `CRON_SECRET` (necesita el panel de Supabase),
+  reescritura masiva de RLS (InitPlan / multiple-permissive-policies), consolidación tramites/trackings,
+  extender auditoría a tablas financieras (toca el path de dinero), timeouts/reintentos de integraciones
+  (redeploys de email/push), activación de CI+vitest (necesita `npm install` —que cuelga en esta máquina— y
+  `gh` login).
+
+**Hecho ADICIONAL descubierto por la revisión adversarial (cerrado esta noche):**
+
+5. **C1-b (mig 0477, commit 465805e) — `handle_new_user` confiaba en el rol del metadata.** Ver E-GG-203-b
+   más abajo / E-GG entry. Signup público habilitado (`disable_signup:false`) + metadata `role` controlable
+   → auto-escalada a staff. Forzado `role='administrador'`. Baseline y post-fix verificados e2e.
+
+6. **voucher_incrementar_uso (mig 0478, commit d… ) — REVOKE anon/authenticated.** RPC mutante sin auth y
+   sin caller vivo (el incremento real lo hace el trigger de submission). Cerrado.
+
+**Hallazgos NUEVOS en espera (para Pablo — detalle en el informe en pantalla del cierre):**
+
+- **`send-comprobante-email` — relay de email autenticado (ALTO).** Sólo valida que el caller pueda LEER el
+  comprobante (RLS bajo su JWT); no restringe rol. Un cliente logueado puede mandar email con `to/cc/subject/
+  pdf` arbitrarios desde la casilla de la empresa (phishing/spam desde el dominio propio, saltea el throttle).
+  NO se puede arreglar con un simple staff-gate porque el modal lo usan TAMBIÉN los clientes del portal para
+  enviarse su propio comprobante. El fix correcto (restringir destinatarios / rate-limit / render server-side /
+  o gate por dueño) necesita decisión de producto + prueba del path de email (que envía mails). En espera.
+- **`gmail-pubsub-webhook` — sin firma/secreto (MEDIO).** Un POST anónimo puede falsear el estado de entrega/
+  rebote de emails. Fix: verificar el OIDC de Google Pub/Sub o un secreto compartido; necesita conocer la
+  config del push de Pub/Sub. En espera.
+- **`disable_signup=true` en el panel de Auth (defensa en profundidad de C1-b).** La app no usa signup
+  público; con C1-b la escalada ya está cerrada aunque siga abierto, pero conviene apagarlo (evita cuentas
+  basura). Necesita el panel de Supabase.
+- **Gates cron fail-open** (`dispatch-recupero`, `dispatch-vencimientos`, `email-bounce-harvester`,
+  `webex-webhook`): usan `if (secret){check}` → si el secreto no estuviera seteado, auth off. HOY no es
+  explotable (CRON_SECRET está seteado, hay health-check). Normalizar a gate por igualdad fail-closed; va con
+  la rotación de CRON_SECRET (alto riesgo, en espera).
+- **`alta-cliente-portal` `listUsers({perPage:200})`** sólo lee la página 1 (hoy 109 usuarios, 55% del tope).
+  Pasando 200 rompe el re-vínculo idempotente (falla CERRADO, sin hueco de seguridad). Cambiar a lookup por
+  email vía RPC. Prioridad media, ~91 usuarios de margen.
+- **`marcar_renovados_masivo`** sin guard propio (defensa en profundidad; hoy protegido transitivamente por
+  el inner `marcar_renovado`). **`assert_administracion_access`** tiene un bypass por GUC
+  `app.skip_admin_assert` que NO es alcanzable por un cliente REST (sólo lo setea código server-side de
+  gestoría, transaccional) → no explotable; documentar/estrechar como defensa en profundidad.
+- 2 tablas de log (`gestor_uploads_huerfanos_alertados`, `ofrecimientos_log`) con grants anon inertes
+  (RLS default-deny los neutraliza) → limpieza cosmética.
+
+**Método de prueba:** e2e en BD con impersonación de `authenticated` (SET ROLE + `request.jwt.claims`) y
+rollback forzado (`RAISE` al final); pruebas en vivo por HTTP contra la URL real de la edge fn con anon key,
+publishable key, token basura y JWT staff real (minteado vía `/auth/v1/token` con un usuario QA efímero
+creado por SQL y borrado, 0 residuo). Revisión adversarial: 3 agentes en paralelo (C1, C2, blast-radius) +
+sub-agente de barrido de las 41 edge functions.

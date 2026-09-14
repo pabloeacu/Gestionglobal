@@ -6093,3 +6093,76 @@ dos componentes montados juntos. **Sólo la prueba en vivo obligatoria (Inicio r
 lo reveló.** Regla derivada: al agregar un componente que suscribe realtime a un set de tablas,
 grepear si otro componente ya usa ese mismo set; y —cerrado de raíz— el hook ahora garantiza canales
 únicos. Es el caso testigo de por qué el canon exige prueba en vivo además de la doble auditoría.
+
+## E-GG-202 · CRÍTICO: cualquier usuario logueado podía autoconvertirse en gerente (escalada de privilegios vía profiles.role) (2026-09-13, auditoría C1)
+- **Síntoma:** hallazgo de la auditoría arquitectónica (no reportado por usuario;
+  vulnerabilidad viva en prod). El rol de un usuario se decide por
+  `public.profiles.role` (fuente de verdad de `get_user_role()`/`is_staff()`).
+- **Causa raíz:** el rol de BD `authenticated` tenía **UPDATE a nivel TABLA** sobre
+  `public.profiles` (todas las columnas), y la única policy de write
+  (`profiles_update_self`, USING/WITH CHECK `id = auth.uid()`) **no restringe
+  columnas**. Combinado: cualquier usuario logueado (un administrador del portal,
+  p.ej.) podía `UPDATE profiles SET role='gerente' WHERE id = auth.uid()` y volverse
+  STAFF; ídem `administracion_id` (secuestro de tenancy) o `activo` (reactivarse tras
+  una baja). Es el default permisivo de Supabase (tema T1 de la auditoría): el
+  aislamiento dependía de guards internos, pero la escritura self-service de perfil
+  quedó como UPDATE de tabla completa. RLS **sí** aislaba filas ajenas (verificado:
+  update de fila ajena afecta 0 filas); el hueco era exclusivamente la columna.
+- **Fix (mig 0475):** `REVOKE UPDATE ON public.profiles FROM authenticated` (+ REVOKE
+  explícito de las columnas sensibles) y `GRANT UPDATE (full_name, phone, avatar_url)
+  ON public.profiles TO authenticated`. Ese es el whitelist exacto que el front
+  escribe en autoservicio (profiles.ts:62, perfil.ts:33). El resto de columnas se
+  escribe por vías que NO dependen de ese grant: `pwa_*` y `onboarding_checklist` por
+  RPC SECURITY DEFINER (owner postgres), `updated_at` por trigger BEFORE UPDATE
+  (`trg_profiles_touch`, no requiere privilegio de columna del invoker), y
+  `role/administracion_id/partner_id/activo` sólo por RPC SECURITY DEFINER de gerencia
+  o edge fns con service_role (`crear-gerente`, `alta-cliente-portal`). service_role
+  no se tocó.
+- **Prueba:** suite e2e de 15 hipótesis con impersonación de `authenticated` (SET ROLE
+  + jwt claims) y rollback forzado, corrida ANTES (baseline: H1 role/H2 admin_id/H4
+  activo/H5 updated_at/H6 onboarding/H7 mezcla = VULNERABLE) y DESPUÉS (H1-H7 bloqueadas
+  con 42501; self-service H8-H11 OK 1 fila; RLS H12 0 filas ajenas; INSERT H13 bloqueado;
+  RPCs SECURITY DEFINER H14-H15 OK). Snapshot de grants post-fix: authenticated UPDATE
+  sólo en `avatar_url, full_name, phone`. Cero mutación en datos reales.
+- **Prevención:** toda tabla con columnas de rol/tenancy/estado que `authenticated`
+  pueda escribir debe usar **GRANT de columna** (whitelist), no UPDATE de tabla; las
+  policies RLS de write NO restringen columnas por sí solas. Barrido de blast-radius
+  a otras tablas: ver DGG-168.
+- **Fecha / módulo:** 2026-09-13 · auth / profiles / seguridad.
+
+## E-GG-203 · CRÍTICO: la anon key (pública) pasaba el auth de alta-cliente-portal → alta de "administrador" y secuestro de administraciones por cualquiera (2026-09-13, auditoría C2)
+- **Síntoma:** hallazgo de la auditoría (vulnerabilidad viva en prod). La edge fn
+  `alta-cliente-portal` crea un usuario `auth.users` con `role='administrador'`,
+  vincula `administraciones.user_id` y encola un email con credenciales reales.
+- **Causa raíz:** el chequeo de auth era `if (bearerToken.length < 20) return 401`. La
+  **anon key** —pública, embebida en el front, un JWT de ~220 chars— pasaba ese
+  chequeo. Cualquier visitante NO autenticado podía POSTear `{administracion_id, email,
+  nombre}` y: (1) crear una cuenta `administrador`, (2) upsertear `profiles` con ese rol
+  + el `administracion_id` de un cliente ajeno, (3) **sobreescribir
+  `administraciones.user_id`** apuntándolo a su propia cuenta → SECUESTRO del portal de
+  cualquier administración, y (4) hacerse enviar credenciales por email. Verificado en
+  vivo pre-fix: anon key + admin inexistente devolvía 404 (auth bypaseada, llegaba al
+  lookup).
+- **Fix (edge fn v9, espeja `blanquear-password`/`crear-gerente`):** auth-gate real —
+  aceptar SÓLO (a) service_role (`bearer === SUPABASE_SERVICE_ROLE_KEY`, el caller del
+  trigger pg_net) o (b) JWT de usuario staff (`admin.auth.getUser(bearer)` + `profiles.role
+  ∈ {gerente, operador}`); rechazar todo lo demás. **Anti-secuestro:** si la
+  administración ya está vinculada a OTRO usuario, no se re-apunta `user_id` (409);
+  idempotencia sólo si resuelve al mismo user. `verify_jwt=false` se mantiene y se
+  documentó en `config.toml` (el gate real es interno; el gateway igual dejaría pasar la
+  anon key por ser JWT válido).
+- **Prueba (v9, en vivo, sin emails, sin datos reales tocados):** anon→401, sin-auth→401,
+  basura→401, publishable→401, GET→405, administrador (no staff)→403, gerente→OK
+  (409 anti-secuestro / 404 lookup), operador→OK. Anti-secuestro verificado: el
+  `user_id` del admin linkeado quedó intacto. Usuario QA efímero creado por SQL y
+  borrado (0 residuo). Se minteó un JWT real vía `/auth/v1/token` para las pruebas de
+  rol (el rol se lee vivo de `profiles.role`, no del JWT, así que con un token se probó
+  toda la matriz de roles).
+- **Nota:** el trigger `trg_admin_provision_user` (auto-provisión al INSERT de
+  administración) está enabled pero **inerte hoy** (`app.service_role_key` no está
+  configurado en la BD) → el provisioning real corre por el wizard de gerencia (JWT
+  staff). El fix cubre ambas vías.
+- **Prevención:** ninguna edge fn que mute datos o envíe emails debe autenticar por
+  longitud de token; usar el patrón service_role-o-staff-JWT. Barrido a otras edge fns:
+  ver DGG-168.
+- **Fecha / módulo:** 2026-09-13 · edge functions / auth / seguridad.
