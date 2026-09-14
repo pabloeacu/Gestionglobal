@@ -37,3 +37,12 @@ verify_jwt = true
 # excepción justificada (caller SIEMPRE gerente logueado; doble check de rol adentro).
 [functions.send-constancia-email]
 verify_jwt = true
+
+# alta-cliente-portal (Auditoría 2026-09 · C2): verify_jwt=false a propósito —
+# tiene DOS callers legítimos (trigger pg_net con service_role, y el wizard de
+# gerencia con JWT de staff) y hace su propio auth-gate interno (service_role OR
+# profiles.role ∈ {gerente,operador}). NO subir a verify_jwt=true sin revisar: el
+# gateway igual dejaría pasar la anon key (es un JWT válido); la barrera real es
+# el gate interno. Se fija acá para que un deploy por CLI no lo flipee al default.
+[functions.alta-cliente-portal]
+verify_jwt = false

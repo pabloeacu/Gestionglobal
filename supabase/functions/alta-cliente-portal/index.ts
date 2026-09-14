@@ -22,7 +22,7 @@
 // y reusa credenciales (no genera nueva password). Devuelve { user_id, password_set: false }.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.46.1';
-import { humanizeUpstream, humanizeUpstreamMsg } from '../_shared/humanize.ts';
+import { humanizeUpstream } from '../_shared/humanize.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -70,14 +70,27 @@ Deno.serve(async (req) => {
 
   const admin = createClient(supabaseUrl, serviceKey);
 
-  // 1) Auth check pragmático: aceptamos cualquier Bearer válido (anon, service_role
-  //    o user JWT de staff). El control de acceso real está en quién puede llamar
-  //    esta edge function (sólo se invoca desde el trigger AFTER INSERT admin con
-  //    service_role, o desde el wizard de gerencia con JWT de staff).
-  //    Si vienen casos de abuso futuro, agregar verify_jwt=true en supabase/config.
+  // 1) Auth-gate real (C2 · Auditoría 2026-09). Sólo dos callers legítimos:
+  //    (a) el trigger AFTER INSERT private.trg_provision_admin_user_portal, que
+  //        POSTea vía pg_net con Bearer = SERVICE_ROLE_KEY, o
+  //    (b) el wizard de gerencia (front), que manda el JWT del usuario logueado
+  //        (verificado contra profiles.role ∈ {gerente, operador}).
+  //    Se rechaza TODO lo demás. En particular la ANON KEY —que es pública y va
+  //    embebida en el front— antes pasaba el chequeo de longitud (>20) y permitía
+  //    a cualquier visitante no autenticado crear cuentas role='administrador' y
+  //    SECUESTRAR administraciones ajenas reapuntando administraciones.user_id.
   const bearerToken = authHeader.replace(/^Bearer\s+/i, '').trim();
-  if (bearerToken.length < 20) {
-    return json(401, { ok: false, error: 'Bearer inválido o vacío' });
+  const isServiceRole = bearerToken.length > 0 && bearerToken === serviceKey;
+  if (!isServiceRole) {
+    const { data: caller, error: errCaller } = await admin.auth.getUser(bearerToken);
+    if (errCaller || !caller?.user) {
+      return json(401, { ok: false, error: 'Sesión inválida' });
+    }
+    const { data: callerProfile } = await admin
+      .from('profiles').select('role').eq('id', caller.user.id).maybeSingle();
+    if (!callerProfile || !['gerente', 'operador'].includes(callerProfile.role ?? '')) {
+      return json(403, { ok: false, error: 'Solo gerencia puede crear accesos al portal' });
+    }
   }
 
   // 2) Verificar que la administración existe + no tenga ya user_id seteado
@@ -97,6 +110,17 @@ Deno.serve(async (req) => {
   // 3) Buscar si ya existe user con ese email
   const { data: existingUsers } = await admin.auth.admin.listUsers({ page: 1, perPage: 200 });
   const existingUser = existingUsers?.users?.find(u => u.email?.toLowerCase() === body.email.toLowerCase());
+
+  // 3b) Anti-secuestro (C2): si la administración YA está vinculada a un usuario
+  //     distinto del que resolvería este email, NO se re-apunta user_id (eso sería
+  //     un secuestro del acceso del cliente). Idempotencia sólo si resuelve al
+  //     mismo user. El alta normal (user_id NULL) no se ve afectada.
+  if (adminRow.user_id && adminRow.user_id !== (existingUser?.id ?? null)) {
+    return json(409, {
+      ok: false,
+      error: 'Esta administración ya tiene un acceso vinculado a otro usuario. Usá el flujo de cambio de acceso.',
+    });
+  }
 
   let userId: string;
   let passwordSet = false;
