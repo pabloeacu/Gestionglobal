@@ -6205,3 +6205,42 @@ adversarial §6 (3 lentes: equivalencia / cobertura / seguridad) → **CERRADO_S
 del propio revisor (notificaciones_internas 4557 filas → 0 discrepancias) + advisor `auth_rls_initplan` 41→0.
 No se tocó `is_staff()`/`current_administracion_id()` (quedaron desnudos; su wrap es un chunk de perf aparte,
 mismo patrón seguro). No hay `auth.role/jwt/current_setting` desnudos en ninguna política.
+
+## DGG-170 · Performance RLS (parte 2) — envolver los helpers de sesión (176 políticas) (2026-09-15)
+
+**Contexto:** continuación directa de DGG-169 (ese cierre lo dejó anticipado: "su wrap es un chunk de perf
+aparte, mismo patrón seguro"). Además de `auth.uid()`, las políticas RLS llaman helpers propios de sesión
+que **leen la tabla `profiles`**: `private.is_staff()` (163 pol.), `private.current_administracion_id()` (21)
+y `private.is_administrador()` (12) — **176 políticas distintas en 100 tablas**. Desnudos, se re-evaluaban
+**por cada fila** → cada uno dispara un SELECT a `profiles` por fila. El costo por fila es MAYOR que el de
+`auth.uid()`, así que el ahorro de este chunk es el más grande de la tanda de performance.
+
+**Fix (mig 0483):** envolver los 3 helpers en `(select private.<fn>())` para llevarlos a **InitPlan**
+(evaluar 1 vez por consulta). **Matemáticamente idéntico:** los 3 son `pronargs=0`, `provolatile='s'`
+(STABLE), `prosecdef=true`, dependen sólo de la sesión (`auth.uid()`), NO de la fila → constantes por
+consulta; `(select fn())` una vez == `fn()` por fila. No son correlacionados (0 args) → jamás se envuelve
+una función que reciba argumentos de la fila (p.ej. `assert_administracion_access(id)` queda intacta).
+Método quirúrgico idéntico a 0482: DO block que re-deriva el transform determinístico en la BD
+(`ALTER POLICY`, preserva rol/comando/permissive), regex sólo sobre el helper **desnudo** (excluye ya
+envueltos), `\(\)` exige parens vacíos → no toca `is_staff_or_service()` ni ningún nombre más largo.
+Idempotente + replay-safe. **Compone con 0482:** en políticas que usan ambos, `(select auth.uid())` y el
+helper envuelto conviven sin doble-wrap.
+
+**Verificación:** n=176 (= candidatos del filtro); 100 tablas; **0 helpers desnudos restantes**;
+**acceso e2e IDÉNTICO antes/después** (snapshot de filas visibles impersonando cliente real
+`cdfce4c3` + gerente `b97088cb` bajo RLS con `SET LOCAL role/request.jwt.claims`, forzado a ROLLBACK vía
+`RAISE EXCEPTION`): cli `comp=1 mat=1 cert=0 cond=2 mov=0` y ger `comp=118 mat=91 cert=19 cond=372 mov=177`
+→ **idénticos byte a byte**. `EXPLAIN (COSTS OFF)` en `comprobantes`/`tramites`/`sent_emails` (1832 filas):
+los 3 helpers ahora son `InitPlan N -> Result` (una vez), no llamadas por fila. **Revisión adversarial §6**
+(3 lentes en paralelo: equivalencia / cobertura / seguridad, cada uno verificando contra la BD viva) →
+**CERRADO_SIN_REGRESION**: equivalencia OK (176/176, 0482 intacto, 0 anidamiento anómalo), cobertura OK
+(0 sub-match, 0 sobre-match, 17 INSERT-only with_check cubiertas), seguridad OK (cliente 0 fugas
+cross-tenant en 9 tablas sensibles, anon denegado a nivel GRANT, `TO` sin cambios, paréntesis balanceados →
+sin cambio de precedencia OR/AND). El advisor `auth_rls_initplan` NO trackea helpers propios → sigue en 0
+(la mejora es real pero advisor-invisible; esto es esperado).
+
+**Deuda anotada (fuera de alcance, no es defecto de 0483):** el schema `storage` tiene **24 políticas RLS**
+que usan los mismos 3 helpers **desnudos** en el hot-path de `storage.objects`. Mismo patrón de optimización,
+pendiente; candidato a **mig 0484** (requiere confirmar que el owner de las policies de storage permite
+`ALTER POLICY`). Se ofrece a Pablo como chunk aparte antes de tocar esa superficie de acceso.
+
