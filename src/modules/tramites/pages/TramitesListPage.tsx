@@ -523,12 +523,14 @@ export function TramitesListPage() {
                                   <Copy size={10} /> Posible duplicado
                                 </span>
                               )}
-                              {/* DGG-167 (JL): deuda POR TRÁMITE — este trámite tiene algo
-                                  pendiente de cobrar (comprobante con saldo o matrícula de curso
-                                  adeudada). Antes era por cliente (deuda neta) y "contaminaba"
-                                  trámites pagos de un cliente moroso. */}
+                              {/* DGG-167 (JL): deuda POR TRÁMITE — este trámite tiene un comprobante
+                                  con saldo pendiente. Antes era por cliente (deuda neta) y "contaminaba"
+                                  trámites pagos de un cliente moroso. DGG-173/mig 0487: la deuda de
+                                  curso YA se representa como saldo de su comprobante (SSOT), por eso
+                                  `tiene_deuda` = cobro_pendiente (misma métrica que el gate de cierre);
+                                  ya no hay una rama aparte por `curso_matriculas.estado_pago`. */}
                               {r.tiene_deuda && (
-                                <span className="mt-1 ml-1 inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-semibold text-rose-700" title="Este trámite tiene algo pendiente de cobrar (comprobante con saldo o cuota del curso adeudada)">
+                                <span className="mt-1 ml-1 inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-semibold text-rose-700" title="Este trámite tiene un comprobante con saldo pendiente de cobrar">
                                   <Wallet size={10} /> Con deuda
                                 </span>
                               )}

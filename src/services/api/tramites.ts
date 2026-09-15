@@ -272,11 +272,12 @@ export interface TramiteListItem extends TramiteRow {
   // DGG-89 · computed column (Postgrest). TRUE si hay otro trámite no-cancelado del
   // mismo servicio+período+solicitante (email) → probable reenvío. Sólo badge.
   posible_duplicado: boolean;
-  // DGG-167 (JL) · TRUE si ESTE trámite tiene algo pendiente de cobrar: comprobante
-  // con saldo (cobro_pendiente, mismo metric que el gate de cierre) o una matrícula de
-  // curso vinculada adeudada/parcial. Antes era per-CLIENTE (deuda neta, E-GG-116), lo
-  // que "contaminaba" trámites pagos de un cliente moroso; el moroso por cliente vive
-  // en la lista de Clientes/ficha. Viene como computed column `tramite_tiene_deuda`.
+  // DGG-167 (JL) · TRUE si ESTE trámite tiene un comprobante con saldo pendiente
+  // (cobro_pendiente, la MISMA métrica que el gate de cierre). Antes era per-CLIENTE
+  // (deuda neta, E-GG-116), lo que "contaminaba" trámites pagos de un cliente moroso;
+  // el moroso por cliente vive en la lista de Clientes/ficha. DGG-173/mig 0487: la
+  // deuda de curso YA se representa como saldo de su comprobante (SSOT) — ya no hay una
+  // rama aparte por `curso_matriculas.estado_pago`. Computed column `tramite_tiene_deuda`.
   tiene_deuda: boolean;
 }
 

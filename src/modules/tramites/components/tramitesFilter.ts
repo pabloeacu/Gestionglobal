@@ -73,11 +73,11 @@ export const TRAMITE_SEGMENTOS: SegmentDef[] = [
   },
   {
     key: 'por_cobrar',
-    // DGG-167 · usa `tiene_deuda` (mismo signo que el chip "Con deuda": comprobante
-    // con saldo O cuota de curso adeudada) para que filtrar "Por cobrar" muestre
-    // EXACTAMENTE los trámites con el chip. Es más amplio que el gate de cierre
-    // (que bloquea sólo por `cobro_pendiente` de comprobante) — el chip/filtro son
-    // un aviso de "algo por cobrar", el gate es la barrera dura de comprobante.
+    // DGG-167 · usa `tiene_deuda` (mismo signo que el chip "Con deuda") para que
+    // filtrar "Por cobrar" muestre EXACTAMENTE los trámites con el chip.
+    // DGG-173/mig 0487: `tiene_deuda` = `cobro_pendiente` (comprobante con saldo
+    // pendiente) — la deuda de curso ya se representa como saldo de su comprobante
+    // (SSOT), así que chip, filtro y gate de cierre usan la MISMA métrica.
     label: 'Por cobrar',
     icon: DollarSign,
     tone: 'violet',

@@ -6380,13 +6380,48 @@ KPI Inicio); verificado admin por admin. El crédito (saldo a favor) está defin
   deuda vencida bruta. Arregla la divergencia ACTIVA (ahora rótulos distintos para conceptos distintos).
 - **Verificación:** e2e antes/después (no-op) + build (Vercel autoritativo) + §6 3 lentes.
 
-**Pieza B — PENDIENTE (aprobada por Pablo: comprobante por matrícula):** integrar la deuda de curso al cta-cte.
-Hallazgo clave: los cursos se pagan por `movimiento` (categoría "Cursos / Campus") SIN comprobante y SIN link a
-la matrícula; `curso_matriculas` sólo guarda `estado_pago`; el precio esperado está en `cursos.precio_lista`;
-para las 21 matrículas en `pago_parcial` el monto pagado NO es recuperable. Diseño elegido: emitir un
-comprobante interno por matrícula (precio_lista) e imputar los pagos de curso a ese comprobante → la deuda de
-curso pasa a ser saldo_pendiente y aparece sola en todas las superficies (SSOT real). Requiere diseño cuidado
-(tipo de comprobante interno/no-fiscal, hook de matriculación, cambio de `curso_registrar_pago` a imputar,
-reconciliación de las 22 vivas incl. reconstrucción de los pagos parciales) + fiscal check. Es una FEATURE con
-riesgo → se diseña y revisa aparte antes de tocar el flujo de dinero. También pendiente en B: netear crédito en
-el KPI de Recupero (0-impacto hoy).
+**Pieza B (mig 0487) — CERRADA. ⚠️ CORRECCIÓN DE PREMISA que evitó DUPLICAR $3M:** la investigación inicial
+creyó que los cursos NO tenían comprobante → el plan aprobado era "comprobante por matrícula". **FALSO:** al
+verificar antes de construir (gatillado por la pregunta de Pablo "¿acaso no hay comprobantes de cursos?" + su
+principio "no dupliques comprobantes"), se encontró que **94/95 matrículas YA tienen comprobante** y que los
+**$3.010.000 de deuda del cta-cte SON cursos** (deuda de comprobante = deuda de curso, los mismos 17
+comprobantes). Crear comprobantes nuevos habría duplicado +$3M en cargos. Regla de Pablo confirmada: un
+comprobante NO puede duplicarse; puede ser interno (tipo X) y luego vincularse a un fiscal ARCA sin generar
+otro cargo.
+
+**Problema real = SINCRONÍA.** `curso_matriculas.estado_pago` es una bandera PARALELA que se despega del saldo
+real del comprobante: pagar el comprobante del curso por la vía normal (`registrar_cobranza_comprobante`) baja
+el saldo a 0 pero NO toca `estado_pago` → **4 matrículas** (D´Imperio, Drozd, Gonzalez, Rojas — todas "Curso
+Integral de Formación") decían "pago_parcial" con el comprobante pago → el chip "Con deuda" mentía, y (peor) la
+condición 'pago' no se tildaba → **certificado bloqueado**. + 1 huérfana "GG Cursos" (cuenta interna
+cursos@gestionglobal.ar, sin comprobante).
+
+**Fix (0487, cero comprobantes nuevos):** (1) helper `private.matricula_estado_pago_desde_comprobante` +
+trigger `trg_comprobante_sync_matricula_pago` AFTER INSERT/UPDATE OF saldo_pendiente,estado ON comprobantes →
+sincroniza `estado_pago` desde el saldo (anti-drift permanente, pagues por la vía que pagues; cascada al
+downstream que tilda la condición 'pago' → desbloquea certificado). SIN BUCLE (matricula_sync_estado_pago no
+escribe comprobantes, verificado). SECURITY DEFINER (R17). (2) Backfill de las existentes → arregla las 4.
+SEGURO: las 4 tienen 2 condiciones no-pago pendientes → tildar no completa egreso → 0 certificados/0 mails
+(verificado). (3) `tramite_tiene_deuda(t)` = `cobro_pendiente(t)` → deuda de curso lee el SALDO DEL COMPROBANTE
+(fuente única), sin la rama `estado_pago` divergente; excluye GG Cursos (sin comprobante = sin cargo). DB-safe:
+gate duro `tramite_cerrar_exige_cobrado` ya usa cobro_pendiente; 0 funciones DB usan tramite_tiene_deuda; firma
+idéntica (sin overload R16).
+
+**Verificación:** las 4 → pago_completo + tiene_deuda=false + 0 certificados; GG Cursos → tiene_deuda=false;
+deuda global 3.010.000 sin cambio; trámites con deuda 21→17; e2e rollback: pagar (saldo0)→pago_completo,
+reabrir (saldo=total)→adeudado, cert 0=0 y notif 4598=4598 (0 side effects). §6 3 lentes (correctitud/no-bucle,
+side-effects, cobertura/regresión) → sin hallazgos críticos/mayores.
+
+**Hallazgos §6 (menores):** (1) FIXEADO en el chunk — las 2 funciones SECURITY DEFINER nuevas quedaban con
+`PUBLIC EXECUTE`; se agregó `REVOKE ... FROM PUBLIC` (defensa en profundidad, alineado con mig 0474; el trigger
+las dispara igual sin grant). (2) FIXEADO — deriva de doc: el tooltip del chip "Con deuda" + 3 comentarios
+describían la rama vieja (estado_pago); actualizados a "comprobante con saldo (cobro_pendiente, misma métrica
+que el gate de cierre)". (3) EFECTO BY-DESIGN (documentado): al pagar el comprobante de un curso, ahora la
+condición 'pago' se tilda → si el resto de condiciones ya está, se auto-emite el certificado + mail al alumno.
+Esto en realidad ARREGLA un bug latente (antes, pagar por la vía del comprobante NUNCA desbloqueaba el
+certificado); hoy inerte (0 matrículas "armadas") y el cron gg-campus-certificados ya auto-emitía. **Deudas
+anotadas (fuera de alcance):** (a) netear crédito en el KPI de Recupero (0-impacto hoy); (b) al anular un
+comprobante el helper congela estado_pago (defendible: cobro_pendiente ya excluye anulado → chip correcto);
+(c) la sync no dispara al VINCULAR por 1ª vez un comprobante existente a un trámite (sólo al cambiar saldo/estado)
+— riesgo bajo (el comprobante nace nuevo con la matrícula); (d) GG Cursos (interna) conserva estado_pago
+residual, inerte. Se atacan si/cuando corresponda.
