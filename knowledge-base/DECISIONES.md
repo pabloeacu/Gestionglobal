@@ -6169,12 +6169,13 @@ no presumiendo que nada está bien sin probar con todas las hipótesis posibles,
 - **`alta-cliente-portal` `listUsers({perPage:200})`. ✅ CERRADO 2026-09-15 (mig 0480 + edge fn v10, E-GG-207).**
   Chunk #4. Reemplazado por RPC `gg_auth_user_id_por_email` (SECURITY DEFINER, sólo service_role, no enumera).
   Escala a cualquier cantidad; e2e verificado (anti-secuestro + re-link idempotente sin mail).
-- **`marcar_renovados_masivo`** sin guard propio (defensa en profundidad; hoy protegido transitivamente por
-  el inner `marcar_renovado`). **`assert_administracion_access`** tiene un bypass por GUC
-  `app.skip_admin_assert` que NO es alcanzable por un cliente REST (sólo lo setea código server-side de
-  gestoría, transaccional) → no explotable; documentar/estrechar como defensa en profundidad.
-- 2 tablas de log (`gestor_uploads_huerfanos_alertados`, `ofrecimientos_log`) con grants anon inertes
-  (RLS default-deny los neutraliza) → limpieza cosmética.
+- **`marcar_renovados_masivo` guard + grants anon en 2 log tables. ✅ CERRADO 2026-09-15 (mig 0481, chunk #5
+  "defensa en profundidad").** Guard fail-fast `is_staff()` al tope de marcar_renovados_masivo (antes protegido
+  sólo transitivamente por el inner marcar_renovado); REVOKE ALL de anon+authenticated en
+  `gestor_uploads_huerfanos_alertados` y `ofrecimientos_log` (eran grants inertes por RLS, sin uso en el front).
+  Aditivo, sin cambio funcional; e2e: no-staff→42501, staff→pasa el guard.
+  **`assert_administracion_access`** (bypass por GUC `app.skip_admin_assert`): revisado = NO explotable por
+  cliente REST (sólo lo setea código server-side de gestoría, transaccional). Queda como nota, sin acción.
 
 **Método de prueba:** e2e en BD con impersonación de `authenticated` (SET ROLE + `request.jwt.claims`) y
 rollback forzado (`RAISE` al final); pruebas en vivo por HTTP contra la URL real de la edge fn con anon key,
