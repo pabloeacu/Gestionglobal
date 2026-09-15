@@ -6308,3 +6308,39 @@ prod → latentes; feature partner dormida):**
 
 Ambos GAPs pertenecen a la feature partner (0 usuarios). Sin urgencia; se atacan cuando se active partners.
 
+## DGG-172 · Performance — dropear 31 índices sin uso (mig 0485) (2026-09-15)
+
+**Contexto:** chunk #9, elegido por Pablo. El advisor `unused_index` marcaba 62 índices con `idx_scan=0`.
+Ventana de stats = **131 días** (stats_reset 2026-05-07, sin reset posterior) con la plataforma en
+producción real (100+ clientes) desde ~2026-07-17 → "0 scans" es señal fuerte de índice muerto, no de
+ventana corta.
+
+**Fix (mig 0485):** de los 62 se dropearon SÓLO los **31** que son a la vez no-únicos, sin respaldar
+constraint (PK/UNIQUE) y **sin respaldar FK** (R11: los 31 FK-backing se CONSERVAN aunque figuren sin uso).
+Por construcción, dropearlos NO puede afectar correctitud ni integridad — sólo (eventual) performance de
+lectura — y es 100% reversible (cada `CREATE` exacto quedó comentado en el archivo). 14 son FULL (mayor
+ahorro de escritura, incl. el GIN trigram caro de `administraciones`) + 17 parciales; 1 era redundante con
+un índice UNIQUE (`idx_servicios_form_publico` ≡ `servicios_formulario_publico_slug_key`). Pablo aprobó los 31.
+
+**Verificación:** 31/31 dropeados, 0 colateral (547→516 índices); **R11 intacto** (`fks_sin_indice=0` de 244
+FK antes y después; ninguno de los 31 respaldaba una FK); `uq_movimientos_idempotency_key` y las 167
+constraints PK/UNIQUE intactas; 0 índices inválidos. **Revisión adversarial §6** (3 lentes contra la BD viva:
+correctitud/R11, cobertura/reversibilidad, regresión de plan) → **CERRADO_SIN_REGRESION**: EXPLAIN ANALYZE de
+las consultas reales que podrían haber usado los dropeados → todas Seq Scan sub-2ms sobre tablas ≤1924 filas
+(ninguna cerca de 50k); confirmado que el lookup público por slug usa el índice UNIQUE (el path
+`/formulario/:slug` consulta `formularios.slug`, así que el dropeado ni siquiera tenía lector caliente).
+Advisor `unused_index` 62→31 (los 31 restantes son FK-backing que R11 obliga a conservar + un puñado de
+parciales de auditoría conservados). No hubo cambio de resultados (drop de índice sólo cambia plan) ni
+errores en ninguna consulta.
+
+**Hallazgos §6 (todos menores):**
+1. **FIXEADO en el chunk:** el `CREATE` de reversibilidad del índice trigram usaba `gin_trgm_ops` sin
+   calificar; el original (mig 0002) usaba `extensions.gin_trgm_ops` → se corrigió el comentario para que el
+   restore funcione bajo cualquier `search_path`.
+2. **Deuda R6 (informativa):** `idx_venc_pausado` y `idx_salud_alertas_kind_enviado` no tenían `CREATE` en
+   el historial de migraciones (creados por DDL fuera de migración). Quedan registrados acá con su `CREATE`
+   exacto (en 0485) para cerrar el drift documental.
+3. **Deuda R11 PRE-EXISTENTE (fuera de alcance, tabla NO tocada por 0485):** `comunicaciones_destinatarios.
+   administracion_id` sólo tiene índice PARCIAL (`WHERE visto_at IS NULL`) + es 2ª columna de un unique →
+   cobertura FK incompleta. Candidato: `CREATE INDEX ON public.comunicaciones_destinatarios (administracion_id);`
+   Se ofrece a Pablo aparte (no se toca reflexivamente en un chunk cuyo eje es DROPEAR, no agregar).
