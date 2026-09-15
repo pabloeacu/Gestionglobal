@@ -6182,3 +6182,26 @@ rollback forzado (`RAISE` al final); pruebas en vivo por HTTP contra la URL real
 publishable key, token basura y JWT staff real (minteado vía `/auth/v1/token` con un usuario QA efímero
 creado por SQL y borrado, 0 residuo). Revisión adversarial: 3 agentes en paralelo (C1, C2, blast-radius) +
 sub-agente de barrido de las 41 edge functions.
+
+---
+
+## DGG-169 · Performance RLS (auth_rls_initplan) — 41 políticas optimizadas (2026-09-15)
+
+**Contexto:** chunk #6 de la tanda "uno por uno" (Pablo eligió empezar por performance). El advisor de
+performance marcaba `auth_rls_initplan` (count=41): 41 políticas RLS en 33 tablas llamaban `auth.uid()`
+DESNUDO → se re-evaluaba **por cada fila**.
+
+**Fix (mig 0482):** envolver `auth.uid()` → `(select auth.uid())` en las 41 políticas (fix oficial de
+Supabase). El planner lo evalúa **una vez por consulta** (InitPlan) → gran mejora en tablas grandes
+(trámites, comprobantes, matrículas, notificaciones, etc.). **Matemáticamente idéntico:** `auth.uid()` es
+STABLE, sin args, no referencia la fila → constante por consulta; `(select auth.uid())` devuelve el mismo
+uid de sesión, sólo cambia cuántas veces se calcula. Método quirúrgico: DO block que re-deriva el transform
+determinístico (ALTER POLICY sobre políticas con `auth.uid()` desnudo, excluye las ya envueltas como
+profiles_*); idempotente + replay-safe; preserva rol/comando/permissive/subconsultas EXISTS.
+
+**Verificación:** n=41 (= advisor); 0 bare restantes; **acceso e2e IDÉNTICO antes/después** (cliente + gerente,
+conteo de filas visibles en 11 tablas RLS — todos iguales: cli 54/1/0/0/2/0, ger 91/0/120/19/372). Revisión
+adversarial §6 (3 lentes: equivalencia / cobertura / seguridad) → **CERRADO_SIN_REGRESION**; e2e fila-por-fila
+del propio revisor (notificaciones_internas 4557 filas → 0 discrepancias) + advisor `auth_rls_initplan` 41→0.
+No se tocó `is_staff()`/`current_administracion_id()` (quedaron desnudos; su wrap es un chunk de perf aparte,
+mismo patrón seguro). No hay `auth.role/jwt/current_setting` desnudos en ninguna política.
