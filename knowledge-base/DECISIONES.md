@@ -6244,3 +6244,17 @@ que usan los mismos 3 helpers **desnudos** en el hot-path de `storage.objects`. 
 pendiente; candidato a **mig 0484** (requiere confirmar que el owner de las policies de storage permite
 `ALTER POLICY`). Se ofrece a Pablo como chunk aparte antes de tocar esa superficie de acceso.
 
+**ADDENDUM (2026-09-15) · storage 0484 INVESTIGADO y DEFERIDO (Pablo OK).** Pablo pidió avanzarlo; la
+verificación de precondición lo descartó por dos motivos concurrentes: **(1) path bloqueado por ownership.**
+`storage.objects` es propiedad de `supabase_storage_admin`; la conexión MCP (y el editor SQL del panel) corre
+como `postgres`, que NO es superuser, NO es owner ni miembro de ese rol. `ALTER`/`DROP`/`CREATE POLICY`
+requieren ser owner de la tabla → probado empíricamente (DO block con `ALTER POLICY ... RENAME` en subtx →
+`42501 "must be owner of table objects"`, rollbackeado). El único camino sancionado es el editor **Storage →
+Policies** del dashboard (corre con privilegio de owner), reescribiendo las 24 a mano. **(2) beneficio nulo.**
+`storage.objects` tiene sólo **443 filas** (20 buckets); InitPlan sólo paga en tablas grandes y las queries de
+storage filtran por `bucket_id`+path (indexado) → el costo por-fila del helper es despreciable (sub-ms).
+**Decisión:** no tocar una superficie de acceso VIVA (documentos de clientes, PDFs de comprobantes,
+certificados) a mano, 24 veces, sin el transform determinístico ni el e2e por-ALTER, para una ganancia
+inmedible. Queda como deuda consciente; si algún día `storage.objects` crece a decenas de miles de filas, se
+reevalúa por el dashboard. NO se creó mig 0484.
+
