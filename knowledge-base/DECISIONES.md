@@ -6344,3 +6344,49 @@ errores en ninguna consulta.
    administracion_id` sólo tiene índice PARCIAL (`WHERE visto_at IS NULL`) + es 2ª columna de un unique →
    cobertura FK incompleta. Candidato: `CREATE INDEX ON public.comunicaciones_destinatarios (administracion_id);`
    Se ofrece a Pablo aparte (no se toca reflexivamente en un chunk cuyo eje es DROPEAR, no agregar).
+
+## DGG-173 · Robustez / SSOT contable de "deuda" — investigación + Pieza A (mig 0486) (2026-09-15)
+
+**Contexto:** chunk #10, elegido por Pablo (eje robustez/SSOT contable). Investigación §6 (3 lentes:
+fórmulas BD, superficies front, cross-check en vivo) del cómputo de "deuda/saldo/moroso" en todas las
+superficies.
+
+**Regla canónica (Pablo, 2026-09-15):** un comprobante es DEUDA si y sólo si `saldo_pendiente > 0`. Las 3
+formas de dejar de ser deuda (cobrado / compensado con nota de crédito / saldo 0.00) reducen todas a
+saldo_pendiente=0. Pago parcial → deuda = saldo restante.
+
+**Hallazgo (tranquilizador):** la deuda del CLIENTE ya es CONSISTENTE hoy — cross-check en vivo dio
+**$3.010.000 idéntico en 6 superficies** (portal, ficha, cta-cte detalle, cta-cte lista, widget Top deudores,
+KPI Inicio); verificado admin por admin. El crédito (saldo a favor) está definido igual en todos lados (SSOT
+único). Divergencias encontradas:
+- **ACTIVA (visible):** el módulo Recupero rotulaba "Deuda total"=$2.830.000/16 (bruto, sólo comprobantes
+  VENCIDOS) igual que el KPI "Deuda total" del Inicio ($3.010.000/17, neto, todo pendiente). Mismo rótulo,
+  número distinto (gap $180.000 = comprobante no vencido de Giacobelli).
+- **LATENTES (0 datos hoy):** (a) `cliente_deuda_neta` (portal) tenía un filtro `estado_cobranza NOT IN
+  ('cancelado','anulado')` que ninguna otra superficie usa → un comprobante con saldo>0 y cobranza cancelada
+  contaba como deuda en gerencia pero no en el portal; (b) Recupero no netea crédito; (c) NETA (resta crédito,
+  piso 0) vs BRUTA (crédito aparte) a nivel RPC — reconciliado en el front, la UI es consistente;
+  (d) familia trámite incluye 'borrador'.
+- **POR DISEÑO (DGG-167):** la deuda de cuota de curso (22 matrículas) sólo entra en el chip por-trámite; no
+  tiene monto en ninguna superficie contable.
+
+**Pieza A (mig 0486 + front) — CERRADA:** implementa la regla canónica en la deuda de COMPROBANTES.
+- **BD:** `CREATE OR REPLACE cliente_deuda_neta` quitando el filtro divergente `estado_cobranza` → deuda =
+  saldo_pendiente>0 (estado NOT IN anulado/borrador), neto de crédito, piso 0, IDÉNTICO en todas las
+  superficies. Firma intacta (sin overload, R16). Verificado NO-OP hoy: filtro_afecta_hoy=0; cliente
+  cdfce4c3=0 y global=3.010.000 antes y después; único consumer `cliente_portal_dashboard` no cambia.
+- **Front (relabel, sin lógica):** módulo Recupero → KPI "Deuda total"→"Deuda vencida", "Morosos"→"Comprob.
+  vencidos" (MorososKpiStrip + RecuperoListPage export); comentario en recupero.ts getKpis aclarando que es
+  deuda vencida bruta. Arregla la divergencia ACTIVA (ahora rótulos distintos para conceptos distintos).
+- **Verificación:** e2e antes/después (no-op) + build (Vercel autoritativo) + §6 3 lentes.
+
+**Pieza B — PENDIENTE (aprobada por Pablo: comprobante por matrícula):** integrar la deuda de curso al cta-cte.
+Hallazgo clave: los cursos se pagan por `movimiento` (categoría "Cursos / Campus") SIN comprobante y SIN link a
+la matrícula; `curso_matriculas` sólo guarda `estado_pago`; el precio esperado está en `cursos.precio_lista`;
+para las 21 matrículas en `pago_parcial` el monto pagado NO es recuperable. Diseño elegido: emitir un
+comprobante interno por matrícula (precio_lista) e imputar los pagos de curso a ese comprobante → la deuda de
+curso pasa a ser saldo_pendiente y aparece sola en todas las superficies (SSOT real). Requiere diseño cuidado
+(tipo de comprobante interno/no-fiscal, hook de matriculación, cambio de `curso_registrar_pago` a imputar,
+reconciliación de las 22 vivas incl. reconstrucción de los pagos parciales) + fiscal check. Es una FEATURE con
+riesgo → se diseña y revisa aparte antes de tocar el flujo de dinero. También pendiente en B: netear crédito en
+el KPI de Recupero (0-impacto hoy).

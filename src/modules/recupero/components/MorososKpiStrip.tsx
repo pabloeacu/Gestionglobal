@@ -47,14 +47,14 @@ export function MorososKpiStrip({ kpis, loading }: Props) {
     <section className="grid grid-cols-2 gap-3 sm:grid-cols-5">
       <KpiCard
         icon={Coins}
-        label="Deuda total"
+        label="Deuda vencida"
         tone="red"
         loading={loading}
         value={formatMoney(kpis.deuda_total)}
       />
       <KpiCard
         icon={Users}
-        label="Morosos"
+        label="Comprob. vencidos"
         tone="amber"
         loading={loading}
         value={<AnimatedNumber value={kpis.morosos_count} />}

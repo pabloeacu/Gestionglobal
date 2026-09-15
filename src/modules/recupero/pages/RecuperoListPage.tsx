@@ -133,8 +133,8 @@ export function RecuperoListPage() {
       subtitulo: 'Gestión progresiva de mora · Gestión Global',
       filtros: exportFiltros,
       kpis: [
-        { label: 'Deuda total', value: formatMoney(kpis.deuda_total), tone: 'rose' },
-        { label: 'Morosos', value: String(kpis.morosos_count), tone: 'amber' },
+        { label: 'Deuda vencida', value: formatMoney(kpis.deuda_total), tone: 'rose' },
+        { label: 'Comprob. vencidos', value: String(kpis.morosos_count), tone: 'amber' },
         { label: 'R1 30d', value: String(kpis.r1_30d), tone: 'cyan' },
         { label: 'R2/R3 30d', value: String(kpis.r2_30d + kpis.r3_30d), tone: 'rose' },
       ],

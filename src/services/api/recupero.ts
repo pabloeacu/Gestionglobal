@@ -339,6 +339,12 @@ export async function getKpis(): Promise<ApiResponse<RecuperoKpis>> {
     enviado_at: string;
   }>;
 
+  // `deuda_total` acá es DEUDA VENCIDA BRUTA (suma del saldo_pendiente de comprobantes
+  // vencidos; comprobantes_morosos ya filtra vencimiento < hoy). Se muestra rotulada como
+  // "Deuda vencida" (NO "Deuda total"), distinta del KPI "Deuda total" del Inicio de gerencia
+  // (kpis_dashboard_global), que es deuda NETA de TODO lo pendiente. El neteo del crédito del
+  // cliente en esta cifra se implementa junto con la unificación de dinero de cursos (DGG-173/Pieza B);
+  // hoy es no-op (0 crédito en el sistema). SSOT: DGG-173.
   const deuda_total = morosos.reduce((acc, r) => acc + Number(r.saldo_pendiente || 0), 0);
   return ok({
     deuda_total,
