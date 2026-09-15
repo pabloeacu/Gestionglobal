@@ -46,3 +46,10 @@ verify_jwt = true
 # el gate interno. Se fija acá para que un deploy por CLI no lo flipee al default.
 [functions.alta-cliente-portal]
 verify_jwt = false
+
+# gmail-pubsub-webhook (Auditoría 2026-09): verify_jwt=false a propósito. Hoy es un
+# stub; el POST está gateado internamente por service_role (antes el camino de
+# testing manual era anon-callable y falseaba sent_emails.webhook_status). Cuando se
+# cablee el Pub/Sub real de Google deberá verificar el OIDC del push subscription.
+[functions.gmail-pubsub-webhook]
+verify_jwt = false

@@ -27,6 +27,16 @@ Deno.serve(async (req) => {
   if (req.method === 'GET') return new Response('gmail-pubsub-webhook alive', { status: 200 });
   if (req.method !== 'POST') return json({ ok: false, error: 'method not allowed' }, 405);
 
+  // Auth-gate (Auditoría 2026-09): sólo service_role puede POSTear. Antes, el
+  // camino de "testing manual" ({provider_msg_id, event}) era anon-callable y
+  // permitía falsear sent_emails.webhook_status. El camino real de Pub/Sub es hoy
+  // un stub no-op; cuando se cablee de verdad deberá verificar el OIDC de Google.
+  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  const bearer = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '').trim();
+  if (!bearer || bearer !== serviceKey) {
+    return json({ ok: false, error: 'no autorizado' }, 401);
+  }
+
   let body: any;
   try {
     body = await req.json();

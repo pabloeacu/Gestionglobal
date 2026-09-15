@@ -6154,9 +6154,11 @@ no presumiendo que nada está bien sin probar con todas las hipótesis posibles,
   cliente sólo a casillas activas de SU administración + su propio email confirmado); cuerpo server-render;
   anti-inyección MIME (CRLF en to/cc/bcc + saneo de pdf_filename). Verificado e2e + envío real. Fue el chunk #1
   de la tanda "uno por uno".
-- **`gmail-pubsub-webhook` — sin firma/secreto (MEDIO).** Un POST anónimo puede falsear el estado de entrega/
-  rebote de emails. Fix: verificar el OIDC de Google Pub/Sub o un secreto compartido; necesita conocer la
-  config del push de Pub/Sub. En espera.
+- **`gmail-pubsub-webhook` — sin firma/secreto (MEDIO→BAJO). ✅ CERRADO 2026-09-15 (edge fn v6, ver E-GG-206).**
+  Fue el chunk #3 de la tanda. Resultó un stub (Pub/Sub real = no-op sin cablear; nadie invoca la fn;
+  webhook_status no se lee en ningún lado). Decisión de Pablo: gatear por service_role → todo POST exige
+  Bearer service_role (anon/anon-key/basura → 401), GET healthcheck OK. El Pub/Sub real, cuando se cablee,
+  verificará OIDC de Google. verify_jwt=false documentado en config.toml.
 - **`disable_signup=true` en el panel de Auth (defensa en profundidad de C1-b).** La app no usa signup
   público; con C1-b la escalada ya está cerrada aunque siga abierto, pero conviene apagarlo (evita cuentas
   basura). Necesita el panel de Supabase.
