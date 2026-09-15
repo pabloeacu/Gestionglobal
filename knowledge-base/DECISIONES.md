@@ -6256,5 +6256,55 @@ storage filtran por `bucket_id`+path (indexado) → el costo por-fila del helper
 **Decisión:** no tocar una superficie de acceso VIVA (documentos de clientes, PDFs de comprobantes,
 certificados) a mano, 24 veces, sin el transform determinístico ni el e2e por-ALTER, para una ganancia
 inmedible. Queda como deuda consciente; si algún día `storage.objects` crece a decenas de miles de filas, se
-reevalúa por el dashboard. NO se creó mig 0484.
+reevalúa por el dashboard. NO se creó mig 0484 (ese número lo tomó el chunk de multiple_permissive, DGG-171).
+
+## DGG-171 · Performance RLS (parte 3) — consolidar políticas permisivas múltiples SÓLO-SELECT (mig 0484) (2026-09-15)
+
+**Contexto:** chunk #8, elegido por Pablo. El advisor `multiple_permissive_policies` marcaba 52 grupos
+(≈43 tablas) donde una tabla tiene 2+ políticas permisivas para el mismo rol+acción → el planner evalúa
+todas. **Análisis clave (post-0482/0483):** el patrón dominante (≈40 tablas) es `_staff_all`(cmd=ALL,
+`USING is_staff`) + `_xxx_select`(cmd=SELECT). Como tras 0482/0483 `is_staff` es un InitPlan barato y va
+PRIMERO en el OR, el SELECT ya corta-circuita óptimo con 2 políticas → **consolidarlas daría beneficio
+runtime ~nulo** y exigiría partir cada política ALL en INSERT/UPDATE/DELETE separadas (≈100+ políticas
+nuevas sobre tablas de dinero/tenancy vivas). Alto churn, cero ganancia → **DEFERIDO** (documentado acá).
+
+**Fix (mig 0484):** se atacó ÚNICAMENTE el subconjunto "limpio": las 2 tablas con DOS políticas permisivas
+de cmd=SELECT (sin política ALL de por medio), donde consolidar es un `USING (A OR B)` provablemente
+equivalente que NO toca escrituras:
+- `comprobantes`: `comprobantes_select` (staff / admin-tenant) + `comprobantes_partner_select` (partner EXISTS)
+  → 1 sola SELECT con 3 ramas OR; las 3 políticas de escritura staff intactas.
+- `tramite_eventos`: `eventos_staff_select` (staff) + `eventos_admin_select` (tramite EXISTS) → 1 sola SELECT;
+  sin políticas de escritura (writes por SECURITY DEFINER, R17).
+Método: DO block con lista VALUES hardcodeada (SÓLO esas 2 tablas), que re-deriva el merge EN LA BD con
+`pg_get_expr` (cero transcripción a mano), vía `ALTER POLICY` (preserva la que queda) + `DROP` de la
+redundante. Idempotente (guarda por EXISTS de la plegada). Atómico → sin ventana de exposición.
+
+**Por qué es seguro (idéntico):** las políticas PERMISIVAS se combinan con OR por definición de Postgres →
+`USING((A) OR (B))` en una política == política(A)+política(B) para TODOS los roles. Sólo baja el conteo de
+políticas, no el acceso.
+
+**Verificación:** acceso e2e IDÉNTICO antes/después (cliente real `cdfce4c3` + gerente `b97088cb` bajo RLS,
+rollback): cli `comp=1 ev=3`, ger `comp=122 ev=330` → byte a byte. Estructura: exactamente 1 SELECT permisiva
+por tabla; merged USING contiene las ramas originales VERBATIM; `EXPLAIN` válido con InitPlans. Advisor
+`multiple_permissive_policies` −2 exacto (esas 2 entradas desaparecen; ninguna otra tabla afectada).
+**Revisión adversarial §6** (3 lentes contra la BD viva: equivalencia/cobertura/seguridad) →
+**CERRADO_SIN_REGRESION**: equivalencia OK (ramas verbatim, partner sintético ejercitado en rollback),
+cobertura OK (sólo 2 tablas, 40 deferidas intactas, comprobantes escrituras intactas, idempotente),
+seguridad OK (cliente sólo lo suyo 1/3, 2º admin de otro tenant 0 cross-tenant, escritura sigue staff-only
+INSERT→42501, anon denegado, paréntesis balanceados).
+
+**GAPs PRE-EXISTENTES descubiertos por la §6 (NO son regresión de 0484 — rama byte-idéntica; 0 partners en
+prod → latentes; feature partner dormida):**
+1. **Rama partner inerte.** La rama partner de `comprobantes_select` hace `EXISTS ... JOIN public.partners`,
+   pero `partners` sólo tiene `partners_staff_all` (sin policy SELECT para el propio partner) → por RLS un
+   partner no ve su fila de `partners` → el EXISTS da false → un partner real vería 0 comprobantes. Fix
+   futuro (si se activan partners): `CREATE POLICY partners_partner_select ON public.partners FOR SELECT TO
+   authenticated USING (EXISTS(SELECT 1 FROM profiles pr WHERE pr.id=(select auth.uid()) AND pr.role='partner'
+   AND pr.partner_id=partners.id))` o resolver partner_id→emisor vía helper SECURITY DEFINER.
+2. **Drift mig-file ↔ prod.** La rama partner viva coincide con mig 0104 (sólo por emisor); mig 0110 la había
+   EXTENDIDO con una rama de atribución (`movimiento_imputaciones … m.partner_id_atribucion`) que NO está viva
+   en prod. 0484 plegó fielmente lo vivo. Decidir aparte si la extensión de 0110 debe re-aplicarse o si su
+   ausencia es intencional; alinear archivo vs prod para futuros merges de RLS.
+
+Ambos GAPs pertenecen a la feature partner (0 usuarios). Sin urgencia; se atacan cuando se active partners.
 
