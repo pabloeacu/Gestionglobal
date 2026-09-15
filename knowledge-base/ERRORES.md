@@ -6195,3 +6195,10 @@ grepear si otro componente ya usa ese mismo set; y —cerrado de raíz— el hoo
 - **Fix (edge fn v6, decisión de Pablo: gatear por service_role):** todo POST requiere `Authorization: Bearer <service_role>`; anon/anon-key/basura → 401. El GET healthcheck sigue en 200. El ACK de Pub/Sub queda también gateado (inofensivo, era no-op). Cuando se cablee el Pub/Sub real deberá verificar el OIDC del push subscription de Google. `verify_jwt=false` documentado en config.toml.
 - **Prueba (v6, live):** POST sin auth/anon-key/basura/envelope → 401 'no autorizado'; GET → 200 alive. Idiom canónico (mismo que db-health-alert-check).
 - **Fecha / módulo:** 2026-09-15 · edge functions / email / seguridad.
+
+## E-GG-207 · MEDIO: alta-cliente-portal no escalaba (listUsers cap 200) → el alta idempotente rompería pasando ~200 usuarios (2026-09-15, auditoría)
+- **Síntoma:** hallazgo de la revisión adversarial de C2. `alta-cliente-portal` buscaba un usuario existente con `admin.auth.admin.listUsers({page:1, perPage:200})` + `.find()` por email.
+- **Causa raíz:** con >200 usuarios (hoy 109), un usuario en página 2+ NO se encontraría → el re-alta de un cliente YA existente iría a `createUser` ("already registered") o al 409 anti-secuestro. Falla CERRADA (sin hueco de seguridad) pero rompe el provisioning legítimo a escala.
+- **Fix (mig 0480 + edge fn v10):** lookup EXACTO por email vía RPC `public.gg_auth_user_id_por_email(text)` (SECURITY DEFINER, `lower(email)`, sólo `service_role` — no enumera usuarios; anon/authenticated revocados). La edge fn reemplaza el `listUsers` por `admin.rpc('gg_auth_user_id_por_email', {p_email})` → `existingUserId: string|null`. Escala a cualquier cantidad.
+- **Prueba:** RPC verificado (id correcto para email existente, case-insensitive + trim; NULL para inexistente; anon/auth sin EXECUTE). Edge fn v10 e2e live: anon→401; admin(→X)+email de otro user→409 anti-secuestro; admin(→X)+email de X→200 re-link idempotente **sin mail** (el caso que rompía a >200 usuarios); admin(→X)+email nuevo→409. QA efímero borrado (0 residuo). verify_jwt=false preservado.
+- **Fecha / módulo:** 2026-09-15 · edge functions / auth / escala.

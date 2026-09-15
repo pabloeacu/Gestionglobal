@@ -6166,9 +6166,9 @@ no presumiendo que nada está bien sin probar con todas las hipótesis posibles,
   `webex-webhook`): usan `if (secret){check}` → si el secreto no estuviera seteado, auth off. HOY no es
   explotable (CRON_SECRET está seteado, hay health-check). Normalizar a gate por igualdad fail-closed; va con
   la rotación de CRON_SECRET (alto riesgo, en espera).
-- **`alta-cliente-portal` `listUsers({perPage:200})`** sólo lee la página 1 (hoy 109 usuarios, 55% del tope).
-  Pasando 200 rompe el re-vínculo idempotente (falla CERRADO, sin hueco de seguridad). Cambiar a lookup por
-  email vía RPC. Prioridad media, ~91 usuarios de margen.
+- **`alta-cliente-portal` `listUsers({perPage:200})`. ✅ CERRADO 2026-09-15 (mig 0480 + edge fn v10, E-GG-207).**
+  Chunk #4. Reemplazado por RPC `gg_auth_user_id_por_email` (SECURITY DEFINER, sólo service_role, no enumera).
+  Escala a cualquier cantidad; e2e verificado (anti-secuestro + re-link idempotente sin mail).
 - **`marcar_renovados_masivo`** sin guard propio (defensa en profundidad; hoy protegido transitivamente por
   el inner `marcar_renovado`). **`assert_administracion_access`** tiene un bypass por GUC
   `app.skip_admin_assert` que NO es alcanzable por un cliente REST (sólo lo setea código server-side de

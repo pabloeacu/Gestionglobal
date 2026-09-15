@@ -107,15 +107,19 @@ Deno.serve(async (req) => {
     return json(404, { ok: false, error: 'Administración no encontrada' });
   }
 
-  // 3) Buscar si ya existe user con ese email
-  const { data: existingUsers } = await admin.auth.admin.listUsers({ page: 1, perPage: 200 });
-  const existingUser = existingUsers?.users?.find(u => u.email?.toLowerCase() === body.email.toLowerCase());
+  // 3) Buscar si ya existe user con ese email — lookup EXACTO por RPC (mig 0480).
+  //    Antes: listUsers({perPage:200}) + find(), que a >200 usuarios no encontraba
+  //    al usuario en páginas siguientes y rompía el alta idempotente. El RPC
+  //    gg_auth_user_id_por_email (SECURITY DEFINER, sólo service_role) escala.
+  const { data: existingUserId } = await admin.rpc('gg_auth_user_id_por_email', {
+    p_email: body.email,
+  }) as { data: string | null };
 
   // 3b) Anti-secuestro (C2): si la administración YA está vinculada a un usuario
   //     distinto del que resolvería este email, NO se re-apunta user_id (eso sería
   //     un secuestro del acceso del cliente). Idempotencia sólo si resuelve al
   //     mismo user. El alta normal (user_id NULL) no se ve afectada.
-  if (adminRow.user_id && adminRow.user_id !== (existingUser?.id ?? null)) {
+  if (adminRow.user_id && adminRow.user_id !== (existingUserId ?? null)) {
     return json(409, {
       ok: false,
       error: 'Esta administración ya tiene un acceso vinculado a otro usuario. Usá el flujo de cambio de acceso.',
@@ -126,9 +130,9 @@ Deno.serve(async (req) => {
   let passwordSet = false;
   let passwordTemporal: string | null = null;
 
-  if (existingUser) {
+  if (existingUserId) {
     // Idempotencia: usuario ya existe → solo vinculamos.
-    userId = existingUser.id;
+    userId = existingUserId;
   } else {
     // 4) Crear user con password temporal + email_confirm=true
     passwordTemporal = generarPasswordTemporal();
