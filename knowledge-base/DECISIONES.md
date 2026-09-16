@@ -6519,12 +6519,25 @@ RLS/sesión en un deploy, guía del informe).
   DEUDA documentada (convención, no hueco): mover helpers internos a schema `private` (deliverable 2 del
   informe) — refactor grande, se hará como convención; los huecos ya están cerrados.
 
-**A2 · Rotar CRON_SECRET filtrado — parte SQL CERRADA (mig 0494), rotación del valor PENDIENTE (browser):**
+**A2 · Rotar CRON_SECRET filtrado — CERRADO (mig 0494 + rotación del valor verificada):**
 El valor `gg_cron_c3500…` estaba hardcodeado en 8 crons y commiteado (migs 0162/0166/0373). 0494: helper
 `private.cron_bearer()` lee el secreto de Vault (secret `cron_secret`, seedeado con el valor actual vía SQL
 fuera de migración para no re-filtrarlo) + reescribió los 8 crons para usarlo. Verificado: 0 crons hardcodean,
-8 usan el helper, bearer resuelto idéntico al actual (cero downtime), helper sin EXECUTE para anon/auth. FALTA:
-rotar el VALOR (nuevo secreto en Edge Functions→Secrets [browser] + Vault [SQL]) → mata el valor filtrado.
+8 usan el helper, bearer resuelto idéntico al actual (cero downtime), helper sin EXECUTE para anon/auth.
+ROTACIÓN EJECUTADA (zero-downtime): (1) seedear Vault con el valor actual → crons ya leen de Vault sin cambiar
+comportamiento; (2) nuevo valor `gg_cron_dd346142…` seteado en Edge Functions→Secrets [browser] Y en Vault [SQL]
+back-to-back. VERIFICADO: bearer NUEVO → HTTP 200, bearer VIEJO (el filtrado) → HTTP 401 → el secreto commiteado
+en el repo quedó MUERTO. Nada que revertir en migs (el valor nunca vuelve al repo).
 
-**A3 · disable_signup — PENDIENTE (browser).** **A4 · borrar 4 edge huérfanas** (zz-wipe-storage-oneshot YA
-neutralizada = stub 410 inocuo; + probes tramix-probe/tramix-egress-test/zoom-boot-probe) — PENDIENTE (browser).
+**A3 · disable_signup — CERRADO (browser).** Signup público apagado en Auth → Providers/Sign In (verificado OFF).
+Los usuarios se crean sólo por gerencia (`alta-cliente-portal` / SQL admin), nunca por auto-registro anónimo.
+
+**A4 · borrar 4 edge huérfanas — CERRADO (browser).** Borradas por dashboard (46→42 funciones): zz-wipe-storage-oneshot
+(ya neutralizada = stub 410 inocuo), tramix-probe, tramix-egress-test, zoom-boot-probe. Las 4 confirmadas SIN
+referencias en `src/` (scan os.walk) y sin cron/uso productivo — probes de conectividad/tests auth-gated. Cada borrado
+confirmó "Successfully deleted …". Superficie de ataque reducida (4 endpoints menos, uno de ellos ex-destructivo).
+
+**FASE A CERRADA — 2026-09-16.** A1 (migs 0490-0493, commit 4b1f76b) + A2 (mig 0494 + rotación verificada) + A3 +
+A4 completas y verificadas. P0 de seguridad de acceso del informe de auditoría 2026-09: cerrado. Deuda documentada
+(no hueco): mover helpers internos a schema `private` → se hará como convención; `config.toml verify_jwt` versionado
+→ Fase B.
