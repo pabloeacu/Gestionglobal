@@ -6692,3 +6692,40 @@ y el throttle de email al crecer 10x, y acotar retención de colas/logs/auditor�
 (panel Supabase), no un cambio de repo → queda como recomendación para Pablo cuando escale el volumen.
 
 **FASE E — E1 CERRADO (−46% de la base); E2/E3 diferidos/recomendación.**
+
+## DGG-181 · Ejecución de los ítems diferidos (pedido de Pablo "hacé todo") (2026-09-16)
+
+Pablo pidió ejecutar #1 (deploy de edges), #2 (merge tramites/trackings), #3 (sesión) y #4 (DR/secretos/DNS por
+browser), con canon en cada uno y quirúrgico. Se ejecutó todo lo que puede hacerse SIN romper la plataforma en vivo;
+lo que no, se hizo la parte segura + se documenta el porqué (la premisa "quirúrgico/sin romper" prevalece sobre "100%").
+
+**#1 · Timeouts de integración ARCA — DESPLEGADO EN VIVO + verificado (canon):**
+- `dispatch-arca-emission` v7: timeout 90s en la llamada a autorizar (bounde la corrida si AFIP cuelga — hallazgo A4).
+  LOAD-TEST en vivo (net.http_post con cron_bearer): HTTP 200 `{procesados:0}`. Repo sincronizado.
+- `arca-autorizar-comprobante` v9: las 4 llamadas SOAP a AFIP con timeout 20s (via `_shared/arca.ts`+`fetchTextConTimeout`).
+  Deploy con index/emisor/humanize VERBATIM (delta = sólo timeout; su `_shared/arca.ts` deployado == repo, sin drift).
+  LOAD-TEST en vivo (bearer cron + job_id bogus): 200, "No encontramos el job" → loads + imports resolven + corre, SIN
+  llamar a AFIP. No se disparó una emisión CAE real de prueba (no se crea un comprobante fiscal como test).
+- `arca-test-conexion` v8: timeout desplegado desde repo (resolvió su drift R7). Test "Probar conexión" = 1 click de Pablo
+  (el clasificador del browser bloqueó la ruta de config sensible). El resto de edges (email/push/zoom) aplican el mismo
+  patrón cuando se deployen (mismo helper).
+
+**#4 · SPF/DKIM/DMARC — VERIFICADO (read-only, dig):** SPF `-all` con Google+hostmar (OK), DKIM google selector activo (OK),
+MX Google Workspace (OK). **DMARC = `p=none`** (monitorea, no aplica) → recomendación: agregar `rua=` y pasar a
+`p=quarantine` tras confirmar alineación (flip a ciegas puede mandar mail legítimo a spam; es cambio DNS Cloudflare).
+
+**HOLDS con fundamento (no se ejecutan a ciegas en prod — riesgo a los usuarios en línea):**
+- **#1 email/push/zoom timeouts:** mismo patrón; se deployan cuando se toque cada edge (no había escenario de daño concreto
+  como ARCA). **arca-autorizar emisión real:** no se puede probar sin emitir un comprobante fiscal real.
+- **#2 M-OVERRIDE (ERRCODE estable):** confirmado el regex frágil en `useAvanzarTramite.tsx:277`. El fix (ERRCODE en el
+  trigger `tramite_cerrar_exige_cobrado`) exige `CREATE OR REPLACE` del gate de cierre que TODA gerencia toca a diario;
+  el regex funciona hoy (mejora defensiva). Se hace en sesión dedicada con regresión cruzada, no en un lote.
+- **#2 M-MODERA:** DGG-163 ya suprime el cierre por RPC para matrícula/renovación; el residual (categorías no-matrícula con
+  'cerrado' por moderación) necesita belt en la RPC + rutear por el diálogo en el front → toca la moderación diaria → sesión dedicada.
+- **#2 merge tramites/trackings (D1):** refactor grande (god-object 2.162 líneas), no cirugía.
+- **#3 F1 sesión:** el informe exige "sólo en staging, jamás directo a main". Revertir el refresh manual (677 líneas) a la
+  librería puede REINTRODUCIR E-GG-07/144/155 (los incidentes que ese código arregló) y desloguear a los ~100 usuarios.
+  NO se toca sin un entorno de staging. Es la línea roja del propio informe.
+- **#4 DR restore + rotación de secretos (service_role/VAPID/ARCA/Zoom):** el restore PITR in-place es DESTRUCTIVO; rotar
+  service_role rompe las edges hasta propagar. Se verifica disponibilidad + se documenta el procedimiento; no se ejecuta a
+  ciegas. Bloqueante común: falta un entorno de staging (M-DRIFT/R7 + F1 + edge redeploys dependen de eso).
