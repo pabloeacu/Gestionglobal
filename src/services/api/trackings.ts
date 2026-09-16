@@ -267,8 +267,36 @@ export async function getTracking(id: string): Promise<ApiResponse<TrackingDetai
 
   const vencRaw = (vencRes.data ?? [])[0] as TrackingVencimientoLigado | undefined;
 
+  // D2 (auditoría · Fase D · E-GG-209): la columna tramites.comprobante_id quedó muerta
+  // (0/125): los comprobantes se emiten por el wizard de admisión y viven en
+  // solicitudes.comprobante_id. El embed por el FK de tramites devolvía null → el link
+  // "Ver comprobante" del detalle nunca aparecía y el atajo "comprobante pendiente" del
+  // header se mostraba en trámites que YA tienen comprobante. Fallback: si el embed no
+  // trajo comprobante, resolverlo por la solicitud del trámite (solicitudes.tramite_id).
+  // Sólo lectura; la RLS de gerencia lee solicitudes. (El modal de emisión ya es idempotente
+  // sobre solicitud.comprobante_id, así que el atajo mal mostrado nunca duplicó.)
+  let comprobante = tt.comprobante;
+  let comprobantePendiente = tt.comprobante_pendiente;
+  if (!comprobante) {
+    const { data: sol } = await supabase
+      .from('solicitudes')
+      .select('comprobante:comprobantes!solicitudes_comprobante_id_fkey(id,tipo,punto_venta,numero)')
+      .eq('tramite_id', id)
+      .not('comprobante_id', 'is', null)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const c = (sol?.comprobante ?? null) as TrackingDetail['comprobante'];
+    if (c) {
+      comprobante = c;
+      comprobantePendiente = false; // tiene comprobante → no está pendiente
+    }
+  }
+
   return ok({
     ...tt,
+    comprobante,
+    comprobante_pendiente: comprobantePendiente,
     parent,
     lineas: lineasRes.data ?? [],
     estados_disponibles: estadosRes.data,

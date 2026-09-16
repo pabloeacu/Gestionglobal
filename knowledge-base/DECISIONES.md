@@ -6638,3 +6638,35 @@ al deployar (patrón documentado).
 
 **FASE C CERRADA — 2026-09-16.** C3 + C2 en vivo y verificados; C1 en repo (deploy gateado por R7). Robustez operativa +
 observabilidad. Decisión de producto pendiente para Pablo: recordatorios de comprobantes impagos (E-GG-208).
+
+## DGG-179 · FASE D — Consolidación estructural / SSOT de dominio (2026-09-16)
+
+Fase D del plan (T3: dominio dual trámite/tracking). Se cierra el ítem quirúrgico y de bajo riesgo (D2) y se DEFIEREN,
+con fundamento, los ítems que tocan el flujo de cierre/kanban/moderación que usan ~100 usuarios a diario.
+
+**D2 · Link "Ver comprobante" roto (front, E-GG-209) — CERRADO, §6 manual + prueba en vivo.**
+`tramites.comprobante_id` quedó muerto (0/125): los comprobantes se emiten por el wizard de admisión y viven en
+`solicitudes.comprobante_id` (125/125). El embed de `getTracking` por el FK de tramites devolvía null → el link
+"Ver comprobante" del detalle NUNCA aparecía y el atajo "comprobante pendiente" del header se mostraba en trámites que
+YA tienen comprobante (cosmético; el modal de emisión es idempotente sobre `solicitud.comprobante_id`, así que nunca
+duplicó). Fix FRONT-ONLY (cero riesgo de BD/trigger): en `getTracking`, si el embed no trae comprobante, se resuelve por
+la solicitud del trámite (`solicitudes.tramite_id`) y se corrige `comprobante_pendiente=false`. `getTracking` sólo lo
+usa `TrackingDetailPage` (gerencia) → RLS de gerente lee solicitudes; para el cliente el fallback da null (sin regresión).
+Verificado en BD: el fallback resuelve los 125 (ej. "X 0001-00000125"). Se descartó el backfill de `tramites.comprobante_id`
++ trigger de sync (fixea uniforme pero un UPDATE masivo dispara `tramite_on_update`/audit en 125 filas vivas y un trigger
+solicitudes→tramites tiene blast radius; para un bug 🟢 de un link, el front-only es más quirúrgico).
+
+**D1 · Unificar tramites/trackings + M-OVERRIDE + M-MODERA — DIFERIDO (fundamentado).**
+- **Merge de módulos** `src/modules/tramites` + `src/modules/trackings` sobre la misma tabla: es un REFACTOR grande
+  (dos vocabularios, dos servicios, god-object TrackingDetailPage 2.162 líneas), no una cirugía. Alto riesgo de regresión
+  en el flujo operativo diario.
+- **M-OVERRIDE** ("cerrar sin cobrar" E-GG-139 detectado por regex sobre el texto del error → ERRCODE estable): mejora de
+  robustez que toca el gate de deuda del cierre en todas las superficies.
+- **M-MODERA** (cierre por moderación saltea el `CerrarTramiteDialog` → sin motivo_cierre/cierre_satisfactorio): DGG-163
+  ya suprime el cierre por RPC para matrícula/renovación en el FRONT, pero `tracking_moderar_gestor_avance` todavía ACEPTA
+  `estado='cerrado'` para OTRAS categorías → falta el belt en la RPC + rutear esos cierres por el diálogo (front).
+  **Motivo del diferimiento:** los tres cambian el flujo de cierre/kanban/moderación que ~100 usuarios tocan a diario;
+  bajo el mandato "quirúrgico, sin riesgo a los usuarios en línea", merecen sesiones dedicadas con prueba en vivo
+  cruzada (kanban/lista/detalle/moderación), no un lote de maratón. Quedan en el backlog con alcance preciso.
+
+**FASE D — D2 CERRADO; D1/M-OVERRIDE/M-MODERA diferidos (flujo de cierre sensible).**
