@@ -1,0 +1,41 @@
+# CI — red de seguridad de QA (Auditoría 2026-09, Fase B / B1).
+# Gate liviano y determinístico en cada push/PR a main: typecheck (tsc) + tests
+# unitarios (vitest) + build (vite). NO despliega nada (Vercel sigue siendo el que
+# deploya main); es puramente un status check aditivo — nunca toca runtime ni datos.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Sólo lectura del repo: el gate no escribe nada (ni releases, ni comentarios, ni deploy).
+permissions:
+  contents: read
+
+# Un run por rama: cancela el anterior si llega un push nuevo (ahorra minutos).
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    env:
+      # Puppeteer es devDep (genera PDFs por script, NO se usa en el gate). Evitar
+      # que su postinstall baje Chromium (~150 MB) → npm ci más rápido y sin flakear.
+      PUPPETEER_SKIP_DOWNLOAD: 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Typecheck (tsc --noEmit)
+        run: npm run typecheck
+      - name: Tests unitarios (vitest)
+        run: npm test
+      - name: Build (vite build)
+        run: npm run build

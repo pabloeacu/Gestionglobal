@@ -6541,3 +6541,46 @@ confirmó "Successfully deleted …". Superficie de ataque reducida (4 endpoints
 A4 completas y verificadas. P0 de seguridad de acceso del informe de auditoría 2026-09: cerrado. Deuda documentada
 (no hueco): mover helpers internos a schema `private` → se hará como convención; `config.toml verify_jwt` versionado
 → Fase B.
+
+## DGG-177 · FASE B — Red automatizada de QA (CI + tests) (2026-09-16)
+
+Pablo: "Sigamos tu plan… no soltar hasta el 100%… fase por fase… commitea, pushea y seguí." Fase B del plan de
+auditoría (el hueco estructural más profundo: "Red de QA" ~2/10 — cada cambio se validaba sólo a mano, patrón "bug
+descubierto en prod por un usuario real"). **Todo ADITIVO, cero runtime, cero riesgo:** ni toca la app, ni la BD, ni
+el deploy; es una malla de status-checks + tests. La sesión nocturna había dejado tests escritos SIN pushear (vitest
+no instalaba por cuelgue ambiental de la máquina). Esta sesión lo desbloqueó y lo completó.
+
+**B1 · vitest + CI + smokes SQL — CERRADO, §6 3 lentes + EJERCITADO en vivo:**
+- **Tests unitarios (vitest 2.1.9):** `tests/unit/{cuit,storageKeys,diasHabiles,dates}.test.ts` → **24 tests, 4 archivos,
+  verde**. Cubren las libs puras de mayor riesgo: `cuit` (DV mód-11 + `esCampoCuit` con word-boundary anti-falso-match
+  'circuito'/'cuidado'), `storageKeys` (NFKD/R20, E-GG-40), `diasHabiles` (invariantes espejo de `dias_habiles_add`),
+  y **`dates` (familia E-GG-194** — el corrimiento de fecha por TZ: `toISODate`/`formatTimestampDate` de un instante
+  nocturno AR = día UTC+1; test con reloj congelado para `hoyISO/offset`). `tsconfig` usa `include:['src']` → los tests
+  NUNCA entran al `tsc` del build de Vercel (no pueden romper el deploy). `pool:'forks'` en vitest.config (el pool de
+  threads no cerraba el proceso en macOS → colgaría el paso de CI; forks sale limpio).
+- **CI (`.github/workflows/ci.yml`):** GitHub Action en push/PR a main → `npm ci` + `typecheck` (tsc) + `test` (vitest)
+  + `build` (vite). `permissions: contents:read` (sólo lectura), `concurrency` (cancela runs viejos),
+  `PUPPETEER_SKIP_DOWNLOAD` (evita que el postinstall de Chromium flakee `npm ci`). **No despliega nada** — Vercel sigue
+  deployando main por su integración Git, independiente del check. Verificado: `npm ci --dry-run` = "up to date" (lockfile
+  en sync tras agregar vitest).
+- **Smokes SQL R18 de las RPC de dinero (`tests/sql/`):** `smoke_registrar_cobranza_idempotencia.sql` +
+  `smoke_curso_registrar_pago_idempotencia.sql` + README. Codifican R18 (E-GG-42): bloque `DO` que elige datos base en
+  runtime, fija `request.jwt.claims` a un gerente (is_staff), ejercita la RPC y **fuerza ROLLBACK** con `RAISE 'SMOKE_OK…'`
+  (no persiste NADA). **EJERCITADOS EN VIVO (rolled back):** mismo `idempotency_key` → 1 movimiento/1 imputación (no
+  duplica dinero); key distinto → 2º movimiento (no bloquea pago legítimo); key NULL → sin dedup. NO corren en CI (el
+  runner no tiene BD) → gate manual antes de migrar RPCs de dinero.
+- **§6 (workflow 3 revisores adversariales):** A (tests) recomputó las 24 assertions contra la fuente → todas exactas,
+  0 falso-verde/falso-rojo; confirmó que el diseño evita a propósito la trampa de locale ICU (no asserta nombres de mes).
+  B (CI/build) APROBADO: aditivo, no rompe Vercel, lockfile en sync, tsc no toca tests, vite build no falla sin VITE_*.
+  C (smokes) halló y se FIXEÓ: **(alta)** cobranza pagaba `p_permitir_excedente=false` monto=1 → falsa alarma si el
+  comprobante elegido tenía saldo<2 → ahora `=true` (robusto); **(media)** faltaba el path `key=NULL` → agregado a ambos
+  smokes; + 3 imprecisiones de README (interpretación por token exacto `SMOKE_OK`, "escribe de verdad y se revierte" en
+  vez de "sólo-lectura", quitado el número de migraciones). Re-ejercitados post-fix: ambos SMOKE_OK.
+- **CAVEAT ambiental honesto:** `vitest`/`tsc`/`vite` locales son lentísimos en esta máquina (una corrida de vitest tardó
+  ~147s de wall-clock con 1.6s de CPU real — cuelgue ambiental documentado); el trabajo real de los tests es ~40ms. En el
+  runner Linux de GitHub corre en segundos. La prueba de verde local se hizo con `pool:'forks'` (sale limpio). Falta el
+  PRIMER run del Action en GitHub (lo confirma Pablo desde Actions; el push lo dispara).
+
+**FASE B CERRADA — 2026-09-16.** Primera red automatizada de QA de la plataforma. A partir de acá, cada cambio tiene un
+gate de tipos + tests + build en cada push. Deuda menor documentada: alinear la versión de Node de CI con la de Vercel
+(`.nvmrc`/`engines.node`) — opcional, no bloqueante.
