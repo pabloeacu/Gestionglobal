@@ -1,0 +1,33 @@
+# Dependabot (Auditoría 2026-09 · Fase G / G5 · supply-chain).
+# Abre PRs de actualización de dependencias (front npm + GitHub Actions) para no quedar
+# con librerías vulnerables. Es ADITIVO: sólo propone PRs; no toca prod ni despliega nada.
+# Las alertas de seguridad de Dependabot se habilitan aparte en Settings → Security del repo.
+version: 2
+updates:
+  # Front (React/Vite/etc.)
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    groups:
+      # Agrupa los patches/minors para no inundar de PRs; los majors van sueltos.
+      minor-and-patch:
+        update-types: ["minor", "patch"]
+    labels:
+      - "dependencies"
+    commit-message:
+      prefix: "deps"
+
+  # Los propios workflows de CI (actions/checkout, setup-node, …)
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    labels:
+      - "dependencies"
+      - "ci"
+    commit-message:
+      prefix: "ci(deps)"
