@@ -11,6 +11,11 @@ const corsHeaders = {
 };
 
 const MAX_JOBS_POR_CORRIDA = 5;
+// C1/A4 (Auditoría 2026-09): timeout de la llamada a arca-autorizar-comprobante. Sin él, si
+// AFIP cuelga la emisión, la corrida entera quedaba retenida hasta el wall-clock limit. 90s >
+// 3×20s de las llamadas SOAP internas; al vencer, el job queda 'pending' (no se pierde) y lo
+// reintenta el próximo cron + el watchdog reset_arca_jobs_colgados.
+const AUTORIZAR_TIMEOUT_MS = 90000;
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
@@ -50,6 +55,7 @@ Deno.serve(async (req) => {
           'Authorization': `Bearer ${cronSecret ?? serviceKey}`,
         },
         body: JSON.stringify({ job_id: j.id }),
+        signal: AbortSignal.timeout(AUTORIZAR_TIMEOUT_MS),
       });
       const body = await r.json().catch(() => ({}));
       results.push({ job_id: j.id as string, ok: !!body.ok, error: body.error });
