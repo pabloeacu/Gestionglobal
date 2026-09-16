@@ -4,13 +4,26 @@
 -- fire-and-forget: job_run_details registra el ENCOLADO, no el status HTTP). Caso concreto:
 -- `notify-vencimientos-diario` (jobid 2) manda un token VIEJO hardcodeado
 -- (Bearer myRhvg…) → 401 garantizado; 120 corridas "succeeded" que en realidad fallaron.
--- Es un DUPLICADO muerto: el aviso de vencimientos real lo hace `dispatch-vencimientos-diario`
--- (jobid 24, reescrito en 0494 para usar private.cron_bearer(), devuelve 200).
+--
+-- IMPORTANTE (corregido tras §6): `notify-vencimientos` NO es un duplicado de
+-- `dispatch-vencimientos`. Son features DISTINTOS: notify-vencimientos = recordatorios por
+-- email de COMPROBANTES impagos (facturas) a las administraciones (vw_comprobantes_para_avisar,
+-- umbrales {7,3,1,-1,-7}); dispatch-vencimientos (jobid 24) = alertas de VENCIMIENTOS
+-- regulatorios (matrícula RPAC, DDJJ, seguros…) sobre la tabla `vencimientos`. Retirar el cron
+-- de notify NO lo cubre dispatch: DESACTIVA el recordatorio de comprobantes impagos. Es seguro
+-- porque ese recordatorio NUNCA funcionó (401 desde el día uno → comprobante_avisos_vencimiento
+-- con 0 filas en toda la vida de prod), así que no se pierde una capacidad EN USO. Volver a
+-- ENCENDERLO (re-alinear el token + validar) es una decisión de producto de Pablo (mandaría
+-- emails nuevos a ~79 clientes, nunca validados) — ver DECISIONES DGG-178 / ERRORES E-GG-208.
+-- El informe A6 pedía "re-alinear o retirar": acá se RETIRA (mata el falso-verde) y se deja la
+-- reactivación como decisión explícita, sin encender mails a clientes de forma autónoma.
 --
 -- Fix:
--- (C2a) Retirar el cron roto `notify-vencimientos-diario`. Nunca funcionó (siempre 401,
---       0 efecto) → retirarlo no pierde funcionalidad; sólo elimina el falso-verde y un
---       token filtrado más en la definición del job.
+-- (C2a) Retirar el cron roto `notify-vencimientos-diario` (RETIRA el recordatorio de
+--       comprobantes impagos — que nunca funcionó — y elimina el falso-verde + un token
+--       filtrado más). Infra que queda huérfana (no la desmantela esta mig, ver DGG-178):
+--       edge fn `notify-vencimientos`, vista `vw_comprobantes_para_avisar`, tabla
+--       `comprobante_avisos_vencimiento` (0 filas). Se conservan por si Pablo reactiva la feature.
 -- (C2b) Des-cegar el monitoreo: `db_health_metrics()` (lo que ve el panel de Salud y lo que
 --       chequea el cron db-health-alert-check) ahora cuenta las respuestas HTTP fallidas
 --       (4xx/5xx/timeout) de las últimas 24 h desde net._http_response (dato que pg_net ya

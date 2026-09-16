@@ -7,6 +7,11 @@
 // deno-lint-ignore-file no-explicit-any
 // @ts-ignore - esm.sh sirve este módulo en runtime.
 import forge from 'https://esm.sh/node-forge@1.3.1?target=deno';
+import { fetchTextConTimeout } from './fetchTimeout.ts';
+
+// Timeout de las llamadas SOAP a AFIP (C1/A4). Generoso: AFIP responde en 1-5s; 20s sólo
+// corta un cuelgue real. El error de timeout dice "timeout" → isTransientArcaError lo reintenta.
+const AFIP_TIMEOUT_MS = 20000;
 
 export type Ambiente = 'homologacion' | 'produccion';
 
@@ -78,14 +83,13 @@ export async function wsaaLogin(opts: {
     `<soapenv:Body><wsaa:loginCms><wsaa:in0>${cmsB64}</wsaa:in0></wsaa:loginCms></soapenv:Body>` +
     `</soapenv:Envelope>`;
 
-  const res = await fetch(WSAA_URLS[opts.ambiente], {
+  const { ok, status, text: xml } = await fetchTextConTimeout(WSAA_URLS[opts.ambiente], {
     method: 'POST',
     headers: { 'Content-Type': 'text/xml; charset=utf-8', SOAPAction: '' },
     body: soapBody,
-  });
-  const xml = await res.text();
-  if (!res.ok) {
-    throw new Error(`WSAA HTTP ${res.status}: ${xml.slice(0, 800)}`);
+  }, AFIP_TIMEOUT_MS);
+  if (!ok) {
+    throw new Error(`WSAA HTTP ${status}: ${xml.slice(0, 800)}`);
   }
   // El loginCmsReturn viene como CDATA o como entities. Lo decodificamos.
   const ret = extractTag(xml, 'loginCmsReturn');
@@ -121,16 +125,15 @@ export async function feDummy(ambiente: Ambiente): Promise<{
     `<soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">` +
     `<soap:Body><FEDummy xmlns="http://ar.gov.afip.dif.FEV1/" /></soap:Body>` +
     `</soap:Envelope>`;
-  const res = await fetch(WSFE_URLS[ambiente], {
+  const { ok, status, text: xml } = await fetchTextConTimeout(WSFE_URLS[ambiente], {
     method: 'POST',
     headers: {
       'Content-Type': 'text/xml; charset=utf-8',
       SOAPAction: 'http://ar.gov.afip.dif.FEV1/FEDummy',
     },
     body,
-  });
-  const xml = await res.text();
-  if (!res.ok) throw new Error(`WSFE FEDummy HTTP ${res.status}: ${xml.slice(0, 500)}`);
+  }, AFIP_TIMEOUT_MS);
+  if (!ok) throw new Error(`WSFE FEDummy HTTP ${status}: ${xml.slice(0, 500)}`);
   return {
     appServer: extractTag(xml, 'AppServer') ?? '?',
     dbServer: extractTag(xml, 'DbServer') ?? '?',
@@ -156,16 +159,15 @@ export async function feCompUltimoAutorizado(opts: {
     `<ar:Auth><ar:Token>${esc(opts.token)}</ar:Token><ar:Sign>${esc(opts.sign)}</ar:Sign><ar:Cuit>${opts.cuit}</ar:Cuit></ar:Auth>` +
     `<ar:PtoVta>${opts.ptoVta}</ar:PtoVta><ar:CbteTipo>${opts.cbteTipo}</ar:CbteTipo>` +
     `</ar:FECompUltimoAutorizado></soap:Body></soap:Envelope>`;
-  const res = await fetch(WSFE_URLS[opts.ambiente], {
+  const { ok, status, text: xml } = await fetchTextConTimeout(WSFE_URLS[opts.ambiente], {
     method: 'POST',
     headers: {
       'Content-Type': 'text/xml; charset=utf-8',
       SOAPAction: 'http://ar.gov.afip.dif.FEV1/FECompUltimoAutorizado',
     },
     body,
-  });
-  const xml = await res.text();
-  if (!res.ok) throw new Error(`WSFE FECompUltimoAutorizado HTTP ${res.status}: ${xml.slice(0, 500)}`);
+  }, AFIP_TIMEOUT_MS);
+  if (!ok) throw new Error(`WSFE FECompUltimoAutorizado HTTP ${status}: ${xml.slice(0, 500)}`);
   const errMsg = extractTag(xml, 'Msg');
   if (errMsg && /token|sign|cuit/i.test(errMsg)) {
     throw new Error(`WSFE auth error: ${errMsg}`);
@@ -264,15 +266,14 @@ export async function feCAESolicitar(input: FECAESolicitarInput): Promise<FECAES
     fer +
     `</ar:FECAESolicitar></soap:Body></soap:Envelope>`;
 
-  const res = await fetch(WSFE_URLS[a.ambiente], {
+  const { text: xml } = await fetchTextConTimeout(WSFE_URLS[a.ambiente], {
     method: 'POST',
     headers: {
       'Content-Type': 'text/xml; charset=utf-8',
       SOAPAction: 'http://ar.gov.afip.dif.FEV1/FECAESolicitar',
     },
     body,
-  });
-  const xml = await res.text();
+  }, AFIP_TIMEOUT_MS);
 
   const resultado = extractTag(xml, 'Resultado') ?? 'R';
   const cae = extractTag(xml, 'CAE') ?? undefined;

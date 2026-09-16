@@ -6584,3 +6584,57 @@ no instalaba por cuelgue ambiental de la máquina). Esta sesión lo desbloqueó 
 **FASE B CERRADA — 2026-09-16.** Primera red automatizada de QA de la plataforma. A partir de acá, cada cambio tiene un
 gate de tipos + tests + build en cada push. Deuda menor documentada: alinear la versión de Node de CI con la de Vercel
 (`.nvmrc`/`engines.node`) — opcional, no bloqueante.
+
+## DGG-178 · FASE C — Integraciones y observabilidad (2026-09-16)
+
+Pablo: "Sigamos tu plan… fase por fase… commitea, pushea y seguí." Fase C del plan (robustez operativa).
+Secuenciada por riesgo: C3 y C2 primero (SQL, testeables en vivo), C1 al final (edge, mayor riesgo de deploy).
+
+**C3 · Auditar cambios de rol y config fiscal (mig 0495) — CERRADO, §6 3 lentes OK + e2e.**
+Hallazgo A5: la bitácora unificada cubría 17 tablas pero NO `profiles` (cambios de rol = la superficie de la escalada
+C1) ni `config_global` (datos fiscales). Fix aditivo con el trigger genérico `_audit_log_trg` (SECURITY DEFINER, R17):
+`trg_audit_profiles_ins_del` (alta/baja siempre), `trg_audit_profiles_priv_upd` (UPDATE sólo cuando cambia
+role/administracion_id/partner_id → WHEN, sin ruido de pwa/avatar) y `trg_audit_config_global` (singleton fiscal, todo).
+Complemento observacional del belt de Fase A (0492): el belt PREVIENE la escalada, esto la REGISTRA venga de donde
+venga. EJERCITADO (rollback): rol change→audit +1 (profiles/update/role=gerente), pwa-only→+0 (gate), config→+1. §6:
+sin recursión (audit_log 0 triggers), sin conflicto con el belt (BEFORE) ni handle_new_user, R17 OK, replay-safe.
+
+**C2 · Crons con latido real (mig 0496) — CERRADO, §6 3 lentes (1 hallazgo MEDIA corregido) + e2e.**
+Hallazgo A6 (falso-verde): pg_cron marca 'succeeded' aunque la edge devuelva 401/500. Caso: `notify-vencimientos-diario`
+(jobid 2) manda un token viejo hardcodeado → 401; 120 corridas "succeeded" que fallaron.
+- **C2a — retirar el cron roto.** ⚠️ **Corrección clave del §6:** `notify-vencimientos` NO es un duplicado de
+  `dispatch-vencimientos` (mi premisa inicial era falsa). Son features DISTINTOS: notify = recordatorios de COMPROBANTES
+  impagos a las administraciones (vw_comprobantes_para_avisar, umbrales {7,3,1,-1,-7}); dispatch (jobid 24) = alertas de
+  VENCIMIENTOS regulatorios (RPAC/DDJJ/seguros) sobre la tabla `vencimientos`. Retirar notify DESACTIVA el recordatorio de
+  comprobantes impagos — pero es SEGURO porque **nunca funcionó** (401 desde el día 1, `comprobante_avisos_vencimiento`
+  con 0 filas en toda la vida de prod): no se pierde una capacidad en uso, sólo se mata el falso-verde. **DECISIÓN DE
+  PRODUCTO ABIERTA para Pablo:** volver a ENCENDER los recordatorios de facturas impagas (re-alinear el token + validar)
+  mandaría emails nuevos a ~79 clientes, nunca validados → NO se enciende de forma autónoma. Ver E-GG-208. Infra huérfana
+  conservada por si se reactiva: edge `notify-vencimientos`, vista `vw_comprobantes_para_avisar`, tabla
+  `comprobante_avisos_vencimiento`.
+- **C2b — des-cegar el monitoreo.** `db_health_metrics()` (panel Salud + cron db-health-alert-check) ahora cuenta las
+  respuestas HTTP fallidas (4xx/5xx/timeout) de 24h desde `net._http_response` (dato que pg_net ya guarda) y agrega una
+  alerta `cron_http` → un flujo automático que falle en silencio se vuelve VISIBLE. §6 verificó línea a línea que el cambio
+  es 100% aditivo (nueva key `cron_http_fallas_24h` + alerta; las 7 keys y 5 alertas previas idénticas). EJERCITADO como
+  gerente: devuelve la key nueva sin romper; gate `is_staff_or_service` intacto.
+
+**C1 · Timeout en integraciones (repo source, mig N/A) — código en repo, §6 OK; deploy GATEADO.**
+Hallazgo A4: las integraciones externas hacían `fetch` sin timeout (salvo TRAMIX) → un tercero colgado retiene la edge.
+Fix fuente: helper `_shared/fetchTimeout.ts` (`fetchConTimeout` + `fetchTextConTimeout` — este último cubre también la
+lectura del body, cerrando el hueco que halló el §6: si AFIP manda headers pero cuelga el streaming del body, el timeout
+igual dispara) + `_shared/arca.ts` envuelve las 4 llamadas SOAP a AFIP (wsaaLogin/feDummy/feCompUltimoAutorizado/
+feCAESolicitar) con 20s. El error de timeout dice "timeout" → `isTransientArcaError` lo reintenta. §6: helper correcto
+(abort a los ms, distingue su abort vía signal.aborted, limpia timer en finally), 4 llamadas envueltas conservando
+method/headers/body, 20s holgado (AFIP responde 1-5s).
+⚠️ **NO desplegado en vivo (decisión de seguridad):** al inspeccionar el deploy vs repo descubrí **drift R7 real**: las
+edge deployadas usan copias aplanadas/minificadas por-función (`shared_arca.ts` reducido, imports `./`) distintas del repo
+(`../_shared/arca.ts`), producidas por un pipeline de build que no es reproducible desde lo que veo. Redeployar edges
+money-critical (ARCA billing, dispatch de emails/push) por un pipeline que no controlo, y sin poder probar el camino de
+facturación sin emitir un comprobante real, VIOLA "cero riesgo a los usuarios en línea". Por eso C1 queda como fix de
+fuente (se activa en el próximo deploy por el pipeline real, en ventana de bajo tráfico) y el redeploy queda para Pablo /
+la resolución del drift R7 (M-DRIFT, en el plan). Mientras tanto el watchdog `reset_arca_jobs_colgados` (jobid 4, cada
+10 min) ya acota el cuelgue de ARCA a ≤15 min. Las otras integraciones (Resend/FCM/Zoom/Webex) aplican el mismo helper
+al deployar (patrón documentado).
+
+**FASE C CERRADA — 2026-09-16.** C3 + C2 en vivo y verificados; C1 en repo (deploy gateado por R7). Robustez operativa +
+observabilidad. Decisión de producto pendiente para Pablo: recordatorios de comprobantes impagos (E-GG-208).
