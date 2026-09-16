@@ -315,8 +315,14 @@ export interface RecuperoKpis {
 }
 
 export async function getKpis(): Promise<ApiResponse<RecuperoKpis>> {
-  const [morososRes, accionesRes] = await Promise.all([
-    supabase.rpc('comprobantes_morosos', { p_administracion_id: undefined }),
+  // `deuda_total` acá es DEUDA VENCIDA NETA (saldo de comprobantes vencidos menos el crédito
+  // disponible del cliente, piso 0), rotulada como "Deuda vencida" — distinta del KPI "Deuda total"
+  // del Inicio de gerencia (kpis_dashboard_global), que es deuda NETA de TODO lo pendiente.
+  // Se calcula en public.recupero_kpis() (DGG-173 Pieza A / mig 0488), que REUSA comprobantes_morosos
+  // (mismo universo que la lista → count idéntico) y netea el crédito por administración. Hoy es
+  // no-op (0 crédito en el sistema → neto == bruto). SSOT: la cifra sale de la BD, no se recomputa acá.
+  const [kpisRes, accionesRes] = await Promise.all([
+    supabase.rpc('recupero_kpis'),
     supabase
       .from('recupero_acciones')
       .select('nivel,enviado_at')
@@ -326,29 +332,25 @@ export async function getKpis(): Promise<ApiResponse<RecuperoKpis>> {
       ),
   ]);
 
-  if (morososRes.error) {
-    return fail('REC_KPI_MOR', morososRes.error.message, morososRes.error);
+  if (kpisRes.error) {
+    return fail('REC_KPI_MOR', kpisRes.error.message, kpisRes.error);
   }
   if (accionesRes.error) {
     return fail('REC_KPI_ACC', accionesRes.error.message, accionesRes.error);
   }
 
-  const morosos = (morososRes.data ?? []) as MorosoRow[];
+  const k = ((kpisRes.data ?? [])[0] ?? { deuda_vencida: 0, morosos_count: 0 }) as {
+    deuda_vencida: number | string;
+    morosos_count: number;
+  };
   const acciones = (accionesRes.data ?? []) as Array<{
     nivel: number;
     enviado_at: string;
   }>;
 
-  // `deuda_total` acá es DEUDA VENCIDA BRUTA (suma del saldo_pendiente de comprobantes
-  // vencidos; comprobantes_morosos ya filtra vencimiento < hoy). Se muestra rotulada como
-  // "Deuda vencida" (NO "Deuda total"), distinta del KPI "Deuda total" del Inicio de gerencia
-  // (kpis_dashboard_global), que es deuda NETA de TODO lo pendiente. El neteo del crédito del
-  // cliente en esta cifra se implementa junto con la unificación de dinero de cursos (DGG-173/Pieza B);
-  // hoy es no-op (0 crédito en el sistema). SSOT: DGG-173.
-  const deuda_total = morosos.reduce((acc, r) => acc + Number(r.saldo_pendiente || 0), 0);
   return ok({
-    deuda_total,
-    morosos_count: morosos.length,
+    deuda_total: Number(k.deuda_vencida ?? 0),
+    morosos_count: Number(k.morosos_count ?? 0),
     r1_30d: acciones.filter((a) => a.nivel === 1).length,
     r2_30d: acciones.filter((a) => a.nivel === 2).length,
     r3_30d: acciones.filter((a) => a.nivel === 3).length,

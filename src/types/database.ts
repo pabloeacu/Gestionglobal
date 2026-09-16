@@ -9754,6 +9754,7 @@ export type Database = {
         Args: { p_owner: string }
         Returns: undefined
       }
+      gg_auth_user_id_por_email: { Args: { p_email: string }; Returns: string }
       gg_campus_emitir_certificados_pendientes: { Args: never; Returns: number }
       gg_campus_tema_certificado: {
         Args: { p_curso_id: string }
@@ -10229,6 +10230,13 @@ export type Database = {
           sujeto_id: string
           tipo: string
           tracking_id: string
+        }[]
+      }
+      recupero_kpis: {
+        Args: never
+        Returns: {
+          deuda_vencida: number
+          morosos_count: number
         }[]
       }
       regenerar_certificado: {

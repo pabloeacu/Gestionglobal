@@ -6425,3 +6425,38 @@ comprobante el helper congela estado_pago (defendible: cobro_pendiente ya excluy
 (c) la sync no dispara al VINCULAR por 1ª vez un comprobante existente a un trámite (sólo al cambiar saldo/estado)
 — riesgo bajo (el comprobante nace nuevo con la matrícula); (d) GG Cursos (interna) conserva estado_pago
 residual, inerte. Se atacan si/cuando corresponda.
+
+## DGG-174 · Deudas menores (barrido) + seguridad de panel documentada (2026-09-15)
+
+**Contexto:** chunk #11. Pablo eligió seguridad de panel, pero al analizarlo resultó que las 2 acciones
+(disable_signup + rotar CRON_SECRET) viven en el panel de Supabase (config Auth + secrets de edge functions),
+FUERA de las herramientas SQL/MCP — no se pueden gestionar 100% por SQL, y automatizar cambios de config de un
+proyecto en producción por browser no ofrece el mismo riesgo-cero que el SQL quirúrgico. Pablo decidió pivotear
+a deudas menores (SQL, 100% controlable) y dejar el panel documentado para ejecutarlo él.
+
+**Hecho (mig 0488):**
+- **R11:** `CREATE INDEX idx_comdest_administracion_id ON comunicaciones_destinatarios (administracion_id)` —
+  cierra el gap R11 hallado en la §6 de DGG-172 (la FK administracion_id→administraciones ON DELETE CASCADE no
+  tenía índice full: el unique la lleva 2ª columna y el otro es parcial). Aditivo, 0 filas hoy, cero riesgo.
+- **SSOT Recupero (cierra la deuda menor de DGG-173):** `public.recupero_kpis()` (STABLE SECURITY DEFINER,
+  staff-gated, TZ AR, REVOKE PUBLIC/anon + GRANT authenticated/service_role) que REUSA
+  `comprobantes_morosos(NULL)` (mismo universo que la lista → count idéntico) y **netea el crédito** por
+  administración: `SUM(GREATEST(0, bruto - administracion_credito_disponible(aid)))`. El front `recupero.ts`
+  getKpis pasa a leer este RPC (antes sumaba client-side, sin netear). Hoy no-op (0 crédito → neto==bruto ==
+  2.830.000/16); corrige la cifra cuando un moroso tenga saldo a favor. Types regenerados (+recupero_kpis).
+- **Verificado:** recupero_kpis == comprobantes_morosos (2.830.000/16); índice full sobre la FK; §6.
+
+**PENDIENTE DE PANEL (Pablo ejecuta; yo verifico después) — pasos exactos:**
+1. **Apagar registro público (disable_signup):** Dashboard → Authentication → Sign In / Providers (o Settings)
+   → "Allow new users to sign up" → OFF. SEGURO: ningún flujo del front usa `signUp` (verificado); el alta real
+   de clientes va por el edge `alta-cliente-portal` (service_role, no le afecta). Cierra el endpoint GoTrue de
+   signup directo. Reversible.
+2. **Rotar CRON_SECRET (filtrado en el repo):** el valor `gg_cron_c3500…` está commiteado en migs 0162/0166/0373
+   + hardcodeado en 8 cron jobs. Los edge functions lo validan bien (fail-closed, lo leen del env). Rotación:
+   (a) generar un secreto nuevo; (b) Edge Functions → Secrets → setear `CRON_SECRET` = nuevo; (c) actualizar los
+   8 cron jobs (dispatch-emails-1min, arca-dispatch-every-min, dispatch-push-2min, dispatch-vencimientos-diario,
+   gg-email-bounces-30min, db-health-alert-check-daily, health-flows-check-12h, gg-zoom-reconciliar-asistencia)
+   para que envíen el nuevo Bearer. **Mejora recomendada antes de rotar:** mover el secreto a Vault (instalado) y
+   que los cron commands lo lean de ahí (helper `private.cron_bearer()`), así futuras rotaciones no re-filtran —
+   esto SÍ lo puedo hacer yo por SQL cuando Pablo lo apruebe; sólo el `Edge Functions → Secrets` es su acción.
+   Necesidad: media (los edges ya rechazan claves inválidas; el riesgo es sólo si el repo se filtra).
