@@ -6491,3 +6491,40 @@ auditoria_cambios+0 (single), movimiento→audit_log+1 & auditoria_cambios+0 (en
 hardcodeado a las 8 tablas viejas → se agregaron las 9 nuevas (Movimientos, Cajas, etc.) para que aparezcan con
 label amigable y sean filtrables en la bitácora (sin esto se veían con el nombre crudo y sin filtro).
 Beneficio: SSOT de auditoría (una sola bitácora, la que la app lee) + trazabilidad de dinero + menos escritura.
+
+## DGG-176 · FASE A — Endurecimiento de la seguridad de acceso (2026-09-16)
+
+Pablo: "FASE A. Completala. Todo vos. Lo que depende de mí, hacelo por browser. Estoy logueado en todos lados."
+Fase A del plan (cerrar lo que quedaba del P0 de seguridad). Migraciones separadas (nunca mezclar auth con
+RLS/sesión en un deploy, guía del informe).
+
+**A1 · Endurecer autorización (migs 0490-0493) — CERRADO, §6 3 lentes OK:**
+- **0490+0491 · REVOKE de funciones de trigger.** El default ACL de Supabase daba EXECUTE (vía PUBLIC) a
+  anon/authenticated sobre TODAS las funciones public, incluidas las 59 funciones de TRIGGER (retornan trigger,
+  sólo se disparan por el mecanismo de triggers → el grant es inútil y agranda superficie). 0490 revocó de
+  anon/authenticated; 0491 corrigió (el grant venía por PUBLIC → REVOKE FROM PUBLIC) barriendo las 59. §6
+  probó EMPÍRICAMENTE (como authenticated, rollback) que los triggers SIGUEN disparando (audit, notif,
+  tramite_eventos) sin 42501 → cero ruptura. + search_path fijado en private.safe_int/safe_ts/
+  curso_estado_publicacion (advisor function_search_path_mutable → 0).
+- **0492 · Belt del invariante de rol.** Trigger BEFORE UPDATE en profiles → private.profiles_guard_privilegios()
+  (SECURITY INVOKER): si cambian role/administracion_id/partner_id Y current_user IN ('authenticated','anon')
+  → 42501. Defensa en profundidad de C1 (el grant ya impide a authenticated editar esas columnas). §6: bloquea
+  escalada de authenticated (incluso con el grant ensanchado), permite definer/sistema (las 6 RPC que tocan
+  profiles son SECURITY DEFINER owner=postgres), self-update de avatar/full_name/phone pasa, O(1).
+- **0493 · REVOKE anon de 6 funciones de gerencia** que quedaban alcanzables por anon (arca_emisor_default,
+  arca_emisor_set_default, curso_encuentro_registrar_acceso, db_health_metrics, solicitud_pedir_docs_revision,
+  tracking_reenviar_avance_cliente). Todas con guard de rol; el front las llama como authenticated (intacto).
+  Advisor anon_security_definer_function_executable 35→13 (-63%); los 13 residuales son flujos públicos o
+  token-gated (gestor_* por token, verificar_certificado, voucher_validar, csp_report, etc.).
+  DEUDA documentada (convención, no hueco): mover helpers internos a schema `private` (deliverable 2 del
+  informe) — refactor grande, se hará como convención; los huecos ya están cerrados.
+
+**A2 · Rotar CRON_SECRET filtrado — parte SQL CERRADA (mig 0494), rotación del valor PENDIENTE (browser):**
+El valor `gg_cron_c3500…` estaba hardcodeado en 8 crons y commiteado (migs 0162/0166/0373). 0494: helper
+`private.cron_bearer()` lee el secreto de Vault (secret `cron_secret`, seedeado con el valor actual vía SQL
+fuera de migración para no re-filtrarlo) + reescribió los 8 crons para usarlo. Verificado: 0 crons hardcodean,
+8 usan el helper, bearer resuelto idéntico al actual (cero downtime), helper sin EXECUTE para anon/auth. FALTA:
+rotar el VALOR (nuevo secreto en Edge Functions→Secrets [browser] + Vault [SQL]) → mata el valor filtrado.
+
+**A3 · disable_signup — PENDIENTE (browser).** **A4 · borrar 4 edge huérfanas** (zz-wipe-storage-oneshot YA
+neutralizada = stub 410 inocuo; + probes tramix-probe/tramix-egress-test/zoom-boot-probe) — PENDIENTE (browser).
