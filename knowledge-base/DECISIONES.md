@@ -6670,3 +6670,25 @@ solicitudes→tramites tiene blast radius; para un bug 🟢 de un link, el front
   cruzada (kanban/lista/detalle/moderación), no un lote de maratón. Quedan en el backlog con alcance preciso.
 
 **FASE D — D2 CERRADO; D1/M-OVERRIDE/M-MODERA diferidos (flujo de cierre sensible).**
+
+## DGG-180 · FASE E — Escala y mantenimiento (2026-09-16)
+
+**E1 · Bloat de `net._http_response` (M-BLOAT) — CERRADO.** El informe lo marcaba en 322 MB = 47% de la base. Al
+inspeccionarlo: sólo **938 filas vivas** (la más vieja de hace ~6 h) → pg_net YA auto-limpia las respuestas; el 322 MB
+era 100% BLOAT (tuplas muertas que autovacuum no puede devolver al disco, sólo `VACUUM FULL`). Como es una tabla de
+infraestructura de pg_net SIN ningún lector de cara al usuario (los gerentes/clientes no la tocan) y con sólo 938 filas
+vivas, el `VACUUM (FULL, ANALYZE)` se ejecutó en segundos con impacto de usuario ≈ nulo (el lock exclusivo sólo podría
+hacer esperar unos segundos a la escritura de un cron en background). **Resultado: `net._http_response` 322 MB → 1.1 MB;
+base total 698 MB → 377 MB (−321 MB, −46%);** 938 filas intactas. La retención de pg_net mantiene las filas vivas mínimas
+→ el re-bloat es lento. Deuda menor: si en meses vuelve a inflarse, repetir el `VACUUM FULL` en un momento tranquilo
+(no requiere migración; es mantenimiento).
+
+**E2 · Resto de multiple_permissive_policies (~40) — YA DIFERIDO en DGG-171 (chunk #8):** post InitPlan el patrón
+`_staff_all(ALL) + _xxx_select` ya corta-circuita óptimo; consolidar exigiría partir cada ALL en 3 políticas de
+escritura (~100+ políticas nuevas sobre tablas de dinero vivas) con beneficio runtime ~nulo. Se mantiene diferido.
+
+**E3 · Límites de conexión/email + retención — RECOMENDACIÓN (config, no código):** dimensionar el pooler de conexiones
+y el throttle de email al crecer 10x, y acotar retención de colas/logs/auditoría. Es configuración de plan/entorno
+(panel Supabase), no un cambio de repo → queda como recomendación para Pablo cuando escale el volumen.
+
+**FASE E — E1 CERRADO (−46% de la base); E2/E3 diferidos/recomendación.**
