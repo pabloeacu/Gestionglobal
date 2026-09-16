@@ -6460,3 +6460,34 @@ a deudas menores (SQL, 100% controlable) y dejar el panel documentado para ejecu
    que los cron commands lo lean de ahí (helper `private.cron_bearer()`), así futuras rotaciones no re-filtran —
    esto SÍ lo puedo hacer yo por SQL cuando Pablo lo apruebe; sólo el `Edge Functions → Secrets` es su acción.
    Necesidad: media (los edges ya rechazan claves inválidas; el riesgo es sólo si el repo se filtra).
+
+## DGG-175 · Robustez / SSOT de la bitácora de auditoría — unificar 2 sistemas en 1 (mig 0489) (2026-09-15)
+
+**Contexto:** chunk #12 (robustez). Pablo eligió consolidar la auditoría financiera. Al investigar apareció el
+problema real: coexistían DOS audit-trails sobre las mismas tablas.
+- **Sistema A** (`_audit_log_trg` → `audit_log`, 2162 filas): la "bitácora unificada" (DGG-35) que LEE la app
+  (`src/services/api/auditoria.ts` → RPCs `audit_log_listar`/`audit_log_resumen`). Genérica. Cubría 8 tablas.
+- **Sistema B** (`audit_row` → `auditoria_cambios`, ~2834 filas): cubría 16 tablas PERO **write-only** — 0
+  lectores en front/edges/DB (verificado). Es el sistema legacy que quedó al construir la bitácora unificada.
+
+**Doble problema:** 7 tablas se auditaban DOS veces (doble-write en tablas de dinero de alta frecuencia); y los
+cambios de `movimientos` (¡dinero!) sólo iban al orphan B → **invisibles en la bitácora que ve la gerencia**.
+
+**Fix (SSOT, sin perder cobertura, mig 0489):**
+1. Se agregó `_audit_log_trg` (Sistema A) a las 9 tablas que sólo cubría B (movimientos, cajas, consorcios,
+   curso_matriculas, cursos, formulario_submissions, lotes_facturacion, partner_convenios, partner_rendiciones)
+   → A queda cubriendo la unión (17 tablas), sin perder nada; **ahora los cambios de dinero SÍ entran a la
+   bitácora que se lee**.
+2. Se dropearon los 16 triggers de B (`audit_row`) → fin del doble-write y del orphan.
+3. Se dropeó la función `audit_row`; se CONSERVÓ la tabla `auditoria_cambios` con su historial (no se pierde).
+
+**Verificación:** BEFORE (e2e rollback) comprobante→audit_log+1 & auditoria_cambios+1 (doble),
+movimiento→audit_log+0 & auditoria_cambios+1 (sólo orphan). AFTER → comprobante→audit_log+1 &
+auditoria_cambios+0 (single), movimiento→audit_log+1 & auditoria_cambios+0 (en la bitácora). Estructural:
+0 triggers audit_row, A cubre 17 tablas, función audit_row dropeada, historial de auditoria_cambios intacto.
+`_audit_log_trg` es genérico (TG_TABLE_NAME + to_jsonb, pk id, saltea updates no-op) y todas las tablas tienen
+`id`. Sin recursión (audit_log es sink sin triggers). §6 (cobertura/correctitud + no-regresión/perf/seguridad)
+→ sin hallazgos críticos/mayores. **Hallazgo menor FIXEADO:** `TABLE_LABELS` de `AuditoriaPage.tsx` estaba
+hardcodeado a las 8 tablas viejas → se agregaron las 9 nuevas (Movimientos, Cajas, etc.) para que aparezcan con
+label amigable y sean filtrables en la bitácora (sin esto se veían con el nombre crudo y sin filtro).
+Beneficio: SSOT de auditoría (una sola bitácora, la que la app lee) + trazabilidad de dinero + menos escritura.

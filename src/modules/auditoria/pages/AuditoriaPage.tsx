@@ -43,6 +43,17 @@ const TABLE_LABELS: Record<string, string> = {
   solicitudes: 'Solicitudes',
   partners: 'Partners',
   servicios: 'Servicios',
+  // DGG-175 (mig 0489): bitácora unificada — estas 9 tablas pasaron del sistema
+  // legacy (auditoria_cambios) a audit_log; se agregan sus labels para el filtro.
+  movimientos: 'Movimientos',
+  cajas: 'Cajas',
+  consorcios: 'Consorcios',
+  curso_matriculas: 'Matrículas de curso',
+  cursos: 'Cursos',
+  formulario_submissions: 'Envíos de formulario',
+  lotes_facturacion: 'Lotes de facturación',
+  partner_convenios: 'Convenios de partner',
+  partner_rendiciones: 'Rendiciones de partner',
 };
 
 const ACTION_META: Record<
