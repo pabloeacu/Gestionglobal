@@ -6729,3 +6729,32 @@ MX Google Workspace (OK). **DMARC = `p=none`** (monitorea, no aplica) → recome
 - **#4 DR restore + rotación de secretos (service_role/VAPID/ARCA/Zoom):** el restore PITR in-place es DESTRUCTIVO; rotar
   service_role rompe las edges hasta propagar. Se verifica disponibilidad + se documenta el procedimiento; no se ejecuta a
   ciegas. Bloqueante común: falta un entorno de staging (M-DRIFT/R7 + F1 + edge redeploys dependen de eso).
+
+## DGG-182 · Ronda "arrancá y avancemos" — F1 investigado, G1 verificado (2026-09-16)
+
+Pablo: "Arrancá y vayamos avanzando… tranquilo, atento y quirúrgico… garantizando funcionalidad, robustez y seguridad."
+
+**F1 (refresh de sesión) — CONCLUSIÓN: MANTENER COMO ESTÁ (no es deuda, es load-bearing).**
+Leído a fondo `supabase.ts` + `AuthContext.tsx` (677 líneas). El diseño manual NO es sobre-ingeniería: con
+`persistSession/autoRefreshToken=true` (lo que sugería el informe) se activan los locks internos de supabase-js
+(`navigator.locks`) que **cuelgan `getSession()` y toda query bajo StrictMode/HMR** (bug reproducido, comentado en
+`supabase.ts:34-39`), y el código manual arregla E-GG-07 (logout cada 1h) + E-GG-144/155 (carreras multi-pestaña). Ya
+pasó 3 rondas de endurecimiento con auditoría adversarial. "Simplificarlo" es ganancia de mantenibilidad con downside
+catastrófico (deslogueo de los ~100 usuarios) que NO se puede verificar del todo ni en preview (multi-pestaña + ventanas
+de ~1h). Decisión quirúrgica: **no se toca**. Si algún día se quiere, es un proyecto dedicado con staging real, no rutina.
+
+**Edge timeouts de mail/push — DIFERIDO (valor marginal + riesgo de re-emisión).** A diferencia de ARCA (escenario de
+daño concreto: comprobante atascado 15-25 min → SE HIZO+testeó), en `dispatch-emails` un cuelgue de Gmail sólo
+demora+reintenta (mail throttleado a 1/min, sin pérdida de datos). El fix exige re-emitir a mano una función sensible de
+~600 líneas (transcripción riesgosa sobre el pipeline de mail vivo) por ganancia defensiva menor. Se hace cuando se
+resuelva el pipeline de deploy (R7) y no sea transcripción a mano. Mismo criterio para dispatch-push.
+
+**G1 (riesgo fiscal AFIP) — VERIFICADO (read-only, cero riesgo):**
+- Los 127 comprobantes son **tipo X (internos, sin CAE)**; 0 con CAE, 0 por ARCA. La emisión fiscal AFIP (A/B/C con CAE)
+  está cableada pero **DORMIDA** (nunca emitió un comprobante fiscal real) → el "riesgo fiscal e2e" del informe es
+  teórico, no activo. Verificar alícuotas/CAE/notas de crédito e2e recién aplica cuando se active ARCA.
+- **Integridad contable interna SANA**: identidad `total = neto+IVA+no_gravado+exento` cierra en los 127 (0 rotas, tol.
+  1 centavo); 0 totales inválidos, 0 saldos negativos, 0 sin número. El núcleo de dinero reconcilia perfecto.
+
+Neto: 2 decisiones de ingeniería fundadas (F1 mantener, mail/push diferir) + 1 verificación de alto valor sin riesgo
+(G1: money core sano, AFIP dormido). Ver [[reference_edge_deploy_drift_r7]].
