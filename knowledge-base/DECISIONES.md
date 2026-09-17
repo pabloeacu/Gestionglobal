@@ -6768,8 +6768,8 @@ de alto valor (verificadas a mano contra la fuente, sin locale/TZ frágil):
 - **`agendaRecurrencia`** (17 tests): motor de recurrencia virtual — none/daily/weekly/monthly, `recurrenceUntil` corta
   la serie, overrides skipped/moved, orden de `expandirRango`, `etiquetaRecurrencia`, `efectivoDe`. Lógica de fechas +
   reglas de negocio, muy bug-prone.
-Total de la red: **24 → 50 tests, 6 archivos, verde** (vitest run, pool forks, salida limpia). Se descartó testear
-`storageUrls.ts` (importa `supabase` → arrastraría el cliente al entorno node del test). QA net ~7 → ~8.
+Total de la red (2ª tanda, "continuá sin gastos"): +2 suites → **`formSchema`** (5: humanizeFieldName, camposDelSchema recorrido de árbol, fieldLabelMap primera-gana, labelDeCampo) + **`agendaParse`** (17: parser de lenguaje natural rioplatense — prioridad !!/!baja, categoría #, "todo el día", recurrencia daily/weekly/monthly, DD/MM(/YY), horas 24h/am-pm/"a las 9 y media", endAt=+1h, previewLabel; con **reloj congelado** para determinismo de fechas relativas).
+Total de la red: **24 → 50 → 72 tests, 8 archivos, verde** (vitest run, pool forks, salida limpia; ~1.5s de tests reales). Se descartó `storageUrls.ts` (importa `supabase`). Verificación adicional: `rls_enabled_no_policy` (INFO advisor) = 5 tablas `tramix_*` (caché/sesión de integración) con RLS+0 policies+0 grants → benigno (sólo service_role). QA net ~8.
 
 ## DGG-184 · DMARC — activar monitoreo (paso 1 de 2) (2026-09-17)
 
