@@ -6770,3 +6770,15 @@ de alto valor (verificadas a mano contra la fuente, sin locale/TZ frágil):
   reglas de negocio, muy bug-prone.
 Total de la red: **24 → 50 tests, 6 archivos, verde** (vitest run, pool forks, salida limpia). Se descartó testear
 `storageUrls.ts` (importa `supabase` → arrastraría el cliente al entorno node del test). QA net ~7 → ~8.
+
+## DGG-184 · DMARC — activar monitoreo (paso 1 de 2) (2026-09-17)
+
+Pablo eligió la casilla de reportes: `contacto@gestionglobal.ar`. Hallazgo #4 (SPF/DKIM/DMARC): SPF `-all` + DKIM OK,
+pero DMARC estaba en `p=none` SIN `rua` → sin visibilidad de suplantación. **Paso 1 (riesgo cero, aplicado por browser
+en Cloudflare por Claude con la sesión de Pablo):** se editó el TXT `_dmarc.gestionglobal.ar`
+`v=DMARC1; p=none` → **`v=DMARC1; p=none; rua=mailto:contacto@gestionglobal.ar`**. `p=none` INTACTO → no cambia la
+entrega de ningún mail; sólo empieza a recolectar reportes agregados en contacto@. **Verificado en vivo** (dig @1.1.1.1
+y @8.8.8.8: el valor nuevo resuelve en ambos). No hay artefacto de repo (es DNS en Cloudflare).
+**PASO 2 PENDIENTE (decisión + ventana):** tras ~2-4 semanas de reportes, confirmar que todos los remitentes legítimos
+(Google Workspace, etc.) alinean SPF/DKIM, y recién ahí endurecer `p=none` → `p=quarantine` (y luego `reject`). NO
+flipear a ciegas (mandaría mail legítimo a spam). Revisar ~2026-10-08.
