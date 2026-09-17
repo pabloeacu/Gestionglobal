@@ -6866,3 +6866,36 @@ admin (hoy 1:1); si crecen, evaluar batch RPC en getCreditosDisponibles. (5) el 
 postgres_changes) → el crédito se actualiza al recargar o ante un evento de comprobante; gap menor, el caso común
 (imputar un pago toca `comprobantes.saldo_pendiente`) se cubre. Ver [[reference_recupero_cron_muerto]] y
 [[feedback_consistencia_contable]].
+
+## DGG-187 · Upgrade major react-router-dom v6.30.3 → v7.18.3 (PR #6) (2026-09-17)
+
+Pablo: "arrancá por la que me sugieras" (el major más acotado que recomendé) "todo con la metodología, agarrá el browser".
+
+**Análisis de riesgo (estático + §6 agente adversarial): v7 es prácticamente NEUTRAL en runtime para esta app.** La app
+usa `<BrowserRouter>` DECLARATIVO (no data router / createBrowserRouter / RouterProvider), sin future flags, imports
+estándar (Routes/Route/Navigate/Link/NavLink/Outlet/useParams/useNavigate/useLocation/useSearchParams — 11 símbolos, todos
+estables en v7), React 18, Node 20. Contraste de breaking changes v7 uno por uno:
+- **v7_relativeSplatPath**: NO aplica. Única splat = `App.tsx:457 <Route path="*" → <Navigate to="/">` (ABSOLUTA). Los 3
+  `to` relativos (`configuracion` index→`emisores`, `arca`→`../emisores`, `salud`→`../salud-sistema`) están en rutas
+  NO-splat → resuelven idéntico en v6/v7.
+- **v7_startTransition** (default en v7, aplica también al router declarativo): benigno. Único efecto observable: entre
+  rutas lazy React mantiene la página previa visible mientras carga el chunk (el `BrandLoaderScreen` puede no parpadear).
+  Cambio de UX sutil, no rotura. VISTO en vivo (ver abajo).
+- data-router flags (fetcherPersist/normalizeFormMethod/partialHydration): N/A (cero data router).
+- APIs removidas: ninguna en uso. Imports: `react-router-dom` sigue existiendo en v7 (re-exporta web).
+
+**Método (canon completo):** build del preview de #6 + CI verdes (compila) → **prueba en el PREVIEW público** (protección de
+deploys OFF): landing "/", `/gerencia`→login (redirect protegido), splat 404→"/", consola limpia (sólo el artefacto del
+toolbar `vercel.live` bloqueado por CSP, exclusivo de preview) → merge a prod (4daad4e) → **prueba EN VIVO autenticada en
+prod** (sesión de Pablo, hard-reload al bundle v7): dashboard/index OK, config anidada + tabs OK, redirect relativo hijo
+(`/gerencia/configuracion`→`.../emisores`) y `..` (`.../arca`→`.../emisores`) resuelven correcto, **CommandPalette
+(pushState+popstate, el único navegador que no usa useNavigate — riesgo que marcó el §6) navega OK** (→ Clientes; se vio
+el hold de startTransition en el chunk lazy, luego swap — comportamiento esperado, no bug), lista Clientes (chunk lazy +
+118 admins) OK, ruta `:param` `/gerencia/clientes/:id` (useParams) OK. Sesión intacta, sin errores de router. **Sin rollback.**
+Rollback preparado por las dudas: deploy `76ebe6f` (dpl_814bRx6, isRollbackCandidate).
+
+**No hizo falta cambiar ningún archivo** (la app ya corría con comportamiento v6-legacy sin future flags; v7 le impone los
+defaults v7, inocuos acá). Repo: el merge de #6 actualizó package.json a `react-router-dom ^7.18.3` + lockfile.
+
+**Side note (fuera de scope, cruft de repo):** existe `src/modules/gerencia/components/AlarmasHoyWidget 2.tsx` (archivo
+duplicado con espacio en el nombre) — no afecta v7; conviene limpiarlo aparte tras confirmar que no se importa.
