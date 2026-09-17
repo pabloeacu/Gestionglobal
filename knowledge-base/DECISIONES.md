@@ -6820,3 +6820,49 @@ Pablo. Ver [[reference_recupero_cron_muerto]].
 
 Neto Tramo A: 4 deps seguras mergeadas (1 con smoke de auth en vivo), 3 majors en hold fundamentado, warning de config
 resuelto, y observabilidad externa (UptimeRobot) sumada y verificada. Cero riesgo a los usuarios en línea.
+
+## DGG-186 · Auditoría de MORA/recupero + decisión "recupero siempre manual" + 3 fixes (2026-09-17)
+
+Pablo: "los impulsos de recupero SIEMPRE tienen que ser manuales, decididos por el gerente. Lo único que nos tenemos
+que asegurar de que los cálculos y la información para la evaluación de la mora sea la correcta para que la decisión
+sea la óptima." Se hizo: (A) retirar el recupero automático, (B) auditar a fondo la mora, (C) 3 fixes aprobados.
+
+**(A) Recupero automático RETIRADO (mig 0497, E-GG-210):** cron `dispatch-recupero-diario` desprogramado (fallaba 401 a
+diario, nunca corrió). Circuito MANUAL intacto (`disparar_recupero_manual` + tablas). Verificado: 0 cron, 20 activos.
+
+**(B) Auditoría a fondo (multi-agente §6 + reconciliación e2e, read-only). VEREDICTO: la mora HOY es correcta.**
+- **Reconciliación libro↔saldo: 0 desviaciones** en los 127 comprobantes (`saldo_pendiente == GREATEST(0, total −
+  SUM(imputado del libro))`). El mantenimiento es el trigger `recalcular_saldo_comprobante_imputado` (SSOT del saldo).
+- **3 superficies cuadran** en datos reales ($3.010.000 / 17 admins): `comprobantes_morosos` (lista, por-comprobante),
+  `recupero_kpis` (deuda vencida neta) y `cuenta_corriente_morosos` (Top deudores). TZ AR OK (sin off-by-one), niveles
+  7/30/60 (config global única). 0 NC, 0 anulados con saldo, 0 negativos/NULL/>total.
+- **1 dato para gerencia (no es bug de fórmula):** $4.846.765 de ingresos identificados **sin administración asignada**
+  (3 movimientos: saldo inicial de caja $2,82M + liquidación FundPlata $2,0M + servicio $25k). No netean a nadie (admin
+  NULL) → no distorsionan la mora, pero el de FundPlata conviene reconciliarlo. Reportado a Pablo.
+
+**(C) 3 fixes (mig 0498 + frontend, cada uno EJERCITADO e2e + revisión adversarial §6 + prueba en vivo):**
+- **Fix 1 (front): saldo a favor visible.** La lista de Morosos y el drawer muestran el crédito disponible del cliente
+  (`administracion_credito_disponible`, el MISMO SSOT que netean los KPIs) con aviso "revisá antes de intimar", para que
+  el gerente no impulse recupero sobre deuda ya cubierta. Hoy ningún moroso tiene crédito → el aviso no aparece (correcto).
+  Live: lista+drawer OK, 17 RPC de crédito 200, 0 errores de consola.
+- **Fix 2 (mig 0498): "Top deudores" = solo morosos reales.** `cuenta_corriente_morosos` ahora exige ≥1 comprobante
+  VENCIDO (`venc>0`); antes contaba deuda por-vencer. Ejercitado: 17=17, 0 excluidos hoy. Live: widget del Inicio intacto.
+  **Decisión de diseño:** NO se alinea el contador de la card "Deuda total" del Inicio (`kpis_dashboard_global`,
+  `admins_morosos`) a `venc>0` — esa card es "deuda TOTAL / administraciones con SALDO" (métrica distinta de "morosos");
+  su contador debe casar con su MONTO (todo-pendiente), no con "vencido". Alinearla desalinearía contador vs monto. Es
+  intencional y está bien rotulada ("con saldo" ≠ "morosos/vencidos"). (Hallazgo §6 agente-fix2 #5: registrado, by-design.)
+- **Fix 3 (mig 0498, E-GG-211): saldo canónico.** `recalcular_totales_comprobante` recalcula el saldo SIEMPRE con
+  `GREATEST(0, total − imputado)` (antes solo si 'pendiente' → saldo stale al editar ítems de un cobrado). Ejercitado:
+  saldo 180.000→301.000, MATCH. §6 agente-fix3: "no pude romperlo, estrictamente mejor; fórmula idéntica al SSOT".
+
+**Latentes registrados (0 datos hoy; deferidos, no bloquean):** (1) al agregar edición de ítems post-emisión, recalcular
+también `estado_cobranza` (fix 3 no lo toca; ninguna superficie de mora usa la etiqueta, todas usan `saldo_pendiente>0`).
+(2) el monto por-fila del widget Top deudores es deuda neta TOTAL del admin (venc+por-vencer), no solo la vencida — hoy
+coincide (0 saldo por-vencer). (3) `recupero_kpis.morosos_count` cuenta comprobantes (rotulado "comprob. vencidos", OK)
+→ divergiría de "admins" si un moroso tuviera 2+ comprobantes. (4) crédito por-admin se muestra en las N filas del mismo
+admin (hoy 1:1); si crecen, evaluar batch RPC en getCreditosDisponibles. (5) el crédito no se refresca por realtime
+(`useRealtimeRefresh` no escucha `movimientos`/`movimiento_imputaciones`; además esas tablas NO están en la publicación
+`supabase_realtime` — tampoco `comprobantes`/`recupero_acciones`, así que el hook hoy refresca en montaje/acción, no por
+postgres_changes) → el crédito se actualiza al recargar o ante un evento de comprobante; gap menor, el caso común
+(imputar un pago toca `comprobantes.saldo_pendiente`) se cubre. Ver [[reference_recupero_cron_muerto]] y
+[[feedback_consistencia_contable]].
