@@ -6783,3 +6783,40 @@ y @8.8.8.8: el valor nuevo resuelve en ambos). No hay artefacto de repo (es DNS 
 **PASO 2 PENDIENTE (decisión + ventana):** tras ~2-4 semanas de reportes, confirmar que todos los remitentes legítimos
 (Google Workspace, etc.) alinean SPF/DKIM, y recién ahí endurecer `p=none` → `p=quarantine` (y luego `reject`). NO
 flipear a ciegas (mandaría mail legítimo a spam). Revisar ~2026-10-08.
+
+## DGG-185 · Tramo A (observabilidad + supply-chain): triage Dependabot, label, UptimeRobot (2026-09-17)
+
+Pablo: "Dale con el tramo A… Hacelo todo vos, con el browser. Estoy logueado con todo" + preguntó si la cuenta free
+que abrió en uptimerobot.com sirve para las propuestas. Todo por browser con su sesión, quirúrgico.
+
+**Triage de las 7 PRs de Dependabot (G5 supply-chain). MERGEADAS 4, HOLD 3:**
+- **#3** (grupo minor/patch: `@supabase/supabase-js` 2.106→2.116, zoom 6.0.2→6.2.0, papaparse 5.5.3→5.7.0,
+  autoprefixer, postcss, puppeteer) — MERGEADA (a30a679). supabase-js vive DEBAJO de la capa de auth frágil (F1) →
+  **smoke de auth en vivo inmediato**: deploy a30a679 READY+alias a gestionglobal.ar; hard-reload (bypassa el SW →
+  bundle 2.116 fresco); la sesión de Pablo resuelve, REST autenticado `/rest/v1/profiles` = 200, dashboard entero de
+  gerencia + *Salud del sistema* (data RLS masiva) renderizan, **0 errores de consola** → PASS, sin revert.
+- **#1** (actions/setup-node 4→7) y **#2** (actions/checkout 4→7) — MERGEADAS. CI-only, cero artefacto de prod. #2 chocó
+  con #1 en `ci.yml` → `@dependabot rebase` → CI verde (CI/check 2m + Vercel) → merge.
+- **#4** (vitest 2.1.9→5.0.0) — MERGEADA. Dev-only (nunca va a prod); CI verde prueba que las 85 tests pasan en vitest 5
+  con el config actual (`pool:'forks'`). Rebase por el lockfile de #3.
+- **HOLD #5** (react-dom 18→**19** + @types), **#6** (react-router-dom 6→**7**), **#7** (lucide-react 0.460→**1.46**, con
+  **CI roja**) — son MAJORS con breaking changes de runtime: requieren migración de código + revisión (React 19 concurrent,
+  data-router v7, API de íconos v1). NO son quirúrgicos/aditivos → **decisión de Pablo**, no se mergean solos. Quedan
+  abiertas para su triage.
+
+**Warning de `dependabot.yml` (`labels:[dependencies]` apuntaba a un label inexistente) — RESUELTO creando el label**
+"dependencies" (azul `#0366d6`, "Actualizaciones de dependencias (Dependabot)"). Se eligió crear el label (preserva la
+intención del config, sin commit ni deploy a prod) por sobre borrar la línea del yml.
+
+**UptimeRobot (respuesta a Pablo: SÍ, sirve — es la capa de uptime/observabilidad EXTERNA):** complementa el diagnóstico
+INTERNO (*Salud del sistema* / `db_health_metrics`) con un chequeo desde afuera que detecta caídas de DNS/SSL/Vercel que
+la app no puede auto-reportar si está caída. Creado monitor HTTP(S) `gestionglobal.ar` → `https://gestionglobal.ar`,
+intervalo 5 min (default del plan free), alerta e-mail a pabloeacu@gmail.com. **Verificado UP** (respuesta ~497ms, 100%).
+Plan free (50 monitores, sin costo). Ya existía 1 monitor de otra plataforma suya (`adorapp.net.ar`), intacto.
+
+**Hallazgo bonus (lo cazó el métrico C2):** la alerta `cron_http_fallas_24h` marcó el 401 diario de `dispatch-recupero` →
+la **cobranza/recupero automática nunca corrió** (E-GG-210). Decisión de activarla (dunning a morosos reales) DIFERIDA a
+Pablo. Ver [[reference_recupero_cron_muerto]].
+
+Neto Tramo A: 4 deps seguras mergeadas (1 con smoke de auth en vivo), 3 majors en hold fundamentado, warning de config
+resuelto, y observabilidad externa (UptimeRobot) sumada y verificada. Cero riesgo a los usuarios en línea.
