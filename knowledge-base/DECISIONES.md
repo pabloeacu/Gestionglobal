@@ -6769,7 +6769,8 @@ de alto valor (verificadas a mano contra la fuente, sin locale/TZ frágil):
   la serie, overrides skipped/moved, orden de `expandirRango`, `etiquetaRecurrencia`, `efectivoDe`. Lógica de fechas +
   reglas de negocio, muy bug-prone.
 Total de la red (2ª tanda, "continuá sin gastos"): +2 suites → **`formSchema`** (5: humanizeFieldName, camposDelSchema recorrido de árbol, fieldLabelMap primera-gana, labelDeCampo) + **`agendaParse`** (17: parser de lenguaje natural rioplatense — prioridad !!/!baja, categoría #, "todo el día", recurrencia daily/weekly/monthly, DD/MM(/YY), horas 24h/am-pm/"a las 9 y media", endAt=+1h, previewLabel; con **reloj congelado** para determinismo de fechas relativas).
-Total de la red: **24 → 50 → 72 tests, 8 archivos, verde** (vitest run, pool forks, salida limpia; ~1.5s de tests reales). Se descartó `storageUrls.ts` (importa `supabase`). Verificación adicional: `rls_enabled_no_policy` (INFO advisor) = 5 tablas `tramix_*` (caché/sesión de integración) con RLS+0 policies+0 grants → benigno (sólo service_role). QA net ~8.
++ **`errors`** (13): `humanizeError` (mapa de códigos PG 42501/23505/PGRST…, precedencia código>mensaje, reglas regex por constraint específico antes del genérico, passthrough del mensaje ya-humano, null→genérico), `toApiError`, `ok`/`fail`. Es la última barrera de UX + no-leak del error crudo.
+Total de la red: **24 → 50 → 72 → 85 tests, 9 archivos, verde** (vitest run, pool forks, salida limpia; ~1.4s de tests reales). Se descartó `storageUrls.ts` (importa `supabase`). **CI GitHub Actions VERIFICADO verde+operativo en prod** (corridas #15-20 ✅, cada una corre npm ci+typecheck+vitest+build; Dependabot con 7 PRs abiertos). Verificación: `rls_enabled_no_policy` (INFO) = 5 tablas `tramix_*` con RLS+0 policies+0 grants → benigno; perf advisors sin regresión (`unindexed_foreign_keys`=0, R11 intacto). QA net ~8.
 
 ## DGG-184 · DMARC — activar monitoreo (paso 1 de 2) (2026-09-17)
 
