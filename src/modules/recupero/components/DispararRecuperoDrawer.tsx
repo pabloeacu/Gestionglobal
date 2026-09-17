@@ -16,6 +16,8 @@ import { humanizeError } from '@/lib/errors';
 interface Props {
   open: boolean;
   moroso: MorosoRow | null;
+  /** Saldo a favor (crédito disponible) de la administración — DGG-186. */
+  creditoAdmin?: number;
   nivelInicial?: RecuperoNivel;
   onClose: () => void;
   onDispatched?: () => void;
@@ -30,10 +32,12 @@ const TONE_BG: Record<'cyan' | 'amber' | 'red', string> = {
 export function DispararRecuperoDrawer({
   open,
   moroso,
+  creditoAdmin,
   nivelInicial,
   onClose,
   onDispatched,
 }: Props) {
+  const credito = creditoAdmin ?? 0;
   const [nivel, setNivel] = useState<RecuperoNivel>(
     nivelInicial ?? (moroso?.nivel_sugerido ?? 1),
   );
@@ -132,6 +136,15 @@ export function DispararRecuperoDrawer({
               <dd className="font-medium text-red-600">{moroso.dias_vencido}</dd>
             </div>
           </dl>
+          {credito > 0 && (
+            <p className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+              <span>
+                Este cliente tiene <strong>{formatMoney(credito)}</strong> a favor sin
+                imputar. Revisá si corresponde imputarlo al comprobante antes de intimar.
+              </span>
+            </p>
+          )}
         </section>
 
         <section>

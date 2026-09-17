@@ -235,6 +235,32 @@ export async function listMorosos(
   return ok(rows);
 }
 
+/**
+ * Crédito disponible (saldo a favor) por administración — ingresos identificados sin imputar.
+ * Fuente ÚNICA: RPC `administracion_credito_disponible` (el MISMO SSOT que netean recupero_kpis
+ * y cuenta_corriente_morosos), así el número que ve el gerente en la lista/drawer de morosos es
+ * consistente con los KPIs. DGG-186: se expone para que el gerente NO impulse recupero sobre una
+ * deuda ya cubierta por el saldo a favor del cliente. Best-effort: si una consulta falla, ese
+ * admin queda en 0 (no rompe la lista de morosos, que es la info principal).
+ */
+export async function getCreditosDisponibles(
+  adminIds: string[],
+): Promise<ApiResponse<Record<string, number>>> {
+  const unique = Array.from(new Set(adminIds.filter(Boolean)));
+  const results = await Promise.all(
+    unique.map(async (id) => {
+      const { data, error } = await supabase.rpc(
+        'administracion_credito_disponible',
+        { p_admin_id: id },
+      );
+      return { id, credito: error ? 0 : Number(data ?? 0) };
+    }),
+  );
+  const map: Record<string, number> = {};
+  for (const r of results) map[r.id] = r.credito;
+  return ok(map);
+}
+
 // ============================================================================
 // Config (global + por administración)
 // ============================================================================

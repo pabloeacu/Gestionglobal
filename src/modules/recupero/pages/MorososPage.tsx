@@ -17,6 +17,7 @@ import { formatMoney, comprobanteLabel } from '../lib/format';
 import {
   listMorosos,
   getKpis,
+  getCreditosDisponibles,
   RECUPERO_NIVELES,
   RECUPERO_NIVEL_LABEL,
   RECUPERO_NIVEL_TONO,
@@ -37,6 +38,7 @@ const TONE_BADGE: Record<'cyan' | 'amber' | 'red', string> = {
 
 export function MorososPage() {
   const [rows, setRows] = useState<MorosoRow[]>([]);
+  const [creditos, setCreditos] = useState<Record<string, number>>({});
   const [kpis, setKpis] = useState<RecuperoKpis>({
     deuda_total: 0,
     morosos_count: 0,
@@ -62,6 +64,15 @@ export function MorososPage() {
       return;
     }
     setRows(res.data);
+    // Saldo a favor por administración (DGG-186): para que el gerente vea si el cliente
+    // tiene crédito antes de intimar. No bloquea la lista si falla.
+    const adminIds = res.data.map((r) => r.administracion_id);
+    if (adminIds.length > 0) {
+      const cred = await getCreditosDisponibles(adminIds);
+      if (cred.ok) setCreditos(cred.data);
+    } else {
+      setCreditos({});
+    }
   }
 
   async function loadKpis() {
@@ -202,6 +213,7 @@ export function MorososPage() {
               {filtered.map((m) => {
                 const sug = m.nivel_sugerido;
                 const tone = sug ? RECUPERO_NIVEL_TONO[sug] : 'cyan';
+                const credito = creditos[m.administracion_id] ?? 0;
                 return (
                   <li
                     key={m.comprobante_id}
@@ -244,9 +256,19 @@ export function MorososPage() {
                       )}
                     </div>
                     <div className="flex flex-col items-end gap-2 sm:flex-row sm:items-center">
-                      <p className="font-display text-lg font-bold text-red-600">
-                        {formatMoney(Number(m.saldo_pendiente))}
-                      </p>
+                      <div className="flex flex-col items-end leading-tight">
+                        <p className="font-display text-lg font-bold text-red-600">
+                          {formatMoney(Number(m.saldo_pendiente))}
+                        </p>
+                        {credito > 0 && (
+                          <p
+                            className="text-[11px] font-semibold text-amber-600"
+                            title="El cliente tiene ingresos identificados sin imputar (saldo a favor). Revisá si corresponde imputarlo antes de intimar."
+                          >
+                            {formatMoney(credito)} a favor
+                          </p>
+                        )}
+                      </div>
                       <div className="flex gap-1.5">
                         {RECUPERO_NIVELES.map((n) => (
                           <button
@@ -277,6 +299,7 @@ export function MorososPage() {
       <DispararRecuperoDrawer
         open={!!drawerMoroso}
         moroso={drawerMoroso}
+        creditoAdmin={drawerMoroso ? (creditos[drawerMoroso.administracion_id] ?? 0) : 0}
         nivelInicial={drawerNivel}
         onClose={() => setDrawerMoroso(null)}
         onDispatched={() => {
