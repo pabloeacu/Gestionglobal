@@ -6899,3 +6899,28 @@ defaults v7, inocuos acá). Repo: el merge de #6 actualizó package.json a `reac
 
 **Side note (fuera de scope, cruft de repo):** existe `src/modules/gerencia/components/AlarmasHoyWidget 2.tsx` (archivo
 duplicado con espacio en el nombre) — no afecta v7; conviene limpiarlo aparte tras confirmar que no se importa.
+
+## DGG-188 · Upgrade major lucide-react v0.460 → v1.47 (PR #7, build roto → arreglado) (2026-09-17)
+
+Pablo: "tu sugerencia" (yo sugerí lucide como el major chico/mecánico). El bump de Dependabot (#7) tenía el **build
+ROTO**: lucide v1 **eliminó los íconos de marca** (política de trademarks) → `Instagram`, `Facebook`, `Youtube` ya no se
+exportan → `error TS2305 'no exported member'` en 6 archivos.
+
+**Fix (no es un simple rename — los íconos no existen en v1):** se recrean LOCALES en
+`src/components/brand/socialIcons.ts` con `createLucideIcon` (API pública que SÍ sigue en v1) usando el **SVG-node EXACTO
+de lucide v0.460** (render idéntico, misma API de props size/className/color/strokeWidth, cero dependencia nueva). Rewire
+de los 6 archivos que los usaban (SiteFooter, ComingSoonCoverPage, PortalEventoDetallePage, WebinarDetailPage,
+WebinarsListPage, WebinarBodyContent): sacar `Instagram`/`Facebook`/`Youtube` del import de `lucide-react` y traerlos de
+`@/components/brand/socialIcons`. Se bumpeó a **1.47.0** (npm resolvió `^1.46`→última 1.47; el resto de los íconos existen
+en v1 → el build sólo fallaba por los 3 de marca).
+
+**Método (rama aislada, prod-safe):** trabajo en `fix/lucide-v1` (no directo a main, para no pushear un build roto) →
+`npm install lucide-react@^1.46.0` (actualiza package.json+lockfile) → verificado que `createLucideIcon` existe en v1 y
+que los 3 íconos ya no se exportan → push de la rama → **preview de Vercel BUILD VERDE** (tsc+vite) → **verificación de
+render en el preview**: DOM de los links del footer muestra `<svg>` con la estructura lucide exacta (Instagram=rect+path+
+line, Facebook=path) → **ff-merge a main** (db57ffc) → smoke en prod. Youtube usa el mismo mecanismo (cubierto). PR #7
+(que apuntaba a 1.46 con build roto) queda OBSOLETO → cerrado.
+
+No se corrió §6 de 3 agentes: es un swap presentacional de íconos, no lógica/datos; el build verde (todos los íconos
+resuelven/compilan → sin roturas silenciosas) + verificación de render + smoke alcanzan. Único riesgo teórico: lucide
+puede retocar el dibujo de algún ícono entre versiones (cosmético, esperable).
