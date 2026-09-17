@@ -6961,3 +6961,55 @@ comentario stale de `.npmrc` enmascara el conflicto de peers 18↔19; actualizar
 **Balance de la jornada de majors:** #6 react-router v7 (DGG-187) ✅ mergeado+verificado; #7 lucide v1 (DGG-188) ✅
 mergeado+verificado; **#5 react-dom 19 (DGG-189) ⛔ HOLD** por Zoom. Quedan 0 majors "fáciles"; react-19 es un proyecto
 aparte (desacople de video), no un bump quirúrgico.
+
+## DGG-190 · Re-certificación adversarial del hardening + reconciliación de la auditoría 2026-09-12 (2026-09-17)
+
+Pablo: "seguí con lo que haga falta, quirúrgico, repleto de pruebas/testeos/auditorías que certifiquen que todo
+quedó perfecto, luego informe con el %". La auditoría arquitectónica del 2026-09-12 (`AUDITORIA_ARQUITECTONICA_2026-09.md`)
+abría con "DOS VÍAS DE COMPROMISO TOTAL VIVAS HOY" — pero es anterior a toda la campaña DGG-185..189 + la sesión nocturna
+§16, así que quedó desactualizada y **peligrosamente engañosa**. Se re-certificó el estado real.
+
+**Método:** workflow §6 de 4 agentes adversariales (102 tool-uses, 100% read-only contra la base viva
+project kaoyhkebnidzqjixvchh: `execute_sql`/`get_advisors`/`get_edge_function`, `has_*_privilege`, lectura de cuerpos
+`pg_get_functiondef`, source de edge fns). C1/C2 atacados buscando bypass; T1 triado por daño real; + agente de
+reconciliación audit↔vivo con estimación de %.
+
+**Veredictos (todos verificados en vivo, no asumidos):**
+- **C1 (auto-escalada de rol) → CERRADO, alta confianza, 0 bypasses.** Triple defensa: grant columnar (authenticated
+  sólo `avatar_url/full_name/phone`; `has_column_privilege`=false para role/administracion_id/partner_id) + trigger
+  `private.profiles_guard_privilegios` (42501 si cambian esas cols bajo current_user∈{authenticated,anon}) + auditoría.
+  Enumerado el conjunto COMPLETO de writers de `profiles` (`actualizar_gerente`, `administracion_dar_de_baja/reactivar`,
+  `fusionar_administraciones`, `gg_profile_marcar_pwa`, `onboarding_checklist_set` + `handle_new_user`): todos staff-gated
+  o self-scope no-sensible; `handle_new_user` hardcodea role='administrador' e ignora el claim del metadata (C1-b). Sin
+  RPC secdef que escriba role sin validar caller (la vía más peligrosa) — no existe.
+- **C2 (`alta-cliente-portal`) → CERRADO, alta confianza.** v11 auth-gate: service_role o JWT staff∈{gerente,operador}
+  → si no 403; + 409 anti-secuestro sobre `administraciones.user_id`. La anon key ya no pasa (el viejo bypass por
+  longitud de bearer está removido). Sin vías laterales (solicitud_activar/corregir-email/reenviar-bienvenida) alcanzables
+  por no-staff. Nota defensa-en-profundidad (teórica, NO explotable): la policy `profiles_update_self` no restringe
+  columnas — hoy inocuo porque grant+trigger lo bloquean; recomendación supervisada: endurecer su WITH CHECK.
+- **T1 (secdef ejecutables por anon/authenticated) → sin exploit urgente.** 154 escrituras auth-reachable barridas: 0
+  cross-tenant sin guard. Guards verificados leyendo cuerpos: `private.get_user_role()` (lookup server-side por auth.uid(),
+  no claim falsificable) → `is_staff()` gatea 186 fns; `assert_administracion_access` (18 fns, único bypass GUC
+  transaction-local de E-GG-129 no alcanzable por cliente); `current_administracion_id()` auto-scopea. anon=13 (baja de 18:
+  el REVOKE de mig 0474 está aplicado/verificado). `auth_rls_initplan`=0 (T7 ya envuelto). `zz-wipe-storage-oneshot`
+  retirada. El WARN de advisors persiste por ser técnicamente secdef+grant, no por exploit abierto.
+
+**Hallazgo metodológico (regla §6 "verificar el caller antes de tocar"):** el triage T1 marcó `gestor_acceso_ref(token)`
+como fuga (no chequea revocado/vence como sus hermanas). **Al leer el caller resultó BY-DESIGN, NO un bug:** su docstring
+(`accesoExterno.ts:36`) y la mig `0219_gestor_acceso_ref_para_pedir_link.sql` dicen que resuelve A PROPÓSITO con token
+vencido/revocado para pre-armar el mail de "pedir un nuevo enlace"; devuelve "datos mínimos NO sensibles" (nombre cliente,
+código trámite, servicio). "Arreglarlo" habría ROTO el flujo de recupero de enlace. Registrado para que un audit futuro
+no lo re-marque. Ejemplo de por qué los cambios de superficie auth NO se hacen desatendidos sin leer el caller.
+
+**Decisión — NO se aplicó ningún cambio de código esta corrida.** El núcleo de seguridad está cerrado (2 críticos + 6/9
+altos); lo remanente es **defensa-en-profundidad + higiene + supervisado**, no vías explotables. Meter un cambio de
+superficie auth/token/secreto/dinero desatendido para ~100 usuarios en vivo violaría el mandato de riesgo-cero. Único
+cambio de la corrida: limpieza de cruft local (2 Finder-duplicates gitignored, 0 refs) — sin impacto en repo/prod.
+
+**% de hardening ≈ 85%** (ponderado por severidad). **Backlog supervisado (para cuando estés):** (P0-resto) rotar el
+VALOR de `CRON_SECRET` (A2, toca ~10 crons + cadena de mails); (A1) barrido T1 de REVOKE de las secdef internas restantes
+(mig 0474-style, verificando 0 callers de front por función); (A4) `fetchConTimeout` en integraciones (ARCA/Gmail/push/
+Zoom/Webex) — cuidado R7 de edge drift; higiene menor: endurecer WITH CHECK de `profiles_update_self` (defensa-en-prof),
+rate-limit de `voucher_validar` (sondeo anon de códigos), alinear `gestor_acceso_ref` (o dejarlo by-design y documentado).
+**Negocio (requiere Pablo):** reconciliar $4,85M FundPlata; reactivar (o no) dunning automático / notify-vencimientos.
+Ver [[REACT_19_HOLD_2026-09-17]] (react-dom 19 en hold), [[reference_recupero_cron_muerto]].
