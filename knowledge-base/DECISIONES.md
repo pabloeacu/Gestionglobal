@@ -6758,3 +6758,15 @@ resuelva el pipeline de deploy (R7) y no sea transcripción a mano. Mismo criter
 
 Neto: 2 decisiones de ingeniería fundadas (F1 mantener, mail/push diferir) + 1 verificación de alto valor sin riesgo
 (G1: money core sano, AFIP dormido). Ver [[reference_edge_deploy_drift_r7]].
+
+## DGG-183 · Ampliar la red de QA (tests) — Fase B follow-up (2026-09-16)
+
+Pablo: "hacé la #1" (ampliar la red de tests). Aditivo, cero runtime/BD/deploy. Se sumaron 2 suites de funciones PURAS
+de alto valor (verificadas a mano contra la fuente, sin locale/TZ frágil):
+- **`csvCopy.rowsToCsv`** (9 tests): quoting RFC 4180 — coma/comilla/salto → envuelto+escapado; null→''; separador ';';
+  header opcional; format vs row[key]. El escape de CSV es fuente clásica de columnas corridas en exports.
+- **`agendaRecurrencia`** (17 tests): motor de recurrencia virtual — none/daily/weekly/monthly, `recurrenceUntil` corta
+  la serie, overrides skipped/moved, orden de `expandirRango`, `etiquetaRecurrencia`, `efectivoDe`. Lógica de fechas +
+  reglas de negocio, muy bug-prone.
+Total de la red: **24 → 50 tests, 6 archivos, verde** (vitest run, pool forks, salida limpia). Se descartó testear
+`storageUrls.ts` (importa `supabase` → arrastraría el cliente al entorno node del test). QA net ~7 → ~8.
