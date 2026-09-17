@@ -6924,3 +6924,40 @@ line, Facebook=path) → **ff-merge a main** (db57ffc) → smoke en prod. Youtub
 No se corrió §6 de 3 agentes: es un swap presentacional de íconos, no lógica/datos; el build verde (todos los íconos
 resuelven/compilan → sin roturas silenciosas) + verificación de render + smoke alcanzan. Único riesgo teórico: lucide
 puede retocar el dibujo de algún ícono entre versiones (cosmético, esperable).
+
+## DGG-189 · React 18 → 19 EN HOLD (bloqueante Zoom SDK; NO mergeado) (2026-09-17)
+
+Corrida autónoma/desatendida (Pablo dejó todo logueado, autorizó con "el mayor de los cuidados" y fijó un **gate
+de seguridad ineludible**). Se intentó el major más pesado (PR #5 de Dependabot): subir React 18→19 **en tándem**
+(`react`+`react-dom`+`@types/react`+`@types/react-dom` a ^19.3.0; react-dom 19 exige react 19 como peer).
+
+**Resultado: BUILD VERDE + preview limpio, pero HOLD por bloqueante de librería.** Reporte detallado:
+[[REACT_19_HOLD_2026-09-17]].
+
+**§6 (3 agentes adversariales):** código/tipos ✅ LIMPIO (0 archivos a tocar; `forwardRef`/`MutableRefObject`
+deprecados pero presentes y bien tipados en @types/react 19.3, verificado contra los `.d.ts`); runtime ✅ LIMPIO en
+prod (el doble-invoke de StrictMode es dev-only; el reporte de errores `window.reportError` preserva la telemetría);
+**compat de terceros 🔴 BLOQUEANTE.**
+
+**El bloqueante (E-GG-212):** `@zoom/meetingsdk/embedded` (Component View, el que usa el campus) **externaliza React
+al host** (cabecera UMD `require("react")`, `dependencies:{}`, sin react anidada → resuelve el **host React 19**), y su
+bundle usa `findDOMNode`+`childContextTypes` (**removidos en React 19**). Zoom lo documenta como **no soportado con
+React 19, sin fix**. Rompería las **clases Zoom en vivo** (superficie primaria, E-GG-145) — y **NO es verificable
+desatendido** (sólo falla cuando un alumno entra a una clase real; patrón R18/E-GG-42: build verde + smoke OK + rompe
+en prod). Riesgo secundario del mismo tipo: `@webex/widgets` (proveedor secundario). Esto **corrige** mi premisa previa
+("Zoom bundlea su propia React aislada") que era falsa para el path embedded.
+
+**Aplicación del gate:** se cumplen 3 de 4 condiciones (build verde, §6 código/runtime sin bloqueantes, preview limpio)
+pero **falla la 4ª — "CERO incompatibilidad de librerías detectada"** — de forma inequívoca y no-verificable. → **HOLD.
+NO se mergeó.** `main`/prod quedó intacto (`f7330cd`, React 18); el trabajo aislado en `fix/react-19` (`bcc4f12`,
+pusheada). Diff vs main = SÓLO package.json+lockfile (cero código). No hace falta revert.
+
+**Camino para retomar (cuando Pablo decida):** React 19 ya está listo a nivel de app; falta **desacoplar los 2 widgets
+de video del React del host** (esperar soporte oficial 19 de Zoom/Webex, o aislar cada widget en su propio React 18 vía
+CDN Client View) y **validar entrando a una clase real** (Zoom y Webex) — no alcanza build+preview (R18). Higiene: el
+comentario stale de `.npmrc` enmascara el conflicto de peers 18↔19; actualizarlo si se retoma. Ver
+[[reference_arca_dormido_tipo_x]] (precedente de feature viva no ejercitada).
+
+**Balance de la jornada de majors:** #6 react-router v7 (DGG-187) ✅ mergeado+verificado; #7 lucide v1 (DGG-188) ✅
+mergeado+verificado; **#5 react-dom 19 (DGG-189) ⛔ HOLD** por Zoom. Quedan 0 majors "fáciles"; react-19 es un proyecto
+aparte (desacople de video), no un bump quirúrgico.

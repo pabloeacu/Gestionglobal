@@ -6235,3 +6235,29 @@ grepear si otro componente ya usa ese mismo set; y —cerrado de raíz— el hoo
 - **Fix (mig 0498):** `recalcular_totales_comprobante` recalcula `saldo_pendiente = GREATEST(0, sub.total − SUM(monto_imputado))` SIEMPRE (misma fórmula/SSOT que el trigger de imputaciones). NO toca `estado_cobranza` (igual que antes; las RPC de mora derivan 'vencido' de la fecha, no de la etiqueta — E-GG-136).
 - **Prueba (EJERCITADO e2e con rollback):** insertar un ítem sintético en un comprobante 'parcial' (total 360.000→481.000, imputado 180.000) → saldo 180.000 → **301.000** = GREATEST(0, 481.000−180.000), MATCH. Antes habría quedado stale en 180.000 (mora subvaluada en $121.000). Rollback forzado (RAISE) → sin rastro. Revisión adversarial §6 (agente dedicado) confirmó fórmula idéntica a la canónica, sin regresión.
 - **Fecha / módulo:** 2026-09-17 · facturación / mora / SSOT del saldo.
+
+## E-GG-212 · @zoom/meetingsdk (embedded) toma el React del HOST → incompatible con React 19 (bloquea el upgrade)
+
+- **Síntoma:** hallazgo del §6 de compat de librerías durante el intento de subir React 18→19 (DGG-189, PR #5). El upgrade
+  compila y renderiza perfecto, pero `@zoom/meetingsdk` (Component View / embedded, el que montan las clases en vivo del
+  campus) **no soporta React 19** y correría bajo el React 19 del host → rompería `client.init()`/`client.join()` cuando un
+  alumno entra a una clase Zoom en vivo (error típico `Cannot read properties of undefined (reading 'ReactCurrentOwner')`).
+- **Causa raíz (corrige una premisa falsa):** se creía que "Zoom bundlea su propia React 18 aislada del host". FALSO para el
+  build embedded: su UMD **externaliza** React → `module.exports=t(require("react"),require("react-dom/client"),require("react-dom"))`.
+  Como `@zoom/meetingsdk` tiene `dependencies:{}` (React sólo como peer exacto 18.2.0) y **no hay react anidada**, `require("react")`
+  resuelve al **host React 19.3.0**. El `dist/lib/vendor/react.min.js` (18.2.0) del paquete es para el **Client View / build
+  global** (`window.React`), NO para el embedded. El bundle usa `findDOMNode` (14×) + `childContextTypes` (1×), **ambos removidos
+  en React 19**. Zoom lo documenta como incompatible **sin versión con fix** (a mar-2026). Mismo mecanismo (riesgo secundario):
+  `@webex/widgets` 1.28.2 (peer 18.3.1 exacto, `findDOMNode` 15× + `defaultProps` 116×, proveedor secundario).
+- **Por qué NO se detecta con build/smoke (lección R18/E-GG-42):** el fallo sólo dispara **dentro de una reunión Zoom/Webex
+  real** (`join()`), no en boot ni en build ni en un smoke de BD. Build verde + preview limpio + tsc OK **no** lo cazan. Es
+  exactamente el patrón "revisar/compilar sin ejercitar el camino real". Lo cazó la lectura estática del bundle + la doc del
+  proveedor, no una prueba en vivo (que aquí es imposible desatendido).
+- **Fix / decisión:** **NINGÚN cambio a prod. HOLD del upgrade** (DGG-189). React 18 queda en `main` (`f7330cd`); React 19
+  listo y aislado en `fix/react-19` (`bcc4f12`). Para retomar hay que **desacoplar los widgets de video del React del host**
+  (esperar soporte oficial 19 de Zoom/Webex, o aislar cada widget en su propio React 18 vía CDN Client View con `window.React`
+  propio) y **validar entrando a una clase real**. Reporte: [[REACT_19_HOLD_2026-09-17]].
+- **Prevención:** antes de un major de React (o de cualquier lib de UI), auditar los peers EXACTOS y **cómo resuelve React**
+  cada widget de terceros embebido (¿externaliza al host o trae copia propia?) — un `dependencies:{}` + peer exacto = toma el
+  host. Y recordar que `.npmrc legacy-peer-deps=true` **enmascara** el conflicto de peers en `npm install` (no falla, no avisa).
+- **Fecha / módulo:** 2026-09-17 · campus / dependencias / React 19 · §6 compat de librerías.
