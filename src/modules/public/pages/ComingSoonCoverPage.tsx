@@ -12,7 +12,8 @@
 // subtítulo, "stay tuned" con redes/contacto.
 // ============================================================================
 
-import { Instagram, Facebook, Mail, Phone, Sparkles } from 'lucide-react';
+import { Mail, Phone, Sparkles } from 'lucide-react';
+import { Instagram, Facebook } from '@/components/brand/socialIcons';
 import { BrandMark } from '@/components/brand/BrandMark';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 

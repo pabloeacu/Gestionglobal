@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, Radio, Users, CheckCircle2, Clock, Copy, Loader2, Video, Youtube, MapPin, Globe } from 'lucide-react';
+import { Plus, Radio, Users, CheckCircle2, Clock, Copy, Loader2, Video, MapPin, Globe } from 'lucide-react';
+import { Youtube } from '@/components/brand/socialIcons';
 import { Button, Field, Input, Modal, Select, Textarea, useConfirm } from '@/components/common';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import { IllustratedEmpty } from '@/components/brand/IllustratedEmpty';

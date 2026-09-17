@@ -6,9 +6,9 @@ import {
   CheckCircle2,
   ExternalLink,
   Video,
-  Youtube,
   MapPin,
 } from 'lucide-react';
+import { Youtube } from '@/components/brand/socialIcons';
 import { cn } from '@/lib/cn';
 import type { WebinarAccesoResp } from './useWebinarAcceso';
 

@@ -15,7 +15,6 @@ import {
   ArrowLeft,
   CheckCircle2,
   Video,
-  Youtube,
   MapPin,
   PlayCircle,
   Sparkles,
@@ -24,6 +23,7 @@ import {
   Award,
   Download,
 } from 'lucide-react';
+import { Youtube } from '@/components/brand/socialIcons';
 import { Button, Skeleton, useConfirm } from '@/components/common';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import { toast } from '@/lib/toast';

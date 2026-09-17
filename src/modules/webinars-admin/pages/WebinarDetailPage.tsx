@@ -6,7 +6,6 @@ import {
   Award,
   ExternalLink,
   Video,
-  Youtube,
   Users,
   Clock,
   CheckCircle2,
@@ -30,6 +29,7 @@ import {
   Download,
   Mail,
 } from 'lucide-react';
+import { Youtube } from '@/components/brand/socialIcons';
 import { Button, Field, Input, Modal, Select, Textarea } from '@/components/common';
 import { ImageUploader } from '@/modules/campus/components/ImageUploader';
 import { listarEsquemas } from '@/services/api/certificado-esquemas';

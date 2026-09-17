@@ -1,6 +1,7 @@
 import { useLocation } from 'react-router-dom';
 import { BrandMark } from '@/components/brand/BrandMark';
-import { Mail, Phone, Instagram, Facebook } from 'lucide-react';
+import { Mail, Phone } from 'lucide-react';
+import { Instagram, Facebook } from '@/components/brand/socialIcons';
 
 export function SiteFooter() {
   // Anchors a secciones (#servicios, #plataforma, etc.) sólo funcionan en

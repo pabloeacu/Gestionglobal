@@ -30,7 +30,7 @@
     "html2canvas": "^1.4.1",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.8",
-    "lucide-react": "^0.460.0",
+    "lucide-react": "^1.47.0",
     "papaparse": "^5.7.0",
     "qrcode": "^1.5.4",
     "react": "^18.3.1",
