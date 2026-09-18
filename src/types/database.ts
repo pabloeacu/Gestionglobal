@@ -4693,6 +4693,7 @@ export type Database = {
           identificado_at: string | null
           identificado_by: string | null
           lote_historico_id: string | null
+          matricula_id: string | null
           monto: number
           motivo_pendiente: string | null
           movimiento_revertido_id: string | null
@@ -4722,6 +4723,7 @@ export type Database = {
           identificado_at?: string | null
           identificado_by?: string | null
           lote_historico_id?: string | null
+          matricula_id?: string | null
           monto: number
           motivo_pendiente?: string | null
           movimiento_revertido_id?: string | null
@@ -4751,6 +4753,7 @@ export type Database = {
           identificado_at?: string | null
           identificado_by?: string | null
           lote_historico_id?: string | null
+          matricula_id?: string | null
           monto?: number
           motivo_pendiente?: string | null
           movimiento_revertido_id?: string | null
@@ -4824,6 +4827,13 @@ export type Database = {
             columns: ["lote_historico_id"]
             isOneToOne: false
             referencedRelation: "movimientos_lotes_historico"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "movimientos_matricula_id_fkey"
+            columns: ["matricula_id"]
+            isOneToOne: false
+            referencedRelation: "curso_matriculas"
             referencedColumns: ["id"]
           },
           {

@@ -7044,3 +7044,15 @@ NO tocados por riesgo-cero en bordes de baja frecuencia):** (1) `fold()` corta p
 summary largo con acentos/emoji podría exceder 75 octetos o partir un surrogate); (2) DTEND all-day suma `+86_400_000 ms`
 (off-by-one teórico en transición DST — inocuo en AR que no observa DST); (3) `URL:` pasa por `escapeText` (un URI no
 debería backslash-escaparse como TEXT). Frecuencia baja, importadores tolerantes → deuda menor. Ver [[project_hardening_estado]].
+
+## DGG-192 · Fix M-CAMPUS: pago de curso por ACUMULADO (SSOT movimientos↔matrícula) (2026-09-17)
+
+Pablo: "dale para adelante, no paremos hasta el 100%, siempre con la metodología obligatoria" → eligió "arreglar un bug MEDIO de datos con §6 completo". §6-revisar reveló que los datos están LIMPIOS (0 CUITs inválidos, 0 trámites mal cerrados, 0 víctimas de M-CAMPUS) — los bugs MEDIO son latentes. El de mayor valor real: **M-CAMPUS** (E-GG-213): `curso_registrar_pago` calculaba "pago completo" con el monto de un solo pago → cuotas nunca completaban → certificado retenido.
+
+**Fix (mig 0499):** `movimientos.matricula_id` (SSOT del pago acumulado) + derivar `v_completo` del SUM acumulado + `FOR UPDATE` (concurrencia) + guard anti-degradación. Aditivo, sin backfill riesgoso, sin degradar completas. Detalle y GAPs en [[ERRORES.md#E-GG-213]].
+
+**Metodología completa aplicada:** §6-revisar (leer RPCs + reconciliar contra datos vivos, evitó agregar triggers duplicados en A5 que YA estaba hecho por DGG-175) → migración → **EJERCITAR e2e con ROLLBACK forzado (2×, con y sin FOR UPDATE)**: adeudado→4000=parcial→+6000=completo, 2 linkeados, sum 10000, rollback sin rastro → **§6 3 agentes adversariales** (lógica / SSOT-downstream / integridad-financiera-seguridad) = 0 crítico/alto, aprobado → types regenerados (solo +10 líneas, sin drift) → prueba en vivo (read-only, sin escribir dinero en prod) → docs. R11 (índice FK), R16 (1 firma), R17 (audit secdef), R18 (EJERCITAR e2e) cumplidas.
+
+**Aporte del §6 a la calidad:** los 3 agentes descubrieron el doble-SSOT de estado_pago (path comprobante vs path movimientos), el gap de backfill histórico y el de anulación-no-recomputa — todos pre-existentes, documentados como GAPs diferidos (requieren decisión de diseño). El fix cierra el bug de cuotas sin ampliar scope a la unificación SSOT (decisión de Pablo).
+
+**Hallazgo de proceso capitalizado:** este turno verifiqué C1/C2/A5/T7 ya cerrados (la auditoría 12-09 estaba desactualizada) → el 85% que calculó el agente sub-contaba; la campaña real está ~95%+. Ver [[project_hardening_estado]].
