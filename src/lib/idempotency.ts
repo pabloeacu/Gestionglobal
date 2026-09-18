@@ -4,7 +4,7 @@ import { useCallback, useState } from 'react';
 // El fallback también produce un UUID v4 VÁLIDO: la columna movimientos.idempotency_key
 // es uuid, así que un valor no-uuid rompería el INSERT (aunque esta rama es
 // inalcanzable en prod, donde el secure context garantiza crypto.randomUUID).
-function newIdempotencyKey(): string {
+export function newIdempotencyKey(): string {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID();
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
     const r = (Math.random() * 16) | 0;
