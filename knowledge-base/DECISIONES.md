@@ -7013,3 +7013,34 @@ Zoom/Webex) — cuidado R7 de edge drift; higiene menor: endurecer WITH CHECK de
 rate-limit de `voucher_validar` (sondeo anon de códigos), alinear `gestor_acceso_ref` (o dejarlo by-design y documentado).
 **Negocio (requiere Pablo):** reconciliar $4,85M FundPlata; reactivar (o no) dunning automático / notify-vencimientos.
 Ver [[REACT_19_HOLD_2026-09-17]] (react-dom 19 en hold), [[reference_recupero_cron_muerto]].
+
+## DGG-191 · Red de QA automatizada +22 tests: idempotencia de dinero + iCalendar (A3) (2026-09-17)
+
+Pablo: "dale para adelante, no olvides ninguna consigna". Tras certificar que el núcleo de seguridad está cerrado
+(DGG-190) y que los items de seguridad remanentes son supervisados/bloqueados (A2 requiere setear secret en el env de
+edges = no por MCP; A4 bloqueado por R7 edge-drift; barrido T1 de REVOKE = tail guardado-no-explotable con riesgo de
+romper flujos vivos, no apto desatendido), la mejor MOTION segura es atacar el **déficit estructural A3** de la auditoría
+12-09 ("cero tests + cero CI = toda regresión se descubre en prod"). 100% aditivo, cero cambio de runtime.
+
+**Qué se agregó (tests puros, `tests/unit/`, fuera de `tsconfig.include` → no tocan el build de Vercel):**
+- `idempotency.test.ts` — fija la **invariante de dinero** de `useIdempotencyKey` (E-GG-205 / mig 0479): la clave SIEMPRE
+  es un UUID v4 válido (un no-uuid rompería el INSERT en `movimientos.idempotency_key`) y NUNCA colisiona (dos pagos
+  legítimos deduplican por separado, no se bloquean). Cubre el camino nativo (`crypto.randomUUID`) y el FALLBACK
+  (`Math.random`), con `spyOn(Math,'random')` que garantiza que el fallback realmente corre (no tautología). Único cambio
+  de código: `export` a `newIdempotencyKey` (0 efecto runtime; tree-shakeable; el hook intacto).
+- `icsExport.test.ts` — fija la correctitud **RFC 5545** del export de Agenda (un `.ics` mal escapado falla SILENCIOSO al
+  importar en Google/Apple/Outlook): escaping de coma/`;`/backslash/salto (y su ORDEN), folding ≤75 octetos con la
+  frontera exacta 75/76, fechas UTC vs all-day DATE deterministas por TZ del runner, UID+dominio, `endAt` default y
+  explícito (timed y all-day), múltiples eventos, lista vacía.
+
+**Verificación (§6 proporcional a un cambio de riesgo-cero):** suite completa **9 archivos/85 → 11/107, todo verde**
+(`vitest run`, el mismo comando del CI). Revisión adversarial §6 (1 agente, 28 tool-uses) **sin hallazgos críticos ni
+mayores**; probó empíricamente que el stub SÍ fuerza la rama fallback (31 llamadas a Math.random) y que el escaping/índices
+de UUID son exactos. Prueba en vivo del browser: N/A (tooling puro, sin cambio de UI/prod) → la "prueba en vivo" se
+sustituye por el run de CI en GitHub Actions (declarado explícito, §5).
+
+**Nits de código pre-existentes en `icsExport.ts` (NO introducidos por este cambio; documentados para pulido supervisado,
+NO tocados por riesgo-cero en bordes de baja frecuencia):** (1) `fold()` corta por chars UTF-16, no octetos UTF-8 (un
+summary largo con acentos/emoji podría exceder 75 octetos o partir un surrogate); (2) DTEND all-day suma `+86_400_000 ms`
+(off-by-one teórico en transición DST — inocuo en AR que no observa DST); (3) `URL:` pasa por `escapeText` (un URI no
+debería backslash-escaparse como TEXT). Frecuencia baja, importadores tolerantes → deuda menor. Ver [[project_hardening_estado]].
