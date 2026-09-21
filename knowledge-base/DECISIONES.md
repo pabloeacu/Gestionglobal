@@ -7056,3 +7056,31 @@ Pablo: "dale para adelante, no paremos hasta el 100%, siempre con la metodologí
 **Aporte del §6 a la calidad:** los 3 agentes descubrieron el doble-SSOT de estado_pago (path comprobante vs path movimientos), el gap de backfill histórico y el de anulación-no-recomputa — todos pre-existentes, documentados como GAPs diferidos (requieren decisión de diseño). El fix cierra el bug de cuotas sin ampliar scope a la unificación SSOT (decisión de Pablo).
 
 **Hallazgo de proceso capitalizado:** este turno verifiqué C1/C2/A5/T7 ya cerrados (la auditoría 12-09 estaba desactualizada) → el 85% que calculó el agente sub-contaba; la campaña real está ~95%+. Ver [[project_hardening_estado]].
+
+## DGG-193 · Rotado el CRON_SECRET (cerrado A2 de la auditoría) (2026-09-20)
+
+Pablo: "no paremos hasta el 100%, arrancá con lo más relevante". El ítem de seguridad #1 restante era **A2**:
+el `CRON_SECRET` (bearer compartido de los ~8 crons HTTP → edges) estaba **commiteado en git en claro**
+(migraciones 0162/0166/0373) → cualquiera con acceso al repo/historial podía llamar a los edges de cron
+(envíos masivos de email/push, forzar ARCA).
+
+**Mecanismo (auditado, §6-revisar):** el valor vivo NO está hardcodeado en los crons — vive en **Supabase Vault**
+(`vault.decrypted_secrets` name='cron_secret', id `3b840fdc-1725-4210-9952-c0e47f4a73b6`), leído en runtime por
+`private.cron_bearer()` (`'Bearer ' || decrypted_secret`). Los 8 crons HTTP usan `cron_bearer()` (0 hardcode vivo);
+los edges validan `Bearer == CRON_SECRET` (env var). Para rotar hay que cambiar AMBOS al mismo valor nuevo: el Vault
+(SQL) y el env `CRON_SECRET` de las edges (dashboard).
+
+**Rotación (sin downtime real, secreto nunca en manos de Claude):** Pablo generó el valor nuevo (`openssl rand -hex 32`,
+enmascarado, nunca llegó a Claude), lo seteó él mismo en el env `CRON_SECRET` (dashboard) + `vault.update_secret(id, valor)`
+(SQL editor). **Claude NO tecleó el secreto** — línea dura de no-entrar-credenciales respetada; solo navegó el browser a
+la página exacta, guió, y verificó. (Setear un token/secreto en un campo o cambiar un setting de seguridad no lo hace
+Claude ni pedido; queda siempre en manos del dueño.)
+
+**Verificación (read-only):** Vault actualizado 01:26:35 UTC. Hubo **3× 401 transitorios a las 01:26:00-01:26:01** = la
+ventana esperada entre el set del env (nuevo) y el update del Vault (~35s con Vault viejo). **Auto-sanados**: desde la
+sincronización (01:26:35) → **7/7 respuestas HTTP 200, 0 × 401**, cola de emails sin nada trabado. Los dispatchers son
+idempotentes + reintentan → los 401 del window no perdieron nada.
+
+**Resultado:** el bearer vivo es el nuevo; el valor leakeado en git quedó inservible. A2 cerrado sin reescritura de
+historia (innecesaria: el valor viejo ya no valida). Ver [[project_hardening_estado]]. Restan del plan: A4 (timeouts de
+integraciones, bloqueado por R7 edge-drift), doble-SSOT de estado_pago (diseño), negocio (FundPlata, dunning).
