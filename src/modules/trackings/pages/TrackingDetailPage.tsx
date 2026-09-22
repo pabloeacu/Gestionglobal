@@ -666,7 +666,22 @@ export function TrackingDetailPage() {
     return esFlujoRpacMatricula() || data?.servicio?.vigencia_meses != null;
   }
 
-  function abrirProgramadorVencimiento() {
+  async function abrirProgramadorVencimiento() {
+    // 2B · si el trámite YA tiene un vencimiento vigente programado, avisar que
+    // reprogramar reemplaza esa fecha ya dispuesta (no se bloquea, sólo se
+    // advierte). El path "Editar" (panel "Próximas alarmas") abre el modal
+    // directo sin pasar por acá, así que la edición explícita no dispara el aviso.
+    // R13: useConfirm, nunca window.confirm.
+    const vencActual = data?.vencimiento_ligado;
+    if (vencActual) {
+      const seguir = await confirm({
+        title: 'Este trámite ya tiene un vencimiento programado',
+        message: `Ya hay un vencimiento el ${formatDateShort(vencActual.fecha_vencimiento)}. Reprogramar reemplaza esa fecha por una nueva. ¿Querés continuar?`,
+        confirmLabel: 'Sí, reprogramar',
+        cancelLabel: 'Cancelar',
+      });
+      if (!seguir) return;
+    }
     if (esFlujoRpacMatricula()) {
       setProgramarRpacOpen(true);
     } else {
@@ -682,7 +697,7 @@ export function TrackingDetailPage() {
     // programar → no se crean vencimientos ni se toca la matrícula por error.
     if (data?.administracion_id && info.satisfactorio && servicioRenueva()) {
       toast.success('Trámite cerrado · programá el próximo vencimiento');
-      abrirProgramadorVencimiento();
+      void abrirProgramadorVencimiento();
     } else {
       // §6 A·G2: cierre no-satisfactorio o servicio que no renueva → no se abre el
       // asistente RPAC. Limpiar el pre-fill del otorgamiento para no arrastrar
@@ -903,7 +918,7 @@ export function TrackingDetailPage() {
                   onCerradoTramite={() => {
                     // DGG-160 · publicar→cerrado es vía de otorgamiento; sólo
                     // programar si el servicio renueva.
-                    if (data?.administracion_id && servicioRenueva()) abrirProgramadorVencimiento();
+                    if (data?.administracion_id && servicioRenueva()) void abrirProgramadorVencimiento();
                   }}
                   // DGG-163 · B: la gestoría NUNCA cierra. Cuando el gerente
                   // publica el otorgamiento (que sólo asienta la ficha), acá
@@ -1196,7 +1211,7 @@ export function TrackingDetailPage() {
             {isStaff && (data.estado === 'cerrado' || data.estado === 'resuelto') && servicioRenueva() && (
               <Button
                 variant="tonal"
-                onClick={abrirProgramadorVencimiento}
+                onClick={() => void abrirProgramadorVencimiento()}
               >
                 <CalendarClock className="h-4 w-4" /> Programar próximo vencimiento
               </Button>
