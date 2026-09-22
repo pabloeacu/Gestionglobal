@@ -7084,3 +7084,23 @@ idempotentes + reintentan → los 401 del window no perdieron nada.
 **Resultado:** el bearer vivo es el nuevo; el valor leakeado en git quedó inservible. A2 cerrado sin reescritura de
 historia (innecesaria: el valor viejo ya no valida). Ver [[project_hardening_estado]]. Restan del plan: A4 (timeouts de
 integraciones, bloqueado por R7 edge-drift), doble-SSOT de estado_pago (diseño), negocio (FundPlata, dunning).
+
+## DGG-194 · Aviso de reprogramación de vencimiento (2B · Fase 0 "Agenda del Administrador") (2026-09-22)
+
+Pablo notó que el botón "Programar próximo vencimiento" (TrackingDetailPage) reemplazaba/duplicaba EN SILENCIO
+el vencimiento vigente ya ligado al trámite (la RPC marca el viejo 'renovado' e inserta uno nuevo). Fix quirúrgico
+front: `abrirProgramadorVencimiento()` ahora, si `data.vencimiento_ligado` existe, muestra un `useConfirm` (R13, no
+window.confirm) con la fecha actual antes de abrir el programador: "Este trámite ya tiene un vencimiento el {fecha}.
+Reprogramar reemplaza esa fecha. ¿Querés continuar?". **No bloquea** (pedido explícito de Pablo: "no digo que esté
+bloqueado, pero debería avisar"). El path "Editar" del panel "Próximas alarmas" abre el modal directo sin pasar por
+`abrirProgramadorVencimiento`, así que la edición explícita no dispara el aviso. Los 3 call-sites (cierre, publicar→
+cerrado, botón) quedan con `void`.
+
+**Verificado en vivo (prod, Althabe TRM-2026-00001):** el aviso apareció con "01 de ago de 27"; CANCELAR abortó sin
+tocar el dato (1 vencimiento intacto, 0 duplicados); consola sin errores; CI verde (#54). commit 4800da8.
+
+Es la **Fase 0** del mapa "Agenda del Administrador" (artifact) — el espíritu premium de "nada silencioso". El resto de
+ese plan (perfil regulatorio + certeza, encender el motor de ofrecimientos con guardas, progressive profiling,
+encadenamiento formación→matriculación) queda para definir con Pablo, ADITIVO sobre lo blindado. Ver el documento
+del cliente + la investigación del subsistema (motor `gg_ofrecimientos_diario` dormido, portal calcula cards en vivo,
+`vencimientos`+asistente RPAC de 3 fechas, hoy 1 sola fila sembrada en toda la base).
