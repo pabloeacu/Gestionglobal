@@ -1,5 +1,8 @@
 import { supabase } from '@/lib/supabase';
 import { ok, fail, type ApiResponse } from '@/lib/errors';
+import type { Database } from '@/types/database';
+
+export type PerfilRegulatorioRow = Database['public']['Tables']['perfil_regulatorio']['Row'];
 
 // Agenda Fase 1 (DGG-195) — perfil regulatorio con NIVELES DE CERTEZA.
 // La plataforma es la fuente CONFIRMADA; `perfil_regulatorio` guarda lo DECLARADO
@@ -45,6 +48,21 @@ export async function getPerfilRegulatorio(
   });
   if (error) return fail('PERFIL_REG_GET', error.message, error);
   return ok(data as unknown as PerfilRegulatorio);
+}
+
+// Fila CRUDA de datos declarados (para prellenar el editor: lo declarado, no lo
+// mergeado con la fuente confirmada). Staff lee cualquiera; el cliente su propia
+// fila (RLS). Devuelve null si nunca se declaró nada.
+export async function getPerfilRegulatorioDeclarado(
+  administracionId: string,
+): Promise<ApiResponse<PerfilRegulatorioRow | null>> {
+  const { data, error } = await supabase
+    .from('perfil_regulatorio')
+    .select('*')
+    .eq('administracion_id', administracionId)
+    .maybeSingle();
+  if (error) return fail('PERFIL_REG_DECLARADO_GET', error.message, error);
+  return ok(data);
 }
 
 // Datos que el cliente/gerencia ANCLA como declarados. Los NULL no borran (COALESCE

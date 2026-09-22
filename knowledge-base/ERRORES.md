@@ -6285,3 +6285,10 @@ grepear si otro componente ya usa ese mismo set; y —cerrado de raíz— el hoo
 - **Prueba (EJERCITADO e2e):** admin `b85a2237` (renovación resuelta 2026-09-17) → `ultima_renovacion` ahora `confirmado` (antes `desconocido`), `ultimo_curso` `confirmado` 2026-08-13, `proxima_ddjj` `inferido` 2027-03-31, `completitud` 50% honesto (4/8). Precedencia confirmado>declarado verificada en admin con matrícula (el nº confirmado no se pisa por el declarado; la fecha declarada llena el hueco). Rollback forzado en todos los tests, 0 datos residuales.
 - **Lección / regla:** al leer "hechos completados" de `tramites`, el estado terminal es **`resuelto`** (fecha en `resuelto_at`), NO `cerrado`. `cerrado`+`fecha_fin` es un sub-caso raro. Toda RPC/vista que agregue "último X hecho" debe filtrar `estado IN ('resuelto','cerrado')` y datar con `COALESCE(fecha_fin, resuelto_at::date)`. Es también otra instancia de R18 (plpgsql compila lazy: el apply no falla; el bug se ve con datos reales) → EJERCITAR e2e obligatorio.
 - **Fecha / módulo:** 2026-09-22 · trámites / perfil regulatorio · Agenda Fase 1.
+
+## GAP-R14-01 · `no_requiere` de `perfil_regulatorio` visible sin editor (deuda documentada, no bug)
+
+- **Regla 14:** toda columna persistida visible en un panel de gerencia debe tener control para setearla, o documentarse como GAP en ERRORES.md. `PerfilRegulatorioPanel` renderiza la sección "No requiere / no desea" (deriva de `perfil_regulatorio.no_requiere` jsonb), pero el writer de gerencia (DGG-196) NO edita `no_requiere` todavía.
+- **Por qué no muerde hoy:** ningún writer escribe `no_requiere` aún → siempre es `{}` → la sección nunca se muestra (render condicional `noRequiereEntries.length > 0`). No hay dato huérfano visible.
+- **Cierre planificado:** el form del cliente en el portal (próximo incremento) agrega los toggles "no requiero X" + una RPC de REEMPLAZO de `no_requiere` (el merge shallow `||` actual no permite QUITAR una clave, sólo agregar/pisar). Ahí se cierra R14 para esa columna en ambas superficies.
+- **Fecha / módulo:** 2026-09-22 · perfil regulatorio · Agenda progressive profiling (DGG-196).

@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
-import { ShieldCheck, HelpCircle, Sparkles, FileCheck2, RefreshCw, AlertCircle } from 'lucide-react';
+import { ShieldCheck, HelpCircle, Sparkles, FileCheck2, RefreshCw, AlertCircle, Pencil } from 'lucide-react';
 import {
   getPerfilRegulatorio,
   type PerfilRegulatorio,
   type CertezaDato,
   type HechoConCerteza,
 } from '@/services/api/perfilRegulatorio';
+import { Button } from '@/components/common';
+import { PerfilRegulatorioDeclararDrawer } from './PerfilRegulatorioDeclararDrawer';
 import { formatDateShort } from '@/lib/dates';
 import { humanizeError } from '@/lib/errors';
 import { cn } from '@/lib/cn';
@@ -86,6 +88,7 @@ export function PerfilRegulatorioPanel({ administracionId }: { administracionId:
   const [data, setData] = useState<PerfilRegulatorio | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -141,16 +144,21 @@ export function PerfilRegulatorioPanel({ administracionId }: { administracionId:
           </p>
         </div>
         {/* completitud: cuánto SABEMOS (confirmado/declarado), no lo que inferimos */}
-        <div className="flex items-center gap-2">
-          <div className="h-1.5 w-24 overflow-hidden rounded-full bg-slate-100">
-            <div
-              className="h-full rounded-full bg-brand-cyan transition-all"
-              style={{ width: `${data.completitud_pct}%` }}
-            />
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <div className="h-1.5 w-24 overflow-hidden rounded-full bg-slate-100">
+              <div
+                className="h-full rounded-full bg-brand-cyan transition-all"
+                style={{ width: `${data.completitud_pct}%` }}
+              />
+            </div>
+            <span className="text-xs font-semibold tabular-nums text-brand-ink">
+              {data.completitud_pct}% conocido
+            </span>
           </div>
-          <span className="text-xs font-semibold tabular-nums text-brand-ink">
-            {data.completitud_pct}% conocido
-          </span>
+          <Button variant="secondary" onClick={() => setDrawerOpen(true)} className="!py-1 !px-2.5 text-xs">
+            <Pencil size={12} /> Anclar datos
+          </Button>
         </div>
       </div>
 
@@ -217,6 +225,14 @@ export function PerfilRegulatorioPanel({ administracionId }: { administracionId:
         plataforma · Declarado = lo dijo el cliente · Inferido = estimado por cálculo
         (conviene confirmarlo) · Sin dato = falta relevar.
       </p>
+
+      <PerfilRegulatorioDeclararDrawer
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        administracionId={administracionId}
+        perfil={data}
+        onSaved={() => void load()}
+      />
     </div>
   );
 }

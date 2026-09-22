@@ -7138,3 +7138,39 @@ leer/escribir; anon bloqueado; sin overloads). EJERCITAR confirmó: admin con re
 
 **Hard gate próximo:** la Fase 2 ("encender el motor de ofrecimientos") envía comunicaciones reales a ~124 clientes —
 NO se activa autónomamente; requiere OK explícito de Pablo + revisión de plantillas.
+
+## DGG-196 · Agenda · progressive profiling — writer de gerencia para datos declarados (2026-09-22)
+
+Sobre DGG-195: el perfil regulatorio tenía la capa "declarado" en el modelo (tabla + RPC `declarar`) pero **sin
+UI para escribirla** → todos los chips salían confirmado/inferido/sin-dato, nunca "declarado" real, y el panel de
+gerencia mostraba datos persistidos sin control para setearlos (deuda R14). Este incremento agrega el **writer de
+gerencia**: botón "Anclar datos" en `PerfilRegulatorioPanel` → `PerfilRegulatorioDeclararDrawer` (Drawer con los 8
+hechos declarables + jurisdicción + notas, `Field`/`Input type=date`/`Select`/`Textarea`) que llama
+`declararPerfilRegulatorio`. Sirve para que JL cargue lo que el cliente informa por teléfono ("ya renové afuera el
+15/08"). Prellena con la fila CRUDA declarada (`getPerfilRegulatorioDeclarado`, SELECT directo tenant-scoped por RLS,
+R4) para mostrar lo declarado (no lo mergeado). Reusa la RPC ya auditada; no cambia backend de lógica.
+
+**Por qué gerencia primero (y no el form del cliente):** es interno, menor riesgo, cierra R14 de los campos-fecha
+declarados y hace aparecer los chips "declarado" reales. El form del cliente en el portal + el manejo de `no_requiere`
+(con RPC de reemplazo) son el incremento siguiente. Además el opt-out del progressive profiling debe existir ANTES de
+encender el motor de ofrecimientos (Fase 2), para que el motor no le ofrezca al cliente lo que ya resolvió/no quiere.
+
+**Doble auditoría §6 (2 agentes enfocados + EJERCITAR e2e; backend ya triple-auditado en DGG-195):**
+- Agent A (correctitud UI): sin bugs; se fixearon GAPs de UX — el `— Sin declarar —` del Select ahora es "(no cambiar)"
+  (COALESCE no borra: no prometer un borrado que no ocurre), hint de certeza de jurisdicción removido (no tenía certeza
+  propia), error de prefetch ya no se traga en silencio (toast), try/finally anti-spinner-trabado.
+- Agent B (seguridad del getter): **el cliente NO puede leer filas ajenas con el SELECT directo** (RLS
+  `perfil_reg_cliente_select` filtra de verdad, verificado e2e bajo `SET LOCAL ROLE authenticated`) → seguro para
+  gerencia y para el futuro portal. Detectó el footgun L1 → **mig 0503 (hardening least-privilege):** revocado TODO a
+  `anon` (arrastraba el grant default de Supabase; R6 "anon sólo si el flujo lo necesita") y dejado a `authenticated`
+  SÓLO SELECT (write sólo por RPC definer). Verificado: authenticated=SELECT, anon=∅, declarar/read siguen OK.
+- EJERCITAR: declarar con set completo de campos → fila cruda almacenada + merge refleja `declarado` en lo no-confirmado
+  + completitud 50→75%; rollback forzado, 0 residuo.
+
+**GAP R14 documentado (diferido conscientemente):** el panel muestra la sección `no_requiere` pero el editor aún no la
+escribe (hoy `no_requiere` siempre `{}` → la sección nunca se muestra). Se cierra en el incremento del form del cliente
+con una RPC de reemplazo (el `||` actual no permite quitar una clave). Ver ERRORES.md.
+
+**Pendiente para el form del cliente (próximo incremento):** getter cliente-scoped con columnas explícitas (omitir
+`updated_by`/`notas` internos — vector 5 del §6); RPC de reemplazo de `no_requiere`; CTA en `PortalHome` cuando la
+completitud sea baja.
