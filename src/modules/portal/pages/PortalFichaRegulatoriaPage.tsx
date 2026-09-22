@@ -280,13 +280,13 @@ export function PortalFichaRegulatoriaPage() {
             <div className="rounded-2xl border border-slate-200 bg-white p-4">
               <p className="text-sm font-medium text-brand-ink">Para empezar: ¿dónde estás matriculado?</p>
               <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-                <Button variant="primary" className="justify-center" loading={busyKey === 'jurisdiccion'} onClick={() => void declararJurisdiccion('rpac')}>
+                <Button variant="primary" className="w-full justify-center sm:w-auto" loading={busyKey === 'jurisdiccion'} onClick={() => void declararJurisdiccion('rpac')}>
                   RPAC · Buenos Aires
                 </Button>
-                <Button variant="secondary" className="justify-center" disabled={busyKey === 'jurisdiccion'} onClick={() => void declararJurisdiccion('rpa')}>
+                <Button variant="secondary" className="w-full justify-center sm:w-auto" disabled={busyKey === 'jurisdiccion'} onClick={() => void declararJurisdiccion('rpa')}>
                   RPA · CABA
                 </Button>
-                <Button variant="ghost" className="justify-center" disabled={busyKey === 'jurisdiccion'} onClick={() => snooze('jurisdiccion')}>
+                <Button variant="ghost" className="w-full justify-center sm:w-auto" disabled={busyKey === 'jurisdiccion'} onClick={() => snooze('jurisdiccion')}>
                   No estoy matriculado
                 </Button>
               </div>
@@ -535,14 +535,14 @@ function HechoConfirmCard({
       <p className="text-sm font-medium text-brand-ink">{titulo}</p>
       {subtitulo && <p className="mt-0.5 text-xs text-brand-muted">{subtitulo}</p>}
       <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-        <Button variant="primary" className="justify-center" loading={busy} onClick={onCargar}>
+        <Button variant="primary" className="w-full justify-center sm:w-auto" loading={busy} onClick={onCargar}>
           <CalendarPlus size={14} /> Cargar fecha
         </Button>
-        <Button variant="ghost" className="justify-center" disabled={busy} onClick={onTodaviaNo}>
+        <Button variant="ghost" className="w-full justify-center sm:w-auto" disabled={busy} onClick={onTodaviaNo}>
           Todavía no
         </Button>
         {optOut && (
-          <Button variant="tonal" className="justify-center" disabled={busy} onClick={optOut}>
+          <Button variant="tonal" className="w-full justify-center sm:w-auto" disabled={busy} onClick={optOut}>
             No me corresponde
           </Button>
         )}
