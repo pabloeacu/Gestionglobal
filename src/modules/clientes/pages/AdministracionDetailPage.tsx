@@ -64,6 +64,7 @@ import { getResumenAdministracion, type CtaCteResumen } from '@/services/api/cta
 import { formatDateShort, parseLocalDate } from '@/lib/dates';
 import { cn } from '@/lib/cn';
 import { TabWebinars } from '../components/TabWebinars';
+import { PerfilRegulatorioPanel } from '../components/PerfilRegulatorioPanel';
 import { humanizeError } from '@/lib/errors';
 import { validarCuit, soloDigitosCuit, esCuitJuridico } from '@/lib/cuit';
 
@@ -1010,6 +1011,8 @@ function TabRegistral({ admin }: { admin: AdministracionRow }) {
 
   return (
     <div className="space-y-5">
+      {/* Agenda Fase 1 (DGG-195) — perfil regulatorio con niveles de certeza */}
+      <PerfilRegulatorioPanel administracionId={admin.id} />
       <div className="rounded-xl border border-slate-200 bg-white p-5">
         <div className="mb-3 flex items-center gap-2">
           <Scale size={16} className="text-brand-cyan" />

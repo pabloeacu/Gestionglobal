@@ -5489,6 +5489,62 @@ export type Database = {
           },
         ]
       }
+      perfil_regulatorio: {
+        Row: {
+          administracion_id: string
+          jurisdiccion: string | null
+          matricula_fecha_declarada: string | null
+          matricula_nro_declarada: string | null
+          no_requiere: Json
+          notas: string | null
+          ultima_consultoria_declarada: string | null
+          ultima_ddjj_declarada: string | null
+          ultima_renovacion_declarada: string | null
+          ultimo_certificado_declarado: string | null
+          ultimo_curso_actualizacion_declarado: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          administracion_id: string
+          jurisdiccion?: string | null
+          matricula_fecha_declarada?: string | null
+          matricula_nro_declarada?: string | null
+          no_requiere?: Json
+          notas?: string | null
+          ultima_consultoria_declarada?: string | null
+          ultima_ddjj_declarada?: string | null
+          ultima_renovacion_declarada?: string | null
+          ultimo_certificado_declarado?: string | null
+          ultimo_curso_actualizacion_declarado?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          administracion_id?: string
+          jurisdiccion?: string | null
+          matricula_fecha_declarada?: string | null
+          matricula_nro_declarada?: string | null
+          no_requiere?: Json
+          notas?: string | null
+          ultima_consultoria_declarada?: string | null
+          ultima_ddjj_declarada?: string | null
+          ultima_renovacion_declarada?: string | null
+          ultimo_certificado_declarado?: string | null
+          ultimo_curso_actualizacion_declarado?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "perfil_regulatorio_administracion_id_fkey"
+            columns: ["administracion_id"]
+            isOneToOne: true
+            referencedRelation: "administraciones"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       precio_audit: {
         Row: {
           accion: string
@@ -10177,6 +10233,26 @@ export type Database = {
         Args: { p_punto_venta: number; p_tipo: string }
         Returns: number
       }
+      perfil_regulatorio_declarar: {
+        Args: {
+          p_administracion_id: string
+          p_jurisdiccion?: string
+          p_matricula_fecha?: string
+          p_matricula_nro?: string
+          p_no_requiere?: Json
+          p_notas?: string
+          p_ultima_consultoria?: string
+          p_ultima_ddjj?: string
+          p_ultima_renovacion?: string
+          p_ultimo_certificado?: string
+          p_ultimo_curso_actualizacion?: string
+        }
+        Returns: undefined
+      }
+      perfil_regulatorio_get: {
+        Args: { p_administracion_id: string }
+        Returns: Json
+      }
       posible_duplicado: {
         Args: { t: Database["public"]["Tables"]["tramites"]["Row"] }
         Returns: boolean
@@ -10750,7 +10826,7 @@ export type Database = {
       }
     }
     Enums: {
-      [_ in never]: never
+      certeza_dato: "confirmado" | "declarado" | "inferido" | "desconocido"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -10877,6 +10953,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      certeza_dato: ["confirmado", "declarado", "inferido", "desconocido"],
+    },
   },
 } as const

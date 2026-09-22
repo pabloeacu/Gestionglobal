@@ -7104,3 +7104,37 @@ ese plan (perfil regulatorio + certeza, encender el motor de ofrecimientos con g
 encadenamiento formación→matriculación) queda para definir con Pablo, ADITIVO sobre lo blindado. Ver el documento
 del cliente + la investigación del subsistema (motor `gg_ofrecimientos_diario` dormido, portal calcula cards en vivo,
 `vencimientos`+asistente RPAC de 3 fechas, hoy 1 sola fila sembrada en toda la base).
+
+## DGG-195 · Agenda Fase 1 · Perfil regulatorio + NIVELES DE CERTEZA (2026-09-22)
+
+Aporte #1 del documento de Pablo sobre fechas/alarmas: **nunca afirmar una presunción.** Hoy la plataforma dice "tu
+matrícula vence" sin distinguir si el dato es CONFIRMADO por nosotros, DECLARADO por el cliente, INFERIDO de otro
+hecho, o DESCONOCIDO — y no había dónde el cliente declarara "ya renové afuera el 15/08" (progressive profiling).
+
+**100% ADITIVO** (migs 0500/0501/0502), no toca ningún flujo vivo (verificado por el Agente C del §6: cero ALTER/DROP
+sobre objetos existentes; `administraciones`, `vencimientos`, `tramites`, `cliente_portal_dashboard`, motor de
+ofrecimientos intactos):
+- `enum public.certeza_dato ('confirmado','declarado','inferido','desconocido')`.
+- Tabla `public.perfil_regulatorio` (PK `administracion_id`) para los hechos DECLARADOS (progressive profiling) — RLS
+  activa, staff FOR ALL, cliente FOR SELECT su fila; **write SIEMPRE por RPC definer** (grant de tabla bajado a SELECT,
+  least-privilege R6, hallazgo B6 del §6).
+- RPC `perfil_regulatorio_declarar(...)` SECURITY DEFINER (R12 `private.assert_administracion_access` primero): el
+  cliente/gerencia ancla datos con certeza='declarado'. Los NULL no borran (COALESCE); `no_requiere` mergea por servicio.
+- RPC `perfil_regulatorio_get(admin)` SOLO LECTURA: mergea 4 fuentes con **precedencia confirmado > declarado > inferido
+  > desconocido** por cada hecho, deriva próximas fechas (renovación matríc+12m, DDJJ 31/03 legal, curso +12m,
+  certificado +3m) prefiriendo las filas ya sembradas en `vencimientos`, y calcula `completitud_pct` = % de hechos
+  efectivamente SABIDOS (confirmado o declarado; los inferidos NO cuentan, para no inflar el "cuánto sabemos").
+- **UI (gerencia):** `PerfilRegulatorioPanel` read-only en la pestaña Registral de la ficha de admin — chips de certeza
+  por color (confirmado=emerald, declarado=sky, inferido=amber, sin dato=slate), próximas obligaciones, último registro,
+  barra de completitud, leyenda "cómo leerlo". El anclado de datos declarados (writer de gerencia + form del cliente)
+  llega en la fase de progressive profiling. `getPerfilRegulatorio`/`declararPerfilRegulatorio` en services (R4).
+
+**Doble auditoría §6 (3 agentes + EJERCITAR e2e) ANTES de cerrar:** encontró y se corrigió el bug crítico E-GG-214
+(la capa "confirmado por trámite" filtraba `estado='cerrado'`+`fecha_fin` cuando el estado terminal real es
+`resuelto`+`resuelto_at`), + etiqueta de DDJJ inferida (no confirmada), + completitud honesta, + gate RPAC de la DDJJ,
++ `proximo_certificado`, + `curso_rpa_caba`. Seguridad R12/R2/R6/R16 verificada e2e (cliente ajeno → 42501 antes de
+leer/escribir; anon bloqueado; sin overloads). EJERCITAR confirmó: admin con renovación *resuelta* ahora sale
+`confirmado`; declarado llena huecos sin pisar confirmado; rollback forzado, 0 datos residuales.
+
+**Hard gate próximo:** la Fase 2 ("encender el motor de ofrecimientos") envía comunicaciones reales a ~124 clientes —
+NO se activa autónomamente; requiere OK explícito de Pablo + revisión de plantillas.
