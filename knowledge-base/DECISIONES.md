@@ -7174,3 +7174,34 @@ con una RPC de reemplazo (el `||` actual no permite quitar una clave). Ver ERROR
 **Pendiente para el form del cliente (próximo incremento):** getter cliente-scoped con columnas explícitas (omitir
 `updated_by`/`notas` internos — vector 5 del §6); RPC de reemplazo de `no_requiere`; CTA en `PortalHome` cuando la
 completitud sea baja.
+
+## DGG-197 · Agenda · progressive profiling — FORM DEL CLIENTE en el portal (2026-09-22)
+
+Cara del cliente del perfil regulatorio: página `/portal/mi-ficha` (`PortalFichaRegulatoriaPage`) + ítem "Mi matrícula"
+en el NAV del portal + hot-card en `PortalHome`. Cierra el loop de progressive profiling (el cliente ahora carga sus
+propios datos). Reusa el backend de DGG-195/196 + **mig 0504** (`perfil_regulatorio_set_no_requiere`, RPC de REEMPLAZO
+del jsonb `no_requiere` — permite QUITAR un opt-out, cosa que el `||` de `declarar` no).
+
+**Diseño elegido por un workflow de diseño (3 enfoques → panel de 3 jueces → síntesis, ultracode):** ganó
+**"Confirmá tu ficha" (validate-first)** — el cliente VALIDA lo que la plataforma ya sabe, nunca recarga un dato
+confirmado (jamás un `<input>` sobre un 'confirmado'). Anillo de completitud (AnimatedNumber), cola "Necesitan tu OK"
+(tarjetas de los hechos 'desconocido' con [Cargar fecha]/[Todavía no]=snooze-sin-escribir/[No me corresponde]=opt-out),
+"Ya lo sabemos" colapsable, timeline de próximas (los 'inferido' con firma provisional «≈»+itálica+punteado), switches
+de opt-out, editor de fecha en Drawer con `<input type=date>` nativo. Cada obligación se ancla por su ÚLTIMO evento
+(la RPC sólo acepta ultima_*; la próxima se re-infiere). Tokens de MARCA GG (gg-ok/petrolD/warn/slate), NO los
+emerald/amber de la grilla de gerencia. Estados admin-null / loading / error / vacío / completo. Mobile-first.
+
+**Doble auditoría §6 vía workflow (4 dimensiones → find → verificación adversarial, 13 agentes):**
+- **Seguridad/tenencia: 0 hallazgos** — `set_no_requiere` verificada e2e: cliente ajeno → 42501, anon REVOKE, sin
+  overloads (R16), valida que `p_no_requiere` sea objeto (22023), upsert reemplaza.
+- **Fixeados:** (ALTA, 2 dims) el Nº de matrícula pasaba por `HechoValue` (formateador de FECHAS) → mostraba "01 ene 31"
+  en vez de "431"; ahora texto plano. (MEDIA) `completitud_pct` nunca llega a 100 con opt-outs → el anillo/felicitación
+  ahora derivan de "no queda nada accionable" (`realmenteCompleto`, ignora snooze para no festejar un diferimiento).
+  (BAJA) contraste AA de los textos de certeza oscurecido; borde `gg-line` en 'desconocido'.
+- **Verificado sin fix:** doble fuente de "próxima renovación" (dashboard vs `_get`) — hoy 0 filas de venc renovación y
+  0 admins con `matricula_rpac_vencimiento` → ambas fuentes vacías, sin divergencia; al sembrar quedan alineadas por el
+  trigger de sync. Deferido consciente: el hot-card usa cyan/teal como su banner hermano `AvancesNuevosBanner` (el tema
+  gg-chamfer no está activo en prod); migrar todos los banners a tokens de marca es un barrido aparte.
+
+tsc verde, types regenerados (0504). Con esto, **el opt-out del cliente existe ANTES** de encender el motor de
+ofrecimientos (Fase 2, HARD GATE) — el motor podrá respetar "no requiero X".

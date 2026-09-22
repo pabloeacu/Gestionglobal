@@ -81,6 +81,22 @@ export interface DeclararPerfilInput {
   notas?: string | null;
 }
 
+// REEMPLAZA el objeto `no_requiere` completo (permite QUITAR una opción — el merge
+// de `declarar` sólo agrega/pisa). El caller manda el set COMPLETO de opt-outs vigentes.
+export type NoRequiereMap = Record<string, { motivo?: string; fecha?: string }>;
+
+export async function setPerfilNoRequiere(
+  administracionId: string,
+  noRequiere: NoRequiereMap,
+): Promise<ApiResponse<null>> {
+  const { error } = await supabase.rpc('perfil_regulatorio_set_no_requiere', {
+    p_administracion_id: administracionId,
+    p_no_requiere: noRequiere as never,
+  });
+  if (error) return fail('PERFIL_REG_SET_NOREQ', error.message, error);
+  return ok(null);
+}
+
 export async function declararPerfilRegulatorio(
   input: DeclararPerfilInput,
 ): Promise<ApiResponse<null>> {

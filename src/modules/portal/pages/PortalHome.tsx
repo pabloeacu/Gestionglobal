@@ -54,6 +54,7 @@ import { ActivarPushAssistant } from '@/components/common/ActivarPushAssistant';
 import { CertCelebracionBanner } from '@/modules/campus/components/CertCelebracionBanner';
 import { listCertsCelebrarCliente } from '@/services/api/campus';
 import { NovedadesBanner } from '../components/NovedadesBanner';
+import { PerfilRegulatorioHotCard } from '../components/PerfilRegulatorioHotCard';
 import { PortalOnboardingTour, tourCompletado } from '../components/PortalOnboardingTour';
 import { PortalPwaAssistant } from '../components/PortalPwaAssistant';
 import { PortalPushAssistant } from '../components/PortalPushAssistant';
@@ -178,6 +179,9 @@ export function PortalHome() {
       {/* M1 · Banner urgente cuando hay pedidos de documentación abiertos.
           Va arriba para que el cliente lo vea apenas entra. */}
       {pedidosAbiertos.length > 0 && <DocsPendientesBanner items={pedidosAbiertos} />}
+
+      {/* Agenda · nudge de perfil regulatorio (DGG-197) — aparece solo si faltan datos */}
+      <PerfilRegulatorioHotCard />
 
       <HotCards
         claseHoy={data.clase_hoy}

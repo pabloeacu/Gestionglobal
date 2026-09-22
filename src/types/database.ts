@@ -10253,6 +10253,10 @@ export type Database = {
         Args: { p_administracion_id: string }
         Returns: Json
       }
+      perfil_regulatorio_set_no_requiere: {
+        Args: { p_administracion_id: string; p_no_requiere: Json }
+        Returns: undefined
+      }
       posible_duplicado: {
         Args: { t: Database["public"]["Tables"]["tramites"]["Row"] }
         Returns: boolean

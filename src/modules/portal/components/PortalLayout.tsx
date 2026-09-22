@@ -19,6 +19,7 @@ import {
   FileText,
   Video,
   PlusCircle,
+  ShieldCheck,
 } from 'lucide-react';
 import { BrandMark } from '@/components/brand/BrandMark';
 import { IsoMark } from '@/components/brand/IsoMark';
@@ -47,6 +48,7 @@ const NAV: NavItem[] = [
   { to: '/portal/webinars', label: 'Mis eventos', icon: Video },
   { to: '/portal/nuevo', label: 'Solicitar', icon: PlusCircle },
   { to: '/portal/mi-cuenta', label: 'Mi cuenta', icon: Wallet },
+  { to: '/portal/mi-ficha', label: 'Mi matrícula', icon: ShieldCheck },
   { to: '/portal/consorcios', label: 'Consorcios', icon: Building2 },
   { to: '/portal/perfil', label: 'Mi perfil', icon: UserRound },
 ];
