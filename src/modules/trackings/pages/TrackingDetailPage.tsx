@@ -116,6 +116,7 @@ import { CerrarTramiteDialog } from '../components/CerrarTramiteDialog';
 import { useCancelarTramite } from '@/modules/tramites/lib/useAvanzarTramite';
 import { ReabrirTramiteDialog } from '../components/ReabrirTramiteDialog';
 import { GenerarComprobanteTramiteModal } from '../components/GenerarComprobanteTramiteModal';
+import { ClientePanoramaCard } from '../components/ClientePanoramaCard';
 import { abrirArchivoProtegido } from '@/lib/storageUrls';
 import {
   getSolicitudVinculadaTramite,
@@ -1374,6 +1375,14 @@ export function TrackingDetailPage() {
                 setProgramarOpen(true);
               }}
             />
+          )}
+
+          {/* Agenda · panorama del cliente hacia adelante al cierre (DGG-198):
+              agenda regulatoria derivada + qué ofrecimientos recibirá (respeta "no requiero"). */}
+          {data.administracion_id && (
+            <div className="md:col-span-2">
+              <ClientePanoramaCard administracionId={data.administracion_id} />
+            </div>
           )}
 
           {/* 5.C · accesos externos compartidos + tracking de aperturas. */}

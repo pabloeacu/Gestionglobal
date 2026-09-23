@@ -9841,6 +9841,10 @@ export type Database = {
         Returns: undefined
       }
       gg_ofrecimientos_diario: { Args: never; Returns: Json }
+      gg_ofrecimientos_preview: {
+        Args: { p_administracion_id: string }
+        Returns: Json
+      }
       gg_profile_marcar_pwa: {
         Args: { p_installed: boolean }
         Returns: undefined

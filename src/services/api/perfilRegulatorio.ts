@@ -81,6 +81,30 @@ export interface DeclararPerfilInput {
   notas?: string | null;
 }
 
+// Preview de ofrecimientos por-admin (panorama al cierre). Usa el MISMO helper de
+// elegibilidad que el motor (sin drift). SOLO LECTURA; R12 en la RPC.
+export interface OfrecimientoPreviewItem {
+  elegible: boolean;
+  no_requiere: boolean;
+}
+export interface OfrecimientosPreview {
+  generated_at: string;
+  certificado: OfrecimientoPreviewItem;
+  consultoria: OfrecimientoPreviewItem;
+  curso_actualizacion: OfrecimientoPreviewItem;
+  ddjj: OfrecimientoPreviewItem;
+}
+
+export async function getOfrecimientosPreview(
+  administracionId: string,
+): Promise<ApiResponse<OfrecimientosPreview>> {
+  const { data, error } = await supabase.rpc('gg_ofrecimientos_preview', {
+    p_administracion_id: administracionId,
+  });
+  if (error) return fail('OFREC_PREVIEW', error.message, error);
+  return ok(data as unknown as OfrecimientosPreview);
+}
+
 // REEMPLAZA el objeto `no_requiere` completo (permite QUITAR una opción — el merge
 // de `declarar` sólo agrega/pisa). El caller manda el set COMPLETO de opt-outs vigentes.
 export type NoRequiereMap = Record<string, { motivo?: string; fecha?: string }>;

@@ -7205,3 +7205,35 @@ emerald/amber de la grilla de gerencia. Estados admin-null / loading / error / v
 
 tsc verde, types regenerados (0504). Con esto, **el opt-out del cliente existe ANTES** de encender el motor de
 ofrecimientos (Fase 2, HARD GATE) — el motor podrá respetar "no requiero X".
+
+## DGG-198 · Agenda · guarda `no_requiere` en el motor + panorama del cliente al cierre (2026-09-22)
+
+Preparación para encender el motor (Fase 2, sigue en HARD GATE). Pablo pidió: (1) que el motor respete el opt-out
+del cliente, y (2) que al cerrar un trámite gerencia vea el **panorama del cliente hacia adelante**. Antes de esto se
+armó un **dry-run del motor** (sin enviar): a full HOY tocaría **89 de 126** clientes (81→certificado, 8→consultoría),
+por email+push+banner; el motor NO es closure-driven (la mayoría dispara por "tiene matrícula cargada + no pidió ese
+servicio hace N días", no por cierres) — se le aclaró a Pablo que "solo hay 2 cerrados" NO limita el blast. Encendido
+diferido; primero 1+2.
+
+**(1) Guarda `no_requiere` (mig 0505):** se extrajo la elegibilidad de negocio de cada cadencia a un helper ÚNICO
+`private.gg_ofrecimiento_elegible(admin, regla, hoy)` — **fuente de verdad compartida por el motor Y por el preview**,
+sin drift. El helper agrega la guarda: si el cliente marcó `no_requiere` de ese servicio (mapeo ddjj→ddjj_ciclo,
+curso_actualizacion→curso_60, certificado→cert_90, consultoria→cj_120), la regla NO dispara. `gg_ofrecimientos_diario`
+§2 se refactorizó para llamar al helper (idénticos §0 CABA, §1 capacitación, cap 40/día, gracia 7d, cooldowns,
+precedencia — verificado byte a byte). **mig 0506:** REVOKE del helper `private` de PUBLIC (defensa en profundidad).
+
+**(2) Panorama al cierre (DGG-198, frontend):** `gg_ofrecimientos_preview(admin)` (RPC read-only, R12, mismo helper →
+sin drift) + `ClientePanoramaCard` en la ficha del trámite (tab resumen, junto a las alarmas): muestra qué
+ofrecimientos LE CORRESPONDEN (respetando "no requiero") + reusa `PerfilRegulatorioPanel` (agenda derivada con certeza).
+Así el cierre pasa a ser un momento de visibilidad completa del cliente hacia adelante.
+
+**Doble auditoría §6 (3 agentes + EJERCITAR):** (A) refactor **100% fiel** — 126/126 admins eligen la misma regla que
+el original, guarda aditiva y rule-scoped; (B) helper/guarda **correctos** (33 aserciones e2e, 0 fails); (C)
+seguridad **OK** — R12 del preview (cross-tenant→42501), anon bloqueado, motor sigue dormido (0 cron/0 log/0 emails).
+Hallazgo aplicado: REVOKE del helper (0506). Copy del preview ablandado a "Le corresponde" (no "se enviará", porque el
+preview no aplica cooldown/cap). **Invariante documentado:** el opt-out se escribe siempre como objeto `{motivo,fecha}`
+(el `?` de jsonb es por existencia de clave).
+
+**🎉 Validación en vivo inesperada:** durante la auditoría se encontró que una CLIENTA REAL (Ana Elizabeth Sanclaudio,
+titular de su admin) ya usó el form `/portal/mi-ficha` en producción y marcó "no requiero DDJJ" — la guarda la protegerá
+cuando el motor se encienda en temporada de DDJJ (nov-mar). Dato real, no se tocó.
