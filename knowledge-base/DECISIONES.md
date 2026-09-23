@@ -7237,3 +7237,27 @@ preview no aplica cooldown/cap). **Invariante documentado:** el opt-out se escri
 **🎉 Validación en vivo inesperada:** durante la auditoría se encontró que una CLIENTA REAL (Ana Elizabeth Sanclaudio,
 titular de su admin) ya usó el form `/portal/mi-ficha` en producción y marcó "no requiero DDJJ" — la guarda la protegerá
 cuando el motor se encienda en temporada de DDJJ (nov-mar). Dato real, no se tocó.
+
+## DGG-199 · Agenda · MODO SOMBRA del motor de ofrecimientos (2026-09-23)
+
+Pablo dudó del encendido: "¿por qué no sugerís encender? ¿riesgos? ¿sería confuso? alternativas para que no dependa de
+mi 'encendé' y me olvide". Se le explicó honesto: la maquinaria está lista y blindada, pero (a) mandar comms reales es
+irreversible y no lo autorizo solo, y (b) hoy la puntería es gruesa (el certificado dispara a 81 por señal débil "no
+pidió uno hace 90d"; el motor NO es closure-driven). No es confuso para el cliente — el riesgo es RELEVANCIA/frecuencia.
+Alternativas ofrecidas: A) modo sombra, B) solo-por-eventos (achicar el certificado), C) rampa, D) menos canales.
+**Pablo eligió A (modo sombra).**
+
+**Implementación (migs 0507/0508):** tabla-espejo `public.ofrecimientos_sombra` + `gg_ofrecimientos_diario_sombra()`
+que replica el targeting REAL (mismo helper `gg_ofrecimiento_elegible` → sin drift; mismos filtros §0/§1) pero
+**redirige TODO efecto al log** — cero mail/push/banner, cero fila real en vencimientos, no marca formularios, no toca
+`ofrecimientos_log`. La gracia 7d / cooldowns / cap 40 se calculan contra la tabla sombra → la simulación día-a-día es
+fiel (drena la base en ~3 días por el cap, después silencio). Guard de idempotencia por día. **Cron diario agendado**
+(`gg-ofrecimientos-sombra`, 09:00 AR) → junta datos solo. Reporte `gg_ofrecimientos_sombra_reporte()` (staff-only).
+
+**EJERCITADO (propiedad crítica: NO escribe nada real):** baseline email_queue=2262/ofrec_log=0/vencimientos=1/forms=1
+→ corrí la sombra → **todas IGUALES**; solo `ofrecimientos_sombra` creció (42 filas = 40 §2 + 2 §0 CABA-intención).
+**Día 1: 40 toques (tope), 34 certificado + 6 consultoría, 2 CABA (solo intención).** Reporte OK.
+
+**El motor real sigue DORMIDO** (sin cron, 0 log, 0 emails). En ~2 semanas Pablo revisa el log y decide el encendido
+real con datos. Pendiente: mecanismo de revisión que "no dependa de él" (opciones: card en gerencia / reporte
+programado / pedírmelo). §6: 2 agentes (aislamiento + seguridad) en curso.
