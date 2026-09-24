@@ -20,6 +20,7 @@ import { Button, Field, Input, Modal } from '@/components/common';
 import { toast } from '@/lib/toast';
 import { hoyISO, toISODate } from '@/lib/dates';
 import { programarVencimientosRpac } from '@/services/api/trackings';
+import { getPerfilRegulatorio } from '@/services/api/perfilRegulatorio';
 import { humanizeError } from '@/lib/errors';
 
 interface ProgramarVencimientosRpacModalProps {
@@ -33,6 +34,10 @@ interface ProgramarVencimientosRpacModalProps {
   // renovación arranca en ese valor (el otorgamiento ya lo definió) en vez de base+12m.
   fechaMatriculacionInicial?: string;
   fechaVencimientoInicial?: string;
+  // DGG-200 (C6) · fallback: si NO vino el otorgamiento explícito, prellenar las
+  // sugerencias desde el perfil regulatorio (fecha de matrícula / próxima renovación
+  // conocida o inferida). Son sugerencias editables — nunca se afirman como hecho.
+  administracionId?: string | null;
 }
 
 // Suma meses conservando el día (mediodía para no cruzar de día por zona horaria).
@@ -85,6 +90,7 @@ export function ProgramarVencimientosRpacModal({
   onProgramado,
   fechaMatriculacionInicial,
   fechaVencimientoInicial,
+  administracionId,
 }: ProgramarVencimientosRpacModalProps) {
   const [fechaMatric, setFechaMatric] = useState<string>(() => hoyISO());
   const [fechaReno, setFechaReno] = useState<string>('');
@@ -111,7 +117,32 @@ export function ProgramarVencimientosRpacModal({
     setFechaCurso(esPrefill ? alFuturoAnual(curso0) : curso0);
     setNotificar(true);
     setSubmitting(false);
-  }, [open, fechaMatriculacionInicial, fechaVencimientoInicial]);
+
+    // C6 (DGG-200) · sin otorgamiento explícito, sugerir desde el perfil regulatorio
+    // (fecha de matrícula / próxima renovación conocida o inferida). Sólo sugerencia
+    // editable; se clampea al próximo futuro para no bloquear el submit. El guard
+    // `cancel` evita pisar ediciones de JL si la respuesta llega tarde o tras cerrar.
+    if (!esPrefill && administracionId) {
+      let cancel = false;
+      void getPerfilRegulatorio(administracionId).then((res) => {
+        if (cancel || !res.ok) return;
+        const p = res.data;
+        const matFecha = p.matricula?.fecha ?? null;
+        const proxReno = p.proxima_renovacion?.fecha ?? null;
+        if (matFecha) {
+          setFechaMatric(matFecha);
+          setFechaDdjj(alFuturoMarzo(proximoMarzo(matFecha)));
+          setFechaCurso(alFuturoAnual(sumarMeses(matFecha, 12)));
+          setFechaReno(alFuturoAnual(proxReno ?? sumarMeses(matFecha, 12)));
+        } else if (proxReno) {
+          setFechaReno(alFuturoAnual(proxReno));
+        }
+      });
+      return () => {
+        cancel = true;
+      };
+    }
+  }, [open, fechaMatriculacionInicial, fechaVencimientoInicial, administracionId]);
 
   // Cambiar la fecha de matriculación recalcula las 3 sugerencias (JL puede
   // después editar cada una a mano con su propio campo).

@@ -89,9 +89,16 @@ export interface OfrecimientoPreviewItem {
 }
 export interface OfrecimientosPreview {
   generated_at: string;
+  // C6 (DGG-200): próximo vencimiento probable de matrícula (venc explícito / fila
+  // de vencimientos / aniversario de la emisión). null si no hay dato para inferirlo.
+  prox_venc_matricula: string | null;
+  // true si ese vencimiento ya pasó (matrícula lapsada) — para rotular "vencida el".
+  prox_venc_vencido: boolean;
+  matriculacion: OfrecimientoPreviewItem;
   certificado: OfrecimientoPreviewItem;
   consultoria: OfrecimientoPreviewItem;
   curso_actualizacion: OfrecimientoPreviewItem;
+  renovacion: OfrecimientoPreviewItem;
   ddjj: OfrecimientoPreviewItem;
 }
 

@@ -1706,6 +1706,7 @@ export function TrackingDetailPage() {
         trackingTitulo={data.titulo}
         fechaMatriculacionInicial={otorgPrefill?.matriculacion || undefined}
         fechaVencimientoInicial={otorgPrefill?.vencimiento || undefined}
+        administracionId={data.administracion_id}
         onProgramado={() => { void load(); setOtorgPrefill(null); }}
       />
 

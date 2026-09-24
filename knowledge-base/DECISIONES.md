@@ -7261,3 +7261,46 @@ fiel (drena la base en ~3 días por el cap, después silencio). Guard de idempot
 **El motor real sigue DORMIDO** (sin cron, 0 log, 0 emails). En ~2 semanas Pablo revisa el log y decide el encendido
 real con datos. Pendiente: mecanismo de revisión que "no dependa de él" (opciones: card en gerencia / reporte
 programado / pedírmelo). §6: 2 agentes (aislamiento + seguridad) en curso.
+
+## DGG-200 · Agenda · alineación del motor de ofrecimientos a las 6 consignas de Pablo (2026-09-24)
+
+Pablo refinó el targeting del motor en 6 consignas y autorizó construir la alineación completa ("construilo y decime
+cuando estemos en condiciones de activar... es demasiado importante para seguir postergándolo"). El motor sigue en
+MODO SOMBRA (DGG-199); la activación real sigue siendo HARD GATE (requiere su "encendé").
+
+**Las 6 consignas → implementación (migs 0510/0511/0512):**
+- **C1 · Certificado + DDJJ → sólo a MATRÍCULA CONOCIDA (número).** Helper `private.gg_admin_matricula_conocida` =
+  `matricula_rpac` cargada O `matricula_nro_declarada`. Antes gateaban por `gg_admin_es_rpac` (más laxo). Cierra el
+  agujero "cert/ddjj sin número".
+- **C2 · Curso + Renovación por VENCIMIENTO (no por número), SEPARADOS, curso primero.** Reglas nuevas `curso_venc`
+  (venc futuro 16-60d) y `renovacion_venc` (venc [hoy-60, hoy+45], cubre inminente Y lapsado reciente). Precedencia
+  curso→renovación; la gracia 7d + cooldown por-regla las espacia "unos días" (probado e2e: DIA0 curso / DIA8 renov).
+  El curso sólo dispara con venc >15d (deja lugar a la renovación urgente cuando el venc es inminente). Ambas usan
+  `private.gg_admin_prox_venc_matricula` (venc explícito / fila `vencimientos` / aniversario de la emisión, con
+  ventana overdue 60d y fin-de-mes real). **Reemplazó** la regla vieja `curso_actualizacion_60` (closure-driven).
+- **C3 · Sin matrícula → ofrecer MATRICULACIÓN.** Regla `matriculacion` (sin señal alguna de matrícula: ni número, ni
+  RPAC, ni curso CABA, ni fecha conocida). Plantilla email nueva `ofrecimiento-matriculacion` con link a `/portal/mi-ficha`
+  ("¿ya matriculado? cargá tu número") → loop de captura: al declarar el número, `matricula_conocida` se vuelve true y
+  el admin sale de matriculación y entra a cert/ddjj/curso/renov.
+- **C4 · Consultoría a TODOS.** `cj_120` perdió el gate `es_rpac OR curso_caba` → alcanzable por los 129 (respeta opt-out).
+- **C5 · Plataforma NO se ofrece.** Ninguna regla ni plantilla la referencia (verificado por los 3 agentes §6).
+- **C6 · Fechas probables visibles.** `gg_ofrecimientos_preview` devuelve `prox_venc_matricula` + `prox_venc_vencido`;
+  `ClientePanoramaCard` (panorama al cierre) muestra la fecha estimada / "matrícula vencida el". El modal
+  `ProgramarVencimientosRpacModal` prellena las 3 fechas desde el perfil regulatorio inferido si no vino el otorgamiento.
+
+**Precedencia §2 (motor real y sombra en lockstep):** matriculacion → ddjj_ciclo → curso_venc → renovacion_venc →
+certificado_90 → cj_120. Cooldowns 60/30/60/45/90/120d + gracia global 7d + cap 40/día.
+
+**Distribución nueva (universo 129, hoy):** certificado 84 · matriculación 33 (C3, antes invisibles) · consultoría 9 ·
+curso 1 · renovación 1 (Padrón, lapsado — antes recibía NADA) · ninguna 1.
+
+**Doble auditoría §6 (3 agentes adversariales + EJERCITAR e2e):** fidelidad sombra↔real SÓLIDA; C1/C4/C5/C6 OK;
+precedencia curso→renov probada e2e; sin overloads (R16); triggers N/A (R17); aislamiento perfecto (0 escrituras a
+email_queue/ofrec_log/vencimientos/notif/push). Hallazgos corregidos en 0512: (A#1/A#2) curso/renov gateaban por número
+en vez de por vencimiento conocido → contradecía C2; (A#4) venc inminente podía saltear la renovación; (C-H1) prox_venc
+rodaba un vencimiento vencido a +1 año ocultando lapsados; (C-H2) prox_venc usaba UTC en vez de AR; (C-H5) fin de mes;
+(B#1/R6) REVOKE EXECUTE FROM PUBLIC en los helpers `private`. GAP documentado (R14): la clave `no_requiere.matriculacion`
+se lee pero ningún control del form del cliente la escribe — el escape real es cargar el número (ver E-GG-216).
+
+**Datos:** hoy sólo 2/129 admins tienen fecha de matrícula (declarada) → C2 (curso/renov) es correcto pero casi inerte
+hasta poblar vencimientos/emisiones (progressive profiling de DGG-197 o backfill). El motor real sigue DORMIDO.
