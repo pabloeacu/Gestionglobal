@@ -366,7 +366,14 @@ export function TrackingDetailPage() {
 
   // §6 C#8 (DGG-142 E5): administraciones alimenta "En la ficha hoy" del diff
   // de otorgamiento en la moderación inline — refrescar si la ficha cambia.
-  useRealtimeRefresh(['tramites', 'tracking_lineas', 'administraciones'], () => void load());
+  // A2 (§6 del reporte JL): sumamos `tramite_pedidos_doc_items` para que al subir/aprobar/rechazar
+  // un ítem se re-fetcheen los adjuntos (vía adjuntosNonce) y el cartel "avisá a la gestoría"
+  // aparezca/se limpie EN LA MISMA SESIÓN, no sólo tras recargar (el estado 'subido' quedaba stale).
+  const [adjuntosNonce, setAdjuntosNonce] = useState(0);
+  useRealtimeRefresh(
+    ['tramites', 'tracking_lineas', 'administraciones', 'tramite_pedidos_doc_items'],
+    () => { void load(); setAdjuntosNonce((n) => n + 1); },
+  );
 
   const categoriaConfigMap = useMemo(() => {
     const m = new Map<string, TrackingDetail['categorias_disponibles'][number]>();
@@ -449,7 +456,8 @@ export function TrackingDetailPage() {
       if (!cancel && r.ok) setDocsCliente(r.data);
     });
     return () => { cancel = true; };
-  }, [data?.id]);
+    // adjuntosNonce: refetch ante cambios de ítems (realtime) → cartel A2 no queda stale.
+  }, [data?.id, adjuntosNonce]);
 
   interface AdjuntoUnif {
     url: string;
@@ -1233,8 +1241,14 @@ export function TrackingDetailPage() {
         {/* E-GG-91 (e · reporte JL) · discoverability: cuando el cliente subió
             documentación de un pedido y el trámite está derivado a una gestoría,
             surface el reaviso (el mecanismo ya vive en la toolbar). Cierra el
-            loop "el cliente completó → avisá a la gestoría que puede retomar". */}
-        {isStaff && derivacion && data.estado !== 'cerrado' && data.estado !== 'cancelado' && adjuntosPedidoDoc.length > 0 && (
+            loop "el cliente completó → avisá a la gestoría que puede retomar".
+            Reporte JL 23/9/2026: el cartel quedaba COLGADO — `adjuntosPedidoDoc.length > 0`
+            era true para siempre apenas hubo UN upload histórico, y no excluía el
+            estado terminal `resuelto` (E-GG-214). Ahora sólo aparece cuando hay al
+            menos un ítem recién subido y sin procesar por gerencia (`estado==='subido'`);
+            al aprobar/rechazar se limpia solo. El botón manual de la toolbar sigue
+            disponible como fallback para reavisar. */}
+        {isStaff && derivacion && !['cerrado', 'cancelado', 'resuelto'].includes(data.estado) && adjuntosPedidoDoc.some((a) => a.estado === 'subido') && (
           <div className="mt-4 flex flex-col gap-3 rounded-xl border-2 border-violet-300/70 bg-violet-50 p-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-start gap-3">
               <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-violet-100 text-violet-700">

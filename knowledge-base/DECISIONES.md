@@ -7304,3 +7304,13 @@ se lee pero ningún control del form del cliente la escribe — el escape real e
 
 **Datos:** hoy sólo 2/129 admins tienen fecha de matrícula (declarada) → C2 (curso/renov) es correcto pero casi inerte
 hasta poblar vencimientos/emisiones (progressive profiling de DGG-197 o backfill). El motor real sigue DORMIDO.
+
+## DGG-201 · Reporte de JL (doc "Sistema Gestion Global", tab PARA VER:) — 3 anotaciones resueltas (2026-09-25)
+
+Pablo pasó el doc de anotaciones de JL (tab PARA VER:, del 23/9/2026; la otra pestaña es el plan de la Agenda ya diseñado). Método: 1 workflow de diagnóstico read-only (3 agentes) → fixes quirúrgicos → 1 workflow §6 adversarial (3 agentes) + EJERCITAR e2e por fix → build + push + prueba en vivo + comentar el doc.
+
+- **A1 (E-GG-217):** las "Alarmas de hoy" no notificaban (campanita/email) por desfase de timezone entre el widget (BA) y el cron dispatcher (UTC). Fix mig 0514: `SET "TimeZone"` en `dispatch_alarmas_tracking_hoy`. EJERCITAR: dispatch_count=1 / notif_delta=2 (rollback).
+- **A2 (E-GG-218):** cartel "avisá a la gestoría" colgado permanente (usaba `.length>0` y no excluía `resuelto`). Fix frontend: gatear por ítem `estado==='subido'` + excluir `resuelto` + refetch en realtime (`tramite_pedidos_doc_items` + adjuntosNonce) para que se limpie in-session (hallazgo §6 media).
+- **A3 (E-GG-219):** los adjuntos de gestoría no llegaban al cliente en pedidos de documentación (la RPC insertaba la línea visible con `archivos_urls='{}'`). Fix aditivo mig 0515 (RPC acepta `p_archivos_urls`, DROP+CREATE R16, grants sin anon) + servicio + Moderación reenvía los adjuntos. §6 e2e completo: `client_can_download=true` (impersonando cliente, rollback). Deuda parqueada (decisión de Pablo): backfill de ~35 pedidos históricos sin adjuntos (cambia historial visto por clientes) — NO aplicado; fix hacia-adelante.
+
+Los 3: §6 OK (ok-con-observaciones, todas menores/pre-existentes salvo la media de A2 ya corregida), tsc verde, sin regresiones. Cron de alarmas y flujo de cliente en vivo — cambios de bajo riesgo, verificados e2e.

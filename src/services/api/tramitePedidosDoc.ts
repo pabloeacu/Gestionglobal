@@ -53,15 +53,20 @@ export async function listPedidosPorTramite(
 }
 
 // Crea un pedido nuevo (gerencia). Recibe items como array de descripciones.
+// `archivosUrls` (A3 / reporte JL 23/9): adjuntos que gestoría/gerencia mandan PARA el cliente
+// (ej. documentación a presentar). Van en la línea visible del timeline y el cliente los baja
+// con el mismo mecanismo que los aportes informativos. Default [] = pedido sin adjuntos (igual que antes).
 export async function crearPedidoDoc(
   tramiteId: string,
   descripcion: string,
   items: string[],
+  archivosUrls: string[] = [],
 ): Promise<ApiResponse<{ pedidoId: string }>> {
   const { data, error } = await rpc('tramite_pedido_doc_crear', {
     p_tramite_id: tramiteId,
     p_descripcion: descripcion,
     p_items: items,
+    p_archivos_urls: archivosUrls,
   });
   if (error) return fail('PEDIDO_CREAR', error.message, error);
   return ok({ pedidoId: data as string });

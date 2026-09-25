@@ -5000,6 +5000,50 @@ export type Database = {
           },
         ]
       }
+      ofrecimientos_sombra: {
+        Row: {
+          admin_nombre: string | null
+          administracion_id: string
+          ciclo_ancla: string
+          codigo: string
+          corrida_fecha: string
+          created_at: string
+          email: string | null
+          id: string
+          tiene_push: boolean
+        }
+        Insert: {
+          admin_nombre?: string | null
+          administracion_id: string
+          ciclo_ancla: string
+          codigo: string
+          corrida_fecha: string
+          created_at?: string
+          email?: string | null
+          id?: string
+          tiene_push?: boolean
+        }
+        Update: {
+          admin_nombre?: string | null
+          administracion_id?: string
+          ciclo_ancla?: string
+          codigo?: string
+          corrida_fecha?: string
+          created_at?: string
+          email?: string | null
+          id?: string
+          tiene_push?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ofrecimientos_sombra_administracion_id_fkey"
+            columns: ["administracion_id"]
+            isOneToOne: false
+            referencedRelation: "administraciones"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pagos_reportados: {
         Row: {
           administracion_id: string
@@ -9841,10 +9885,12 @@ export type Database = {
         Returns: undefined
       }
       gg_ofrecimientos_diario: { Args: never; Returns: Json }
+      gg_ofrecimientos_diario_sombra: { Args: never; Returns: Json }
       gg_ofrecimientos_preview: {
         Args: { p_administracion_id: string }
         Returns: Json
       }
+      gg_ofrecimientos_sombra_reporte: { Args: never; Returns: Json }
       gg_profile_marcar_pwa: {
         Args: { p_installed: boolean }
         Returns: undefined
@@ -10676,7 +10722,12 @@ export type Database = {
         Returns: undefined
       }
       tramite_pedido_doc_crear: {
-        Args: { p_descripcion: string; p_items: string[]; p_tramite_id: string }
+        Args: {
+          p_archivos_urls?: string[]
+          p_descripcion: string
+          p_items: string[]
+          p_tramite_id: string
+        }
         Returns: string
       }
       tramite_pedido_doc_enviar_revision: {

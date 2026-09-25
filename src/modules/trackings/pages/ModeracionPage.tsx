@@ -410,7 +410,10 @@ export function ModeracionCard({ item, onResuelto, onCerradoTramite, onOtorgamie
       // texto lo mostraba al cliente dos veces ("lo que pones en texto también queda
       // como título"). El texto que se escribe ES lo que se le pide → va como único
       // ítem; el encabezado queda en el default limpio ('Documentación requerida').
-      const res = await crearPedidoDoc(item.tramite_id, '', [desc]);
+      // A3 (reporte JL 23/9): reenviar los adjuntos que trae el aporte de gestoría (más los que
+      // gerencia haya sumado) a la línea visible del cliente. Antes se creaba el pedido sin adjuntos
+      // y el archivo quedaba huérfano en la línea original (que después se marca 'interno').
+      const res = await crearPedidoDoc(item.tramite_id, '', [desc], archivos);
       if (!res.ok) {
         setCreandoPedido(false);
         toast.error('No pudimos crear el pedido', { description: humanizeError(res.error) });
