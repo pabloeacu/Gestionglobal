@@ -6,8 +6,8 @@ import {
   agregarLinea,
   subirAdjuntoTracking,
   type TrackingCategoriaConfigRow,
-  type TrackingEstadoConfigRow,
 } from '@/services/api/trackings';
+import { TRAMITE_ESTADOS, TRAMITE_ESTADO_LABEL } from '@/services/api/tramites';
 import { crearPedidoDoc } from '@/services/api/tramitePedidosDoc';
 import { humanizeError } from '@/lib/errors';
 import { addDiasHabiles } from '@/lib/diasHabiles';
@@ -29,7 +29,6 @@ export interface AgregarLineaDrawerProps {
   onClose: () => void;
   trackingId: string;
   categorias: TrackingCategoriaConfigRow[];
-  estados: TrackingEstadoConfigRow[];
   permiteCambiarEstado: boolean;  // staff = true
   onSaved: () => void;
   // DGG-163 · pre-carga opcional al abrir (p. ej. el aviso de otorgamiento: JL
@@ -45,7 +44,6 @@ export function AgregarLineaDrawer({
   onClose,
   trackingId,
   categorias,
-  estados,
   permiteCambiarEstado,
   onSaved,
   initialDescripcion,
@@ -320,17 +318,24 @@ export function AgregarLineaDrawer({
         {!requiereRespuesta && permiteCambiarEstado && (
           <Field
             label="Cambiar estado del tracking (opcional)"
-            hint="Para CANCELAR el trámite usá el botón “Cancelar trámite” (deja lo pagado como saldo a favor)."
+            hint="Para CANCELAR o CERRAR el trámite usá los botones dedicados (cerrar toma el motivo y programa el próximo vencimiento). «Resuelto» le avisa al cliente por email + push."
           >
             <Select value={estadoAsociado} onChange={(e) => setEstadoAsociado(e.target.value)}>
               <option value="">No cambiar</option>
-              {/* DGG-95 · 'cancelado' se saca de acá: cancelar debe pasar por la cascada
-                  (anular comprobante → saldo a favor), no ser un efecto lateral de una línea. */}
-              {estados
-                .filter((e) => e.slug !== 'cancelado')
+              {/* Fix reporte JL 2026-09-25: el estado del TRÁMITE es el enum canónico
+                  (tramites.estado), NO la taxonomía de tracking_estados_config —
+                  la RPC tracking_agregar_linea sólo mapea el enum, así que ofrecer los
+                  slugs del config (finalizado, pendiente_cliente, …) hacía que el cambio
+                  de estado no impactara (caía en ELSE estado, silencioso). Alineado con
+                  ModeracionPage. §6: 'cancelado' (DGG-95) y 'cerrado' se excluyen — son
+                  cierres terminales que deben pasar por sus botones dedicados (motivo +
+                  cierre_satisfactorio + programación de vencimiento); acá sólo estados de
+                  avance (incl. 'resuelto', que es el caso de JL). */}
+              {TRAMITE_ESTADOS
+                .filter((e) => e !== 'cancelado' && e !== 'cerrado')
                 .map((e) => (
-                  <option key={e.id} value={e.slug}>
-                    {e.label}
+                  <option key={e} value={e}>
+                    {TRAMITE_ESTADO_LABEL[e]}
                   </option>
                 ))}
             </Select>

@@ -1616,7 +1616,6 @@ export function TrackingDetailPage() {
         }}
         trackingId={data.id}
         categorias={data.categorias_disponibles}
-        estados={data.estados_disponibles}
         permiteCambiarEstado={isStaff}
         onSaved={() => void load()}
         initialDescripcion={avisoSugerido ?? undefined}
