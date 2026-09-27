@@ -7314,3 +7314,20 @@ Pablo pasó el doc de anotaciones de JL (tab PARA VER:, del 23/9/2026; la otra p
 - **A3 (E-GG-219):** los adjuntos de gestoría no llegaban al cliente en pedidos de documentación (la RPC insertaba la línea visible con `archivos_urls='{}'`). Fix aditivo mig 0515 (RPC acepta `p_archivos_urls`, DROP+CREATE R16, grants sin anon) + servicio + Moderación reenvía los adjuntos. §6 e2e completo: `client_can_download=true` (impersonando cliente, rollback). Deuda parqueada (decisión de Pablo): backfill de ~35 pedidos históricos sin adjuntos (cambia historial visto por clientes) — NO aplicado; fix hacia-adelante.
 
 Los 3: §6 OK (ok-con-observaciones, todas menores/pre-existentes salvo la media de A2 ya corregida), tsc verde, sin regresiones. Cron de alarmas y flujo de cliente en vivo — cambios de bajo riesgo, verificados e2e.
+
+## DGG-202 · Panorama del cliente: distinguir "Más adelante" de "No corresponde" (2026-09-27)
+
+**Origen:** Pablo vio la ficha de Catelli (Mat. RPAC 3030, vence 11/08/2027) — el Perfil regulatorio muestra renovación/curso/DDJJ como obligaciones futuras CONFIRMADAS, pero el Panorama del cliente (`ClientePanoramaCard`) rotulaba esas tres como "No corresponde ahora". Se leía como contradicción. Pablo pidió revisar antes de tocar y confirmar juntos.
+
+**Diagnóstico (NO era bug):** el motor de ofrecimientos es correcto — esas obligaciones SÍ aplican pero su VENTANA de oferta todavía no abrió (curso: 16–60d antes del venc; renovación: [-60,+45]d; DDJJ: temporada nov–mar). El panorama colapsaba dos cosas distintas en "No corresponde": lo genuinamente N/A (matriculación de un matriculado) y lo diferido-en-el-tiempo. Confirmado con Pablo: *"está perfecto lo que proponés. Va a ser mucho más claro."*
+
+**Fix (aditivo, sin drift):** mig 0516 extiende `gg_ofrecimientos_preview` con un bool `mas_adelante` por tile, calculado con los MISMOS helpers `private.gg_*` que el motor (elegibilidad, prox_venc, matrícula conocida, solo-CABA) — cero drift. `mas_adelante = NOT elegible AND NOT opt-out AND <ventana futura>`:
+  - curso: `prox_venc > hoy+60` (no solo-CABA)
+  - renovación: `prox_venc > hoy+45` (no solo-CABA)
+  - DDJJ: matrícula conocida, no solo-CABA, mes fuera de nov–mar
+  - matriculación/certificado/consultoría: `false` (no son ventana-gated así)
+Frontend: `OfrecimientoPreviewItem.mas_adelante` + chip ámbar "Más adelante · <hint>" (Clock) con orden de precedencia no_requiere > elegible > mas_adelante > no_corresponde. Hints: DDJJ "en temporada (nov–mar)", curso/renovación "cerca del vencimiento".
+
+**Nota de diseño (asimetría intencional):** DDJJ exige matrícula conocida para "más adelante" (su elegibilidad gatea por número — C1, DGG-200); curso/renovación NO (su elegibilidad gatea por vencimiento, no por número — C2, DGG-200). El preview espeja exactamente el motor.
+
+**§6:** doble auditoría — 2 agentes adversariales + EJERCITAR e2e sobre 131 admins. Verificado: exclusión mutua elegible∧mas_adelante = 0 violaciones; no-matriculados → "no corresponde" (no "más adelante"); opt-out gana; vencidos NUNCA "más adelante" (Padrón → "Le corresponde" por overdue); el preview coincide con la RPC real (réplica independiente). R16 OK (1 sola firma, sin overload), R12 OK (assert 1ra sentencia), aislamiento OK (no toca el motor diario ni el sombra). Único hallazgo accionable (menor): el chip ámbar más largo podía envolver a 2 líneas en mobile 360px → corregido (`shrink-0 whitespace-nowrap` en el chip + `min-w-0` + `flex-wrap` en el row). Sólo lectura; motor sigue en pausa (el panorama NO enciende nada).

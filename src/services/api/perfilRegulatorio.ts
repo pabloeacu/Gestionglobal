@@ -86,6 +86,10 @@ export interface DeclararPerfilInput {
 export interface OfrecimientoPreviewItem {
   elegible: boolean;
   no_requiere: boolean;
+  // La obligación SÍ aplica pero su ventana de oferta todavía no abrió (DDJJ fuera de
+  // temporada; curso/renovación lejos del vencimiento). Distingue "más adelante" de
+  // "no corresponde" (genuinamente N/A). El backend lo calcula (sin drift con el motor).
+  mas_adelante: boolean;
 }
 export interface OfrecimientosPreview {
   generated_at: string;

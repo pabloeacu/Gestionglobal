@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Compass, Send, BellOff, Minus, CalendarClock } from 'lucide-react';
+import { Compass, Send, BellOff, Minus, CalendarClock, Clock } from 'lucide-react';
 import {
   getOfrecimientosPreview,
   type OfrecimientosPreview,
@@ -26,6 +26,14 @@ const OFERTAS: Array<{ key: OfertaKey; label: string }> = [
   { key: 'consultoria', label: 'Consultoría jurídica' },
 ];
 
+// Motivo del "Más adelante" por tile (la obligación aplica pero la ventana no abrió aún):
+// DDJJ se ofrece en temporada; curso/renovación cerca del vencimiento.
+const MAS_ADELANTE_HINT: Partial<Record<OfertaKey, string>> = {
+  ddjj: 'en temporada (nov–mar)',
+  curso_actualizacion: 'cerca del vencimiento',
+  renovacion: 'cerca del vencimiento',
+};
+
 // 'YYYY-MM-DD' → 'DD/MM/YYYY' sin corrimiento de timezone (parseo por partes).
 function formatFechaISO(iso: string | null): string | null {
   if (!iso) return null;
@@ -34,7 +42,7 @@ function formatFechaISO(iso: string | null): string | null {
   return `${m[3]}/${m[2]}/${m[1]}`;
 }
 
-function OfertaChip({ item }: { item: OfrecimientoPreviewItem }) {
+function OfertaChip({ item, hint }: { item: OfrecimientoPreviewItem; hint?: string }) {
   if (item.no_requiere) {
     return (
       <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-semibold text-brand-muted">
@@ -48,6 +56,20 @@ function OfertaChip({ item }: { item: OfrecimientoPreviewItem }) {
     return (
       <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
         <Send size={11} /> Le corresponde
+      </span>
+    );
+  }
+  if (item.mas_adelante) {
+    // La obligación SÍ le corresponde, pero su ventana todavía no abrió (fecha futura /
+    // fuera de temporada) → distinto de "no corresponde". Evita la confusión de ver
+    // "no corresponde" al lado de una obligación con fecha confirmada en el perfil.
+    return (
+      <span
+        className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700"
+        title={hint ? `Más adelante — ${hint}` : 'Más adelante'}
+      >
+        <Clock size={11} /> Más adelante
+        {hint ? <span className="font-normal text-amber-600/90"> · {hint}</span> : null}
       </span>
     );
   }
@@ -103,14 +125,14 @@ export function ClientePanoramaCard({ administracionId }: { administracionId: st
         )}
         <div className="space-y-2">
           {OFERTAS.map((o) => (
-            <div key={o.key} className="flex items-center justify-between gap-3 border-b border-slate-100 py-1.5 last:border-0">
-              <span className={cn('text-sm', preview && preview[o.key].no_requiere ? 'text-brand-muted' : 'text-brand-ink')}>
+            <div key={o.key} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-slate-100 py-1.5 last:border-0">
+              <span className={cn('min-w-0 text-sm', preview && preview[o.key].no_requiere ? 'text-brand-muted' : 'text-brand-ink')}>
                 {o.label}
               </span>
               {loading || !preview ? (
                 <span className="text-xs text-brand-muted">…</span>
               ) : (
-                <OfertaChip item={preview[o.key]} />
+                <OfertaChip item={preview[o.key]} hint={MAS_ADELANTE_HINT[o.key]} />
               )}
             </div>
           ))}
