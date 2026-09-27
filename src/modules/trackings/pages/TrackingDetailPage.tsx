@@ -1374,6 +1374,13 @@ export function TrackingDetailPage() {
             <Dl label="Nombre" value={data.solicitante_nombre ?? '—'} />
             <Dl label="Email" value={data.solicitante_email ?? '—'} />
             <Dl label="Teléfono" value={data.solicitante_telefono ?? '—'} />
+            {/* DGG-203 (pedido Pablo) · matrícula y legajo RPAC del cliente "a la
+                mano" en la ficha del trámite. Fuente: administraciones.matricula_rpac /
+                legajo_rpac (ya viene en getTracking, DGG-142; editable en el form drawer
+                del cliente → R14 OK). Es lo mismo que la plataforma recuerda para la
+                consulta a Mesa de Entradas PBA (Tramix). Presentación pura. */}
+            <Dl label="Matrícula RPAC" value={data.administracion?.matricula_rpac || '—'} />
+            <Dl label="Legajo RPAC" value={data.administracion?.legajo_rpac || '—'} />
             <Dl label="Origen" value={data.formulario_submission_id ? 'Formulario público' : 'Manual'} />
             <Dl label="Creado" value={formatDateTime(data.created_at)} />
             <Dl label="Última actividad" value={formatDateTime(data.ultima_actividad_at)} />
