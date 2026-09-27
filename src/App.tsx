@@ -35,6 +35,7 @@ const ServicioDetailPage = lazy(() => import('@/modules/servicios').then(m => ({
 const VencimientosListPage = lazy(() => import('@/modules/vencimientos').then(m => ({ default: m.VencimientosListPage })));
 const VencimientosConfigPage = lazy(() => import('@/modules/vencimientos').then(m => ({ default: m.VencimientosConfigPage })));
 const EmailTemplatesPage = lazy(() => import('@/modules/configuracion/pages/EmailTemplatesPage').then(m => ({ default: m.EmailTemplatesPage })));
+const TrackingPlantillasPage = lazy(() => import('@/modules/configuracion/pages/TrackingPlantillasPage').then(m => ({ default: m.TrackingPlantillasPage })));
 const EmailQueuePage = lazy(() => import('@/modules/configuracion/pages/EmailQueuePage').then(m => ({ default: m.EmailQueuePage })));
 const UsuariosPage = lazy(() => import('@/modules/configuracion/pages/UsuariosPage').then(m => ({ default: m.UsuariosPage })));
 const GeneracionCjPage = lazy(() => import('@/modules/configuracion/pages/GeneracionCjPage').then(m => ({ default: m.GeneracionCjPage })));
@@ -414,6 +415,7 @@ export function App() {
             <Route path="arca" element={<Navigate to="../emisores" replace />} />
             <Route path="arca/cola" element={<ArcaQueuePage />} />
             <Route path="emails/templates" element={<EmailTemplatesPage />} />
+            <Route path="plantillas-tracking" element={<TrackingPlantillasPage />} />
             <Route path="usuarios" element={<UsuariosPage />} />
             <Route path="generacion-cj" element={<GeneracionCjPage />} />
             <Route path="emails/cola" element={<EmailQueuePage />} />

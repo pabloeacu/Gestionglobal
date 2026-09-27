@@ -10,7 +10,7 @@ import {
   ShieldCheck, Send, EyeOff, Trash2, Pencil, X, Paperclip, Briefcase, Clock, FileInput,
   Award, AlertCircle,
 } from 'lucide-react';
-import { Button, Select, Textarea, Skeleton, useConfirm, usePrompt, RefreshIndicator } from '@/components/common';
+import { Button, Select, Textarea, Skeleton, useConfirm, usePrompt, RefreshIndicator, PlantillaMensajePicker } from '@/components/common';
 import { IllustratedEmpty } from '@/components/brand/IllustratedEmpty';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
@@ -459,7 +459,11 @@ export function ModeracionCard({ item, onResuelto, onCerradoTramite, onOtorgamie
         </p>
 
         {editando ? (
-          <Textarea value={texto} onChange={(e) => setTexto(e.target.value)} rows={4} className="mt-3" />
+          <>
+            <Textarea value={texto} onChange={(e) => setTexto(e.target.value)} rows={4} className="mt-3" />
+            {/* DGG-204 (pedido Pablo) · mensajes modelo reutilizables al moderar el aporte. */}
+            <PlantillaMensajePicker currentText={texto} onInsert={setTexto} className="mt-2" />
+          </>
         ) : (
           <p className="mt-3 whitespace-pre-wrap text-sm text-brand-ink/85">{texto}</p>
         )}

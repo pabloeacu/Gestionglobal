@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Paperclip, X as XIcon, Loader2 } from 'lucide-react';
 import { toast } from '@/lib/toast';
-import { Drawer, Button, Field, Select, Textarea } from '@/components/common';
+import { Drawer, Button, Field, Select, Textarea, PlantillaMensajePicker } from '@/components/common';
 import {
   agregarLinea,
   subirAdjuntoTracking,
@@ -262,6 +262,12 @@ export function AgregarLineaDrawer({
                 ? 'Qué necesitás que el cliente responda o adjunte… (ej: "El Número de Legajo está mal, reenvialo por favor")'
                 : 'Describí el avance, la observación, el contacto realizado…'
             }
+          />
+          {/* DGG-204 (pedido Pablo) · mensajes modelo reutilizables para el tracking. */}
+          <PlantillaMensajePicker
+            currentText={descripcion}
+            onInsert={setDescripcion}
+            className="mt-2"
           />
         </Field>
 

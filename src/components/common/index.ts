@@ -11,6 +11,7 @@ export { AnimatedNumber } from './AnimatedNumber';
 export { Stepper, StepPanel, type Step } from './Stepper';
 export { CopyButton } from './CopyButton';
 export { InlineEdit } from './InlineEdit';
+export { PlantillaMensajePicker } from './PlantillaMensajePicker';
 export { RichTextEditor } from './RichTextEditor';
 export { ColorPicker } from './ColorPicker';
 export { EmailManaxerPreview, buildManaxerHtml, type ManaxerTemplateData } from './EmailManaxerPreview';

@@ -23,7 +23,7 @@
 // ============================================================================
 import { useEffect, useState, useMemo } from 'react';
 import { Loader2, CheckCircle2, XCircle } from 'lucide-react';
-import { Button, Field, Modal, Textarea } from '@/components/common';
+import { Button, Field, Modal, Textarea, PlantillaMensajePicker } from '@/components/common';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/cn';
 import {
@@ -171,6 +171,12 @@ export function CerrarTramiteDialog({
             placeholder="Ej.: el alumno avisó por WhatsApp que no continuaba. Se contactó al consorcio…"
             rows={3}
             maxLength={2000}
+          />
+          {/* DGG-204 (pedido Pablo) · mensajes modelo reutilizables para el cierre. */}
+          <PlantillaMensajePicker
+            currentText={observaciones}
+            onInsert={setObservaciones}
+            className="mt-2"
           />
         </Field>
       </div>

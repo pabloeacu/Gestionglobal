@@ -111,6 +111,7 @@ const NAV: NavGroup[] = [
       { label: 'Servicios (catálogo)', to: '/gerencia/servicios' },
       { label: 'Emisores fiscales (ARCA)', to: '/gerencia/configuracion/emisores', end: true },
       { label: 'Plantillas email', to: '/gerencia/configuracion/emails/templates' },
+      { label: 'Plantillas de tracking', to: '/gerencia/configuracion/plantillas-tracking' },
       { label: 'Generación CJ', to: '/gerencia/configuracion/generacion-cj' },
       { label: 'Usuarios', to: '/gerencia/configuracion/usuarios' },
       { label: 'Bitácora de cambios', to: '/gerencia/configuracion/auditoria' },

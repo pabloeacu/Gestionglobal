@@ -6887,6 +6887,42 @@ export type Database = {
           },
         ]
       }
+      tracking_plantillas: {
+        Row: {
+          activo: boolean
+          categoria: string | null
+          created_at: string
+          created_by: string | null
+          cuerpo: string
+          id: string
+          orden: number
+          titulo: string
+          updated_at: string
+        }
+        Insert: {
+          activo?: boolean
+          categoria?: string | null
+          created_at?: string
+          created_by?: string | null
+          cuerpo: string
+          id?: string
+          orden?: number
+          titulo: string
+          updated_at?: string
+        }
+        Update: {
+          activo?: boolean
+          categoria?: string | null
+          created_at?: string
+          created_by?: string | null
+          cuerpo?: string
+          id?: string
+          orden?: number
+          titulo?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       tramite_adjuntos: {
         Row: {
           filename_original: string
