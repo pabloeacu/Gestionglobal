@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ShieldCheck, HelpCircle, Sparkles, FileCheck2, RefreshCw, AlertCircle, Pencil } from 'lucide-react';
+import { ShieldCheck, HelpCircle, Sparkles, FileCheck2, RefreshCw, AlertCircle, Pencil, ExternalLink } from 'lucide-react';
 import {
   getPerfilRegulatorio,
   type PerfilRegulatorio,
@@ -144,7 +144,7 @@ export function PerfilRegulatorioPanel({ administracionId }: { administracionId:
           </p>
         </div>
         {/* completitud: cuánto SABEMOS (confirmado/declarado), no lo que inferimos */}
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center justify-end gap-2">
           <div className="flex items-center gap-2">
             <div className="h-1.5 w-24 overflow-hidden rounded-full bg-slate-100">
               <div
@@ -156,6 +156,19 @@ export function PerfilRegulatorioPanel({ administracionId }: { administracionId:
               {data.completitud_pct}% conocido
             </span>
           </div>
+          {/* DGG-205 (pedido Pablo) · atajo al buscador oficial de la DPPJ (Prov. de
+              Bs. As.). Buscando por CUIT o matrícula devuelve el LEGAJO y la vigencia
+              de la matrícula → completás legajo + vencimiento en la ficha del cliente.
+              Es consulta MANUAL (la DPPJ tiene reCAPTCHA; no se puede automatizar). */}
+          <a
+            href="https://dppj-ui.mjus.gba.gob.ar/dppj-cn-ui/p/adm-consorcios"
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Abre el buscador oficial de la DPPJ (Prov. de Bs. As.). Buscá por CUIT o matrícula para ver el legajo y la vigencia de la matrícula, y cargalos en la ficha del cliente."
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-brand-muted transition hover:border-brand-cyan hover:text-brand-cyan"
+          >
+            <ExternalLink size={12} /> Consultar en DPPJ
+          </a>
           <Button variant="secondary" onClick={() => setDrawerOpen(true)} className="!py-1 !px-2.5 text-xs">
             <Pencil size={12} /> Anclar datos
           </Button>
