@@ -25,6 +25,7 @@ import {
 type FormState = {
   jurisdiccion: '' | 'rpac' | 'rpa';
   matricula_nro_declarada: string;
+  legajo_nro_declarado: string;
   matricula_fecha_declarada: string;
   ultima_renovacion_declarada: string;
   ultimo_curso_actualizacion_declarado: string;
@@ -37,6 +38,7 @@ type FormState = {
 const EMPTY: FormState = {
   jurisdiccion: '',
   matricula_nro_declarada: '',
+  legajo_nro_declarado: '',
   matricula_fecha_declarada: '',
   ultima_renovacion_declarada: '',
   ultimo_curso_actualizacion_declarado: '',
@@ -92,6 +94,7 @@ function buildInitial(perfil: PerfilRegulatorio | null, notas: string): FormStat
   return {
     jurisdiccion: perfil.jurisdiccion === 'rpac' || perfil.jurisdiccion === 'rpa' ? perfil.jurisdiccion : '',
     matricula_nro_declarada: perfil.matricula.nro ?? '',
+    legajo_nro_declarado: perfil.legajo.nro ?? '',
     matricula_fecha_declarada: iso(perfil.matricula.fecha),
     ultima_renovacion_declarada: iso(perfil.ultima_renovacion.fecha),
     ultimo_curso_actualizacion_declarado: iso(perfil.ultimo_curso_actualizacion.fecha),
@@ -163,6 +166,7 @@ export function PerfilRegulatorioDeclararDrawer({
     const input: DeclararPerfilInput = { administracionId };
     if (changed('jurisdiccion')) input.jurisdiccion = (form.jurisdiccion || undefined) as 'rpac' | 'rpa' | undefined;
     if (changed('matricula_nro_declarada')) input.matriculaNro = form.matricula_nro_declarada.trim() || undefined;
+    if (changed('legajo_nro_declarado')) input.legajoNro = form.legajo_nro_declarado.trim() || undefined;
     if (changed('matricula_fecha_declarada')) input.matriculaFecha = form.matricula_fecha_declarada || undefined;
     if (changed('ultima_renovacion_declarada')) input.ultimaRenovacion = form.ultima_renovacion_declarada || undefined;
     if (changed('ultimo_curso_actualizacion_declarado')) input.ultimoCursoActualizacion = form.ultimo_curso_actualizacion_declarado || undefined;
@@ -230,6 +234,7 @@ export function PerfilRegulatorioDeclararDrawer({
             </Select>
           </Field>
 
+          {/* Identificadores registrales: matrícula + legajo. */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label={fieldLabel('Nº de matrícula', perfil?.matricula.nro_certeza)} hint={certezaHint(perfil?.matricula.nro_certeza)}>
               <Input
@@ -238,6 +243,17 @@ export function PerfilRegulatorioDeclararDrawer({
                 placeholder="ej. 1234"
               />
             </Field>
+            {/* DGG-206 (pedido Pablo) · legajo RPAC = llave para consultar Mesa de Entradas. */}
+            <Field label={fieldLabel('Legajo', perfil?.legajo.nro_certeza)} hint={certezaHint(perfil?.legajo.nro_certeza)}>
+              <Input
+                value={form.legajo_nro_declarado}
+                onChange={(e) => set('legajo_nro_declarado', e.target.value)}
+                placeholder="ej. 282055"
+              />
+            </Field>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label={fieldLabel('Fecha de matriculación', perfil?.matricula.fecha_certeza)} hint={certezaHint(perfil?.matricula.fecha_certeza)}>
               <Input
                 type="date"
@@ -245,9 +261,6 @@ export function PerfilRegulatorioDeclararDrawer({
                 onChange={(e) => set('matricula_fecha_declarada', e.target.value)}
               />
             </Field>
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label={fieldLabel('Última renovación', perfil?.ultima_renovacion.certeza)} hint={certezaHint(perfil?.ultima_renovacion.certeza)}>
               <Input
                 type="date"
@@ -255,6 +268,9 @@ export function PerfilRegulatorioDeclararDrawer({
                 onChange={(e) => set('ultima_renovacion_declarada', e.target.value)}
               />
             </Field>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label={fieldLabel('Último curso de actualización', perfil?.ultimo_curso_actualizacion.certeza)} hint={certezaHint(perfil?.ultimo_curso_actualizacion.certeza)}>
               <Input
                 type="date"
@@ -262,9 +278,6 @@ export function PerfilRegulatorioDeclararDrawer({
                 onChange={(e) => set('ultimo_curso_actualizacion_declarado', e.target.value)}
               />
             </Field>
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label={fieldLabel('Última DDJJ', perfil?.ultima_ddjj.certeza)} hint={certezaHint(perfil?.ultima_ddjj.certeza)}>
               <Input
                 type="date"
@@ -272,6 +285,9 @@ export function PerfilRegulatorioDeclararDrawer({
                 onChange={(e) => set('ultima_ddjj_declarada', e.target.value)}
               />
             </Field>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label={fieldLabel('Último certificado', perfil?.ultimo_certificado.certeza)} hint={certezaHint(perfil?.ultimo_certificado.certeza)}>
               <Input
                 type="date"
@@ -279,15 +295,14 @@ export function PerfilRegulatorioDeclararDrawer({
                 onChange={(e) => set('ultimo_certificado_declarado', e.target.value)}
               />
             </Field>
+            <Field label={fieldLabel('Última consultoría jurídica', perfil?.ultima_consultoria.certeza)} hint={certezaHint(perfil?.ultima_consultoria.certeza)}>
+              <Input
+                type="date"
+                value={form.ultima_consultoria_declarada}
+                onChange={(e) => set('ultima_consultoria_declarada', e.target.value)}
+              />
+            </Field>
           </div>
-
-          <Field label={fieldLabel('Última consultoría jurídica', perfil?.ultima_consultoria.certeza)} hint={certezaHint(perfil?.ultima_consultoria.certeza)}>
-            <Input
-              type="date"
-              value={form.ultima_consultoria_declarada}
-              onChange={(e) => set('ultima_consultoria_declarada', e.target.value)}
-            />
-          </Field>
 
           <Field label="Notas">
             <Textarea

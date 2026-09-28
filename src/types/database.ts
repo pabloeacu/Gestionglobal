@@ -5537,6 +5537,7 @@ export type Database = {
         Row: {
           administracion_id: string
           jurisdiccion: string | null
+          legajo_nro_declarado: string | null
           matricula_fecha_declarada: string | null
           matricula_nro_declarada: string | null
           no_requiere: Json
@@ -5552,6 +5553,7 @@ export type Database = {
         Insert: {
           administracion_id: string
           jurisdiccion?: string | null
+          legajo_nro_declarado?: string | null
           matricula_fecha_declarada?: string | null
           matricula_nro_declarada?: string | null
           no_requiere?: Json
@@ -5567,6 +5569,7 @@ export type Database = {
         Update: {
           administracion_id?: string
           jurisdiccion?: string | null
+          legajo_nro_declarado?: string | null
           matricula_fecha_declarada?: string | null
           matricula_nro_declarada?: string | null
           no_requiere?: Json
@@ -10323,6 +10326,7 @@ export type Database = {
         Args: {
           p_administracion_id: string
           p_jurisdiccion?: string
+          p_legajo_nro?: string
           p_matricula_fecha?: string
           p_matricula_nro?: string
           p_no_requiere?: Json

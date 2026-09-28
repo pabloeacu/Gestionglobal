@@ -18,7 +18,7 @@ import {
   type PerfilRegulatorio,
   type NoRequiereMap,
 } from '@/services/api/perfilRegulatorio';
-import { Button, Field, Input, Drawer, Modal, Switch, AnimatedNumber, useConfirm } from '@/components/common';
+import { Button, Field, Input, Drawer, Modal, Switch, AnimatedNumber, useConfirm, usePrompt } from '@/components/common';
 import { BrandLoader } from '@/components/brand/BrandLoader';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import { CertezaBadge, HechoValue, CERTEZA_META } from '../components/perfil/CertezaBadge';
@@ -45,6 +45,7 @@ export function PortalFichaRegulatoriaPage() {
   const { user } = useAuth();
   const adminId = user?.administracionId ?? null;
   const confirm = useConfirm();
+  const promptDlg = usePrompt();
 
   const [perfil, setPerfil] = useState<PerfilRegulatorio | null>(null);
   const [loading, setLoading] = useState(true);
@@ -94,6 +95,30 @@ export function PortalFichaRegulatoriaPage() {
     setBusyKey(null);
     if (res.ok) {
       toast.success('Listo, quedó confirmado.');
+      await load();
+    } else {
+      toast.error('No se pudo guardar', { description: humanizeError(res.error) });
+    }
+  }
+
+  // DGG-206 · el legajo RPAC es la llave para consultar Mesa de Entradas. El nro es texto
+  // (no una fecha), así que va por un prompt propio y NO por el editor de fechas (declarar()).
+  async function cargarLegajo() {
+    if (!adminId) return;
+    const v = await promptDlg({
+      title: 'Tu legajo RPAC',
+      message: 'Es la llave para consultar tu trámite en Mesa de Entradas. Lo encontrás en tu credencial / constancia de matrícula.',
+      label: 'Número de legajo',
+      placeholder: 'ej. 282055',
+    });
+    if (v === null) return;
+    const t = v.trim();
+    if (!t) return;
+    setBusyKey('legajoNro');
+    const res = await declararPerfilRegulatorio({ administracionId: adminId, legajoNro: t });
+    setBusyKey(null);
+    if (res.ok) {
+      toast.success('Listo, quedó confirmado. Un dato menos.');
       await load();
     } else {
       toast.error('No se pudo guardar', { description: humanizeError(res.error) });
@@ -258,6 +283,31 @@ export function PortalFichaRegulatoriaPage() {
                 <span className="text-brand-muted">—</span>
               )}
               <CertezaBadge certeza={p.matricula.nro_certeza} />
+            </span>
+          </IdentRow>
+          {/* DGG-206 · legajo RPAC (llave para Mesa de Entradas). El cliente puede cargarlo. */}
+          <IdentRow label="Legajo RPAC">
+            <span className="flex items-center gap-2">
+              {p.legajo.nro ? (
+                <span
+                  className={cn(
+                    'tabular-nums text-brand-ink',
+                    p.legajo.nro_certeza === 'confirmado' && 'font-semibold',
+                  )}
+                >
+                  {p.legajo.nro}
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => void cargarLegajo()}
+                  disabled={busyKey === 'legajoNro'}
+                  className="text-xs font-semibold text-brand-cyan hover:underline disabled:opacity-50"
+                >
+                  Cargar mi legajo
+                </button>
+              )}
+              <CertezaBadge certeza={p.legajo.nro_certeza} />
             </span>
           </IdentRow>
           <IdentRow label="Fecha de matriculación">

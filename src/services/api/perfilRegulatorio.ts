@@ -26,6 +26,11 @@ export interface PerfilRegulatorio {
     fecha: string | null;
     fecha_certeza: CertezaDato;
   };
+  // Legajo RPAC (llave para Mesa de Entradas). Confirmado desde la ficha / declarado / sin dato.
+  legajo: {
+    nro: string | null;
+    nro_certeza: CertezaDato;
+  };
   ultima_renovacion: HechoConCerteza;
   proxima_renovacion: HechoConCerteza;
   ultimo_curso_actualizacion: HechoConCerteza;
@@ -72,6 +77,7 @@ export interface DeclararPerfilInput {
   jurisdiccion?: 'rpac' | 'rpa' | null;
   matriculaFecha?: string | null;
   matriculaNro?: string | null;
+  legajoNro?: string | null;
   ultimaRenovacion?: string | null;
   ultimoCursoActualizacion?: string | null;
   ultimaDdjj?: string | null;
@@ -140,6 +146,7 @@ export async function declararPerfilRegulatorio(
     p_jurisdiccion: input.jurisdiccion ?? undefined,
     p_matricula_fecha: input.matriculaFecha ?? undefined,
     p_matricula_nro: input.matriculaNro ?? undefined,
+    p_legajo_nro: input.legajoNro ?? undefined,
     p_ultima_renovacion: input.ultimaRenovacion ?? undefined,
     p_ultimo_curso_actualizacion: input.ultimoCursoActualizacion ?? undefined,
     p_ultima_ddjj: input.ultimaDdjj ?? undefined,

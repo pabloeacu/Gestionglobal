@@ -187,6 +187,12 @@ export function PerfilRegulatorioPanel({ administracionId }: { administracionId:
             · Mat. <span className="tabular-nums text-brand-ink">{data.matricula.nro}</span>
           </span>
         )}
+        {/* DGG-206 · legajo RPAC (llave para Mesa de Entradas) junto a la matrícula. */}
+        {data.legajo?.nro && (
+          <span className="text-sm text-brand-muted">
+            · Leg. <span className="tabular-nums text-brand-ink">{data.legajo.nro}</span>
+          </span>
+        )}
         {data.jurisdiccion && (
           <span className="rounded bg-white px-1.5 py-0.5 text-[11px] font-semibold uppercase text-brand-muted ring-1 ring-slate-200">
             {data.jurisdiccion === 'rpac' ? 'RPAC · PBA' : 'RPA · CABA'}
