@@ -911,3 +911,29 @@ export function computeSla(t: TramiteRow): SlaInfo {
     diasAbierto,
   };
 }
+
+/**
+ * Valor de orden unificado de la columna "SLA" (DGG-207 / E-GG-221).
+ *
+ * La celda muestra tres estados sobre un mismo eje de "necesita atención":
+ * "Vencido hace Xd" (activo, pasó su objetivo), "Xd restantes" (en plazo) y
+ * "Xd abierto" (sin objetivo SLA). El accessor previo ordenaba por
+ * `diasRestantes`, que es `null` justo en las filas "Xd abierto" → `useSort`
+ * las empujaba SIEMPRE al fondo sin reordenarlas (bug reportado por Pablo: "el
+ * switch de SLA no ordena"). Este helper devuelve SIEMPRE un número, de modo que
+ * el orden funciona en todas las filas y, en asc, trae arriba lo que más necesita
+ * atención — coherente con las columnas `prioridad` y `estado`, donde asc también
+ * pone lo más urgente/activo primero:
+ *   1º Vencidos (activos): más vencido = más arriba.
+ *   2º Abiertos sin objetivo SLA: MÁS ANTIGUO primero (lo que pidió Pablo, para
+ *      ir evaluando el cierre de los más viejos).
+ *   3º En plazo: menos días restantes = más arriba.
+ * Menor número = más urgente. Los rangos (−2M / −1M) separan los tiers sin
+ * solaparse para cualquier antigüedad/vencimiento real.
+ */
+export function slaOrden(t: TramiteRow): number {
+  const { diasRestantes, vencido, diasAbierto } = computeSla(t);
+  if (vencido) return -2_000_000 + (diasRestantes ?? 0);          // 1º vencido activo
+  if (diasRestantes === null) return -1_000_000 - diasAbierto;    // 2º abierto sin SLA → por antigüedad
+  return diasRestantes;                                            // 3º en plazo → menos restantes arriba
+}

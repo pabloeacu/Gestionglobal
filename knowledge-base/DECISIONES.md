@@ -7379,3 +7379,17 @@ Frontend: `OfrecimientoPreviewItem.mas_adelante` + chip ámbar "Más adelante ·
 **Recolección de clientes (cerrada en §6):** el §6 detectó que `perfil_regulatorio_get` tiene DOS consumidores — el panel de gerencia y el **portal del cliente** (`PortalFichaRegulatoriaPage`), que quedaba con hueco de paridad (R14). Se cerró: el portal ahora **muestra** el legajo (read-only, con CertezaBadge, junto a la matrícula) y el cliente puede **cargarlo** él mismo ("Cargar mi legajo" → prompt de texto → misma RPC con `legajoNro`). Así se recolecta de los clientes directamente. El nro es texto (no fecha) → va por prompt propio, no por el editor de fechas (`declarar()`/`FieldKey`, que sigue siendo sólo-fechas).
 
 **§6 (R16/R18):** 1 sola firma (sin overload ambiguo), grants preservados (anon=false), smoke e2e (rollback + cleanup 0 filas QA): declarar sólo legajo → `get` da `{nro, 'declarado'}`, matrícula sigue 'confirmado' (precedencia intacta), completitud sube. PALOPOLO: completitud 38→33 (legajo ahora cuenta como hueco).
+
+## DGG-207 · Orden unificado de urgencia para la columna "SLA" de trámites (2026-09-28)
+
+**Origen:** Pablo — el switch de orden de la columna SLA (grilla de gerencia) "no ordena bien"; quiere ver los trámites MÁS ANTIGUOS primero para evaluar su cierre. Bug capitalizado en E-GG-221 (el accessor ordenaba por `diasRestantes`, que es `null` en las filas "Xd abierto" → se hundían sin ordenarse; 143/144 trámites no tienen `vence_at` → el orden era un no-op total).
+
+**Decisión:** la columna SLA ordena por un valor de urgencia UNIFICADO (`slaOrden` en `tramites.ts`, nunca null), no por una sola métrica. En asc (primer click, coherente con las columnas prioridad/estado, que también traen asc=más urgente arriba) sube lo que más necesita atención:
+  1. **Vencidos activos** — más vencido arriba (`−2M + diasRestantes`).
+  2. **Abiertos sin objetivo SLA** — MÁS ANTIGUO arriba (`−1M − diasAbierto`) — lo que pidió Pablo.
+  3. **En plazo** — menos días restantes arriba (`diasRestantes`).
+Los rangos (−2M / −1M / diasRestantes) separan los tiers sin solaparse para cualquier antigüedad/vencimiento real. Es **puro frontend, sin migración**: sólo cambia el orden visual; la celda y el filtro de la columna quedan igual.
+
+**Elección a la vista de Pablo:** los "abiertos sin SLA" (tier 2) quedan ARRIBA de los "en plazo con deadline" (tier 3). Es lo correcto para el objetivo declarado (triage de los más viejos) y hoy es casi siempre irrelevante porque 143/144 trámites no tienen `vence_at`. Si en el futuro se usan objetivos SLA masivamente y preferís deadlines-primero, es un cambio de una línea en `slaOrden`.
+
+**§6:** e2e (node: 3 tiers + bordes + empates, sobre datos sintéticos y reales) + revisión estática (único consumidor del accessor; filtro de columna y display de Kanban usan `computeSla` directo, intactos; sin tests; `TramiteListItem extends TramiteRow`). Ver E-GG-221.

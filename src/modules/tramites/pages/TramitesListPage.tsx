@@ -34,6 +34,7 @@ import {
 import {
   listTramites,
   computeSla,
+  slaOrden,
   esServicioRpacMatricula,
   NEXT_ESTADO,
   TRAMITE_CATEGORIA_LABEL,
@@ -72,7 +73,10 @@ const ESTADO_RANK: Record<TramiteEstado, number> = {
 // Accesores de orden (estable a nivel módulo para useSort).
 const SORT_ACCESSORS: Record<string, (t: TramiteListItem) => string | number | null | undefined> = {
   cliente: (t) => (t.administracion_nombre ?? t.solicitante_nombre ?? '').toLowerCase(),
-  sla: (t) => computeSla(t).diasRestantes, // negativo = vencido; null = sin SLA (va al final)
+  // DGG-207/E-GG-221: orden unificado de urgencia (nunca null). asc = más urgente/
+  // más antiguo arriba; antes ordenaba por diasRestantes → las filas "Xd abierto"
+  // (null) se hundían y el switch parecía no ordenar. Ver slaOrden en tramites.ts.
+  sla: (t) => slaOrden(t),
   prioridad: (t) => PRIORIDAD_RANK[t.prioridad as TramitePrioridad] ?? 99,
   estado: (t) => ESTADO_RANK[t.estado as TramiteEstado] ?? 99,
 };
