@@ -288,7 +288,7 @@ export function TramitesKanbanPage() {
                                   <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-red-50 px-1.5 py-0.5 font-semibold text-red-700">
                                     <AlertTriangle size={10} />{Math.abs(sla.diasRestantes ?? 0)}d
                                   </span>
-                                ) : sla.diasRestantes !== null ? (
+                                ) : sla.diasRestantes !== null && !sla.terminal ? (
                                   <span className={cn('shrink-0 rounded-full px-1.5 py-0.5 font-semibold', sla.diasRestantes <= 1 ? 'bg-red-50 text-red-700' : sla.diasRestantes <= 3 ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700')}>
                                     {sla.diasRestantes}d
                                   </span>

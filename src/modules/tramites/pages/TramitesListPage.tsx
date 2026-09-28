@@ -550,7 +550,7 @@ export function TramitesListPage() {
                           {r.consorcio_nombre && <span className="block text-xs">· {r.consorcio_nombre}</span>}
                         </td>
                         <td className="px-3 py-3">
-                          {sla.diasRestantes === null ? (
+                          {sla.diasRestantes === null || sla.terminal ? (
                             <span className="text-xs text-brand-muted">{sla.diasAbierto}d abierto</span>
                           ) : sla.vencido ? (
                             <span className="text-xs font-semibold text-red-700">Vencido hace {Math.abs(sla.diasRestantes)}d</span>

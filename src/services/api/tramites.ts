@@ -891,6 +891,9 @@ export interface SlaInfo {
   diasRestantes: number | null;  // null si no hay vence_at
   vencido: boolean;
   diasAbierto: number;
+  // E-GG-221: resuelto/cerrado/cancelado → el objetivo SLA ya no aplica; se
+  // muestra/ordena por antigüedad, no por un contador de días restantes.
+  terminal: boolean;
 }
 
 export function computeSla(t: TramiteRow): SlaInfo {
@@ -900,15 +903,17 @@ export function computeSla(t: TramiteRow): SlaInfo {
     0,
     Math.floor((now - created) / (1000 * 60 * 60 * 24)),
   );
-  if (!t.vence_at) return { diasRestantes: null, vencido: false, diasAbierto };
+  // E-GG-138: 'cancelado' también es terminal.
+  const terminal = t.estado === 'resuelto' || t.estado === 'cerrado' || t.estado === 'cancelado';
+  if (!t.vence_at) return { diasRestantes: null, vencido: false, diasAbierto, terminal };
   const vence = new Date(t.vence_at).getTime();
   const diff = vence - now;
   const dias = Math.ceil(diff / (1000 * 60 * 60 * 24));
   return {
     diasRestantes: dias,
-    // E-GG-138: 'cancelado' también es terminal → no cuenta como vencido.
-    vencido: diff < 0 && t.estado !== 'resuelto' && t.estado !== 'cerrado' && t.estado !== 'cancelado',
+    vencido: diff < 0 && !terminal,
     diasAbierto,
+    terminal,
   };
 }
 
@@ -932,8 +937,9 @@ export function computeSla(t: TramiteRow): SlaInfo {
  * solaparse para cualquier antigüedad/vencimiento real.
  */
 export function slaOrden(t: TramiteRow): number {
-  const { diasRestantes, vencido, diasAbierto } = computeSla(t);
-  if (vencido) return -2_000_000 + (diasRestantes ?? 0);          // 1º vencido activo
-  if (diasRestantes === null) return -1_000_000 - diasAbierto;    // 2º abierto sin SLA → por antigüedad
-  return diasRestantes;                                            // 3º en plazo → menos restantes arriba
+  const { diasRestantes, vencido, diasAbierto, terminal } = computeSla(t);
+  if (vencido) return -2_000_000 + (diasRestantes ?? 0);              // 1º vencido activo
+  // 2º sin objetivo SLA, o terminal (resuelto/cerrado/cancelado, objetivo moot) → por antigüedad.
+  if (diasRestantes === null || terminal) return -1_000_000 - diasAbierto;
+  return diasRestantes;                                                // 3º en plazo → menos restantes arriba
 }
