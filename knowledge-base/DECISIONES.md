@@ -7393,3 +7393,13 @@ Los rangos (−2M / −1M / diasRestantes) separan los tiers sin solaparse para 
 **Elección a la vista de Pablo:** los "abiertos sin SLA" (tier 2) quedan ARRIBA de los "en plazo con deadline" (tier 3). Es lo correcto para el objetivo declarado (triage de los más viejos) y hoy es casi siempre irrelevante porque 143/144 trámites no tienen `vence_at`. Si en el futuro se usan objetivos SLA masivamente y preferís deadlines-primero, es un cambio de una línea en `slaOrden`.
 
 **§6:** e2e (node: 3 tiers + bordes + empates, sobre datos sintéticos y reales) + revisión estática (único consumidor del accessor; filtro de columna y display de Kanban usan `computeSla` directo, intactos; sin tests; `TramiteListItem extends TramiteRow`). Ver E-GG-221.
+
+## DGG-208 · Los gates de egreso y certificado cuentan contra las condiciones del curso, no contra las filas sembradas (2026-09-30)
+
+**Origen:** Pablo — mail "Egresó del curso" a una alumna (Avolio) con 1/4 condiciones. Bug capitalizado en E-GG-222.
+
+**Decisión:** todo gate que decide "¿el alumno cumplió TODAS las condiciones?" cuenta contra `curso_condiciones_config` activas del curso (LEFT JOIN a `matricula_condiciones`), **nunca** contra las filas sembradas en `matricula_condiciones` (que durante la inscripción pueden estar incompletas por el orden de triggers `estado_pago_sync` antes que `seed_condiciones`). SSOT: la config del curso define el denominador. Aplicado a los 4 gates (egreso, emisión de cert `si_corresponde`, emisión real `emitir_certificado`, cert retenido) en **mig 0519**. Puro backend, estrictamente más estricto (sólo evita falsos positivos). + limpieza de los flags falsos ya emitidos (preserva los legítimos como SANCLAUDIO 4/4).
+
+**§6:** reproducción del bug + verificación del fix (negativo 1/4 no dispara / positivo 4/4 dispara) por `BEGIN/ROLLBACK` (notify transaccional, sin pg_net → sin mails); 0 flags falsos en prod post-fix; R16 ok. Ver E-GG-222.
+
+**Pendiente para Pablo:** definir si las condiciones `modalidad='alternativos'` (IA / Asambleas en RPA CABA) deben ser "una u otra" (hoy el gate exige ambas).
