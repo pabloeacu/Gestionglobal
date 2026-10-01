@@ -7416,3 +7416,11 @@ Umbrales como constantes `c_http_*` en la función (tunear en una línea). El pa
 **Trade-off explícito (aceptado por Pablo):** un blip transitorio o una falla aislada de un job diario ya NO alarma; un flujo realmente degradado/caído sí.
 
 **§6:** aplicado (función STABLE/read-only, cero escritura); datos reales de hoy (3/938, 0,32%) → **0 alertas** (antes disparaba); frontera verificada en 10 escenarios (blip/hiccup/flaky/ventana-vacía → ok; sostenido 5%/flujo caído → warning; masivo/push/DNS → critical); R16 ok (sin overload).
+
+## DGG-210 · Credencial descargable (PNG/PDF) de los vouchers de cortesía (2026-10-01)
+
+**Origen:** Pablo — agregar a cada voucher la opción de "descargar" una pieza de marca (PDF/PNG) para pasarle al cliente que se quiere beneficiar "con más glamour". **Presentación pura: NO cambia la lógica ni el funcionamiento del voucher.**
+
+**Implementación:** botón "Descargar" (icono, cyan) por fila en `VouchersTab` → modal de preview (`VoucherCredencialModal`) con la credencial + botones **Descargar PNG** y **Descargar PDF** (espeja `CertificadoPreviewModal`). La credencial (`src/modules/servicios/components/VoucherCredencial.tsx`, tarjeta apaisada 1080×648, estilos 100% inline) tiene la impronta GG: navy con degradé, regla cyan, marco dorado, motivo triangular, logo blanco (`/logo-h-white.png`), el **beneficio como héroe** (100% BONIFICACIÓN TOTAL / X% DE DESCUENTO), el código tipo cupón (chamfer), el servicio y la validez. Generación: `src/modules/servicios/lib/generateVoucherCredencial.ts`, gemelo de `generateConstanciaPdf.ts` — `html-to-image` `toPng` (pixelRatio 3, skipFonts, host `data-gg-classic`) → PNG directo, o envuelto en `jsPDF` (página a medida de la tarjeta, sin márgenes). **Sin dependencias nuevas** (html-to-image/jspdf/file-saver ya estaban). `ServicioDetailPage` pasa `servicio_nombre` a la tab para la credencial.
+
+**§6:** build (tsc) verde; diseño previsualizado localmente (HTML estático replicando los estilos inline) antes del deploy; prueba en vivo en el browser (modal + descarga PNG/PDF + consola + mobile). Cero cambios de BD/lógica/rutas.

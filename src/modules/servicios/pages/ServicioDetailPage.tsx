@@ -319,7 +319,7 @@ export function ServicioDetailPage() {
       )}
 
       {tab === 'vouchers' && data && (
-        <VouchersTab servicio_id={data.servicio.id} />
+        <VouchersTab servicio_id={data.servicio.id} servicio_nombre={data.servicio.nombre} />
       )}
 
       {tab === 'historial' && (

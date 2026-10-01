@@ -11,6 +11,7 @@ import {
   Calendar,
   Users,
   Pencil,
+  Download,
 } from 'lucide-react';
 import { toast } from '@/lib/toast';
 import { Button, useConfirm } from '@/components/common';
@@ -25,11 +26,31 @@ import {
   type ServicioVoucherRow,
 } from '@/services/api/vouchers';
 import { VoucherDrawer } from './VoucherDrawer';
+import { VoucherCredencialModal } from './VoucherCredencialModal';
+import type { VoucherCredencialDatos } from './VoucherCredencial';
 import { cn } from '@/lib/cn';
 import { humanizeError } from '@/lib/errors';
 
 interface VouchersTabProps {
   servicio_id: string;
+  /** Nombre del servicio, para la credencial de cortesía descargable (DGG-210). */
+  servicio_nombre?: string;
+}
+
+/** ServicioVoucherRow → datos de la credencial descargable (presentación pura). */
+function voucherToCredencial(
+  v: ServicioVoucherRow,
+  servicioNombre: string,
+): VoucherCredencialDatos {
+  const pct = Number(v.descuento_pct);
+  return {
+    codigo: v.codigo,
+    es100: pct === 100,
+    descuentoPct: pct,
+    servicioNombre: servicioNombre || 'tu servicio',
+    // Misma fecha que muestra la grilla (consistencia).
+    venceLabel: v.expira_at ? formatTimestampDate(v.expira_at) : 'Sin vencimiento',
+  };
 }
 
 const ALCANCE_LABEL: Record<string, { label: string; tone: string }> = {
@@ -45,11 +66,12 @@ const TONE_CHIP: Record<string, string> = {
   muted: 'bg-slate-100 text-brand-muted',
 };
 
-export function VouchersTab({ servicio_id }: VouchersTabProps) {
+export function VouchersTab({ servicio_id, servicio_nombre }: VouchersTabProps) {
   const [vouchers, setVouchers] = useState<ServicioVoucherRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState<ServicioVoucherRow | null>(null);
+  const [credencial, setCredencial] = useState<VoucherCredencialDatos | null>(null);
   const confirm = useConfirm();
 
   async function load() {
@@ -221,6 +243,15 @@ export function VouchersTab({ servicio_id }: VouchersTabProps) {
                     <div className="flex items-center justify-end gap-1">
                       <button
                         type="button"
+                        onClick={() => setCredencial(voucherToCredencial(v, servicio_nombre ?? ''))}
+                        title="Descargar credencial de cortesía"
+                        aria-label="Descargar credencial del voucher"
+                        className="rounded-md p-1.5 text-brand-cyan hover:bg-brand-cyan/10"
+                      >
+                        <Download size={14} />
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => {
                           setEditing(v);
                           setDrawerOpen(true);
@@ -278,6 +309,12 @@ export function VouchersTab({ servicio_id }: VouchersTabProps) {
           }}
         />
       )}
+
+      <VoucherCredencialModal
+        datos={credencial}
+        open={credencial !== null}
+        onClose={() => setCredencial(null)}
+      />
     </section>
   );
 }
