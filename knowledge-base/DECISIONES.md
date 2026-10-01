@@ -7403,3 +7403,16 @@ Los rangos (−2M / −1M / diasRestantes) separan los tiers sin solaparse para 
 **§6:** reproducción del bug + verificación del fix (negativo 1/4 no dispara / positivo 4/4 dispara) por `BEGIN/ROLLBACK` (notify transaccional, sin pg_net → sin mails); 0 flags falsos en prod post-fix; R16 ok. Ver E-GG-222.
 
 **Pendiente para Pablo:** definir si las condiciones `modalidad='alternativos'` (IA / Asambleas en RPA CABA) deben ser "una u otra" (hoy el gate exige ambas).
+
+## DGG-209 · Umbral del alertador de "llamadas HTTP automáticas fallidas" (2026-10-01)
+
+**Origen:** Pablo recibió "Salud del sistema · atención requerida" por **3 timeouts de DNS transitorios** (blip de 6 min; 99,7% de éxito en 24h, no recurrente). El umbral en `db_health_metrics()` era `IF v_http_fallas > 0` → cualquier falla suelta alarmaba. Pablo: "subí el umbral — algo que no nos ponga en riesgo, pero tampoco nos alarme sin sentido."
+
+**Decisión (mig 0520):** el gate `cron_http` ahora evalúa CANTIDAD **y** TASA sobre el total de llamadas HTTP (pg_net) en 24h, con piso de volumen (≥20 llamadas):
+- **warning** si (≥10 fallas **y** ≥5% de tasa) **o** ≥40 fallas absolutas.
+- **critical** si ≥25% de tasa **o** ≥150 fallas absolutas.
+Umbrales como constantes `c_http_*` en la función (tunear en una línea). El payload expone ahora `cron_http_total_24h` y `cron_http_rate_24h` además de `cron_http_fallas_24h` (el panel puede mostrar la tasa; no requiere cambio de frontend, los campos extra no rompen nada). Puro BD → **sin redeploy del edge `db-health-alert-check`** (esquiva drift R7).
+
+**Trade-off explícito (aceptado por Pablo):** un blip transitorio o una falla aislada de un job diario ya NO alarma; un flujo realmente degradado/caído sí.
+
+**§6:** aplicado (función STABLE/read-only, cero escritura); datos reales de hoy (3/938, 0,32%) → **0 alertas** (antes disparaba); frontera verificada en 10 escenarios (blip/hiccup/flaky/ventana-vacía → ok; sostenido 5%/flujo caído → warning; masivo/push/DNS → critical); R16 ok (sin overload).
