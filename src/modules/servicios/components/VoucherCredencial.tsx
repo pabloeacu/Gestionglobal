@@ -117,9 +117,9 @@ export function VoucherCredencial({
         }}
       >
         {logoUrl ? (
-          <img src={logoUrl} crossOrigin="anonymous" alt="Gestión Global" style={{ height: 60, display: 'block' }} />
+          <img src={logoUrl} crossOrigin="anonymous" alt="Gestión Global" style={{ height: 96, display: 'block' }} />
         ) : (
-          <span style={{ fontFamily: DISPLAY, fontSize: 30, fontWeight: 700, letterSpacing: 1, color: WHITE }}>
+          <span style={{ fontFamily: DISPLAY, fontSize: 44, fontWeight: 700, letterSpacing: 1, color: WHITE }}>
             GESTIÓN GLOBAL
           </span>
         )}
