@@ -42,7 +42,9 @@ export interface VoucherCredencialEsquema {
 }
 
 export const ESQUEMA_VOUCHER_DEFAULT: VoucherCredencialEsquema = {
-  logo_url: '/logo-h-white.png',
+  // Logo horizontal RECORTADO (1600×460, sin padding) — el /logo-h-white.png raíz
+  // es cuadrado 4501×4501 con el arte chiquito centrado → se veía minúsculo.
+  logo_url: '/brand/logo-h-white.png',
 };
 
 // Chamfer (bisel) de marca: corta esquina sup-izq + inf-der.
@@ -112,12 +114,12 @@ export function VoucherCredencial({
       {/* ================= Header: logo + eyebrow ================= */}
       <div
         style={{
-          position: 'absolute', top: 56, left: 64, right: 64,
+          position: 'absolute', top: 44, left: 64, right: 64,
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         }}
       >
         {logoUrl ? (
-          <img src={logoUrl} crossOrigin="anonymous" alt="Gestión Global" style={{ height: 96, display: 'block' }} />
+          <img src={logoUrl} crossOrigin="anonymous" alt="Gestión Global" style={{ height: 120, display: 'block' }} />
         ) : (
           <span style={{ fontFamily: DISPLAY, fontSize: 44, fontWeight: 700, letterSpacing: 1, color: WHITE }}>
             GESTIÓN GLOBAL
