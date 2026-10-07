@@ -391,8 +391,13 @@ export function FormularioRunner({
         if (!isFieldVisible(field)) continue;
 
         if (field.type === 'file') {
+          // DGG-212: si el campo tiene auto_attach y su condición se cumple, el
+          // archivo se adjunta solo al enviar → no exigir subida manual.
+          const autoActive =
+            !!field.auto_attach &&
+            data[field.auto_attach.when_field] === field.auto_attach.when_equals;
           const fl = files[field.name] ?? [];
-          if (field.required && fl.length === 0 && !skipFilesRequired) {
+          if (field.required && fl.length === 0 && !skipFilesRequired && !autoActive) {
             errors.push(`${field.label}: requerido`);
           }
           if (field.max_files && fl.length > field.max_files) {
@@ -504,6 +509,37 @@ export function FormularioRunner({
       const def = fieldByName.get(k);
       if (def && !isFieldVisible(def)) continue;
       for (const f of files[k] ?? []) flatFiles.push({ field: k, file: f });
+    }
+
+    // DGG-212 · auto_attach: si la condición se cumple (ej. "Aún no administro
+    // consorcios"), adjuntamos el archivo modelo en blanco por el flujo normal de
+    // adjuntos (no se toca la edge submit-formulario, R7). Reemplaza cualquier
+    // archivo que el usuario hubiera subido antes de tildar el check.
+    try {
+      for (const section of schema.sections) {
+        for (const field of section.fields) {
+          if (field.type !== 'file' || !field.auto_attach) continue;
+          if (data[field.auto_attach.when_field] !== field.auto_attach.when_equals) continue;
+          for (let i = flatFiles.length - 1; i >= 0; i--) {
+            if (flatFiles[i]!.field === field.name) flatFiles.splice(i, 1);
+          }
+          const resp = await fetch(field.auto_attach.source_url);
+          if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+          const blob = await resp.blob();
+          flatFiles.push({
+            field: field.name,
+            file: new File([blob], field.auto_attach.filename, {
+              type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            }),
+          });
+        }
+      }
+    } catch (err) {
+      setSending(false);
+      const detalle = err instanceof Error ? err.message : 'error desconocido';
+      setTopError(`No pudimos preparar el listado de consorcios (${detalle}). Reintentá en unos segundos.`);
+      toast.error('No pudimos preparar el envío. Reintentá.');
+      return;
     }
 
     const res = await submitFormulario({
@@ -623,6 +659,11 @@ export function FormularioRunner({
                   onChange={(v) => setField(field.name, v)}
                   files={files[field.name] ?? []}
                   onFilesChange={(fs) => setFiles((s) => ({ ...s, [field.name]: fs }))}
+                  autoAttachActive={
+                    field.auto_attach
+                      ? data[field.auto_attach.when_field] === field.auto_attach.when_equals
+                      : false
+                  }
                 />
               );
             })}
@@ -770,6 +811,9 @@ interface FieldRendererProps {
   onChange: (v: unknown) => void;
   files: File[];
   onFilesChange: (f: File[]) => void;
+  // DGG-212: true cuando el campo file tiene auto_attach y su condición se cumple
+  // (ej. se tildó "Aún no administro consorcios") → se oculta el uploader.
+  autoAttachActive?: boolean;
 }
 
 /** Badge sutil que indica que el campo fue pre-rellenado desde el perfil del cliente. */
@@ -929,7 +973,7 @@ function fieldLabel(field: FormularioFieldDef, prefilled: boolean): React.ReactN
   );
 }
 
-function FieldRenderer({ field, value, prefilled = false, onChange, files, onFilesChange }: FieldRendererProps) {
+function FieldRenderer({ field, value, prefilled = false, onChange, files, onFilesChange, autoAttachActive = false }: FieldRendererProps) {
   switch (field.type) {
     case 'heading':
       return (
@@ -1028,6 +1072,15 @@ function FieldRenderer({ field, value, prefilled = false, onChange, files, onFil
       );
 
     case 'file':
+      // DGG-212: auto_attach activo → no mostramos el uploader; el archivo modelo
+      // se adjunta solo al enviar (ver onSubmit). El cliente no ve el adjunto.
+      if (field.auto_attach && autoAttachActive) {
+        return (
+          <p className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-brand-muted">
+            Listo — no necesitás subir el listado.
+          </p>
+        );
+      }
       return (
         <FileUploader
           field={field}

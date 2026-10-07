@@ -93,6 +93,18 @@ export interface FormularioFieldDef {
     filename: string;
     alt?: string;
   };
+  // auto_attach (DGG-212): si el campo `when_field` vale `when_equals`, el runner
+  // oculta el uploader y, al enviar, adjunta automáticamente el archivo de
+  // `source_url` como si el usuario lo hubiera subido (viaja por el flujo normal
+  // de adjuntos, sin tocar la edge). Caso: check "Aún no administro consorcios" →
+  // se adjunta la planilla modelo en blanco que gestoría necesita para el RPAC.
+  // Solo aplica a campos `file`.
+  auto_attach?: {
+    when_field: string;
+    when_equals: boolean;
+    source_url: string;
+    filename: string;
+  };
 }
 
 export interface FormularioSectionDef {

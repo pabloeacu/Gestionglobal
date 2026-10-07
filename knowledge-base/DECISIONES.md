@@ -7438,3 +7438,22 @@ Umbrales como constantes `c_http_*` en la función (tunear en una línea). El pa
 - `auth.users` metadata → dormido (la app lee `profiles.full_name`, no el JWT); meterse ahí arriesgaría el flujo de edición sin beneficio visible.
 
 **§6:** e2e `BEGIN/ROLLBACK` por el path real (authenticated+RLS): 22/22 eventos de Pablo propagados; R17 validado; post-apply 0 snapshots viejos. Prueba en vivo en browser N/A (trigger de backend sin cambio de UI; el e2e cubre el path auth/RLS exacto — un test de UI exigiría renombrar un gerente real y revertirlo). Ver E-GG-223.
+
+## DGG-212 · Formularios RPAC: check "no administro consorcios" (auto-adjunto) + nota RT en Persona jurídica (2026-10-07)
+
+**Origen:** relevamiento de JL (doc "Sistema Gestión Global", tab "PARA VER"). Dos problemáticas en los formularios RPAC:
+1. El "Listado de consorcios administrados" era OPCIONAL; debía ser obligatorio (gestoría necesita ese archivo para el RPAC, aunque vaya en blanco).
+2. En Renovación RPAC con Persona jurídica, no se aclaraba que el DNI y el certificado del curso son del **Responsable Técnico**, no de la empresa.
+
+**Decisión (Pablo):**
+1. Agregar un check "Aún no administro consorcios". Si se tilda → el sistema adjunta AUTOMÁTICAMENTE la planilla modelo en blanco a la submission (el cliente no sube nada ni ve el adjunto; a gerencia le llega igual). Si no lo tilda → el upload es requerido. Premium: le ahorra el paso al cliente y le garantiza el archivo a gestoría.
+2. Aclarar, condicional a Persona jurídica, que el DNI + certificado del curso son del Responsable Técnico.
+
+**Implementación:**
+- **mig 0522** (schema jsonb; snapshot previo en `formulario_versiones`): en `matriculacion-rpac` + `renovacion-rpac`, check `no_administra_consorcios` + upload `required:true` + prop declarativa `auto_attach` (URL de la planilla modelo del bucket público `formulario-descargas`) + el `file_download` del modelo se oculta si se tilda. En `renovacion-rpac`, nota html condicional (PJ) "del Responsable Técnico" al inicio de la sección Documentación (la nota PJ preexistente vivía en "Tipo de solicitante" y hablaba del titular ARCA, no del RT en la documentación).
+- **Frontend** (`FormularioRunner.tsx` + tipo en `formularios.ts`): nueva prop `auto_attach {when_field, when_equals, source_url, filename}`; el runner oculta el uploader cuando se cumple la condición y, al enviar, hace `fetch` del modelo y lo inyecta por el **flujo normal de adjuntos**. **NO se toca la edge `submit-formulario`** (R7): el archivo viaja como un adjunto más → aparece solo en gerencia (RPC `tramite_docs_cliente`).
+- Reversible (schema en `formulario_versiones`; frontend por revert).
+
+**Notas / fuera de scope:** el check NO se aplicó al form `ddjj-anual` (ahí "no administro" es semánticamente raro) — a confirmar con Pablo. La nota RT se agregó sólo a `renovacion-rpac` (lo que marcó JL); `matriculacion-rpac` tiene la misma estructura PF/PJ + docs y podría sumarla si se quiere.
+
+**§6:** schema testeado en `BEGIN/ROLLBACK` antes de aplicar (secciones correctas, resto intacto); tsc verde; prueba en vivo del formulario público.
