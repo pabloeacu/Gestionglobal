@@ -7424,3 +7424,17 @@ Umbrales como constantes `c_http_*` en la función (tunear en una línea). El pa
 **Implementación:** botón "Descargar" (icono, cyan) por fila en `VouchersTab` → modal de preview (`VoucherCredencialModal`) con la credencial + botones **Descargar PNG** y **Descargar PDF** (espeja `CertificadoPreviewModal`). La credencial (`src/modules/servicios/components/VoucherCredencial.tsx`, tarjeta apaisada 1080×648, estilos 100% inline) tiene la impronta GG: navy con degradé, regla cyan, marco dorado, motivo triangular, logo blanco (`/logo-h-white.png`), el **beneficio como héroe** (100% BONIFICACIÓN TOTAL / X% DE DESCUENTO), el código tipo cupón (chamfer), el servicio y la validez. Generación: `src/modules/servicios/lib/generateVoucherCredencial.ts`, gemelo de `generateConstanciaPdf.ts` — `html-to-image` `toPng` (pixelRatio 3, skipFonts, host `data-gg-classic`) → PNG directo, o envuelto en `jsPDF` (página a medida de la tarjeta, sin márgenes). **Sin dependencias nuevas** (html-to-image/jspdf/file-saver ya estaban). `ServicioDetailPage` pasa `servicio_nombre` a la tab para la credencial.
 
 **§6:** build (tsc) verde; diseño previsualizado localmente (HTML estático replicando los estilos inline) antes del deploy; prueba en vivo en el browser (modal + descarga PNG/PDF + consola + mobile). Cero cambios de BD/lógica/rutas.
+
+## DGG-211 · Propagar profiles.full_name a los snapshots de autoría del timeline (2026-10-06)
+
+**Origen:** usuario GG Cursos — editó su nombre de perfil y el cambio impactó en algunos lados y en otros no (E-GG-223). Pablo: "y si lo abordamos para resolverlo?".
+
+**Decisión:** el nombre de perfil vive desnormalizado en varias fuentes; al editar `profiles.full_name` se propaga a los snapshots "vivos" de AUTORÍA del timeline (`tramite_comentarios.autor_nombre`, `tramite_eventos.actor_nombre`) vía trigger `trg_profiles_sync_full_name` (SECURITY DEFINER, R17), + backfill (mig 0521). Espejo del fix de email (E-GG-195/0456).
+
+**Qué NO se sincroniza (a propósito):**
+- `administraciones.nombre`/`responsable_nombre` → nombre de la EMPRESA/cliente, campo independiente (se edita en la ficha, en gerencia). La confusión del usuario GG Cursos era persona vs empresa.
+- Snapshots históricos (certificados emitidos, emails enviados, `formulario_submissions`) → congelados intencionalmente.
+- `tramites.solicitante_nombre` → el solicitante es la empresa/el form, no el perfil (la grilla usa `administracion_nombre` vivo).
+- `auth.users` metadata → dormido (la app lee `profiles.full_name`, no el JWT); meterse ahí arriesgaría el flujo de edición sin beneficio visible.
+
+**§6:** e2e `BEGIN/ROLLBACK` por el path real (authenticated+RLS): 22/22 eventos de Pablo propagados; R17 validado; post-apply 0 snapshots viejos. Prueba en vivo en browser N/A (trigger de backend sin cambio de UI; el e2e cubre el path auth/RLS exacto — un test de UI exigiría renombrar un gerente real y revertirlo). Ver E-GG-223.
