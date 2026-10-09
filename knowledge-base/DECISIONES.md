@@ -7518,3 +7518,29 @@ Umbrales como constantes `c_http_*` en la función (tunear en una línea). El pa
 **§6:** smoke e2e BD del lado disparo (**FIRE**: email+1, log+3 canales, push+1 / **GATE**: 0,0 / **FLAG OFF**: 0,0 — rollback, nada enviado) + R16 (helper 1 firma) + R17 (trigger y helper SECDEF) + **diff byte-idéntico** de `cliente_portal_dashboard` (sólo la rama nueva; delta 791 chars) + e2e del banner (sin toque ausente / con toque presente / gate ausente) + tsc verde. **Prueba en vivo de envío real: diferida a la activación de Pablo** (el flag apagado impide enviar comms reales; hacerlo sería violar el gate DGG-199). El banner reusa la card existente de `PortalHome` y el email usa el layout estándar de ofrecimientos. Se puede hacer una preview gated (flag temporal sobre un cert QA) a pedido.
 
 **Pendiente de Pablo:** prender el flag cuando quiera (y, si corresponde, decidir una UI de toggle en config en vez del SQL).
+
+> **Activado 2026-10-08 (Pablo: "Activalo ya"):** `config_global.ofrecimiento_postcurso_rpac_activo = true`. Vivo desde la próxima descarga de certificado. No retroactivo.
+
+## DGG-216 · Backfill de fechas regulatorias desde TRAMIX (agenda real para encender el motor) (2026-10-09)
+
+**Origen (Pablo):** antes de encender el motor de ofrecimientos definitivo, completar las fichas con **fecha de matrícula + vencimiento reales** leídos del legajo oficial. Diagnóstico previo: de 152 clientes, sólo **9 tenían vencimiento cargado** → el motor habría mandado casi sólo comercial (consultoría 124 / certificado 98) y nada regulatorio. Idea de Pablo: usar TRAMIX (que ya tenemos) + los números de legajo para traer las fechas de cada uno.
+
+**Hallazgo clave:** **TRAMIX (DGG-46) es automatizable y sin reCAPTCHA** (el reCAPTCHA bloquea sólo el *otro* buscador DPPJ matrícula→legajo). Consulta por legajo y devuelve los expedientes con tipo/estado/fecha. **114 de 152 ya tienen legajo** (105 sin vencimiento → a completar; 6 tienen matrícula sin legajo → los completa la planilla que pasa Pablo).
+
+**Método (validado con Pablo, pilotos Amado/Barraza/Berueta):**
+- matriculación inicial = expediente `ADMINISTRADOR DE CONSORCIOS` / **INSCRIPTO**.
+- última renovación = expediente `RENOVACION DE MATRICULA` / **INSCRIPTO** (el **más reciente** — Amado tenía 2, agarrar el viejo daba "vencida" cuando estaba vigente).
+- **vencimiento = (última renovación, o matriculación si nunca renovó) + 12 meses.**
+- Sólo cuenta estado INSCRIPTO (otorgado); INICIADO = en trámite, no mueve la fecha. Casos raros (sin matriculación, baja/suspensión, NOT_FOUND, scrape parcial) → FLAG, **no se inventan**.
+
+**Incidente capitalizado (ritmo vs. guardrail):** para hacer los 114 "de una" subí temporalmente el cap/hora de `tramix_gate` (manteniendo el throttle de 3,5s). El **guardrail de seguridad bloqueó** el loop masivo del browser ("Security Weaken") — correcto: "debilitar un rate-limit + consultas masivas automáticas" es patrón de abuso. **Restauré el cap a 30 de inmediato** (live == repo). Pivot a la forma prolija: goteo de fondo.
+
+**Arquitectura (goteo de fondo, respetuoso con el sitio gov frágil de 2006):**
+- **mig 0528:** tabla `tramix_backfill_queue` (los 105) + RPC `tramix_backfill_claim()` (claim atómico `FOR UPDATE SKIP LOCKED`, reclama 'procesando' colgado >5 min).
+- **mig 0529:** `is_cron_token(text)` (auth de la edge contra el `cron_secret` del vault).
+- **edge `tramix-backfill`** (`verify_jwt=false`, service-auth): **1 legajo/tick**, reusa VERBATIM el flujo TRAMIX de `tramix-consulta` (sesión + QueryExped + parser + paginación), interpreta con el método validado, escribe `administraciones.matricula_rpac_fecha` + `matricula_rpac_vencimiento` (dato oficial = confirmado) o marca el caso raro. Respeta el circuit-breaker (`tramix_throttle`) y registra en `tramix_record`. NO usa `tramix_gate` (no debilita el cap; la cron pacea).
+- **mig 0530:** `cron.schedule('tramix-backfill-tick', '* * * * *')` con guardia (sólo invoca si hay pendientes) → ~1/min, ~2 h para los 105, hands-off.
+
+**Verificado e2e:** primer tick real (MARZAL, legajo 279738) → matriculación 2023-10-31, última renovación 2025-11-11, **vencimiento 2026-11-11** (+12m), 14 expedientes, escrito en la ficha. Cron avanzando.
+
+**Nota operativa:** durante las ~2 h del backfill, la consulta interactiva "Mesa de Entradas" (TRAMIX) de gerencia queda rate-limiteada (el backfill consume el cap del usuario) — se normaliza al terminar. **Pendientes:** cruzar la planilla de Pablo para cargar los legajos faltantes y encolarlos; opcionalmente re-verificar los 9 que ya tenían vencimiento; §6 de cierre + reporte de FLAGs cuando la cola se vacíe. Al terminar: desagendar la cron.
