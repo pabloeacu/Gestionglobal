@@ -1733,6 +1733,7 @@ export type Database = {
           localidad: string | null
           logo_url: string | null
           nombre_fantasia: string
+          ofrecimiento_postcurso_rpac_activo: boolean
           pago_mp_alias: string | null
           pago_mp_cuit_cuil: string | null
           pago_mp_cvu: string | null
@@ -1760,6 +1761,7 @@ export type Database = {
           localidad?: string | null
           logo_url?: string | null
           nombre_fantasia?: string
+          ofrecimiento_postcurso_rpac_activo?: boolean
           pago_mp_alias?: string | null
           pago_mp_cuit_cuil?: string | null
           pago_mp_cvu?: string | null
@@ -1787,6 +1789,7 @@ export type Database = {
           localidad?: string | null
           logo_url?: string | null
           nombre_fantasia?: string
+          ofrecimiento_postcurso_rpac_activo?: boolean
           pago_mp_alias?: string | null
           pago_mp_cuit_cuil?: string | null
           pago_mp_cvu?: string | null
