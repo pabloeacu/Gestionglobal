@@ -819,6 +819,20 @@ export async function editarAvanceLinea(
   return ok(true);
 }
 
+// DGG-214 (JL "PARA VER" #3): gerencia puede ELIMINAR cualquier avance del
+// tracking (propio, de otro gerente o del gestor externo). Hard delete vía RPC
+// SECURITY DEFINER (staff-only). OJO: limpia el avance del historial; NO
+// revierte efectos ya aplicados al darlo de alta (cambios de estado, emails/
+// push encolados, otorgamientos) — la UI lo aclara en el confirm.
+export async function eliminarAvanceLinea(lineaId: string): Promise<ApiResponse<true>> {
+  const { error } = await supabase.rpc(
+    'gerente_eliminar_avance_tracking' as never,
+    { p_linea_id: lineaId } as never,
+  );
+  if (error) return fail('TRACKING_LINEA_DELETE', error.message, error);
+  return ok(true);
+}
+
 /** JL-R2 · Reenvía al cliente el aviso de este avance (mail con los adjuntos de
  *  la línea + push + campanita). Sólo gerencia y sólo líneas ya publicadas al
  *  cliente (la RPC valida private.is_staff y visible_cliente). */

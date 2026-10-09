@@ -52,6 +52,20 @@ export async function listPedidosPorTramite(
   );
 }
 
+// DGG-214 (JL "PARA VER" #2): gerencia anula un pedido de documentación (ej.
+// duplicado por doble envío de gestoría). Marca estado='cancelado' y oculta del
+// timeline del cliente la línea visible del pedido, para que el pedido anulado
+// deje de verse. RPC SECURITY DEFINER (staff-only). El badge "Cancelado" ya
+// existe y el Realtime del panel refresca ambas vistas (gerencia y cliente).
+export async function anularPedidoDoc(pedidoId: string): Promise<ApiResponse<true>> {
+  const { error } = await supabase.rpc(
+    'tramite_pedido_doc_cancelar' as never,
+    { p_pedido_id: pedidoId } as never,
+  );
+  if (error) return fail('PEDIDO_DOC_CANCELAR', error.message, error);
+  return ok(true);
+}
+
 // Crea un pedido nuevo (gerencia). Recibe items como array de descripciones.
 // `archivosUrls` (A3 / reporte JL 23/9): adjuntos que gestoría/gerencia mandan PARA el cliente
 // (ej. documentación a presentar). Van en la línea visible del timeline y el cliente los baja

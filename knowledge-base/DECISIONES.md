@@ -7457,3 +7457,43 @@ Umbrales como constantes `c_http_*` en la función (tunear en una línea). El pa
 **Notas / fuera de scope:** el check NO se aplicó al form `ddjj-anual` (ahí "no administro" es semánticamente raro) — a confirmar con Pablo. La nota RT se agregó sólo a `renovacion-rpac` (lo que marcó JL); `matriculacion-rpac` tiene la misma estructura PF/PJ + docs y podría sumarla si se quiere.
 
 **§6:** schema testeado en `BEGIN/ROLLBACK` antes de aplicar (secciones correctas, resto intacto); tsc verde; prueba en vivo del formulario público.
+
+## DGG-213 · Matriculación RPAC (Persona jurídica): nota + Curso de Formación del Responsable Técnico (2026-10-08)
+
+**Origen:** relevamiento de JL (doc "Sistema Gestión Global", tab "PARA VER", item 1): *"Inscripción Persona Jurídica > Lo del Representante técnico tendría que estar igual que en la renovación con la salvedad de que debe subir el Curso de Formación."* Continúa el hueco que DGG-212 ya había anotado ("la nota RT se agregó sólo a renovación; matriculación podría sumarla").
+
+**Problema real (auditado):** en `matriculacion-rpac`, la rama Persona jurídica de "Documentación requerida" pedía el DNI del representante técnico (`dni_representantes_tecnicos`) pero **no pedía el certificado del Curso de Formación del RT** — el campo `certificado_curso_administradores` (curso de formación) estaba condicionado **sólo a Persona física**. Y no había nota aclaratoria de que esos documentos son del RT, no de la empresa.
+
+**Decisión:** espejar la nota RT de renovación (DGG-212) en matriculación PJ, pero referida al **Curso de Formación** (no al de actualización), y agregar el upload obligatorio del certificado.
+
+**Implementación — mig 0523** (schema jsonb; snapshot previo en `formulario_versiones`): en la sección "Documentación requerida" de `matriculacion-rpac`, condicional a Persona jurídica:
+- `nota_doc_responsable_tecnico` (html, al inicio): "El DNI y el certificado del **Curso de Formación** … son del **Responsable Técnico** …, no de la empresa".
+- `certificado_curso_formacion_rt` (file, `required:true`, al final junto al DNI del RT).
+- Persona física: sin cambios (ambos campos nuevos ocultos) → sin regresión.
+- Sin cambios de frontend (nota=html, cert=file ya soportados por `FormularioRunner`). No toca la edge `submit-formulario` (R7).
+
+**§6:** schema testeado en `BEGIN/ROLLBACK` (estructura correcta); tsc verde; **prueba en vivo OK** (form público matriculacion-rpac, desktop + mobile 360px): PJ muestra la nota + el upload requerido agrupado con el DNI del RT; Persona física los oculta.
+
+## DGG-214 · Tracking: anular un Pedido de Documentación + eliminar cualquier avance (2026-10-08)
+
+**Origen:** relevamiento de JL (doc "Sistema Gestión Global", tab "PARA VER", items 2 y 3):
+- *"Se cargaron 2 Pedidos de Documentación al cliente ya que Gestoría lo envió dos veces … Deberíamos poder Anular uno de los Pedidos."*
+- *"Deberíamos poder editar o eliminar cualquier avance del tracking."*
+
+**Hallazgos de la auditoría §6 (3 agentes + e2e):**
+- `tramite_pedidos_doc.estado` ya admitía `'cancelado'` (CHECK) y la UI ya pintaba el badge "Cancelado", pero **no había RPC ni botón** para anular a mano.
+- Al crear un pedido, `tramite_pedido_doc_crear` inserta además una `tracking_lineas` **visible al cliente** ("Pedido de documentación: …") sin vínculo con el pedido → si sólo se cambiaba el estado, el cliente **seguía viendo** el pedido duplicado. Ese era el nudo real del caso de JL.
+- "Editar avance" YA existía (`gerente_editar_avance_tracking`, sólo texto). "Eliminar avance" no existía.
+
+**Decisión / implementación — mig 0524:**
+1. `tracking_lineas.pedido_id` (FK→`tramite_pedidos_doc`, `ON DELETE SET NULL`) + índice (R11) + backfill por igualdad exacta de timestamp (la línea y el pedido se crean en la misma transacción → mismo `now()`).
+2. `tramite_pedido_doc_crear`: `CREATE OR REPLACE` (misma firma, sin overload — R16) que setea `pedido_id` en la línea visible.
+3. **`tramite_pedido_doc_cancelar(p_pedido_id)`** (SECDEF, `is_staff`): marca `estado='cancelado'` + `cerrado_at/por`, y **oculta** (`visible_cliente=false`) la línea del pedido → el cliente deja de ver el duplicado. El trigger `sync_tramite_requiere_docs` recalcula `requiere_docs_cliente` solo.
+4. **`gerente_eliminar_avance_tracking(p_linea_id)`** (SECDEF, `is_staff`): hard delete de la línea. NO revierte efectos ya aplicados (estado, emails/push encolados, otorgamientos) — la UI lo aclara en el confirm.
+5. **Frontend:** `anularPedidoDoc` (tramitePedidosDoc.ts) + botón "Anular pedido" en `PedidosDocPanel` (gerente, pedidos abiertos, con `useConfirm`); `eliminarAvanceLinea` (trackings.ts) + botón papelera en `LineaTrackingCard` (staff, junto al lápiz, con `useConfirm`). La vista `LineasTimeline` queda sólo-lectura (igual que ya estaba para editar).
+
+**Decisiones de alcance:** eliminar es **hard delete** (no hay infra de soft-delete; JL pidió "eliminar") con confirm que advierte la irreversibilidad y que no deshace efectos; "editar" se deja sólo-texto como estaba (JL no pidió editar más campos). La papelera/lápiz viven en la vista lista (`LineaTrackingCard`), no en la timeline — mismo criterio que el editar preexistente.
+
+**§6:** 3 agentes de mapeo + **smoke e2e en BD** (`DO … RAISE EXCEPTION` para rollback) que ejercitó las 3 RPCs: crear→línea vinculada, cancelar→`cancelado`+línea oculta, eliminar→borrada; check R16 (0 overloads); tsc verde; revisión adversarial del diff; prueba en vivo en gerencia (trámite QA efímero, desktop + mobile 360px).
+
+**Hardening — mig 0525 (de la revisión adversarial §6):** (#1) `REVOKE EXECUTE … FROM PUBLIC, anon` en las 2 RPCs nuevas (los default privileges de Supabase las habían otorgado a anon; no explotable porque `is_staff()`=false, pero rompía el patrón de 0515) → `anon_exec=false` verificado. (#3) guard en `gerente_eliminar_avance_tracking`: bloquea borrar la línea-ancla de un pedido **abierto** (redirige a "Anular pedido"); tras anular (pedido 'cancelado') la línea sí es borrable → smoke OK (bloquea abierto / borra tras anular / borra línea suelta). (#2) el cliente ya **no ve pedidos anulados** en "Pedidos cerrados" (`PedidosDocPanel`, filtro por variant) → la copia "el cliente ya no lo verá" queda fiel; gerencia sí los ve para auditoría. (#4) alineado el archivo 0524 con prod (comentario inline que no había quedado en `prosrc`). **Deuda anotada (baja, #5):** no hay trigger `AFTER DELETE` que recompute `tramites.ultima_actividad_at` ni cancele recordatorios futuros de una línea borrada (hoy 0 filas afectadas; el confirm advierte que no revierte efectos ya aplicados).

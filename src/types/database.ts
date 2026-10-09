@@ -6831,6 +6831,7 @@ export type Database = {
           moderada_at: string | null
           moderada_por: string | null
           otorgamiento: Json | null
+          pedido_id: string | null
           postergada_motivo: string | null
           postergada_veces: number
           tramite_id: string
@@ -6853,6 +6854,7 @@ export type Database = {
           moderada_at?: string | null
           moderada_por?: string | null
           otorgamiento?: Json | null
+          pedido_id?: string | null
           postergada_motivo?: string | null
           postergada_veces?: number
           tramite_id: string
@@ -6875,12 +6877,20 @@ export type Database = {
           moderada_at?: string | null
           moderada_por?: string | null
           otorgamiento?: Json | null
+          pedido_id?: string | null
           postergada_motivo?: string | null
           postergada_veces?: number
           tramite_id?: string
           visible_cliente?: boolean
         }
         Relationships: [
+          {
+            foreignKeyName: "tracking_lineas_pedido_id_fkey"
+            columns: ["pedido_id"]
+            isOneToOne: false
+            referencedRelation: "tramite_pedidos_doc"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "tracking_lineas_tramite_id_fkey"
             columns: ["tramite_id"]
@@ -9792,6 +9802,10 @@ export type Database = {
         Args: { p_descripcion: string; p_linea_id: string }
         Returns: string
       }
+      gerente_eliminar_avance_tracking: {
+        Args: { p_linea_id: string }
+        Returns: undefined
+      }
       gestion_gerente_eliminar: {
         Args: { p_user_id: string }
         Returns: undefined
@@ -10759,6 +10773,10 @@ export type Database = {
       }
       tramite_pedido_doc_aprobar_item: {
         Args: { p_item_id: string }
+        Returns: undefined
+      }
+      tramite_pedido_doc_cancelar: {
+        Args: { p_pedido_id: string }
         Returns: undefined
       }
       tramite_pedido_doc_crear: {

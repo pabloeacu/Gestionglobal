@@ -18,6 +18,7 @@ import {
   X,
   Paperclip,
   Clock,
+  Trash2,
 } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { toast } from '@/lib/toast';
@@ -30,6 +31,7 @@ import {
   type TrackingLineaRow,
   type TrackingCategoriaConfigRow,
   editarAvanceLinea,
+  eliminarAvanceLinea,
   reenviarAvanceCliente,
 } from '@/services/api/trackings';
 import { useAuth } from '@/contexts/AuthContext';
@@ -58,6 +60,9 @@ export interface LineaTrackingCardProps {
   // editar el texto de cualquier avance (propio, de otro gerente o del
   // gestor externo). El componente padre refresca la lista al guardar.
   onEdited?: () => void;
+  // DGG-214 (JL "PARA VER" #3): gerencia puede ELIMINAR cualquier avance. El
+  // padre refresca la lista al borrar. Si no se pasa, se usa onEdited.
+  onDeleted?: () => void;
 }
 
 export function LineaTrackingCard({
@@ -65,6 +70,7 @@ export function LineaTrackingCard({
   categoriaConfig,
   autorNombre,
   onEdited,
+  onDeleted,
 }: LineaTrackingCardProps) {
   const Icon = categoriaConfig?.icono ? ICON_MAP[categoriaConfig.icono] ?? Tag : Tag;
   const futura =
@@ -78,6 +84,7 @@ export function LineaTrackingCard({
   const [draft, setDraft] = useState(linea.descripcion);
   const [saving, setSaving] = useState(false);
   const [reenviando, setReenviando] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   // JL-R2: gerencia puede reenviar al cliente el aviso de un avance ya
   // publicado, con los adjuntos de la línea. Sólo tiene sentido cuando la
@@ -120,6 +127,25 @@ export function LineaTrackingCard({
     toast.success('Avance actualizado');
     setEditing(false);
     onEdited?.();
+  }
+
+  async function eliminar() {
+    const ok = await confirm({
+      title: 'Eliminar este avance',
+      message:
+        'Se elimina del historial del trámite (y del timeline del cliente, si era visible). No se puede deshacer y no revierte lo que el avance ya haya producido (cambios de estado, emails o push ya enviados). ¿Eliminar igual?',
+      confirmLabel: 'Eliminar',
+    });
+    if (!ok) return;
+    setDeleting(true);
+    const res = await eliminarAvanceLinea(linea.id);
+    setDeleting(false);
+    if (!res.ok) {
+      toast.error('No pudimos eliminar', { description: humanizeError(res.error) });
+      return;
+    }
+    toast.success('Avance eliminado');
+    (onDeleted ?? onEdited)?.();
   }
 
   return (
@@ -201,15 +227,27 @@ export function LineaTrackingCard({
                 {linea.descripcion}
               </p>
               {isStaff && (
-                <button
-                  type="button"
-                  onClick={() => setEditing(true)}
-                  className="shrink-0 rounded-md p-1 text-slate-400 transition hover:bg-slate-100 hover:text-brand-cyan"
-                  title="Editar (gerencia)"
-                  aria-label="Editar este avance"
-                >
-                  <Pencil className="h-3.5 w-3.5" />
-                </button>
+                <div className="flex shrink-0 items-center gap-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setEditing(true)}
+                    className="rounded-md p-1 text-slate-400 transition hover:bg-slate-100 hover:text-brand-cyan"
+                    title="Editar (gerencia)"
+                    aria-label="Editar este avance"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void eliminar()}
+                    disabled={deleting}
+                    className="rounded-md p-1 text-slate-400 transition hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+                    title="Eliminar (gerencia)"
+                    aria-label="Eliminar este avance"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
               )}
             </div>
           )}

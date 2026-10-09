@@ -23,16 +23,18 @@ import {
   EyeOff,
   Send,
   MessageSquareText,
+  Ban,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { toast } from '@/lib/toast';
-import { usePrompt } from './DialogProvider';
+import { usePrompt, useConfirm } from './DialogProvider';
 import { Button } from './Button';
 import { Modal } from './Modal';
 import { cn } from '@/lib/cn';
 import {
   listPedidosPorTramite,
   crearPedidoDoc,
+  anularPedidoDoc,
   subirArchivoItem,
   responderTextoItem,
   enviarRevisionPedido,
@@ -100,7 +102,15 @@ export function PedidosDocPanel({ tramiteId, variant, tramiteLabel }: PedidosDoc
   }, [tramiteId]);
 
   const abiertos = useMemo(() => pedidos.filter(p => p.estado === 'abierto'), [pedidos]);
-  const cerrados = useMemo(() => pedidos.filter(p => p.estado !== 'abierto'), [pedidos]);
+  // DGG-214: al cliente NO le mostramos pedidos anulados (ej. el duplicado que
+  // gerencia anuló) — sólo los completados quedan en su historial "cerrados".
+  // Gerencia sí ve los cancelados (auditoría).
+  const cerrados = useMemo(
+    () => pedidos.filter(
+      p => p.estado !== 'abierto' && !(variant === 'cliente' && p.estado === 'cancelado'),
+    ),
+    [pedidos, variant],
+  );
 
   if (loading) {
     return (
@@ -197,7 +207,9 @@ function PedidoCard({
   onChange: () => Promise<void>;
   closed?: boolean;
 }) {
+  const confirm = useConfirm();
   const [enviando, setEnviando] = useState(false);
+  const [anulando, setAnulando] = useState(false);
   const totales = useMemo(() => {
     let aprobados = 0, subidos = 0, pendientes = 0, rechazados = 0;
     for (const it of pedido.items) {
@@ -236,6 +248,25 @@ function PedidoCard({
       description: 'Pronto tendremos novedades. Estate atento a tu portal. ¡Gracias!',
       duration: 6000,
     });
+    void onChange();
+  }
+
+  // DGG-214 (JL "PARA VER" #2): gerencia anula un pedido abierto (ej. duplicado
+  // por doble envío). Lo marca 'cancelado' y oculta su línea del timeline del
+  // cliente. El Realtime del panel lo mueve a "Pedidos cerrados".
+  async function handleAnular() {
+    const ok = await confirm({
+      title: 'Anular este pedido',
+      message:
+        'El pedido quedará anulado: el cliente dejará de verlo en su portal y de recibir recordatorios por él. Útil cuando se pidió por duplicado. ¿Anular?',
+      confirmLabel: 'Anular pedido',
+    });
+    if (!ok) return;
+    setAnulando(true);
+    const res = await anularPedidoDoc(pedido.id);
+    setAnulando(false);
+    if (!res.ok) { toast.error('No pudimos anular el pedido', { description: humanizeError(res.error) }); return; }
+    toast.success('Pedido anulado', { description: 'El cliente ya no lo verá.' });
     void onChange();
   }
 
@@ -322,6 +353,22 @@ function PedidoCard({
               Enviar a gerencia
             </button>
           )}
+        </footer>
+      )}
+
+      {/* DGG-214 · Footer gerencia: anular un pedido abierto (ej. duplicado por
+          doble envío de gestoría). El badge "Cancelado" lo pinta el header. */}
+      {variant === 'gerente' && !closed && (
+        <footer className="flex items-center justify-end gap-2 border-t border-slate-100 px-4 py-2.5">
+          <button
+            type="button"
+            onClick={() => void handleAnular()}
+            disabled={anulando}
+            className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 px-2.5 py-1.5 text-[11px] font-semibold text-brand-muted transition hover:border-red-200 hover:bg-red-50 hover:text-red-600 disabled:opacity-60"
+          >
+            {anulando ? <Loader2 size={12} className="animate-spin" /> : <Ban size={12} />}
+            Anular pedido
+          </button>
         </footer>
       )}
     </article>
