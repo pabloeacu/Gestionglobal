@@ -7551,3 +7551,19 @@ Umbrales como constantes `c_http_*` en la función (tunear en una línea). El pa
 - **2 FLAGs pendientes de Pablo:** (a) **GRUMELLI Susana Irene** — nombre coincide con legajo 287789 en la planilla pero el CUIT difiere (27-05951252-3 ficha vs 27-05951243-3 planilla) → confirmar cuál es el correcto. (b) **Padrón César** (legajo 303254, nombre coincide) — tiene 9 expedientes pero ninguno de matriculación/renovación → revisar qué trámites tiene.
 - **Reversible:** `tramix_backfill_queue` guarda `venc_anterior` (snapshot previo) por fila.
 - **Desbloqueado:** la conversación del encendido del motor de ofrecimientos ahora es sobre datos reales (ya no "casi todo comercial").
+
+## DGG-217 · Encendido definitivo del motor de ofrecimientos (2026-10-09)
+
+**Origen (Pablo, enfático):** *"Encendé el motor! Activemos todo!"* — tras el backfill DGG-216 (9 → 113 clientes con vencimiento real), que era la condición para encenderlo sobre datos útiles y no publicidad.
+
+**Qué se hizo (mig 0531):** la cron pasó de la variante **sombra** (simulaba, no enviaba) a la **real**: `cron.unschedule('gg-ofrecimientos-sombra')` + `cron.schedule('gg-ofrecimientos-real', '0 12 * * *', 'SELECT public.gg_ofrecimientos_diario();')` (diario 12 UTC = 9am ARG, jobid 40).
+
+**El motor real** (`gg_ofrecimientos_diario`, ya existente, auditado): envía por email + push + banner (vía `_gg_ofrecimiento_tocar`). Auto-paceado: **tope 40 toques/día**, **gracia 7 días** (máx 1 toque por cliente por semana), cooldown por regla (matric 60d / ddjj 30d / curso 60d / renovación 45d / certificado 90d / cj 120d), **prioridad regulatoria** (matriculación > DDJJ > curso > renovación > certificado > consultoría). Respeta `administraciones.ofrecimientos_habilitados`.
+
+**Dry-run previo** (`BEGIN`/`RAISE EXCEPTION` → rollback, nada enviado) de la 1ª jornada: **40 toques = 12 renovación + 6 matriculación (regulatorio) + 16 certificado + 6 consultoría (comercial)**. Gracias al backfill, ahora manda recordatorios reales de renovación primero.
+
+**GATE DGG-199 satisfecho** por la autorización explícita de Pablo (fue una decisión informada: se le dio el análisis completo de impacto —la "ola" inicial, el mix comercial vs. regulatorio— y decidió "activemos todo").
+
+**Para PAUSAR:** `SELECT cron.unschedule('gg-ofrecimientos-real');`
+
+**Nota (refinamiento posible, no bloqueante):** el motor hace **push para todas** las ofertas, incluso las comerciales (certificado/consultoría); JL recomendaba que el push sea excepcional (urgencias) y mail/banner para lo comercial. Si Pablo quiere, se puede bajar el push de las reglas comerciales en una iteración. Primera corrida real: la próxima a las 9am ARG.
