@@ -23,10 +23,12 @@ import { WhatsAppFloatingButton } from '@/components/common/WhatsAppFloatingButt
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import {
   submitFormulario,
+  confirmarVencimientoMatricula,
   type FormularioRow,
   type FormularioSchemaDef,
   type FormularioFieldDef,
 } from '@/services/api/formularios';
+import { useConfirm } from '@/components/common/DialogProvider';
 import { cn } from '@/lib/cn';
 import { humanizeError } from '@/lib/errors';
 import { formatCuit, validarCuit, esCampoCuit } from '@/lib/cuit';
@@ -205,6 +207,17 @@ function normalizeKey(k: string): string {
     .replace(/[\s\-]+/g, '_');
 }
 
+// DGG-218: campo que captura el vencimiento de matrícula en renovacion-rpac /
+// certificado-rpac. Si el cliente logueado edita el valor pre-cargado, se le
+// pide confirmación y se actualiza su ficha (fuente única de verdad).
+const VENC_MATRICULA_FIELD = 'matricula_rpac_vencimiento';
+
+/** 'YYYY-MM-DD' → 'DD/MM/YYYY' para mostrar; si no matchea, devuelve el crudo. */
+function fmtFechaCorta(iso: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : iso;
+}
+
 // Runner: renderiza un formulario desde su schema jsonb, maneja validaciones
 // reactivas, lógica condicional declarativa, adjuntos múltiples por campo y
 // submit al edge function. Pensado para uso público (URL `/formulario/:slug`).
@@ -220,6 +233,7 @@ export function FormularioRunner({
   // lleva al portal SIN recargar la app (la sesión se preserva en
   // memoria, no hay flash de deslogueo).
   const navigate = useNavigate();
+  const confirmDialog = useConfirm();
   const schema = formulario.schema as unknown as FormularioSchemaDef;
   // DGG-126: los campos con `default` en el schema arrancan con ese valor
   // (caso real: el switch PF/PJ preseleccionado en "Persona física" — sin
@@ -454,6 +468,18 @@ export function FormularioRunner({
             }
           }
         }
+        // DGG-218 · fecha: <input type=date> emite YYYY-MM-DD. Espejo del edge:
+        // formato + rango de cordura (evita años absurdos por typo manual).
+        if (field.type === 'date') {
+          const s = String(val);
+          const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+          const d = m ? new Date(`${s}T00:00:00`) : null;
+          if (!m || !d || isNaN(d.getTime())) {
+            errors.push(`${field.label}: fecha inválida`);
+          } else if (Number(m[1]) < 1900 || Number(m[1]) > 2100) {
+            errors.push(`${field.label}: el año está fuera de rango`);
+          }
+        }
         // DGG-98 · CUIT/CUIL: cantidad de dígitos (11) + dígito verificador.
         if (esCampoCuit(field)) {
           const cuitErr = validarCuit(String(val));
@@ -481,6 +507,30 @@ export function FormularioRunner({
     return errors;
   }
 
+  // DGG-218 · ¿el cliente logueado editó la fecha de vencimiento pre-cargada?
+  // Devuelve el valor nuevo + el previo (null si no tenía) cuando hay que
+  // escribir la ficha; null cuando no aplica (landing, sin cambio, o inválida).
+  function vencimientoFichaUpdate(): { next: string; previo: string | null } | null {
+    if (origenCanal !== 'cliente') return null;
+    const def = fieldByName.get(VENC_MATRICULA_FIELD);
+    if (!def || !isFieldVisible(def)) return null;
+    const next = String(data[VENC_MATRICULA_FIELD] ?? '').trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(next)) return null;
+    // Valor original del prefill con el MISMO criterio de matching que la
+    // precarga (normalizeKey) — si el name del campo divergiera de la key del
+    // RPC, no queremos degradar en silencio a "alta" y saltearnos el confirm.
+    let rawPrev: unknown;
+    if (prefillValues) {
+      for (const [k, v] of Object.entries(prefillValues)) {
+        if (normalizeKey(k) === VENC_MATRICULA_FIELD) { rawPrev = v; break; }
+      }
+    }
+    const previo =
+      rawPrev != null && rawPrev !== '' ? String(rawPrev).slice(0, 10).trim() : null;
+    if (previo === next) return null; // sin cambio → la ficha ya está al día
+    return { next, previo };
+  }
+
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     const errors = validate();
@@ -489,6 +539,33 @@ export function FormularioRunner({
       toast.error('Revisá los campos marcados');
       return;
     }
+
+    // DGG-218 · si el cliente cambió una fecha de vencimiento YA conocida,
+    // confirmamos antes de pisar su ficha (R13). Si no tenía fecha (previo
+    // null) es un alta de dato → se guarda sin molestar.
+    const vencUpd = vencimientoFichaUpdate();
+    if (vencUpd && vencUpd.previo) {
+      const ok = await confirmDialog({
+        title: 'Actualizar el vencimiento de tu matrícula',
+        message: (
+          <div className="space-y-2 text-sm">
+            <p>Vas a cambiar la fecha de vencimiento de tu matrícula:</p>
+            <p>
+              De <strong>{fmtFechaCorta(vencUpd.previo)}</strong> a{' '}
+              <strong className="text-brand-cyan">{fmtFechaCorta(vencUpd.next)}</strong>.
+            </p>
+            <p className="text-xs text-brand-muted">
+              Con esta fecha mantenemos al día tu ficha y tu agenda personalizada
+              de recordatorios (renovación, avisos). ¿Es correcta?
+            </p>
+          </div>
+        ),
+        confirmLabel: 'Sí, actualizar',
+        cancelLabel: 'Revisar',
+      });
+      if (!ok) return; // el cliente vuelve a revisar el formulario
+    }
+
     setSending(true);
 
     // DGG-123 · Sólo viaja lo visible: los campos ocultos por condición no se
@@ -556,7 +633,23 @@ export function FormularioRunner({
       toast.error('No pudimos enviar el formulario', { description: humanizeError(res.error) });
       return;
     }
-    toast.success('Formulario enviado');
+    // DGG-218 · persistir el vencimiento en la ficha del cliente (overwrite con
+    // tenencia). No bloquea el éxito del trámite: si falla, avisamos y el
+    // equipo lo revisa (la fecha igual viajó dentro de la submission).
+    let vencFichaFallo = false;
+    if (vencUpd) {
+      const vr = await confirmarVencimientoMatricula(vencUpd.next);
+      if (!vr.ok) {
+        vencFichaFallo = true;
+        toast.error(
+          'Enviamos tu solicitud, pero no pudimos actualizar la fecha de vencimiento en tu ficha. La revisará el equipo.',
+        );
+      }
+    }
+
+    // §6 A#6: un solo toast — si la ficha falló, el error de arriba ya confirma
+    // que el trámite entró (evitamos el success contradictorio simultáneo).
+    if (!vencFichaFallo) toast.success('Formulario enviado');
     setDone({ mensaje: res.data.mensaje, redirect: res.data.redirect_url });
     if (res.data.redirect_url) {
       window.setTimeout(() => { window.location.href = res.data.redirect_url!; }, 2500);

@@ -275,3 +275,23 @@ export async function fetchClientePerfilDatosFormulario(): Promise<Record<string
   }
   return perfil;
 }
+
+/**
+ * DGG-218 · Confirma/actualiza la fecha de vencimiento de la matrícula del
+ * cliente logueado en SU ficha (OVERWRITE con tenencia R12). Lo llama el
+ * FormularioRunner SOLO tras confirmación explícita del cliente (useConfirm,
+ * R13) cuando editó el valor pre-cargado en renovacion-rpac / certificado-rpac.
+ * El RPC propaga a `vencimientos` vía trigger (fuente única de verdad) → la
+ * agenda personalizada y el motor de ofrecimientos quedan al día.
+ * @param fecha ISO 'YYYY-MM-DD'.
+ */
+export async function confirmarVencimientoMatricula(
+  fecha: string,
+): Promise<ApiResponse<null>> {
+  const { error } = await supabase.rpc(
+    'cliente_confirmar_vencimiento_matricula' as never,
+    { p_fecha: fecha } as never,
+  );
+  if (error) return fail('VENC_MATRICULA_CONFIRMAR', error.message, error);
+  return ok(null);
+}

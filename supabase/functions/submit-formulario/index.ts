@@ -302,6 +302,19 @@ Deno.serve(async (req) => {
       if ((field.type === 'select' || field.type === 'radio') && field.options && !field.options.includes(String(val))) {
         validationErrors.push(`${field.label}: valor no permitido`);
       }
+      // DGG-218 · fecha: espejo del runner (FormularioRunner.validate). El
+      // <input type=date> emite YYYY-MM-DD; validamos formato + rango de
+      // cordura contra payloads crafteados (ej. matricula_rpac_vencimiento).
+      if (field.type === 'date') {
+        const s = String(val);
+        const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+        const d = m ? new Date(`${s}T00:00:00`) : null;
+        if (!m || !d || isNaN(d.getTime())) {
+          validationErrors.push(`${field.label}: fecha inválida`);
+        } else if (Number(m[1]) < 1900 || Number(m[1]) > 2100) {
+          validationErrors.push(`${field.label}: el año está fuera de rango`);
+        }
+      }
       // JL-R5 · matrícula/legajo: el autofill de dirección de Chrome metía
       // "Buenos Aires"/"CABA" en estos campos y el required quedaba
       // satisfecho con basura (caso García 21/08). Espejo del runner: sin
