@@ -44,8 +44,9 @@ import { cn } from '@/lib/cn';
 // Nivel de certeza siempre legible; nunca afirmamos una presunción. Backend reusado
 // (getPerfilRegulatorio/_declarar/_set_no_requiere; sin cambios). Marca GG, mobile-first.
 
-// DGG-218 F3 · etiqueta amigable de cada aviso (acción), según el tipo de
-// vencimiento; cae a la descripción de la fila si el tipo no está mapeado.
+// DGG-218 F3 · etiqueta amigable de cada aviso (acción), según el TIPO de
+// vencimiento. §6 #1: NUNCA se usa `descripcion` cruda (texto interno de
+// gerencia, con nombres propios) — para un tipo no mapeado cae al genérico.
 const AVISO_LABEL: Record<string, string> = {
   renovacion_rpac: 'Renovación de tu matrícula RPAC',
   ddjj_anual: 'Tu Declaración Jurada anual',
@@ -53,7 +54,7 @@ const AVISO_LABEL: Record<string, string> = {
   curso_rpa_caba: 'Tu curso RPA (CABA)',
 };
 function avisoLabel(a: AgendaAviso): string {
-  return AVISO_LABEL[a.tipo] ?? a.descripcion ?? 'Recordatorio regulatorio';
+  return AVISO_LABEL[a.tipo] ?? 'Recordatorio regulatorio';
 }
 
 export function PortalFichaRegulatoriaPage() {
@@ -76,11 +77,12 @@ export function PortalFichaRegulatoriaPage() {
     if (!adminId) return;
     setLoading(true);
     setError(null);
-    const res = await getPerfilRegulatorio(adminId);
+    // DGG-218 F3 (§6 #2): perfil + agenda en paralelo; la agenda es
+    // complementaria (su fallo devuelve [] sin bloquear la ficha).
+    const [res, ag] = await Promise.all([getPerfilRegulatorio(adminId), fetchMiAgendaAvisos()]);
     if (res.ok) setPerfil(res.data);
     else setError(humanizeError(res.error));
-    // DGG-218 F3: la agenda de avisos es complementaria — su fallo no bloquea la ficha.
-    setAvisos(await fetchMiAgendaAvisos());
+    setAvisos(ag);
     setLoading(false);
   }
 
@@ -476,7 +478,9 @@ export function PortalFichaRegulatoriaPage() {
                     <span className="tabular-nums">{formatDateShort(a.fecha_aviso)}</span> · {avisoLabel(a)}
                   </p>
                   <p className="text-xs text-brand-muted">
-                    {a.dias_antes} {a.dias_antes === 1 ? 'día' : 'días'} antes de que venza
+                    {a.dias_antes === 0
+                      ? 'El día del vencimiento'
+                      : `${a.dias_antes} ${a.dias_antes === 1 ? 'día' : 'días'} antes de que venza`}
                     {' '}(<span className="tabular-nums">{formatDateShort(a.fecha_vencimiento)}</span>)
                   </p>
                 </div>
