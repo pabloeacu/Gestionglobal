@@ -9,14 +9,17 @@ import {
   Clock,
   Sparkles,
   PartyPopper,
+  BellRing,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   getPerfilRegulatorio,
   declararPerfilRegulatorio,
   setPerfilNoRequiere,
+  fetchMiAgendaAvisos,
   type PerfilRegulatorio,
   type NoRequiereMap,
+  type AgendaAviso,
 } from '@/services/api/perfilRegulatorio';
 import { Button, Field, Input, Drawer, Modal, Switch, AnimatedNumber, useConfirm, usePrompt } from '@/components/common';
 import { BrandLoader } from '@/components/brand/BrandLoader';
@@ -41,6 +44,18 @@ import { cn } from '@/lib/cn';
 // Nivel de certeza siempre legible; nunca afirmamos una presunción. Backend reusado
 // (getPerfilRegulatorio/_declarar/_set_no_requiere; sin cambios). Marca GG, mobile-first.
 
+// DGG-218 F3 · etiqueta amigable de cada aviso (acción), según el tipo de
+// vencimiento; cae a la descripción de la fila si el tipo no está mapeado.
+const AVISO_LABEL: Record<string, string> = {
+  renovacion_rpac: 'Renovación de tu matrícula RPAC',
+  ddjj_anual: 'Tu Declaración Jurada anual',
+  curso_actualizacion: 'Tu curso de actualización',
+  curso_rpa_caba: 'Tu curso RPA (CABA)',
+};
+function avisoLabel(a: AgendaAviso): string {
+  return AVISO_LABEL[a.tipo] ?? a.descripcion ?? 'Recordatorio regulatorio';
+}
+
 export function PortalFichaRegulatoriaPage() {
   const { user } = useAuth();
   const adminId = user?.administracionId ?? null;
@@ -48,6 +63,7 @@ export function PortalFichaRegulatoriaPage() {
   const promptDlg = usePrompt();
 
   const [perfil, setPerfil] = useState<PerfilRegulatorio | null>(null);
+  const [avisos, setAvisos] = useState<AgendaAviso[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [snoozed, setSnoozed] = useState<Set<string>>(new Set());
@@ -63,6 +79,8 @@ export function PortalFichaRegulatoriaPage() {
     const res = await getPerfilRegulatorio(adminId);
     if (res.ok) setPerfil(res.data);
     else setError(humanizeError(res.error));
+    // DGG-218 F3: la agenda de avisos es complementaria — su fallo no bloquea la ficha.
+    setAvisos(await fetchMiAgendaAvisos());
     setLoading(false);
   }
 
@@ -434,6 +452,39 @@ export function PortalFichaRegulatoriaPage() {
           Las fechas <span className="italic text-[#8A4A00]">≈estimadas</span> son orientativas hasta que las confirmes.
         </p>
       </section>
+
+      {/* DGG-218 F3 · TU AGENDA DE AVISOS — qué te vamos a recordar y cuándo */}
+      {avisos.length > 0 && (
+        <section className="rounded-2xl border border-slate-200 bg-white p-5">
+          <p className="mb-1 flex items-center gap-1.5 font-display text-sm font-bold uppercase tracking-wider text-brand-ink">
+            <BellRing size={15} className="text-brand-cyan" /> Tu agenda de avisos
+          </p>
+          <p className="mb-3 text-xs text-brand-muted">
+            Esto es lo que te vamos a recordar —por mail, push y acá en tu portal— para que no se te pase nada.
+          </p>
+          <ol className="space-y-2.5">
+            {avisos.map((a, i) => (
+              <li
+                key={`${a.tipo}-${a.fecha_aviso}-${i}`}
+                className="flex items-start gap-3 border-b border-slate-100 pb-2.5 last:border-0 last:pb-0"
+              >
+                <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-full bg-brand-cyan-pale/40 text-brand-cyan">
+                  <BellRing size={14} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-brand-ink">
+                    <span className="tabular-nums">{formatDateShort(a.fecha_aviso)}</span> · {avisoLabel(a)}
+                  </p>
+                  <p className="text-xs text-brand-muted">
+                    {a.dias_antes} {a.dias_antes === 1 ? 'día' : 'días'} antes de que venza
+                    {' '}(<span className="tabular-nums">{formatDateShort(a.fecha_vencimiento)}</span>)
+                  </p>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </section>
+      )}
 
       {/* SERVICIOS QUE NO NECESITÁS (opt-outs) */}
       <section className="rounded-2xl border border-slate-200 bg-white p-5">

@@ -158,3 +158,22 @@ export async function declararPerfilRegulatorio(
   if (error) return fail('PERFIL_REG_DECLARAR', error.message, error);
   return ok(null);
 }
+
+// ───────────────────────────────────────────────────────────────────────────
+// DGG-218 F3 · "Mi agenda": los próximos avisos que el cliente va a recibir
+// (una fila por vencimiento vigente × offset de alarma todavía futuro). Respeta
+// el mismo gate que el sender real (sin renovación si hay una en curso). R4.
+// ───────────────────────────────────────────────────────────────────────────
+export interface AgendaAviso {
+  tipo: string;
+  descripcion: string | null;
+  fecha_vencimiento: string; // YYYY-MM-DD
+  fecha_aviso: string;       // YYYY-MM-DD
+  dias_antes: number;
+}
+
+export async function fetchMiAgendaAvisos(): Promise<AgendaAviso[]> {
+  const { data, error } = await supabase.rpc('cliente_agenda_avisos' as never);
+  if (error) return [];
+  return (data ?? []) as unknown as AgendaAviso[];
+}
