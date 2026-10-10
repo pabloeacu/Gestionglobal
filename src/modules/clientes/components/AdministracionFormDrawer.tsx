@@ -256,6 +256,10 @@ export function AdministracionFormDrawer({
       convenio: form.convenio.trim() || null,
       estado: form.estado,
       observaciones: form.observaciones.trim() || null,
+      // DGG-218 F2A: la traza de origen/certeza del vencimiento la gobierna el
+      // trigger trg_admin_venc_certeza_default (mig 0535): cuando gerencia cambia
+      // la fecha → origen='gerencia', certeza=NULL (=confirmado). No se envía
+      // desde acá para no duplicar la lógica.
     };
 
     // ── Blindaje de identidad (decisiones Pablo, mig 0321) ──────────────────

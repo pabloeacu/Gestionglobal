@@ -1049,21 +1049,43 @@ function TabRegistral({ admin }: { admin: AdministracionRow }) {
             <span>{admin.matricula_rpac_fecha ?? <span className="text-brand-muted">—</span>}</span>
           </DataRow>
           <DataRow label="Vencimiento">
-            {admin.matricula_rpac_vencimiento ? (
-              <span
-                className={cn(
-                  'inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-semibold',
-                  vencidoOClose ? 'bg-red-50 text-red-700' : 'bg-emerald-50 text-emerald-700',
-                )}
-              >
-                {vencidoOClose ? <AlertCircle size={12} /> : <CheckCircle2 size={12} />}
-                {admin.matricula_rpac_vencimiento}
-                {diasParaVencer !== null &&
-                  ` · ${diasParaVencer < 0 ? `vencida hace ${-diasParaVencer} d` : `en ${diasParaVencer} días`}`}
-              </span>
-            ) : (
-              <span className="text-brand-muted">—</span>
-            )}
+            <div className="flex flex-col items-start gap-1">
+              {admin.matricula_rpac_vencimiento ? (
+                <span
+                  className={cn(
+                    'inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-semibold',
+                    vencidoOClose ? 'bg-red-50 text-red-700' : 'bg-emerald-50 text-emerald-700',
+                  )}
+                >
+                  {vencidoOClose ? <AlertCircle size={12} /> : <CheckCircle2 size={12} />}
+                  {admin.matricula_rpac_vencimiento}
+                  {diasParaVencer !== null &&
+                    ` · ${diasParaVencer < 0 ? `vencida hace ${-diasParaVencer} d` : `en ${diasParaVencer} días`}`}
+                </span>
+              ) : (
+                <span className="text-brand-muted">—</span>
+              )}
+              {/* DGG-218 F2: trazabilidad del origen del vencimiento. */}
+              {admin.matricula_rpac_vencimiento &&
+                (() => {
+                  const o = admin.matricula_rpac_vencimiento_origen;
+                  const vat = admin.matricula_rpac_vencimiento_verificado_at;
+                  const meta =
+                    o === 'declarado_cliente'
+                      ? { t: 'Declarado por el cliente · a verificar', c: 'text-amber-700' }
+                      : o === 'verificado_tramix'
+                        ? {
+                            t: `Verificado con DPPJ${vat ? ' el ' + vat.slice(0, 10) : ''}`,
+                            c: 'text-emerald-700',
+                          }
+                        : o === 'oficial_tramix'
+                          ? { t: 'Oficial · legajo DPPJ', c: 'text-brand-muted' }
+                          : o === 'gerencia'
+                            ? { t: 'Cargado por gerencia', c: 'text-brand-muted' }
+                            : null;
+                  return meta ? <span className={cn('text-[11px]', meta.c)}>{meta.t}</span> : null;
+                })()}
+            </div>
           </DataRow>
         </dl>
       </div>

@@ -165,6 +165,9 @@ export type Database = {
           matricula_rpac: string | null
           matricula_rpac_fecha: string | null
           matricula_rpac_vencimiento: string | null
+          matricula_rpac_vencimiento_certeza: string | null
+          matricula_rpac_vencimiento_origen: string | null
+          matricula_rpac_vencimiento_verificado_at: string | null
           nombre: string
           nombre_normalizado: string
           observaciones: string | null
@@ -208,6 +211,9 @@ export type Database = {
           matricula_rpac?: string | null
           matricula_rpac_fecha?: string | null
           matricula_rpac_vencimiento?: string | null
+          matricula_rpac_vencimiento_certeza?: string | null
+          matricula_rpac_vencimiento_origen?: string | null
+          matricula_rpac_vencimiento_verificado_at?: string | null
           nombre: string
           nombre_normalizado: string
           observaciones?: string | null
@@ -251,6 +257,9 @@ export type Database = {
           matricula_rpac?: string | null
           matricula_rpac_fecha?: string | null
           matricula_rpac_vencimiento?: string | null
+          matricula_rpac_vencimiento_certeza?: string | null
+          matricula_rpac_vencimiento_origen?: string | null
+          matricula_rpac_vencimiento_verificado_at?: string | null
           nombre?: string
           nombre_normalizado?: string
           observaciones?: string | null
@@ -8753,6 +8762,10 @@ export type Database = {
           movimiento_id: string
           referencia: string
         }[]
+      }
+      cliente_confirmar_vencimiento_matricula: {
+        Args: { p_fecha: string }
+        Returns: Json
       }
       cliente_marcar_tracking_leido: {
         Args: { p_tramite_id: string }
