@@ -263,7 +263,7 @@ export function ProspectosCaptacionPage() {
                   <tr key={p.id} className="hover:bg-slate-50">
                     <td className="px-4 py-2 font-medium text-brand-ink">
                       <div className="flex flex-wrap items-center gap-1.5">
-                        <span className="capitalize">{p.nombre.toLowerCase()}</span>
+                        <span>{p.nombre}</span>
                         {p.sanciones && (
                           <span className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-semibold text-red-700 ring-1 ring-red-100" title="Tiene sanciones registradas">
                             <ShieldAlert size={10} /> Sanción
@@ -648,7 +648,7 @@ function ConvertirModal({ prospecto, onClose, onConverted }: {
     <Modal open onClose={onClose} title="Convertir prospecto a cliente" width={520}>
       <div className="space-y-4">
         <div className="rounded-xl bg-slate-50 p-3 text-sm">
-          <p className="font-semibold capitalize text-brand-ink">{prospecto.nombre.toLowerCase()}</p>
+          <p className="font-semibold text-brand-ink">{prospecto.nombre}</p>
           <p className="text-xs text-brand-muted">{prospecto.sin_email ? 'sin email' : prospecto.email}</p>
           {prospecto.cuit && <p className="text-xs tabular-nums text-brand-muted">CUIT {prospecto.cuit}</p>}
         </div>
