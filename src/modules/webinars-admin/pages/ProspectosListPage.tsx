@@ -53,6 +53,10 @@ function fmtFechaHora(iso: string): string {
 // La grilla ahora usa `ProspectoCapitalizacionItem` (superset con engagement),
 // así que adaptamos de vuelta al shape que esos componentes consumen.
 function toProspectoRow(p: ProspectoCapitalizacionItem): ProspectoRow {
+  // El drawer de edición y el modal de conversión sólo consumen
+  // nombre/email/telefono/origen/convertido_at; el resto de las columnas de
+  // captación (DGG-220) no viajan en el item de capitalización, así que
+  // casteamos el shape parcial (no se persiste nada de lo que falta acá).
   return {
     id: p.id,
     nombre: p.nombre,
@@ -65,7 +69,7 @@ function toProspectoRow(p: ProspectoCapitalizacionItem): ProspectoRow {
     creado_por: null,
     created_at: p.created_at,
     updated_at: p.updated_at,
-  };
+  } as ProspectoRow;
 }
 
 const CANAL_LABEL: Record<string, string> = {

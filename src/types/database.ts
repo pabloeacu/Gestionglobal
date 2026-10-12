@@ -165,7 +165,9 @@ export type Database = {
           matricula_rpac: string | null
           matricula_rpac_fecha: string | null
           matricula_rpac_vencimiento: string | null
-          matricula_rpac_vencimiento_certeza: string | null
+          matricula_rpac_vencimiento_certeza:
+            | Database["public"]["Enums"]["certeza_dato"]
+            | null
           matricula_rpac_vencimiento_origen: string | null
           matricula_rpac_vencimiento_verificado_at: string | null
           nombre: string
@@ -211,7 +213,9 @@ export type Database = {
           matricula_rpac?: string | null
           matricula_rpac_fecha?: string | null
           matricula_rpac_vencimiento?: string | null
-          matricula_rpac_vencimiento_certeza?: string | null
+          matricula_rpac_vencimiento_certeza?:
+            | Database["public"]["Enums"]["certeza_dato"]
+            | null
           matricula_rpac_vencimiento_origen?: string | null
           matricula_rpac_vencimiento_verificado_at?: string | null
           nombre: string
@@ -257,7 +261,9 @@ export type Database = {
           matricula_rpac?: string | null
           matricula_rpac_fecha?: string | null
           matricula_rpac_vencimiento?: string | null
-          matricula_rpac_vencimiento_certeza?: string | null
+          matricula_rpac_vencimiento_certeza?:
+            | Database["public"]["Enums"]["certeza_dato"]
+            | null
           matricula_rpac_vencimiento_origen?: string | null
           matricula_rpac_vencimiento_verificado_at?: string | null
           nombre?: string
@@ -1747,6 +1753,7 @@ export type Database = {
           pago_mp_cuit_cuil: string | null
           pago_mp_cvu: string | null
           pago_mp_titular: string | null
+          prospectos_campanas_activo: boolean
           provincia: string | null
           proximo_dni_ficticio: number
           razon_social: string
@@ -1775,6 +1782,7 @@ export type Database = {
           pago_mp_cuit_cuil?: string | null
           pago_mp_cvu?: string | null
           pago_mp_titular?: string | null
+          prospectos_campanas_activo?: boolean
           provincia?: string | null
           proximo_dni_ficticio?: number
           razon_social?: string
@@ -1803,6 +1811,7 @@ export type Database = {
           pago_mp_cuit_cuil?: string | null
           pago_mp_cvu?: string | null
           pago_mp_titular?: string | null
+          prospectos_campanas_activo?: boolean
           provincia?: string | null
           proximo_dni_ficticio?: number
           razon_social?: string
@@ -3461,6 +3470,38 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "email_templates"
             referencedColumns: ["slug"]
+          },
+        ]
+      }
+      email_suppression: {
+        Row: {
+          created_at: string
+          email: string
+          motivo: string
+          origen: string | null
+          prospecto_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          motivo?: string
+          origen?: string | null
+          prospecto_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          motivo?: string
+          origen?: string | null
+          prospecto_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_suppression_prospecto_id_fkey"
+            columns: ["prospecto_id"]
+            isOneToOne: false
+            referencedRelation: "prospectos"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -5735,44 +5776,236 @@ export type Database = {
           },
         ]
       }
+      prospecto_mails: {
+        Row: {
+          asunto: string | null
+          campana: string | null
+          canal: string
+          created_at: string
+          enviado_at: string
+          id: string
+          prospecto_id: string
+          template_slug: string | null
+        }
+        Insert: {
+          asunto?: string | null
+          campana?: string | null
+          canal?: string
+          created_at?: string
+          enviado_at?: string
+          id?: string
+          prospecto_id: string
+          template_slug?: string | null
+        }
+        Update: {
+          asunto?: string | null
+          campana?: string | null
+          canal?: string
+          created_at?: string
+          enviado_at?: string
+          id?: string
+          prospecto_id?: string
+          template_slug?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prospecto_mails_prospecto_id_fkey"
+            columns: ["prospecto_id"]
+            isOneToOne: false
+            referencedRelation: "prospectos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      prospecto_padron: {
+        Row: {
+          created_at: string
+          cuit: string | null
+          id: string
+          legajo: string | null
+          matricula: string | null
+          nombre: string
+          prospecto_id: string
+          sanciones: boolean
+          tramix_at: string | null
+          tramix_estado: string
+          tramix_flag: string | null
+          ultima_renovacion: string | null
+          vencimiento: string | null
+        }
+        Insert: {
+          created_at?: string
+          cuit?: string | null
+          id?: string
+          legajo?: string | null
+          matricula?: string | null
+          nombre: string
+          prospecto_id: string
+          sanciones?: boolean
+          tramix_at?: string | null
+          tramix_estado?: string
+          tramix_flag?: string | null
+          ultima_renovacion?: string | null
+          vencimiento?: string | null
+        }
+        Update: {
+          created_at?: string
+          cuit?: string | null
+          id?: string
+          legajo?: string | null
+          matricula?: string | null
+          nombre?: string
+          prospecto_id?: string
+          sanciones?: boolean
+          tramix_at?: string | null
+          tramix_estado?: string
+          tramix_flag?: string | null
+          ultima_renovacion?: string | null
+          vencimiento?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prospecto_padron_prospecto_id_fkey"
+            columns: ["prospecto_id"]
+            isOneToOne: false
+            referencedRelation: "prospectos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      prospecto_tramix_queue: {
+        Row: {
+          created_at: string
+          estado: string
+          flag: string | null
+          id: string
+          intentos: number
+          legajo: string
+          matriculacion: string | null
+          n_expedientes: number | null
+          padron_id: string
+          resultado: string | null
+          titular: string | null
+          ultima_renovacion: string | null
+          updated_at: string
+          vencimiento: string | null
+        }
+        Insert: {
+          created_at?: string
+          estado?: string
+          flag?: string | null
+          id?: string
+          intentos?: number
+          legajo: string
+          matriculacion?: string | null
+          n_expedientes?: number | null
+          padron_id: string
+          resultado?: string | null
+          titular?: string | null
+          ultima_renovacion?: string | null
+          updated_at?: string
+          vencimiento?: string | null
+        }
+        Update: {
+          created_at?: string
+          estado?: string
+          flag?: string | null
+          id?: string
+          intentos?: number
+          legajo?: string
+          matriculacion?: string | null
+          n_expedientes?: number | null
+          padron_id?: string
+          resultado?: string | null
+          titular?: string | null
+          ultima_renovacion?: string | null
+          updated_at?: string
+          vencimiento?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prospecto_tramix_queue_padron_id_fkey"
+            columns: ["padron_id"]
+            isOneToOne: false
+            referencedRelation: "prospecto_padron"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       prospectos: {
         Row: {
+          baja_at: string | null
+          baja_token: string
           convertido_a_administracion_id: string | null
           convertido_at: string | null
           creado_por: string | null
           created_at: string
+          cuit: string | null
           email: string
+          estado_captacion: string
           id: string
+          legajo: string | null
+          matricula: string | null
+          matricula_vencimiento: string | null
           nombre: string
           observaciones: string | null
           origen: string
+          sanciones: boolean
           telefono: string | null
+          ultima_renovacion: string | null
+          ultimo_mail_asunto: string | null
+          ultimo_mail_at: string | null
+          ultimo_mail_slug: string | null
           updated_at: string
         }
         Insert: {
+          baja_at?: string | null
+          baja_token?: string
           convertido_a_administracion_id?: string | null
           convertido_at?: string | null
           creado_por?: string | null
           created_at?: string
+          cuit?: string | null
           email: string
+          estado_captacion?: string
           id?: string
+          legajo?: string | null
+          matricula?: string | null
+          matricula_vencimiento?: string | null
           nombre: string
           observaciones?: string | null
           origen?: string
+          sanciones?: boolean
           telefono?: string | null
+          ultima_renovacion?: string | null
+          ultimo_mail_asunto?: string | null
+          ultimo_mail_at?: string | null
+          ultimo_mail_slug?: string | null
           updated_at?: string
         }
         Update: {
+          baja_at?: string | null
+          baja_token?: string
           convertido_a_administracion_id?: string | null
           convertido_at?: string | null
           creado_por?: string | null
           created_at?: string
+          cuit?: string | null
           email?: string
+          estado_captacion?: string
           id?: string
+          legajo?: string | null
+          matricula?: string | null
+          matricula_vencimiento?: string | null
           nombre?: string
           observaciones?: string | null
           origen?: string
+          sanciones?: boolean
           telefono?: string | null
+          ultima_renovacion?: string | null
+          ultimo_mail_asunto?: string | null
+          ultimo_mail_at?: string | null
+          ultimo_mail_slug?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -7430,6 +7663,68 @@ export type Database = {
           },
         ]
       }
+      tramix_backfill_queue: {
+        Row: {
+          admin_id: string
+          created_at: string
+          estado: string
+          flag: string | null
+          id: string
+          intentos: number
+          legajo: string
+          matriculacion: string | null
+          n_expedientes: number | null
+          resultado: string | null
+          titular: string | null
+          ultima_renovacion: string | null
+          updated_at: string
+          venc_anterior: string | null
+          vencimiento: string | null
+        }
+        Insert: {
+          admin_id: string
+          created_at?: string
+          estado?: string
+          flag?: string | null
+          id?: string
+          intentos?: number
+          legajo: string
+          matriculacion?: string | null
+          n_expedientes?: number | null
+          resultado?: string | null
+          titular?: string | null
+          ultima_renovacion?: string | null
+          updated_at?: string
+          venc_anterior?: string | null
+          vencimiento?: string | null
+        }
+        Update: {
+          admin_id?: string
+          created_at?: string
+          estado?: string
+          flag?: string | null
+          id?: string
+          intentos?: number
+          legajo?: string
+          matriculacion?: string | null
+          n_expedientes?: number | null
+          resultado?: string | null
+          titular?: string | null
+          ultima_renovacion?: string | null
+          updated_at?: string
+          venc_anterior?: string | null
+          vencimiento?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tramix_backfill_queue_admin_id_fkey"
+            columns: ["admin_id"]
+            isOneToOne: false
+            referencedRelation: "administraciones"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tramix_cache: {
         Row: {
           consultado_at: string
@@ -7519,6 +7814,62 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: []
+      }
+      tramix_reverify_queue: {
+        Row: {
+          admin_id: string
+          created_at: string
+          estado: string
+          flag: string | null
+          id: string
+          intentos: number
+          legajo: string
+          n_expedientes: number | null
+          resultado: string | null
+          titular: string | null
+          updated_at: string
+          valor_declarado: string
+          valor_oficial: string | null
+        }
+        Insert: {
+          admin_id: string
+          created_at?: string
+          estado?: string
+          flag?: string | null
+          id?: string
+          intentos?: number
+          legajo: string
+          n_expedientes?: number | null
+          resultado?: string | null
+          titular?: string | null
+          updated_at?: string
+          valor_declarado: string
+          valor_oficial?: string | null
+        }
+        Update: {
+          admin_id?: string
+          created_at?: string
+          estado?: string
+          flag?: string | null
+          id?: string
+          intentos?: number
+          legajo?: string
+          n_expedientes?: number | null
+          resultado?: string | null
+          titular?: string | null
+          updated_at?: string
+          valor_declarado?: string
+          valor_oficial?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tramix_reverify_queue_admin_id_fkey"
+            columns: ["admin_id"]
+            isOneToOne: true
+            referencedRelation: "administraciones"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       tramix_session: {
         Row: {
@@ -8702,6 +9053,7 @@ export type Database = {
         Args: { p_administracion_id: string }
         Returns: Json
       }
+      cliente_agenda_avisos: { Args: never; Returns: Json }
       cliente_catalogo_formularios: {
         Args: never
         Returns: {
@@ -8725,6 +9077,10 @@ export type Database = {
           origen: string
           webinar_id: string
         }[]
+      }
+      cliente_confirmar_vencimiento_matricula: {
+        Args: { p_fecha: string }
+        Returns: Json
       }
       cliente_ctacte_extracto: {
         Args: { p_admin_id?: string; p_desde?: string; p_hasta?: string }
@@ -8762,10 +9118,6 @@ export type Database = {
           movimiento_id: string
           referencia: string
         }[]
-      }
-      cliente_confirmar_vencimiento_matricula: {
-        Args: { p_fecha: string }
-        Returns: Json
       }
       cliente_marcar_tracking_leido: {
         Args: { p_tramite_id: string }
@@ -9197,6 +9549,7 @@ export type Database = {
           tramite_id: string
         }[]
       }
+      email_esta_suprimido: { Args: { p_email: string }; Returns: boolean }
       email_template_actualizar_visual: {
         Args: {
           p_asunto?: string
@@ -10053,6 +10406,7 @@ export type Database = {
         }
         Returns: Json
       }
+      is_cron_token: { Args: { p_token: string }; Returns: boolean }
       is_visible_for_alumno: {
         Args: {
           p_despublicar_at: string
@@ -10385,6 +10739,10 @@ export type Database = {
         Args: { p_dias: number; p_linea_id: string; p_motivo?: string }
         Returns: string
       }
+      prospecto_baja: {
+        Args: { p_prospecto_id: string; p_token: string }
+        Returns: Json
+      }
       prospecto_eventos: {
         Args: { p_prospecto_id: string }
         Returns: {
@@ -10394,6 +10752,61 @@ export type Database = {
           titulo: string
           webinar_id: string
         }[]
+      }
+      prospecto_segmento: {
+        Args: { p_hoy: string; p_venc: string }
+        Returns: string
+      }
+      prospecto_tramix_claim: {
+        Args: never
+        Returns: {
+          id: string
+          legajo: string
+          padron_id: string
+        }[]
+      }
+      prospectos_campanas_diario: { Args: never; Returns: Json }
+      prospectos_captacion_kpis: { Args: never; Returns: Json }
+      prospectos_captacion_list: {
+        Args: {
+          p_estado?: string
+          p_limit?: number
+          p_offset?: number
+          p_search?: string
+          p_segmento?: string
+          p_solo_con_email?: boolean
+          p_solo_sancionados?: boolean
+        }
+        Returns: {
+          baja_at: string
+          convertido_at: string
+          cuit: string
+          email: string
+          estado_captacion: string
+          id: string
+          legajo: string
+          matricula: string
+          matricula_vencimiento: string
+          nombre: string
+          padron_count: number
+          sanciones: boolean
+          segmento: string
+          sin_email: boolean
+          suprimido: boolean
+          total_count: number
+          ultima_renovacion: string
+          ultimo_mail_asunto: string
+          ultimo_mail_at: string
+          ultimo_mail_slug: string
+        }[]
+      }
+      prospectos_enviar_campana: {
+        Args: {
+          p_limite?: number
+          p_segmento?: string
+          p_template_slug: string
+        }
+        Returns: Json
       }
       prospectos_listado: {
         Args: { p_webinar_id?: string }
@@ -10415,6 +10828,10 @@ export type Database = {
           ultimo_evento_at: string
           updated_at: string
         }[]
+      }
+      prospectos_preview_campana: {
+        Args: { p_segmento?: string; p_template_slug: string }
+        Returns: Json
       }
       proximos_vencimientos: {
         Args: { p_administracion_id?: string; p_dias?: number }
@@ -10834,6 +11251,15 @@ export type Database = {
         Args: { t: Database["public"]["Tables"]["tramites"]["Row"] }
         Returns: boolean
       }
+      tramix_backfill_claim: {
+        Args: never
+        Returns: {
+          admin_id: string
+          id: string
+          legajo: string
+          venc_anterior: string
+        }[]
+      }
       tramix_gate: {
         Args: { p_force?: boolean; p_legajo: string; p_user: string }
         Returns: Json
@@ -10846,6 +11272,15 @@ export type Database = {
           p_user: string
         }
         Returns: undefined
+      }
+      tramix_reverify_claim: {
+        Args: never
+        Returns: {
+          admin_id: string
+          id: string
+          legajo: string
+          valor_declarado: string
+        }[]
       }
       vencimiento_eliminar: { Args: { p_id: string }; Returns: undefined }
       vencimiento_pausar: {
