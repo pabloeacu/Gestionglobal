@@ -128,6 +128,8 @@ interface QueueRow {
   administracion_id: string | null;
   consorcio_id: string | null;
   attachments_jsonb: QueueAttachment[] | null;
+  related_table: string | null;
+  related_id: string | null;
 }
 
 // DGG-118: únicos buckets desde los que el dispatcher acepta bajar adjuntos.
@@ -178,7 +180,7 @@ Deno.serve(async (req) => {
   // 2) Próximos jobs (candidatos en orden de prioridad).
   const { data: rows, error: errQueue } = await admin
     .from('email_queue')
-    .select('id, template_slug, to_email, to_nombre, variables, prioridad, intento, max_intentos, administracion_id, consorcio_id, attachments_jsonb')
+    .select('id, template_slug, to_email, to_nombre, variables, prioridad, intento, max_intentos, administracion_id, consorcio_id, attachments_jsonb, related_table, related_id')
     .eq('kind', 'workflow')
     .is('enviado_at', null)
     .lte('programado_para', new Date().toISOString())
@@ -211,6 +213,36 @@ Deno.serve(async (req) => {
   }
   if (!job) {
     return json({ ok: true, drained: 0, recipient_throttled: true });
+  }
+
+  // 2c) DGG-220 Fase 2 — Compliance de marketing a prospectos (opt-out + baja).
+  // SÓLO aplica a emails con related_table='prospectos'; el transaccional/cliente
+  // queda byte-idéntico (bajaUrl=null → ni header List-Unsubscribe ni footer de baja).
+  let bajaUrl: string | null = null;
+  if (job.related_table === 'prospectos') {
+    // Backoff para no bloquear la cola ante un fallo transitorio (el row vuelve en 5').
+    const deferir = async (motivo: string) => {
+      await admin.from('email_queue')
+        .update({ programado_para: new Date(Date.now() + 5 * 60 * 1000).toISOString() })
+        .eq('id', job!.id);
+      return json({ ok: true, drained: 0, deferred: motivo });
+    };
+    // Marketing a prospecto sin prospecto asociado → no se puede dar baja → no enviar.
+    if (!job.related_id) return await deferir('prospecto_sin_id');
+    // (a) GATE fail-CLOSED: si no podemos verificar supresión, NO enviar (reintenta).
+    const { data: suprimido, error: supErr } = await admin.rpc('email_esta_suprimido', { p_email: job.to_email });
+    if (supErr) return await deferir('suppression_check_error');
+    if (suprimido === true) {
+      await admin.from('email_queue')
+        .update({ enviado_at: new Date().toISOString(), status: 'cancelled', ultimo_error: 'suprimido (opt-out / baja)' })
+        .eq('id', job.id);
+      return json({ ok: true, drained: 0, suppressed: true });
+    }
+    // (b) Link de baja OBLIGATORIO (token por prospecto, mig 0545). Fail-CLOSED:
+    // ningún mail de marketing a prospectos sale sin link de baja.
+    const { data: prow, error: pErr } = await admin.from('prospectos').select('baja_token').eq('id', job.related_id).maybeSingle();
+    if (pErr || !prow?.baja_token) return await deferir('sin_baja_token');
+    bajaUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/email-baja?p=${job.related_id}&t=${prow.baja_token}`;
   }
 
   // 3) Cargar template (con campos MANAXER).
@@ -250,7 +282,7 @@ Deno.serve(async (req) => {
   const subject = renderVars(tpl.asunto, vars);
   let html: string;
   if (tpl.layout_version === 'manaxer-v1') {
-    html = buildManaxerHtml(tpl, vars, senderEmail, replyToEmail);
+    html = buildManaxerHtml(tpl, vars, senderEmail, replyToEmail, bajaUrl);
     // Hardening (E-GG-74): una plantilla manaxer-v1 con `cuerpo_html_visual` vacío
     // produce un mail "sólo logo" (el dispatcher no mira `body_html` en este layout).
     // Defensa: si el cuerpo visual renderiza vacío y existe `body_html` legacy,
@@ -346,6 +378,7 @@ Deno.serve(async (req) => {
     html,
     text,
     attachments,
+    bajaUrl: bajaUrl ?? undefined,
   });
   const raw = base64UrlEncode(mime);
 
@@ -425,6 +458,7 @@ function buildManaxerHtml(
   vars: Record<string, unknown>,
   fromEmail: string,
   replyToEmail: string,
+  bajaUrl?: string | null,
 ): string {
   const accent = sanitizeHex(tpl.color_acento) ?? '#0891b2';
   const kicker = renderVars(tpl.kicker, vars);
@@ -493,9 +527,13 @@ function buildManaxerHtml(
       </td></tr>`
     : '';
 
+  // DGG-220 Fase 2: línea de baja (sólo marketing a prospectos, cuando hay bajaUrl).
+  const bajaLine = bajaUrl
+    ? `<br /><span style="color:#b6c0cc;">¿No querés recibir estos correos? <a href="${escapeAttr(bajaUrl)}" style="color:#94a3b8;text-decoration:underline;">Darme de baja</a>.</span>`
+    : '';
   const footerBlock = `<tr><td style="padding:18px 32px 28px 32px;border-top:1px solid #e2e8f0;background:#f8fafc;border-radius:0 0 16px 16px;">
       <p style="margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:11px;color:#94a3b8;text-align:center;">
-        Enviado por <strong style="color:#475569;">Gestión Global</strong> · <a href="https://www.${DOMAIN}" style="color:${accent};text-decoration:none;">${DOMAIN}</a>
+        Enviado por <strong style="color:#475569;">Gestión Global</strong> · <a href="https://www.${DOMAIN}" style="color:${accent};text-decoration:none;">${DOMAIN}</a>${bajaLine}
       </p>
     </td></tr>`;
 
@@ -625,6 +663,7 @@ interface MimeArgs {
   html: string;
   text?: string;
   attachments?: MimeAttachment[];
+  bajaUrl?: string;
 }
 
 function buildMimeMessage(a: MimeArgs): string {
@@ -640,6 +679,11 @@ function buildMimeMessage(a: MimeArgs): string {
   headers.push('MIME-Version: 1.0');
   headers.push('X-Auto-Response-Suppress: All');
   headers.push('X-Mailer: Gestion Global Platform');
+  // DGG-220 Fase 2: baja one-click (RFC 8058) para marketing a prospectos.
+  if (a.bajaUrl) {
+    headers.push(`List-Unsubscribe: <${a.bajaUrl}>, <mailto:contacto@gestionglobal.ar?subject=baja>`);
+    headers.push('List-Unsubscribe-Post: List-Unsubscribe=One-Click');
+  }
 
   // DGG-118: con adjuntos el sobre externo es multipart/mixed — la parte 1 es
   // el cuerpo (multipart/alternative anidado si hay texto plano, html directo

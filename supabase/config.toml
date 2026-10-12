@@ -53,3 +53,15 @@ verify_jwt = false
 # cablee el Pub/Sub real de Google deberá verificar el OIDC del push subscription.
 [functions.gmail-pubsub-webhook]
 verify_jwt = false
+
+# email-baja (DGG-220 Fase 2): endpoint PÚBLICO de baja/unsubscribe. verify_jwt=false
+# a propósito — el unsubscribe (incl. List-Unsubscribe-Post one-click, RFC 8058) debe
+# ser alcanzable SIN login; la barrera real es el token de 128 bits por prospecto.
+# Se fija acá para que un deploy por CLI no lo flipee a true y rompa el one-click.
+[functions.email-baja]
+verify_jwt = false
+
+# tramix-prospectos (DGG-220 Fase 1c): goteo de enriquecimiento. verify_jwt=false;
+# auth interna por is_cron_token (cron_secret del vault). Igual que tramix-backfill.
+[functions.tramix-prospectos]
+verify_jwt = false
