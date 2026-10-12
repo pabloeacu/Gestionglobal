@@ -526,6 +526,24 @@ Deno.serve(async (req) => {
         continue;
       }
 
+      // DGG-220: hard-bounce o queja de un PROSPECTO → supresión (protege la
+      // reputación del mailing en frío; el motor/dispatch no vuelven a mandarle).
+      // Scoped a prospectos: un rebote de cliente se maneja por el aviso a gerencia.
+      if (estado === 'bounced' || estado === 'complained') {
+        try {
+          const em = (sent.to_email || '').toLowerCase().trim();
+          if (em) {
+            const { data: prow } = await admin.from('prospectos').select('id').eq('email', em).maybeSingle();
+            if (prow?.id) {
+              await admin.from('email_suppression').upsert(
+                { email: em, motivo: estado === 'complained' ? 'queja' : 'bounce', origen: 'webhook', prospecto_id: prow.id },
+                { onConflict: 'email', ignoreDuplicates: true },
+              );
+            }
+          }
+        } catch { /* best-effort: no abortar la cosecha */ }
+      }
+
       // DGG-117 (v3): avisar a gerencia (campanita + push + email) cuando un
       // envío REBOTA de verdad (no por demoras transitorias). Best-effort: un
       // fallo acá no aborta la cosecha. Idempotente por diseño: cada DSN se

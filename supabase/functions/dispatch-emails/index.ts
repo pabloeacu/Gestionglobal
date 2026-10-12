@@ -527,9 +527,10 @@ function buildManaxerHtml(
       </td></tr>`
     : '';
 
-  // DGG-220 Fase 2: línea de baja (sólo marketing a prospectos, cuando hay bajaUrl).
+  // DGG-220 Fase 2/4: baja + fuente (sólo marketing a prospectos, cuando hay bajaUrl).
+  // La línea de fuente da legitimidad al mailing en frío (§6 B#6): decís por qué lo recibe.
   const bajaLine = bajaUrl
-    ? `<br /><span style="color:#b6c0cc;">¿No querés recibir estos correos? <a href="${escapeAttr(bajaUrl)}" style="color:#94a3b8;text-decoration:underline;">Darme de baja</a>.</span>`
+    ? `<br /><span style="color:#b6c0cc;">Recibís este correo porque figurás en el registro público de administradores de consorcios (DPPJ · Pcia. de Buenos Aires). ¿No querés recibir estos correos? <a href="${escapeAttr(bajaUrl)}" style="color:#94a3b8;text-decoration:underline;">Darme de baja</a>.</span>`
     : '';
   const footerBlock = `<tr><td style="padding:18px 32px 28px 32px;border-top:1px solid #e2e8f0;background:#f8fafc;border-radius:0 0 16px 16px;">
       <p style="margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:11px;color:#94a3b8;text-align:center;">
