@@ -10793,6 +10793,7 @@ export type Database = {
           segmento: string
           sin_email: boolean
           suprimido: boolean
+          telefono: string
           total_count: number
           ultima_renovacion: string
           ultimo_mail_asunto: string

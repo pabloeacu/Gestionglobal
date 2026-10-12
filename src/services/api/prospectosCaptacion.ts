@@ -35,6 +35,7 @@ export interface ProspectoCaptacionRow {
   id: string;
   nombre: string;
   email: string;
+  telefono: string | null;
   cuit: string | null;
   matricula: string | null;
   legajo: string | null;

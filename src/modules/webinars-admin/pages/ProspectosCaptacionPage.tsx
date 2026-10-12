@@ -98,17 +98,26 @@ export function ProspectosCaptacionPage() {
   // KPIs: una sola vez (universo). NO dependen de los filtros (R19).
   useEffect(() => { void recargarKpis(); }, []);
 
-  // debounce de la búsqueda
+  // debounce de la búsqueda (resetea a pág. 1 en el mismo batch → 1 solo fetch)
   useEffect(() => {
-    const t = setTimeout(() => setDebounced(search.trim()), 350);
+    const t = setTimeout(() => { setDebounced(search.trim()); setPage(1); }, 350);
     return () => clearTimeout(t);
   }, [search]);
 
-  // reset a página 1 cuando cambia un filtro
-  useEffect(() => { setPage(1); }, [segmento, estado, debounced, soloSancionados, soloConEmail]);
-
-  // lista: server-side, re-fetch al cambiar filtro o página
+  // lista: server-side, re-fetch al cambiar filtro o página. §6 B#10: el reset de
+  // página se hace en el setter del filtro (mismo batch que el cambio) para NO
+  // disparar un fetch stale con el page viejo + uno nuevo con page=1.
   useEffect(() => { void recargarLista(); }, [segmento, estado, debounced, soloSancionados, soloConEmail, page]);
+
+  // setters de filtro que resetean a página 1 (un solo re-render → un solo fetch)
+  function changeSegmento(next: SegmentoFiltro) { setSegmento(next); setPage(1); }
+  function changeEstado(next: string) { setEstado(next); setPage(1); }
+  function changeSoloConEmail(next: boolean) { setSoloConEmail(next); setPage(1); }
+  function changeSoloSancionados(next: boolean) { setSoloSancionados(next); setPage(1); }
+  function toggleSegmentoChip(key: SegmentoCaptacion) {
+    setSegmento((prev) => (prev === key ? '' : key));
+    setPage(1);
+  }
 
   const segChips = useMemo(() => {
     if (!kpis) return [];
@@ -181,7 +190,7 @@ export function ProspectosCaptacionPage() {
           <button
             key={c.key}
             type="button"
-            onClick={() => setSegmento((prev) => (prev === c.key ? '' : c.key))}
+            onClick={() => toggleSegmentoChip(c.key)}
             className={cn(
               'inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ring-1 transition',
               SEG_TONE[c.key],
@@ -195,7 +204,7 @@ export function ProspectosCaptacionPage() {
 
       {/* Filtros */}
       <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white p-3">
-        <Select value={segmento} onChange={(e) => setSegmento(e.target.value as SegmentoFiltro)} className="max-w-[12rem]">
+        <Select value={segmento} onChange={(e) => changeSegmento(e.target.value as SegmentoFiltro)} className="max-w-[12rem]">
           <option value="">Todos los segmentos</option>
           <option value="vencida">Vencidas</option>
           <option value="curso_reno_30">Vence ≤30 días</option>
@@ -203,7 +212,7 @@ export function ProspectosCaptacionPage() {
           <option value="vigente_lejos">Vigentes</option>
           <option value="sin_dato">Sin dato</option>
         </Select>
-        <Select value={estado} onChange={(e) => setEstado(e.target.value)} className="max-w-[11rem]">
+        <Select value={estado} onChange={(e) => changeEstado(e.target.value)} className="max-w-[11rem]">
           <option value="">Todos los estados</option>
           <option value="nuevo">Nuevo</option>
           <option value="contactado">Contactado</option>
@@ -221,8 +230,8 @@ export function ProspectosCaptacionPage() {
             className="pl-9"
           />
         </div>
-        <Switch checked={soloConEmail} onChange={setSoloConEmail} label="Solo con email" size="sm" />
-        <Switch checked={soloSancionados} onChange={setSoloSancionados} label="Solo sancionados" size="sm" />
+        <Switch checked={soloConEmail} onChange={changeSoloConEmail} label="Solo con email" size="sm" />
+        <Switch checked={soloSancionados} onChange={changeSoloSancionados} label="Solo sancionados" size="sm" />
       </div>
 
       {loading ? (
@@ -386,7 +395,7 @@ function toProspectoRow(p: ProspectoCaptacionRow): ProspectoRow {
     id: p.id,
     nombre: p.nombre,
     email: p.email,
-    telefono: null,
+    telefono: p.telefono,
     origen: 'padron_pba',
     observaciones: null,
     convertido_a_administracion_id: null,
