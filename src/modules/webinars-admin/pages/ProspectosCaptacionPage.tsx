@@ -3,17 +3,20 @@ import {
   AlertTriangle,
   BadgeCheck,
   CheckCircle2,
+  Gauge,
   Loader2,
   Mail,
   MailX,
   Megaphone,
+  Pause,
   Pencil,
+  Play,
   Search,
   ShieldAlert,
   UserPlus,
   Users,
 } from 'lucide-react';
-import { Button, Input, Modal, Select, Switch, Paginador, PAGE_SIZE_DEFAULT } from '@/components/common';
+import { Button, Input, Modal, Select, Switch, Paginador, PAGE_SIZE_DEFAULT, useConfirm } from '@/components/common';
 import { IllustratedEmpty } from '@/components/brand/IllustratedEmpty';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/cn';
@@ -24,6 +27,7 @@ import {
   enviarCampana,
   getCaptacionKpis,
   listProspectosCaptacion,
+  pausarMotor,
   previewCampana,
   type CampanaCatalogoItem,
   type CampanaPreview,
@@ -161,6 +165,9 @@ export function ProspectosCaptacionPage() {
         <KpiCard label="Contactados" value={kpis?.contactados ?? '—'} icon={Megaphone} tone="amber"
           hint={kpis ? `${kpis.bajas} bajas · ${kpis.sancionados} sancionados` : undefined} />
       </div>
+
+      {/* Panel del motor de campañas */}
+      {kpis && <MotorPanel kpis={kpis} onChange={() => void recargarKpis()} />}
 
       {/* Progreso de enriquecimiento (goteo TRAMIX) */}
       {kpis && kpis.enrich_pendientes > 0 && (
@@ -432,6 +439,94 @@ function KpiCard({ label, value, icon: Icon, tone, hint }: {
 }
 
 // ---------------------------------------------------------------------------
+// Panel del motor automático: estado (enviando/pausado/apagado), cap diario,
+// progreso de hoy, cola, y botón de pausar/reanudar.
+// ---------------------------------------------------------------------------
+function MotorPanel({ kpis, onChange }: { kpis: CaptacionKpis; onChange: () => void }) {
+  const confirm = useConfirm();
+  const [busy, setBusy] = useState(false);
+  const estado: 'enviando' | 'pausado' | 'apagado' = !kpis.activo ? 'apagado' : kpis.pausado ? 'pausado' : 'enviando';
+  const pct = kpis.cap_diario > 0 ? Math.min(100, Math.round((kpis.encolados_hoy / kpis.cap_diario) * 100)) : 0;
+
+  async function toggle() {
+    const pausar = !kpis.pausado;
+    if (pausar) {
+      const ok = await confirm({
+        title: 'Pausar el motor', message: 'Deja de enviar campañas hasta que lo reanudes. ¿Pausar ahora?',
+        confirmLabel: 'Pausar', cancelLabel: 'No',
+      });
+      if (!ok) return;
+    }
+    setBusy(true);
+    const res = await pausarMotor(pausar);
+    setBusy(false);
+    if (res.ok) { toast.success(pausar ? 'Motor pausado' : 'Motor reanudado'); onChange(); }
+    else toast.error('No pudimos cambiar el estado', { description: humanizeError(res.error) });
+  }
+
+  const badge =
+    estado === 'enviando' ? { t: 'Enviando', c: 'bg-green-50 text-green-700 ring-green-100' }
+    : estado === 'pausado' ? { t: 'Pausado', c: 'bg-amber-50 text-amber-700 ring-amber-100' }
+    : { t: 'Apagado', c: 'bg-slate-100 text-slate-600 ring-slate-200' };
+
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5">
+          <div className="grid h-9 w-9 place-items-center rounded-full bg-brand-cyan/5 text-brand-cyan ring-1 ring-brand-cyan/20">
+            <Gauge size={16} />
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-brand-ink">Motor de campañas</p>
+            <p className="text-xs text-brand-muted">Automático · {kpis.cap_diario}/día · 1 cada 20 min</p>
+          </div>
+          <span className={cn('ml-1 inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold ring-1', badge.c)}>
+            {badge.t}
+          </span>
+        </div>
+        {kpis.activo && (
+          <Button variant={kpis.pausado ? 'primary' : 'secondary'} onClick={toggle} loading={busy}>
+            {kpis.pausado ? <><Play size={14} /> Reanudar</> : <><Pause size={14} /> Pausar</>}
+          </Button>
+        )}
+      </div>
+
+      {estado === 'pausado' && kpis.pausado_motivo && (
+        <div className="mt-3 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-2.5 text-xs text-amber-800">
+          <AlertTriangle size={14} className="mt-0.5 flex-shrink-0" /> {kpis.pausado_motivo}
+        </div>
+      )}
+      {estado === 'apagado' && (
+        <p className="mt-3 text-xs text-brand-muted">El motor todavía no está activado. Nada se envía.</p>
+      )}
+
+      <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <MotorStat label="Hoy" value={`${kpis.encolados_hoy} / ${kpis.cap_diario}`} />
+        <MotorStat label="En cola" value={kpis.cola_pendiente} />
+        <MotorStat label="Enviados total" value={kpis.enviados_total} />
+        <MotorStat label="Contactados" value={kpis.contactados} />
+      </div>
+      {kpis.activo && (
+        <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+          <div className="h-full rounded-full bg-brand-cyan transition-all" style={{ width: `${pct}%` }} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MotorStat({ label, value }: { label: string; value: number | string }) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+      <p className="text-[10px] uppercase tracking-wider text-brand-muted">{label}</p>
+      <p className="font-display text-base font-bold tabular-nums text-brand-ink">
+        {typeof value === 'number' ? value.toLocaleString('es-AR') : value}
+      </p>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Launcher de campaña: elegir plantilla + segmento → preview de elegibles →
 // Enviar. GATED: si el motor está apagado, el envío está deshabilitado con
 // explicación (y el server lo rechaza igual — defensa en profundidad).
@@ -447,6 +542,7 @@ function CampanaLauncher({ activo, onClose, onEnqueued }: {
   const [preview, setPreview] = useState<CampanaPreview | null>(null);
   const [previewing, setPreviewing] = useState(false);
   const [enviando, setEnviando] = useState(false);
+  const [forzar, setForzar] = useState(false);
 
   const item: CampanaCatalogoItem = CAMPANAS_CATALOGO.find((c) => c.slug === slug) ?? CAMPANAS_CATALOGO[0]!;
 
@@ -470,13 +566,13 @@ function CampanaLauncher({ activo, onClose, onEnqueued }: {
     return () => { cancel = true; };
   }, [slug, segmento]);
 
-  const elegibles = preview?.elegibles ?? 0;
+  const elegibles = (preview?.elegibles ?? 0) + (forzar ? (preview?.en_cooldown ?? 0) : 0);
   const aEnviar = Math.min(elegibles, limite);
   const puedeEnviar = activo && !previewing && aEnviar > 0 && !preview?.bloqueado_guard;
 
   async function onEnviar() {
     setEnviando(true);
-    const res = await enviarCampana(slug, segmento || null, limite);
+    const res = await enviarCampana(slug, segmento || null, limite, forzar);
     setEnviando(false);
     if (!res.ok) { toast.error('No pudimos enviar', { description: humanizeError(res.error) }); return; }
     if (res.data.gated) {
@@ -568,6 +664,18 @@ function CampanaLauncher({ activo, onClose, onEnqueued }: {
             </div>
           )}
         </div>
+
+        {!!preview && preview.en_cooldown > 0 && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
+            <Switch
+              checked={forzar}
+              onChange={setForzar}
+              size="sm"
+              label={`Reenviar a los ${preview.en_cooldown} que ya recibieron esta campaña`}
+              hint="Por defecto no se les reitera. Activalo sólo si querés insistir con los mismos."
+            />
+          </div>
+        )}
 
         <label className="block">
           <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-brand-muted">

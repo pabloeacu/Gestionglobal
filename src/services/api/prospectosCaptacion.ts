@@ -25,6 +25,12 @@ export interface CaptacionKpis {
   seg_vigente_lejos: number;
   seg_sin_dato: number;
   activo: boolean;
+  pausado: boolean;
+  pausado_motivo: string | null;
+  cap_diario: number;
+  encolados_hoy: number;
+  cola_pendiente: number;
+  enviados_total: number;
   hoy: string;
   enriquecidos: number;
   enrich_pendientes: number;
@@ -171,15 +177,28 @@ export async function enviarCampana(
   templateSlug: string,
   segmento: SegmentoCaptacion | null,
   limite: number,
+  forzar = false,
 ): Promise<ApiResponse<EnviarCampanaResult>> {
   try {
     const { data, error } = await supabase.rpc('prospectos_enviar_campana', {
       p_template_slug: templateSlug,
       p_segmento: segmento ?? undefined,
       p_limite: limite,
+      p_forzar: forzar,
     });
     if (error) throw error;
     return ok(data as unknown as EnviarCampanaResult);
+  } catch (e) {
+    const err = toApiError(e);
+    return fail(err.code, err.message, err.details);
+  }
+}
+
+export async function pausarMotor(pausar: boolean): Promise<ApiResponse<{ ok: boolean; pausado: boolean }>> {
+  try {
+    const { data, error } = await supabase.rpc('prospectos_motor_pausar', { p_pausar: pausar });
+    if (error) throw error;
+    return ok(data as unknown as { ok: boolean; pausado: boolean });
   } catch (e) {
     const err = toApiError(e);
     return fail(err.code, err.message, err.details);

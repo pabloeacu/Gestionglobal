@@ -10840,6 +10840,7 @@ export type Database = {
           updated_at: string
         }[]
       }
+      prospectos_motor_pausar: { Args: { p_pausar: boolean }; Returns: Json }
       prospectos_preview_campana: {
         Args: { p_segmento?: string; p_template_slug: string }
         Returns: Json

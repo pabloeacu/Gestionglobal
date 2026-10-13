@@ -62,6 +62,12 @@ Deno.serve(async (req) => {
     const table = parseCsv(csv);
     if (table.length < 2) return json({ error: "csv_vacio", filas: table.length }, 502);
 
+    // Validar cabecera: si reordenan columnas en la planilla, abortar (no mezclar datos).
+    const header = (table[0] ?? []).map((h) => (h || "").trim().toLowerCase());
+    if (!/matr[ií]c/.test(header[0] ?? "") || !/legajo/.test(header[1] ?? "") || !/mail|email|correo/.test(header[4] ?? "")) {
+      return json({ error: "csv_cabecera_inesperada", header }, 502);
+    }
+
     // Mapeo por posición: 0 matricula, 1 legajo, 2 nombre, 3 cuit, 4 mail, 5 sanciones.
     // Saltamos la cabecera (fila 0).
     const rows = table.slice(1)
