@@ -65,3 +65,8 @@ verify_jwt = false
 # auth interna por is_cron_token (cron_secret del vault). Igual que tramix-backfill.
 [functions.tramix-prospectos]
 verify_jwt = false
+
+# prospectos-reimport-padron (DGG-221): re-import del padrón cada 10 días desde el
+# CSV público de la planilla. verify_jwt=false; auth interna por is_cron_token.
+[functions.prospectos-reimport-padron]
+verify_jwt = false

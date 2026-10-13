@@ -1754,6 +1754,9 @@ export type Database = {
           pago_mp_cvu: string | null
           pago_mp_titular: string | null
           prospectos_campanas_activo: boolean
+          prospectos_cap_diario: number
+          prospectos_pausado_motivo: string | null
+          prospectos_pausado_reputacion: boolean
           provincia: string | null
           proximo_dni_ficticio: number
           razon_social: string
@@ -1783,6 +1786,9 @@ export type Database = {
           pago_mp_cvu?: string | null
           pago_mp_titular?: string | null
           prospectos_campanas_activo?: boolean
+          prospectos_cap_diario?: number
+          prospectos_pausado_motivo?: string | null
+          prospectos_pausado_reputacion?: boolean
           provincia?: string | null
           proximo_dni_ficticio?: number
           razon_social?: string
@@ -1812,6 +1818,9 @@ export type Database = {
           pago_mp_cvu?: string | null
           pago_mp_titular?: string | null
           prospectos_campanas_activo?: boolean
+          prospectos_cap_diario?: number
+          prospectos_pausado_motivo?: string | null
+          prospectos_pausado_reputacion?: boolean
           provincia?: string | null
           proximo_dni_ficticio?: number
           razon_social?: string
@@ -10765,7 +10774,7 @@ export type Database = {
           padron_id: string
         }[]
       }
-      prospectos_campanas_diario: { Args: never; Returns: Json }
+      prospectos_campana_tick: { Args: never; Returns: Json }
       prospectos_captacion_kpis: { Args: never; Returns: Json }
       prospectos_captacion_list: {
         Args: {
@@ -10803,6 +10812,7 @@ export type Database = {
       }
       prospectos_enviar_campana: {
         Args: {
+          p_forzar?: boolean
           p_limite?: number
           p_segmento?: string
           p_template_slug: string
@@ -10834,6 +10844,8 @@ export type Database = {
         Args: { p_segmento?: string; p_template_slug: string }
         Returns: Json
       }
+      prospectos_reimport_aplicar: { Args: { p_rows: Json }; Returns: Json }
+      prospectos_reporte_semanal: { Args: never; Returns: Json }
       proximos_vencimientos: {
         Args: { p_administracion_id?: string; p_dias?: number }
         Returns: {
