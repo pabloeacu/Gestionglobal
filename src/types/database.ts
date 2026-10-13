@@ -10762,6 +10762,7 @@ export type Database = {
           webinar_id: string
         }[]
       }
+      prospecto_nombre_pila: { Args: { p_nombre: string }; Returns: string }
       prospecto_segmento: {
         Args: { p_hoy: string; p_venc: string }
         Returns: string
