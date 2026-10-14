@@ -238,6 +238,23 @@ function DataChip({
   );
 }
 
+// Tono (dot + badge) según el color definido en tracking_categorias_config —
+// lo trae la RPC en categoria_color. Antes el portal lo ignoraba y hardcodeaba
+// el tono por slug; ahora cada categoría pinta su color (p.ej. 'cierre'→emerald,
+// 'cierre_frustrado'→amber). Fallback a los casos viejos por slug → cyan.
+const TONO_CYAN = { dot: 'bg-brand-cyan', bg: 'bg-brand-cyan-pale/40', text: 'text-brand-cyan' };
+const TONO_EMERALD = { dot: 'bg-emerald-500', bg: 'bg-emerald-50', text: 'text-emerald-700' };
+const TONO_ROSE = { dot: 'bg-rose-500', bg: 'bg-rose-50', text: 'text-rose-700' };
+const TONO_BY_COLOR: Record<string, { dot: string; bg: string; text: string }> = {
+  cyan: TONO_CYAN,
+  emerald: TONO_EMERALD,
+  red: TONO_ROSE,
+  rose: TONO_ROSE,
+  amber: { dot: 'bg-amber-500', bg: 'bg-amber-50', text: 'text-amber-700' },
+  teal: { dot: 'bg-teal-500', bg: 'bg-teal-50', text: 'text-teal-700' },
+  slate: { dot: 'bg-slate-400', bg: 'bg-slate-100', text: 'text-slate-600' },
+};
+
 function TimelineItem({
   linea,
   isLast,
@@ -248,11 +265,12 @@ function TimelineItem({
   isFirst: boolean;
 }) {
   const tone =
-    linea.categoria_slug === 'incidencia'
-      ? { dot: 'bg-rose-500', bg: 'bg-rose-50', text: 'text-rose-700' }
+    TONO_BY_COLOR[linea.categoria_color ?? ''] ??
+    (linea.categoria_slug === 'incidencia'
+      ? TONO_ROSE
       : linea.categoria_slug === 'cobranza'
-        ? { dot: 'bg-emerald-500', bg: 'bg-emerald-50', text: 'text-emerald-700' }
-        : { dot: 'bg-brand-cyan', bg: 'bg-brand-cyan-pale/40', text: 'text-brand-cyan' };
+        ? TONO_EMERALD
+        : TONO_CYAN);
   const categoriaLabel = linea.categoria_label || linea.categoria_slug;
 
   return (

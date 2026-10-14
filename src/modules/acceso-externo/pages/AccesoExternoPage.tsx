@@ -1319,7 +1319,24 @@ function PanelGestor({ token }: { token: string }) {
             {avances.map((a) => (
               <li key={a.id} className="rounded-xl border border-slate-200 bg-white p-3">
                 <div className="flex items-baseline justify-between gap-2">
-                  <span className="kicker text-brand-cyan">
+                  {/* color de la categoría según tracking_categorias_config
+                      (categoria_color), con fallback a cyan — consistente con
+                      el portal del cliente y la gerencia. */}
+                  <span
+                    className={`kicker ${
+                      (
+                        {
+                          cyan: 'text-brand-cyan',
+                          emerald: 'text-emerald-700',
+                          amber: 'text-amber-700',
+                          red: 'text-rose-700',
+                          rose: 'text-rose-700',
+                          teal: 'text-teal-700',
+                          slate: 'text-slate-600',
+                        } as Record<string, string>
+                      )[a.categoria_color ?? ''] ?? 'text-brand-cyan'
+                    }`}
+                  >
                     {a.categoria_label}
                   </span>
                   <span className="text-[10px] text-brand-muted">
