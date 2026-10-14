@@ -146,8 +146,13 @@ ev AS (
   SELECT c.*, x.tiene_cache, x.consultado_at, x.ult,
     (x.ult->>'estado' = c.estado_ok) AS estado_confirma,
     (x.consultado_at IS NOT NULL AND x.consultado_at >= c.created_at) AS fresco,
+    -- ANCLAJE (§6-A): el expediente confirmante debe ser del CICLO ACTUAL (posterior
+    -- a la apertura del trámite, 7d de gracia por desfasaje de tiempos), NO uno de un
+    -- ciclo anterior. La ventana previa (created_at-180d) era laxa y daba falso
+    -- positivo en servicios repetibles (cert/renovación): p.ej. Coppari se cerraría
+    -- citando un certificado emitido 128d ANTES de que el trámite existiera.
     (private.tramix_fecha(x.ult->>'fecha') IS NOT NULL
-       AND private.tramix_fecha(x.ult->>'fecha') BETWEEN (c.created_at::date - 180) AND (now()::date + 7)) AS anclado
+       AND private.tramix_fecha(x.ult->>'fecha') BETWEEN (c.created_at::date - 7) AND (now()::date + 7)) AS anclado
   FROM cand c JOIN tx x ON x.tramite_id=c.tramite_id
 )
 SELECT COALESCE(jsonb_agg(jsonb_build_object(
@@ -192,7 +197,7 @@ SELECT COALESCE(jsonb_agg(jsonb_build_object(
      WHEN NOT estado_confirma AND ult->>'estado'='OBSERVADO' THEN 'TRAMIX: '||exp_esperado||' OBSERVADO — revisar'
      WHEN NOT estado_confirma THEN 'TRAMIX: '||exp_esperado||' en estado "'||(ult->>'estado')||'" (no terminal) — revisar'
      WHEN NOT fresco THEN 'TRAMIX confirmado pero el cache es anterior a la apertura del trámite — re-scrapear antes de cerrar'
-     WHEN NOT anclado THEN 'TRAMIX confirmado pero el expediente no corresponde al ciclo actual (fecha fuera de ventana) — revisar'
+     WHEN NOT anclado THEN 'TRAMIX: el expediente confirmante es de un ciclo anterior (fecha previa a la apertura) — revisar manual'
      ELSE 'TRAMIX confirma '||exp_esperado||' = '||estado_ok||' → cerrable' END
 ) ORDER BY
      (CASE WHEN impago OR arancelado_sin_comp OR sin_otorg THEN 2
