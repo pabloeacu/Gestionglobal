@@ -390,15 +390,16 @@ export function ProspectosCaptacionPage() {
   );
 }
 
-// Tira de "monedas": una por campaña del catálogo. Sólida+color si ya se envió
-// (tooltip con la fecha), contorno gris si está pendiente, punteada tenue si no
-// aplica (campaña de vencimiento para un prospecto sin vencimiento). Vencimiento
-// = ámbar (FUNDPLATA); bondad = cyan (GG). Separador entre los 3 y los 4.
+// Monedas de campañas: una por campaña del catálogo, en una grilla de 2 filas
+// (4 arriba, 3 abajo) para que la columna no se corte. Sólida+color si ya se
+// envió (tooltip con la fecha), contorno gris si está pendiente, punteada tenue
+// si no aplica (campaña de vencimiento para un prospecto sin vencimiento).
+// Vencimiento = ámbar (FUNDPLATA); bondad = cyan (GG). cursor-default (flecha).
 function CampanasCoins({ enviadas, tieneVencimiento }: { enviadas: Record<string, string> | null; tieneVencimiento: boolean }) {
   const map = enviadas ?? {};
   return (
-    <div className="flex items-center justify-center gap-0.5">
-      {CAMPANAS_CATALOGO.map((c, i) => {
+    <div className="mx-auto grid w-max grid-cols-4 gap-1">
+      {CAMPANAS_CATALOGO.map((c) => {
         const sentAt = map[c.slug];
         const enviada = !!sentAt;
         const aplica = !c.vencimiento || tieneVencimiento;
@@ -418,8 +419,7 @@ function CampanasCoins({ enviadas, tieneVencimiento }: { enviadas: Record<string
             title={tip}
             aria-label={tip}
             className={cn(
-              'inline-flex h-[18px] w-[18px] items-center justify-center rounded-full border text-[8px] font-bold leading-none',
-              i === 3 && 'ml-1.5',
+              'inline-flex h-[18px] w-[18px] cursor-default items-center justify-center rounded-full border text-[8px] font-bold leading-none',
               cls,
             )}
           >
