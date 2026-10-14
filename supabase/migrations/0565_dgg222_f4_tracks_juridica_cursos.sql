@@ -1,0 +1,284 @@
+-- 0565_dgg222_f4_tracks_juridica_cursos.sql
+-- =============================================================================
+-- DGG-222 · Equipo de cierre — tracks JURÍDICA + CURSOS (además del principal).
+-- Cambia private.agente_cierre_detectar() (3 tracks) y el REPORTE de
+-- agente_cierre_correr() (desglose por track). El cierre real
+-- (tracking_cerrar_auto / amortiguador / cron) NO cambia. 100% ADITIVO.
+-- Sigue GATED por config_global.agente_cierre_activo.
+--
+--   · track='principal' : matrícula/renovación/certificado (excl. curso y jurídica).
+--     Igual que F2: amortiguadores + verificación TRAMIX por servicio + frescura +
+--     anclaje al ciclo actual.
+--   · track='juridica'  : consulta_juridica resuelta +25d. CERRABLE sólo si además
+--     EXISTE una respuesta del Equipo de Consultoría Jurídica VISIBLE al cliente en
+--     el tracking (línea categoria='gestor_avance' con visible_cliente=true). Así el
+--     mensaje de cierre ("te enviamos la respuesta, podés verla en el detalle") nunca
+--     es falso. Sin esa línea → reportar_revision (no se cierra). Sin TRAMIX/venc.
+--     [§6-A#1 / §6-B#4 — guard de respuesta visible.]
+--   · track='curso'     : SÓLO RPAC/PBA (curso_actualizacion_rpac / curso_formacion_rpac;
+--     CABA rpa_actualizacion EXCLUIDO). Cerrable si el alumno egresó
+--     (curso_matriculas.estado='completada'), el certificado NO está revocado
+--     (revocado_at IS NULL) y está disponible hace +30 días (descargado_alumno_at >30d;
+--     fallback: sin descarga + emitido_at >30d — el certificado queda siempre a
+--     disposición del alumno). [§6-A#15 — excluir certificados revocados.]
+--     Cierra con el mensaje de cierre de curso; las fechas de nuevos ofrecimientos
+--     las maneja el motor de ofrecimientos existente.
+-- =============================================================================
+
+CREATE OR REPLACE FUNCTION private.agente_cierre_detectar()
+RETURNS jsonb LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp AS $$
+WITH cand AS (
+  SELECT t.id AS tramite_id, t.categoria, t.servicio_id, sv.codigo AS servicio_codigo,
+         t.administracion_id, t.comprobante_id, t.created_at, (now()::date - t.created_at::date) AS dias_abierto,
+         sv.nombre AS servicio, a.nombre AS cliente, a.legajo_rpac AS legajo, a.matricula_rpac AS matricula,
+         a.matricula_rpac_vencimiento AS venc_ficha,
+         CASE WHEN t.categoria='consulta_juridica' THEN 'juridica'
+              WHEN t.categoria='curso' THEN 'curso'
+              ELSE 'principal' END AS track,
+         public.cobro_pendiente(t) AS impago,
+         (EXISTS (SELECT 1 FROM public.servicios s2 WHERE s2.id=t.servicio_id
+                    AND GREATEST(COALESCE(s2.precio_publico,0),COALESCE(s2.precio_cliente,0),COALESCE(s2.precio_base,0))>0)
+          AND NOT EXISTS (SELECT 1 FROM public.comprobantes c WHERE c.estado<>'anulado' AND COALESCE(c.total,0)>0
+                    AND (c.id=t.comprobante_id OR c.id IN (SELECT so.comprobante_id FROM public.solicitudes so
+                                      WHERE so.tramite_id=t.id AND so.comprobante_id IS NOT NULL)))) AS arancelado_sin_comp,
+         (t.categoria IN ('matricula','renovacion') AND NOT (NULLIF(btrim(a.matricula_rpac),'') IS NOT NULL
+                   AND NULLIF(btrim(a.legajo_rpac),'') IS NOT NULL)) AS sin_otorg,
+         CASE sv.codigo WHEN 'rpac_inscripcion' THEN 'ADMINISTRADOR DE CONSORCIOS'
+           WHEN 'rpac_inscripcion_juridica' THEN 'ADMINISTRADOR DE CONSORCIOS'
+           WHEN 'rpac_renovacion' THEN 'RENOVACION DE MATRICULA'
+           WHEN 'rpac_certificado' THEN 'CERTIFICADO DE ACREDITACION' ELSE NULL END AS exp_esperado,
+         CASE sv.codigo WHEN 'rpac_certificado' THEN 'NOTIFICADO OFICIOS' WHEN 'rpac_inscripcion' THEN 'INSCRIPTO'
+           WHEN 'rpac_inscripcion_juridica' THEN 'INSCRIPTO' WHEN 'rpac_renovacion' THEN 'INSCRIPTO' ELSE NULL END AS estado_ok,
+         (t.categoria='curso' AND EXISTS (
+            SELECT 1 FROM public.curso_matriculas cm JOIN public.certificados cert ON cert.matricula_id=cm.id
+            WHERE cm.tramite_id=t.id AND cm.estado='completada' AND cert.revocado_at IS NULL
+              AND ((cert.descargado_alumno_at IS NOT NULL AND now()-cert.descargado_alumno_at > interval '30 days')
+                   OR (cert.descargado_alumno_at IS NULL AND cert.emitido_at IS NOT NULL AND now()-cert.emitido_at > interval '30 days'))
+         )) AS curso_cerrable,
+         (t.categoria='curso' AND EXISTS (SELECT 1 FROM public.curso_matriculas cm WHERE cm.tramite_id=t.id AND cm.estado='completada')) AS curso_egresado,
+         (t.categoria='consulta_juridica' AND EXISTS (
+            SELECT 1 FROM public.tracking_lineas tl
+            WHERE tl.tramite_id=t.id AND tl.visible_cliente=true AND tl.categoria='gestor_avance'
+         )) AS juridica_respondida
+  FROM public.tramites t JOIN public.administraciones a ON a.id = t.administracion_id
+  LEFT JOIN public.servicios sv ON sv.id = t.servicio_id
+  WHERE t.estado = 'resuelto' AND (now() - t.created_at) > interval '25 days'
+    AND (t.categoria <> 'curso' OR sv.codigo IN ('curso_actualizacion_rpac','curso_formacion_rpac'))
+),
+tx AS (
+  SELECT c.tramite_id, (tc.legajo IS NOT NULL) AS tiene_cache, tc.consultado_at,
+    (SELECT jsonb_build_object('estado', e->>'estado', 'tramite', e->>'tramite', 'fecha', e->>'fecha', 'numero', e->>'numero')
+       FROM jsonb_array_elements(CASE WHEN jsonb_typeof(tc.payload->'expedientes')='array' THEN tc.payload->'expedientes' ELSE '[]'::jsonb END) e
+      WHERE c.exp_esperado IS NOT NULL AND e->>'tramite' = c.exp_esperado
+      ORDER BY private.tramix_fecha(e->>'fecha') DESC NULLS LAST, (e->>'numero') DESC NULLS LAST LIMIT 1) AS ult
+  FROM cand c LEFT JOIN public.tramix_cache tc ON tc.legajo = c.legajo AND c.track='principal'
+),
+ev AS (
+  SELECT c.*, x.tiene_cache, x.consultado_at, x.ult, (x.ult->>'estado' = c.estado_ok) AS estado_confirma,
+    (x.consultado_at IS NOT NULL AND x.consultado_at >= c.created_at) AS fresco,
+    (private.tramix_fecha(x.ult->>'fecha') IS NOT NULL
+       AND private.tramix_fecha(x.ult->>'fecha') BETWEEN (c.created_at::date - 7) AND (now()::date + 7)) AS anclado
+  FROM cand c JOIN tx x ON x.tramite_id=c.tramite_id
+),
+dec AS (
+  SELECT ev.*,
+    (NOT(impago OR arancelado_sin_comp OR sin_otorg) AND (
+       (track='principal' AND exp_esperado IS NOT NULL AND tiene_cache AND estado_confirma AND fresco AND anclado)
+       OR (track='juridica' AND juridica_respondida)
+       OR (track='curso' AND curso_cerrable)
+    )) AS es_cerrable
+  FROM ev
+)
+SELECT COALESCE(jsonb_agg(jsonb_build_object(
+  'tramite_id', tramite_id, 'track', track, 'categoria', categoria, 'servicio', servicio,
+  'servicio_codigo', servicio_codigo, 'cliente', cliente, 'administracion_id', administracion_id,
+  'legajo', legajo, 'matricula', matricula, 'venc_ficha', venc_ficha, 'dias_abierto', dias_abierto,
+  'bloqueos', ((CASE WHEN impago THEN jsonb_build_array('impago') ELSE '[]'::jsonb END)
+   || (CASE WHEN arancelado_sin_comp THEN jsonb_build_array('arancelado_sin_comprobante') ELSE '[]'::jsonb END)
+   || (CASE WHEN sin_otorg THEN jsonb_build_array('sin_otorgamiento') ELSE '[]'::jsonb END)),
+  'tramix', CASE WHEN track<>'principal' THEN jsonb_build_object('estado','n/a')
+                 WHEN exp_esperado IS NULL THEN jsonb_build_object('estado','servicio_no_mapeado')
+                 WHEN NOT tiene_cache THEN jsonb_build_object('estado','sin_cache')
+                 WHEN ult IS NULL THEN jsonb_build_object('estado','sin_expediente')
+                 ELSE ult || jsonb_build_object('fresco',fresco,'anclado',anclado) END,
+  'decision', CASE WHEN impago OR arancelado_sin_comp OR sin_otorg THEN 'reportar_bloqueo'
+     WHEN es_cerrable THEN 'cerrar_limpio' ELSE 'reportar_revision' END,
+  'cierre', CASE WHEN es_cerrable THEN CASE track
+      WHEN 'juridica' THEN jsonb_build_object('satisfactorio', true, 'motivo', 'Consulta jurídica resuelta',
+        'observaciones', 'Tu consulta jurídica fue resuelta: nuestro Equipo de Consultoría Jurídica te envió la respuesta (podés verla en el detalle de este trámite, dentro de tu portal). Quedamos a disposición para lo que necesites. ¡Gracias por confiar en Gestión Global!')
+      WHEN 'curso' THEN jsonb_build_object('satisfactorio', true, 'motivo', 'Curso finalizado',
+        'observaciones', 'Creemos que la jerarquización de la profesión va de la mano de la capacitación y la excelencia académica. Estamos muy contentos de que hayas cursado con nosotros. Esperamos que hayas disfrutado el contenido y quedamos a tu disposición para seguir trabajando codo a codo. ¡Gracias por confiar en Gestión Global!')
+      ELSE jsonb_build_object('satisfactorio', true,
+        'motivo', CASE servicio_codigo WHEN 'rpac_certificado' THEN 'Certificado de acreditación emitido'
+                                       WHEN 'rpac_renovacion' THEN 'Matrícula renovada' ELSE 'Matrícula otorgada' END,
+        'observaciones', 'Verificamos en la Mesa de Entradas (RPAC · Pcia. de Bs. As.) que tu '||
+          CASE servicio_codigo WHEN 'rpac_certificado' THEN 'Certificado de Acreditación fue EMITIDO'
+                               WHEN 'rpac_renovacion' THEN 'renovación de matrícula fue OTORGADA'
+                               ELSE 'matrícula fue OTORGADA' END ||
+          ' el '||COALESCE(ult->>'fecha','')||'. El RPAC te lo notifica por correo a tu casilla declarada; '||
+          'además podés consultarlo desde nuestro acceso a la Mesa de Entradas, en tu portal. '||
+          '¡Gracias por confiar en Gestión Global! Quedamos a disposición para seguir trabajando juntos.')
+      END ELSE NULL END,
+  'motivo', CASE WHEN impago THEN 'Cobro pendiente (impago/parcial)'
+     WHEN arancelado_sin_comp THEN 'Servicio arancelado sin comprobante emitido'
+     WHEN sin_otorg THEN 'Falta matrícula+legajo RPAC en la ficha (cargar otorgamiento)'
+     WHEN es_cerrable AND track='juridica' THEN 'Resuelto + respuesta del Equipo de Consultoría Jurídica visible en el portal → cerrable'
+     WHEN es_cerrable AND track='curso' THEN 'Egresó + certificado disponible hace +30 días → cerrable'
+     WHEN es_cerrable THEN 'TRAMIX confirma '||exp_esperado||' = '||estado_ok||' → cerrable'
+     WHEN track='juridica' AND NOT juridica_respondida THEN 'Resuelto pero sin respuesta visible al cliente en el tracking — revisar antes de cerrar'
+     WHEN track='curso' AND NOT curso_egresado THEN 'Curso aún no egresado (matrícula no completada) — revisar'
+     WHEN track='curso' THEN 'Egresó pero el certificado es reciente (<30 días) o fue revocado — esperar/revisar'
+     WHEN track='principal' AND exp_esperado IS NULL THEN 'Servicio sin regla TRAMIX definida — revisar manual'
+     WHEN track='principal' AND NOT tiene_cache THEN 'Sin verificación TRAMIX (falta scrapear el legajo)'
+     WHEN track='principal' AND ult IS NULL THEN 'TRAMIX sin expediente de '||exp_esperado
+     WHEN track='principal' AND NOT estado_confirma AND ult->>'estado'='OBSERVADO' THEN 'TRAMIX: '||exp_esperado||' OBSERVADO — revisar'
+     WHEN track='principal' AND NOT estado_confirma THEN 'TRAMIX: '||exp_esperado||' en estado "'||(ult->>'estado')||'" (no terminal) — revisar'
+     WHEN track='principal' AND NOT fresco THEN 'TRAMIX confirmado pero el cache es anterior a la apertura — re-scrapear'
+     WHEN track='principal' AND NOT anclado THEN 'TRAMIX: el expediente confirmante es de un ciclo anterior — revisar manual'
+     ELSE 'Revisar' END
+) ORDER BY (CASE WHEN impago OR arancelado_sin_comp OR sin_otorg THEN 2 WHEN es_cerrable THEN 0 ELSE 1 END), track, cliente), '[]'::jsonb)
+FROM dec;
+$$;
+REVOKE EXECUTE ON FUNCTION private.agente_cierre_detectar() FROM anon, PUBLIC;
+GRANT EXECUTE ON FUNCTION private.agente_cierre_detectar() TO service_role;
+
+-- -----------------------------------------------------------------------------
+-- agente_cierre_correr v2.2 · reporte a gerencia DESGLOSADO POR TRACK.
+-- (v2.1 decía "Track principal ... excluye cursos y jurídica: <total>" pero el
+--  total ya incluye los 3 tracks → engañoso. [§6-B#13].)
+-- Firma idéntica (p_origen text) → CREATE OR REPLACE sin overload (R16 OK).
+-- Cierre/guard/cap/GUC de tenencia SIN cambios respecto de v2.1.
+-- -----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.agente_cierre_correr(p_origen text DEFAULT 'manual'::text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public', 'pg_temp'
+ SET "TimeZone" TO 'America/Argentina/Buenos_Aires'
+AS $function$
+DECLARE
+  v_items jsonb; v_total int; v_limpios int; v_bloqueos int; v_revision int;
+  v_resumen jsonb; v_run_id uuid; v_modo text; v_activo boolean; v_cap int;
+  v_cerrados int := 0; v_errores jsonb := '[]'::jsonb; v_it jsonb; v_err_txt text;
+  v_hoy text := to_char((now() AT TIME ZONE 'America/Argentina/Buenos_Aires')::date, 'DD/MM/YYYY');
+  v_lista text; v_cuerpo text; v_titulo text;
+  -- desglose por track: totales (t*), limpios (l*), a revisar (r*), bloqueos (b*)
+  v_tp int; v_tj int; v_tc int; v_lp int; v_lj int; v_lc int;
+  v_rp int; v_rj int; v_rc int; v_bp int; v_bj int; v_bc int;
+BEGIN
+  IF NOT (private.is_staff() OR (auth.uid() IS NULL AND COALESCE(auth.role(),'') <> 'anon')) THEN
+    RAISE EXCEPTION 'forbidden' USING ERRCODE = '42501';
+  END IF;
+
+  -- Contexto de confianza: el bot cierra trámites que detectó y avisa a SUS clientes.
+  -- Habilita la tenencia para los encolar_email downstream (triggers) sin importar el
+  -- path de invocación (cron directo / edge / manual). SET LOCAL (sólo esta txn).
+  PERFORM set_config('app.skip_admin_assert', 'on', true);
+
+  SELECT COALESCE(agente_cierre_activo,false), COALESCE(agente_cierre_cap,25)
+    INTO v_activo, v_cap FROM public.config_global LIMIT 1;
+  v_modo := CASE WHEN v_activo THEN 'real' ELSE 'seco' END;
+
+  v_items := private.agente_cierre_detectar();
+  v_total := jsonb_array_length(v_items);
+  SELECT count(*) FILTER (WHERE it->>'decision'='cerrar_limpio'),
+         count(*) FILTER (WHERE it->>'decision'='reportar_bloqueo'),
+         count(*) FILTER (WHERE it->>'decision'='reportar_revision')
+    INTO v_limpios, v_bloqueos, v_revision FROM jsonb_array_elements(v_items) it;
+
+  -- Desglose por track (para el reporte).
+  SELECT count(*) FILTER (WHERE it->>'track'='principal'),
+         count(*) FILTER (WHERE it->>'track'='juridica'),
+         count(*) FILTER (WHERE it->>'track'='curso'),
+         count(*) FILTER (WHERE it->>'track'='principal' AND it->>'decision'='cerrar_limpio'),
+         count(*) FILTER (WHERE it->>'track'='juridica'  AND it->>'decision'='cerrar_limpio'),
+         count(*) FILTER (WHERE it->>'track'='curso'     AND it->>'decision'='cerrar_limpio'),
+         count(*) FILTER (WHERE it->>'track'='principal' AND it->>'decision'='reportar_revision'),
+         count(*) FILTER (WHERE it->>'track'='juridica'  AND it->>'decision'='reportar_revision'),
+         count(*) FILTER (WHERE it->>'track'='curso'     AND it->>'decision'='reportar_revision'),
+         count(*) FILTER (WHERE it->>'track'='principal' AND it->>'decision'='reportar_bloqueo'),
+         count(*) FILTER (WHERE it->>'track'='juridica'  AND it->>'decision'='reportar_bloqueo'),
+         count(*) FILTER (WHERE it->>'track'='curso'     AND it->>'decision'='reportar_bloqueo')
+    INTO v_tp,v_tj,v_tc, v_lp,v_lj,v_lc, v_rp,v_rj,v_rc, v_bp,v_bj,v_bc
+    FROM jsonb_array_elements(v_items) it;
+
+  IF v_modo = 'real' THEN
+    FOR v_it IN SELECT e FROM jsonb_array_elements(v_items) e WHERE e->>'decision'='cerrar_limpio' LOOP
+      EXIT WHEN v_cerrados >= v_cap;
+      BEGIN
+        PERFORM public.tracking_cerrar_auto(
+          (v_it->>'tramite_id')::uuid, v_it->'cierre'->>'motivo',
+          (v_it->'cierre'->>'satisfactorio')::boolean, v_it->'cierre'->>'observaciones');
+        v_cerrados := v_cerrados + 1;
+      EXCEPTION WHEN OTHERS THEN
+        v_err_txt := SQLERRM;
+        v_errores := v_errores || jsonb_build_object('cliente', v_it->>'cliente',
+                      'tramite_id', v_it->>'tramite_id', 'error', v_err_txt);
+      END;
+    END LOOP;
+  END IF;
+
+  v_resumen := jsonb_build_object('total', v_total, 'cerrar_limpio', v_limpios,
+     'reportar_revision', v_revision, 'reportar_bloqueo', v_bloqueos, 'modo', v_modo,
+     'cerrados', v_cerrados, 'errores_cierre', jsonb_array_length(v_errores), 'cap', v_cap,
+     'por_track', jsonb_build_object(
+        'principal', jsonb_build_object('total',v_tp,'limpios',v_lp,'revision',v_rp,'bloqueos',v_bp),
+        'juridica',  jsonb_build_object('total',v_tj,'limpios',v_lj,'revision',v_rj,'bloqueos',v_bj),
+        'curso',     jsonb_build_object('total',v_tc,'limpios',v_lc,'revision',v_rc,'bloqueos',v_bc)));
+
+  INSERT INTO public.agente_cierre_runs (origen, modo, overall, resumen, items)
+  VALUES (p_origen, v_modo, CASE WHEN v_total=0 THEN 'sin_candidatos' ELSE 'ok' END,
+          v_resumen || jsonb_build_object('errores_detalle', v_errores), v_items)
+  RETURNING id INTO v_run_id;
+
+  IF v_total > 0 OR p_origen <> 'cron' THEN
+    SELECT string_agg(format('%s %s — %s (%s) · %s',
+             CASE e->>'decision' WHEN 'cerrar_limpio' THEN (CASE WHEN v_modo='real' THEN '✓ CERRADO:' ELSE '✓ cerraría:' END)
+                                 WHEN 'reportar_bloqueo' THEN '⛔ bloqueado:' ELSE '🔎 a revisar:' END,
+             e->>'cliente', initcap(e->>'categoria'), COALESCE(e->>'servicio','—'),
+             CASE e->>'decision' WHEN 'cerrar_limpio' THEN COALESCE(e->'cierre'->>'motivo', e->>'motivo') ELSE e->>'motivo' END),
+             E'\n' ORDER BY e->>'decision', e->>'track', e->>'cliente')
+      INTO v_lista FROM jsonb_array_elements(v_items) e;
+
+    v_titulo := CASE WHEN v_modo='real' THEN 'Resumen de agentes · Cierre de trámites'
+                     ELSE 'Resumen de agentes · Cierre de trámites (SIMULACIÓN)' END;
+    v_cuerpo :=
+      CASE WHEN v_modo='real' THEN 'Equipo de cierre de trámites · ' || v_hoy || E'\n' ||
+             'Cerré ' || v_cerrados || ' trámite(s) y avisé a sus clientes.'
+           ELSE 'SIMULACIÓN — equipo de cierre de trámites · ' || v_hoy || E'\n' ||
+             '(No cerré nada ni escribí a ningún cliente.)' END || E'\n\n' ||
+      'Detectados (resueltos +25 días): ' || v_total || ' en 3 tracks.' || E'\n' ||
+      '• Principal (matrícula/renovación/certificado, con verificación TRAMIX): ' || v_tp ||
+        '  →  ' || (CASE WHEN v_modo='real' THEN 'cerraría ' ELSE 'limpios ' END) || v_lp ||
+        ' · a revisar ' || v_rp || ' · bloqueados ' || v_bp || E'\n' ||
+      '• Jurídica (consultas resueltas, con respuesta visible al cliente): ' || v_tj ||
+        '  →  ' || (CASE WHEN v_modo='real' THEN 'cerraría ' ELSE 'limpios ' END) || v_lj ||
+        ' · a revisar ' || v_rj || ' · bloqueados ' || v_bj || E'\n' ||
+      '• Cursos (RPAC/PBA, egresado + certificado +30 días): ' || v_tc ||
+        '  →  ' || (CASE WHEN v_modo='real' THEN 'cerraría ' ELSE 'limpios ' END) || v_lc ||
+        ' · a revisar ' || v_rc || ' · bloqueados ' || v_bc || E'\n\n' ||
+      CASE WHEN v_modo='real'
+        THEN 'Cerrados efectivamente: ' || v_cerrados || ' de ' || v_limpios || ' limpios (tope por corrida: ' || v_cap || ')' ||
+             (CASE WHEN jsonb_array_length(v_errores)>0 THEN ' · No se pudo cerrar: '||jsonb_array_length(v_errores) ELSE '' END) || E'\n'
+        ELSE 'Total limpios que cerraría al activar: ' || v_limpios || E'\n' END ||
+      'Total a revisar: ' || v_revision || '  ·  Total bloqueados (amortiguador, no se fuerzan): ' || v_bloqueos || E'\n\n' ||
+      'Detalle:' || E'\n' || COALESCE(v_lista, '(sin candidatos)') ||
+      CASE WHEN jsonb_array_length(v_errores)>0
+        THEN E'\n\n⚠ No se pudieron cerrar (los dejo para revisión):\n' ||
+             (SELECT string_agg('• '||(x->>'cliente')||': '||(x->>'error'), E'\n') FROM jsonb_array_elements(v_errores) x)
+        ELSE '' END || E'\n\n' ||
+      CASE WHEN v_modo='real' THEN 'Los bloqueados y los "a revisar" quedan para vos.'
+           ELSE 'Cuando valides, habilito el cierre automático de los limpios. Los bloqueados y "a revisar" siempre quedan para vos.' END;
+
+    INSERT INTO public.email_queue (kind, template_slug, to_email, to_nombre, variables,
+                                    prioridad, intento, max_intentos, programado_para)
+    VALUES ('workflow', 'gerencia-notif-generica', 'pabloeacu@gmail.com', 'Pablo',
+            jsonb_build_object('titulo_evento', v_titulo, 'url', '/gerencia/tramites', 'cuerpo', v_cuerpo),
+            3, 0, 3, now());
+  END IF;
+
+  RETURN jsonb_build_object('ok', true, 'run_id', v_run_id, 'resumen', v_resumen);
+END;
+$function$;
+REVOKE EXECUTE ON FUNCTION public.agente_cierre_correr(text) FROM anon, PUBLIC;
+GRANT EXECUTE ON FUNCTION public.agente_cierre_correr(text) TO authenticated, service_role;
