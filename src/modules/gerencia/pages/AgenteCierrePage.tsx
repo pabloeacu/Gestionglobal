@@ -305,7 +305,7 @@ export function AgenteCierrePage() {
           />
         )}
         {accionables.length > 0 && (
-          <div className="overflow-hidden rounded-xl border border-slate-200">
+          <div className="overflow-x-auto rounded-xl border border-slate-200">
             <table className="min-w-full divide-y divide-slate-200 text-sm">
               <thead className="bg-slate-50">
                 <tr>
@@ -342,7 +342,7 @@ export function AgenteCierrePage() {
       {/* Historial de corridas */}
       <section className="space-y-3">
         <h2 className="font-display text-lg font-bold text-brand-ink">Historial de corridas</h2>
-        <div className="overflow-hidden rounded-xl border border-slate-200">
+        <div className="overflow-x-auto rounded-xl border border-slate-200">
           <table className="min-w-full divide-y divide-slate-200 text-sm">
             <thead className="bg-slate-50">
               <tr>
