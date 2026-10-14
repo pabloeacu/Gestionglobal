@@ -57,6 +57,8 @@ export interface ProspectoCaptacionRow {
   ultimo_mail_at: string | null;
   convertido_at: string | null;
   baja_at: string | null;
+  /** Campañas de captación ya enviadas a este prospecto: { slug: últimaFechaISO }. */
+  campanas_enviadas: Record<string, string> | null;
   padron_count: number;
   total_count: number;
 }
@@ -92,16 +94,18 @@ export interface CampanaCatalogoItem {
   vencimiento: boolean;
   estrella: 'FUNDPLATA' | 'GG';
   descripcion: string;
+  /** Inicial corta (2 letras) para la "moneda" de la grilla. */
+  inicial: string;
 }
 
 export const CAMPANAS_CATALOGO: CampanaCatalogoItem[] = [
-  { slug: 'captacion-curso-3190', label: 'Curso de actualización (31-90 días)', vencimiento: true, estrella: 'FUNDPLATA', descripcion: 'Matrícula vence en 31-90 días → invitación al curso.' },
-  { slug: 'captacion-curso-reno', label: 'Curso + renovación (≤30 días)', vencimiento: true, estrella: 'FUNDPLATA', descripcion: 'Matrícula vence en ≤30 días → curso y renovación juntos.' },
-  { slug: 'captacion-vencida', label: '¿Se te venció la matrícula?', vencimiento: true, estrella: 'FUNDPLATA', descripcion: 'Matrícula vencida → regularización (empático).' },
-  { slug: 'captacion-campus', label: 'Campus + certificado', vencimiento: false, estrella: 'GG', descripcion: 'Bondad de plataforma — campus virtual con certificado.' },
-  { slug: 'captacion-agenda', label: 'Agenda de vencimientos', vencimiento: false, estrella: 'GG', descripcion: 'Bondad — agenda personalizada + recordatorios.' },
-  { slug: 'captacion-tramites', label: 'Seguimiento de trámites', vencimiento: false, estrella: 'GG', descripcion: 'Bondad — seguimiento de trámites en tiempo real.' },
-  { slug: 'captacion-capacitaciones', label: 'Capacitaciones gratuitas', vencimiento: false, estrella: 'GG', descripcion: 'Bondad — capacitaciones/webinars gratuitos.' },
+  { slug: 'captacion-curso-3190', label: 'Curso de actualización (31-90 días)', vencimiento: true, estrella: 'FUNDPLATA', descripcion: 'Matrícula vence en 31-90 días → invitación al curso.', inicial: 'Ac' },
+  { slug: 'captacion-curso-reno', label: 'Curso + renovación (≤30 días)', vencimiento: true, estrella: 'FUNDPLATA', descripcion: 'Matrícula vence en ≤30 días → curso y renovación juntos.', inicial: 'Rn' },
+  { slug: 'captacion-vencida', label: '¿Se te venció la matrícula?', vencimiento: true, estrella: 'FUNDPLATA', descripcion: 'Matrícula vencida → regularización (empático).', inicial: 'Vc' },
+  { slug: 'captacion-campus', label: 'Campus + certificado', vencimiento: false, estrella: 'GG', descripcion: 'Bondad de plataforma — campus virtual con certificado.', inicial: 'Cm' },
+  { slug: 'captacion-agenda', label: 'Agenda de vencimientos', vencimiento: false, estrella: 'GG', descripcion: 'Bondad — agenda personalizada + recordatorios.', inicial: 'Ag' },
+  { slug: 'captacion-tramites', label: 'Seguimiento de trámites', vencimiento: false, estrella: 'GG', descripcion: 'Bondad — seguimiento de trámites en tiempo real.', inicial: 'Tr' },
+  { slug: 'captacion-capacitaciones', label: 'Capacitaciones gratuitas', vencimiento: false, estrella: 'GG', descripcion: 'Bondad — capacitaciones/webinars gratuitos.', inicial: 'Cp' },
 ];
 
 export const SEGMENTO_LABEL: Record<SegmentoCaptacion, string> = {

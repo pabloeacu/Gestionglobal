@@ -10830,6 +10830,7 @@ export type Database = {
         }
         Returns: {
           baja_at: string
+          campanas_enviadas: Json
           convertido_at: string
           cuit: string
           email: string

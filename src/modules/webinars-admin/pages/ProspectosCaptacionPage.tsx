@@ -261,6 +261,7 @@ export function ProspectosCaptacionPage() {
                   <Th>Vencimiento</Th>
                   <Th center>Segmento</Th>
                   <Th>Estado</Th>
+                  <Th center>Campañas</Th>
                   <Th>Último mail</Th>
                   <Th right>Acción</Th>
                 </tr>
@@ -331,6 +332,9 @@ export function ProspectosCaptacionPage() {
                         <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700">Nuevo</span>
                       )}
                     </td>
+                    <td className="px-4 py-2">
+                      <CampanasCoins enviadas={p.campanas_enviadas} tieneVencimiento={!!p.matricula_vencimiento} />
+                    </td>
                     <td className="px-4 py-2 text-xs text-brand-muted">
                       {p.ultimo_mail_at ? (
                         <div title={p.ultimo_mail_asunto ?? ''}>
@@ -382,6 +386,47 @@ export function ProspectosCaptacionPage() {
           onEnqueued={() => { void recargarLista(); void recargarKpis(); }}
         />
       )}
+    </div>
+  );
+}
+
+// Tira de "monedas": una por campaña del catálogo. Sólida+color si ya se envió
+// (tooltip con la fecha), contorno gris si está pendiente, punteada tenue si no
+// aplica (campaña de vencimiento para un prospecto sin vencimiento). Vencimiento
+// = ámbar (FUNDPLATA); bondad = cyan (GG). Separador entre los 3 y los 4.
+function CampanasCoins({ enviadas, tieneVencimiento }: { enviadas: Record<string, string> | null; tieneVencimiento: boolean }) {
+  const map = enviadas ?? {};
+  return (
+    <div className="flex items-center justify-center gap-0.5">
+      {CAMPANAS_CATALOGO.map((c, i) => {
+        const sentAt = map[c.slug];
+        const enviada = !!sentAt;
+        const aplica = !c.vencimiento || tieneVencimiento;
+        const tip =
+          c.label +
+          (enviada ? ` · enviada ${fmtFecha(sentAt)}` : aplica ? ' · aún no enviada' : ' · no aplica (sin vencimiento)');
+        const cls = enviada
+          ? c.vencimiento
+            ? 'border-amber-500 bg-amber-500 text-white'
+            : 'border-brand-cyan bg-brand-cyan text-white'
+          : aplica
+            ? 'border-slate-300 bg-white text-slate-400'
+            : 'border-dashed border-slate-200 bg-slate-50 text-slate-300';
+        return (
+          <span
+            key={c.slug}
+            title={tip}
+            aria-label={tip}
+            className={cn(
+              'inline-flex h-[18px] w-[18px] items-center justify-center rounded-full border text-[8px] font-bold leading-none',
+              i === 3 && 'ml-1.5',
+              cls,
+            )}
+          >
+            {c.inicial}
+          </span>
+        );
+      })}
     </div>
   );
 }
