@@ -501,6 +501,39 @@ export type Database = {
           },
         ]
       }
+      agente_cierre_runs: {
+        Row: {
+          created_by: string | null
+          id: string
+          items: Json
+          modo: string
+          origen: string
+          overall: string | null
+          resumen: Json
+          run_at: string
+        }
+        Insert: {
+          created_by?: string | null
+          id?: string
+          items?: Json
+          modo?: string
+          origen?: string
+          overall?: string | null
+          resumen?: Json
+          run_at?: string
+        }
+        Update: {
+          created_by?: string | null
+          id?: string
+          items?: Json
+          modo?: string
+          origen?: string
+          overall?: string | null
+          resumen?: Json
+          run_at?: string
+        }
+        Relationships: []
+      }
       arca_anomalias: {
         Row: {
           created_at: string
@@ -1734,6 +1767,7 @@ export type Database = {
       }
       config_global: {
         Row: {
+          agente_cierre_activo: boolean
           arca_intervalo_emision_seg: number
           codigo_postal: string | null
           condicion_iva: string
@@ -1766,6 +1800,7 @@ export type Database = {
           whatsapp: string | null
         }
         Insert: {
+          agente_cierre_activo?: boolean
           arca_intervalo_emision_seg?: number
           codigo_postal?: string | null
           condicion_iva?: string
@@ -1798,6 +1833,7 @@ export type Database = {
           whatsapp?: string | null
         }
         Update: {
+          agente_cierre_activo?: boolean
           arca_intervalo_emision_seg?: number
           codigo_postal?: string | null
           condicion_iva?: string
@@ -8718,6 +8754,7 @@ export type Database = {
         }[]
       }
       administraciones_con_deuda: { Args: never; Returns: string[] }
+      agente_cierre_correr: { Args: { p_origen?: string }; Returns: Json }
       ajuste_masivo_precios: {
         Args: {
           p_categoria_codigo?: string
