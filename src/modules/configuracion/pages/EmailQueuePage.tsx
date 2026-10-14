@@ -283,8 +283,17 @@ export function EmailQueuePage() {
                     ? `${r.intento}/${r.max_intentos}`
                     : '—'}
                 </td>
-                <td className="px-4 py-2 max-w-xs">
-                  <p className="truncate text-xs text-red-700">{r.ultimo_error ?? '—'}</p>
+                <td className="px-4 py-2">
+                  {/* Columna angosta y clamp real: el max-w va en el <p> (no en el
+                      <td>) para que `truncate` recorte de verdad en table-layout:auto
+                      y no desborde la grilla horizontalmente (regla de grillas: sin
+                      scroll horizontal). El error completo queda en el title/tooltip. */}
+                  <p
+                    className="max-w-[140px] truncate text-xs text-red-700"
+                    title={r.ultimo_error ?? undefined}
+                  >
+                    {r.ultimo_error ?? '—'}
+                  </p>
                 </td>
                 <td className="px-4 py-2 text-right">
                   <div className="flex items-center justify-end gap-1">
