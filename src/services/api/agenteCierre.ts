@@ -29,9 +29,11 @@ export interface CierreResumen {
   reportar_revision: number;
   reportar_bloqueo: number;
   modo: 'real' | 'seco';
-  cerrados: number;
-  errores_cierre: number;
-  cap: number;
+  // Campos opcionales: las corridas históricas de F1 (mig 0562, modo seco) no los
+  // traían; se agregaron en F2/tracks. El dashboard usa optional chaining + ?? 0.
+  cerrados?: number;
+  errores_cierre?: number;
+  cap?: number;
   por_track?: { principal: CierrePorTrack; juridica: CierrePorTrack; curso: CierrePorTrack };
 }
 
