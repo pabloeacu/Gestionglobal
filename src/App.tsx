@@ -99,6 +99,7 @@ const ErroresRuntimePage = lazy(() => import('@/modules/errores').then(m => ({ d
 const AnaliticaPage = lazy(() => import('@/modules/analitica').then(m => ({ default: m.AnaliticaPage })));
 const ComunicacionesPage = lazy(() => import('@/modules/comunicaciones').then(m => ({ default: m.ComunicacionesPage })));
 const SaludSistemaPage = lazy(() => import('@/modules/gerencia/pages/SaludSistemaPage').then(m => ({ default: m.SaludSistemaPage })));
+const AgenteCierrePage = lazy(() => import('@/modules/gerencia/pages/AgenteCierrePage').then(m => ({ default: m.AgenteCierrePage })));
 
 type Role = 'gerente' | 'operador' | 'administrador' | 'partner';
 
@@ -424,6 +425,7 @@ export function App() {
             <Route path="auditoria" element={<AuditoriaPage />} />
             <Route path="errores" element={<ErroresRuntimePage />} />
             <Route path="salud-sistema" element={<SaludSistemaPage />} />
+            <Route path="cierre-automatico" element={<AgenteCierrePage />} />
             {/* Auditoría 2026-09 (A7) · redirect de compat: el push/banner de salud
                 y la fn DB health_flow_record_run apuntaban a /configuracion/salud
                 (ruta inexistente → 404 en plena alerta). El redirect lo tolera. */}

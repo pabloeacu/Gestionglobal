@@ -8758,6 +8758,7 @@ export type Database = {
       }
       administraciones_con_deuda: { Args: never; Returns: string[] }
       agente_cierre_correr: { Args: { p_origen?: string }; Returns: Json }
+      agente_cierre_preview: { Args: never; Returns: Json }
       ajuste_masivo_precios: {
         Args: {
           p_categoria_codigo?: string

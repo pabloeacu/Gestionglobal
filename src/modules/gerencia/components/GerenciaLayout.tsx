@@ -114,6 +114,7 @@ const NAV: NavGroup[] = [
       { label: 'Plantillas email', to: '/gerencia/configuracion/emails/templates' },
       { label: 'Plantillas de tracking', to: '/gerencia/configuracion/plantillas-tracking' },
       { label: 'Generación CJ', to: '/gerencia/configuracion/generacion-cj' },
+      { label: 'Cierre automático', to: '/gerencia/configuracion/cierre-automatico' },
       { label: 'Usuarios', to: '/gerencia/configuracion/usuarios' },
       { label: 'Bitácora de cambios', to: '/gerencia/configuracion/auditoria' },
       { label: 'Errores en runtime', to: '/gerencia/configuracion/errores' },
