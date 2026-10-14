@@ -19,7 +19,7 @@
 | P2 | Mail de seguridad de Supabase: ¿qué es? ¿acción? | 🟢 | Advisors en vivo: 0 tablas public sin RLS (crítico del 11-Oct ya resuelto). WARN `prospecto_segmento` corregido. Commit `00d77ab` pusheado. |
 | P3 | DGG-220 captación: activar motor en vivo (50/día, server-side) | 🟢 | Motor ENVIANDO (panel en vivo); 2º envío real "Laura…" salió con saludo correcto; crons activos. |
 | P4 | Saludo por nombre de pila (no apellido) — E-GG-225 | 🟢 | 0 regresiones / 2530 filas; §6 3 agentes; deploy Vercel READY. |
-| P5 | DGG-222 Agente de cierre de trámites (4 fases, autónomo, con IA) | 🟡 | **F1** (detección+reporte seco) 🟢 §6 OK, pusheado `3c4a06e`. **F2** (cierre real+vencimientos) 🟡 en curso (RPC bot `tracking_cerrar_auto` creado + e2e OK). **F3** (IA) 🔵. **F4** (comando+dashboard+cursos+jurídica) 🔵. |
+| P5 | DGG-222 Agente de cierre de trámites (4 fases, autónomo, con IA) | 🟡 | **F1** (detección+reporte seco) 🟢 pusheado `3c4a06e`. **F2** (cierre real) 🟢 **GO-LIVE**: §6 3 agentes (A cazó+corrigió 1 crítico), 5 trámites cerrados reales + clientes avisados, verificado en vivo (TRM-00074 CERRADO), pusheado `d31ccb7`. **F4-cron** (correr diario 10am) → en curso. **Cursos + jurídica** (tracks) 🔵. **Dashboard/comando UI** 🔵. **F3** (IA, requiere decisión de infra con Pablo) 🔵. |
 | P6 | Metodología para no perder el hilo + trabajar en equipo | 🟢 | Este archivo (tracker vivo) + regla de cierre observable. Integrado al mail de P1. |
 
 ## Autorizaciones permanentes de Pablo (para operar autónomo)
