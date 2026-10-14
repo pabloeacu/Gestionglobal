@@ -1768,6 +1768,7 @@ export type Database = {
       config_global: {
         Row: {
           agente_cierre_activo: boolean
+          agente_cierre_cap: number
           arca_intervalo_emision_seg: number
           codigo_postal: string | null
           condicion_iva: string
@@ -1801,6 +1802,7 @@ export type Database = {
         }
         Insert: {
           agente_cierre_activo?: boolean
+          agente_cierre_cap?: number
           arca_intervalo_emision_seg?: number
           codigo_postal?: string | null
           condicion_iva?: string
@@ -1834,6 +1836,7 @@ export type Database = {
         }
         Update: {
           agente_cierre_activo?: boolean
+          agente_cierre_cap?: number
           arca_intervalo_emision_seg?: number
           codigo_postal?: string | null
           condicion_iva?: string
@@ -11093,6 +11096,15 @@ export type Database = {
       tracking_cerrar: {
         Args: {
           p_documento_final_url?: string
+          p_motivo_cierre: string
+          p_observaciones?: string
+          p_satisfactorio: boolean
+          p_tramite_id: string
+        }
+        Returns: undefined
+      }
+      tracking_cerrar_auto: {
+        Args: {
           p_motivo_cierre: string
           p_observaciones?: string
           p_satisfactorio: boolean
