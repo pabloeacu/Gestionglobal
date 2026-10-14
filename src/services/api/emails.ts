@@ -365,6 +365,10 @@ export interface EnvioPreview {
   template_slug: string | null;
   variables: Record<string, unknown> | null;
   attachments_filenames: string[] | null;
+  /** true si el html_body es una vista previa RECONSTRUIDA de un correo EN COLA
+   *  (aún sin enviar): se armó del template + variables, sin el wrapper de marca
+   *  final. El modal muestra un aviso. */
+  en_cola?: boolean;
 }
 export async function getEnvioPreview(
   envioId: string,
@@ -396,6 +400,32 @@ export async function getEnvioPreview(
         .maybeSingle();
       htmlFinal = (sent?.html as string | undefined) ?? null;
     }
+    // REG · Si sigue sin html y el correo está EN COLA (pendiente, sin enviar),
+    // reconstruimos una vista previa del CONTENIDO desde la plantilla visual +
+    // las variables, para que el VER no quede vacío. El diseño de marca final
+    // (wrapper + banner + footer) lo arma el dispatcher al enviar; esto muestra
+    // el cuerpo con las variables ya resueltas.
+    let enCola = false;
+    if (!htmlFinal && !data.enviado_at && data.template_slug) {
+      const { data: tpl } = await supabase
+        .from('email_templates')
+        .select('cuerpo_html_visual, body_html')
+        .eq('slug', data.template_slug)
+        .maybeSingle();
+      const contenido =
+        (tpl?.cuerpo_html_visual as string | undefined) || (tpl?.body_html as string | undefined) || '';
+      if (contenido.trim() && contenido.trim() !== '<!-- manaxer-v1 -->') {
+        const vars = (data.variables as Record<string, unknown> | null) ?? {};
+        const render = (s: string) =>
+          s.replace(/\{\{\s*([\w.]+)\s*\}\}/g, (_m, k) => {
+            const v = vars[k];
+            if (v === null || v === undefined) return '';
+            return String(v).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
+          });
+        htmlFinal = render(contenido);
+        enCola = true;
+      }
+    }
     // Adjuntos: pueden venir como attachments_jsonb [{filename,...}, ...]
     let filenames: string[] | null = null;
     try {
@@ -412,6 +442,7 @@ export async function getEnvioPreview(
       template_slug: data.template_slug,
       variables: (data.variables as Record<string, unknown> | null) ?? null,
       attachments_filenames: filenames,
+      en_cola: enCola,
     });
   }
 
@@ -470,6 +501,7 @@ export async function getEnvioPreview(
     template_slug: se.template_slug,
     variables,
     attachments_filenames: filenames,
+    en_cola: false,
   });
 }
 

@@ -3,7 +3,7 @@
 // Cita: regla 13 (modal premium, no nativo).
 
 import { useEffect, useState } from 'react';
-import { Eye, Mail, Calendar, Paperclip, Loader2, AlertCircle } from 'lucide-react';
+import { Eye, Mail, Calendar, Paperclip, Loader2, AlertCircle, Clock } from 'lucide-react';
 import { Modal } from './Modal';
 import { getEnvioPreview, type EnvioPreview } from '@/services/api/emails';
 import { cn } from '@/lib/cn';
@@ -101,6 +101,17 @@ export function EmailPreviewModal({ open, envioId, onClose }: EmailPreviewModalP
               </div>
             )}
           </dl>
+
+          {data.en_cola && (
+            <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-2.5 text-xs text-amber-800">
+              <Clock size={14} className="mt-0.5 flex-shrink-0" />
+              <span>
+                Este correo está <strong>en cola</strong> (aún no se envió). Es una vista previa del{' '}
+                <strong>contenido</strong> con las variables ya resueltas; el diseño final de marca
+                (encabezado, banner y pie) se arma al enviarse.
+              </span>
+            </div>
+          )}
 
           {/* HTML body en iframe sandboxed */}
           <div className={cn(
