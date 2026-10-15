@@ -13,6 +13,7 @@ import { LoginPage } from '@/modules/auth/pages/LoginPage';
 import { RestablecerPage } from '@/modules/auth/pages/RestablecerPage';
 import { arrivedWithRecoveryHash, isPasswordRecovery } from '@/lib/supabase';
 import { HealthPage } from '@/modules/public/pages/HealthPage';
+import { BajaPublicaPage } from '@/modules/public/pages/BajaPublicaPage';
 import { GerenciaLayout } from '@/modules/gerencia/components/GerenciaLayout';
 import { GerenciaHome } from '@/modules/gerencia/pages/GerenciaHome';
 import { PortalLayout } from '@/modules/portal/components/PortalLayout';
@@ -321,6 +322,7 @@ export function App() {
         {/* DGG-93 (JL #5) · Pantalla destino del link de recuperación de contraseña. */}
         <Route path="/restablecer" element={<RestablecerPage />} />
         <Route path="/health" element={<HealthPage />} />
+        <Route path="/baja" element={<BajaPublicaPage />} />
         <Route path="/formulario/:slug" element={<FormularioPublicoPage />} />
         {/* F6 (DGG-63) · Inscripción condicional a eventos (branded ó texto).
             /eventos es el nombre nuevo (online/presencial/mixto · DGG-99);

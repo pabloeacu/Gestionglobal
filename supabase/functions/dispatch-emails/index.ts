@@ -222,7 +222,8 @@ Deno.serve(async (req) => {
   // El transaccional a clientes (comprobantes/tracking/reset: otros slugs) y todo
   // lo demás queda byte-idéntico (bajaUrl=null → ni header List-Unsubscribe ni
   // footer de baja). bajaTexto adapta la línea del footer al tipo de destinatario.
-  let bajaUrl: string | null = null;
+  let bajaUrl: string | null = null;      // edge (procesa el POST / one-click header)
+  let bajaUrlApp: string | null = null;   // página gestionglobal.ar/baja (link visible, renderiza HTML)
   let bajaTexto: string | null = null;
   const esMktProspecto = job.related_table === 'prospectos';
   const esMktCliente = job.related_table === 'administraciones'
@@ -251,11 +252,13 @@ Deno.serve(async (req) => {
       const { data: arow, error: aErr } = await admin.from('administraciones').select('baja_token').eq('id', job.related_id).maybeSingle();
       if (aErr || !arow?.baja_token) return await deferir('sin_baja_token');
       bajaUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/email-baja?a=${job.related_id}&t=${arow.baja_token}`;
+      bajaUrlApp = `https://www.${DOMAIN}/baja?a=${job.related_id}&t=${arow.baja_token}`;
       bajaTexto = 'Recibís este correo como cliente de Gestión Global. ¿No querés recibir novedades y ofertas por correo?';
     } else {
       const { data: prow, error: pErr } = await admin.from('prospectos').select('baja_token').eq('id', job.related_id).maybeSingle();
       if (pErr || !prow?.baja_token) return await deferir('sin_baja_token');
       bajaUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/email-baja?p=${job.related_id}&t=${prow.baja_token}`;
+      bajaUrlApp = `https://www.${DOMAIN}/baja?p=${job.related_id}&t=${prow.baja_token}`;
       bajaTexto = 'Recibís este correo porque figurás en el registro público de administradores de consorcios (DPPJ · Pcia. de Buenos Aires). ¿No querés recibir estos correos?';
     }
   }
@@ -297,7 +300,7 @@ Deno.serve(async (req) => {
   const subject = renderVars(tpl.asunto, vars);
   let html: string;
   if (tpl.layout_version === 'manaxer-v1') {
-    html = buildManaxerHtml(tpl, vars, senderEmail, replyToEmail, bajaUrl, bajaTexto);
+    html = buildManaxerHtml(tpl, vars, senderEmail, replyToEmail, bajaUrlApp, bajaTexto);
     // Hardening (E-GG-74): una plantilla manaxer-v1 con `cuerpo_html_visual` vacío
     // produce un mail "sólo logo" (el dispatcher no mira `body_html` en este layout).
     // Defensa: si el cuerpo visual renderiza vacío y existe `body_html` legacy,

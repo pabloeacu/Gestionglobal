@@ -90,10 +90,14 @@ Deno.serve(async (req) => {
         }
       }
     } catch { /* genérico */ }
-    if (ok) {
-      return htmlResp(shell("Baja confirmada", CYAN, body("Listo, te diste de baja", modo!.okTexto)));
-    }
-    return htmlResp(shell("No pudimos procesar la baja", WARN, body("No pudimos procesar la baja", `El enlace no es válido o ya expiró. Escribinos a ${CONTACTO} y lo resolvemos.`)));
+    // Respuesta JSON: la consume la página pública gestionglobal.ar/baja (que es
+    // la que ve el humano y SÍ renderiza como HTML). El one-click RFC 8058
+    // (Gmail/Yahoo POSTea server-side) sólo espera 2xx → 200 en éxito; 400 en
+    // fallo para que el front muestre el error correcto.
+    return new Response(JSON.stringify({ ok }), {
+      status: ok ? 200 : 400,
+      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+    });
   }
 
   // ---- GET: validar token (SIN mutar) y mostrar confirmación ----
