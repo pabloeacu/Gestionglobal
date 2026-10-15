@@ -7774,6 +7774,17 @@ Pablo, sobre el fix 0580: **"respecto de GG Cursos, no debería ni siquiera veni
   - **Verificado:** decisiones idénticas tras 0582 (bloqueo 4 / revisión 82 / cerrar 0); `curso_estado` no-null SÓLO en cursos reportar_revision (`estado_fuera_de_rev=0`); `cursando 51 + espera_cert 20 = 71` cursos revisión; `a_revisar_accionable=11`; R16 0 overloads; e2e 4 ramas con `curso_estado` correcto; tsc+build EXIT=0.
 - **Deuda documentada #7 (pre-existente, NO causada por 0581/0582):** divergencia de paridad mail↔dashboard — el mail lista principal/jurídica "a revisar" como filas (🔎), el dashboard sólo las cuenta en el KPI sin fila en la tabla accionable. Roza R14/R15 (paridad superficie↔superficie). Requiere decidir si el dashboard muestra esas filas → queda para prioridad de Pablo.
 
+### Un comprobante BONIFICADO ($0) debe contar como facturado (migs 0583 + 0584, §6 verde, E-GG-229, 2026-10-15)
+
+Pablo (sobre el reporte): "⛔ bloqueado: Calvento — Consulta jurídica · arancelado sin comprobante. Pero SÍ tiene comprobante, sólo que $0.00 sin saldo. ¿Por qué no cierra?" + "la regla es que no quede nunca nada pendiente, encará todo lo que haga falta".
+
+- **Causa:** la consulta jurídica de Calvento era **bonificada** (comprobante X autorizado $0, vía `solicitudes` con `bonificacion_100=true`). El agente exigía comprobante con `total>0` → el $0 no contaba → falso "arancelado sin comprobante".
+- **Barrido §6 (lo que pidió Pablo):** el mismo patrón "$0 = inexistente" vivía en **3 superficies que discrepaban**: `comprobante_pendiente` (0207, chip/grilla) ya era $0-correcto ✓; `agente_cierre_detectar` ✗; y el **gate de cierre** `tramite_cerrar_exige_cobrado` rama (b) (0466) ✗. Sin el fix del gate, la detección (0583) quedaba **inerte en modo real** (el agente marcaría cerrable pero el trigger rechazaría → `errores_cierre`).
+- **Fix (0583 detección + 0584 gate):** se removió `AND COALESCE(c.total,0)>0` del NOT EXISTS en ambas → un comprobante no-anulado de cualquier total (incl $0) cuenta como emitido. Las 3 superficies alineadas. **Decisión de negocio:** comprobante no-anulado de $0 = bonificación = facturación completa. **Intacto:** `cobro_pendiente`/impago sigue exigiendo total>0 (otro eje); anulado sigue sin contar; arancelado sin NINGÚN comprobante sigue bloqueado; rama (c) matrícula/legajo intacta. El cierre es contablemente neutro.
+- **§6 (3 agentes + e2e):** A (corrección, impago intacto) · B (**consistencia contable: el fix ALINEA el agente con `comprobante_pendiente`, paridad 0 discrepancias**) · C (**halló el GAP del gate → 0584**; R16 0 overloads). e2e: detección 4 ramas + gate 5 casos + **end-to-end real de Calvento** (resuelto→cerrado, comprobante $0 intacto), 0 residuo. **En vivo:** Calvento ⛔BLOQUEADO → ✦CERRARÍA; bloqueados 4→3 (quedan 3 RPAC `sin_otorgamiento` genuinos). Detalle completo en E-GG-229.
+- **Efecto "nada pendiente":** Calvento queda `cerrar_limpio` → la cierra el cron de las 10:00 (o `CORRER AHORA`). Los 3 RPAC restantes NO son bug: necesitan que gerencia cargue matrícula+legajo en la ficha. Los 11 "a revisar" principal son verificaciones TRAMIX genuinas (amortiguador).
+- **Deuda menor documentada (aceptada):** el fix no exige `bonificacion_100` para un $0 (lo haría re-divergir de `comprobante_pendiente`); hardening opcional disponible si Pablo lo pide (ver E-GG-229).
+
 ## DGG-220 · Pulida de captación (2026-10-14)
 Primer bloque de "la pulida" (pedido de Pablo). 3 ítems, uno tras otro, cada uno con §6 + prueba en vivo + commit.
 
