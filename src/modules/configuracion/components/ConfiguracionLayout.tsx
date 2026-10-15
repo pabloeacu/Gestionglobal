@@ -2,7 +2,7 @@
 // Tabs entre "ARCA" y "Cola de emisión". Lo wirea el parent agent en App.tsx.
 
 import { NavLink, Outlet } from 'react-router-dom';
-import { ShieldCheck, Layers, Mail, Send, MessageSquareText } from 'lucide-react';
+import { ShieldCheck, Layers, Mail, Send, MessageSquareText, MailX } from 'lucide-react';
 import { cn } from '@/lib/cn';
 
 const TABS = [
@@ -11,6 +11,7 @@ const TABS = [
   { to: '/gerencia/configuracion/emails/templates', label: 'Plantillas email', icon: Mail },
   { to: '/gerencia/configuracion/plantillas-tracking', label: 'Plantillas de tracking', icon: MessageSquareText },
   { to: '/gerencia/configuracion/emails/cola', label: 'Correos enviados', icon: Send },
+  { to: '/gerencia/configuracion/emails/suprimidos', label: 'Correos suprimidos', icon: MailX },
 ];
 
 export function ConfiguracionLayout() {

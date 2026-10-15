@@ -38,6 +38,7 @@ const VencimientosConfigPage = lazy(() => import('@/modules/vencimientos').then(
 const EmailTemplatesPage = lazy(() => import('@/modules/configuracion/pages/EmailTemplatesPage').then(m => ({ default: m.EmailTemplatesPage })));
 const TrackingPlantillasPage = lazy(() => import('@/modules/configuracion/pages/TrackingPlantillasPage').then(m => ({ default: m.TrackingPlantillasPage })));
 const EmailQueuePage = lazy(() => import('@/modules/configuracion/pages/EmailQueuePage').then(m => ({ default: m.EmailQueuePage })));
+const CorreosSuprimidosPage = lazy(() => import('@/modules/configuracion/pages/CorreosSuprimidosPage').then(m => ({ default: m.CorreosSuprimidosPage })));
 const UsuariosPage = lazy(() => import('@/modules/configuracion/pages/UsuariosPage').then(m => ({ default: m.UsuariosPage })));
 const GeneracionCjPage = lazy(() => import('@/modules/configuracion/pages/GeneracionCjPage').then(m => ({ default: m.GeneracionCjPage })));
 const RecuperoListPage = lazy(() => import('@/modules/recupero').then(m => ({ default: m.RecuperoListPage })));
@@ -424,6 +425,7 @@ export function App() {
             <Route path="usuarios" element={<UsuariosPage />} />
             <Route path="generacion-cj" element={<GeneracionCjPage />} />
             <Route path="emails/cola" element={<EmailQueuePage />} />
+            <Route path="emails/suprimidos" element={<CorreosSuprimidosPage />} />
             <Route path="auditoria" element={<AuditoriaPage />} />
             <Route path="errores" element={<ErroresRuntimePage />} />
             <Route path="salud-sistema" element={<SaludSistemaPage />} />

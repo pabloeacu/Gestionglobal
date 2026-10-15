@@ -9606,7 +9606,23 @@ export type Database = {
           tramite_id: string
         }[]
       }
+      email_bloqueado_total: { Args: { p_email: string }; Returns: boolean }
+      email_descartar: { Args: { p_email: string }; Returns: Json }
       email_esta_suprimido: { Args: { p_email: string }; Returns: boolean }
+      email_reactivar: { Args: { p_email: string }; Returns: Json }
+      email_suppression_list: {
+        Args: never
+        Returns: {
+          administracion_id: string
+          administracion_nombre: string
+          created_at: string
+          email: string
+          es_hard: boolean
+          motivo: string
+          origen: string
+          prospecto_id: string
+        }[]
+      }
       email_template_actualizar_visual: {
         Args: {
           p_asunto?: string
@@ -9652,6 +9668,20 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      emails_rebotados_recientes: {
+        Args: never
+        Returns: {
+          administracion_id: string
+          administracion_nombre: string
+          asunto: string
+          bounced_at: string
+          error_msg: string
+          estado: string
+          id: string
+          template_slug: string
+          to_email: string
+        }[]
       }
       emitir_certificado: { Args: { p_matricula_id: string }; Returns: string }
       emitir_certificado_si_corresponde: {

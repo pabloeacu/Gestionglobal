@@ -575,35 +575,55 @@ export interface ReboteReciente {
   administracion_nombre: string | null;
 }
 
-/** Envíos rebotados o con queja de spam en los últimos 7 días (staff via RLS).
- *  Alimenta el banner "Emails rebotados" del Inicio de gerencia con CTA a la
- *  ficha del cliente. */
+/** Envíos rebotados o con queja de spam en los últimos 7 días, PENDIENTES de
+ *  acción (DGG-224: la RPC excluye los ya suprimidos/descartados — una vez que el
+ *  gerente los descarta o se auto-suprimen, no hay nada que accionar). Alimenta el
+ *  banner "Emails rebotados" del Inicio de gerencia. */
 export async function listarRebotesRecientes(): Promise<ApiResponse<ReboteReciente[]>> {
-  const desde = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-  const { data, error } = await supabase
-    .from('sent_emails')
-    .select('id, to_email, asunto, template_slug, estado, bounced_at, error_msg, administracion_id, administraciones:administracion_id(nombre)')
-    .in('estado', ['bounced', 'complained'])
-    .gte('last_event_at', desde)
-    // §6 B#10: excluir casillas sintéticas de QA (dominio .test) — no son
-    // clientes reales y sólo meten ruido en el Inicio.
-    .not('to_email', 'ilike', '%.test')
-    .order('bounced_at', { ascending: false, nullsFirst: false })
-    .limit(20);
+  const { data, error } = await supabase.rpc('emails_rebotados_recientes');
   if (error) return fail('REBOTES_LIST', error.message, error);
-  type Raw = Omit<ReboteReciente, 'administracion_nombre'> & {
-    administraciones: { nombre: string } | null;
-  };
-  const rows = ((data ?? []) as unknown as Raw[]).map((r) => ({
-    id: r.id,
-    to_email: r.to_email,
-    asunto: r.asunto,
-    template_slug: r.template_slug,
-    estado: r.estado,
-    bounced_at: r.bounced_at,
-    error_msg: r.error_msg,
-    administracion_id: r.administracion_id,
-    administracion_nombre: r.administraciones?.nombre ?? null,
-  }));
-  return ok(rows);
+  return ok((data ?? []) as ReboteReciente[]);
+}
+
+/** DGG-224 · Descartar una casilla MUERTA (rebote de casilla inexistente): la
+ *  suprime como "hard" → no se gastan más envíos (transaccional ni marketing) en
+ *  ella. Potestad del gerente (botón en el banner de rebotes). */
+export async function descartarEmail(email: string): Promise<ApiResponse<true>> {
+  const { data, error } = await supabase.rpc('email_descartar', { p_email: email });
+  if (error) return fail('EMAIL_DESCARTAR', error.message, error);
+  const d = data as { ok?: boolean; error?: string } | null;
+  if (!d?.ok) return fail('EMAIL_DESCARTAR', d?.error ?? 'No se pudo descartar');
+  return ok(true);
+}
+
+/** DGG-224 · Reactivar una casilla (deshace la supresión + re-habilita el
+ *  marketing del cliente dueño + revierte el prospecto, en una sola operación). */
+export async function reactivarEmail(email: string): Promise<ApiResponse<true>> {
+  const { data, error } = await supabase.rpc('email_reactivar', { p_email: email });
+  if (error) return fail('EMAIL_REACTIVAR', error.message, error);
+  const d = data as { ok?: boolean; error?: string } | null;
+  if (!d?.ok) return fail('EMAIL_REACTIVAR', d?.error ?? 'No se pudo reactivar');
+  return ok(true);
+}
+
+// ---------------------------------------------------------------------------
+// DGG-224 · Correos suprimidos (vista de gerencia + re-alta)
+// ---------------------------------------------------------------------------
+export interface Suprimido {
+  email: string;
+  motivo: string;
+  origen: string | null;
+  created_at: string;
+  administracion_id: string | null;
+  administracion_nombre: string | null;
+  prospecto_id: string | null;
+  es_hard: boolean;
+}
+
+/** Lista todas las supresiones (bajas de marketing + rebotes + descartes) para la
+ *  vista "Correos suprimidos", con el flag es_hard (casilla muerta = bloquea todo). */
+export async function listarSuprimidos(): Promise<ApiResponse<Suprimido[]>> {
+  const { data, error } = await supabase.rpc('email_suppression_list');
+  if (error) return fail('SUPRIMIDOS_LIST', error.message, error);
+  return ok((data ?? []) as Suprimido[]);
 }

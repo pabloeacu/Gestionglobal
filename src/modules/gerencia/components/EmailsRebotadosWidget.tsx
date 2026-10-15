@@ -12,15 +12,19 @@
 // ============================================================================
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { MailX, ChevronRight, X } from 'lucide-react';
-import { listarRebotesRecientes, type ReboteReciente } from '@/services/api/emails';
+import { MailX, ChevronRight, X, Ban } from 'lucide-react';
+import { listarRebotesRecientes, descartarEmail, type ReboteReciente } from '@/services/api/emails';
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
 import { useCardDismiss } from '@/hooks/useCardDismiss';
+import { useConfirm } from '@/components/common';
+import { toast } from '@/lib/toast';
+import { humanizeError } from '@/lib/errors';
 
 export function EmailsRebotadosWidget({ limit = 5 }: { limit?: number }) {
   const [items, setItems] = useState<ReboteReciente[]>([]);
   const [loading, setLoading] = useState(true);
   const mountedRef = useRef(true);
+  const confirm = useConfirm();
 
   const load = useCallback(async () => {
     const res = await listarRebotesRecientes();
@@ -28,6 +32,30 @@ export function EmailsRebotadosWidget({ limit = 5 }: { limit?: number }) {
     setLoading(false);
     if (res.ok) setItems(res.data);
   }, []);
+
+  // DGG-224 · Descartar una casilla muerta (rebote de casilla inexistente):
+  // la suprime "hard" → no se gastan más envíos en ella (ni de servicio ni de
+  // novedades). Para un typo recuperable, en cambio, el gerente entra a la ficha
+  // (el link de la fila) y corrige el mail. Reactivable desde Correos suprimidos.
+  const handleDescartar = useCallback(
+    async (email: string) => {
+      const okc = await confirm({
+        title: 'Descartar casilla',
+        message: `¿Dejar de enviar correos a ${email}? Es una casilla que rebota (muchas veces inexistente); no gastaremos más envíos en ella — ni de servicio ni de novedades. Si fue un error de tipeo, mejor corregí el mail desde la ficha. Podés reactivarla luego en Configuración → Correos suprimidos.`,
+        confirmLabel: 'Descartar',
+        danger: true,
+      });
+      if (!okc) return;
+      const res = await descartarEmail(email);
+      if (!res.ok) {
+        toast.error('No pudimos descartar la casilla', { description: humanizeError(res.error) });
+        return;
+      }
+      toast.success('Casilla descartada · no le enviaremos más');
+      void load();
+    },
+    [confirm, load],
+  );
 
   useEffect(() => {
     mountedRef.current = true;
@@ -88,10 +116,11 @@ export function EmailsRebotadosWidget({ limit = 5 }: { limit?: number }) {
 
       <ul className="divide-y divide-rose-200/60">
         {visibles.map((r) => (
-          <li key={r.id}>
+          <li key={r.id} className="flex items-center gap-2 py-1">
             <Link
               to={r.administracion_id ? `/gerencia/clientes/${r.administracion_id}` : '/gerencia/configuracion/emails/cola'}
-              className="group flex items-center justify-between gap-3 rounded px-1 py-2.5 transition hover:bg-white"
+              title="Ir a la ficha para verificar o corregir el mail"
+              className="group flex min-w-0 flex-1 items-center justify-between gap-3 rounded px-1 py-1.5 transition hover:bg-white"
             >
               <div className="min-w-0">
                 <p className="truncate text-sm font-medium text-brand-ink">
@@ -112,6 +141,14 @@ export function EmailsRebotadosWidget({ limit = 5 }: { limit?: number }) {
                 className="shrink-0 text-brand-muted transition group-hover:translate-x-0.5 group-hover:text-rose-600"
               />
             </Link>
+            <button
+              type="button"
+              onClick={() => void handleDescartar(r.to_email)}
+              title="Descartar: dejar de enviar a esta casilla (inexistente / rebota)"
+              className="inline-flex shrink-0 items-center gap-1 rounded-md border border-rose-200 bg-white px-2 py-1 text-[11px] font-semibold text-rose-700 transition hover:bg-rose-100"
+            >
+              <Ban size={12} /> Descartar
+            </button>
           </li>
         ))}
       </ul>

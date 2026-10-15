@@ -215,6 +215,21 @@ Deno.serve(async (req) => {
     return json({ ok: true, drained: 0, recipient_throttled: true });
   }
 
+  // 2b-bis) DGG-224 · Destinatario HARD-suprimido (casilla MUERTA: rebote/queja/
+  // descarte de gerencia) → no gastar envíos en él, NI transaccional ni marketing.
+  // Fail-OPEN a propósito: si el check falla (error transitorio), se envía igual —
+  // no bloquear un transaccional legítimo por un error del chequeo; sólo cancela
+  // cuando da true explícito. (La baja soft de marketing se maneja en 2c.)
+  {
+    const { data: bloqueado } = await admin.rpc('email_bloqueado_total', { p_email: job.to_email });
+    if (bloqueado === true) {
+      await admin.from('email_queue')
+        .update({ enviado_at: new Date().toISOString(), status: 'cancelled', ultimo_error: 'destinatario descartado/rebotado (casilla muerta)' })
+        .eq('id', job.id);
+      return json({ ok: true, drained: 0, blocked_dead: true });
+    }
+  }
+
   // 2c) Compliance de marketing (opt-out + baja). Aplica SÓLO a:
   //   · prospectos (DGG-220 F2): captación en frío (related_table='prospectos').
   //   · clientes (DGG-224 F2): marketing del motor de ofrecimientos
