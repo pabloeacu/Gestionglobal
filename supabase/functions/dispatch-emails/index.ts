@@ -215,11 +215,19 @@ Deno.serve(async (req) => {
     return json({ ok: true, drained: 0, recipient_throttled: true });
   }
 
-  // 2c) DGG-220 Fase 2 — Compliance de marketing a prospectos (opt-out + baja).
-  // SÓLO aplica a emails con related_table='prospectos'; el transaccional/cliente
-  // queda byte-idéntico (bajaUrl=null → ni header List-Unsubscribe ni footer de baja).
+  // 2c) Compliance de marketing (opt-out + baja). Aplica SÓLO a:
+  //   · prospectos (DGG-220 F2): captación en frío (related_table='prospectos').
+  //   · clientes (DGG-224 F2): marketing del motor de ofrecimientos
+  //     (related_table='administraciones' Y slug 'ofrecimiento-*').
+  // El transaccional a clientes (comprobantes/tracking/reset: otros slugs) y todo
+  // lo demás queda byte-idéntico (bajaUrl=null → ni header List-Unsubscribe ni
+  // footer de baja). bajaTexto adapta la línea del footer al tipo de destinatario.
   let bajaUrl: string | null = null;
-  if (job.related_table === 'prospectos') {
+  let bajaTexto: string | null = null;
+  const esMktProspecto = job.related_table === 'prospectos';
+  const esMktCliente = job.related_table === 'administraciones'
+    && (job.template_slug ?? '').startsWith('ofrecimiento-');
+  if (esMktProspecto || esMktCliente) {
     // Backoff para no bloquear la cola ante un fallo transitorio (el row vuelve en 5').
     const deferir = async (motivo: string) => {
       await admin.from('email_queue')
@@ -227,8 +235,8 @@ Deno.serve(async (req) => {
         .eq('id', job!.id);
       return json({ ok: true, drained: 0, deferred: motivo });
     };
-    // Marketing a prospecto sin prospecto asociado → no se puede dar baja → no enviar.
-    if (!job.related_id) return await deferir('prospecto_sin_id');
+    // Marketing sin id de destinatario → no se puede dar baja → no enviar.
+    if (!job.related_id) return await deferir('sin_related_id');
     // (a) GATE fail-CLOSED: si no podemos verificar supresión, NO enviar (reintenta).
     const { data: suprimido, error: supErr } = await admin.rpc('email_esta_suprimido', { p_email: job.to_email });
     if (supErr) return await deferir('suppression_check_error');
@@ -238,11 +246,18 @@ Deno.serve(async (req) => {
         .eq('id', job.id);
       return json({ ok: true, drained: 0, suppressed: true });
     }
-    // (b) Link de baja OBLIGATORIO (token por prospecto, mig 0545). Fail-CLOSED:
-    // ningún mail de marketing a prospectos sale sin link de baja.
-    const { data: prow, error: pErr } = await admin.from('prospectos').select('baja_token').eq('id', job.related_id).maybeSingle();
-    if (pErr || !prow?.baja_token) return await deferir('sin_baja_token');
-    bajaUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/email-baja?p=${job.related_id}&t=${prow.baja_token}`;
+    // (b) Link de baja OBLIGATORIO. Fail-CLOSED: ningún mail de marketing sin baja.
+    if (esMktCliente) {
+      const { data: arow, error: aErr } = await admin.from('administraciones').select('baja_token').eq('id', job.related_id).maybeSingle();
+      if (aErr || !arow?.baja_token) return await deferir('sin_baja_token');
+      bajaUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/email-baja?a=${job.related_id}&t=${arow.baja_token}`;
+      bajaTexto = 'Recibís este correo como cliente de Gestión Global. ¿No querés recibir novedades y ofertas por correo?';
+    } else {
+      const { data: prow, error: pErr } = await admin.from('prospectos').select('baja_token').eq('id', job.related_id).maybeSingle();
+      if (pErr || !prow?.baja_token) return await deferir('sin_baja_token');
+      bajaUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/email-baja?p=${job.related_id}&t=${prow.baja_token}`;
+      bajaTexto = 'Recibís este correo porque figurás en el registro público de administradores de consorcios (DPPJ · Pcia. de Buenos Aires). ¿No querés recibir estos correos?';
+    }
   }
 
   // 3) Cargar template (con campos MANAXER).
@@ -282,7 +297,7 @@ Deno.serve(async (req) => {
   const subject = renderVars(tpl.asunto, vars);
   let html: string;
   if (tpl.layout_version === 'manaxer-v1') {
-    html = buildManaxerHtml(tpl, vars, senderEmail, replyToEmail, bajaUrl);
+    html = buildManaxerHtml(tpl, vars, senderEmail, replyToEmail, bajaUrl, bajaTexto);
     // Hardening (E-GG-74): una plantilla manaxer-v1 con `cuerpo_html_visual` vacío
     // produce un mail "sólo logo" (el dispatcher no mira `body_html` en este layout).
     // Defensa: si el cuerpo visual renderiza vacío y existe `body_html` legacy,
@@ -459,6 +474,7 @@ function buildManaxerHtml(
   fromEmail: string,
   replyToEmail: string,
   bajaUrl?: string | null,
+  bajaTexto?: string | null,
 ): string {
   const accent = sanitizeHex(tpl.color_acento) ?? '#0891b2';
   const kicker = renderVars(tpl.kicker, vars);
@@ -530,7 +546,7 @@ function buildManaxerHtml(
   // DGG-220 Fase 2/4: baja + fuente (sólo marketing a prospectos, cuando hay bajaUrl).
   // La línea de fuente da legitimidad al mailing en frío (§6 B#6): decís por qué lo recibe.
   const bajaLine = bajaUrl
-    ? `<br /><span style="color:#b6c0cc;">Recibís este correo porque figurás en el registro público de administradores de consorcios (DPPJ · Pcia. de Buenos Aires). ¿No querés recibir estos correos? <a href="${escapeAttr(bajaUrl)}" style="color:#94a3b8;text-decoration:underline;">Darme de baja</a>.</span>`
+    ? `<br /><span style="color:#b6c0cc;">${bajaTexto ?? 'Recibís este correo porque figurás en el registro público de administradores de consorcios (DPPJ · Pcia. de Buenos Aires). ¿No querés recibir estos correos?'} <a href="${escapeAttr(bajaUrl)}" style="color:#94a3b8;text-decoration:underline;">Darme de baja</a>.</span>`
     : '';
   const footerBlock = `<tr><td style="padding:18px 32px 28px 32px;border-top:1px solid #e2e8f0;background:#f8fafc;border-radius:0 0 16px 16px;">
       <p style="margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:11px;color:#94a3b8;text-align:center;">

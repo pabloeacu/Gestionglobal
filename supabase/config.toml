@@ -54,6 +54,14 @@ verify_jwt = false
 [functions.gmail-pubsub-webhook]
 verify_jwt = false
 
+# dispatch-emails: cron drainer de email_queue. verify_jwt=false A PROPÓSITO —
+# la auth es CRON_SECRET/service_role validado ADENTRO (AUDIT-011); con verify_jwt=true
+# la plataforma rechaza el bearer del cron con 401 ANTES del código (lección DGG-113).
+# Estaba deployado en false pero SIN declarar acá → un deploy por CLI lo habría flipeado
+# a true y roto TODO el envío de correos. Se fija explícito (DGG-224).
+[functions.dispatch-emails]
+verify_jwt = false
+
 # email-baja (DGG-220 Fase 2): endpoint PÚBLICO de baja/unsubscribe. verify_jwt=false
 # a propósito — el unsubscribe (incl. List-Unsubscribe-Post one-click, RFC 8058) debe
 # ser alcanzable SIN login; la barrera real es el token de 128 bits por prospecto.

@@ -139,6 +139,7 @@ export type Database = {
       administraciones: {
         Row: {
           activo: boolean
+          baja_token: string | null
           clave_fiscal_arca: string | null
           codigo: string
           codigo_postal: string | null
@@ -187,6 +188,7 @@ export type Database = {
         }
         Insert: {
           activo?: boolean
+          baja_token?: string | null
           clave_fiscal_arca?: string | null
           codigo: string
           codigo_postal?: string | null
@@ -235,6 +237,7 @@ export type Database = {
         }
         Update: {
           activo?: boolean
+          baja_token?: string | null
           clave_fiscal_arca?: string | null
           codigo?: string
           codigo_postal?: string | null
@@ -8726,6 +8729,10 @@ export type Database = {
       }
       admin_precheck_identidad: {
         Args: { p_cuit?: string; p_dni?: string; p_excluir_id?: string }
+        Returns: Json
+      }
+      administracion_baja: {
+        Args: { p_admin_id: string; p_token: string }
         Returns: Json
       }
       administracion_credito_disponible: {
