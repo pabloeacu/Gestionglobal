@@ -148,7 +148,7 @@ export function AgenteCierrePage() {
       const r = res.data.resumen;
       toast.success(
         r.modo === 'real' ? `Cerré ${r.cerrados} trámite(s)` : `Simulación lista · cerraría ${r.cerrar_limpio}`,
-        { description: `Detectados ${r.total} · a revisar ${r.reportar_revision} · bloqueados ${r.reportar_bloqueo}. Te mandé el reporte por mail.` },
+        { description: `Detectados ${r.total} · a revisar ${r.reportar_revision - (r.por_track?.curso.revision ?? 0)} · bloqueados ${r.reportar_bloqueo}. Te mandé el reporte por mail.` },
       );
       void loadPreview(); void loadRuns(); void loadConfig();
     } else toast.error('No pudimos correr el equipo', { description: humanizeError(res.error) });
@@ -273,7 +273,7 @@ export function AgenteCierrePage() {
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <KpiCard label="Detectados" value={counts.total} icon={Briefcase} tone="navy" hint="Resueltos +25 días" />
           <KpiCard label={activo ? 'Cerraría ahora' : 'Cerraría al activar'} value={counts.limpios} icon={CheckCircle2} tone="green" hint="100% verificados" />
-          <KpiCard label="A revisar" value={counts.revision} icon={Eye} tone="navy" hint="Quedan para vos" />
+          <KpiCard label="A revisar" value={counts.revision - counts.tracks.curso.revision} icon={Eye} tone="navy" hint="Quedan para vos" />
           <KpiCard label="Bloqueados" value={counts.bloqueos} icon={ShieldAlert} tone="amber" hint="Amortiguador" />
         </div>
 
@@ -290,7 +290,7 @@ export function AgenteCierrePage() {
                   <p className="text-xs font-semibold text-brand-ink">{meta.label}</p>
                 </div>
                 <p className="mt-1.5 text-[11px] text-brand-muted tabular-nums">
-                  {tc.total} detectados · <span className="font-semibold text-green-700">{tc.limpios} cerraría</span> · {tc.revision} a revisar · {tc.bloqueos} bloqueados
+                  {tc.total} detectados · <span className="font-semibold text-green-700">{tc.limpios} cerraría</span> · {tc.revision} {t === 'curso' ? 'en marcha' : 'a revisar'} · {tc.bloqueos} bloqueados
                 </p>
               </div>
             );

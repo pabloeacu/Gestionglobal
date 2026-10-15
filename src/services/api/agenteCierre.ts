@@ -45,6 +45,9 @@ export interface CierreItem {
   cliente: string;
   decision: CierreDecision;
   bloqueos: string[];
+  // Estado académico de un curso no listo (mig 0582, DGG-222): 'cursando' (no egresó) /
+  // 'espera_cert' (egresó pero el cert no cumple 30 días) / null (curso cerrable o no-curso).
+  curso_estado?: 'cursando' | 'espera_cert' | null;
   motivo: string;
   dias_abierto: number;
   cierre: { motivo: string; satisfactorio: boolean; observaciones: string } | null;
