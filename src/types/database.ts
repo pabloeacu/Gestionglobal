@@ -7797,6 +7797,59 @@ export type Database = {
         }
         Relationships: []
       }
+      tramix_cierre_refresh_queue: {
+        Row: {
+          admin_id: string | null
+          created_at: string
+          estado: string
+          flag: string | null
+          id: string
+          intentos: number
+          legajo: string
+          n_expedientes: number | null
+          resultado: string | null
+          run_date: string
+          titular: string | null
+          updated_at: string
+        }
+        Insert: {
+          admin_id?: string | null
+          created_at?: string
+          estado?: string
+          flag?: string | null
+          id?: string
+          intentos?: number
+          legajo: string
+          n_expedientes?: number | null
+          resultado?: string | null
+          run_date?: string
+          titular?: string | null
+          updated_at?: string
+        }
+        Update: {
+          admin_id?: string | null
+          created_at?: string
+          estado?: string
+          flag?: string | null
+          id?: string
+          intentos?: number
+          legajo?: string
+          n_expedientes?: number | null
+          resultado?: string | null
+          run_date?: string
+          titular?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tramix_cierre_refresh_queue_admin_id_fkey"
+            columns: ["admin_id"]
+            isOneToOne: false
+            referencedRelation: "administraciones"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tramix_detalle_cache: {
         Row: {
           consultado_at: string
@@ -8765,6 +8818,7 @@ export type Database = {
       }
       administraciones_con_deuda: { Args: never; Returns: string[] }
       agente_cierre_correr: { Args: { p_origen?: string }; Returns: Json }
+      agente_cierre_planificar: { Args: never; Returns: Json }
       agente_cierre_preview: { Args: never; Returns: Json }
       ajuste_masivo_precios: {
         Args: {
@@ -11361,6 +11415,14 @@ export type Database = {
           id: string
           legajo: string
           venc_anterior: string
+        }[]
+      }
+      tramix_cierre_refresh_claim: {
+        Args: never
+        Returns: {
+          admin_id: string
+          id: string
+          legajo: string
         }[]
       }
       tramix_gate: {

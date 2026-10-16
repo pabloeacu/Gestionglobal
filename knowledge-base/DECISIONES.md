@@ -7785,6 +7785,20 @@ Pablo (sobre el reporte): "⛔ bloqueado: Calvento — Consulta jurídica · ara
 - **Efecto "nada pendiente":** Calvento queda `cerrar_limpio` → la cierra el cron de las 10:00 (o `CORRER AHORA`). Los 3 RPAC restantes NO son bug: necesitan que gerencia cargue matrícula+legajo en la ficha. Los 11 "a revisar" principal son verificaciones TRAMIX genuinas (amortiguador).
 - **Deuda menor documentada (aceptada):** el fix no exige `bonificacion_100` para un $0 (lo haría re-divergir de `comprobante_pendiente`); hardening opcional disponible si Pablo lo pide (ver E-GG-229).
 
+## DGG-225 · El agente de cierre re-scrapea TRAMIX con dato fresco por intento (encolado + pautado) — migs 0585/0586/0587 + edge, §6 verde, E-GG-230 (2026-10-16)
+
+Pablo, al ver "🔎 a revisar · falta scrapear el legajo" (Palais y otros): "¿a qué se refiere? …los legajos se actualizan constantemente, la verificación debe hacerse en CADA intento de cierre con dato fresco, no mirar una cache desactualizada".
+
+- **Hueco raíz (E-GG-230):** `tramix_cache` (lo único que lee el detector para verificar el RPAC) **sólo lo escribía el visor TRAMIX on-demand** (edge `tramix-consulta`, al abrirlo un humano). Los scrapers de fondo (backfill/reverify) bajaban los expedientes y los **descartaban** (sólo guardaban el vencimiento en la ficha) → el agente quedaba como consumidor pasivo de una cache que se llenaba por casualidad. Por eso los trámites RPAC quedaban eternamente "falta scrapear". Además el check `fresco` no tenía cota de recencia → podía cerrar sobre cache añeja.
+- **Decisión / diseño (3 fases hands-off, reusa el patrón DGG-216 cola+claim+edge+cron):** el agente **produce el dato fresco que necesita, por intento**:
+  1. **PLANNER** (10:00, RPC `agente_cierre_planificar`): encola los legajos DISTINCT de los candidatos principales no bloqueados (1 scrape sirve a todos sus trámites — cola UNIQUE por legajo; cubre el caso multi-trámite por construcción). Encola TODOS (incluso los que pasarían con cache vieja) → frescura por intento.
+  2. **WORKER** (`5-55/5 13-18`, 10:05–15:55 ART, edge nueva `tramix-cierre-scrape`): 1 legajo cada 5 min, scrapea TRAMIX y **ESCRIBE `tramix_cache`** (la línea que faltaba) con `consultado_at=hoy`. Pacing ~0,2 req/min (más lento que el sancionado ~1/min; breaker + SKIP LOCKED protegen la IP). Arranca 10:00, termina flexible (drena ~16:00 si hay muchos).
+  3. **CLOSER** (reprogramado 10:00→16:10): corre tras drenar el scraping; cierra sólo lo refrescado hoy + reporte. Lo no drenado cascada a mañana.
+- **Endurecimientos del detector (mig 0586, misma firma R16):** (a) `fresco` = "scrapeado HOY" (medianoche ART) → **imposible cerrar con cache añeja** (requisito de Pablo); (b) **normaliza** el join de legajo a dígitos; (c) **guard multi-trámite**: 2+ candidatos del mismo tipo por legajo → no auto-cierre (revisión manual, evita cruzar expedientes — caso Calvento 277078).
+- **Decisiones de Pablo (AskUserQuestion):** construir todo + prueba SECO · guard simple (multi-trámite a revisión manual, no emparejamiento fino) · ritmo 1 cada 5 min · go-live + **cerrar AHORA**.
+- **§6 (3 agentes + e2e) — APTO, 0 críticos.** Fixes menores aplicados (REVOKE defensivo anon/auth-write; re-claim 5→15 min; worker a :05). e2e R18 de 0586 (4 ramas, 0 residuo). **Prueba SECO real:** edge scrapeó 10 legajos → cache fresca → **9 cerrar_limpio**; la frescura destrabó MASSON (OBSERVADO→NOTIFICADO) y Coppari (ciclo anterior→actual). **Corrida real:** 9 cerrados, 0 errores, 9 avisos a clientes + reporte; Calvento ×2 a revisión (guard); 3 RPAC bloqueados (sin_otorgamiento). Pipeline vivo para mañana.
+- **Guardrail respetado:** NO se subió el ritmo de TRAMIX (se bajó: 1/5min < 1/min sancionado); 1 solo consumidor efectivo (SKIP LOCKED); breaker compartido intacto; no se tocó backfill/consulta (drift R7 aislado). Deudas menores documentadas en E-GG-230.
+
 ## DGG-220 · Pulida de captación (2026-10-14)
 Primer bloque de "la pulida" (pedido de Pablo). 3 ítems, uno tras otro, cada uno con §6 + prueba en vivo + commit.
 
