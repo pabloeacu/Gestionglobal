@@ -7806,6 +7806,7 @@ export type Database = {
           id: string
           intentos: number
           legajo: string
+          motivo: string
           n_expedientes: number | null
           resultado: string | null
           run_date: string
@@ -7820,6 +7821,7 @@ export type Database = {
           id?: string
           intentos?: number
           legajo: string
+          motivo?: string
           n_expedientes?: number | null
           resultado?: string | null
           run_date?: string
@@ -7834,6 +7836,7 @@ export type Database = {
           id?: string
           intentos?: number
           legajo?: string
+          motivo?: string
           n_expedientes?: number | null
           resultado?: string | null
           run_date?: string
