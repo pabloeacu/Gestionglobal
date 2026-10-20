@@ -585,7 +585,7 @@ export function TramitesListPage() {
                                 <span className={cn('inline-block rounded-full border px-2 py-0.5 text-[11px] font-semibold', ESTADO_BADGES[r.estado as TramiteEstado])}>
                                   {TRAMITE_ESTADO_LABEL[r.estado as TramiteEstado]}
                                 </span>
-                                <span className="pointer-events-none absolute bottom-full left-0 z-20 mb-1.5 hidden whitespace-nowrap rounded-lg bg-brand-ink px-2.5 py-1.5 text-[11px] font-medium text-white shadow-lg group-hover/estado:block">
+                                <span className="pointer-events-none absolute bottom-full right-0 z-20 mb-1.5 hidden whitespace-nowrap rounded-lg bg-brand-ink px-2.5 py-1.5 text-[11px] font-medium text-white shadow-lg group-hover/estado:block">
                                   Resuelto hace {diasResuelto}d · {formatDateShort(r.resuelto_at!)}
                                 </span>
                               </span>
