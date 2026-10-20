@@ -50,20 +50,22 @@ export interface CierreItem {
   curso_estado?: 'cursando' | 'espera_cert' | null;
   motivo: string;
   dias_abierto: number;
+  // DGG-228: días desde que el trámite pasó a RESUELTO (el reloj de candidatura del agente).
+  dias_resuelto: number;
   cierre: { motivo: string; satisfactorio: boolean; observaciones: string } | null;
 }
 
-export interface AgenteCierreConfig { activo: boolean; cap: number; }
+export interface AgenteCierreConfig { activo: boolean; cap: number; dias: number; }
 
-function readConfig(data: { agente_cierre_activo: boolean | null; agente_cierre_cap: number | null }): AgenteCierreConfig {
-  return { activo: data.agente_cierre_activo ?? false, cap: data.agente_cierre_cap ?? 25 };
+function readConfig(data: { agente_cierre_activo: boolean | null; agente_cierre_cap: number | null; agente_cierre_dias: number | null }): AgenteCierreConfig {
+  return { activo: data.agente_cierre_activo ?? false, cap: data.agente_cierre_cap ?? 25, dias: data.agente_cierre_dias ?? 25 };
 }
 
 export async function getAgenteCierreConfig(): Promise<ApiResponse<AgenteCierreConfig>> {
   try {
     const { data, error } = await supabase
       .from('config_global')
-      .select('agente_cierre_activo, agente_cierre_cap')
+      .select('agente_cierre_activo, agente_cierre_cap, agente_cierre_dias')
       .eq('id', 1)
       .single();
     if (error) throw error;
@@ -127,7 +129,7 @@ export async function setAgenteCierreActivo(activo: boolean): Promise<ApiRespons
       .from('config_global')
       .update({ agente_cierre_activo: activo })
       .eq('id', 1)
-      .select('agente_cierre_activo, agente_cierre_cap')
+      .select('agente_cierre_activo, agente_cierre_cap, agente_cierre_dias')
       .single();
     if (error) throw error;
     return ok(readConfig(data));
@@ -144,7 +146,24 @@ export async function setAgenteCierreCap(cap: number): Promise<ApiResponse<Agent
       .from('config_global')
       .update({ agente_cierre_cap: cap })
       .eq('id', 1)
-      .select('agente_cierre_activo, agente_cierre_cap')
+      .select('agente_cierre_activo, agente_cierre_cap, agente_cierre_dias')
+      .single();
+    if (error) throw error;
+    return ok(readConfig(data));
+  } catch (e) {
+    const err = toApiError(e);
+    return fail(err.code, err.message, err.details);
+  }
+}
+
+/** DGG-228: días que el agente espera desde que el trámite pasó a RESUELTO antes de relevarlo. */
+export async function setAgenteCierreDias(dias: number): Promise<ApiResponse<AgenteCierreConfig>> {
+  try {
+    const { data, error } = await supabase
+      .from('config_global')
+      .update({ agente_cierre_dias: dias })
+      .eq('id', 1)
+      .select('agente_cierre_activo, agente_cierre_cap, agente_cierre_dias')
       .single();
     if (error) throw error;
     return ok(readConfig(data));

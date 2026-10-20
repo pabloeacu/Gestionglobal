@@ -498,6 +498,17 @@ export function TramitesListPage() {
                   {sorted.map((r, idx) => {
                     const sla = computeSla(r);
                     const nextEst = NEXT_ESTADO[r.estado as TramiteEstado];
+                    // DGG-228: días (de calendario) desde que el trámite pasó a RESUELTO
+                    // (≠ días abierto, que cuenta desde la creación). Es el reloj que usa el
+                    // agente de cierre; se calcula por fecha (no por 24h) para coincidir con
+                    // el "resuelto hace Xd" del reporte (now()::date - resuelto_at::date).
+                    const diasResuelto = r.resuelto_at
+                      ? (() => {
+                          const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+                          const res = new Date(r.resuelto_at); res.setHours(0, 0, 0, 0);
+                          return Math.max(0, Math.round((hoy.getTime() - res.getTime()) / 86_400_000));
+                        })()
+                      : null;
                     return (
                       <tr
                         key={r.id}
@@ -567,9 +578,22 @@ export function TramitesListPage() {
                         </td>
                         <td className="px-3 py-3">
                           <div className="flex items-center gap-2">
-                            <span className={cn('inline-block rounded-full border px-2 py-0.5 text-[11px] font-semibold', ESTADO_BADGES[r.estado as TramiteEstado])}>
-                              {TRAMITE_ESTADO_LABEL[r.estado as TramiteEstado]}
-                            </span>
+                            {diasResuelto !== null ? (
+                              // DGG-228: tooltip propio (mismo patrón que el relojito) con los
+                              // días desde que pasó a RESUELTO — el reloj que mira el agente de cierre.
+                              <span className="group/estado relative inline-flex">
+                                <span className={cn('inline-block rounded-full border px-2 py-0.5 text-[11px] font-semibold', ESTADO_BADGES[r.estado as TramiteEstado])}>
+                                  {TRAMITE_ESTADO_LABEL[r.estado as TramiteEstado]}
+                                </span>
+                                <span className="pointer-events-none absolute bottom-full left-0 z-20 mb-1.5 hidden whitespace-nowrap rounded-lg bg-brand-ink px-2.5 py-1.5 text-[11px] font-medium text-white shadow-lg group-hover/estado:block">
+                                  Resuelto hace {diasResuelto}d · {formatDateShort(r.resuelto_at!)}
+                                </span>
+                              </span>
+                            ) : (
+                              <span className={cn('inline-block rounded-full border px-2 py-0.5 text-[11px] font-semibold', ESTADO_BADGES[r.estado as TramiteEstado])}>
+                                {TRAMITE_ESTADO_LABEL[r.estado as TramiteEstado]}
+                              </span>
+                            )}
                             {/* Última actividad → relojito con tooltip propio: instantáneo
                                 (sin el delay del title nativo) y cursor normal (pedido Pablo). */}
                             <span className="group/clock relative inline-flex text-brand-muted/60 transition hover:text-brand-cyan">

@@ -1772,6 +1772,7 @@ export type Database = {
         Row: {
           agente_cierre_activo: boolean
           agente_cierre_cap: number
+          agente_cierre_dias: number
           arca_intervalo_emision_seg: number
           codigo_postal: string | null
           condicion_iva: string
@@ -1806,6 +1807,7 @@ export type Database = {
         Insert: {
           agente_cierre_activo?: boolean
           agente_cierre_cap?: number
+          agente_cierre_dias?: number
           arca_intervalo_emision_seg?: number
           codigo_postal?: string | null
           condicion_iva?: string
@@ -1840,6 +1842,7 @@ export type Database = {
         Update: {
           agente_cierre_activo?: boolean
           agente_cierre_cap?: number
+          agente_cierre_dias?: number
           arca_intervalo_emision_seg?: number
           codigo_postal?: string | null
           condicion_iva?: string

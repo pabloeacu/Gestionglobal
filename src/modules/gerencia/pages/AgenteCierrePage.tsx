@@ -25,6 +25,7 @@ import {
   previewAgenteCierre,
   setAgenteCierreActivo,
   setAgenteCierreCap,
+  setAgenteCierreDias,
   type AgenteCierreConfig,
   type AgenteCierreRun,
   type CierreDecision,
@@ -65,6 +66,7 @@ export function AgenteCierrePage() {
 
   const [config, setConfig] = useState<AgenteCierreConfig | null>(null);
   const [capInput, setCapInput] = useState('');
+  const [diasInput, setDiasInput] = useState('');
   const [preview, setPreview] = useState<CierreItem[] | null>(null);
   const [previewLoading, setPreviewLoading] = useState(true);
   const [runs, setRuns] = useState<AgenteCierreRun[]>([]);
@@ -77,7 +79,7 @@ export function AgenteCierrePage() {
 
   async function loadConfig() {
     const r = await getAgenteCierreConfig();
-    if (r.ok) { setConfig(r.data); setCapInput(String(r.data.cap)); }
+    if (r.ok) { setConfig(r.data); setCapInput(String(r.data.cap)); setDiasInput(String(r.data.dias)); }
     else toast.error('No pudimos leer la configuración', { description: humanizeError(r.error) });
   }
   async function loadPreview() {
@@ -183,6 +185,17 @@ export function AgenteCierrePage() {
     else toast.error('No pudimos actualizar el tope', { description: humanizeError(res.error) });
   }
 
+  async function onSaveDias() {
+    const dias = parseInt(diasInput, 10);
+    if (!Number.isFinite(dias) || dias < 1 || dias > 365) { toast.error('La espera debe ser un número entre 1 y 365'); return; }
+    if (dias === config?.dias) return;
+    setBusyFlag(true);
+    const res = await setAgenteCierreDias(dias);
+    setBusyFlag(false);
+    if (res.ok) { setConfig(res.data); toast.success(`Espera actualizada: ${dias} días desde resuelto`); }
+    else toast.error('No pudimos actualizar la espera', { description: humanizeError(res.error) });
+  }
+
   const activo = config?.activo ?? false;
 
   return (
@@ -192,7 +205,7 @@ export function AgenteCierrePage() {
           <p className="kicker">Operación</p>
           <h1 className="font-display text-2xl font-bold text-brand-ink sm:text-3xl">Cierre automático de trámites</h1>
           <p className="mt-1 max-w-2xl text-sm text-brand-muted">
-            Un equipo que corre solo todos los días a las 10:00 y cierra los trámites resueltos hace más de 25 días
+            Un equipo que corre solo todos los días a las 10:00 y cierra los trámites resueltos hace más de {config?.dias ?? 25} días
             que están 100% verificados, avisándole al cliente. Lo que no está limpio, te lo reporta. Anda con la
             computadora apagada.
           </p>
@@ -216,7 +229,7 @@ export function AgenteCierrePage() {
             </div>
             <div>
               <p className="text-sm font-semibold text-brand-ink">Equipo de cierre</p>
-              <p className="text-xs text-brand-muted">Corrida diaria 10:00 (hora Argentina) · tope {config?.cap ?? '—'} por corrida</p>
+              <p className="text-xs text-brand-muted">Corrida diaria 10:00 (hora Argentina) · tope {config?.cap ?? '—'} por corrida · espera {config?.dias ?? '—'}d desde resuelto</p>
             </div>
             <span
               className={cn(
@@ -250,6 +263,20 @@ export function AgenteCierrePage() {
                   Guardar
                 </Button>
               </div>
+              <div className="flex items-end gap-1.5">
+                <Field label="Espera (días desde resuelto)" className="w-40">
+                  <Input
+                    type="number"
+                    value={diasInput}
+                    onChange={(e) => setDiasInput(e.target.value)}
+                    min={1}
+                    max={365}
+                  />
+                </Field>
+                <Button variant="secondary" onClick={() => void onSaveDias()} loading={busyFlag} disabled={diasInput === String(config.dias)}>
+                  Guardar
+                </Button>
+              </div>
             </div>
           )}
         </div>
@@ -271,7 +298,7 @@ export function AgenteCierrePage() {
         </div>
 
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <KpiCard label="Detectados" value={counts.total} icon={Briefcase} tone="navy" hint="Resueltos +25 días" />
+          <KpiCard label="Detectados" value={counts.total} icon={Briefcase} tone="navy" hint={`Resueltos hace +${config?.dias ?? 25} días`} />
           <KpiCard label={activo ? 'Cerraría ahora' : 'Cerraría al activar'} value={counts.limpios} icon={CheckCircle2} tone="green" hint="100% verificados" />
           <KpiCard label="A revisar" value={counts.revision - counts.tracks.curso.revision} icon={Eye} tone="navy" hint="Quedan para vos" />
           <KpiCard label="Bloqueados" value={counts.bloqueos} icon={ShieldAlert} tone="amber" hint="Amortiguador" />
