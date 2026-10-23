@@ -27,7 +27,7 @@ export function LoginPage() {
   const [mfaCode, setMfaCode] = useState('');
   const [verifying, setVerifying] = useState(false);
 
-  // DGG-93 (JL #5) · Recuperar contraseña: un usuario bloqueado pide un link.
+  // DGG-93 (JL #5) · Recuperar contraseña: un usuario bloqueado pide un código (DGG-229).
   const [mode, setMode] = useState<'login' | 'forgot'>('login');
   const [forgotSending, setForgotSending] = useState(false);
   const [forgotSent, setForgotSent] = useState(false);
@@ -188,8 +188,8 @@ export function LoginPage() {
                     <MailCheck size={18} className="mt-0.5 shrink-0 text-emerald-600" />
                     <p className="text-sm text-emerald-800">
                       Si <strong>{email || 'ese email'}</strong> está registrado, te enviamos un
-                      correo con el enlace para crear una contraseña nueva. Revisá tu bandeja
-                      (y la carpeta de spam). El enlace vence en 1 hora.
+                      correo con un código para crear una contraseña nueva. Revisá tu bandeja
+                      (y la carpeta de spam). El código vence en 1 hora.
                     </p>
                   </div>
                   <button
@@ -206,7 +206,7 @@ export function LoginPage() {
               ) : (
                 <>
                   <p className="mt-2 text-sm text-brand-muted">
-                    Ingresá tu email y te mandamos un enlace para crear una contraseña
+                    Ingresá tu email y te mandamos un código para crear una contraseña
                     nueva vos mismo.
                   </p>
                   <form onSubmit={onSubmitForgot} className="mt-7 space-y-4">
@@ -228,7 +228,7 @@ export function LoginPage() {
                       loading={forgotSending}
                       className="w-full rounded-xl bg-gradient-to-r from-brand-cyan to-brand-blue py-3 shadow-[0_8px_24px_-8px_rgba(0,158,202,0.6)] hover:from-brand-blue hover:to-brand-blue"
                     >
-                      <MailCheck size={16} /> Enviarme el enlace
+                      <MailCheck size={16} /> Enviarme el código
                     </Button>
                   </form>
                   <button
