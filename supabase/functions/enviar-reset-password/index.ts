@@ -5,12 +5,20 @@
 // contraseña" exige estar logueado). Este proyecto NO usa el SMTP de Supabase
 // Auth (los users se crean con email_confirm=true), así que resetPasswordForEmail
 // nativo no es confiable. En su lugar:
-//   1. admin.generateLink({type:'recovery', email, redirectTo}) genera el link
-//      seguro (service_role).
+//   1. admin.generateLink({type:'recovery', email}) genera un CÓDIGO de 6 dígitos
+//      (properties.email_otp) para esa recuperación (service_role).
 //   2. Encolamos el correo en email_queue con el template 'password-reset', que
-//      se despacha por el pipeline propio (Google Workspace) — confiable.
-//   3. La pantalla /restablecer recibe la sesión de recovery y deja fijar la
-//      nueva clave con updateUser({password}) — el server nunca ve la clave.
+//      muestra el CÓDIGO; se despacha por el pipeline propio (Google Workspace).
+//   3. En /restablecer el usuario tipea el código → supabase.auth.verifyOtp(
+//      {type:'recovery', email, token}) → sesión de recovery → fija la nueva clave
+//      con updateUser({password}). El server nunca ve la contraseña.
+//
+// DGG-229 / E-GG-233: se pasó de link-consume-on-GET a CÓDIGO. El flujo anterior
+// mandaba el action_link de GoTrue (/auth/v1/verify), que CONSUME el token de un
+// solo uso al ABRIRSE; los escáneres/webviews de correo (Yahoo es el peor) pre-
+// visitan el link y lo queman antes de que el usuario complete el cambio → "venció"
+// aunque falte tiempo (Yahoo 0/7 resets OK en 30 días). Un código de texto en el
+// cuerpo del mail NO se consume con un GET de prefetch y sobrevive recargas.
 //
 // Seguridad: respuesta SIEMPRE genérica ({ok:true}) para no filtrar qué emails
 // existen (anti-enumeración). Throttle: no reencola si ya se mandó uno a la misma
@@ -83,15 +91,15 @@ Deno.serve(async (req) => {
     /* throttle best-effort: si falla el select, seguimos */
   }
 
-  // Generar el link de recovery. Si el email no existe (o cualquier error),
-  // devolvemos ok genérico sin revelarlo.
+  // Generar la recuperación y quedarnos con el CÓDIGO de 6 dígitos (email_otp).
+  // Si el email no existe (o cualquier error), devolvemos ok genérico sin revelarlo.
   const { data, error } = await admin.auth.admin.generateLink({
     type: 'recovery',
     email,
     options: { redirectTo: REDIRECT_TO },
   });
-  const link = data?.properties?.action_link;
-  if (error || !link) return OK();
+  const codigo = data?.properties?.email_otp;
+  if (error || !codigo) return OK();
 
   // Nombre para el saludo (best-effort).
   let nombre = 'Hola';
@@ -115,7 +123,7 @@ Deno.serve(async (req) => {
     subject: 'Restablecé tu contraseña · Gestión Global',
     kind: 'workflow',
     template_slug: 'password-reset',
-    variables: { nombre, reset_url: link },
+    variables: { nombre, codigo, reset_url: `${SITE_URL}/restablecer?email=${encodeURIComponent(email)}` },
     prioridad: 1,
     programado_para: new Date().toISOString(),
     related_table: 'auth_users',

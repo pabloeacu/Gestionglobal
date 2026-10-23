@@ -155,8 +155,34 @@ export async function enviarResetPassword(email: string): Promise<ApiResponse<tr
   return ok(true);
 }
 
-// Fija la nueva contraseña usando la sesión de recovery activa (tras clickear el
-// link del email). No requiere la contraseña anterior.
+// Verifica el CÓDIGO de 6 dígitos del email de recuperación (DGG-229) → establece
+// la sesión de recovery en el cliente. A diferencia del link viejo, un código de
+// texto no lo consume un escáner/webview que pre-visita el correo (caso Yahoo,
+// E-GG-233). Tras esto, el usuario fija la clave con actualizarPasswordConRecovery.
+export async function verificarCodigoRecovery(
+  email: string,
+  codigo: string,
+): Promise<ApiResponse<true>> {
+  const clean = email.trim().toLowerCase();
+  const token = codigo.replace(/[\s-]/g, '').trim();
+  if (!clean.includes('@')) return fail('EMAIL_INVALIDO', 'Ingresá tu email.');
+  // Longitud flexible: el código de GoTrue puede ser de 6 u 8 dígitos según la
+  // config (hoy 8). verifyOtp valida el valor real; acá sólo chequeamos formato.
+  if (!/^\d{6,12}$/.test(token)) return fail('CODIGO_INVALIDO', 'Revisá el código que te enviamos (son sólo números).');
+  const { error } = await supabase.auth.verifyOtp({ email: clean, token, type: 'recovery' });
+  if (error) {
+    const raw = (error.message ?? '').toLowerCase();
+    let msg = 'El código no es válido. Revisá que sea el del último correo que te enviamos, o pedí uno nuevo.';
+    if (raw.includes('expired')) {
+      msg = 'El código venció (dura 1 hora). Pedí uno nuevo desde "¿Olvidaste tu contraseña?".';
+    }
+    return fail('RECOVERY_OTP', msg, error);
+  }
+  return ok(true);
+}
+
+// Fija la nueva contraseña usando la sesión de recovery activa (tras verificar el
+// código del email). No requiere la contraseña anterior.
 export async function actualizarPasswordConRecovery(
   newPassword: string,
 ): Promise<ApiResponse<true>> {
