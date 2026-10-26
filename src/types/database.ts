@@ -1653,6 +1653,7 @@ export type Database = {
           audiencia: Json
           banner_estilo: string
           canal_banner: boolean
+          canal_campanita: boolean
           canal_email: boolean
           canal_push: boolean
           created_at: string
@@ -1665,6 +1666,7 @@ export type Database = {
           enviado_por: string | null
           estado: string
           id: string
+          imagen_url: string | null
           titulo: string
           total_destinatarios: number
           updated_at: string
@@ -1675,6 +1677,7 @@ export type Database = {
           audiencia?: Json
           banner_estilo?: string
           canal_banner?: boolean
+          canal_campanita?: boolean
           canal_email?: boolean
           canal_push?: boolean
           created_at?: string
@@ -1687,6 +1690,7 @@ export type Database = {
           enviado_por?: string | null
           estado?: string
           id?: string
+          imagen_url?: string | null
           titulo: string
           total_destinatarios?: number
           updated_at?: string
@@ -1697,6 +1701,7 @@ export type Database = {
           audiencia?: Json
           banner_estilo?: string
           canal_banner?: boolean
+          canal_campanita?: boolean
           canal_email?: boolean
           canal_push?: boolean
           created_at?: string
@@ -1709,6 +1714,7 @@ export type Database = {
           enviado_por?: string | null
           estado?: string
           id?: string
+          imagen_url?: string | null
           titulo?: string
           total_destinatarios?: number
           updated_at?: string
@@ -9350,6 +9356,7 @@ export type Database = {
           cuerpo_md: string
           enviado_at: string
           id: string
+          imagen_url: string
           titulo: string
           visto_at: string
         }[]

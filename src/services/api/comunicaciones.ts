@@ -28,10 +28,12 @@ export interface ComunicacionRow {
   cuerpo_html: string | null;
   cta_label: string | null;
   cta_url: string | null;
+  imagen_url: string | null;
   audiencia: Audiencia;
   canal_banner: boolean;
   canal_email: boolean;
   canal_push: boolean;
+  canal_campanita: boolean;
   banner_estilo: BannerEstilo;
   visible_desde: string;
   visible_hasta: string | null;
@@ -50,10 +52,12 @@ export interface ComunicacionInsert {
   cuerpo_html?: string | null;
   cta_label?: string | null;
   cta_url?: string | null;
+  imagen_url?: string | null;
   audiencia: Audiencia;
   canal_banner: boolean;
   canal_email: boolean;
   canal_push: boolean;
+  canal_campanita?: boolean;
   banner_estilo: BannerEstilo;
   visible_desde?: string;
   visible_hasta?: string | null;
@@ -72,6 +76,7 @@ export interface NovedadCliente {
   cuerpo_md: string;
   cta_label: string | null;
   cta_url: string | null;
+  imagen_url: string | null;
   banner_estilo: BannerEstilo;
   enviado_at: string;
   visto_at: string | null;
@@ -109,10 +114,12 @@ export async function crearComunicacion(
     cuerpo_html: input.cuerpo_html ?? null,
     cta_label: input.cta_label ?? null,
     cta_url: input.cta_url ?? null,
+    imagen_url: input.imagen_url ?? null,
     audiencia: input.audiencia as unknown as Json,
     canal_banner: input.canal_banner,
     canal_email: input.canal_email,
     canal_push: input.canal_push,
+    canal_campanita: input.canal_campanita ?? false,
     banner_estilo: input.banner_estilo,
     visible_desde: input.visible_desde,
     visible_hasta: input.visible_hasta ?? null,
@@ -136,10 +143,12 @@ export async function actualizarComunicacion(
     ...(patch.cuerpo_html !== undefined && { cuerpo_html: patch.cuerpo_html ?? null }),
     ...(patch.cta_label !== undefined && { cta_label: patch.cta_label ?? null }),
     ...(patch.cta_url !== undefined && { cta_url: patch.cta_url ?? null }),
+    ...(patch.imagen_url !== undefined && { imagen_url: patch.imagen_url ?? null }),
     ...(patch.audiencia !== undefined && { audiencia: patch.audiencia as unknown as Json }),
     ...(patch.canal_banner !== undefined && { canal_banner: patch.canal_banner }),
     ...(patch.canal_email !== undefined && { canal_email: patch.canal_email }),
     ...(patch.canal_push !== undefined && { canal_push: patch.canal_push }),
+    ...(patch.canal_campanita !== undefined && { canal_campanita: patch.canal_campanita }),
     ...(patch.banner_estilo !== undefined && { banner_estilo: patch.banner_estilo }),
     ...(patch.visible_desde !== undefined && { visible_desde: patch.visible_desde }),
     ...(patch.visible_hasta !== undefined && { visible_hasta: patch.visible_hasta ?? null }),
@@ -179,6 +188,7 @@ export interface EnvioResultado {
   destinatarios: number;
   emails_encolados: number;
   pushes_encolados: number;
+  campanita_encoladas: number;
 }
 
 export async function enviarComunicacion(

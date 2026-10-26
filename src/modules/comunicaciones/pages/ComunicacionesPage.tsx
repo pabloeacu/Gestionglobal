@@ -14,6 +14,7 @@ import {
   Mail,
   Bell,
   Monitor,
+  Image as ImageIcon,
   Users as UsersIcon,
   Pencil,
   Trash2,
@@ -117,8 +118,8 @@ export function ComunicacionesPage() {
                 Noticias y novedades a tus clientes
               </h1>
               <p className="mt-1 text-sm text-slate-600">
-                Enviá un banner al dashboard, un email o un push (o los tres) a un
-                subconjunto de administraciones.
+                Enviá un banner al dashboard, una notificación en la campanita, un
+                email o un push (o todos) a un subconjunto de administraciones.
               </p>
             </div>
           </div>
@@ -187,6 +188,11 @@ export function ComunicacionesPage() {
                       <Monitor size={11} /> Dashboard
                     </span>
                   )}
+                  {c.canal_campanita && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-slate-50 px-2 py-0.5 ring-1 ring-slate-200">
+                      <Bell size={11} /> Campanita
+                    </span>
+                  )}
                   {c.canal_email && (
                     <span className="inline-flex items-center gap-1 rounded-full bg-slate-50 px-2 py-0.5 ring-1 ring-slate-200">
                       <Mail size={11} /> Email
@@ -194,7 +200,12 @@ export function ComunicacionesPage() {
                   )}
                   {c.canal_push && (
                     <span className="inline-flex items-center gap-1 rounded-full bg-slate-50 px-2 py-0.5 ring-1 ring-slate-200">
-                      <Bell size={11} /> Push
+                      <Megaphone size={11} /> Push
+                    </span>
+                  )}
+                  {c.imagen_url && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-cyan-50 px-2 py-0.5 text-cyan-700 ring-1 ring-cyan-200">
+                      <ImageIcon size={11} /> Imagen
                     </span>
                   )}
                 </div>

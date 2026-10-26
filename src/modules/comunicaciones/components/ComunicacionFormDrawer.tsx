@@ -76,6 +76,7 @@ export function ComunicacionFormDrawer({ open, onClose, editing, onSaved }: Prop
   const [cuerpo, setCuerpo] = useState('');
   const [ctaLabel, setCtaLabel] = useState('');
   const [ctaUrl, setCtaUrl] = useState('');
+  const [imagenUrl, setImagenUrl] = useState('');
   const [audienciaTipo, setAudienciaTipo] = useState<AudienciaTipo>('todos');
   const [adminIds, setAdminIds] = useState<string[]>([]);
   const [servicioIds, setServicioIds] = useState<string[]>([]);
@@ -84,6 +85,7 @@ export function ComunicacionFormDrawer({ open, onClose, editing, onSaved }: Prop
   const [canalBanner, setCanalBanner] = useState(true);
   const [canalEmail, setCanalEmail] = useState(false);
   const [canalPush, setCanalPush] = useState(false);
+  const [canalCampanita, setCanalCampanita] = useState(false);
   const [bannerEstilo, setBannerEstilo] = useState<BannerEstilo>('novedad');
   const [visibleHasta, setVisibleHasta] = useState('');
 
@@ -106,6 +108,7 @@ export function ComunicacionFormDrawer({ open, onClose, editing, onSaved }: Prop
       setCuerpo(editing.cuerpo_md);
       setCtaLabel(editing.cta_label ?? '');
       setCtaUrl(editing.cta_url ?? '');
+      setImagenUrl(editing.imagen_url ?? '');
       setAudienciaTipo(editing.audiencia.type);
       setAdminIds(
         editing.audiencia.type === 'manual'
@@ -125,6 +128,7 @@ export function ComunicacionFormDrawer({ open, onClose, editing, onSaved }: Prop
       setCanalBanner(editing.canal_banner);
       setCanalEmail(editing.canal_email);
       setCanalPush(editing.canal_push);
+      setCanalCampanita(editing.canal_campanita);
       setBannerEstilo(editing.banner_estilo);
       setVisibleHasta(
         editing.visible_hasta
@@ -139,6 +143,7 @@ export function ComunicacionFormDrawer({ open, onClose, editing, onSaved }: Prop
       setCuerpo('');
       setCtaLabel('');
       setCtaUrl('');
+      setImagenUrl('');
       setAudienciaTipo('todos');
       setAdminIds([]);
       setServicioIds([]);
@@ -147,6 +152,7 @@ export function ComunicacionFormDrawer({ open, onClose, editing, onSaved }: Prop
       setCanalBanner(true);
       setCanalEmail(false);
       setCanalPush(false);
+      setCanalCampanita(false);
       setBannerEstilo('novedad');
       setVisibleHasta('');
     }
@@ -211,7 +217,7 @@ export function ComunicacionFormDrawer({ open, onClose, editing, onSaved }: Prop
     if (cuerpo.trim().length === 0) return 'El cuerpo no puede estar vacío.';
     if (ctaLabel.trim() && !ctaUrl.trim())
       return 'El CTA tiene texto pero no URL.';
-    if (!canalBanner && !canalEmail && !canalPush)
+    if (!canalBanner && !canalEmail && !canalPush && !canalCampanita)
       return 'Tenés que activar al menos un canal.';
     if (audienciaTipo === 'manual' && adminIds.length === 0)
       return 'Elegí al menos un cliente.';
@@ -234,10 +240,12 @@ export function ComunicacionFormDrawer({ open, onClose, editing, onSaved }: Prop
       cuerpo_md: cuerpo.trim(),
       cta_label: ctaLabel.trim() || null,
       cta_url: ctaUrl.trim() || null,
+      imagen_url: imagenUrl.trim() || null,
       audiencia,
       canal_banner: canalBanner,
       canal_email: canalEmail,
       canal_push: canalPush,
+      canal_campanita: canalCampanita,
       banner_estilo: bannerEstilo,
       // Anclar a FIN de día en horario AR: "visible hasta el 24" queda visible
       // todo el 24 AR (no expira a las 21hs por guardarse en medianoche-UTC). E-GG-194 §6/C#5.
@@ -271,13 +279,14 @@ export function ComunicacionFormDrawer({ open, onClose, editing, onSaved }: Prop
     }
     const okBtn = await confirm({
       title: '¿Enviar comunicación?',
-      message: `Se enviará a ${total} cliente${total === 1 ? '' : 's'}${
-        canalEmail || canalPush
-          ? ` por ${[canalBanner && 'dashboard', canalEmail && 'email', canalPush && 'push']
-              .filter(Boolean)
-              .join(' + ')}.`
-          : ' por banner en el dashboard.'
-      } Esta acción no se puede deshacer.`,
+      message: `Se enviará a ${total} cliente${total === 1 ? '' : 's'} por ${[
+        canalBanner && 'banner',
+        canalCampanita && 'campanita',
+        canalEmail && 'email',
+        canalPush && 'push',
+      ]
+        .filter(Boolean)
+        .join(' + ')}. Esta acción no se puede deshacer.`,
       confirmLabel: 'Enviar ahora',
     });
     if (!okBtn) return;
@@ -291,7 +300,7 @@ export function ComunicacionFormDrawer({ open, onClose, editing, onSaved }: Prop
       return;
     }
     toast.success(
-      `Enviada · ${res.data.destinatarios} destinatarios · ${res.data.emails_encolados} emails · ${res.data.pushes_encolados} pushes`,
+      `Enviada · ${res.data.destinatarios} destinatarios · ${res.data.campanita_encoladas} campanita · ${res.data.emails_encolados} emails · ${res.data.pushes_encolados} pushes`,
     );
     onSaved?.();
     onClose();
@@ -391,6 +400,17 @@ export function ComunicacionFormDrawer({ open, onClose, editing, onSaved }: Prop
               />
             </Field>
           </div>
+          <Field
+            label="Imagen del comunicado (opcional)"
+            hint="Si cargás una URL de imagen, el banner abre una ventana emergente con esa imagen (ideal para comunicados oficiales en imagen). Subí el archivo a public/email/ y pegá la ruta (ej: /email/rpac-canales-oficiales.webp)."
+          >
+            <Input
+              value={imagenUrl}
+              onChange={(e) => setImagenUrl(e.target.value)}
+              placeholder="/email/mi-comunicado.webp o https://…"
+              disabled={isReadonly}
+            />
+          </Field>
         </section>
 
         {/* 2. Audiencia */}
@@ -522,13 +542,21 @@ export function ComunicacionFormDrawer({ open, onClose, editing, onSaved }: Prop
         {/* 3. Canales */}
         <section className="space-y-3">
           <SectionTitle index="3" label="Canales de envío" />
-          <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
+          <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
             <CanalToggle
               icon={<Monitor size={16} />}
               label="Banner dashboard"
               hint="Aparece arriba en el portal del cliente hasta que lo cierre."
               checked={canalBanner}
               onChange={setCanalBanner}
+              disabled={isReadonly}
+            />
+            <CanalToggle
+              icon={<Bell size={16} />}
+              label="Campanita (in-app)"
+              hint="Notificación en la campanita del portal (la ven todos los clientes con cuenta)."
+              checked={canalCampanita}
+              onChange={setCanalCampanita}
               disabled={isReadonly}
             />
             <CanalToggle
@@ -540,7 +568,7 @@ export function ComunicacionFormDrawer({ open, onClose, editing, onSaved }: Prop
               disabled={isReadonly}
             />
             <CanalToggle
-              icon={<Bell size={16} />}
+              icon={<Megaphone size={16} />}
               label="Push (app)"
               hint="Notificación push web (sólo clientes con el portal instalado)."
               checked={canalPush}
