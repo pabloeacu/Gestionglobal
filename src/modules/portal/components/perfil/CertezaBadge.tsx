@@ -105,7 +105,7 @@ export function HechoValue({
   return (
     <span
       className={cn(
-        'tabular-nums',
+        'tabular-nums whitespace-nowrap',
         hecho.certeza === 'confirmado' ? 'font-semibold text-brand-ink' : 'text-brand-ink',
       )}
     >

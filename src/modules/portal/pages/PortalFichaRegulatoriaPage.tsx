@@ -292,7 +292,7 @@ export function PortalFichaRegulatoriaPage() {
           onClick={() => setLeyendaOpen(true)}
           className="inline-flex items-center gap-1 text-xs text-brand-cyan hover:underline"
         >
-          <HelpCircle size={13} /> ¿Qué significan los colores?
+          <HelpCircle size={13} /> ¿Qué significan las etiquetas?
         </button>
       </div>
 
@@ -303,7 +303,7 @@ export function PortalFichaRegulatoriaPage() {
         </p>
         <dl className="space-y-2.5">
           <IdentRow label="Estado">
-            <span className="flex items-center gap-2">
+            <span className="flex flex-wrap items-center justify-end gap-2">
               <span className="text-sm font-medium text-brand-ink">
                 {p.matriculado.valor ? 'Matriculado' : 'Sin matrícula registrada'}
               </span>
@@ -318,7 +318,7 @@ export function PortalFichaRegulatoriaPage() {
             </IdentRow>
           )}
           <IdentRow label="Nº de matrícula">
-            <span className="flex items-center gap-2">
+            <span className="flex flex-wrap items-center justify-end gap-2">
               {/* el nro es un identificador de texto, NO una fecha → no pasa por HechoValue */}
               {p.matricula.nro ? (
                 <span
@@ -344,7 +344,7 @@ export function PortalFichaRegulatoriaPage() {
           </IdentRow>
           {/* DGG-206 · legajo RPAC (llave para Mesa de Entradas). El cliente puede cargarlo. */}
           <IdentRow label="Legajo RPAC">
-            <span className="flex items-center gap-2">
+            <span className="flex flex-wrap items-center justify-end gap-2">
               {p.legajo.nro ? (
                 <span
                   className={cn(
@@ -368,7 +368,7 @@ export function PortalFichaRegulatoriaPage() {
             </span>
           </IdentRow>
           <IdentRow label="Fecha de matriculación">
-            <span className="flex items-center gap-2">
+            <span className="flex flex-wrap items-center justify-end gap-2">
               <HechoValue hecho={{ fecha: p.matricula.fecha, certeza: p.matricula.fecha_certeza }} fallback="—" />
               <CertezaBadge certeza={p.matricula.fecha_certeza} />
             </span>
@@ -450,7 +450,7 @@ export function PortalFichaRegulatoriaPage() {
                   return (
                     <div key={o.key} className="flex items-center justify-between gap-3 border-b border-slate-100 py-1.5 last:border-0">
                       <span className="text-sm text-brand-muted">{o.label}</span>
-                      <span className="flex items-center gap-2">
+                      <span className="flex flex-wrap items-center justify-end gap-2">
                         <HechoValue hecho={h} />
                         <CertezaBadge certeza={h.certeza} />
                       </span>
@@ -478,7 +478,7 @@ export function PortalFichaRegulatoriaPage() {
                 {optOut ? (
                   <span className="text-xs text-brand-muted">No lo requerís</span>
                 ) : (
-                  <span className="flex items-center gap-2">
+                  <span className="flex flex-wrap items-center justify-end gap-2">
                     <HechoValue hecho={h} fallback="A definir" />
                     <CertezaBadge certeza={h.certeza} fuente={h.fuente} />
                   </span>
