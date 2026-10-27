@@ -99,6 +99,10 @@ export async function listVencimientos(
       { count: 'exact' },
     )
     .order('fecha_vencimiento', { ascending: true })
+    // DGG-231: los recordatorios DECLARADOS por el cliente (origen='declarado') no son
+    // servicios gestionados por gerencia; viven en la ficha del cliente (su agenda de
+    // avisos), no en esta grilla. Se excluyen por defecto de la superficie de gerencia.
+    .neq('origen', 'declarado')
     .range(offset, offset + limit - 1);
 
   if (params.tipo && params.tipo !== 'todos') q = q.eq('tipo', params.tipo);

@@ -11,9 +11,14 @@ export type PerfilRegulatorioRow = Database['public']['Tables']['perfil_regulato
 
 export type CertezaDato = 'confirmado' | 'declarado' | 'inferido' | 'desconocido';
 
+// DGG-231 · fuente de un dato CONFIRMADO: verificado por el registro oficial
+// (TRAMIX) vs cargado por Gestión Global. Sólo se puebla en proxima_renovacion.
+export type FuenteDato = 'tramix' | 'gestion';
+
 export interface HechoConCerteza {
   fecha: string | null;
   certeza: CertezaDato;
+  fuente?: FuenteDato | null;
 }
 
 export interface PerfilRegulatorio {

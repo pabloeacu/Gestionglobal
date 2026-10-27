@@ -24,7 +24,7 @@ import {
 import { Button, Field, Input, Drawer, Modal, Switch, AnimatedNumber, useConfirm, usePrompt } from '@/components/common';
 import { BrandLoader } from '@/components/brand/BrandLoader';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
-import { CertezaBadge, HechoValue, CERTEZA_META } from '../components/perfil/CertezaBadge';
+import { CertezaBadge, HechoValue } from '../components/perfil/CertezaBadge';
 import {
   OBLIGACIONES,
   hechoDe,
@@ -52,6 +52,11 @@ const AVISO_LABEL: Record<string, string> = {
   ddjj_anual: 'Tu Declaración Jurada anual',
   curso_actualizacion: 'Tu curso de actualización',
   curso_rpa_caba: 'Tu curso RPA (CABA)',
+  // DGG-231 · recordatorios sobre tus datos declarados
+  renovacion_matricula_declarada: 'Renovación de tu matrícula RPAC',
+  ddjj_anual_declarada: 'Tu Declaración Jurada anual',
+  curso_actualizacion_declarado: 'Tu curso de actualización',
+  certificado_declarado: 'Tu certificado de acreditación',
 };
 function avisoLabel(a: AgendaAviso): string {
   return AVISO_LABEL[a.tipo] ?? 'Recordatorio regulatorio';
@@ -136,6 +141,31 @@ export function PortalFichaRegulatoriaPage() {
     if (!t) return;
     setBusyKey('legajoNro');
     const res = await declararPerfilRegulatorio({ administracionId: adminId, legajoNro: t });
+    setBusyKey(null);
+    if (res.ok) {
+      toast.success('Listo, quedó confirmado. Un dato menos.');
+      await load();
+    } else {
+      toast.error('No se pudo guardar', { description: humanizeError(res.error) });
+    }
+  }
+
+  // DGG-231 · paridad R14: el Nº de matrícula es un identificador de texto (no una
+  // fecha) → va por un prompt propio, igual que el legajo, para que el cliente pueda
+  // cargarlo cuando figura "Pendiente" (antes se mostraba sin control alcanzable).
+  async function cargarMatriculaNro() {
+    if (!adminId) return;
+    const v = await promptDlg({
+      title: 'Tu número de matrícula',
+      message: 'El número con el que figurás matriculado en el registro. Lo encontrás en tu credencial / constancia de matrícula.',
+      label: 'Número de matrícula',
+      placeholder: 'ej. 12345',
+    });
+    if (v === null) return;
+    const t = v.trim();
+    if (!t) return;
+    setBusyKey('matriculaNro');
+    const res = await declararPerfilRegulatorio({ administracionId: adminId, matriculaNro: t });
     setBusyKey(null);
     if (res.ok) {
       toast.success('Listo, quedó confirmado. Un dato menos.');
@@ -300,7 +330,14 @@ export function PortalFichaRegulatoriaPage() {
                   {p.matricula.nro}
                 </span>
               ) : (
-                <span className="text-brand-muted">—</span>
+                <button
+                  type="button"
+                  onClick={() => void cargarMatriculaNro()}
+                  disabled={busyKey === 'matriculaNro'}
+                  className="text-xs font-semibold text-brand-cyan hover:underline disabled:opacity-50"
+                >
+                  Cargar mi N° de matrícula
+                </button>
               )}
               <CertezaBadge certeza={p.matricula.nro_certeza} />
             </span>
@@ -366,7 +403,7 @@ export function PortalFichaRegulatoriaPage() {
           {necesitaMatriculaFecha && (
             <HechoConfirmCard
               titulo="¿Cuándo te matriculaste?"
-              subtitulo="Nos ayuda a estimar tus próximos vencimientos."
+              subtitulo="Nos ayuda a calcular tus próximos vencimientos."
               busy={busyKey === 'matriculaFecha'}
               onCargar={() => setEditor({ field: 'matriculaFecha', label: 'Fecha de matriculación', pregunta: '¿Cuándo te matriculaste?' })}
               onTodaviaNo={() => snooze('matriculaFecha')}
@@ -443,7 +480,7 @@ export function PortalFichaRegulatoriaPage() {
                 ) : (
                   <span className="flex items-center gap-2">
                     <HechoValue hecho={h} fallback="A definir" />
-                    <CertezaBadge certeza={h.certeza} />
+                    <CertezaBadge certeza={h.certeza} fuente={h.fuente} />
                   </span>
                 )}
               </div>
@@ -451,7 +488,8 @@ export function PortalFichaRegulatoriaPage() {
           })}
         </div>
         <p className="mt-2 text-[11px] text-brand-muted">
-          Las fechas <span className="italic text-[#8A4A00]">≈estimadas</span> son orientativas hasta que las confirmes.
+          Calculamos estas fechas con tus datos y te avisamos antes de cada una. Cargá tu
+          legajo RPAC y las verificamos con el registro oficial.
         </p>
       </section>
 
@@ -561,14 +599,24 @@ export function PortalFichaRegulatoriaPage() {
       </Drawer>
 
       {/* leyenda de certeza (una vez) */}
-      <Modal open={leyendaOpen} onClose={() => setLeyendaOpen(false)} title="¿Qué significan los colores?">
+      <Modal open={leyendaOpen} onClose={() => setLeyendaOpen(false)} title="¿Qué significan las etiquetas?">
         <div className="space-y-3">
-          {(Object.keys(CERTEZA_META) as Array<keyof typeof CERTEZA_META>).map((c) => (
-            <div key={c} className="flex items-start gap-3">
-              <CertezaBadge certeza={c} />
-              <p className="text-xs text-brand-muted">{CERTEZA_META[c].hint}</p>
-            </div>
-          ))}
+          <div className="flex items-start gap-3">
+            <CertezaBadge certeza="confirmado" fuente="tramix" />
+            <p className="text-xs text-brand-muted">Verificado con el registro oficial (TRAMIX).</p>
+          </div>
+          <div className="flex items-start gap-3">
+            <CertezaBadge certeza="confirmado" />
+            <p className="text-xs text-brand-muted">Confirmado por Gestión Global (trámite resuelto o dato cargado por nosotros).</p>
+          </div>
+          <div className="flex items-start gap-3">
+            <CertezaBadge certeza="declarado" />
+            <p className="text-xs text-brand-muted">Datos que cargaste vos. Con ellos calculamos tus próximas obligaciones y te avisamos; podés corregirlos cuando quieras.</p>
+          </div>
+          <div className="flex items-start gap-3">
+            <CertezaBadge certeza="desconocido" />
+            <p className="text-xs text-brand-muted">Todavía no lo tenemos. Cargá el dato o tu legajo RPAC.</p>
+          </div>
         </div>
       </Modal>
     </div>
@@ -671,7 +719,7 @@ function FechaEditor({
   const hoy = new Date().toISOString().slice(0, 10);
   return (
     <div className="space-y-4">
-      <Field label={label} hint="Elegí la fecha aproximada; después la podés corregir.">
+      <Field label={label} hint="Elegí la fecha que recuerdes; si no es exacta, después la corregís.">
         <Input type="date" value={v} max={hoy} onChange={(e) => setV(e.target.value)} />
       </Field>
       <div className="flex justify-end gap-2">

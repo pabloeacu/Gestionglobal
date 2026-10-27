@@ -84,3 +84,11 @@ verify_jwt = false
 # CSV público de la planilla. verify_jwt=false; auth interna por is_cron_token.
 [functions.prospectos-reimport-padron]
 verify_jwt = false
+
+# dispatch-vencimientos: cron diario de alertas de vencimiento. verify_jwt=false A
+# PROPÓSITO — la auth es CRON_SECRET validado ADENTRO (mismo patrón que dispatch-emails);
+# con verify_jwt=true la plataforma rechaza el bearer del cron (private.cron_bearer())
+# con 401 ANTES del código. Estaba deployado en false pero SIN declarar acá → un deploy
+# (CLI o MCP) lo flipeaba a true y rompía el cron. Se fija explícito (DGG-231).
+[functions.dispatch-vencimientos]
+verify_jwt = false

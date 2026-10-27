@@ -81,6 +81,11 @@ const TIPO_LABEL: Record<string, string> = {
   libro_administracion: 'Libro de administración',
   revision_ascensor: 'Revisión de ascensor',
   otro: 'Vencimiento',
+  // DGG-231 · recordatorios sobre datos declarados por el cliente
+  renovacion_matricula_declarada: 'Matrícula RPAC',
+  ddjj_anual_declarada: 'Declaración Jurada Anual',
+  curso_actualizacion_declarado: 'Curso de actualización',
+  certificado_declarado: 'Certificado de acreditación',
 };
 
 // DGG-142 E4 · plantilla + destino del click por tipo de vencimiento del
@@ -88,11 +93,48 @@ const TIPO_LABEL: Record<string, string> = {
 const TEMPLATE_BY_TIPO: Record<string, string> = {
   renovacion_rpac: 'ofrecimiento-rpac-renovacion',
   curso_rpa_caba: 'ofrecimiento-rpa-caba',
+  // DGG-231 · recordatorios sobre datos declarados (voz "según sus datos")
+  renovacion_matricula_declarada: 'vencimiento-declarado-cliente',
+  ddjj_anual_declarada: 'vencimiento-declarado-cliente',
+  curso_actualizacion_declarado: 'vencimiento-declarado-cliente',
+  certificado_declarado: 'vencimiento-declarado-cliente',
 };
 const CLICK_URL_BY_TIPO: Record<string, string> = {
   renovacion_rpac: '/formulario/renovacion-rpac?origen=ofrecimiento',
   curso_rpa_caba: '/formulario/curso-actualizacion-caba?origen=ofrecimiento',
+  // DGG-231 · deep-link a la ficha regulatoria del cliente
+  renovacion_matricula_declarada: '/portal/mi-ficha?origen=aviso',
+  ddjj_anual_declarada: '/portal/mi-ficha?origen=aviso',
+  curso_actualizacion_declarado: '/portal/mi-ficha?origen=aviso',
+  certificado_declarado: '/portal/mi-ficha?origen=aviso',
 };
+
+// DGG-231 · helpers para los recordatorios sobre datos DECLARADOS por el cliente.
+const esDeclarado = (tipo: string): boolean =>
+  tipo.endsWith('_declarada') || tipo.endsWith('_declarado');
+
+function fechaAr(iso: string): string {
+  const [y, m, d] = (iso ?? '').split('-');
+  return d && m && y ? `${d}/${m}/${y}` : iso;
+}
+
+// Minúscula que PRESERVA los acrónimos en mayúscula (RPAC, RPA, CABA) — para no
+// escribir "matrícula rpac" en la voz del aviso.
+function labelMinus(label: string): string {
+  return label
+    .split(' ')
+    .map((w) => (w.length > 1 && w === w.toUpperCase() ? w : w.toLowerCase()))
+    .join(' ');
+}
+
+// Voz "según tus datos", situacional por el signo del offset (negativo = ya vencida).
+function fraseDeclarada(tipoLabel: string, fechaIso: string, offset: number): string {
+  const f = fechaAr(fechaIso);
+  const t = labelMinus(tipoLabel);
+  if (offset > 0) return `tu ${t} vence el ${f}`;
+  if (offset === 0) return `tu ${t} vence hoy (${f})`;
+  return `tu ${t} figura con vencimiento el ${f} y ya habría vencido`;
+}
 
 Deno.serve(async (req) => {
   const t0 = Date.now();
@@ -205,13 +247,18 @@ Deno.serve(async (req) => {
     // ---------------------------------------------------------------------
     for (const p of plan) {
       const tipoLabel = TIPO_LABEL[p.tipo] ?? 'Vencimiento';
+      const declarado = esDeclarado(p.tipo); // DGG-231
       const admin = p.administracion_id ? adminMap.get(p.administracion_id) : null;
       const consorcio = p.consorcio_id ? consMap.get(p.consorcio_id) : null;
       const adminONombre = consorcio?.nombre ?? admin?.nombre ?? '—';
 
       // -- a) push interno al gerente -------------------------------------
+      // DGG-231: los recordatorios DECLARADOS no son servicios contratados con
+      // GG → no notifican al gerente (no ensucian /gerencia/agenda/vencimientos).
       const pushKey = `${p.vencimiento_id}::${p.offset_dias}::push`;
-      if (yaProcesado.has(pushKey)) {
+      if (declarado) {
+        // sólo avisamos al cliente; sin push interno.
+      } else if (yaProcesado.has(pushKey)) {
         skippedIdempotente++;
       } else if (staffIds.length === 0) {
         // Sin staff con suscripción — registramos skip suave.
@@ -262,13 +309,18 @@ Deno.serve(async (req) => {
       } else {
         const variables = {
           // superset: la genérica usa nombre_contacto/tipo_label/…; las de
-          // ofrecimiento (mig 0443) usan nombre/dias_restantes/fecha_vencimiento.
+          // ofrecimiento (mig 0443) usan nombre/dias_restantes/fecha_vencimiento;
+          // la declarada (DGG-231) usa frase_estado.
           nombre: nombreContacto,
           nombre_contacto: nombreContacto,
           tipo_label: tipoLabel,
           admin_o_consorcio: adminONombre,
           fecha_vencimiento: p.fecha_vencimiento,
           dias_restantes: p.offset_dias,
+          // DGG-231: frase situacional "según tus datos" para la plantilla declarada.
+          frase_estado: declarado
+            ? fraseDeclarada(tipoLabel, p.fecha_vencimiento, p.offset_dias)
+            : '',
         };
 
         const enc = await safeEncolarEmail(supabase, {
@@ -306,12 +358,22 @@ Deno.serve(async (req) => {
       } else if (!admin || !admin.user_id) {
         await registrarItem(supabase, p, 'push_cliente', 'skipped', 'sin_usuario_portal');
       } else {
+        const notifTitulo = declarado
+          ? (p.offset_dias > 0
+              ? `Recordatorio: tu ${tipoLabel}`
+              : p.offset_dias === 0
+                ? `Tu ${tipoLabel} vence hoy`
+                : `Tu ${tipoLabel} figura vencida`)
+          : (p.offset_dias === 0
+              ? `${tipoLabel}: vence hoy`
+              : `${tipoLabel}: vence en ${p.offset_dias} días`);
+        const notifCuerpo = declarado
+          ? `Según tus datos, ${fraseDeclarada(tipoLabel, p.fecha_vencimiento, p.offset_dias)}. Si ya la hiciste, actualizala en tu ficha.`
+          : `Tu ${tipoLabel.toLowerCase()} vence el ${p.fecha_vencimiento}. Iniciá la gestión con un click.`;
         const { error: errNotif } = await supabase.rpc('gg_notif_emitir_cliente', {
           p_user: admin.user_id,
-          p_titulo: p.offset_dias === 0
-            ? `${tipoLabel}: vence hoy`
-            : `${tipoLabel}: vence en ${p.offset_dias} días`,
-          p_cuerpo: `Tu ${tipoLabel.toLowerCase()} vence el ${p.fecha_vencimiento}. Iniciá la gestión con un click.`,
+          p_titulo: notifTitulo,
+          p_cuerpo: notifCuerpo,
           p_url: CLICK_URL_BY_TIPO[p.tipo] ?? '/portal',
         });
         if (errNotif) {
