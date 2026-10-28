@@ -232,17 +232,25 @@ Deno.serve(async (req) => {
 
   // 2c) Compliance de marketing (opt-out + baja). Aplica SÓLO a:
   //   · prospectos (DGG-220 F2): captación en frío (related_table='prospectos').
-  //   · clientes (DGG-224 F2): marketing del motor de ofrecimientos
-  //     (related_table='administraciones' Y slug 'ofrecimiento-*').
+  //   · clientes (DGG-224 F2 + DGG-232): marketing del motor de ofrecimientos
+  //     Y del onboarding de engagement (related_table='administraciones' Y slug
+  //     'ofrecimiento-*' | 'engagement-*').
   // El transaccional a clientes (comprobantes/tracking/reset: otros slugs) y todo
   // lo demás queda byte-idéntico (bajaUrl=null → ni header List-Unsubscribe ni
   // footer de baja). bajaTexto adapta la línea del footer al tipo de destinatario.
+  // BAJA ACOTADA (decisión Pablo DGG-232): una baja desde un mail de marketing
+  // escribe motivo='baja_usuario' (net SOFT email_esta_suprimido, acá) + apaga
+  // ofrecimientos_habilitados. NO toca el net HARD (email_bloqueado_total, que sólo
+  // lee bounce/queja/descartado). dispatch-vencimientos NO filtra por supresión ni
+  // por ofrecimientos_habilitados → los avisos de vencimiento/servicio siguen
+  // llegando. O sea: baja de engagement frena engagement+ofrecimientos, nunca lo
+  // transaccional. (Verificado §6.)
   let bajaUrl: string | null = null;      // edge (procesa el POST / one-click header)
   let bajaUrlApp: string | null = null;   // página gestionglobal.ar/baja (link visible, renderiza HTML)
   let bajaTexto: string | null = null;
   const esMktProspecto = job.related_table === 'prospectos';
   const esMktCliente = job.related_table === 'administraciones'
-    && (job.template_slug ?? '').startsWith('ofrecimiento-');
+    && /^(ofrecimiento-|engagement-)/.test(job.template_slug ?? '');
   if (esMktProspecto || esMktCliente) {
     // Backoff para no bloquear la cola ante un fallo transitorio (el row vuelve en 5').
     const deferir = async (motivo: string) => {
