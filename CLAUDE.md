@@ -281,6 +281,40 @@ método doble:
    - Esto descubre bugs que la lectura estática no ve (ej. trigger que
      no actualiza la admin, RLS que devuelve >1 row con `.single()`).
 
+   **2-bis. BARRIDO TRANSVERSAL OBLIGATORIO** (capitalizado de E-GG-235 /
+   DGG-233 — el hueco de "declarado ya vencido = mudo" que debió detectarse
+   en DGG-231 y se pasó por auditar el mecanismo en vez del resultado). En
+   TODO chunk que toque datos/notificaciones/estados, estos 5 ángulos son
+   parte obligatoria del REVISAR+EJERCITAR, no opcionales:
+   - **(a) Fan-out de consumidores.** Si el chunk agrega/cambia un DATO,
+     ESTADO, TIPO, ORIGEN o fuente-de-verdad en una tabla: `grep -r` esa
+     tabla/campo → enumerar TODOS los lectores (RPCs, vistas, edges,
+     componentes, dashboards, agendas, banners, KPIs, grillas) → verificar
+     que CADA uno lo incluya bien (o lo excluya A PROPÓSITO, documentado).
+     Que el productor cree el dato NO alcanza; el bug vive en el lector
+     pre-existente que lo filtra en silencio (`estado='vigente'`, fecha
+     oficial-only, etc.).
+   - **(b) Matriz estado × superficie.** Armar la grilla explícita: filas =
+     estados posibles del dato (vigente/vencido/ya-pasado/futuro-lejano/hoy/
+     sin-dato/superseded/cero), columnas = superficies (email/push-campanita/
+     agenda/home-banner/ficha/grilla gerencia). Verificar CADA celda — el bug
+     vive en las celdas vacías (vencido × email, vencido × home, …).
+   - **(c) Bordes temporales + BACKFILL de lo pre-existente.** Testear
+     explícito: dato que nace YA en estado terminal (vencido al materializar),
+     lead-time cero/negativo, y qué pasa con lo CARGADO ANTES de que el
+     mecanismo existiera al ACTIVAR una feature. "No retroactivo" es una
+     DECISIÓN, no un default: si se elige, confirmar que no deje al usuario
+     sin NINGÚN aviso.
+   - **(d) Verificar el caso REPORTADO en su propia silla, end-to-end.** Si el
+     chunk nace de un caso concreto (cliente X, trámite Y), el EJERCITAR
+     sigue ESE caso hasta el final en TODAS las superficies — nunca un conteo
+     agregado. Un número grande ("94 recordatorios") NO es cobertura: mirar
+     quiénes quedan en CERO y elegir el caso MÁS adverso, no el típico.
+   - **(e) Coherencia aviso ↔ display.** Si el dispatch envía X, toda
+     superficie que "muestra lo que te vamos a avisar" (agenda, home) usa el
+     MISMO criterio/filtro de estado — un desajuste = el usuario ve algo que
+     miente sobre lo que va a recibir.
+
 3. **REPORTE CONSOLIDADO** al usuario con tabla
    `# / severidad (crítica/menor) / bug / fix`, separando lo que SÍ funciona
    (verificado en e2e) de lo que tiene huecos.
