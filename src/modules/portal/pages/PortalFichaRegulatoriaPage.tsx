@@ -266,9 +266,9 @@ export function PortalFichaRegulatoriaPage() {
         <TrianglesAccent position="top-right" tone="cyan" density="soft" />
         <div className="relative flex items-center justify-between gap-4">
           <div className="min-w-0">
-            <p className="kicker text-brand-cyan">Portal · Matrícula</p>
+            <p className="kicker text-brand-cyan">Portal · Agenda profesional</p>
             <h1 className="font-display text-2xl font-bold leading-tight text-brand-ink sm:text-3xl">
-              Mi ficha regulatoria
+              Mi agenda de vencimientos
             </h1>
             <p className="mt-1 text-sm text-brand-muted">
               {completo
@@ -303,7 +303,7 @@ export function PortalFichaRegulatoriaPage() {
         </p>
         <dl className="space-y-2.5">
           <IdentRow label="Estado">
-            <span className="flex flex-wrap items-center justify-end gap-2">
+            <span className="flex flex-wrap items-center gap-2 sm:justify-end">
               <span className="text-sm font-medium text-brand-ink">
                 {p.matriculado.valor ? 'Matriculado' : 'Sin matrícula registrada'}
               </span>
@@ -318,7 +318,7 @@ export function PortalFichaRegulatoriaPage() {
             </IdentRow>
           )}
           <IdentRow label="Nº de matrícula">
-            <span className="flex flex-wrap items-center justify-end gap-2">
+            <span className="flex flex-wrap items-center gap-2 sm:justify-end">
               {/* el nro es un identificador de texto, NO una fecha → no pasa por HechoValue */}
               {p.matricula.nro ? (
                 <span
@@ -344,7 +344,7 @@ export function PortalFichaRegulatoriaPage() {
           </IdentRow>
           {/* DGG-206 · legajo RPAC (llave para Mesa de Entradas). El cliente puede cargarlo. */}
           <IdentRow label="Legajo RPAC">
-            <span className="flex flex-wrap items-center justify-end gap-2">
+            <span className="flex flex-wrap items-center gap-2 sm:justify-end">
               {p.legajo.nro ? (
                 <span
                   className={cn(
@@ -368,7 +368,7 @@ export function PortalFichaRegulatoriaPage() {
             </span>
           </IdentRow>
           <IdentRow label="Fecha de matriculación">
-            <span className="flex flex-wrap items-center justify-end gap-2">
+            <span className="flex flex-wrap items-center gap-2 sm:justify-end">
               <HechoValue hecho={{ fecha: p.matricula.fecha, certeza: p.matricula.fecha_certeza }} fallback="—" />
               <CertezaBadge certeza={p.matricula.fecha_certeza} />
             </span>
@@ -448,9 +448,9 @@ export function PortalFichaRegulatoriaPage() {
                 {yaSabemos.map((o) => {
                   const h = hechoDe(p, o.factUltima);
                   return (
-                    <div key={o.key} className="flex items-center justify-between gap-3 border-b border-slate-100 py-1.5 last:border-0">
+                    <div key={o.key} className="flex flex-col gap-0.5 border-b border-slate-100 py-2 last:border-0 sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:py-1.5">
                       <span className="text-sm text-brand-muted">{o.label}</span>
-                      <span className="flex flex-wrap items-center justify-end gap-2">
+                      <span className="flex flex-wrap items-center gap-2 sm:justify-end">
                         <HechoValue hecho={h} />
                         <CertezaBadge certeza={h.certeza} />
                       </span>
@@ -473,12 +473,12 @@ export function PortalFichaRegulatoriaPage() {
             const h = hechoDe(p, o.factProxima as keyof PerfilRegulatorio);
             const optOut = o.key in noRequiere;
             return (
-              <div key={o.key} className="flex items-center justify-between gap-3 border-b border-slate-100 py-1.5 last:border-0">
+              <div key={o.key} className="flex flex-col gap-0.5 border-b border-slate-100 py-2 last:border-0 sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:py-1.5">
                 <span className={cn('text-sm', optOut ? 'text-brand-muted line-through' : 'text-brand-muted')}>{o.label}</span>
                 {optOut ? (
                   <span className="text-xs text-brand-muted">No lo requerís</span>
                 ) : (
-                  <span className="flex flex-wrap items-center justify-end gap-2">
+                  <span className="flex flex-wrap items-center gap-2 sm:justify-end">
                     <HechoValue hecho={h} fallback="A definir" />
                     <CertezaBadge certeza={h.certeza} fuente={h.fuente} />
                   </span>
@@ -625,9 +625,9 @@ export function PortalFichaRegulatoriaPage() {
 
 function IdentRow({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="flex items-center justify-between gap-3">
+    <div className="flex flex-col gap-0.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
       <dt className="text-sm text-brand-muted">{label}</dt>
-      <dd>{children}</dd>
+      <dd className="min-w-0">{children}</dd>
     </div>
   );
 }

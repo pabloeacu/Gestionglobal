@@ -41,12 +41,12 @@ export function PerfilRegulatorioHotCard() {
         <ShieldCheck size={22} />
       </span>
       <div className="min-w-0 flex-1">
-        <p className="kicker text-brand-cyan">Tu matrícula</p>
+        <p className="kicker text-brand-cyan">Tu agenda profesional</p>
         <p className="font-display text-base font-bold leading-tight text-brand-ink sm:text-lg">
-          Completá tu perfil regulatorio
+          Completá tu agenda de vencimientos
         </p>
         <p className="mt-0.5 text-xs text-brand-muted sm:text-sm">
-          Te {pendientes === 1 ? 'falta confirmar 1 dato' : `faltan confirmar ${pendientes} datos`} · lleva 2 minutos.
+          Te {pendientes === 1 ? 'falta confirmar 1 dato' : `faltan confirmar ${pendientes} datos`} · 2 minutos y te avisamos antes de cada vencimiento.
         </p>
       </div>
       <span className="hidden shrink-0 items-center gap-1.5 rounded-md bg-brand-cyan px-3 py-2 text-xs font-semibold text-white shadow-sm transition group-hover:bg-brand-cyan/90 sm:inline-flex">
