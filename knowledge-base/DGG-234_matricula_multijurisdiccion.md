@@ -329,7 +329,17 @@ legajo RPAC), **crear** `aviso-matricula-neuquen` y una renovación CABA.
   - **Hardening del ruteo (F6):** el mapeo servicio→jurisdicción es hoy un allowlist de 1
     (`rpa_actualizacion`→caba; resto→pba). Un form no-PBA futuro caería en 'pba' → re-trampa. Mejor:
     atributo `jurisdiccion` en `servicios` (o en el form) en vez del slug hardcodeado.
-- **F7 — PENDIENTE. Cutover (mover los 3 CABA a `matricula_extra`, nular `matricula_rpac`, setear
+- **F7 — HECHO + verificado DB (mig 0615, 2026-10-29).** Cutover de los 3 CABA: matrícula movida a
+  `matricula_extra` (caba, certeza declarado), `matricula_rpac*` nula, `perfil_regulatorio.jurisdiccion='rpa'`,
+  declaradas recientes despausadas + añejas re-pausadas (guard anti-card-engañoso), `perfil_declarado_sync_venc`
+  explícito, y contención revertida (`ofrecimientos_habilitados=true`) SÓLO tras verificar `es_rpac=false`
+  (abort de seguridad en la mig). **Verificado (4 superficies):** es_rpac=false los 3 → motor ofrece 0
+  servicios RPAC (renov/cert/curso/matric=false) = **2ª queja cerrada estructuralmente**; calc/ficha → matrícula
+  CABA; home SANCLAUDIO (impersonado real) = pill "20143 · RPA (CABA)" + card → curso CABA; su declarada
+  2026-10-17 activa/caba → edge F4b la rotula "Matrícula RPA (CABA)" = **1ª queja cerrada**; Baldonccini añeja
+  2024 pausada (sin card engañoso). **Pendiente:** confirmación visual en browser (sesión del portal) + la UX
+  nuevo-cliente (ver F6 pendiente).
+- **F7 (nota original). Cutover (mover los 3 CABA a `matricula_extra`, nular `matricula_rpac`, setear
   jurisdicción; revertir contención `ofrecimientos_habilitados=true`). Notas del §6-C para el plan:**
   - Hacer `cliente_portal_dashboard` CABA-aware (F6) ANTES del cutover (si no, Hero/banner rotos).
   - El materializador NO re-estampa una declarada existente a la misma fecha → el cutover debe
