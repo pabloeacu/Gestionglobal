@@ -290,11 +290,14 @@ legajo RPAC), **crear** `aviso-matricula-neuquen` y una renovación CABA.
     B fan-out, C barrido/triggers; chunk-2 (entry-points) 2 agentes. Hallazgos accionables ya
     aplicados (#6c CHECK); #6b (stamp vs calc en cliente DUAL futuro) diferido a F6 (no alcanzable:
     hija vacía / los 3 CABA son CABA-puros).
-- **F6 — PENDIENTE. Items (frontend + funciones de display que lo alimentan):**
-  - **CRÍTICO antes del cutover F7:** `cliente_portal_dashboard` lee `matricula_rpac` DIRECTO
-    (no pasa por calc) → post-cutover el CABA pierde el pill de matrícula del Hero + `tiene_matricula=false`
-    + (si no hizo curso CABA) banner "Matriculate" mal-disparado. Hacerlo consciente de `matricula_extra`.
-    (`PortalHome.tsx` Hero depende 100% de esto.)
+- **F6 — EN CURSO. Items (frontend + funciones de display que lo alimentan):**
+  - **✅ HECHO (mig 0614, backend):** `cliente_portal_dashboard` CABA-aware — lee `matricula_extra`
+    (v_has_matricula/v_matriculado/v_jur), expone `matricula_nro`/`matricula_vencimiento`/`jurisdiccion`
+    en el header, el card declarado rutea al curso CABA / ficha NEU (PBA byte-idéntico), y los cards
+    PBA-only (certificado, ddjj_diciembre) + "Matriculate" se gatean por jurisdicción. **0 REGRESIÓN
+    PBA PROBADA** (hash de `oportunidades`+header idéntico para 4 admins reales) + e2e CABA (SANCLAUDIO
+    post-cutover: Hero mat_nro=20143/jur=caba + card → curso CABA). Falta el **frontend `PortalHome.tsx`**
+    (leer `matricula_nro`/`jurisdiccion` para el pill del Hero) + `portal-dashboard.ts` (tipo).
   - Display/prefill (diferible): `cliente_perfil_datos_formulario` (autofill), `gg_admin_prox_venc_matricula`
     (preview), `AdministracionDetailPage` TabRegistral, `AdministracionFormDrawer` (editor N-matrículas +
     candado TRAMIX, R14), `campus.listMatriculas`, `TrackingDetailPage`/`ModeracionPage`.
