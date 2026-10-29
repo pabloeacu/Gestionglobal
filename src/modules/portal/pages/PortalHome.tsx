@@ -157,7 +157,8 @@ export function PortalHome() {
         nombre={data.administracion.nombre}
         responsable={data.administracion.responsable_nombre}
         tieneMatricula={data.administracion.tiene_matricula}
-        matricula={data.administracion.matricula_rpac}
+        matricula={data.administracion.matricula_nro}
+        jurisdiccion={data.administracion.jurisdiccion}
         cursosCount={data.cursos_activos.length}
         tramitesCount={data.tramites_abiertos_count}
       />
@@ -227,13 +228,14 @@ function Assistants() {
 // Hero — Bienvenida + nombre admin + matrícula
 // =========================================================================
 function Hero({
-  userName, nombre, responsable, tieneMatricula, matricula, cursosCount, tramitesCount,
+  userName, nombre, responsable, tieneMatricula, matricula, jurisdiccion, cursosCount, tramitesCount,
 }: {
   userName: string;
   nombre: string;
   responsable: string | null;
   tieneMatricula: boolean;
   matricula: string | null;
+  jurisdiccion: 'pba' | 'caba' | 'neuquen' | null;
   cursosCount: number;
   tramitesCount: number;
 }) {
@@ -253,7 +255,7 @@ function Hero({
           </p>
           {tieneMatricula && matricula && (
             <p className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-200">
-              <BadgeCheck size={11} /> Matrícula {matricula}
+              <BadgeCheck size={11} /> Matrícula {matricula}{jurisdiccion === 'caba' ? ' · RPA (CABA)' : jurisdiccion === 'neuquen' ? ' · RPA (Neuquén)' : ''}
             </p>
           )}
         </div>

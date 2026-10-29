@@ -23,6 +23,10 @@ export interface ClienteAdministracion {
   matricula_rpac_dias_a_vencimiento: number | null;
   matricula_rpa: string | null;
   tiene_matricula: boolean;
+  // DGG-234 F6: matrícula efectiva (columna PBA ∪ hija CABA/NEU) + jurisdicción para el Hero.
+  matricula_nro: string | null;
+  matricula_vencimiento: string | null;
+  jurisdiccion: 'pba' | 'caba' | 'neuquen' | null;
 }
 
 export interface ClienteDeuda {

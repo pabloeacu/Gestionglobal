@@ -12,6 +12,14 @@ export type FieldKey =
   | 'ultimoCertificado'
   | 'ultimaConsultoria';
 
+// DGG-234 F6: jurisdicción normalizada para el gating de obligaciones. El contrato
+// del calc trae 'rpac' (PBA) | 'rpa' (CABA/Neuquén) | null. Hoy 'rpa' = CABA (0 clientes
+// Neuquén); cuando el contrato se extienda al enum pleno, distinguir caba/neuquen acá.
+export type JurNorm = 'pba' | 'caba' | 'neuquen';
+export function jurNorm(perfil: PerfilRegulatorio): JurNorm {
+  return perfil.jurisdiccion === 'rpa' ? 'caba' : 'pba'; // 'rpac'|null → pba (muestra todo, 0 regresión)
+}
+
 export interface Obligacion {
   key: string; // clave de no_requiere (opt-out)
   field: FieldKey;
@@ -19,24 +27,33 @@ export interface Obligacion {
   factProxima: keyof PerfilRegulatorio | null;
   label: string;
   pregunta: string;
+  aplicaEn: JurNorm[]; // DGG-234 F6: jurisdicciones donde la obligación corresponde
 }
 
 export const OBLIGACIONES: Obligacion[] = [
-  { key: 'renovacion', field: 'ultimaRenovacion', factUltima: 'ultima_renovacion', factProxima: 'proxima_renovacion', label: 'Renovación de matrícula', pregunta: '¿Cuándo renovaste tu matrícula por última vez?' },
-  { key: 'curso_actualizacion', field: 'ultimoCursoActualizacion', factUltima: 'ultimo_curso_actualizacion', factProxima: 'proximo_curso_actualizacion', label: 'Curso de actualización', pregunta: '¿Cuándo hiciste tu último curso de actualización?' },
-  { key: 'ddjj', field: 'ultimaDdjj', factUltima: 'ultima_ddjj', factProxima: 'proxima_ddjj', label: 'DDJJ anual', pregunta: '¿Cuándo presentaste tu última DDJJ?' },
-  { key: 'certificado', field: 'ultimoCertificado', factUltima: 'ultimo_certificado', factProxima: 'proximo_certificado', label: 'Certificado', pregunta: '¿Cuándo obtuviste tu último certificado?' },
-  { key: 'consultoria', field: 'ultimaConsultoria', factUltima: 'ultima_consultoria', factProxima: null, label: 'Consultoría jurídica', pregunta: '¿Cuándo fue tu última consultoría jurídica?' },
+  { key: 'renovacion', field: 'ultimaRenovacion', factUltima: 'ultima_renovacion', factProxima: 'proxima_renovacion', label: 'Renovación de matrícula', pregunta: '¿Cuándo renovaste tu matrícula por última vez?', aplicaEn: ['pba', 'caba', 'neuquen'] },
+  { key: 'curso_actualizacion', field: 'ultimoCursoActualizacion', factUltima: 'ultimo_curso_actualizacion', factProxima: 'proximo_curso_actualizacion', label: 'Curso de actualización', pregunta: '¿Cuándo hiciste tu último curso de actualización?', aplicaEn: ['pba', 'caba'] },
+  { key: 'ddjj', field: 'ultimaDdjj', factUltima: 'ultima_ddjj', factProxima: 'proxima_ddjj', label: 'DDJJ anual', pregunta: '¿Cuándo presentaste tu última DDJJ?', aplicaEn: ['pba', 'caba'] },
+  { key: 'certificado', field: 'ultimoCertificado', factUltima: 'ultimo_certificado', factProxima: 'proximo_certificado', label: 'Certificado', pregunta: '¿Cuándo obtuviste tu último certificado?', aplicaEn: ['pba'] },
+  { key: 'consultoria', field: 'ultimaConsultoria', factUltima: 'ultima_consultoria', factProxima: null, label: 'Consultoría jurídica', pregunta: '¿Cuándo fue tu última consultoría jurídica?', aplicaEn: ['pba', 'caba', 'neuquen'] },
 ];
+
+// DGG-234 F6: obligaciones que aplican a la jurisdicción del cliente (ocultar lo que no aplica).
+// Para PBA/desconocido devuelve TODAS (0 regresión); para CABA oculta el certificado (RPAC-only).
+export function obligacionesVisibles(perfil: PerfilRegulatorio): Obligacion[] {
+  const j = jurNorm(perfil);
+  return OBLIGACIONES.filter((o) => o.aplicaEn.includes(j));
+}
 
 export function hechoDe(perfil: PerfilRegulatorio, k: keyof PerfilRegulatorio): HechoConCerteza {
   return perfil[k] as HechoConCerteza;
 }
 
 // Obligaciones que hoy piden acción del cliente (último evento desconocido, sin opt-out, sin snooze).
+// DGG-234 F6: sólo entre las que aplican a la jurisdicción.
 export function colaAccionable(perfil: PerfilRegulatorio, snoozed: Set<string>): Obligacion[] {
   const noReq = perfil.no_requiere ?? {};
-  return OBLIGACIONES.filter(
+  return obligacionesVisibles(perfil).filter(
     (o) => hechoDe(perfil, o.factUltima).certeza === 'desconocido' && !(o.key in noReq) && !snoozed.has(o.key),
   );
 }

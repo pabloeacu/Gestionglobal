@@ -296,8 +296,19 @@ legajo RPAC), **crear** `aviso-matricula-neuquen` y una renovación CABA.
     en el header, el card declarado rutea al curso CABA / ficha NEU (PBA byte-idéntico), y los cards
     PBA-only (certificado, ddjj_diciembre) + "Matriculate" se gatean por jurisdicción. **0 REGRESIÓN
     PBA PROBADA** (hash de `oportunidades`+header idéntico para 4 admins reales) + e2e CABA (SANCLAUDIO
-    post-cutover: Hero mat_nro=20143/jur=caba + card → curso CABA). Falta el **frontend `PortalHome.tsx`**
-    (leer `matricula_nro`/`jurisdiccion` para el pill del Hero) + `portal-dashboard.ts` (tipo).
+    post-cutover: Hero mat_nro=20143/jur=caba + card → curso CABA).
+  - **✅ HECHO (frontend cliente, F6b):** `PortalHome.tsx` Hero pill lee `matricula_nro` + sufijo de
+    jurisdicción (`· RPA (CABA)` / `· RPA (Neuquén)`; PBA sin sufijo = visual idéntico) + `portal-dashboard.ts`
+    (tipo con `matricula_nro`/`matricula_vencimiento`/`jurisdiccion`). `fichaModel.ts` gana `aplicaEn` por
+    jurisdicción + `obligacionesVisibles()`/`jurNorm()` (oculta el certificado a CABA; PBA/null = TODAS,
+    0 regresión). `PortalFichaRegulatoriaPage` usa `obligacionesVisibles(p)` en las 3 listas; el label de
+    jurisdicción ya mostraba 'rpa'→"RPA · CABA". Build tsc/vite limpio. Prueba en vivo CABA = parte de F7
+    (no hay cliente CABA en el portal hasta el cutover; el PBA 0-regresión se testea ya).
+  - **PENDIENTE F6 (capacidad nuevo cliente / gerencia):** formulario dinámico "¿Tenés matrícula en otra
+    jurisdicción?" (hoy el selector binario rpac/rpa sigue andando) + enum pleno en `perfilRegulatorio.ts`
+    + N-matrículas; editor de gerencia `AdministracionFormDrawer`/`patchField` + `tracking_cargar_otorgamiento`
+    (rutear a `matricula_extra`, R14); `vencimientos.ts VENCIMIENTO_TIPO_LABEL` jur-aware (grilla);
+    `cliente_perfil_datos_formulario` + `gg_admin_prox_venc_matricula` (prefill/preview).
   - Display/prefill (diferible): `cliente_perfil_datos_formulario` (autofill), `gg_admin_prox_venc_matricula`
     (preview), `AdministracionDetailPage` TabRegistral, `AdministracionFormDrawer` (editor N-matrículas +
     candado TRAMIX, R14), `campus.listMatriculas`, `TrackingDetailPage`/`ModeracionPage`.

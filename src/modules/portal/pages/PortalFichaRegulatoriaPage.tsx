@@ -26,7 +26,7 @@ import { BrandLoader } from '@/components/brand/BrandLoader';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import { CertezaBadge, HechoValue } from '../components/perfil/CertezaBadge';
 import {
-  OBLIGACIONES,
+  obligacionesVisibles,
   hechoDe,
   colaAccionable,
   contarPendientes,
@@ -427,7 +427,7 @@ export function PortalFichaRegulatoriaPage() {
 
       {/* YA LO SABEMOS (colapsable, read-only, baja jerarquía) */}
       {(() => {
-        const yaSabemos = OBLIGACIONES.filter((o) => {
+        const yaSabemos = obligacionesVisibles(p).filter((o) => {
           const c = hechoDe(p, o.factUltima).certeza;
           return c === 'confirmado' || c === 'declarado';
         });
@@ -469,7 +469,7 @@ export function PortalFichaRegulatoriaPage() {
           <Clock size={15} className="text-brand-cyan" /> Tus próximas obligaciones
         </p>
         <div className="space-y-2.5">
-          {OBLIGACIONES.filter((o) => o.factProxima).map((o) => {
+          {obligacionesVisibles(p).filter((o) => o.factProxima).map((o) => {
             const h = hechoDe(p, o.factProxima as keyof PerfilRegulatorio);
             const optOut = o.key in noRequiere;
             return (
@@ -535,7 +535,7 @@ export function PortalFichaRegulatoriaPage() {
         </p>
         <p className="mb-3 text-xs text-brand-muted">¿Alguno no aplica a tu caso? Marcalo y dejamos de recordártelo.</p>
         <div className="space-y-2.5">
-          {OBLIGACIONES.map((o) => {
+          {obligacionesVisibles(p).map((o) => {
             const on = o.key in noRequiere;
             return (
               <div key={o.key} className="flex items-center justify-between gap-3">
