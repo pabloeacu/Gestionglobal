@@ -21,8 +21,9 @@ import {
   reactivarAdministracion,
   adminPrecheckIdentidad,
   fetchMatriculasExtra,
-  setMatriculaExtraCaba,
+  setMatriculaExtra,
   type AdministracionRow,
+  type MatriculaExtraJur,
 } from '@/services/api/administraciones';
 import { altaClientePortal } from '@/services/api/usuarios';
 import { humanizeError } from '@/lib/errors';
@@ -55,7 +56,10 @@ type FormState = {
   matricula_rpac: string;
   matricula_rpac_fecha: string;
   matricula_rpac_vencimiento: string;
+  // DGG-234 F8 · matrícula de OTRA jurisdicción (CABA/Neuquén): su Nº (vive en
+  // matricula_extra, no en columnas de administraciones) + la jurisdicción elegida.
   matricula_rpa: string;
+  matricula_extra_jur: '' | MatriculaExtraJur;
   // DGG-142 E4 (R14) · switch del motor de ofrecimientos (banner+push+mail).
   ofrecimientos_habilitados: boolean;
   // AJL-3 · Datos personales del administrador titular (RPAC los pide)
@@ -94,6 +98,7 @@ const EMPTY: FormState = {
   matricula_rpac_fecha: '',
   matricula_rpac_vencimiento: '',
   matricula_rpa: '',
+  matricula_extra_jur: '',
   ofrecimientos_habilitados: true,
   padre_apellido_nombre: '',
   madre_apellido_nombre: '',
@@ -127,7 +132,10 @@ function rowToForm(r: AdministracionRow): FormState {
     matricula_rpac: r.matricula_rpac ?? '',
     matricula_rpac_fecha: r.matricula_rpac_fecha ?? '',
     matricula_rpac_vencimiento: r.matricula_rpac_vencimiento ?? '',
-    matricula_rpa: r.matricula_rpa ?? '',
+    // La matrícula no-PBA real vive en matricula_extra (se carga en el useEffect de open);
+    // la columna legacy matricula_rpa está deprecada (0 filas) → arranca vacío.
+    matricula_rpa: '',
+    matricula_extra_jur: '',
     ofrecimientos_habilitados:
       (r as { ofrecimientos_habilitados?: boolean | null }).ofrecimientos_habilitados ?? true,
     padre_apellido_nombre: (r as { padre_apellido_nombre?: string | null }).padre_apellido_nombre ?? '',
@@ -161,6 +169,10 @@ export function AdministracionFormDrawer({
   const [saving, setSaving] = useState(false);
   const [step, setStep] = useState(0);
   const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>({});
+  // DGG-234 F8 · jurisdicción no-PBA que el drawer CARGÓ al abrir (puede diferir de la
+  // elegida si el gerente cambia el Select). setMatriculaExtra la usa para acotar sus
+  // borrados a la fila realmente gestionada (nunca una fila hermana que el form no mostró).
+  const [extraJurOriginal, setExtraJurOriginal] = useState<'' | MatriculaExtraJur>('');
   const confirm = useConfirm();
 
   // P-FE-02: resetear form local on-open
@@ -169,16 +181,25 @@ export function AdministracionFormDrawer({
       setForm(editing ? rowToForm(editing) : EMPTY);
       setErrors({});
       setStep(0);
-      // DGG-234 F6 · la matrícula CABA/Neuquén vive en la tabla hija matricula_extra
-      // (no en columnas de administraciones). La traemos y la mostramos en el campo
-      // "Matrícula RPA · CABA" — antes quedaba vacío y un gerente podía re-cargarla por
-      // error en "Matrícula RPAC" y reclasificar al cliente como PBA (E-GG-236).
+      setExtraJurOriginal('');
+      // DGG-234 F6/F8 · la matrícula de OTRA jurisdicción (CABA/Neuquén) vive en la tabla
+      // hija matricula_extra (no en columnas de administraciones). La traemos y la mostramos
+      // en el campo de otra jurisdicción — antes quedaba vacío y un gerente podía re-cargarla
+      // por error en "Matrícula RPAC" y reclasificar al cliente como PBA (E-GG-236). El form
+      // administra UNA matrícula no-PBA: tomamos la primera fila no-PBA (orden por jurisdicción).
+      // Cargamos la jurisdicción AUNQUE el Nº esté vacío (una fila con sólo vencimiento no debe
+      // caer al default 'caba' del Select y reclasificar/borrar al guardar — §6 F8).
       if (editing) {
         void fetchMatriculasExtra(editing.id).then((r) => {
           if (!r.ok) return;
-          const caba = r.data.find((m) => m.jurisdiccion === 'caba');
-          if (caba?.matricula_nro) {
-            setForm((f) => ({ ...f, matricula_rpa: caba.matricula_nro ?? '' }));
+          const extra = r.data.find((m) => m.jurisdiccion === 'caba' || m.jurisdiccion === 'neuquen');
+          if (extra) {
+            setExtraJurOriginal(extra.jurisdiccion as MatriculaExtraJur);
+            setForm((f) => ({
+              ...f,
+              matricula_rpa: extra.matricula_nro ?? '',
+              matricula_extra_jur: extra.jurisdiccion as MatriculaExtraJur,
+            }));
           }
         });
       }
@@ -239,13 +260,14 @@ export function AdministracionFormDrawer({
       setStep(2);
       return;
     }
-    // DGG-234 F6 · una matrícula RPAC (PBA) + una RPA (CABA) a la vez: el cálculo
-    // prioriza la RPAC y trata al cliente como PBA (reabriría E-GG-236). Avisar.
+    // DGG-234 F6/F8 · una matrícula RPAC (PBA) + una de otra jurisdicción a la vez: el
+    // cálculo prioriza la RPAC y trata al cliente como PBA (reabriría E-GG-236). Avisar.
+    const extraJurLabel = (form.matricula_extra_jur || 'caba') === 'neuquen' ? 'Neuquén' : 'CABA';
     if (form.matricula_rpac.trim() && form.matricula_rpa.trim()) {
       const seguir = await confirm({
         title: 'Dos jurisdicciones cargadas',
         message:
-          'Cargaste matrícula RPAC (PBA) y RPA (CABA). El sistema va a tratar al cliente como PBA (RPAC) e ignorar la de CABA. Si el cliente es de CABA, dejá sólo la matrícula RPA (CABA) y borrá la RPAC.',
+          `Cargaste matrícula RPAC (PBA) y RPA (${extraJurLabel}). El sistema va a tratar al cliente como PBA (RPAC) e ignorar la de ${extraJurLabel}. Si el cliente es de ${extraJurLabel}, dejá sólo la matrícula RPA (${extraJurLabel}) y borrá la RPAC.`,
         confirmLabel: 'Entiendo, continuar',
         cancelLabel: 'Volver a revisar',
       });
@@ -329,10 +351,11 @@ export function AdministracionFormDrawer({
               toast.error('Reactivado, pero no pudimos aplicar los datos nuevos', { description: humanizeError(upd.error) });
               return;
             }
-            // DGG-234 F6 · matrícula RPA (CABA) → matricula_extra también en reactivación.
-            const matRe = await setMatriculaExtraCaba(cuitTwin.id, form.matricula_rpa);
+            // DGG-234 F6/F8 · matrícula de otra jurisdicción → matricula_extra también en reactivación.
+            // (reactivación = alta nueva sobre un twin de baja → sin previa cargada en el drawer.)
+            const matRe = await setMatriculaExtra(cuitTwin.id, form.matricula_extra_jur || 'caba', form.matricula_rpa, extraJurOriginal || null);
             if (!matRe.ok) {
-              toast.error('Reactivado, pero no pudimos guardar la matrícula RPA (CABA)', { description: humanizeError(matRe.error) });
+              toast.error(`Reactivado, pero no pudimos guardar la matrícula RPA (${extraJurLabel})`, { description: humanizeError(matRe.error) });
             }
             toast.success(`Cliente "${cuitTwin.nombre}" reactivado y actualizado`);
             onSaved?.(upd.data);
@@ -380,12 +403,12 @@ export function AdministracionFormDrawer({
       editing ? 'Administración actualizada' : 'Administración creada',
     );
 
-    // DGG-234 F6 · rutear la matrícula RPA (CABA) a la tabla hija matricula_extra
-    // (certeza 'declarado'). Sólo escribe si hay nº CABA; vacío → borra una fila previa.
-    // No bloquea el flujo del cliente si falla (se avisa). Para PBA es no-op (nº vacío).
-    const matExtra = await setMatriculaExtraCaba(res.data.id, form.matricula_rpa);
+    // DGG-234 F6/F8 · rutear la matrícula de otra jurisdicción (CABA/Neuquén) a la tabla
+    // hija matricula_extra (certeza 'declarado'). Sólo escribe si hay nº; vacío → borra
+    // filas no-PBA previas. No bloquea el flujo si falla (se avisa). Para PBA es no-op.
+    const matExtra = await setMatriculaExtra(res.data.id, form.matricula_extra_jur || 'caba', form.matricula_rpa, extraJurOriginal || null);
     if (!matExtra.ok) {
-      toast.error('Cliente guardado, pero no pudimos guardar la matrícula RPA (CABA)', {
+      toast.error(`Cliente guardado, pero no pudimos guardar la matrícula RPA (${extraJurLabel})`, {
         description: humanizeError(matExtra.error),
       });
     }
@@ -700,12 +723,31 @@ export function AdministracionFormDrawer({
                     placeholder="Nº de matrícula"
                   />
                 </Field>
-                <Field label="Matrícula RPA · CABA" hint="Si el cliente es de CABA, cargá acá su matrícula (NO en RPAC). Queda como dato declarado.">
-                  <Input
-                    value={form.matricula_rpa}
-                    onChange={(e) => setField('matricula_rpa', e.target.value)}
-                    placeholder="Nº de matrícula"
-                  />
+                <Field
+                  label="Matrícula RPA · otra jurisdicción"
+                  hint="Si el cliente NO es de PBA (CABA / Neuquén), cargá acá su matrícula — NO en RPAC. Elegí la jurisdicción. Queda como dato declarado."
+                >
+                  <div className="flex gap-2">
+                    <div className="w-32 shrink-0">
+                      <Select
+                        value={form.matricula_extra_jur || 'caba'}
+                        onChange={(e) =>
+                          setField('matricula_extra_jur', e.target.value as FormState['matricula_extra_jur'])
+                        }
+                        aria-label="Jurisdicción de la matrícula"
+                      >
+                        <option value="caba">CABA</option>
+                        <option value="neuquen">Neuquén</option>
+                      </Select>
+                    </div>
+                    <div className="flex-1">
+                      <Input
+                        value={form.matricula_rpa}
+                        onChange={(e) => setField('matricula_rpa', e.target.value)}
+                        placeholder="Nº de matrícula"
+                      />
+                    </div>
+                  </div>
                 </Field>
               </div>
               {/* AJL-3: datos personales + identidad fiscal del titular RPAC */}

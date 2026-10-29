@@ -11,6 +11,7 @@ import {
   type CertezaDato,
   type DeclararPerfilInput,
 } from '@/services/api/perfilRegulatorio';
+import { jurisdiccionLabel } from '@/modules/portal/components/perfil/fichaModel';
 
 // Agenda · progressive profiling (writer de gerencia). Ancla datos DECLARADOS en
 // `perfil_regulatorio` (certeza='declarado'). No pisa lo confirmado por la plataforma:
@@ -223,16 +224,31 @@ export function PerfilRegulatorioDeclararDrawer({
         <p className="text-sm text-brand-muted">Cargando…</p>
       ) : (
         <div className="space-y-4">
-          <Field label="Jurisdicción">
-            <Select
-              value={form.jurisdiccion}
-              onChange={(e) => set('jurisdiccion', e.target.value as FormState['jurisdiccion'])}
-            >
-              <option value="">— No cambiar —</option>
-              <option value="rpac">RPAC · Buenos Aires</option>
-              <option value="rpa">RPA · CABA</option>
-            </Select>
-          </Field>
+          {/* DGG-234 F8 · para un cliente NO-PBA (CABA/Neuquén) la jurisdicción la fija su
+              matrícula en matricula_extra (sombrea este hint declarado) → mostrarla de sólo
+              lectura en vez de un select binario rpac/rpa que mentiría ("CABA" para Neuquén)
+              y cuyo write sería inocuo. Para PBA/sin dato, el select declarado sigue igual. */}
+          {perfil && (perfil.jurisdiccion_code === 'caba' || perfil.jurisdiccion_code === 'neuquen') ? (
+            <Field label="Jurisdicción">
+              <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-brand-ink">
+                {jurisdiccionLabel(perfil)}
+                <span className="mt-0.5 block text-xs text-brand-muted">
+                  Se gestiona desde la matrícula del cliente (ficha · Registral).
+                </span>
+              </div>
+            </Field>
+          ) : (
+            <Field label="Jurisdicción">
+              <Select
+                value={form.jurisdiccion}
+                onChange={(e) => set('jurisdiccion', e.target.value as FormState['jurisdiccion'])}
+              >
+                <option value="">— No cambiar —</option>
+                <option value="rpac">RPAC · Buenos Aires</option>
+                <option value="rpa">RPA · CABA</option>
+              </Select>
+            </Field>
+          )}
 
           {/* Identificadores registrales: matrícula + legajo. */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

@@ -48,8 +48,10 @@ import {
   archiveAdministracion,
   reactivarAdministracion,
   updateAdministracion,
+  fetchMatriculasExtra,
   type AdministracionRow,
   type AdministracionEstado,
+  type MatriculaExtraRow,
 } from '@/services/api/administraciones';
 import {
   listConsorciosByAdministracion,
@@ -657,21 +659,45 @@ function KpiStrip({
   admin: AdministracionRow;
   consorcios: ConsorcioRow[];
 }) {
+  // DGG-234 F8 · la matrícula no-PBA (CABA/Neuquén) vive en matricula_extra. La traemos
+  // para que el KPI "Vence …" sea jurisdicción-aware: un cliente de CABA/Neuquén no tiene
+  // matricula_rpac_vencimiento, su vencimiento es el declarado de matricula_extra.
+  const [extra, setExtra] = useState<MatriculaExtraRow | null>(null);
+  useEffect(() => {
+    let cancel = false;
+    void fetchMatriculasExtra(admin.id).then((r) => {
+      if (cancel || !r.ok) return;
+      setExtra(r.data.find((m) => m.jurisdiccion === 'caba' || m.jurisdiccion === 'neuquen') ?? null);
+    });
+    return () => {
+      cancel = true;
+    };
+  }, [admin.id]);
+
   const stats = useMemo(() => {
     const activos = consorcios.filter((c) => c.activo).length;
     const totales = consorcios.length;
     const abono = consorcios
       .filter((c) => c.activo)
       .reduce((s, c) => s + Number(c.monto_abono ?? 0), 0);
-    const venceRpac = admin.matricula_rpac_vencimiento
-      ? parseLocalDate(admin.matricula_rpac_vencimiento)
-      : null;
+    // PBA → vencimiento RPAC; no-PBA → vencimiento declarado de matricula_extra.
+    const vencStr = admin.matricula_rpac_vencimiento ?? extra?.matricula_vencimiento ?? null;
+    const venceRpac = vencStr ? parseLocalDate(vencStr) : null;
     const today = new Date();
     const dias = venceRpac
       ? Math.ceil((venceRpac.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
       : null;
-    return { activos, totales, abono, venceRpac, dias };
-  }, [consorcios, admin.matricula_rpac_vencimiento]);
+    const tieneMatricula = !!admin.matricula_rpac || !!extra;
+    // Rótulo del KPI según jurisdicción (no mentir "RPAC" a un CABA/Neuquén).
+    const venceLabel = admin.matricula_rpac
+      ? 'Vence RPAC'
+      : extra
+        ? extra.jurisdiccion === 'neuquen'
+          ? 'Vence RPA (Neuquén)'
+          : 'Vence RPA (CABA)'
+        : 'Vence RPAC';
+    return { activos, totales, abono, venceRpac, dias, tieneMatricula, venceLabel };
+  }, [consorcios, admin.matricula_rpac, admin.matricula_rpac_vencimiento, extra]);
 
   const venceTone =
     stats.dias === null
@@ -714,7 +740,7 @@ function KpiStrip({
       />
       <KpiCard
         icon={CalendarClock}
-        label="Vence RPAC"
+        label={stats.venceLabel}
         value={
           stats.dias === null ? (
             <span className="text-brand-muted">—</span>
@@ -733,7 +759,9 @@ function KpiStrip({
                 month: 'short',
                 year: 'numeric',
               })
-            : 'sin matrícula'
+            : stats.tieneMatricula
+              ? 'sin vencimiento'
+              : 'sin matrícula'
         }
         tone={venceTone === 'red' || venceTone === 'amber' ? 'amber' : 'teal'}
         delay={180}
@@ -1009,6 +1037,22 @@ function TabRegistral({ admin }: { admin: AdministracionRow }) {
     : null;
   const vencidoOClose = diasParaVencer !== null && diasParaVencer <= 30;
 
+  // DGG-234 F8 · la matrícula de otra jurisdicción (CABA/Neuquén) vive en matricula_extra
+  // (las columnas legacy matricula_rpa* están deprecadas y vacías). Traemos la fila no-PBA
+  // para mostrar su Nº/vencimiento/certeza con el rótulo de la jurisdicción REAL (no el
+  // hardcodeado "RPA · CABA" de antes, que mentía para Neuquén y mostraba "—" para los CABA).
+  const [extra, setExtra] = useState<MatriculaExtraRow | null>(null);
+  useEffect(() => {
+    let cancel = false;
+    void fetchMatriculasExtra(admin.id).then((r) => {
+      if (cancel || !r.ok) return;
+      setExtra(r.data.find((m) => m.jurisdiccion === 'caba' || m.jurisdiccion === 'neuquen') ?? null);
+    });
+    return () => {
+      cancel = true;
+    };
+  }, [admin.id]);
+
   return (
     <div className="space-y-5">
       {/* Agenda Fase 1 (DGG-195) — perfil regulatorio con niveles de certeza */}
@@ -1089,25 +1133,35 @@ function TabRegistral({ admin }: { admin: AdministracionRow }) {
           </DataRow>
         </dl>
       </div>
-      <div className="rounded-xl border border-slate-200 bg-white p-5">
-        <div className="mb-3 flex items-center gap-2">
-          <Scale size={16} className="text-brand-cyan" />
-          <p className="font-display text-sm font-bold uppercase tracking-wider text-brand-ink">
-            RPA · CABA
+      {/* DGG-234 F8 · matrícula de otra jurisdicción (CABA/Neuquén) desde matricula_extra.
+          Sólo se muestra si el cliente tiene una (los PBA no ensucian con una card vacía). */}
+      {extra && (
+        <div className="rounded-xl border border-slate-200 bg-white p-5">
+          <div className="mb-3 flex items-center gap-2">
+            <Scale size={16} className="text-brand-cyan" />
+            <p className="font-display text-sm font-bold uppercase tracking-wider text-brand-ink">
+              {extra.jurisdiccion === 'neuquen' ? 'RPA · Neuquén' : 'RPA · CABA'}
+            </p>
+            <span className="rounded bg-sky-50 px-1.5 py-0.5 text-[11px] font-semibold uppercase text-sky-700 ring-1 ring-sky-200">
+              Declarado
+            </span>
+          </div>
+          <dl>
+            <DataRow label="Matrícula">
+              <span>{extra.matricula_nro ?? <span className="text-brand-muted">—</span>}</span>
+            </DataRow>
+            <DataRow label="Fecha">
+              <span>{extra.matricula_fecha ?? <span className="text-brand-muted">—</span>}</span>
+            </DataRow>
+            <DataRow label="Vencimiento">
+              <span>{extra.matricula_vencimiento ?? <span className="text-brand-muted">—</span>}</span>
+            </DataRow>
+          </dl>
+          <p className="mt-2 text-[11px] text-brand-muted">
+            CABA / Neuquén no tienen registro oficial consultable (como TRAMIX en PBA): el dato queda declarado.
           </p>
         </div>
-        <dl>
-          <DataRow label="Matrícula">
-            <span>{admin.matricula_rpa ?? <span className="text-brand-muted">—</span>}</span>
-          </DataRow>
-          <DataRow label="Fecha">
-            <span>{admin.matricula_rpa_fecha ?? <span className="text-brand-muted">—</span>}</span>
-          </DataRow>
-          <DataRow label="Vencimiento">
-            <span>{admin.matricula_rpa_vencimiento ?? <span className="text-brand-muted">—</span>}</span>
-          </DataRow>
-        </dl>
-      </div>
+      )}
     </div>
   );
 }

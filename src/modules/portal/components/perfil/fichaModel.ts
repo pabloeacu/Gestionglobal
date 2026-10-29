@@ -12,20 +12,20 @@ export type FieldKey =
   | 'ultimoCertificado'
   | 'ultimaConsultoria';
 
-// DGG-234 F6: jurisdicción normalizada para el gating de obligaciones. El contrato
-// del calc trae 'rpac' (PBA) | 'rpa' (CABA/Neuquén) | null. Hoy 'rpa' = CABA (0 clientes
-// Neuquén); cuando el contrato se extienda al enum pleno, distinguir caba/neuquen acá.
+// DGG-234 F8: jurisdicción normalizada (enum PLENO) para el gating de obligaciones y
+// los rótulos. Prefiere `jurisdiccion_code` del calc (pba/caba/neuquen); si una respuesta
+// vieja no lo trajera, cae al binario legacy ('rpa'→caba, 'rpac'|null→pba) → 0 regresión.
 export type JurNorm = 'pba' | 'caba' | 'neuquen';
 export function jurNorm(perfil: PerfilRegulatorio): JurNorm {
-  return perfil.jurisdiccion === 'rpa' ? 'caba' : 'pba'; // 'rpac'|null → pba (muestra todo, 0 regresión)
+  const c = perfil.jurisdiccion_code;
+  if (c === 'pba' || c === 'caba' || c === 'neuquen') return c;
+  return perfil.jurisdiccion === 'rpa' ? 'caba' : 'pba';
 }
 
-// DGG-234 F6 · etiquetas jurisdicción-aware — reemplazan los "RPAC" hardcodeados de la
-// ficha (E-GG-236). Antes del cutover los 3 CABA computaban PBA y "RPAC" era consistente;
-// tras el cutover la ficha debe rotular su matrícula/renovación/legajo según la jurisdicción
-// real, igual que ya lo hacen el pill del home y el card (F6b) y los emails/push (F4b).
-// NOTA: el contrato del calc aún es binario ('rpac'|'rpa'|null) → hoy 'rpa'→caba siempre;
-// cuando se extienda al enum pleno, jurNorm distinguirá neuquen y estos helpers ya lo cubren.
+// DGG-234 F6/F8 · etiquetas jurisdicción-aware — reemplazan los "RPAC" hardcodeados de la
+// ficha (E-GG-236). La ficha rotula su matrícula/renovación/legajo según la jurisdicción
+// REAL, igual que el pill del home y los emails/push. Desde F8 jurNorm ya distingue Neuquén
+// (enum pleno del calc), así que el caso 'neuquen' de estos helpers por fin se ejercita.
 export function matriculaLabel(perfil: PerfilRegulatorio): string {
   switch (jurNorm(perfil)) {
     case 'caba':

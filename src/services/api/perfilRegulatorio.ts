@@ -23,7 +23,12 @@ export interface HechoConCerteza {
 
 export interface PerfilRegulatorio {
   administracion_id: string;
+  // Binaria legacy ('rpac'=PBA | 'rpa'=todo lo no-PBA | null). Se conserva para los
+  // null-checks (necesita-jurisdicción / render guards) y el gate de DDJJ del backend.
   jurisdiccion: 'rpac' | 'rpa' | null;
+  // DGG-234 F8 · código PLENO de jurisdicción (pba/caba/neuquen). El front lo prefiere
+  // sobre el binario (jurNorm); distingue Neuquén de CABA. El calc siempre lo emite.
+  jurisdiccion_code: 'pba' | 'caba' | 'neuquen' | null;
   matriculado: { valor: boolean; certeza: CertezaDato };
   matricula: {
     nro: string | null;

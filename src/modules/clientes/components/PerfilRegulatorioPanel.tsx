@@ -8,9 +8,22 @@ import {
 } from '@/services/api/perfilRegulatorio';
 import { Button } from '@/components/common';
 import { PerfilRegulatorioDeclararDrawer } from './PerfilRegulatorioDeclararDrawer';
+import { jurNorm } from '@/modules/portal/components/perfil/fichaModel';
 import { formatDateShort } from '@/lib/dates';
 import { humanizeError } from '@/lib/errors';
 import { cn } from '@/lib/cn';
+
+// DGG-234 F8 · rótulo compacto de jurisdicción para la ficha de gerencia (enum pleno).
+function jurTagGerencia(data: PerfilRegulatorio): string {
+  switch (jurNorm(data)) {
+    case 'caba':
+      return 'RPA · CABA';
+    case 'neuquen':
+      return 'RPA · Neuquén';
+    default:
+      return 'RPAC · PBA';
+  }
+}
 
 // Agenda Fase 1 (DGG-195) — visibiliza el perfil con NIVELES DE CERTEZA en la ficha
 // de gerencia. Solo lectura: la plataforma sigue siendo la fuente confirmada; el
@@ -195,7 +208,7 @@ export function PerfilRegulatorioPanel({ administracionId }: { administracionId:
         )}
         {data.jurisdiccion && (
           <span className="rounded bg-white px-1.5 py-0.5 text-[11px] font-semibold uppercase text-brand-muted ring-1 ring-slate-200">
-            {data.jurisdiccion === 'rpac' ? 'RPAC · PBA' : 'RPA · CABA'}
+            {jurTagGerencia(data)}
           </span>
         )}
       </div>

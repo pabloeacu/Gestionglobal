@@ -381,15 +381,50 @@ F6b no cubría (capitalizados por §6-2bis fan-out). Ver E-GG-236 addendum.
   - **e2e BD (BEGIN/ROLLBACK):** gerencia→CABA produce jur=rpa/nro=20143/cert=declarado/
     es_rpac=false; RLS `is_staff` permite el INSERT en `matricula_extra`.
 
-### Pendiente F6 (documentado — 0 clientes hoy, no bloqueante)
+## F8 — Enum pleno + Neuquén (2026-10-29)
 
-- **Neuquén en gerencia:** el form sólo rutea CABA a `matricula_extra`; falta UI para
-  `jurisdiccion='neuquen'` (y un selector de jurisdicción pleno vs. los 2 campos actuales).
-- **Enum pleno en el contrato del calc:** hoy `perfil_regulatorio.jurisdiccion` es binario
-  ('rpac'|'rpa'|null) y el front mapea 'rpa'→caba SIEMPRE → un cliente Neuquén se rotularía
-  "CABA". Extender el calc a devolver la jurisdicción real (pba/caba/neuquen) desde
-  `matricula_extra.jurisdiccion`.
-- **N-matrículas duales** (un cliente con PBA + CABA a la vez): hoy el calc prioriza RPAC y
-  el form avisa; no hay UI para listar/gestionar varias matrículas.
-- **Labels de grilla de gerencia** (`vencimientos.ts VENCIMIENTO_TIPO_LABEL`) podrían rotular
-  "RPAC" para una fila CABA — revisar si alguna superficie de gerencia lo muestra.
+Cierra los 2 pendientes de fondo de F6 (**enum pleno** + **Neuquén en gerencia**). Diseño
+ESTRICTAMENTE ADITIVO: 0 regresión para 173 PBA + 3 CABA (probado byte-idéntico), 0 Neuquén hoy.
+
+- **mig 0617 · `perfil_regulatorio_calc` gana `jurisdiccion_code`** (pba/caba/neuquen/null) SIN
+  tocar el `jurisdiccion` binario legacy (sigue alimentando el gate de DDJJ `v_jur='rpac'` y los
+  null-checks del front). Prioridad: `matricula_rpac`→pba · `matricula_rpa`(legacy)→caba ·
+  `matricula_extra`→su enum · declarada rpac/rpa→pba/caba · else null. e2e BEGIN/ROLLBACK: NEU
+  sintético → code=neuquen, binario=rpa, ddjj_cert=desconocido (gate preservado); PBA/CABA reales
+  byte-idénticos. Prod real: 3 CABA→caba, PBA→pba.
+- **Front:** `PerfilRegulatorio.jurisdiccion_code` (tipo) · `jurNorm()` prefiere el code, cae al
+  binario si falta · pill de gerencia (`PerfilRegulatorioPanel`), card Registral y KPI "Vence …"
+  del detalle (`AdministracionDetailPage`) y nota read-only del declarar-drawer ahora enum-aware.
+  Los helpers de ficha (matriculaLabel/jurisdiccionLabel/obligacionesVisibles) ya tenían la rama
+  'neuquen' desde F6 → ahora por fin la reciben.
+- **Gerencia alta/edición (`AdministracionFormDrawer`):** el campo de otra jurisdicción gana un
+  **selector CABA / Neuquén** + Nº → `setMatriculaExtra(adminId, jurisdiccion, nro, previa)`.
+- **mig 0618 · `gg_admin_ficha_incompleta` jurisdicción-aware:** espeja `obligacionesVisibles`
+  (no cuenta 'certificado' para CABA/Neuquén; ni 'curso'/'ddjj' para Neuquén) → cierra el
+  dead-end del ofrecimiento 'perfil_incompleto' (aviso "Completá tu perfil" sin nada por
+  completar). Verificado old-vs-new sobre los 178: pba 174→0 cambios, caba 4→0 cambios
+  (byte-idéntico HOY; sólo cierra el callejón futuro). 0 regresión en quién recibe ofertas.
+
+**§6 adversarial (workflow 3 revisores + verificación, 9 agentes):** 3 falsos positivos
+descartados con datos de prod (KPI, doble-fetch, ORDER BY del calc). 1 CONFIRMADO + 2 fixes
+aplicados en el mismo chunk:
+- **CONFIRMADO (pérdida de datos latente, era mayor→menor):** `setMatriculaExtra` borraba en
+  silencio la OTRA fila no-PBA de un cliente con CABA+Neuquén simultáneas (el drawer carga sólo
+  la 1ª). **Fix:** los borrados se ACOTAN a la jurisdicción cargada (`previa`) o elegida — nunca
+  una fila hermana que el form no mostró. 0 impacto hoy (0 Neuquén, 0 multi-fila) pero cerrado
+  antes de habilitar Neuquén en vivo.
+- **Hardening:** el drawer carga la jurisdicción no-PBA AUNQUE el Nº esté vacío (una fila de
+  sólo-vencimiento ya no cae al default 'caba' del Select → no reclasifica/borra al guardar).
+
+### Pendiente post-F8 (documentado — 0 clientes hoy, no bloqueante)
+
+- **N-matrículas duales** (un cliente con PBA + CABA, o CABA + Neuquén a la vez): el form
+  gestiona UNA matrícula no-PBA por vez (y ya NO destruye la hermana — fix §6 F8); falta UI para
+  listar/editar varias matrículas simultáneas. Combinación atípica, 0 clientes.
+- **`completitud_pct` del calc usa `v_total=9` fijo** → un CABA/Neuquén "completo" nunca llega a
+  100% (el anillo muestra ~89% permanente). COSMÉTICO — deferido a propósito para no re-abrir el
+  scoring del calc por un %; mismo root que el fix 0618. (Reportado explícito a Pablo.)
+- **Labels de grilla de gerencia** (`vencimientos.ts VENCIMIENTO_TIPO_LABEL`): los tipos
+  `renovacion_rpac`/`curso_actualizacion`/`ddjj_anual` son PBA-intrínsecos (el declarado CABA/NEU
+  usa `renovacion_matricula_declarada`), así que "RPAC" es correcto para esas filas; no es un
+  mislabel. Revisado, sin acción.

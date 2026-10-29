@@ -139,28 +139,57 @@ export async function fetchMatriculasExtra(
   return ok(data ?? []);
 }
 
-// Setea/actualiza/borra la matrícula CABA (RPA) de un cliente desde gerencia. El editor
-// de gerencia sólo toca el Nº → al actualizar NO pisa fecha/vencimiento/origen de una fila
-// existente (los gestiona el cliente desde su ficha o el backfill). nro vacío/null → borra.
-export async function setMatriculaExtraCaba(
+// DGG-234 F8 · jurisdicción NO-PBA que el editor de gerencia administra (CABA o Neuquén).
+export type MatriculaExtraJur = 'caba' | 'neuquen';
+
+// Setea/actualiza/borra la matrícula de OTRA jurisdicción (CABA/Neuquén) de un cliente
+// desde gerencia. El form de gerencia administra UNA sola matrícula no-PBA por vez: la que
+// CARGÓ (jurisdiccionPrevia) o la que el gerente ELIGIÓ (jurisdiccion). Todos los borrados
+// se ACOTAN a esas jurisdicciones — NUNCA se toca una fila no-PBA que el form no mostró
+// (p.ej. una CABA oculta mientras se edita Neuquén) → sin pérdida de datos silenciosa (§6 F8,
+// hallazgo CONFIRMADO). `jurisdiccionPrevia` = la jurisdicción que el drawer trajo al abrir.
+//  · nro vacío/null → borra SÓLO la fila de la jurisdicción gestionada (previa o elegida).
+//  · cambió de jurisdicción respecto de la cargada → borra SÓLO la previa, inserta la nueva.
+//  · misma jurisdicción ya existente → sólo actualiza el Nº (NO pisa fecha/vencimiento/origen).
+// certeza siempre 'declarado' (CABA/Neuquén no tienen registro oficial consultable).
+export async function setMatriculaExtra(
   administracionId: string,
+  jurisdiccion: MatriculaExtraJur,
   nro: string | null,
+  jurisdiccionPrevia: MatriculaExtraJur | null = null,
 ): Promise<ApiResponse<null>> {
   const limpio = (nro ?? '').trim();
+
+  if (!limpio) {
+    // El gerente limpió la matrícula que estaba editando → borrar SÓLO esa fila
+    // (la cargada, o la elegida si no había previa). No tocar otras jurisdicciones.
+    const target = jurisdiccionPrevia ?? jurisdiccion;
+    const { error } = await supabase
+      .from('matricula_extra')
+      .delete()
+      .eq('administracion_id', administracionId)
+      .eq('jurisdiccion', target);
+    if (error) return fail('MATEXTRA_DEL', error.message, error);
+    return ok(null);
+  }
+
+  // Cambió de jurisdicción respecto de la cargada → sacar SÓLO la fila previa (no otras).
+  if (jurisdiccionPrevia && jurisdiccionPrevia !== jurisdiccion) {
+    const { error } = await supabase
+      .from('matricula_extra')
+      .delete()
+      .eq('administracion_id', administracionId)
+      .eq('jurisdiccion', jurisdiccionPrevia);
+    if (error) return fail('MATEXTRA_DEL_PREVIA', error.message, error);
+  }
+
   const { data: existing, error: eSel } = await supabase
     .from('matricula_extra')
     .select('id')
     .eq('administracion_id', administracionId)
-    .eq('jurisdiccion', 'caba')
+    .eq('jurisdiccion', jurisdiccion)
     .maybeSingle();
   if (eSel) return fail('MATEXTRA_SEL', eSel.message, eSel);
-
-  if (!limpio) {
-    if (!existing) return ok(null);
-    const { error } = await supabase.from('matricula_extra').delete().eq('id', existing.id);
-    if (error) return fail('MATEXTRA_DEL', error.message, error);
-    return ok(null);
-  }
   if (existing) {
     const { error } = await supabase
       .from('matricula_extra')
@@ -171,7 +200,7 @@ export async function setMatriculaExtraCaba(
   }
   const { error } = await supabase.from('matricula_extra').insert({
     administracion_id: administracionId,
-    jurisdiccion: 'caba',
+    jurisdiccion,
     matricula_nro: limpio,
     certeza: 'declarado',
     origen: 'gerencia_manual',
