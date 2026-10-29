@@ -109,6 +109,47 @@ const CLICK_URL_BY_TIPO: Record<string, string> = {
   certificado_declarado: '/portal/mi-ficha?origen=aviso',
 };
 
+// DGG-234 F4b · la matrícula se rotula y rutea por JURISDICCIÓN (pba/caba/neuquen).
+// El edge trae `vencimientos.jurisdiccion` (col F4a, mig 0608) en un mapa; default
+// 'pba' (el backfill + trigger garantizan la col, pero defendemos el fallback).
+const MATRICULA_TIPOS = new Set([
+  'matricula_rpac',
+  // 'renovacion_rpac' NO va acá: es la oferta del MOTOR (PBA-intrínseca; plantilla
+  // ofrecimiento-rpac-renovacion y CTA /formulario/renovacion-rpac FIJAS). Su etiqueta
+  // debe quedar 'Matrícula RPAC' (vía TIPO_LABEL), nunca jur-aware, para que label y
+  // plantilla NO diverjan si un row trajera jurisdiccion≠pba (§6 F4b A#4/C#4).
+  'renovacion_matricula_declarada',
+]);
+const MATRICULA_LABEL: Record<string, string> = {
+  pba: 'Matrícula RPAC',
+  caba: 'Matrícula RPA (CABA)',
+  neuquen: 'Matrícula RPA (Neuquén)',
+};
+
+function resolveLabel(tipo: string, jur: string): string {
+  if (MATRICULA_TIPOS.has(tipo)) return MATRICULA_LABEL[jur] ?? MATRICULA_LABEL.pba;
+  return TIPO_LABEL[tipo] ?? 'Vencimiento';
+}
+
+// Ruteo de plantilla: la renovación de matrícula DECLARADA tiene mail propio por
+// jurisdicción (CABA ofrece el curso GG; Neuquén sólo aviso). El resto sigue el mapa.
+function resolveTemplate(tipo: string, jur: string): string {
+  if (tipo === 'renovacion_matricula_declarada') {
+    if (jur === 'caba') return 'vencimiento-matricula-caba';
+    if (jur === 'neuquen') return 'aviso-matricula-neuquen';
+    return 'vencimiento-declarado-cliente';
+  }
+  return TEMPLATE_BY_TIPO[tipo] ?? 'vencimiento_alerta_cliente';
+}
+
+// Nota PBA-only ("legajo RPAC → verificación oficial") que inyecta la genérica
+// declarada; CABA/NEU no tienen legajo ni verificación oficial (TRAMIX es PBA).
+function notaVerificacion(jur: string): string {
+  return jur === 'pba'
+    ? 'Además, si cargás tu legajo RPAC en tu ficha, verificamos tu matrícula con el registro oficial.'
+    : 'Mantené tus datos al día en tu ficha para que tus recordatorios sean siempre exactos.';
+}
+
 // DGG-231 · helpers para los recordatorios sobre datos DECLARADOS por el cliente.
 const esDeclarado = (tipo: string): boolean =>
   tipo.endsWith('_declarada') || tipo.endsWith('_declarado');
@@ -118,12 +159,20 @@ function fechaAr(iso: string): string {
   return d && m && y ? `${d}/${m}/${y}` : iso;
 }
 
-// Minúscula que PRESERVA los acrónimos en mayúscula (RPAC, RPA, CABA) — para no
-// escribir "matrícula rpac" en la voz del aviso.
+// Minúscula que PRESERVA los acrónimos y topónimos con mayúscula interna
+// (RPAC, RPA, (CABA), (Neuquén)) — para no escribir "matrícula rpac" en la voz
+// del aviso. Regla: una palabra se baja a minúscula sólo si su única mayúscula
+// es la inicial (palabra capitalizada normal: "Matrícula"→"matrícula",
+// "Jurada"→"jurada"); si tiene mayúsculas más allá de la 1ª letra se preserva
+// ("RPA", "(CABA)", "(Neuquén)"). DGG-234 F4b.
 function labelMinus(label: string): string {
   return label
     .split(' ')
-    .map((w) => (w.length > 1 && w === w.toUpperCase() ? w : w.toLowerCase()))
+    .map((w) => {
+      const rest = w.slice(1);
+      const tieneMayusInterna = rest !== rest.toLowerCase();
+      return tieneMayusInterna ? w : w.toLowerCase();
+    })
     .join(' ');
 }
 
@@ -243,10 +292,30 @@ Deno.serve(async (req) => {
     }
 
     // ---------------------------------------------------------------------
+    // 3-bis. Jurisdicción de cada vencimiento (DGG-234 F4b). El planner no la
+    // devuelve; la traemos en bulk de la columna (mig 0608). Fallback 'pba'
+    // (= comportamiento previo) si faltara o fallara el fetch — nunca rompe.
+    // ---------------------------------------------------------------------
+    const jurMap = new Map<string, string>();
+    const { data: jurData, error: errJur } = await supabase
+      .from('vencimientos')
+      .select('id, jurisdiccion')
+      .in('id', vencIdsEnPlan);
+    // Fail-closed (§6 F4b A#3): si NO podemos leer la jurisdicción, abortamos la
+    // corrida (igual que adminsRes/consRes) en vez de degradar TODO a 'pba' en
+    // silencio — un CABA/NEU mal rotulado "RPAC" se loguearía 'ok' (idempotente,
+    // nunca reintenta). El cron reintenta mañana; mejor no enviar que enviar mal.
+    if (errJur) throw new Error(`cargar jurisdiccion: ${errJur.message}`);
+    for (const v of (jurData ?? []) as Array<{ id: string; jurisdiccion: string | null }>) {
+      jurMap.set(v.id, v.jurisdiccion ?? 'pba');
+    }
+
+    // ---------------------------------------------------------------------
     // 4. Procesar cada match.
     // ---------------------------------------------------------------------
     for (const p of plan) {
-      const tipoLabel = TIPO_LABEL[p.tipo] ?? 'Vencimiento';
+      const jur = jurMap.get(p.vencimiento_id) ?? 'pba'; // DGG-234 F4b
+      const tipoLabel = resolveLabel(p.tipo, jur);
       const declarado = esDeclarado(p.tipo); // DGG-231
       const admin = p.administracion_id ? adminMap.get(p.administracion_id) : null;
       const consorcio = p.consorcio_id ? consMap.get(p.consorcio_id) : null;
@@ -321,10 +390,13 @@ Deno.serve(async (req) => {
           frase_estado: declarado
             ? fraseDeclarada(tipoLabel, p.fecha_vencimiento, p.offset_dias)
             : '',
+          // DGG-234 F4b: nota de verificación PBA-only (legajo RPAC) o neutra
+          // para CABA/NEU — la usa la genérica declarada vencimiento-declarado-cliente.
+          nota_verificacion: notaVerificacion(jur),
         };
 
         const enc = await safeEncolarEmail(supabase, {
-          template: TEMPLATE_BY_TIPO[p.tipo] ?? 'vencimiento_alerta_cliente',
+          template: resolveTemplate(p.tipo, jur),
           toEmail: admin.email.trim(),
           toNombre: nombreContacto,
           variables,
@@ -369,7 +441,7 @@ Deno.serve(async (req) => {
               : `${tipoLabel}: vence en ${p.offset_dias} días`);
         const notifCuerpo = declarado
           ? `Según tus datos, ${fraseDeclarada(tipoLabel, p.fecha_vencimiento, p.offset_dias)}. Si ya la hiciste, actualizala en tu ficha.`
-          : `Tu ${tipoLabel.toLowerCase()} vence el ${p.fecha_vencimiento}. Iniciá la gestión con un click.`;
+          : `Tu ${labelMinus(tipoLabel)} vence el ${p.fecha_vencimiento}. Iniciá la gestión con un click.`;
         const { error: errNotif } = await supabase.rpc('gg_notif_emitir_cliente', {
           p_user: admin.user_id,
           p_titulo: notifTitulo,

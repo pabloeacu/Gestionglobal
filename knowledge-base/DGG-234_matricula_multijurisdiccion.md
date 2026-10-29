@@ -221,3 +221,51 @@ legajo RPAC), **crear** `aviso-matricula-neuquen` y una renovación CABA.
   dispatch envía; label y push coherentes con el email (hoy el push miente "RPAC").
 - **R18:** smoke e2e real en F5 (triggers de submission). **R14/R15:** paridad en
   gerencia. **R16:** DROP+CREATE al extender RPCs. **0 regresión PBA** en cada fase.
+
+## 8. Estado de ejecución (log vivo)
+
+- **F1 — HECHA** (mig `0605`, commit `eae8515`): enum + `matricula_extra` + `v_matriculas`
+  + RLS/GRANTs. e2e ROLLBACK OK, inerte. 0 riesgo.
+- **F2 — HECHA** (mig `0606`, commit `d7d5e3e`): `gg_admin_matricula_conocida` y
+  `gg_admin_es_solo_caba` conscientes de la hija. 0 regresión (144 idénticos) + e2e.
+  _Pendiente de F2 que se movió a F5/F6 a propósito:_ `perfil_regulatorio_calc`
+  (deriva `v_jur` por columna y NO lee `matricula_extra` — es la raíz E-GG-236 del
+  display de ficha; se corrige cuando lea `v_matriculas`) y los lectores del portal.
+- **F3 — HECHA** (mig `0607`, commit `e7e7a91`): gating del motor por jurisdicción
+  positiva (`gg_admin_es_rpac` en vez de `NOT es_solo_caba`). 0 regresión exacta
+  (178 admins, 8 reglas). **OJO (hallazgo §6-C de F4):** `es_rpac` keyea
+  `matricula_rpac`, así que los 3 CABA (matrícula en esa columna) siguen computando
+  `es_rpac=true` → el motor los trata como PBA. Es el estado DISEÑADO (D3): contenidos
+  por `ofrecimientos_habilitados=false` hasta el **cutover F7**, que mueve su matrícula
+  a `matricula_extra` → `es_rpac→false` solo. El gating F3 protege a los CABA/NEU
+  PUROS (sin nº en `matricula_rpac`) y a Neuquén.
+- **F4a — HECHA** (mig `0608`, commit `77b9153`): columna `vencimientos.jurisdiccion`
+  (backfill pba=252/caba=6 + trigger `venc_jurisdiccion_default_fn`; default declarada→pba).
+- **F4b — HECHA + §6 + deploy** (mig `0609` + edge `dispatch-vencimientos` **v18**, 2026-10-29):
+  - Plantillas: `vencimiento-declarado-cliente` parametriza la nota PBA-only como
+    `{{nota_verificacion}}`; **nuevas** `vencimiento-matricula-caba` (ofrece curso GG,
+    CTA `/formulario/curso-actualizacion-caba?origen=aviso`) y `aviso-matricula-neuquen`
+    (sólo aviso, CTA ficha). Sin fuga RPAC/legajo/FUNDPLATA a CABA/NEU.
+  - Edge: `resolveLabel`/`resolveTemplate`/`notaVerificacion` por jurisdicción +
+    `jurMap` (bulk de la columna) + `labelMinus` que preserva acrónimos/topónimos.
+  - **§6 (3 agentes A/B/C + e2e):** label/ruteo correctos para el universo real;
+    0 regresión PBA byte-idéntica; e2e Neuquén real (planner→columna→`aviso-matricula-neuquen`,
+    ROLLBACK); caso SANCLAUDIO real → "Matrícula RPA (CABA)" + plantilla CABA (bug cerrado
+    en la superficie de vencimientos). Fixes del §6: fail-closed ante error de lectura de
+    jurisdicción (A#3); `renovacion_rpac` fuera de `MATRICULA_TIPOS` (label↔plantilla, A#4/C#4);
+    `labelMinus` en push no-declarado (A#6).
+  - **Trampa (E-GG-234, 3ª vez):** `deploy_edge_function` MCP pisa `verify_jwt→true` si no
+    se pasa explícito → se re-deployó con `verify_jwt:false` + smoke (401 propio = boot+gate OK).
+  - **`_gg_ofrecimiento_tocar` NO se tocó:** tras F3, los códigos con copy "RPAC" sólo
+    disparan para `es_rpac` (PBA); los alcanzables por CABA/NEU (cj_120/perfil_incompleto/
+    capacitación) son neutrales. El leak histórico a los 3 CABA es por la columna legacy →
+    lo cierra F7, no un cambio de copy.
+- **Items para F6** (paridad de etiqueta / lectores): `src/services/api/vencimientos.ts`
+  `VENCIMIENTO_TIPO_LABEL` (jur-blind en grilla gerencia/portal); `perfil_regulatorio_calc`
+  (leer `v_matriculas` para v_jur y datos CABA/NEU).
+- **Dudas de política para Pablo** (sin bloqueo): el aviso CABA ofrece curso pago pero va
+  por `vencimientos` (no pasa por opt-out de marketing — 0 CABA suprimidos hoy); doble-escape
+  pre-existente de `{{nombre}}` en títulos de `dispatch-emails` (tarea aparte, requiere
+  redeploy del drainer); declarada vieja de Baldonccini (2024) queda muda al despausar →
+  refrescar su dato en el cutover F7.
+- **F5 / F6 / F7 — PENDIENTES.**
