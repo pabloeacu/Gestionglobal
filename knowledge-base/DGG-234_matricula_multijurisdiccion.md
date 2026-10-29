@@ -351,3 +351,45 @@ legajo RPAC), **crear** `aviso-matricula-neuquen` y una renovación CABA.
   - Hygiene: `matricula_extra` sin trigger de audit/touch (`updated_at` lo setean los write-paths;
     evaluar touch trigger). Refrescar el dato viejo de Baldonccini (declarada 2024 → muda al despausar).
   - Prueba en vivo SANCLAUDIO end-to-end en las 4 superficies.
+
+---
+
+## F6c/F6d — Residuos destapados por la prueba en vivo (2026-10-29)
+
+La confirmación visual del cutover (rol-swap §5 sobre SANCLAUDIO, browser Chrome logueado
+de Pablo) confirmó **ambas quejas cerradas** (home pill "20143 · RPA (CABA)", card → curso
+CABA, ficha "RPA · CABA", sin certificado; PBA Lozano intacto) **y** destapó 3 residuos que
+F6b no cubría (capitalizados por §6-2bis fan-out). Ver E-GG-236 addendum.
+
+- **F6c (commit 957753c) · ficha jur-aware.** `fichaModel` gana `matriculaLabel` /
+  `jurisdiccionLabel` / `tieneRegistroOficial`. La ficha ya no hardcodea "RPAC": agenda de
+  avisos, fila Jurisdicción, rótulo "Legajo" (RPAC sólo PBA), copy TRAMIX (sólo PBA), prompt
+  de legajo y hint de certeza. 0 regresión PBA por construcción. Verificado en vivo.
+- **F6d (commit 6719c3c) · gerencia + guards.**
+  - **Editor de gerencia (R14/R15):** `AdministracionFormDrawer` — el campo "Matrícula RPA ·
+    CABA" lee/escribe `matricula_extra` (certeza 'declarado'), no la columna legacy
+    `matricula_rpa` (deprecada, 0 filas). Antes los CABA del cutover se veían VACÍOS en
+    gerencia. Servicios `fetchMatriculasExtra`/`setMatriculaExtraCaba`. Guard R13 dual-jur.
+  - **mig 0616 · guard de otorgamiento:** `tracking_cargar_otorgamiento` rechaza el
+    otorgamiento RPAC a un cliente puramente no-PBA. Smoke R18 OK (CABA bloqueado, PBA intacto,
+    overloads=1).
+  - **TRAMIX gate:** botón "Mesa de Entradas Virtual PBA" oculto para CABA/Neuquén
+    (`fetchMiEsNoPba`). Default visible → 0 regresión PBA.
+  - **Nota arquitectura:** el calc honra 3 fuentes CABA en orden: `matricula_rpac`(PBA) →
+    `matricula_rpa`(col legacy, 'confirmado') → `matricula_extra`(hija, 'declarado'). Canon =
+    `matricula_extra` (preserva certeza declarada honesta; la columna inflaba a 'confirmado').
+  - **e2e BD (BEGIN/ROLLBACK):** gerencia→CABA produce jur=rpa/nro=20143/cert=declarado/
+    es_rpac=false; RLS `is_staff` permite el INSERT en `matricula_extra`.
+
+### Pendiente F6 (documentado — 0 clientes hoy, no bloqueante)
+
+- **Neuquén en gerencia:** el form sólo rutea CABA a `matricula_extra`; falta UI para
+  `jurisdiccion='neuquen'` (y un selector de jurisdicción pleno vs. los 2 campos actuales).
+- **Enum pleno en el contrato del calc:** hoy `perfil_regulatorio.jurisdiccion` es binario
+  ('rpac'|'rpa'|null) y el front mapea 'rpa'→caba SIEMPRE → un cliente Neuquén se rotularía
+  "CABA". Extender el calc a devolver la jurisdicción real (pba/caba/neuquen) desde
+  `matricula_extra.jurisdiccion`.
+- **N-matrículas duales** (un cliente con PBA + CABA a la vez): hoy el calc prioriza RPAC y
+  el form avisa; no hay UI para listar/gestionar varias matrículas.
+- **Labels de grilla de gerencia** (`vencimientos.ts VENCIMIENTO_TIPO_LABEL`) podrían rotular
+  "RPAC" para una fila CABA — revisar si alguna superficie de gerencia lo muestra.
