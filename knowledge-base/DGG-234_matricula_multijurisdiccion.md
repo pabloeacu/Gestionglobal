@@ -268,4 +268,62 @@ legajo RPAC), **crear** `aviso-matricula-neuquen` y una renovación CABA.
   pre-existente de `{{nombre}}` en títulos de `dispatch-emails` (tarea aparte, requiere
   redeploy del drainer); declarada vieja de Baldonccini (2024) queda muda al despausar →
   refrescar su dato en el cutover F7.
-- **F5 / F6 / F7 — PENDIENTES.**
+- **F5 — Backend jurisdiction-aware (HECHA + §6, 2026-10-29).** Todo ADITIVO/0-regresión
+  (la hija está vacía → inerte hasta el cutover F7). 4 migraciones:
+  - **0610 (F5a lectores):** `perfil_regulatorio_calc` lee la matrícula NO-PBA desde
+    `matricula_extra` como fallback tras las columnas (caba/neuquen → 'rpa' back-compat).
+    **0 regresión probada**: hash de calc (sin generated_at) IDÉNTICO para los 178 admins
+    antes/después. e2e CABA post-cutover (jurisdiccion='rpa', matrícula/prox_renov de la hija).
+  - **0611 (F5b materializador):** `perfil_declarado_sync_venc` estampa `vencimientos.jurisdiccion`
+    desde la hija ('pba' si vacía = default trigger F4a). e2e: declarada CABA → jurisdiccion=caba.
+  - **0612 (F5b entry-points):** `sync_submission_a_administracion` + `backfill_admin_desde_tramite_submission`
+    + `cliente_confirmar_vencimiento_matricula` + `perfil_regulatorio_declarar` rutean la matrícula
+    por JURISDICCIÓN DEL SERVICIO (servicio `rpa_actualizacion`=CABA; resto=PBA), NUNCA por el
+    nombre del campo. Cierra la "trampa" (el form curso-actualizacion-caba capta `matricula_rpac`
+    → antes iba a la columna → es_rpac=true). `declarar` acepta el enum nuevo (pba/caba/neuquen)
+    + viejo (rpac/rpa) y aplica la regla +12m a la fecha declarada. **R18 e2e (ROLLBACK, 4 escenarios):**
+    CABA-form→extra/matricula_rpac NULL · PBA-form→columna/extra 0 · declarar-CABA→extra(+12m)/pr NULL ·
+    declarar-PBA→pr/extra 0. 0-regresión PBA byte-idéntica, 0 residuo.
+  - **0613 (§6-A#6c):** CHECK `matricula_extra.certeza <> 'confirmado'` (CABA/NEU sin fuente oficial
+    tipo TRAMIX → nunca 'confirmado', si no el materializador dejaría al cliente sin recordatorio).
+  - **§6 (5 agentes + e2e):** chunk-1 (calc+materializer) 3 agentes — A correcto/0-regresión,
+    B fan-out, C barrido/triggers; chunk-2 (entry-points) 2 agentes. Hallazgos accionables ya
+    aplicados (#6c CHECK); #6b (stamp vs calc en cliente DUAL futuro) diferido a F6 (no alcanzable:
+    hija vacía / los 3 CABA son CABA-puros).
+- **F6 — PENDIENTE. Items (frontend + funciones de display que lo alimentan):**
+  - **CRÍTICO antes del cutover F7:** `cliente_portal_dashboard` lee `matricula_rpac` DIRECTO
+    (no pasa por calc) → post-cutover el CABA pierde el pill de matrícula del Hero + `tiene_matricula=false`
+    + (si no hizo curso CABA) banner "Matriculate" mal-disparado. Hacerlo consciente de `matricula_extra`.
+    (`PortalHome.tsx` Hero depende 100% de esto.)
+  - Display/prefill (diferible): `cliente_perfil_datos_formulario` (autofill), `gg_admin_prox_venc_matricula`
+    (preview), `AdministracionDetailPage` TabRegistral, `AdministracionFormDrawer` (editor N-matrículas +
+    candado TRAMIX, R14), `campus.listMatriculas`, `TrackingDetailPage`/`ModeracionPage`.
+  - Contrato front `PerfilRegulatorio.jurisdiccion` 'rpac'|'rpa'|null → enum nuevo + lista N-matrículas;
+    formulario dinámico "¿Tenés matrícula en otra jurisdicción?" en la agenda de vencimientos; ocultar
+    lo que no aplica (fichaModel OBLIGACIONES por jurisdicción); labels CABA/Neuquén; #6b (alinear stamp
+    con calc en el modelo N-matrículas); DDJJ declarada CABA (#6d).
+  - **Huecos de ESCRITURA de gerencia (fan-out §6, pueden re-meter una matrícula CABA en `matricula_rpac`
+    → `es_rpac`=true):** (a) `AdministracionFormDrawer` (`createAdministracion`/`updateAdministracion`) —
+    el campo libre "Matrícula RPAC" escribe la columna sin guard de jurisdicción; el editor debe rutear a
+    `matricula_extra` para CABA/NEU y NO hay UI que escriba la hija (0 refs en src/). El campo "Matrícula RPA"
+    escribe a la columna **inerte** `matricula_rpa` (no sustituye el ruteo). (b) quick-edit `patchField`
+    (`AdministracionDetailPage`) — update genérico, mismo vector crudo. (c) `tracking_cargar_otorgamiento`
+    (RPC gerencia) — escribe `matricula_rpac*` gateado sólo por `categoria IN (matricula,renovacion)`, no por
+    servicio/jurisdicción (un trámite PBA mal-creado para un CABA lo re-metería). Los demás escritores RPAC
+    (`tracking_programar_vencimientos_rpac`, `tracking_moderar_gestor_avance`, `tracking_cerrar_ciclo`,
+    `trg_tramite_cierre_setea_vencimiento_fn`) están gateados por `servicio IN (rpac_*)` → PBA-only, OK.
+  - **Hardening del ruteo (F6):** el mapeo servicio→jurisdicción es hoy un allowlist de 1
+    (`rpa_actualizacion`→caba; resto→pba). Un form no-PBA futuro caería en 'pba' → re-trampa. Mejor:
+    atributo `jurisdiccion` en `servicios` (o en el form) en vez del slug hardcodeado.
+- **F7 — PENDIENTE. Cutover (mover los 3 CABA a `matricula_extra`, nular `matricula_rpac`, setear
+  jurisdicción; revertir contención `ofrecimientos_habilitados=true`). Notas del §6-C para el plan:**
+  - Hacer `cliente_portal_dashboard` CABA-aware (F6) ANTES del cutover (si no, Hero/banner rotos).
+  - El materializador NO re-estampa una declarada existente a la misma fecha → el cutover debe
+    RECONCILIAR la `jurisdiccion` de las declaradas pre-existentes de los 3 CABA (ya están en 'caba'
+    por el backfill F4a — verificar que sigan) y llamar `perfil_declarado_sync_venc(admin)` EXPLÍCITO
+    post-cutover (no esperar al cron; hay ventana tras retirar el `renovacion_rpac`).
+  - Re-habilitar `ofrecimientos_habilitados=true` SÓLO tras verificar `gg_admin_es_rpac→false`.
+  - Opcional: setear `app.venc_declarado='on'` durante el cutover (preservar certeza; benigno).
+  - Hygiene: `matricula_extra` sin trigger de audit/touch (`updated_at` lo setean los write-paths;
+    evaluar touch trigger). Refrescar el dato viejo de Baldonccini (declarada 2024 → muda al despausar).
+  - Prueba en vivo SANCLAUDIO end-to-end en las 4 superficies.
