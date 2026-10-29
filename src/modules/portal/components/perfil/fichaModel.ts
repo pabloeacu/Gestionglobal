@@ -20,6 +20,38 @@ export function jurNorm(perfil: PerfilRegulatorio): JurNorm {
   return perfil.jurisdiccion === 'rpa' ? 'caba' : 'pba'; // 'rpac'|null → pba (muestra todo, 0 regresión)
 }
 
+// DGG-234 F6 · etiquetas jurisdicción-aware — reemplazan los "RPAC" hardcodeados de la
+// ficha (E-GG-236). Antes del cutover los 3 CABA computaban PBA y "RPAC" era consistente;
+// tras el cutover la ficha debe rotular su matrícula/renovación/legajo según la jurisdicción
+// real, igual que ya lo hacen el pill del home y el card (F6b) y los emails/push (F4b).
+// NOTA: el contrato del calc aún es binario ('rpac'|'rpa'|null) → hoy 'rpa'→caba siempre;
+// cuando se extienda al enum pleno, jurNorm distinguirá neuquen y estos helpers ya lo cubren.
+export function matriculaLabel(perfil: PerfilRegulatorio): string {
+  switch (jurNorm(perfil)) {
+    case 'caba':
+      return 'RPA (CABA)';
+    case 'neuquen':
+      return 'RPA (Neuquén)';
+    default:
+      return 'RPAC';
+  }
+}
+export function jurisdiccionLabel(perfil: PerfilRegulatorio): string {
+  switch (jurNorm(perfil)) {
+    case 'caba':
+      return 'RPA · CABA';
+    case 'neuquen':
+      return 'RPA · Neuquén';
+    default:
+      return 'RPAC · Buenos Aires';
+  }
+}
+// ¿Su matrícula se verifica contra un registro oficial consultable (TRAMIX)? Sólo PBA.
+// Gobierna el copy de "cargá tu legajo … y lo verificamos con el registro oficial".
+export function tieneRegistroOficial(perfil: PerfilRegulatorio): boolean {
+  return jurNorm(perfil) === 'pba';
+}
+
 export interface Obligacion {
   key: string; // clave de no_requiere (opt-out)
   field: FieldKey;

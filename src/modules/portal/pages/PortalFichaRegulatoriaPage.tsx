@@ -32,6 +32,9 @@ import {
   contarPendientes,
   readSnoozed,
   writeSnoozed,
+  matriculaLabel,
+  jurisdiccionLabel,
+  tieneRegistroOficial,
   type FieldKey,
 } from '../components/perfil/fichaModel';
 import { toast } from '@/lib/toast';
@@ -48,17 +51,21 @@ import { cn } from '@/lib/cn';
 // vencimiento. §6 #1: NUNCA se usa `descripcion` cruda (texto interno de
 // gerencia, con nombres propios) — para un tipo no mapeado cae al genérico.
 const AVISO_LABEL: Record<string, string> = {
-  renovacion_rpac: 'Renovación de tu matrícula RPAC',
   ddjj_anual: 'Tu Declaración Jurada anual',
   curso_actualizacion: 'Tu curso de actualización',
   curso_rpa_caba: 'Tu curso RPA (CABA)',
   // DGG-231 · recordatorios sobre tus datos declarados
-  renovacion_matricula_declarada: 'Renovación de tu matrícula RPAC',
   ddjj_anual_declarada: 'Tu Declaración Jurada anual',
   curso_actualizacion_declarado: 'Tu curso de actualización',
   certificado_declarado: 'Tu certificado de acreditación',
 };
-function avisoLabel(a: AgendaAviso): string {
+// DGG-234 F6 (E-GG-236): la etiqueta de la renovación de matrícula se rotula según la
+// jurisdicción del cliente ("RPAC" para PBA, "RPA (CABA)/(Neuquén)" para los demás) —
+// coherente con el pill/card del home (F6b) y los emails/push (F4b). Antes decía "RPAC"
+// hardcodeado y los 3 CABA veían "Renovación de tu matrícula RPAC" en su agenda.
+const AVISO_MATRICULA_TIPOS = new Set(['renovacion_rpac', 'renovacion_matricula_declarada']);
+function avisoLabel(a: AgendaAviso, matLabel: string): string {
+  if (AVISO_MATRICULA_TIPOS.has(a.tipo)) return `Renovación de tu matrícula ${matLabel}`;
   return AVISO_LABEL[a.tipo] ?? 'Recordatorio regulatorio';
 }
 
@@ -130,9 +137,13 @@ export function PortalFichaRegulatoriaPage() {
   // (no una fecha), así que va por un prompt propio y NO por el editor de fechas (declarar()).
   async function cargarLegajo() {
     if (!adminId) return;
+    // DGG-234 F6 · "legajo RPAC" + "Mesa de Entradas" son PBA-only; para CABA/Neuquén neutro.
+    const esPbaLegajo = !perfil || tieneRegistroOficial(perfil);
     const v = await promptDlg({
-      title: 'Tu legajo RPAC',
-      message: 'Es la llave para consultar tu trámite en Mesa de Entradas. Lo encontrás en tu credencial / constancia de matrícula.',
+      title: esPbaLegajo ? 'Tu legajo RPAC' : 'Tu legajo',
+      message: esPbaLegajo
+        ? 'Es la llave para consultar tu trámite en Mesa de Entradas. Lo encontrás en tu credencial / constancia de matrícula.'
+        : 'Lo encontrás en tu credencial / constancia de matrícula.',
       label: 'Número de legajo',
       placeholder: 'ej. 282055',
     });
@@ -254,6 +265,8 @@ export function PortalFichaRegulatoriaPage() {
   }
 
   const p = perfil;
+  const matLabel = matriculaLabel(p); // DGG-234 F6 · rótulo de matrícula según jurisdicción
+  const esPba = tieneRegistroOficial(p); // sólo PBA se verifica contra TRAMIX/registro oficial
   // "completo" = no queda NADA accionable de verdad (confirmado/declarado u opt-outeado).
   // NO se ata a completitud_pct>=100 (los opt-out dejan hechos en 'desconocido' y el pct,
   // que sólo cuenta confirmado+declarado, nunca llegaría a 100). Snoozear NO completa.
@@ -313,7 +326,7 @@ export function PortalFichaRegulatoriaPage() {
           {p.jurisdiccion && (
             <IdentRow label="Jurisdicción">
               <span className="text-sm font-medium text-brand-ink">
-                {p.jurisdiccion === 'rpac' ? 'RPAC · Buenos Aires' : 'RPA · CABA'}
+                {jurisdiccionLabel(p)}
               </span>
             </IdentRow>
           )}
@@ -342,8 +355,9 @@ export function PortalFichaRegulatoriaPage() {
               <CertezaBadge certeza={p.matricula.nro_certeza} />
             </span>
           </IdentRow>
-          {/* DGG-206 · legajo RPAC (llave para Mesa de Entradas). El cliente puede cargarlo. */}
-          <IdentRow label="Legajo RPAC">
+          {/* DGG-206 · legajo (llave para Mesa de Entradas en PBA). El cliente puede cargarlo.
+              DGG-234 F6 · "RPAC" es sólo PBA; para CABA/Neuquén el rótulo es neutro ("Legajo"). */}
+          <IdentRow label={esPba ? 'Legajo RPAC' : 'Legajo'}>
             <span className="flex flex-wrap items-center gap-2 sm:justify-end">
               {p.legajo.nro ? (
                 <span
@@ -488,8 +502,8 @@ export function PortalFichaRegulatoriaPage() {
           })}
         </div>
         <p className="mt-2 text-[11px] text-brand-muted">
-          Calculamos estas fechas con tus datos y te avisamos antes de cada una. Cargá tu
-          legajo RPAC y las verificamos con el registro oficial.
+          Calculamos estas fechas con tus datos y te avisamos antes de cada una.
+          {esPba && ' Cargá tu legajo RPAC y las verificamos con el registro oficial.'}
         </p>
       </section>
 
@@ -513,7 +527,7 @@ export function PortalFichaRegulatoriaPage() {
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium text-brand-ink">
-                    <span className="tabular-nums">{formatDateShort(a.fecha_aviso)}</span> · {avisoLabel(a)}
+                    <span className="tabular-nums">{formatDateShort(a.fecha_aviso)}</span> · {avisoLabel(a, matLabel)}
                   </p>
                   <p className="text-xs text-brand-muted">
                     {a.dias_antes === 0
@@ -615,7 +629,7 @@ export function PortalFichaRegulatoriaPage() {
           </div>
           <div className="flex items-start gap-3">
             <CertezaBadge certeza="desconocido" />
-            <p className="text-xs text-brand-muted">Todavía no lo tenemos. Cargá el dato o tu legajo RPAC.</p>
+            <p className="text-xs text-brand-muted">Todavía no lo tenemos. Cargá el dato{esPba ? ' o tu legajo RPAC' : ''}.</p>
           </div>
         </div>
       </Modal>

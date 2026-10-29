@@ -45,7 +45,7 @@ export const CERTEZA_META: Record<CertezaDato, CertezaMeta> = {
     label: 'Pendiente',
     Icon: CircleHelp,
     chip: 'bg-transparent text-brand-muted border border-gg-line',
-    hint: 'Todavía no lo tenemos. Cargá el dato o tu legajo RPAC.',
+    hint: 'Todavía no lo tenemos. Cargá el dato cuando puedas.',
   },
 };
 
