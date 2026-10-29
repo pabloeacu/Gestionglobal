@@ -20,6 +20,8 @@ import {
   updateAdministracion,
   reactivarAdministracion,
   adminPrecheckIdentidad,
+  fetchMatriculasExtra,
+  setMatriculaExtraCaba,
   type AdministracionRow,
 } from '@/services/api/administraciones';
 import { altaClientePortal } from '@/services/api/usuarios';
@@ -167,6 +169,19 @@ export function AdministracionFormDrawer({
       setForm(editing ? rowToForm(editing) : EMPTY);
       setErrors({});
       setStep(0);
+      // DGG-234 F6 · la matrícula CABA/Neuquén vive en la tabla hija matricula_extra
+      // (no en columnas de administraciones). La traemos y la mostramos en el campo
+      // "Matrícula RPA · CABA" — antes quedaba vacío y un gerente podía re-cargarla por
+      // error en "Matrícula RPAC" y reclasificar al cliente como PBA (E-GG-236).
+      if (editing) {
+        void fetchMatriculasExtra(editing.id).then((r) => {
+          if (!r.ok) return;
+          const caba = r.data.find((m) => m.jurisdiccion === 'caba');
+          if (caba?.matricula_nro) {
+            setForm((f) => ({ ...f, matricula_rpa: caba.matricula_nro ?? '' }));
+          }
+        });
+      }
     }
   }, [open, editing?.id]);
 
@@ -224,6 +239,21 @@ export function AdministracionFormDrawer({
       setStep(2);
       return;
     }
+    // DGG-234 F6 · una matrícula RPAC (PBA) + una RPA (CABA) a la vez: el cálculo
+    // prioriza la RPAC y trata al cliente como PBA (reabriría E-GG-236). Avisar.
+    if (form.matricula_rpac.trim() && form.matricula_rpa.trim()) {
+      const seguir = await confirm({
+        title: 'Dos jurisdicciones cargadas',
+        message:
+          'Cargaste matrícula RPAC (PBA) y RPA (CABA). El sistema va a tratar al cliente como PBA (RPAC) e ignorar la de CABA. Si el cliente es de CABA, dejá sólo la matrícula RPA (CABA) y borrá la RPAC.',
+        confirmLabel: 'Entiendo, continuar',
+        cancelLabel: 'Volver a revisar',
+      });
+      if (!seguir) {
+        setStep(STEPS.findIndex((s) => s.key === 'extra'));
+        return;
+      }
+    }
     const payload = {
       codigo: form.codigo.trim(),
       nombre: form.nombre.trim(),
@@ -243,7 +273,10 @@ export function AdministracionFormDrawer({
       matricula_rpac: form.matricula_rpac.trim() || null,
       matricula_rpac_fecha: form.matricula_rpac_fecha || null,
       matricula_rpac_vencimiento: form.matricula_rpac_vencimiento || null,
-      matricula_rpa: form.matricula_rpa.trim() || null,
+      // DGG-234 F6 · la matrícula RPA (CABA) ya NO se persiste en la columna legacy
+      // matricula_rpa (deprecada, 0 filas): se rutea a matricula_extra tras el save
+      // (setMatriculaExtraCaba), con certeza 'declarado'. La columna queda siempre null.
+      matricula_rpa: null,
       ofrecimientos_habilitados: form.ofrecimientos_habilitados,
       padre_apellido_nombre: form.padre_apellido_nombre.trim() || null,
       madre_apellido_nombre: form.madre_apellido_nombre.trim() || null,
@@ -296,6 +329,11 @@ export function AdministracionFormDrawer({
               toast.error('Reactivado, pero no pudimos aplicar los datos nuevos', { description: humanizeError(upd.error) });
               return;
             }
+            // DGG-234 F6 · matrícula RPA (CABA) → matricula_extra también en reactivación.
+            const matRe = await setMatriculaExtraCaba(cuitTwin.id, form.matricula_rpa);
+            if (!matRe.ok) {
+              toast.error('Reactivado, pero no pudimos guardar la matrícula RPA (CABA)', { description: humanizeError(matRe.error) });
+            }
             toast.success(`Cliente "${cuitTwin.nombre}" reactivado y actualizado`);
             onSaved?.(upd.data);
             onClose();
@@ -341,6 +379,16 @@ export function AdministracionFormDrawer({
     toast.success(
       editing ? 'Administración actualizada' : 'Administración creada',
     );
+
+    // DGG-234 F6 · rutear la matrícula RPA (CABA) a la tabla hija matricula_extra
+    // (certeza 'declarado'). Sólo escribe si hay nº CABA; vacío → borra una fila previa.
+    // No bloquea el flujo del cliente si falla (se avisa). Para PBA es no-op (nº vacío).
+    const matExtra = await setMatriculaExtraCaba(res.data.id, form.matricula_rpa);
+    if (!matExtra.ok) {
+      toast.error('Cliente guardado, pero no pudimos guardar la matrícula RPA (CABA)', {
+        description: humanizeError(matExtra.error),
+      });
+    }
 
     // Alta de acceso al portal (sólo en creación nueva y si se tildó). La cuenta
     // la dispara el gerente desde acá; la edge fn crea el user + manda credenciales.
@@ -645,17 +693,18 @@ export function AdministracionFormDrawer({
               subtitle="RPAC / RPA, canal por el que llegó y observaciones internas."
             >
               <div className="grid gap-4 sm:grid-cols-2">
-                <Field label="Matrícula RPAC">
+                <Field label="Matrícula RPAC" hint="Sólo PBA (Pcia. de Bs. As.). Verificable con TRAMIX.">
                   <Input
                     value={form.matricula_rpac}
                     onChange={(e) => setField('matricula_rpac', e.target.value)}
                     placeholder="Nº de matrícula"
                   />
                 </Field>
-                <Field label="Matrícula RPA · CABA">
+                <Field label="Matrícula RPA · CABA" hint="Si el cliente es de CABA, cargá acá su matrícula (NO en RPAC). Queda como dato declarado.">
                   <Input
                     value={form.matricula_rpa}
                     onChange={(e) => setField('matricula_rpa', e.target.value)}
+                    placeholder="Nº de matrícula"
                   />
                 </Field>
               </div>

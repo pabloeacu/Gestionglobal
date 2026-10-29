@@ -182,3 +182,14 @@ export async function fetchMiAgendaAvisos(): Promise<AgendaAviso[]> {
   if (error) return [];
   return (data ?? []) as unknown as AgendaAviso[];
 }
+
+// DGG-234 F6 · ¿el cliente actual es de una jurisdicción NO-PBA (CABA/Neuquén)?
+// Señal barata: una fila de matricula_extra (la RLS la acota a lo suyo; PBA no
+// tiene fila — su matrícula vive en administraciones.matricula_rpac). Sirve para
+// gatear superficies PBA-only (ej. consulta a Mesa de Entradas Virtual PBA/TRAMIX).
+// Fail-open (false) → ante error no ocultamos de más, 0 regresión para los PBA.
+export async function fetchMiEsNoPba(): Promise<boolean> {
+  const { data, error } = await supabase.from('matricula_extra').select('id').limit(1);
+  if (error) return false;
+  return (data?.length ?? 0) > 0;
+}

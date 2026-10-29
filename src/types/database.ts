@@ -1788,6 +1788,7 @@ export type Database = {
           email_contacto: string | null
           email_remitente_nombre: string | null
           email_reply_to: string | null
+          engagement_onboarding_activo: boolean
           id: number
           landing_cover_enabled: boolean
           localidad: string | null
@@ -1823,6 +1824,7 @@ export type Database = {
           email_contacto?: string | null
           email_remitente_nombre?: string | null
           email_reply_to?: string | null
+          engagement_onboarding_activo?: boolean
           id?: number
           landing_cover_enabled?: boolean
           localidad?: string | null
@@ -1858,6 +1860,7 @@ export type Database = {
           email_contacto?: string | null
           email_remitente_nombre?: string | null
           email_reply_to?: string | null
+          engagement_onboarding_activo?: boolean
           id?: number
           landing_cover_enabled?: boolean
           localidad?: string | null
@@ -3759,6 +3762,44 @@ export type Database = {
           },
         ]
       }
+      engagement_onboarding_log: {
+        Row: {
+          administracion_id: string
+          bucket: string
+          detalle: string | null
+          enviado_at: string
+          id: string
+          resultado: string
+          template_slug: string
+        }
+        Insert: {
+          administracion_id: string
+          bucket: string
+          detalle?: string | null
+          enviado_at?: string
+          id?: string
+          resultado?: string
+          template_slug: string
+        }
+        Update: {
+          administracion_id?: string
+          bucket?: string
+          detalle?: string | null
+          enviado_at?: string
+          id?: string
+          resultado?: string
+          template_slug?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "engagement_onboarding_log_administracion_id_fkey"
+            columns: ["administracion_id"]
+            isOneToOne: false
+            referencedRelation: "administraciones"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       errores_runtime: {
         Row: {
           count: number
@@ -4663,6 +4704,65 @@ export type Database = {
             columns: ["matricula_id"]
             isOneToOne: false
             referencedRelation: "curso_matriculas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      matricula_extra: {
+        Row: {
+          administracion_id: string
+          certeza: Database["public"]["Enums"]["certeza_dato"]
+          created_at: string
+          created_by: string | null
+          id: string
+          jurisdiccion: Database["public"]["Enums"]["jurisdiccion_matricula"]
+          matricula_fecha: string | null
+          matricula_nro: string | null
+          matricula_vencimiento: string | null
+          notas: string | null
+          origen: string | null
+          updated_at: string
+          updated_by: string | null
+          verificado_at: string | null
+        }
+        Insert: {
+          administracion_id: string
+          certeza?: Database["public"]["Enums"]["certeza_dato"]
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          jurisdiccion: Database["public"]["Enums"]["jurisdiccion_matricula"]
+          matricula_fecha?: string | null
+          matricula_nro?: string | null
+          matricula_vencimiento?: string | null
+          notas?: string | null
+          origen?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          verificado_at?: string | null
+        }
+        Update: {
+          administracion_id?: string
+          certeza?: Database["public"]["Enums"]["certeza_dato"]
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          jurisdiccion?: Database["public"]["Enums"]["jurisdiccion_matricula"]
+          matricula_fecha?: string | null
+          matricula_nro?: string | null
+          matricula_vencimiento?: string | null
+          notas?: string | null
+          origen?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          verificado_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "matricula_extra_administracion_id_fkey"
+            columns: ["administracion_id"]
+            isOneToOne: false
+            referencedRelation: "administraciones"
             referencedColumns: ["id"]
           },
         ]
@@ -8049,6 +8149,9 @@ export type Database = {
           fecha_emision: string | null
           fecha_vencimiento: string
           id: string
+          jurisdiccion:
+            | Database["public"]["Enums"]["jurisdiccion_matricula"]
+            | null
           motivo_pausa: string | null
           notificar_cliente: boolean
           observaciones: string | null
@@ -8076,6 +8179,9 @@ export type Database = {
           fecha_emision?: string | null
           fecha_vencimiento: string
           id?: string
+          jurisdiccion?:
+            | Database["public"]["Enums"]["jurisdiccion_matricula"]
+            | null
           motivo_pausa?: string | null
           notificar_cliente?: boolean
           observaciones?: string | null
@@ -8103,6 +8209,9 @@ export type Database = {
           fecha_emision?: string | null
           fecha_vencimiento?: string
           id?: string
+          jurisdiccion?:
+            | Database["public"]["Enums"]["jurisdiccion_matricula"]
+            | null
           motivo_pausa?: string | null
           notificar_cliente?: boolean
           observaciones?: string | null
@@ -8639,6 +8748,22 @@ export type Database = {
           to_email: string | null
           to_nombre: string | null
           ultimo_error: string | null
+        }
+        Relationships: []
+      }
+      v_matriculas: {
+        Row: {
+          administracion_id: string | null
+          certeza: Database["public"]["Enums"]["certeza_dato"] | null
+          jurisdiccion:
+            | Database["public"]["Enums"]["jurisdiccion_matricula"]
+            | null
+          legajo_nro: string | null
+          matricula_fecha: string | null
+          matricula_nro: string | null
+          matricula_vencimiento: string | null
+          origen: string | null
+          verificado_at: string | null
         }
         Relationships: []
       }
@@ -10451,6 +10576,7 @@ export type Database = {
       gg_cursos_visibilizar_por_fecha: { Args: never; Returns: Json }
       gg_emails_redactar_passwords: { Args: never; Returns: number }
       gg_encuentros_recordatorio_diario: { Args: never; Returns: Json }
+      gg_engagement_barrido: { Args: never; Returns: Json }
       gg_notif_emitir_cliente: {
         Args: {
           p_cuerpo: string
@@ -10467,6 +10593,7 @@ export type Database = {
         Returns: Json
       }
       gg_ofrecimientos_sombra_reporte: { Args: never; Returns: Json }
+      gg_perfil_declarado_materializar_diario: { Args: never; Returns: Json }
       gg_profile_marcar_pwa: {
         Args: { p_installed: boolean }
         Returns: undefined
@@ -11573,6 +11700,7 @@ export type Database = {
     }
     Enums: {
       certeza_dato: "confirmado" | "declarado" | "inferido" | "desconocido"
+      jurisdiccion_matricula: "pba" | "caba" | "neuquen"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -11701,6 +11829,7 @@ export const Constants = {
   public: {
     Enums: {
       certeza_dato: ["confirmado", "declarado", "inferido", "desconocido"],
+      jurisdiccion_matricula: ["pba", "caba", "neuquen"],
     },
   },
 } as const

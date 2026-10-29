@@ -121,6 +121,65 @@ export async function getAdministracion(
   return ok(data);
 }
 
+export type MatriculaExtraRow = Database['public']['Tables']['matricula_extra']['Row'];
+
+// DGG-234 F6 · matrícula de jurisdicción NO-PBA (CABA/Neuquén). Vive en la tabla hija
+// matricula_extra con certeza 'declarado' (CABA/NEU no tienen registro oficial consultable
+// como TRAMIX) — NO en administraciones.matricula_rpac (eso es PBA → reabriría E-GG-236) ni
+// en las columnas legacy matricula_rpa* (0 filas, deprecadas). Staff lee/escribe vía RLS.
+export async function fetchMatriculasExtra(
+  administracionId: string,
+): Promise<ApiResponse<MatriculaExtraRow[]>> {
+  const { data, error } = await supabase
+    .from('matricula_extra')
+    .select('*')
+    .eq('administracion_id', administracionId)
+    .order('jurisdiccion');
+  if (error) return fail('MATEXTRA_LIST', error.message, error);
+  return ok(data ?? []);
+}
+
+// Setea/actualiza/borra la matrícula CABA (RPA) de un cliente desde gerencia. El editor
+// de gerencia sólo toca el Nº → al actualizar NO pisa fecha/vencimiento/origen de una fila
+// existente (los gestiona el cliente desde su ficha o el backfill). nro vacío/null → borra.
+export async function setMatriculaExtraCaba(
+  administracionId: string,
+  nro: string | null,
+): Promise<ApiResponse<null>> {
+  const limpio = (nro ?? '').trim();
+  const { data: existing, error: eSel } = await supabase
+    .from('matricula_extra')
+    .select('id')
+    .eq('administracion_id', administracionId)
+    .eq('jurisdiccion', 'caba')
+    .maybeSingle();
+  if (eSel) return fail('MATEXTRA_SEL', eSel.message, eSel);
+
+  if (!limpio) {
+    if (!existing) return ok(null);
+    const { error } = await supabase.from('matricula_extra').delete().eq('id', existing.id);
+    if (error) return fail('MATEXTRA_DEL', error.message, error);
+    return ok(null);
+  }
+  if (existing) {
+    const { error } = await supabase
+      .from('matricula_extra')
+      .update({ matricula_nro: limpio })
+      .eq('id', existing.id);
+    if (error) return fail('MATEXTRA_UPD', error.message, error);
+    return ok(null);
+  }
+  const { error } = await supabase.from('matricula_extra').insert({
+    administracion_id: administracionId,
+    jurisdiccion: 'caba',
+    matricula_nro: limpio,
+    certeza: 'declarado',
+    origen: 'gerencia_manual',
+  });
+  if (error) return fail('MATEXTRA_INS', error.message, error);
+  return ok(null);
+}
+
 export async function createAdministracion(
   input: AdministracionCreateInput,
 ): Promise<ApiResponse<AdministracionRow>> {
