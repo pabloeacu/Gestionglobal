@@ -100,14 +100,26 @@ function isoOf(x: any) { return x ? `${x.y}-${String(x.mo).padStart(2, "0")}-${S
 function plus12(x: any) { if (!x) return null; const d = Math.min(x.d, 28); return `${x.y + 1}-${String(x.mo).padStart(2, "0")}-${String(d).padStart(2, "0")}`; }
 function interpret(exps: any[]) {
   const mats = exps.filter((e) => /ADMINISTRADOR DE CONSORCIOS/i.test(e.tramite || "") && /INSCRIPTO/i.test(e.estado || "")).map((e) => pDMY(e.fecha)).filter(Boolean).sort((a: any, b: any) => (a.y - b.y) || (a.mo - b.mo) || (a.d - b.d));
-  const renos = exps.filter((e) => /RENOVACION DE MATRICULA/i.test(e.tramite || "") && /INSCRIPTO/i.test(e.estado || "")).map((e) => pDMY(e.fecha)).filter(Boolean).sort((a: any, b: any) => (b.y - a.y) || (b.mo - a.mo) || (b.d - a.d));
+  // Todas las RENOVACION DE MATRICULA con su estado, para separar las INSCRIPTO (otorgadas,
+  // el ancla del vencimiento — regla confirmada por Pablo) de las que están EN PROCESO.
+  const renoEvents = exps.filter((e) => /RENOVACION DE MATRICULA/i.test(e.tramite || "")).map((e) => { const p: any = pDMY(e.fecha); return p ? { ...p, insc: /INSCRIPTO/i.test(e.estado || ""), estado: (e.estado || "").trim() } : null; }).filter(Boolean) as any[];
+  const cmp = (a: any, b: any) => (a.y - b.y) || (a.mo - b.mo) || (a.d - b.d);
+  const renos = renoEvents.filter((r) => r.insc).slice().sort((a, b) => cmp(b, a)); // INSCRIPTO, más nueva primero (ancla = ultima_renovacion). IDÉNTICO al cálculo previo.
   const especial = exps.filter((e) => /BAJA|SUSPEN|CANCEL|INHABIL|REHABIL/i.test(e.tramite || ""));
   const mat = mats[0] || null, reno = renos[0] || null, ancla = reno || mat;
+  // DGG-221 · "vencida pero en trámite": la RENOVACION más nueva (de CUALQUIER estado) NO
+  // está inscripta y es MÁS NUEVA que la última inscripta → el matriculado empezó a renovar
+  // (aún no otorgada). No le ofrecemos regularizar; un cron lo revisita (caso Bernardo Giles).
+  const newestAny = renoEvents.slice().sort((a, b) => cmp(b, a))[0] || null;
+  let en_tramite = false; let en_tramite_fecha: string | null = null; let en_tramite_estado: string | null = null;
+  if (newestAny && !newestAny.insc && (!reno || cmp(newestAny, reno) > 0)) {
+    en_tramite = true; en_tramite_fecha = isoOf(newestAny); en_tramite_estado = newestAny.estado || null;
+  }
   let flag: string | null = null;
   if (!mat && !reno) flag = "sin_mat_ni_reno";
   else if (!mat) flag = "sin_matriculacion";
   if (especial.length) flag = (flag ? flag + ";" : "") + "especial:" + [...new Set(especial.map((e) => e.tramite))].join("|");
-  return { matriculacion: isoOf(mat), ultima_renovacion: isoOf(reno), vencimiento: plus12(ancla), n_reno: renos.length, flag };
+  return { matriculacion: isoOf(mat), ultima_renovacion: isoOf(reno), vencimiento: plus12(ancla), n_reno: renos.length, flag, en_tramite, en_tramite_fecha, en_tramite_estado };
 }
 
 async function consultarLegajo(svc: any, legajo: string): Promise<{ expedientes: any[]; parcial: boolean; titular: string }> {
@@ -141,7 +153,9 @@ async function recomputeParent(svc: any, padronId: string) {
   const pid = pad?.prospecto_id;
   if (!pid) return;
   const { data: minrow } = await svc.from("prospecto_padron").select("vencimiento, ultima_renovacion").eq("prospecto_id", pid).not("vencimiento", "is", null).order("vencimiento", { ascending: true }).limit(1).maybeSingle();
-  await svc.from("prospectos").update({ matricula_vencimiento: minrow?.vencimiento ?? null, ultima_renovacion: minrow?.ultima_renovacion ?? null, updated_at: new Date().toISOString() }).eq("id", pid);
+  // DGG-221 · rollup del flag "en trámite": true si ALGUNA matrícula del prospecto lo está.
+  const { count: enTram } = await svc.from("prospecto_padron").select("id", { count: "exact", head: true }).eq("prospecto_id", pid).eq("renovacion_en_tramite", true);
+  await svc.from("prospectos").update({ matricula_vencimiento: minrow?.vencimiento ?? null, ultima_renovacion: minrow?.ultima_renovacion ?? null, en_tramite: (enTram ?? 0) > 0, updated_at: new Date().toISOString() }).eq("id", pid);
 }
 
 Deno.serve(async (req) => {
@@ -204,7 +218,7 @@ Deno.serve(async (req) => {
     const limpio = it.flag === null;
 
     if (limpio) {
-      await svc.from("prospecto_padron").update({ ultima_renovacion: it.ultima_renovacion, vencimiento: it.vencimiento, tramix_estado: "ok", tramix_flag: null, tramix_at: new Date().toISOString() }).eq("id", padron_id);
+      await svc.from("prospecto_padron").update({ ultima_renovacion: it.ultima_renovacion, vencimiento: it.vencimiento, renovacion_en_tramite: it.en_tramite, en_tramite_fecha: it.en_tramite_fecha, en_tramite_estado: it.en_tramite_estado, tramix_estado: "ok", tramix_flag: null, tramix_at: new Date().toISOString() }).eq("id", padron_id);
       await recomputeParent(svc, padron_id);
     } else {
       await svc.from("prospecto_padron").update({ tramix_estado: "flag", tramix_flag: it.flag, tramix_at: new Date().toISOString() }).eq("id", padron_id);
