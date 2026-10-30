@@ -79,13 +79,16 @@ function FactRow({
   hecho: HechoConCerteza;
   fallback?: string;
 }) {
+  // Mobile (<sm): apila — etiqueta arriba, fecha+chip abajo (evita que una etiqueta
+  // larga exprima la fecha hasta partirla en vertical "16/de/ene/de/27", E-GG-237).
+  // Desktop (sm+): fila horizontal etiqueta-izq / fecha+chip-der, como estaba.
   return (
-    <div className="flex items-center justify-between gap-3 border-b border-slate-100 py-2 last:border-0">
+    <div className="flex flex-col gap-1 border-b border-slate-100 py-2.5 last:border-0 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
       <span className="text-sm text-brand-muted">{label}</span>
-      <span className="flex items-center gap-2">
+      <span className="flex items-center gap-2 sm:shrink-0">
         <span
           className={cn(
-            'text-sm tabular-nums',
+            'whitespace-nowrap text-sm tabular-nums',
             hecho.fecha ? 'font-medium text-brand-ink' : 'text-brand-muted',
           )}
         >
