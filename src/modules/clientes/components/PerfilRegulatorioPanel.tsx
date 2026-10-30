@@ -149,6 +149,10 @@ export function PerfilRegulatorioPanel({ administracionId }: { administracionId:
   }
 
   const noRequiereEntries = Object.entries(data.no_requiere ?? {});
+  // DGG-234 F9 · panel jur-aware (igual que obligacionesVisibles de la ficha): CABA/Neuquén
+  // no muestran lo que no les aplica (certificado = PBA; curso/DDJJ = PBA+CABA).
+  const jn = jurNorm(data);
+  const aplicaCursoDdjj = jn === 'pba' || jn === 'caba';
 
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-5">
@@ -222,9 +226,11 @@ export function PerfilRegulatorioPanel({ administracionId }: { administracionId:
       </p>
       <div className="mb-3">
         <FactRow label="Renovación de matrícula" hecho={data.proxima_renovacion} />
-        <FactRow label="DDJJ anual" hecho={data.proxima_ddjj} />
-        <FactRow label="Curso de actualización" hecho={data.proximo_curso_actualizacion} />
-        <FactRow label="Certificado" hecho={data.proximo_certificado} />
+        {aplicaCursoDdjj && <FactRow label="DDJJ anual" hecho={data.proxima_ddjj} />}
+        {aplicaCursoDdjj && <FactRow label="Curso de actualización" hecho={data.proximo_curso_actualizacion} />}
+        {/* DGG-234 F9 · el certificado ya no es un vencimiento (dura 30 días; el recordatorio
+            de 90 días para la asamblea lo da el ofrecimiento certificado_90). Su último evento
+            se ve abajo en "Último registro". */}
       </div>
 
       {/* Qué sabemos (último hecho registrado) */}
@@ -234,8 +240,9 @@ export function PerfilRegulatorioPanel({ administracionId }: { administracionId:
       <div>
         <FactRow label="Fecha de matriculación" hecho={{ fecha: data.matricula.fecha, certeza: data.matricula.fecha_certeza }} />
         <FactRow label="Última renovación" hecho={data.ultima_renovacion} />
-        <FactRow label="Última DDJJ" hecho={data.ultima_ddjj} />
-        <FactRow label="Último curso" hecho={data.ultimo_curso_actualizacion} />
+        {aplicaCursoDdjj && <FactRow label="Última DDJJ" hecho={data.ultima_ddjj} />}
+        {aplicaCursoDdjj && <FactRow label="Último curso" hecho={data.ultimo_curso_actualizacion} />}
+        {jn === 'pba' && <FactRow label="Último certificado" hecho={data.ultimo_certificado} />}
         <FactRow label="Última consultoría jurídica" hecho={data.ultima_consultoria} />
       </div>
 

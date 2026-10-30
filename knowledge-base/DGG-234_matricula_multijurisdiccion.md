@@ -428,3 +428,40 @@ aplicados en el mismo chunk:
   `renovacion_rpac`/`curso_actualizacion`/`ddjj_anual` son PBA-intrínsecos (el declarado CABA/NEU
   usa `renovacion_matricula_declarada`), así que "RPAC" es correcto para esas filas; no es un
   mislabel. Revisado, sin acción.
+
+## F9 — Reframe del certificado + saneamiento del mecanismo de avisos declarados (2026-10-30, mig 0619, E-GG-238)
+
+Capitalización de la **auditoría §6** (workflow de 3 auditores + verificación adversarial; 20
+hallazgos, 0 refutados). Disparador: **Avolio Mariana Edith** (PBA) recibió *"tu certificado de
+acreditación vence el 05/11/2026"* — falso. Decisiones de Pablo en el camino:
+
+- **Certificado de acreditación:** dura **30 días**; GG recuerda **cada 90 días** para tener uno
+  vigente listo para la **asamblea**. O sea "último + 90d" es una **cadencia de recordatorio**, NO
+  un vencimiento. **Decisión: dejar de modelarlo como vencimiento** (ya lo hace bien, con 90d, el
+  ofrecimiento `certificado_90`/`certificado_acreditacion`, vivo). → fuera del materializador; 17
+  `certificado_declarado` retirados (→'renovado'); `proximo_certificado` queda informativo y
+  **sólo PBA** (gate en el calc); el front lo saca de "próximas obligaciones" (ficha + panel).
+- **DDJJ de CABA (regla nueva de Pablo):** DGDyPC · Disposición 2615/DGDYPC/26 art. 3° — la DDJJ
+  de los consorcios administrados del período anterior vence el **30/11** de cada año (actividad
+  2025 → 30/11/2026). El calc la infiere para CABA igual que la de PBA (31/03). Cierra el hueco
+  inverso (la ficha la prometía pero nunca se avisaba).
+
+Otros fixes del mismo chunk (del barrido §6):
+- **Dedup del planner por `(administracion_id, tipo, fecha_vencimiento)`** en vez de
+  `vencimiento_id` + **materializador id-ESTABLE** (UPDATE in-place al cambiar la fecha; retiro
+  sólo por razón POSITIVA: no-aplica-por-jur / oficial / opt-out) → fin del "doble aviso" (Avolio).
+- **Gate de jurisdicción en el BACKEND** (no sólo en la UI): `aplica_jur` en el sync, gate en el
+  calc y en `perfil_regulatorio_declarar`, y drawer "Anclar datos" de gerencia jur-aware.
+  certificado={pba}, curso/ddjj={pba,caba}, renovación/consultoría universales.
+- **Home** (`cliente_portal_dashboard`): excluye `origen='declarado'` del card "Próximos
+  vencimientos"; el front nunca renderiza `descripcion` cruda (texto interno). Copy de offset
+  negativo en la agenda del cliente ("…días después del vencimiento").
+
+Verificado: e2e §6 (BEGIN/DO RAISE EXCEPTION, 0 residuo): Neuquén → sólo renovación; CABA →
+renovación + DDJJ@30/11 + curso, SIN certificado; churn 2ª corrida 1/1 (id estable). R16
+overloads=0, tsc+build limpios.
+
+**Nota (dato de prod):** los 3 CABA reales marcaron ellos mismos **DDJJ "No me corresponde"**
+(opt-out vía su portal, 29/10) → el sistema respeta el opt-out y no les avisa (correcto). Pablo
+decide si los contacta por su obligación real de DDJJ (puede que hayan opt-outeado porque la
+ficha vieja mostraba la DDJJ sin avisar nunca — hueco inverso ahora cerrado).

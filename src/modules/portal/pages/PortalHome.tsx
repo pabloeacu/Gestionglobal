@@ -689,7 +689,9 @@ function ProximosVencimientos({ items }: { items: ClientePortalDashboard['vencim
               </span>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium text-brand-ink">
-                  {labelForTipoVencimiento(v.tipo)}{v.descripcion ? ` · ${v.descripcion}` : ''}
+                  {/* DGG-234 F9 · NUNCA la descripción cruda (texto interno de gerencia,
+                      con nombres propios). Sólo la etiqueta del tipo. */}
+                  {labelForTipoVencimiento(v.tipo)}
                 </p>
                 <p className="text-[11px] text-brand-muted">
                   {formatDateLong(v.fecha_vencimiento)} · en {v.dias_restantes} día{v.dias_restantes === 1 ? '' : 's'}
@@ -720,8 +722,15 @@ function labelForTipoVencimiento(tipo: string): string {
     // Backward compat para filas históricas canceladas:
     matricula_rpac: 'Matrícula RPAC (histórico)',
     otro: 'Otro',
+    // DGG-234 F9 · defensa en profundidad: los declarados ya se excluyen de este card
+    // en el backend (cliente_portal_dashboard, origen<>'declarado'), pero si alguno se
+    // colara, mostramos una etiqueta limpia, nunca el enum crudo.
+    renovacion_matricula_declarada: 'Renovación de matrícula',
+    ddjj_anual_declarada: 'Declaración Jurada anual',
+    curso_actualizacion_declarado: 'Curso de actualización',
+    certificado_declarado: 'Certificado de acreditación',
   };
-  return map[tipo] ?? tipo;
+  return map[tipo] ?? 'Vencimiento';
 }
 
 function formatARS(n: number): string {

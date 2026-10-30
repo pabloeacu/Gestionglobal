@@ -11,7 +11,7 @@ import {
   type CertezaDato,
   type DeclararPerfilInput,
 } from '@/services/api/perfilRegulatorio';
-import { jurisdiccionLabel } from '@/modules/portal/components/perfil/fichaModel';
+import { jurisdiccionLabel, jurNorm } from '@/modules/portal/components/perfil/fichaModel';
 
 // Agenda · progressive profiling (writer de gerencia). Ancla datos DECLARADOS en
 // `perfil_regulatorio` (certeza='declarado'). No pisa lo confirmado por la plataforma:
@@ -286,6 +286,9 @@ export function PerfilRegulatorioDeclararDrawer({
             </Field>
           </div>
 
+          {/* DGG-234 F9 · jur-aware (espeja obligacionesVisibles + el gate del backend):
+              curso/DDJJ no aplican a Neuquén; el certificado es PBA-only. */}
+          {(!perfil || jurNorm(perfil) !== 'neuquen') && (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label={fieldLabel('Último curso de actualización', perfil?.ultimo_curso_actualizacion.certeza)} hint={certezaHint(perfil?.ultimo_curso_actualizacion.certeza)}>
               <Input
@@ -302,8 +305,10 @@ export function PerfilRegulatorioDeclararDrawer({
               />
             </Field>
           </div>
+          )}
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {(!perfil || jurNorm(perfil) === 'pba') && (
             <Field label={fieldLabel('Último certificado', perfil?.ultimo_certificado.certeza)} hint={certezaHint(perfil?.ultimo_certificado.certeza)}>
               <Input
                 type="date"
@@ -311,6 +316,7 @@ export function PerfilRegulatorioDeclararDrawer({
                 onChange={(e) => set('ultimo_certificado_declarado', e.target.value)}
               />
             </Field>
+            )}
             <Field label={fieldLabel('Última consultoría jurídica', perfil?.ultima_consultoria.certeza)} hint={certezaHint(perfil?.ultima_consultoria.certeza)}>
               <Input
                 type="date"

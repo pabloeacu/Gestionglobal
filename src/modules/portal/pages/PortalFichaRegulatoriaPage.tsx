@@ -483,7 +483,10 @@ export function PortalFichaRegulatoriaPage() {
           <Clock size={15} className="text-brand-cyan" /> Tus próximas obligaciones
         </p>
         <div className="space-y-2.5">
-          {obligacionesVisibles(p).filter((o) => o.factProxima).map((o) => {
+          {/* DGG-234 F9 · el certificado ya NO es un vencimiento (dura 30 días; el
+              recordatorio cada 90 días para la asamblea lo da el ofrecimiento certificado_90).
+              Se excluye de "próximas obligaciones"; su último evento sigue en "último registro". */}
+          {obligacionesVisibles(p).filter((o) => o.factProxima && o.key !== 'certificado').map((o) => {
             const h = hechoDe(p, o.factProxima as keyof PerfilRegulatorio);
             const optOut = o.key in noRequiere;
             return (
@@ -532,7 +535,9 @@ export function PortalFichaRegulatoriaPage() {
                   <p className="text-xs text-brand-muted">
                     {a.dias_antes === 0
                       ? 'El día del vencimiento'
-                      : `${a.dias_antes} ${a.dias_antes === 1 ? 'día' : 'días'} antes de que venza`}
+                      : a.dias_antes > 0
+                        ? `${a.dias_antes} ${a.dias_antes === 1 ? 'día' : 'días'} antes de que venza`
+                        : `${-a.dias_antes} ${-a.dias_antes === 1 ? 'día' : 'días'} después del vencimiento`}
                     {' '}(<span className="tabular-nums">{formatDateShort(a.fecha_vencimiento)}</span>)
                   </p>
                 </div>
