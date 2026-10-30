@@ -461,7 +461,13 @@ Verificado: e2e §6 (BEGIN/DO RAISE EXCEPTION, 0 residuo): Neuquén → sólo re
 renovación + DDJJ@30/11 + curso, SIN certificado; churn 2ª corrida 1/1 (id estable). R16
 overloads=0, tsc+build limpios.
 
-**Nota (dato de prod):** los 3 CABA reales marcaron ellos mismos **DDJJ "No me corresponde"**
-(opt-out vía su portal, 29/10) → el sistema respeta el opt-out y no les avisa (correcto). Pablo
-decide si los contacta por su obligación real de DDJJ (puede que hayan opt-outeado porque la
-ficha vieja mostraba la DDJJ sin avisar nunca — hueco inverso ahora cerrado).
+**Nota (dato de prod) + operación de cierre (2026-10-30):** los 3 CABA reales (Avolio Marcela,
+Baldonccini, SANCLAUDIO) habían marcado ellos mismos **DDJJ "No me corresponde"** (opt-out vía su
+portal, 29/10) → el sistema respetaba el opt-out y no les avisaba. Probablemente opt-outearon
+porque la ficha vieja mostraba la DDJJ **sin avisar nunca** (el hueco inverso que F9 cerró).
+**Pablo decidió limpiar ese opt-out** → operación de datos puntual: `no_requiere = no_requiere -
+'ddjj'` en los 3 (preservando sus OTROS opt-outs: renovación de Avolio Marcela, certificado de
+SANCLAUDIO) + re-materialización (`perfil_declarado_sync_venc`). Resultado verificado: los 3
+tienen `ddjj_anual_declarada@2026-11-30` y reciben el recordatorio en la próxima corrida del cron
+de vencimientos (copy neutro CABA, sin "RPAC"). **Snapshot previo** (reversible): Avolio Marcela
+`{ddjj,renovacion}` · Baldonccini `{ddjj}` · SANCLAUDIO `{ddjj,certificado}`.
