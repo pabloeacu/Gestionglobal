@@ -272,6 +272,17 @@ export function PortalFichaRegulatoriaPage() {
   // que sólo cuenta confirmado+declarado, nunca llegaría a 100). Snoozear NO completa.
   const completo = realmenteCompleto;
 
+  // DGG-234 F9b · ¿hay alguna obligación visible (no opt-out) cuya PRÓXIMA fecha ya pasó?
+  // El header no puede decir "al día / nada que hacer" si según los datos del cliente una
+  // obligación ya venció (coherencia con el home, que SÍ marca "figura vencida"). El
+  // certificado se excluye (F9: dejó de ser un vencimiento).
+  const hoyIso = new Date().toISOString().slice(0, 10);
+  const hayVencida = obligacionesVisibles(p).some((o) => {
+    if (!o.factProxima || o.key === 'certificado' || o.key in noRequiere) return false;
+    const h = hechoDe(p, o.factProxima as keyof PerfilRegulatorio);
+    return !!h.fecha && h.fecha < hoyIso;
+  });
+
   return (
     <div className="relative mx-auto max-w-2xl space-y-5 pb-16">
       {/* HERO adaptativo + anillo de completitud */}
@@ -284,14 +295,16 @@ export function PortalFichaRegulatoriaPage() {
               Mi agenda de vencimientos
             </h1>
             <p className="mt-1 text-sm text-brand-muted">
-              {completo
-                ? 'Tu matrícula está al día. No tenés nada que hacer — te avisamos antes de cada vencimiento.'
-                : pendientes > 0
-                  ? `Esto es lo que sabemos. Confirmá ${pendientes === 1 ? 'un dato' : `${pendientes} datos`} y queda al día.`
+              {pendientes > 0
+                ? `Esto es lo que sabemos. Confirmá ${pendientes === 1 ? 'un dato' : `${pendientes} datos`} y queda al día.`
+                : completo
+                  ? hayVencida
+                    ? 'Tu agenda está completa. Ojo: según tus datos, una obligación ya venció — miralá en “Tus próximas obligaciones”.'
+                    : 'Tu agenda está completa — te avisamos antes de cada vencimiento.'
                   : 'Esto es lo que sabemos de tu matrícula. Confirmá lo que esté bien y corregí lo que no.'}
             </p>
           </div>
-          <RingProgress pct={p.completitud_pct} done={completo} />
+          <RingProgress pct={p.completitud_pct} done={completo && !hayVencida} />
         </div>
       </header>
 
