@@ -1,16 +1,22 @@
 // ============================================================================
 // ListoParaCerrarWidget · Dashboard gerencia (DGG-153, pedido de Pablo)
 //
-// "El aviso 'Listo para cerrar' [mail + campanita, mig 0453] también tiene que
-//  aparecer como banner en el Inicio, para reforzarlo y que no se nos pase."
+// "El aviso 'Listo para cerrar' [mail + campanita] también tiene que aparecer
+//  como banner en el Inicio, para reforzarlo y que no se nos pase."
 //
-// Espejo EXACTO del gate del asistente de cierre (TrackingDetailPage) y del
-// trigger del aviso: alumno que terminó el curso y su plazo de gracia finalizó
-// ('vencida'), o curso sin ventana de repaso ('completada' sin vigencia_hasta),
-// con el trámite todavía abierto. Cada item linkea al detalle del trámite, donde
-// está el asistente "Cerrar y programar próximo vencimiento". Cuando el gerente
-// cierra, la fila desaparece sola (realtime). Tono brand-cyan (birrete), igual
-// que el asistente y el mail. Vacío → no renderiza (no ocupa espacio).
+// CONSIGNA (DGG-235, mig 0626/0627): "listo para cerrar" = alumno EGRESÓ
+// (matrícula 'completada' o 'vencida') Y su certificado ya tiene +30 días —
+// el MISMO predicado `private.curso_cert_mas30` que usan el agente de cierre
+// y el aviso por-alumno (cron `gg-cursos-avisar-listo-cerrar`). Fuente única,
+// sin divergencias (E-GG-241). OJO: NO es el mismo gate que el asistente
+// "Cerrar y programar" del detalle (TrackingDetailPage), que aparece ya al
+// egresar — el cierre MANUAL se permite a criterio del gerente antes de los
+// +30d; este banner/agente es la señal de AUTO-cierre. Cada item linkea al
+// detalle. Cuando el trámite se cierra, la fila desaparece sola (realtime);
+// la aparición al cruzar +30d llega vía el cron de aviso (que escribe la fila).
+// `listo_desde` = momento real de elegibilidad (cert+30d), no `updated_at`, para
+// que el filtro de novedad (dismiss) no oculte una fila recién lista. Tono
+// brand-cyan (birrete). Vacío → no renderiza.
 // ============================================================================
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';

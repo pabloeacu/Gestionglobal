@@ -2757,6 +2757,7 @@ export type Database = {
         Row: {
           administracion_id: string | null
           cert_retenido_avisado_at: string | null
+          cierre_avisado_at: string | null
           completada_at: string | null
           created_at: string
           curso_id: string
@@ -2775,6 +2776,7 @@ export type Database = {
         Insert: {
           administracion_id?: string | null
           cert_retenido_avisado_at?: string | null
+          cierre_avisado_at?: string | null
           completada_at?: string | null
           created_at?: string
           curso_id: string
@@ -2793,6 +2795,7 @@ export type Database = {
         Update: {
           administracion_id?: string | null
           cert_retenido_avisado_at?: string | null
+          cierre_avisado_at?: string | null
           completada_at?: string | null
           created_at?: string
           curso_id?: string
@@ -10587,6 +10590,7 @@ export type Database = {
         Returns: number
       }
       gg_campus_vencer_matriculas: { Args: never; Returns: undefined }
+      gg_cursos_avisar_listo_cerrar: { Args: never; Returns: number }
       gg_cursos_publicados_notificar: { Args: never; Returns: Json }
       gg_cursos_visibilizar_por_fecha: { Args: never; Returns: Json }
       gg_emails_redactar_passwords: { Args: never; Returns: number }

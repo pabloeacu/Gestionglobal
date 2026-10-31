@@ -863,14 +863,21 @@ export function TrackingDetailPage() {
       {/* DGG-142 E2 · asistente: el alumno completó el curso → cerrar el ciclo
           en una operación (cerrar trámite → programar próximo vencimiento).
           §6: el salto del confirm genérico de handleCerrar es DELIBERADO — el
-          banner ya provee el contexto, y el CerrarTramiteDialog (motivo +
-          constancia obligatorios) garantiza el cierre consciente igual.
-          DGG-147 (Pablo): el aviso NO aparece durante el plazo de gracia —
-          ese no es el momento de cerrar el trámite. Aparece cuando la gracia
-          TERMINÓ ('vencida', que el cron setea al expirar vigencia_hasta) o
-          cuando NO hay ventana de gracia ('completada' sin vigencia_hasta:
-          curso sin repaso posterior o matrícula grandfather; el cron nunca
-          las pasa a 'vencida', así que sin este caso perderían el asistente). */}
+          CerrarTramiteDialog (motivo + constancia obligatorios) garantiza el
+          cierre consciente igual.
+          DGG-147: el asistente NO aparece durante el plazo de gracia — aparece
+          cuando la gracia TERMINÓ ('vencida', que el cron setea al expirar
+          vigencia_hasta) o cuando NO hay ventana de gracia ('completada' sin
+          vigencia_hasta: curso sin repaso o matrícula grandfather; el cron
+          nunca las pasa a 'vencida', así que sin este caso perderían el
+          asistente).
+          DGG-235 (decisión de Pablo): este gate ES a propósito MÁS PERMISIVO
+          que el banner/agente/aviso (que esperan cert+30d — `curso_cert_mas30`).
+          El cierre MANUAL se permite apenas el alumno egresa, a criterio del
+          gerente; los +30d son para el AUTO-cierre (darle tiempo al alumno a
+          tener el certificado). Por eso este atajo puede verse antes de que el
+          banner liste la fila — no es una inconsistencia, son conceptos distintos
+          (permiso manual vs readiness de auto-cierre). */}
       {isStaff && matVinculada
         && (matVinculada.estado === 'vencida'
             || (matVinculada.estado === 'completada' && !matVinculada.vigencia_hasta))
