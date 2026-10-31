@@ -11,6 +11,7 @@ import {
   Pause,
   Pencil,
   Play,
+  RefreshCw,
   Search,
   ShieldAlert,
   UserPlus,
@@ -318,6 +319,14 @@ export function ProspectosCaptacionPage() {
                       <span className={cn('inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1', SEG_TONE[p.segmento])}>
                         {SEGMENTO_LABEL[p.segmento]}
                       </span>
+                      {p.en_tramite && (
+                        <div
+                          className="mt-1 inline-flex items-center gap-1 rounded-full bg-brand-cyan/10 px-2 py-0.5 text-[10px] font-semibold text-brand-cyan ring-1 ring-brand-cyan/20"
+                          title="Renovación en trámite (dato de TRAMIX): la matrícula figura vencida pero ya inició la renovación. El motor NO le manda el mail de regularizar, pero sí los de bondades."
+                        >
+                          <RefreshCw size={10} /> En trámite
+                        </div>
+                      )}
                     </td>
                     <td className="px-4 py-2">
                       {p.convertido_at ? (

@@ -57,6 +57,9 @@ export interface ProspectoCaptacionRow {
   ultimo_mail_at: string | null;
   convertido_at: string | null;
   baja_at: string | null;
+  /** DGG-221 · AUTO (derivado de TRAMIX): la matrícula figura vencida pero hay una
+   *  renovación en trámite → el motor NO le manda el mail de regularizar (sí bondades). */
+  en_tramite: boolean;
   /** Campañas de captación ya enviadas a este prospecto: { slug: últimaFechaISO }. */
   campanas_enviadas: Record<string, string> | null;
   padron_count: number;

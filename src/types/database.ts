@@ -1803,6 +1803,7 @@ export type Database = {
           prospectos_cap_diario: number
           prospectos_pausado_motivo: string | null
           prospectos_pausado_reputacion: boolean
+          prospectos_reverify_en_curso: boolean
           provincia: string | null
           proximo_dni_ficticio: number
           razon_social: string
@@ -1839,6 +1840,7 @@ export type Database = {
           prospectos_cap_diario?: number
           prospectos_pausado_motivo?: string | null
           prospectos_pausado_reputacion?: boolean
+          prospectos_reverify_en_curso?: boolean
           provincia?: string | null
           proximo_dni_ficticio?: number
           razon_social?: string
@@ -1875,6 +1877,7 @@ export type Database = {
           prospectos_cap_diario?: number
           prospectos_pausado_motivo?: string | null
           prospectos_pausado_reputacion?: boolean
+          prospectos_reverify_en_curso?: boolean
           provincia?: string | null
           proximo_dni_ficticio?: number
           razon_social?: string
@@ -5981,11 +5984,14 @@ export type Database = {
         Row: {
           created_at: string
           cuit: string | null
+          en_tramite_estado: string | null
+          en_tramite_fecha: string | null
           id: string
           legajo: string | null
           matricula: string | null
           nombre: string
           prospecto_id: string
+          renovacion_en_tramite: boolean
           sanciones: boolean
           tramix_at: string | null
           tramix_estado: string
@@ -5996,11 +6002,14 @@ export type Database = {
         Insert: {
           created_at?: string
           cuit?: string | null
+          en_tramite_estado?: string | null
+          en_tramite_fecha?: string | null
           id?: string
           legajo?: string | null
           matricula?: string | null
           nombre: string
           prospecto_id: string
+          renovacion_en_tramite?: boolean
           sanciones?: boolean
           tramix_at?: string | null
           tramix_estado?: string
@@ -6011,11 +6020,14 @@ export type Database = {
         Update: {
           created_at?: string
           cuit?: string | null
+          en_tramite_estado?: string | null
+          en_tramite_fecha?: string | null
           id?: string
           legajo?: string | null
           matricula?: string | null
           nombre?: string
           prospecto_id?: string
+          renovacion_en_tramite?: boolean
           sanciones?: boolean
           tramix_at?: string | null
           tramix_estado?: string
@@ -6102,6 +6114,7 @@ export type Database = {
           created_at: string
           cuit: string | null
           email: string
+          en_tramite: boolean
           estado_captacion: string
           id: string
           legajo: string | null
@@ -6127,6 +6140,7 @@ export type Database = {
           created_at?: string
           cuit?: string | null
           email: string
+          en_tramite?: boolean
           estado_captacion?: string
           id?: string
           legajo?: string | null
@@ -6152,6 +6166,7 @@ export type Database = {
           created_at?: string
           cuit?: string | null
           email?: string
+          en_tramite?: boolean
           estado_captacion?: string
           id?: string
           legajo?: string | null
@@ -11065,6 +11080,7 @@ export type Database = {
           convertido_at: string
           cuit: string
           email: string
+          en_tramite: boolean
           estado_captacion: string
           id: string
           legajo: string
@@ -11121,6 +11137,8 @@ export type Database = {
       }
       prospectos_reimport_aplicar: { Args: { p_rows: Json }; Returns: Json }
       prospectos_reporte_semanal: { Args: never; Returns: Json }
+      prospectos_reverify_watcher: { Args: never; Returns: Json }
+      prospectos_revisita_en_tramite: { Args: never; Returns: Json }
       proximos_vencimientos: {
         Args: { p_administracion_id?: string; p_dias?: number }
         Returns: {
