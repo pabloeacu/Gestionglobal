@@ -8,8 +8,9 @@
 //   botón flotante para reabrirlo si lo cerraron.
 // - Video vertical 9:16 en un marco de celular, autoplay MUDO + botón de sonido.
 // - CTA "Inscribirme" → /formulario/curso-actualizacion (PBA). Cierra con X, Esc o backdrop.
-// - FECHA LÍMITE: desaparece por completo (modal + botón flotante) el 15/12/2026
-//   (hora Argentina). A partir de ahí la landing carga sin ningún pop-up.
+// - FECHA LÍMITE: se muestra durante TODO el 15/12/2026 (deadline inclusive) y
+//   desaparece por completo (modal + botón flotante) el 16/12/2026 00:00 hora
+//   Argentina. A partir de ahí la landing carga sin ningún pop-up.
 // Vive dentro del escape data-gg-classic de la landing: el tema gg-brand NO lo toca.
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -19,9 +20,10 @@ const VIDEO_SRC = '/landing/promo/curso-actualizacion.mp4';
 const POSTER_SRC = '/landing/promo/curso-actualizacion-poster.jpg';
 const FORM_HREF = '/formulario/curso-actualizacion';
 
-// Desaparece el 15/12/2026 00:00 America/Argentina/Buenos_Aires (UTC-3).
-// (mes 0-indexado → 11 = diciembre). Cambiar una sola línea para correr la fecha.
-const CUTOFF_MS = Date.UTC(2026, 11, 15, 3, 0, 0);
+// Desaparece el 16/12/2026 00:00 America/Argentina/Buenos_Aires (UTC-3) → se
+// muestra durante todo el 15 (deadline inclusive, pedido de Pablo). (mes
+// 0-indexado → 11 = diciembre.) Cambiar una sola línea para correr la fecha.
+const CUTOFF_MS = Date.UTC(2026, 11, 16, 3, 0, 0);
 
 export function PromoActualizacionPopup() {
   const expired = Date.now() >= CUTOFF_MS;
