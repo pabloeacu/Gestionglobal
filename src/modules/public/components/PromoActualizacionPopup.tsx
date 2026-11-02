@@ -190,7 +190,7 @@ export function PromoActualizacionPopup() {
                 </h2>
                 <p className="text-sm leading-relaxed text-slate-600">
                   Curso <strong className="font-semibold text-slate-700">a distancia, de modalidad mixta</strong>: 4 asignaturas
-                  sincrónicas en vivo + 2 asincrónicas a tu ritmo, con material inédito y
+                  asincrónicas a tu ritmo + 2 sincrónicas en vivo, con material inédito y
                   manuales teórico-prácticos exclusivos. Máxima calidad académica y currícula
                   sin precedentes.
                 </p>
