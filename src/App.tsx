@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useParams, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { BrandLoaderScreen } from '@/components/brand/BrandLoader';
 
@@ -273,11 +273,54 @@ function Protected({
   allow: Role[];
   children: ReactNode;
 }) {
-  const { loading, user } = useAuth();
+  const { loading, user, session, profileMissing, profileLoadFailed, accesoRevocado } = useAuth();
+  const location = useLocation();
   if (loading) return <BrandLoaderScreen />;
-  if (!user) return <Navigate to="/ingresar" replace />;
+  // DGG-238 (2a) · Guardamos el destino intentado (path + query + hash) para
+  // que el login lo restaure tras autenticar. Sin esto, un cliente deslogueado
+  // que abre el deep-link del mail de engagement (…/portal/perfil?origen=engagement)
+  // perdía la ruta Y la query: el guard rebotaba a /ingresar sin memoria y el
+  // login terminaba en /portal (home), nunca en la tarjeta de push. El estado
+  // viaja por router (no por URL) → no es inyectable (anti open-redirect).
+  if (!user) {
+    // DGG-238 §6 (A#1) · Ventana post-login: hay `session` válida pero el
+    // profile todavía hidrata (loadProfile es async por red; getAuthAal es
+    // decode local e instantáneo, así que navigate() dispara antes de que
+    // `user` esté seteado). En un deep-link DIRECTO a ruta protegida, sin esta
+    // gracia el guard rebotaría a /ingresar y dejaría al usuario VARADO con
+    // sesión activa. Replicamos la gracia de RoleHomeOrLanding: mientras no
+    // haya un estado de error de profile, mostramos el loader y esperamos a
+    // que el profile resuelva (entonces re-renderiza con `user` y entra).
+    if (session && !profileMissing && !profileLoadFailed && !accesoRevocado) {
+      return <BrandLoaderScreen />;
+    }
+    return <Navigate to="/ingresar" replace state={{ from: location }} />;
+  }
   if (!allow.includes(user.role)) return <Navigate to="/" replace />;
   return <>{children}</>;
+}
+
+// DGG-238 §6 (B#15) · Captura de intención de engagement. Cuando CUALQUIER URL
+// trae ?origen=engagement, la persistimos en sessionStorage apenas monta esa
+// location — antes de que el guard (si el cliente está deslogueado) rebote al
+// login. Es el fallback de `state.from` para flujos de login NO directos
+// (reload de /ingresar, re-navegación manual): el login la consume si el
+// router-state se perdió. Totalmente inerte sin ?origen=engagement.
+function CaptureEngagementIntent() {
+  const location = useLocation();
+  useEffect(() => {
+    try {
+      if (new URLSearchParams(location.search).get('origen') === 'engagement') {
+        sessionStorage.setItem(
+          'gg.engagement.from',
+          location.pathname + location.search + location.hash,
+        );
+      }
+    } catch {
+      /* sessionStorage no disponible (modo privado / bloqueado) → sin fallback */
+    }
+  }, [location.pathname, location.search, location.hash]);
+  return null;
 }
 
 export function App() {
@@ -309,6 +352,7 @@ export function App() {
           de una página larga (landing, listado) a un destino nuevo deja al
           usuario en la mitad del nuevo route — el header queda oculto. */}
       <ScrollToTopOnRouteChange />
+      <CaptureEngagementIntent />
       {/* Boundary que captura "Failed to fetch dynamically imported module"
           (típico tras un deploy nuevo cuando el bundle viejo aún está abierto
           en el browser) y fuerza un reload duro automático en vez de dejar

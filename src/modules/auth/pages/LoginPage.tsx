@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { LogIn, ArrowLeft, ShieldCheck, Loader2, KeyRound, MailCheck } from 'lucide-react';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { Button } from '@/components/common';
@@ -16,6 +16,7 @@ import { enviarResetPassword } from '@/services/api/perfil';
 // (gerente → /gerencia, administrador → /portal).
 export function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -31,6 +32,42 @@ export function LoginPage() {
   const [mode, setMode] = useState<'login' | 'forgot'>('login');
   const [forgotSending, setForgotSending] = useState(false);
   const [forgotSent, setForgotSent] = useState(false);
+
+  // DGG-238 §6 (A#2) · Valida que un destino sea una ruta interna segura
+  // (anti open-redirect): empieza con "/" simple, nunca "//" ni "/\" (vectores
+  // protocol-relative que el browser normaliza a cross-origin), sin caracteres
+  // de control, y no vuelve al propio login. Devuelve el destino o null.
+  function safeInternalTarget(target: string | null | undefined): string | null {
+    if (!target || !target.startsWith('/')) return null;
+    if (target.startsWith('//') || target.startsWith('/\\')) return null;
+    // eslint-disable-next-line no-control-regex
+    if (/[\u0000-\u001f]/.test(target)) return null;
+    if (target === '/ingresar') return null;
+    return target;
+  }
+
+  // DGG-238 (2a + B#15) · Destino post-login. (1) El `state.from` que el guard
+  // Protected adjuntó al rebotar — cubre cualquier deep-link protegido. (2) Como
+  // fallback para flujos de login NO directos (reload de /ingresar, re-nav
+  // manual), el `?origen=engagement` que CaptureEngagementIntent dejó en
+  // sessionStorage (one-shot, se consume al leerlo). Se preservan query y hash
+  // intactos para no perder ?origen=engagement. Siempre vía safeInternalTarget.
+  function postLoginTarget(): string {
+    const from = (location.state as { from?: { pathname?: string; search?: string; hash?: string } } | null)?.from;
+    if (from?.pathname) {
+      const fromTarget = safeInternalTarget(from.pathname + (from.search ?? '') + (from.hash ?? ''));
+      if (fromTarget) return fromTarget;
+    }
+    try {
+      const stored = sessionStorage.getItem('gg.engagement.from');
+      sessionStorage.removeItem('gg.engagement.from');
+      const storedTarget = safeInternalTarget(stored);
+      if (storedTarget) return storedTarget;
+    } catch {
+      /* sessionStorage no disponible (modo privado / bloqueado) → sin fallback */
+    }
+    return '/';
+  }
 
   async function onSubmitForgot(e: FormEvent) {
     e.preventDefault();
@@ -68,7 +105,7 @@ export function LoginPage() {
       }
     }
     setLoading(false);
-    navigate('/');
+    navigate(postLoginTarget(), { replace: true });
   }
 
   async function onSubmitMfa(e: FormEvent) {
@@ -86,7 +123,7 @@ export function LoginPage() {
       setError('Código incorrecto · probá con el actual de tu app.');
       return;
     }
-    navigate('/');
+    navigate(postLoginTarget(), { replace: true });
   }
 
   async function cancelMfa() {

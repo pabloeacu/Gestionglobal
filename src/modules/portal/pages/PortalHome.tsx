@@ -130,10 +130,18 @@ export function PortalHome() {
 
   // DGG-236 · al llegar desde el email de engagement, llevamos la vista al
   // bloque de activación apenas termina de cargar el dashboard.
+  // DGG-238 §6 (B#12) · Doble re-scroll diferido para empatar la robustez de
+  // PerfilPage: en carga fría (datos cacheados) un único scroll puede perder la
+  // carrera contra el reset a tope de ScrollToTopOnRouteChange (120ms) y contra
+  // el montaje async de ActivarPushAssistant (que cambia la altura del bloque
+  // después). Reintentar a 300/1100ms gana ambas carreras.
   useEffect(() => {
-    if (engagement && !loading && engagementRef.current) {
-      engagementRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
+    if (!engagement || loading) return;
+    const scrollToBlock = () =>
+      engagementRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const t1 = setTimeout(scrollToBlock, 300);
+    const t2 = setTimeout(scrollToBlock, 1100);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
   }, [engagement, loading]);
 
   if (loading) {

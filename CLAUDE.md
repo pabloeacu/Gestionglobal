@@ -210,6 +210,28 @@ Vercel → GitHub → Supabase → Google Workspace.
 
 ## 5. Flujo de trabajo
 
+> **⛔ PREMISA DE CIERRE #0 — CERO PENDIENTES · "INMEJORABLE" — capitalizada
+> 2026-11-02 (Pablo: "no quede nada pendiente. Cada chunk debe quedar, en una
+> palabra, como inmejorable…hacé todo lo que tengas para hacer").** Un chunk NO
+> se cierra con huecos conocidos pateados "para después". Antes de reportar
+> TERMINADO, AUTOMÁTICAMENTE y sin que Pablo lo pida:
+> 1. **Resolver TODO lo que la §6 destape en el propio chunk** — críticos Y
+>    menores — con su migración + frontend + commit + push + entrada en
+>    `ERRORES.md` por hallazgo. Un hallazgo NO se difiere a un chunk aparte
+>    salvo que sea genuinamente out-of-scope (otro subsistema, o requiere una
+>    decisión de producto) **Y** Pablo lo acuerde explícito; en ese caso se deja
+>    flaggeado **y escrito** (tarea/`ERRORES.md`/`PROJECT_STATUS.md`), nunca en
+>    el aire.
+> 2. **Saldar también las DUDAS/GAP heredados que el chunk toca de cerca**
+>    (coherencia aviso↔display, consistencia contable, fan-out de lectores de un
+>    dato). La vara es: *"¿quedó algo que un gerente o un cliente podría
+>    encontrar mal mañana?"*. Si la respuesta no es un **NO rotundo y
+>    verificado**, el chunk no está listo.
+>
+> El resultado de cada chunk es **inmejorable**: máximo resultado, sin deuda
+> nueva y saldando la vieja que esté al alcance de la mano. Esta premisa manda
+> sobre el impulso de "darlo por terminado": terminar = no dejar nada pendiente.
+
 > **⚠️ PREMISA DE CIERRE INELUDIBLE — capitalizada 2026-06-08 (Pablo: "no quiero
 > pedírtelo cada vez; tenelo como premisa obligatoria e ineludible").** Ninguna
 > feature o fix de lógica/datos se considera TERMINADO sin que, AUTOMÁTICAMENTE y
