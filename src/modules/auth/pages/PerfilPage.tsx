@@ -546,26 +546,29 @@ function PerfilNotificacionesPush({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // DGG-237: llegada desde el mail de engagement → traer la tarjeta a la vista
-  // y resaltarla unos segundos para que el control de activar quede obvio.
-  // Re-scrolleamos una segunda vez (~1.1s) porque en carga fría el layout
-  // todavía se está asentando a los 300ms y el primer scroll puede quedar corto.
+  // DGG-237 + DGG-238 §6: llegada desde el mail de engagement → traer la tarjeta
+  // a la vista y resaltarla unos segundos para que el control de activar quede
+  // obvio. La prueba en vivo de DGG-238 destapó que en CARGA FRÍA (el cliente ya
+  // logueado abre el deep-link y la página bootea de cero) el scroll de timers
+  // fijos desde el montaje no aterrizaba: el contenido async de arriba (ficha,
+  // sesiones) asienta el layout tarde y corre la tarjeta hacia abajo. Fix:
+  //  (a) el glow se prende YA (no dentro de un timer) para no depender del timing;
+  //  (b) re-scrolls escalonados que cubren el asentamiento tardío del layout; y
+  //  (c) el efecto RE-CORRE cuando el estado de la tarjeta (soportado/activas)
+  //      resuelve tras refresh() — en carga fría ese es el momento en que la
+  //      tarjeta toma su altura final, así que re-scrolleamos ahí.
   useEffect(() => {
     if (!highlight) return;
     const scrollToCard = () =>
       sectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    const t1 = setTimeout(() => {
-      scrollToCard();
-      setGlow(true);
-    }, 300);
-    const t2 = setTimeout(scrollToCard, 1100);
-    const t3 = setTimeout(() => setGlow(false), 3800);
+    setGlow(true);
+    const scrolls = [100, 500, 1100, 2000, 3000].map((ms) => setTimeout(scrollToCard, ms));
+    const tGlowOff = setTimeout(() => setGlow(false), 4200);
     return () => {
-      clearTimeout(t1);
-      clearTimeout(t2);
-      clearTimeout(t3);
+      scrolls.forEach(clearTimeout);
+      clearTimeout(tGlowOff);
     };
-  }, [highlight]);
+  }, [highlight, soportado, activas]);
 
   async function onActivar() {
     setActuando(true);

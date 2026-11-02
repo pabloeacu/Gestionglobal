@@ -139,9 +139,8 @@ export function PortalHome() {
     if (!engagement || loading) return;
     const scrollToBlock = () =>
       engagementRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    const t1 = setTimeout(scrollToBlock, 300);
-    const t2 = setTimeout(scrollToBlock, 1100);
-    return () => { clearTimeout(t1); clearTimeout(t2); };
+    const scrolls = [100, 500, 1100, 2000, 3000].map((ms) => setTimeout(scrollToBlock, ms));
+    return () => { scrolls.forEach(clearTimeout); };
   }, [engagement, loading]);
 
   if (loading) {
