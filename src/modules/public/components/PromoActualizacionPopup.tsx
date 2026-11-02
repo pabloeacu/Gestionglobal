@@ -189,9 +189,10 @@ export function PromoActualizacionPopup() {
                   Curso de <span className="text-[#009eca]">Actualización</span>
                 </h2>
                 <p className="text-sm leading-relaxed text-slate-600">
-                  Curso <strong className="font-semibold text-slate-700">a distancia, de modalidad mixta</strong> —encuentros
-                  sincrónicos en vivo + material asincrónico a tu ritmo—, con la máxima
-                  calidad académica y una currícula sin precedentes.
+                  Curso <strong className="font-semibold text-slate-700">a distancia, de modalidad mixta</strong>: 4 asignaturas
+                  sincrónicas en vivo + 2 asincrónicas a tu ritmo, con material inédito y
+                  manuales teórico-prácticos exclusivos. Máxima calidad académica y currícula
+                  sin precedentes.
                 </p>
                 <p className="border-l-2 border-[#009eca] pl-3 text-sm font-medium italic leading-relaxed text-[#122230]">
                   No subestimamos tu experiencia como administrador: por eso lo pensamos
