@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Bell,
   BellOff,
@@ -65,6 +66,11 @@ export function PerfilPage() {
   const { user, signOut, reloadProfile } = useAuth();
   const confirm = useConfirm();
   const { play } = useSounds();
+  const [searchParams] = useSearchParams();
+  // DGG-237: el mail de engagement "Activar notificaciones" aterriza acá con
+  // ?origen=engagement → resaltamos y scrolleamos a la tarjeta de push para que
+  // el control quede a la vista (mismo criterio que PortalHome, DGG-236).
+  const engagement = searchParams.get('origen') === 'engagement';
 
   if (!user) {
     return (
@@ -82,7 +88,7 @@ export function PerfilPage() {
 
       <PerfilPassword play={play} />
 
-      <PerfilNotificacionesPush userId={user.id} play={play} />
+      <PerfilNotificacionesPush userId={user.id} play={play} highlight={engagement} />
 
       {/* P2-#33 · 2FA TOTP opcional */}
       <Perfil2FA />
@@ -517,13 +523,17 @@ function PerfilPassword({
 function PerfilNotificacionesPush({
   userId,
   play,
+  highlight = false,
 }: {
   userId: string;
   play: (e: 'success' | 'error' | 'click' | 'open' | 'close') => void;
+  highlight?: boolean;
 }) {
   const [soportado, setSoportado] = useState<boolean>(true);
   const [activas, setActivas] = useState<boolean>(false);
   const [actuando, setActuando] = useState<boolean>(false);
+  const [glow, setGlow] = useState<boolean>(false);
+  const sectionRef = useRef<HTMLElement>(null);
 
   async function refresh() {
     setSoportado(pushSoportado());
@@ -535,6 +545,21 @@ function PerfilNotificacionesPush({
     void refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // DGG-237: llegada desde el mail de engagement → traer la tarjeta a la vista
+  // y resaltarla unos segundos para que el control de activar quede obvio.
+  useEffect(() => {
+    if (!highlight) return;
+    const t1 = setTimeout(() => {
+      sectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setGlow(true);
+    }, 250);
+    const t2 = setTimeout(() => setGlow(false), 3200);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+  }, [highlight]);
 
   async function onActivar() {
     setActuando(true);
@@ -578,7 +603,13 @@ function PerfilNotificacionesPush({
   }
 
   return (
-    <section className="card-premium relative overflow-hidden p-5 motion-safe:animate-fade-up">
+    <section
+      ref={sectionRef}
+      className={cn(
+        'card-premium relative overflow-hidden p-5 motion-safe:animate-fade-up scroll-mt-4 transition-shadow duration-500',
+        glow && 'ring-2 ring-brand-cyan ring-offset-2 ring-offset-brand-paper',
+      )}
+    >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
           <h2 className="flex items-center gap-2 font-display text-base font-bold text-brand-ink">
