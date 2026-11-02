@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import { SiteNav } from '@/components/site/SiteNav';
 import { SiteFooter } from '@/components/site/SiteFooter';
-import { PromoFormacionPopup } from '../components/PromoFormacionPopup';
+import { PromoActualizacionPopup } from '../components/PromoActualizacionPopup';
 import { BrandMark } from '@/components/brand/BrandMark';
 import { HighlightMark } from '@/components/brand/HighlightMark';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
@@ -208,7 +208,7 @@ export function LandingPage() {
       <FinalCTA />
 
       <SiteFooter />
-      <PromoFormacionPopup />
+      <PromoActualizacionPopup />
     </div>
   );
 }
