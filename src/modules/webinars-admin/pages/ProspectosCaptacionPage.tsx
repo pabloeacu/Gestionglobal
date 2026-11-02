@@ -14,6 +14,7 @@ import {
   RefreshCw,
   Search,
   ShieldAlert,
+  ShieldCheck,
   UserPlus,
   Users,
 } from 'lucide-react';
@@ -502,6 +503,22 @@ function MotorPanel({ kpis, onChange }: { kpis: CaptacionKpis; onChange: () => v
   const estado: 'enviando' | 'pausado' | 'apagado' = !kpis.activo ? 'apagado' : kpis.pausado ? 'pausado' : 'enviando';
   const pct = kpis.cap_diario > 0 ? Math.min(100, Math.round((kpis.encolados_hoy / kpis.cap_diario) * 100)) : 0;
 
+  // DGG-237 · Reputación del frío en vivo (lo que mira el breaker de auto-pausa).
+  // El estado "freno activo" (rojo/ShieldAlert) se deriva con el MISMO predicado
+  // EXACTO del tick: ratio crudo (sin redondear) y `>` estricto sobre el umbral,
+  // con ≥ rep_min_muestra envíos — así el chip no miente sobre cuándo pausa el
+  // motor (§6 2-bis·e). El ámbar es sólo un "acercándose" blando (pct redondeado).
+  const repMuestraChica = kpis.rep_7d_total < kpis.rep_min_muestra;
+  const repRatio = kpis.rep_7d_total > 0 ? kpis.rep_7d_bad / kpis.rep_7d_total : 0;
+  const repFrenoActivo = !repMuestraChica && repRatio > kpis.rep_umbral_pct / 100;
+  const repTone = repMuestraChica
+    ? 'border-slate-200 bg-slate-50 text-slate-600'
+    : repFrenoActivo
+      ? 'border-red-200 bg-red-50 text-red-700'
+      : kpis.rep_7d_pct >= kpis.rep_umbral_pct * 0.6
+        ? 'border-amber-200 bg-amber-50 text-amber-800'
+        : 'border-green-200 bg-green-50 text-green-700';
+
   async function toggle() {
     const pausar = !kpis.pausado;
     if (pausar) {
@@ -532,7 +549,7 @@ function MotorPanel({ kpis, onChange }: { kpis: CaptacionKpis; onChange: () => v
           </div>
           <div>
             <p className="text-sm font-semibold text-brand-ink">Motor de campañas</p>
-            <p className="text-xs text-brand-muted">Automático · {kpis.cap_diario}/día · 1 cada 20 min</p>
+            <p className="text-xs text-brand-muted">Automático · {kpis.cap_diario}/día · 1 cada 10 min</p>
           </div>
           <span className={cn('ml-1 inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold ring-1', badge.c)}>
             {badge.t}
@@ -565,6 +582,26 @@ function MotorPanel({ kpis, onChange }: { kpis: CaptacionKpis; onChange: () => v
           <div className="h-full rounded-full bg-brand-cyan transition-all" style={{ width: `${pct}%` }} />
         </div>
       )}
+
+      {/* DGG-237 · Reputación del frío en vivo: visibilidad proactiva de la tasa de
+          rebotes/quejas que dispara la auto-pausa, para actuar ANTES de que salte. */}
+      <div className={cn('mt-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-xl border px-3 py-2 text-xs', repTone)}>
+        <span className="inline-flex items-center gap-1.5 font-semibold">
+          {repFrenoActivo
+            ? <ShieldAlert size={13} className="flex-shrink-0" />
+            : <ShieldCheck size={13} className="flex-shrink-0" />}
+          Reputación del frío · rebotes/quejas (7d)
+        </span>
+        <span className="tabular-nums">
+          <strong>{kpis.rep_7d_pct}%</strong>
+          <span className="opacity-60"> / {kpis.rep_umbral_pct}% umbral · {kpis.rep_7d_bad}/{kpis.rep_7d_total} envíos</span>
+        </span>
+        {repMuestraChica && (
+          <span className="w-full opacity-70">
+            Muestra chica: la auto-pausa recién actúa con ≥{kpis.rep_min_muestra} envíos medidos en 7 días.
+          </span>
+        )}
+      </div>
     </div>
   );
 }

@@ -35,6 +35,13 @@ export interface CaptacionKpis {
   enriquecidos: number;
   enrich_pendientes: number;
   padron_total: number;
+  /** DGG-237 · Reputación del frío en vivo (misma fuente/fórmula que el breaker de
+   *  auto-pausa del tick): bounced+complained sobre captacion-% enviados en 7d. */
+  rep_7d_total: number;
+  rep_7d_bad: number;
+  rep_7d_pct: number;
+  rep_umbral_pct: number;
+  rep_min_muestra: number;
 }
 
 export interface ProspectoCaptacionRow {
