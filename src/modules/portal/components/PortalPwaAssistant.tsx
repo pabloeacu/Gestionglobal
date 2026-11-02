@@ -24,7 +24,7 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
 }
 
-export function PortalPwaAssistant() {
+export function PortalPwaAssistant({ forceOpen = false }: { forceOpen?: boolean } = {}) {
   const [installEvent, setInstallEvent] = useState<BeforeInstallPromptEvent | null>(null);
   const [showIosCard, setShowIosCard] = useState(false);
   const [showOpenInSafariCard, setShowOpenInSafariCard] = useState(false);
@@ -67,10 +67,13 @@ export function PortalPwaAssistant() {
     };
   }, []);
 
-  // Decidir si mostrar
-  const shouldShow = !installed
-    && (installEvent !== null || showIosCard || showOpenInSafariCard)
-    && (!dismissedUntil || dismissedUntil < new Date());
+  // Decidir si mostrar. forceOpen (llegada desde el email de engagement):
+  // ignora el cooldown y, en desktop donde `beforeinstallprompt` puede no
+  // dispararse, igual muestra la tarjeta con instrucciones manuales.
+  const hasTrigger = installEvent !== null || showIosCard || showOpenInSafariCard;
+  const notDismissed = !dismissedUntil || dismissedUntil < new Date();
+  const genericFallback = forceOpen && !hasTrigger; // desktop sin evento beforeinstallprompt
+  const shouldShow = !installed && (forceOpen || (hasTrigger && notDismissed));
   if (!shouldShow) return null;
 
   function dismiss() {
@@ -158,6 +161,18 @@ export function PortalPwaAssistant() {
           </ol>
           <p className="mt-2 text-[10px] text-brand-muted">
             Es una limitación de iOS: todos los navegadores menos Safari corren sobre WebKit con notificaciones deshabilitadas por Apple.
+          </p>
+        </div>
+      )}
+
+      {/* Desktop sin beforeinstallprompt (forzado desde el email): instrucciones manuales */}
+      {genericFallback && (
+        <div className="mt-3 rounded-xl bg-white/80 p-3 text-xs text-brand-ink ring-1 ring-emerald-200">
+          <p className="mb-1 font-semibold text-brand-ink">Cómo instalarla:</p>
+          <p>
+            En la compu (Chrome/Edge): tocá el ícono <strong>⊕ Instalar</strong> en la barra de
+            direcciones, o el menú <strong>⋮</strong> → <strong>“Instalar Gestión Global”</strong>.
+            En el teléfono: menú del navegador → <strong>“Agregar a pantalla de inicio”</strong>.
           </p>
         </div>
       )}

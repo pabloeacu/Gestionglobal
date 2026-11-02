@@ -12,8 +12,8 @@
 //
 // Citas: regla 4 (queries en services/), regla 13 (sin window.confirm).
 
-import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
   Sparkles,
   GraduationCap,
@@ -57,12 +57,16 @@ import { NovedadesBanner } from '../components/NovedadesBanner';
 import { PerfilRegulatorioHotCard } from '../components/PerfilRegulatorioHotCard';
 import { PortalOnboardingTour, tourCompletado } from '../components/PortalOnboardingTour';
 import { PortalPwaAssistant } from '../components/PortalPwaAssistant';
-import { PortalPushAssistant } from '../components/PortalPushAssistant';
 import { EncuentroHoyBanner } from '@/modules/campus/components/EncuentroHoyBanner';
 
 // =========================================================================
 export function PortalHome() {
   const { user } = useAuth();
+  // DGG-236 · llegada desde el email de engagement (?origen=engagement):
+  // mostramos un bloque prominente arriba con push + instalar app.
+  const [searchParams] = useSearchParams();
+  const engagement = searchParams.get('origen') === 'engagement';
+  const engagementRef = useRef<HTMLDivElement>(null);
   const [data, setData] = useState<ClientePortalDashboard | null>(null);
   const [avancesNuevos, setAvancesNuevos] = useState(0);
   // B6 · badge de certificados nuevos (sin celebrar), por origen. Mismo universo
@@ -124,6 +128,14 @@ export function PortalHome() {
   // Realtime refresh on relevant tables
   useRealtimeRefresh(['curso_encuentros', 'webinar_inscriptos', 'vencimientos', 'tramites', 'comprobantes'], () => { void load(); });
 
+  // DGG-236 · al llegar desde el email de engagement, llevamos la vista al
+  // bloque de activación apenas termina de cargar el dashboard.
+  useEffect(() => {
+    if (engagement && !loading && engagementRef.current) {
+      engagementRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [engagement, loading]);
+
   if (loading) {
     return (
       <div className="space-y-4 sm:space-y-5">
@@ -163,14 +175,25 @@ export function PortalHome() {
         tramitesCount={data.tramites_abiertos_count}
       />
 
+      {/* DGG-236 · Llegada desde el email de engagement: bloque prominente,
+          arriba del fold, para instalar la app + activar avisos. Fuerza la
+          visibilidad aunque el cliente los haya descartado antes. */}
+      {engagement && (
+        <div ref={engagementRef} className="space-y-3 scroll-mt-4">
+          <ActivarPushAssistant forceOpen />
+          <PortalPwaAssistant forceOpen />
+        </div>
+      )}
+
       {avancesNuevos > 0 && <AvancesNuevosBanner count={avancesNuevos} />}
 
       {/* Novedades enviadas por gerencia (panel Comunicaciones).
           Sólo aparece si hay alguna vigente sin marcar como vista. */}
       <NovedadesBanner />
 
-      {/* CTA universal: pide permiso de push con 1 click (no entra a config). */}
-      <ActivarPushAssistant />
+      {/* CTA universal de push. Si el cliente llegó desde el email de engagement
+          el bloque de arriba ya lo muestra forzado → acá se omite para no duplicar. */}
+      {!engagement && <ActivarPushAssistant />}
 
       {/* DGG-41 · Banner premium cuando el alumno terminó un curso y se
           emitió su certificado. Tiene la frase de José Luis + CTA descarga
@@ -193,7 +216,7 @@ export function PortalHome() {
 
       <Atajos avancesNuevos={avancesNuevos} certsNuevos={certsNuevos} />
 
-      <Assistants />
+      {!engagement && <Assistants />}
 
       {data.oportunidades.length > 0 && (
         <Oportunidades items={data.oportunidades} onPosponer={handlePosponer} />
@@ -216,10 +239,12 @@ export function PortalHome() {
 // Assistants strip (PWA install + Push activation)
 // =========================================================================
 function Assistants() {
+  // Push vive en el CTA cyan de arriba (ActivarPushAssistant). Acá sólo el
+  // asistente de instalar la PWA, para no duplicar el pedido de push (antes
+  // había dos tarjetas de notificaciones compitiendo — §6 DGG-236).
   return (
     <section className="space-y-3">
       <PortalPwaAssistant />
-      <PortalPushAssistant />
     </section>
   );
 }

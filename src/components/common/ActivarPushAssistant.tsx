@@ -32,7 +32,7 @@ function loadDismissed(): Date | null {
   }
 }
 
-export function ActivarPushAssistant() {
+export function ActivarPushAssistant({ forceOpen = false }: { forceOpen?: boolean } = {}) {
   const [activadas, setActivadas] = useState(false);
   const [soportado, setSoportado] = useState(false);
   const [permisoDenegado, setPermisoDenegado] = useState(false);
@@ -86,7 +86,9 @@ export function ActivarPushAssistant() {
   if (!soportado) return null;
   if (activadas) return null;
   if (permisoDenegado) return null;
-  if (dismissedUntil && dismissedUntil > new Date()) return null;
+  // forceOpen (llegada desde el email de engagement con ?origen=engagement):
+  // ignora el cooldown de descarte para que el CTA aparezca sí o sí.
+  if (!forceOpen && dismissedUntil && dismissedUntil > new Date()) return null;
 
   return (
     <section data-gg-remind="warn" className="relative overflow-hidden rounded-2xl border-2 border-cyan-200 bg-gradient-to-br from-cyan-50 via-white to-teal-50 p-4 shadow-sm ring-1 ring-cyan-100 sm:p-5">
