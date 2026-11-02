@@ -548,16 +548,22 @@ function PerfilNotificacionesPush({
 
   // DGG-237: llegada desde el mail de engagement → traer la tarjeta a la vista
   // y resaltarla unos segundos para que el control de activar quede obvio.
+  // Re-scrolleamos una segunda vez (~1.1s) porque en carga fría el layout
+  // todavía se está asentando a los 300ms y el primer scroll puede quedar corto.
   useEffect(() => {
     if (!highlight) return;
-    const t1 = setTimeout(() => {
+    const scrollToCard = () =>
       sectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    const t1 = setTimeout(() => {
+      scrollToCard();
       setGlow(true);
-    }, 250);
-    const t2 = setTimeout(() => setGlow(false), 3200);
+    }, 300);
+    const t2 = setTimeout(scrollToCard, 1100);
+    const t3 = setTimeout(() => setGlow(false), 3800);
     return () => {
       clearTimeout(t1);
       clearTimeout(t2);
+      clearTimeout(t3);
     };
   }, [highlight]);
 
