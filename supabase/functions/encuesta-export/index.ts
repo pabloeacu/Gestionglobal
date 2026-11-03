@@ -17,6 +17,11 @@ import * as XLSX from 'npm:xlsx@0.18.5';
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const BUCKET = 'email-assets';
+const CORS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
 
 // ---- paleta de marca ----
 const CYAN = rgb(0, 0.619, 0.792);     // #009ECA
@@ -43,7 +48,7 @@ type Dataset = { generado_at: string; desde: string | null; hasta: string; curso
 
 // ------------------------------------------------------------------ utils
 function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+  return new Response(JSON.stringify(body), { status, headers: { ...CORS, 'Content-Type': 'application/json' } });
 }
 
 // pdf-lib StandardFonts usan WinAnsi: hay que sanear lo que no encaje (emoji, etc.).
@@ -354,6 +359,7 @@ function periodoLabel(desde: string | null, hasta: string): string {
 
 // ------------------------------------------------------------------ handler
 Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
   if (req.method !== 'POST') return json({ error: 'method' }, 405);
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false } });
 
