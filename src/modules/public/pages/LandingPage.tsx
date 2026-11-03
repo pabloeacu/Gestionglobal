@@ -15,6 +15,7 @@ import {
 import { SiteNav } from '@/components/site/SiteNav';
 import { SiteFooter } from '@/components/site/SiteFooter';
 import { PromoActualizacionPopup } from '../components/PromoActualizacionPopup';
+import { LandingOpiniones } from '../components/LandingOpiniones';
 import { BrandMark } from '@/components/brand/BrandMark';
 import { HighlightMark } from '@/components/brand/HighlightMark';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
@@ -133,27 +134,6 @@ const PAREADOS = [
   { a: 'Menos trámite.', b: 'Más profesión.' },
 ];
 
-const TESTIMONIOS = [
-  {
-    nombre: 'Olga Romero Núñez',
-    rol: 'Administradora',
-    quote:
-      'La atención y dedicación que recibí fue digna de difundir. Recomiendo Gestión Global a colegas sin dudar.',
-  },
-  {
-    nombre: 'Vanesa Agote',
-    rol: 'Administradora',
-    quote:
-      'Me sorprendió todo: la dinámica, las clases, el contenido. Lo súper recomiendo.',
-  },
-  {
-    nombre: 'Julio Ariel Fernández',
-    rol: 'Administrador',
-    quote:
-      'Con Gestión Global la administración de nuestros consorcios fue mucho más eficiente y organizada.',
-  },
-];
-
 const PARTNERS: Array<{ nombre: string; logo: string; descripcion: string }> = [
   {
     nombre: 'FundPlata',
@@ -203,7 +183,7 @@ export function LandingPage() {
       <ComoTrabajamos />
       <Plataforma />
       <Cursos />
-      <Testimonios />
+      <LandingOpiniones />
       <Partners />
       <FinalCTA />
 
@@ -842,51 +822,6 @@ function Cursos() {
               />
             </div>
           </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function Testimonios() {
-  return (
-    <section
-      id="nosotros"
-      className="relative border-y border-slate-100 bg-brand-zebra/40 py-24"
-    >
-      <div className="mx-auto max-w-6xl px-6">
-        <header className="mx-auto max-w-2xl text-center">
-          <p className="kicker text-brand-cyan">Confían en nosotros</p>
-          <h2 className="mt-2 font-display text-4xl font-extrabold leading-tight tracking-tight sm:text-5xl">
-            Lo dicen quienes ya están adentro.
-          </h2>
-        </header>
-
-        <div className="mt-14 grid gap-5 md:grid-cols-3">
-          {TESTIMONIOS.map((t) => (
-            <figure
-              key={t.nombre}
-              className="rounded-2xl border border-slate-200 bg-white p-7 transition hover:-translate-y-0.5 hover:border-brand-cyan/50"
-            >
-              <svg
-                aria-hidden
-                viewBox="0 0 24 24"
-                fill="currentColor"
-                className="h-6 w-6 text-brand-cyan"
-              >
-                <path d="M9 7H5a2 2 0 0 0-2 2v4a2 2 0 0 0 2 2h2v2a2 2 0 0 1-2 2H4v2h1a4 4 0 0 0 4-4V7Zm10 0h-4a2 2 0 0 0-2 2v4a2 2 0 0 0 2 2h2v2a2 2 0 0 1-2 2h-1v2h1a4 4 0 0 0 4-4V7Z" />
-              </svg>
-              <blockquote className="mt-4 text-[15px] leading-relaxed text-brand-ink/85">
-                {t.quote}
-              </blockquote>
-              <figcaption className="mt-6 border-t border-slate-100 pt-4">
-                <p className="text-sm font-semibold text-brand-ink">
-                  {t.nombre}
-                </p>
-                <p className="text-xs text-brand-muted">{t.rol}</p>
-              </figcaption>
-            </figure>
-          ))}
         </div>
       </div>
     </section>

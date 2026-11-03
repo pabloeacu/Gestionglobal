@@ -14,8 +14,9 @@ import {
   RefreshCw,
   Send,
 } from 'lucide-react';
-import { Button, Field, Input, Switch, useConfirm } from '@/components/common';
+import { Button, Field, Input, Switch, Tabs, useConfirm } from '@/components/common';
 import { IllustratedEmpty } from '@/components/brand/IllustratedEmpty';
+import { LandingOpinionesManager } from '../components/LandingOpinionesManager';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/cn';
 import { humanizeError } from '@/lib/errors';
@@ -60,6 +61,10 @@ export function EncuestasCmPage() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [busyEnvio, setBusyEnvio] = useState(false);
+  const [subtab, setSubtab] = useState<'cm' | 'landing'>(() => {
+    try { return new URLSearchParams(window.location.search).get('tab') === 'landing' ? 'landing' : 'cm'; }
+    catch { return 'cm'; }
+  });
 
   async function load(opts?: { keepEmails?: boolean }) {
     const [e, r] = await Promise.all([getEncuestaCmEstado(), listEncuestaCmRuns(10)]);
@@ -180,6 +185,15 @@ export function EncuestasCmPage() {
 
   return (
     <div className="space-y-6">
+      <Tabs
+        items={[{ key: 'cm', label: 'Envío al CM' }, { key: 'landing', label: 'Sección de la landing' }]}
+        activeKey={subtab}
+        onChange={(k) => setSubtab(k as 'cm' | 'landing')}
+      />
+      {subtab === 'landing' ? (
+        <LandingOpinionesManager />
+      ) : (
+      <div className="space-y-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="kicker">Configuración · Encuestas</p>
@@ -333,6 +347,8 @@ export function EncuestasCmPage() {
           </div>
         )}
       </section>
+      </div>
+      )}
     </div>
   );
 }

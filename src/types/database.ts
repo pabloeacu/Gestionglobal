@@ -1796,6 +1796,10 @@ export type Database = {
           engagement_onboarding_activo: boolean
           id: number
           landing_cover_enabled: boolean
+          landing_opiniones_activa: boolean
+          landing_opiniones_metricas: Json
+          landing_opiniones_titulo: string
+          landing_opiniones_ultimo_notif: number
           localidad: string | null
           logo_url: string | null
           nombre_fantasia: string
@@ -1838,6 +1842,10 @@ export type Database = {
           engagement_onboarding_activo?: boolean
           id?: number
           landing_cover_enabled?: boolean
+          landing_opiniones_activa?: boolean
+          landing_opiniones_metricas?: Json
+          landing_opiniones_titulo?: string
+          landing_opiniones_ultimo_notif?: number
           localidad?: string | null
           logo_url?: string | null
           nombre_fantasia?: string
@@ -1880,6 +1888,10 @@ export type Database = {
           engagement_onboarding_activo?: boolean
           id?: number
           landing_cover_enabled?: boolean
+          landing_opiniones_activa?: boolean
+          landing_opiniones_metricas?: Json
+          landing_opiniones_titulo?: string
+          landing_opiniones_ultimo_notif?: number
           localidad?: string | null
           logo_url?: string | null
           nombre_fantasia?: string
@@ -4656,6 +4668,59 @@ export type Database = {
             columns: ["servicio_id"]
             isOneToOne: false
             referencedRelation: "servicios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      landing_testimonios: {
+        Row: {
+          activo: boolean
+          comentario: string
+          created_at: string
+          created_by: string | null
+          curso_titulo: string | null
+          estrellas: number | null
+          foto_url: string | null
+          id: string
+          nombre: string
+          orden: number
+          origen: string
+          respuesta_id: string | null
+        }
+        Insert: {
+          activo?: boolean
+          comentario: string
+          created_at?: string
+          created_by?: string | null
+          curso_titulo?: string | null
+          estrellas?: number | null
+          foto_url?: string | null
+          id?: string
+          nombre: string
+          orden?: number
+          origen?: string
+          respuesta_id?: string | null
+        }
+        Update: {
+          activo?: boolean
+          comentario?: string
+          created_at?: string
+          created_by?: string | null
+          curso_titulo?: string | null
+          estrellas?: number | null
+          foto_url?: string | null
+          id?: string
+          nombre?: string
+          orden?: number
+          origen?: string
+          respuesta_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "landing_testimonios_respuesta_id_fkey"
+            columns: ["respuesta_id"]
+            isOneToOne: false
+            referencedRelation: "curso_encuesta_respuestas"
             referencedColumns: ["id"]
           },
         ]
@@ -10802,6 +10867,22 @@ export type Database = {
         Returns: boolean
       }
       kpis_dashboard_global: { Args: { p_desde?: string }; Returns: Json }
+      landing_opiniones_admin: { Args: never; Returns: Json }
+      landing_opiniones_publicas: { Args: never; Returns: Json }
+      landing_testimonio_agregar: {
+        Args: { p_respuesta_id: string }
+        Returns: Json
+      }
+      landing_testimonio_manual: {
+        Args: {
+          p_comentario: string
+          p_curso?: string
+          p_foto_url?: string
+          p_nombre: string
+        }
+        Returns: Json
+      }
+      landing_testimonio_reordenar: { Args: { p_ids: string[] }; Returns: Json }
       list_webinar_kpis: {
         Args: never
         Returns: {
