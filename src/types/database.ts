@@ -1788,6 +1788,11 @@ export type Database = {
           email_contacto: string | null
           email_remitente_nombre: string | null
           email_reply_to: string | null
+          encuesta_cm_activo: boolean
+          encuesta_cm_cada_dias: number
+          encuesta_cm_cubierto_hasta: string | null
+          encuesta_cm_emails: string
+          encuesta_cm_ultimo_envio_at: string | null
           engagement_onboarding_activo: boolean
           id: number
           landing_cover_enabled: boolean
@@ -1825,6 +1830,11 @@ export type Database = {
           email_contacto?: string | null
           email_remitente_nombre?: string | null
           email_reply_to?: string | null
+          encuesta_cm_activo?: boolean
+          encuesta_cm_cada_dias?: number
+          encuesta_cm_cubierto_hasta?: string | null
+          encuesta_cm_emails?: string
+          encuesta_cm_ultimo_envio_at?: string | null
           engagement_onboarding_activo?: boolean
           id?: number
           landing_cover_enabled?: boolean
@@ -1862,6 +1872,11 @@ export type Database = {
           email_contacto?: string | null
           email_remitente_nombre?: string | null
           email_reply_to?: string | null
+          encuesta_cm_activo?: boolean
+          encuesta_cm_cada_dias?: number
+          encuesta_cm_cubierto_hasta?: string | null
+          encuesta_cm_emails?: string
+          encuesta_cm_ultimo_envio_at?: string | null
           engagement_onboarding_activo?: boolean
           id?: number
           landing_cover_enabled?: boolean
@@ -3767,6 +3782,57 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      encuesta_cm_runs: {
+        Row: {
+          created_by: string | null
+          cursos: number
+          destinatarios: string | null
+          error: string | null
+          id: string
+          modo: string
+          origen: string
+          overall: string
+          publicables: number
+          respuestas: number
+          resumen: Json | null
+          run_at: string
+          ventana_desde: string | null
+          ventana_hasta: string
+        }
+        Insert: {
+          created_by?: string | null
+          cursos?: number
+          destinatarios?: string | null
+          error?: string | null
+          id?: string
+          modo?: string
+          origen: string
+          overall: string
+          publicables?: number
+          respuestas?: number
+          resumen?: Json | null
+          run_at?: string
+          ventana_desde?: string | null
+          ventana_hasta: string
+        }
+        Update: {
+          created_by?: string | null
+          cursos?: number
+          destinatarios?: string | null
+          error?: string | null
+          id?: string
+          modo?: string
+          origen?: string
+          overall?: string
+          publicables?: number
+          respuestas?: number
+          resumen?: Json | null
+          run_at?: string
+          ventana_desde?: string | null
+          ventana_hasta?: string
+        }
+        Relationships: []
       }
       engagement_onboarding_log: {
         Row: {
@@ -10002,9 +10068,29 @@ export type Database = {
         }
         Returns: string
       }
+      encuesta_cm_commit: {
+        Args: {
+          p_bucket: string
+          p_corte: string
+          p_desde: string
+          p_error?: string
+          p_origen: string
+          p_pdf_filename: string
+          p_pdf_path: string
+          p_resumen: Json
+          p_xlsx_filename: string
+          p_xlsx_path: string
+        }
+        Returns: Json
+      }
+      encuesta_cm_estado: { Args: never; Returns: Json }
       encuesta_emular_de_curso: {
         Args: { p_curso_destino: string; p_curso_origen: string }
         Returns: string
+      }
+      encuesta_export_dataset: {
+        Args: { p_desde: string; p_encuesta_id?: string; p_hasta: string }
+        Returns: Json
       }
       encuesta_listar_emulables: {
         Args: never

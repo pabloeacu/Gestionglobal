@@ -41,6 +41,7 @@ const EmailQueuePage = lazy(() => import('@/modules/configuracion/pages/EmailQue
 const CorreosSuprimidosPage = lazy(() => import('@/modules/configuracion/pages/CorreosSuprimidosPage').then(m => ({ default: m.CorreosSuprimidosPage })));
 const UsuariosPage = lazy(() => import('@/modules/configuracion/pages/UsuariosPage').then(m => ({ default: m.UsuariosPage })));
 const GeneracionCjPage = lazy(() => import('@/modules/configuracion/pages/GeneracionCjPage').then(m => ({ default: m.GeneracionCjPage })));
+const EncuestasCmPage = lazy(() => import('@/modules/configuracion/pages/EncuestasCmPage').then(m => ({ default: m.EncuestasCmPage })));
 const RecuperoListPage = lazy(() => import('@/modules/recupero').then(m => ({ default: m.RecuperoListPage })));
 const MorososPage = lazy(() => import('@/modules/recupero').then(m => ({ default: m.MorososPage })));
 const RecuperoConfigPage = lazy(() => import('@/modules/recupero').then(m => ({ default: m.RecuperoConfigPage })));
@@ -474,6 +475,7 @@ export function App() {
             <Route path="errores" element={<ErroresRuntimePage />} />
             <Route path="salud-sistema" element={<SaludSistemaPage />} />
             <Route path="cierre-automatico" element={<AgenteCierrePage />} />
+            <Route path="encuestas-cm" element={<EncuestasCmPage />} />
             {/* Auditoría 2026-09 (A7) · redirect de compat: el push/banner de salud
                 y la fn DB health_flow_record_run apuntaban a /configuracion/salud
                 (ruta inexistente → 404 en plena alerta). El redirect lo tolera. */}

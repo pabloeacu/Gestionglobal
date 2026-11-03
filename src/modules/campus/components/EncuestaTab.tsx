@@ -18,6 +18,8 @@ import {
   EyeOff,
   CheckCircle2,
   X,
+  FileText,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { toast } from '@/lib/toast';
 import {
@@ -47,6 +49,11 @@ import {
   type PreguntaTipo,
   type RespuestaJoinProfile,
 } from '@/services/api/encuestas';
+import {
+  exportarEncuestaManual,
+  descargarB64,
+  rangoAIso,
+} from '@/services/api/encuestasCm';
 import { cn } from '@/lib/cn';
 import { formatTimestampDate } from '@/lib/dates';
 import { humanizeError } from '@/lib/errors';
@@ -633,6 +640,28 @@ function EncuestaRespuestas({ encuesta }: { encuesta: CursoEncuestaRow }) {
   const [rows, setRows] = useState<RespuestaJoinProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const confirm = useConfirm();
+  // Export manual (DGG-240): rango opcional + PDF/Excel generados por la edge.
+  const [rDesde, setRDesde] = useState('');
+  const [rHasta, setRHasta] = useState('');
+  const [busyExport, setBusyExport] = useState<'pdf' | 'xlsx' | null>(null);
+
+  async function exportar(formato: 'pdf' | 'xlsx') {
+    setBusyExport(formato);
+    const { desde, hasta } = rangoAIso(rDesde, rHasta);
+    const res = await exportarEncuestaManual({ encuestaId: encuesta.id, desde, hasta, formato });
+    setBusyExport(null);
+    if (!res.ok) {
+      toast.error('No pudimos generar el export', { description: humanizeError(res.error) });
+      return;
+    }
+    try {
+      if (formato === 'pdf' && res.data.pdf_b64) descargarB64(res.data.pdf_b64, res.data.pdf_filename ?? 'encuesta.pdf', 'pdf');
+      if (formato === 'xlsx' && res.data.xlsx_b64) descargarB64(res.data.xlsx_b64, res.data.xlsx_filename ?? 'encuesta.xlsx', 'xlsx');
+      toast.success(formato === 'pdf' ? 'PDF generado.' : 'Excel generado.');
+    } catch (e) {
+      toast.error('No pudimos descargar el archivo', { description: (e as Error)?.message });
+    }
+  }
 
   async function load() {
     setLoading(true);
@@ -716,6 +745,36 @@ function EncuestaRespuestas({ encuesta }: { encuesta: CursoEncuestaRow }) {
 
   return (
     <div className="space-y-4">
+      {/* Exportar (DGG-240) */}
+      <section className="card-premium p-4">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div className="min-w-0">
+            <p className="kicker mb-1">Exportar</p>
+            <p className="text-sm text-brand-muted">
+              PDF con gráficos, estrellas y testimonios · Excel con una fila por
+              respuesta (y el enlace a la foto cuando el alumno la subió).
+            </p>
+          </div>
+          <div className="flex flex-wrap items-end gap-2">
+            <Field label="Desde" className="w-36">
+              <Input type="date" value={rDesde} max={rHasta || undefined} onChange={(e) => setRDesde(e.target.value)} />
+            </Field>
+            <Field label="Hasta" className="w-36">
+              <Input type="date" value={rHasta} min={rDesde || undefined} onChange={(e) => setRHasta(e.target.value)} />
+            </Field>
+            <Button variant="secondary" onClick={() => void exportar('pdf')} loading={busyExport === 'pdf'} disabled={busyExport !== null}>
+              <FileText size={14} /> PDF
+            </Button>
+            <Button variant="secondary" onClick={() => void exportar('xlsx')} loading={busyExport === 'xlsx'} disabled={busyExport !== null}>
+              <FileSpreadsheet size={14} /> Excel
+            </Button>
+          </div>
+        </div>
+        {!rDesde && !rHasta && (
+          <p className="mt-2 text-[11px] text-brand-muted">Sin fechas = todas las respuestas del curso.</p>
+        )}
+      </section>
+
       {/* KPIs por pregunta */}
       <section className="card-premium p-5">
         <p className="kicker mb-2">Resumen por pregunta</p>
