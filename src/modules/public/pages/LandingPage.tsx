@@ -86,7 +86,7 @@ const SERVICIOS: ServicioGrupo[] = [
         icon: BookOpen,
         titulo: 'Actualización RPAC (Pcia. de Bs. As.)',
         descripcion:
-          'Para renovación: clases asincrónicas con tutorías sincrónicas, pensadas para la práctica real.',
+          'Para renovar tu matrícula: 4 asignaturas asincrónicas a tu ritmo + 2 sincrónicas en vivo, con material y manuales exclusivos.',
         cta: { href: '/formulario/curso-actualizacion', label: 'Inscribirme' },
       },
       {
@@ -775,7 +775,7 @@ function Cursos() {
               <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-brand-cyan" />
               <span>
                 <strong className="font-semibold">Actualización RPAC (Pcia. de Bs. As.)</strong> ·
-                asincrónico con tutorías sincrónicas.
+                4 asignaturas asincrónicas + 2 sincrónicas en vivo, con material exclusivo.
               </span>
             </li>
             <li className="flex items-start gap-3">
