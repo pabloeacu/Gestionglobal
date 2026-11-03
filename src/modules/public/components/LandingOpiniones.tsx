@@ -4,7 +4,7 @@
 // no está activa / no hay cards. SEO: schema.org AggregateRating + Review.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronLeft, ChevronRight, Star } from 'lucide-react';
+import { ChevronLeft, ChevronRight, GraduationCap, Star, Users } from 'lucide-react';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import {
   getLandingOpinionesPublicas,
@@ -24,6 +24,46 @@ function Estrellas({ n }: { n: number }) {
 
 function iniciales(nombre: string): string {
   return nombre.split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase() ?? '').join('');
+}
+
+// Estrellas con relleno parcial (4.8/5 → 96% de ancho dorado sobre 5 grises).
+function EstrellasRelleno({ valor }: { valor: number }) {
+  const pct = Math.max(0, Math.min(100, (valor / 5) * 100));
+  return (
+    <div className="relative inline-flex" aria-hidden>
+      <div className="flex gap-0.5 text-slate-200">
+        {[0, 1, 2, 3, 4].map((i) => <Star key={i} size={18} className="fill-current" />)}
+      </div>
+      <div className="absolute inset-0 flex gap-0.5 overflow-hidden text-amber-400" style={{ width: `${pct}%` }}>
+        {[0, 1, 2, 3, 4].map((i) => <Star key={i} size={18} className="shrink-0 fill-current" />)}
+      </div>
+    </div>
+  );
+}
+
+// Barra horizontal minimalista (p. ej. satisfacción 9.1/10).
+function BarraValor({ valor, max }: { valor: number; max: number }) {
+  const pct = Math.max(0, Math.min(100, (valor / max) * 100));
+  return (
+    <div className="h-2 w-28 overflow-hidden rounded-full bg-slate-200/80" aria-hidden>
+      <div className="h-full rounded-full bg-gradient-to-r from-brand-cyan to-brand-petrol" style={{ width: `${pct}%` }} />
+    </div>
+  );
+}
+
+// Viz de cada card estadística según el `kind` de la métrica.
+function MetricaViz({ kind, valor }: { kind: string; valor: string }) {
+  const num = parseFloat(valor.replace(',', '.'));
+  if (kind === 'estrellas_global' && Number.isFinite(num)) return <EstrellasRelleno valor={num} />;
+  if (kind === 'escala_global' && Number.isFinite(num)) return <BarraValor valor={num} max={10} />;
+  if (kind === 'opiniones' || kind === 'publicables') {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-cyan/10 px-3 py-1 text-xs font-semibold text-brand-petrol">
+        <Users size={13} /> alumnos reales
+      </span>
+    );
+  }
+  return null;
 }
 
 export function LandingOpiniones() {
@@ -100,11 +140,20 @@ export function LandingOpiniones() {
   if (!data || !data.activa || cards.length === 0) return null;
 
   return (
-    <section id="opiniones" className="relative overflow-hidden border-y border-slate-100 bg-brand-zebra/40 py-24">
-      <TrianglesAccent className="pointer-events-none absolute -right-10 top-8 h-40 w-40 text-brand-cyan/10" />
+    <section
+      id="opiniones"
+      className="relative overflow-hidden border-y border-brand-cyan/15 bg-brand-pale/50 py-28 sm:py-32"
+    >
+      {/* Capacitaciones = franja de color propio, separada de los servicios. */}
+      <span aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-brand-cyan via-brand-petrol to-brand-cyan" />
+      <TrianglesAccent className="pointer-events-none absolute -right-12 top-10 h-48 w-48 text-brand-cyan/10" />
+      <TrianglesAccent className="pointer-events-none absolute -left-12 bottom-8 h-40 w-40 rotate-180 text-brand-petrol/10" />
       <div className="relative mx-auto max-w-6xl px-6">
         <header className="mx-auto max-w-2xl text-center">
-          <p className="kicker text-brand-cyan">La voz de los alumnos</p>
+          <span className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-brand-petrol shadow-sm ring-1 ring-brand-cyan/20">
+            <GraduationCap size={15} /> Capacitaciones
+          </span>
+          <p className="kicker mt-4 text-brand-cyan">La voz de los alumnos</p>
           <h2 className="mt-2 font-display text-4xl font-extrabold leading-tight tracking-tight sm:text-5xl">
             {data.titulo}
           </h2>
@@ -114,12 +163,19 @@ export function LandingOpiniones() {
         {data.metricas.length > 0 && (
           <div className="mt-12 grid grid-cols-1 gap-4 sm:grid-cols-3">
             {data.metricas.map((m, i) => (
-              <div key={`${m.label}-${i}`} className="rounded-2xl border border-slate-200 bg-white px-6 py-7 text-center">
+              <div
+                key={`${m.label}-${i}`}
+                className="flex flex-col items-center rounded-2xl border border-brand-cyan/15 bg-white px-6 py-7 text-center shadow-sm ring-1 ring-black/[0.02]"
+              >
                 <p className="font-display text-4xl font-extrabold tabular-nums text-brand-cyan sm:text-5xl">
                   {m.valor}
                   {m.sufijo && <span className="ml-1 text-xl font-semibold text-brand-muted sm:text-2xl">{m.sufijo}</span>}
                 </p>
-                <p className="mt-2 text-sm font-medium uppercase tracking-wide text-brand-muted">{m.label}</p>
+                <div className="mt-3 flex min-h-[26px] items-center justify-center">
+                  <MetricaViz kind={m.kind} valor={m.valor} />
+                </div>
+                <p className="mt-3 text-sm font-medium uppercase tracking-wide text-brand-muted">{m.label}</p>
+                {m.hint && <p className="mt-0.5 text-[11px] font-normal normal-case tracking-normal text-brand-muted/80">{m.hint}</p>}
               </div>
             ))}
           </div>
@@ -157,10 +213,10 @@ export function LandingOpiniones() {
                 key={`${c.nombre}-${i}`}
                 className="flex w-[300px] shrink-0 snap-start flex-col rounded-2xl border border-slate-200 bg-white p-7 sm:w-[340px]"
               >
-                <svg aria-hidden viewBox="0 0 24 24" fill="currentColor" className="h-6 w-6 text-brand-cyan">
-                  <path d="M9 7H5a2 2 0 0 0-2 2v4a2 2 0 0 0 2 2h2v2a2 2 0 0 1-2 2H4v2h1a4 4 0 0 0 4-4V7Zm10 0h-4a2 2 0 0 0-2 2v4a2 2 0 0 0 2 2h2v2a2 2 0 0 1-2 2h-1v2h1a4 4 0 0 0 4-4V7Z" />
-                </svg>
-                {c.estrellas != null && <div className="mt-3"><Estrellas n={c.estrellas} /></div>}
+                <span aria-hidden className="select-none font-display text-6xl font-bold leading-[0.5] text-brand-cyan/25">
+                  &ldquo;
+                </span>
+                {c.estrellas != null && <div className="mt-4"><Estrellas n={c.estrellas} /></div>}
                 <blockquote className="mt-3 flex-1 text-[15px] leading-relaxed text-brand-ink/85">
                   {c.comentario}
                 </blockquote>

@@ -7,7 +7,7 @@ import { ok, fail, type ApiResponse } from '@/lib/errors';
 import type { Database } from '@/types/database';
 
 // ---- públicos (landing) ----
-export interface LandingMetrica { label: string; valor: string; sufijo: string }
+export interface LandingMetrica { label: string; valor: string; sufijo: string; kind: string; hint: string }
 export interface LandingCardPublica {
   nombre: string; comentario: string; foto_url: string | null;
   curso: string | null; estrellas: number | null;
@@ -26,7 +26,7 @@ export async function getLandingOpinionesPublicas(): Promise<ApiResponse<Landing
 }
 
 // ---- admin (gerencia) ----
-export interface LandingMetricaConfig { id: string; label: string; kind: string; sufijo?: string; valor?: string }
+export interface LandingMetricaConfig { id: string; label: string; kind: string; sufijo?: string; valor?: string; hint?: string }
 export interface LandingCardAdmin {
   id: string; respuesta_id: string | null; nombre: string; comentario: string;
   foto_url: string | null; curso: string | null; estrellas: number | null;

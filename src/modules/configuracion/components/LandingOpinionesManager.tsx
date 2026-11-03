@@ -166,6 +166,9 @@ export function LandingOpinionesManager() {
                 <Field label="Sufijo" className="w-20">
                   <Input value={m.sufijo ?? ''} placeholder="/5" onChange={(e) => setMetricas((xs) => xs.map((x, j) => j === i ? { ...x, sufijo: e.target.value } : x))} />
                 </Field>
+                <Field label="Aclaración" className="min-w-[150px] flex-1">
+                  <Input value={m.hint ?? ''} placeholder="del último cuatrimestre" onChange={(e) => setMetricas((xs) => xs.map((x, j) => j === i ? { ...x, hint: e.target.value } : x))} />
+                </Field>
                 <Button variant="ghost" onClick={() => setMetricas((xs) => xs.filter((_, j) => j !== i))}><Trash2 size={14} /></Button>
               </div>
             ))}
