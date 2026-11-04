@@ -7,6 +7,7 @@
 // el mouse (desktop). Mobile: solo ícono. El número se lee de config_global.
 
 import { useEffect, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { getPublicWhatsapp } from '@/services/api/configGlobal';
 import { trackMetaEvent } from '@/lib/metaPixel';
 
@@ -32,8 +33,8 @@ interface Props {
 
 export function WhatsAppFloatingButton({ mensaje, numero, seccion }: Props) {
   const [resolvedNumero, setResolvedNumero] = useState<string>(numero ?? DEFAULT_NUMERO);
-  const seccionActual =
-    seccion ?? seccionDesdePath(typeof window !== 'undefined' ? window.location.pathname : '/');
+  const location = useLocation();
+  const seccionActual = seccion ?? seccionDesdePath(location.pathname);
   const mensajeDefault = `Hola! Vengo de la web (${seccionActual}) y tengo una consulta sobre los trámites de Gestión Global.`;
 
   useEffect(() => {

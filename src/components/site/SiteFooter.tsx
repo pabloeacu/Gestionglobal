@@ -1,4 +1,4 @@
-import { useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { BrandMark } from '@/components/brand/BrandMark';
 import { Mail, Phone } from 'lucide-react';
 import { Instagram, Facebook } from '@/components/brand/socialIcons';
@@ -79,7 +79,7 @@ export function SiteFooter() {
         <div className="mx-auto flex max-w-7xl flex-col items-start justify-between gap-2 px-6 py-6 text-xs text-brand-muted md:flex-row md:items-center">
           <p>© {new Date().getFullYear()} Gestión Global · #AliadosDeTuTiempo</p>
           <div className="flex items-center gap-4">
-            <a href="/privacidad" className="hover:text-brand-cyan">Política de privacidad</a>
+            <Link to="/privacidad" className="hover:text-brand-cyan">Política de privacidad</Link>
             <span>gestionglobal.ar</span>
           </div>
         </div>

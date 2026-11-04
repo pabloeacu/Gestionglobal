@@ -2,12 +2,13 @@
 // El sitio no tenía banner: éste CONDICIONA la carga del píxel de Meta al
 // consentimiento. Aparece sólo cuando puede haber píxel: visitante ANÓNIMO,
 // en ruta pública de marketing, con píxel configurado y sin decisión previa.
-// Accesible (role dialog, foco, teclado), liviano, al estilo del sitio.
+// Landmark `region` con aria-label (no modal: no atrapa el foco), liviano,
+// al estilo del sitio.
 
 import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { getConsent, setConsent } from '@/lib/metaConsent';
+import { getConsent, setConsent, onConsentChange } from '@/lib/metaConsent';
 import { metaPixelConfigured } from '@/lib/metaPixel';
 import { isTrackablePath } from '@/lib/publicRoutes';
 
@@ -16,7 +17,10 @@ export function CookieConsent() {
   const { session } = useAuth();
   const [decided, setDecided] = useState<boolean>(() => getConsent() !== null);
 
-  // Si cambia en otra pestaña/por la página de privacidad, re-evaluar al navegar.
+  // Reaccionar al instante si el consentimiento cambia desde /privacidad (o en
+  // otra parte de la app), sin esperar a la próxima navegación.
+  useEffect(() => onConsentChange((v) => setDecided(v !== null)), []);
+  // Red de seguridad: re-evaluar también al navegar (cubre storage externo).
   useEffect(() => {
     setDecided(getConsent() !== null);
   }, [location.pathname]);
@@ -34,7 +38,7 @@ export function CookieConsent() {
 
   return (
     <div
-      role="dialog"
+      role="region"
       aria-live="polite"
       aria-label="Aviso de cookies y medición"
       className="fixed inset-x-0 bottom-0 z-[60] px-4 pb-4"

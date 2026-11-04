@@ -77,6 +77,12 @@ export function initMetaPixel(): void {
   loadScript();
   const fbq = getFbq();
   if (!fbq) return;
+  // autoConfig=false: desactiva los EVENTOS AUTOMÁTICOS y el advanced matching
+  // automático del píxel → sólo se envía lo que trackeamos explícitamente. Así,
+  // aunque el script siga cargado tras un login SPA (se consintió en una página
+  // pública y luego el usuario entró al portal), NO recolecta nada en rutas
+  // privadas por su cuenta. (Reforzar también desde el panel de Meta.)
+  fbq('set', 'autoConfig', 'false', PIXEL_ID);
   fbq('init', PIXEL_ID);
   inited = true;
 }

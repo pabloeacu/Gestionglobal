@@ -629,12 +629,17 @@ export function FormularioRunner({
     }
 
     // DGG-242 · Atribución de marketing: en canal público se adjuntan los
-    // utm_* / origen first-touch como campos ocultos. El edge submit-formulario
-    // pasa intactas las claves fuera del schema → se persisten con la submission.
+    // utm_* / origen first-touch como META-CAMPOS con prefijo `_`. El prefijo es
+    // clave: (1) NO colisionan con campos del schema —ej. el `origen` radio
+    // REQUERIDO del form de webinarios, que un `?origen=…` pisaría—, y (2) quedan
+    // excluidos del render de respuestas en gerencia (misma convención que
+    // `_origen` / `_origen_canal`). El edge submit-formulario los persiste intactos.
     const datosFinal: Record<string, unknown> = extraDatos
       ? { ...visibleData, ...extraDatos }
       : { ...visibleData };
-    if (origenCanal !== 'cliente') Object.assign(datosFinal, getUtmFirstTouch());
+    if (origenCanal !== 'cliente') {
+      for (const [k, v] of Object.entries(getUtmFirstTouch())) datosFinal[`_${k}`] = v;
+    }
 
     const res = await submitFormulario({
       slug: formulario.slug,
