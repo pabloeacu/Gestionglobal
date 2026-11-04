@@ -2,6 +2,7 @@ import { useLocation } from 'react-router-dom';
 import { BrandMark } from '@/components/brand/BrandMark';
 import { Mail, Phone } from 'lucide-react';
 import { Instagram, Facebook } from '@/components/brand/socialIcons';
+import { trackMetaEvent } from '@/lib/metaPixel';
 
 export function SiteFooter() {
   // Anchors a secciones (#servicios, #plataforma, etc.) sólo funcionan en
@@ -45,7 +46,13 @@ export function SiteFooter() {
             </li>
             <li className="flex items-center gap-2">
               <Phone size={14} className="text-brand-cyan" />
-              <a href="https://wa.me/5492214317914" className="hover:text-brand-cyan">
+              <a
+                href="https://wa.me/5492214317914?text=Hola!%20Vengo%20de%20la%20web%20(footer)%20y%20tengo%20una%20consulta."
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => trackMetaEvent('Contact', { content_name: 'footer' })}
+                className="hover:text-brand-cyan"
+              >
                 +54 9 221 431-7914
               </a>
             </li>
@@ -71,7 +78,10 @@ export function SiteFooter() {
       <div className="border-t border-slate-100">
         <div className="mx-auto flex max-w-7xl flex-col items-start justify-between gap-2 px-6 py-6 text-xs text-brand-muted md:flex-row md:items-center">
           <p>© {new Date().getFullYear()} Gestión Global · #AliadosDeTuTiempo</p>
-          <p>gestionglobal.ar</p>
+          <div className="flex items-center gap-4">
+            <a href="/privacidad" className="hover:text-brand-cyan">Política de privacidad</a>
+            <span>gestionglobal.ar</span>
+          </div>
         </div>
       </div>
     </footer>

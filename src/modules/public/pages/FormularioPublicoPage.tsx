@@ -6,6 +6,7 @@ import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import { SiteNav } from '@/components/site/SiteNav';
 import { SiteFooter } from '@/components/site/SiteFooter';
 import { FormularioRunner } from '@/modules/public/components/FormularioRunner';
+import { trackMetaEvent } from '@/lib/metaPixel';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   getFormularioPorSlug,
@@ -83,6 +84,12 @@ export function FormularioPublicoPage() {
   // mitad del llenado, pisando lo tipeado.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, desdePortal]);
+
+  // DGG-242 · ViewContent del píxel de Meta al ver un formulario/servicio
+  // (content_name = slug). Inerte si no hay píxel / sin consentimiento / autenticado.
+  useEffect(() => {
+    if (formulario?.slug) trackMetaEvent('ViewContent', { content_name: formulario.slug });
+  }, [formulario?.slug]);
 
   // Entidad aliada del curso (logo + subtítulo de alianza), resuelta por slug.
   const entidad = formulario ? FORM_ENTIDAD[formulario.slug] : undefined;

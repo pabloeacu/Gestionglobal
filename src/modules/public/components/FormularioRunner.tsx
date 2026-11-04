@@ -32,6 +32,8 @@ import { useConfirm } from '@/components/common/DialogProvider';
 import { cn } from '@/lib/cn';
 import { humanizeError } from '@/lib/errors';
 import { formatCuit, validarCuit, esCampoCuit } from '@/lib/cuit';
+import { trackMetaEvent } from '@/lib/metaPixel';
+import { getUtmFirstTouch } from '@/lib/utmTracking';
 
 // E-GG-170 (caso Rodríguez): espejo de los límites del bucket `form-adjuntos`.
 // Mantener EN SYNC con el bucket (storage.buckets) y con el edge
@@ -187,6 +189,12 @@ interface FormularioRunnerProps {
    * ocultos y lo borraría en silencio.
    */
   extraDatos?: Record<string, unknown>;
+  /**
+   * DGG-242 · Tipo de conversión a reportar al píxel de Meta en el envío
+   * exitoso por canal público: 'lead' (default, formularios de servicio) o
+   * 'registration' (inscripción a eventos/webinars → CompleteRegistration).
+   */
+  metaConversion?: 'lead' | 'registration';
 }
 
 interface FieldState {
@@ -226,6 +234,7 @@ export function FormularioRunner({
   prefillValues,
   origenCanal = 'publico',
   extraDatos,
+  metaConversion = 'lead',
 }: FormularioRunnerProps) {
   // E-GG-48 (2026-06-04 · Pablo): cuando el cliente envía un formulario
   // desde el portal, después del submit ve la pantalla pública sin link de
@@ -619,9 +628,17 @@ export function FormularioRunner({
       return;
     }
 
+    // DGG-242 · Atribución de marketing: en canal público se adjuntan los
+    // utm_* / origen first-touch como campos ocultos. El edge submit-formulario
+    // pasa intactas las claves fuera del schema → se persisten con la submission.
+    const datosFinal: Record<string, unknown> = extraDatos
+      ? { ...visibleData, ...extraDatos }
+      : { ...visibleData };
+    if (origenCanal !== 'cliente') Object.assign(datosFinal, getUtmFirstTouch());
+
     const res = await submitFormulario({
       slug: formulario.slug,
-      datos: extraDatos ? { ...visibleData, ...extraDatos } : visibleData,
+      datos: datosFinal,
       files: flatFiles,
       origen_canal: origenCanal,
       voucher_codigo: voucherValidado?.valido ? voucherValidado.codigo : undefined,
@@ -650,6 +667,15 @@ export function FormularioRunner({
     // §6 A#6: un solo toast — si la ficha falló, el error de arriba ya confirma
     // que el trámite entró (evitamos el success contradictorio simultáneo).
     if (!vencFichaFallo) toast.success('Formulario enviado');
+    // DGG-242 · Conversión del píxel de Meta: sólo en canal público (no portal).
+    // Lead (formularios de servicio) o CompleteRegistration (eventos/webinars).
+    // Inerte sin consentimiento / sin píxel. (La CAPI del servidor con el mismo
+    // event_id para deduplicar se suma en PR 3 — feat/meta-capi.)
+    if (origenCanal !== 'cliente') {
+      trackMetaEvent(metaConversion === 'registration' ? 'CompleteRegistration' : 'Lead', {
+        content_name: formulario.slug,
+      });
+    }
     setDone({ mensaje: res.data.mensaje, redirect: res.data.redirect_url });
     if (res.data.redirect_url) {
       window.setTimeout(() => { window.location.href = res.data.redirect_url!; }, 2500);

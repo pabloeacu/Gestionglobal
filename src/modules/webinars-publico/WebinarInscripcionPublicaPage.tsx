@@ -186,6 +186,7 @@ function WebinarFormInscripcion({
         origenCanal="publico"
         prefillValues={prefillValues}
         extraDatos={modalidad === 'mixto' ? { modalidad_preferida: pref } : undefined}
+        metaConversion="registration"
       />
     </div>
   );
