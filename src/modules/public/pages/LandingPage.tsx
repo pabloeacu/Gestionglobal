@@ -15,7 +15,7 @@ import {
 import { SiteNav } from '@/components/site/SiteNav';
 import { SiteFooter } from '@/components/site/SiteFooter';
 import { PromoActualizacionPopup } from '../components/PromoActualizacionPopup';
-import { LandingOpiniones } from '../components/LandingOpiniones';
+import { OpinionesServicios, OpinionesAlumnos } from '../components/LandingOpiniones';
 import { BrandMark } from '@/components/brand/BrandMark';
 import { HighlightMark } from '@/components/brand/HighlightMark';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
@@ -181,9 +181,13 @@ export function LandingPage() {
       <Nosotros />
       <Servicios />
       <ComoTrabajamos />
+      {/* Opiniones de SERVICIOS: franja clara entre dos secciones oscuras
+          (Cómo trabajamos / Plataforma) — da contraste y las separa. */}
+      <OpinionesServicios />
       <Plataforma />
       <Cursos />
-      <LandingOpiniones />
+      {/* La voz de los ALUMNOS (+ métricas de encuestas), debajo de Cursos. */}
+      <OpinionesAlumnos />
       <Partners />
       <FinalCTA />
 
@@ -526,6 +530,9 @@ function Plataforma() {
       id="plataforma"
       className="relative overflow-hidden bg-brand-ink py-24 text-white sm:py-28"
     >
+      {/* Franja superior: marca claramente el inicio de la sección aunque la
+          franja de opiniones de servicios (arriba) no tenga cards. */}
+      <span aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-brand-cyan via-brand-teal to-brand-cyan" />
       <TrianglesAccent
         position="top-right"
         size={320}

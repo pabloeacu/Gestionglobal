@@ -8,12 +8,13 @@ import type { Database } from '@/types/database';
 
 // ---- públicos (landing) ----
 export interface LandingMetrica { label: string; valor: string; sufijo: string; kind: string; hint: string }
+export type LandingCategoria = 'servicio' | 'alumno';
 export interface LandingCardPublica {
   nombre: string; comentario: string; foto_url: string | null;
-  curso: string | null; estrellas: number | null;
+  curso: string | null; estrellas: number | null; categoria: LandingCategoria;
 }
 export interface LandingOpinionesPublicas {
-  activa: boolean; titulo: string;
+  activa: boolean; titulo: string; titulo_servicios: string;
   metricas: LandingMetrica[]; cards: LandingCardPublica[];
   agg: { rating: number | null; count: number };
 }
@@ -30,14 +31,14 @@ export interface LandingMetricaConfig { id: string; label: string; kind: string;
 export interface LandingCardAdmin {
   id: string; respuesta_id: string | null; nombre: string; comentario: string;
   foto_url: string | null; curso: string | null; estrellas: number | null;
-  orden: number; activo: boolean; origen: string;
+  orden: number; activo: boolean; origen: string; categoria: LandingCategoria;
 }
 export interface LandingPoolItem {
   respuesta_id: string; nombre: string; comentario: string;
   foto_url: string | null; curso: string | null; fecha: string;
 }
 export interface LandingOpinionesAdmin {
-  titulo: string; activa: boolean;
+  titulo: string; titulo_servicios: string; activa: boolean;
   metricas: LandingMetricaConfig[]; cards: LandingCardAdmin[]; pool: LandingPoolItem[];
 }
 
@@ -57,10 +58,12 @@ export async function agregarTestimonio(respuestaId: string): Promise<ApiRespons
 
 export async function agregarTestimonioManual(p: {
   nombre: string; comentario: string; curso?: string | null; foto_url?: string | null;
+  categoria?: LandingCategoria;
 }): Promise<ApiResponse<true>> {
   const { error } = await supabase.rpc('landing_testimonio_manual', {
     p_nombre: p.nombre, p_comentario: p.comentario,
     p_curso: p.curso ?? undefined, p_foto_url: p.foto_url ?? undefined,
+    p_categoria: p.categoria ?? 'alumno',
   });
   if (error) return fail('LAND_OP_MANUAL', error.message, error);
   return ok(true);
@@ -75,7 +78,7 @@ export async function reordenarTestimonios(ids: string[]): Promise<ApiResponse<t
 /** Edita una card (nombre/comentario/curso/foto/activo). Single-table → RLS staff. */
 export async function updateTestimonio(
   id: string,
-  patch: { nombre?: string; comentario?: string; curso_titulo?: string | null; foto_url?: string | null; activo?: boolean },
+  patch: { nombre?: string; comentario?: string; curso_titulo?: string | null; foto_url?: string | null; activo?: boolean; categoria?: LandingCategoria },
 ): Promise<ApiResponse<true>> {
   const upd: Database['public']['Tables']['landing_testimonios']['Update'] = {};
   if (patch.nombre !== undefined) upd.nombre = patch.nombre;
@@ -83,6 +86,7 @@ export async function updateTestimonio(
   if (patch.curso_titulo !== undefined) upd.curso_titulo = patch.curso_titulo;
   if (patch.foto_url !== undefined) upd.foto_url = patch.foto_url;
   if (patch.activo !== undefined) upd.activo = patch.activo;
+  if (patch.categoria !== undefined) upd.categoria = patch.categoria;
   const { data, error } = await supabase.from('landing_testimonios').update(upd).eq('id', id).select('id');
   if (error) return fail('LAND_OP_UPD', error.message, error);
   if (!data || data.length === 0) return fail('LAND_OP_UPD', 'No se aplicó el cambio (sin permisos de gerencia).');
@@ -97,10 +101,11 @@ export async function deleteTestimonio(id: string): Promise<ApiResponse<true>> {
 }
 
 export async function setLandingOpinionesConfig(
-  patch: { titulo?: string; activa?: boolean; metricas?: LandingMetricaConfig[] },
+  patch: { titulo?: string; titulo_servicios?: string; activa?: boolean; metricas?: LandingMetricaConfig[] },
 ): Promise<ApiResponse<true>> {
   const upd: Database['public']['Tables']['config_global']['Update'] = {};
   if (patch.titulo !== undefined) upd.landing_opiniones_titulo = patch.titulo;
+  if (patch.titulo_servicios !== undefined) upd.landing_opiniones_titulo_servicios = patch.titulo_servicios;
   if (patch.activa !== undefined) upd.landing_opiniones_activa = patch.activa;
   if (patch.metricas !== undefined) upd.landing_opiniones_metricas = patch.metricas as unknown as Database['public']['Tables']['config_global']['Update']['landing_opiniones_metricas'];
   const { data, error } = await supabase.from('config_global').update(upd).eq('id', 1).select('id');

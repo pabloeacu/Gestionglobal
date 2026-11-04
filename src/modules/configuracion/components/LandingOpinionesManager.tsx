@@ -16,7 +16,7 @@ import { formatTimestampDate } from '@/lib/dates';
 import {
   agregarTestimonio, agregarTestimonioManual, deleteTestimonio,
   getLandingOpinionesAdmin, reordenarTestimonios, setLandingOpinionesConfig, updateTestimonio,
-  type LandingOpinionesAdmin, type LandingCardAdmin, type LandingMetricaConfig,
+  type LandingOpinionesAdmin, type LandingCardAdmin, type LandingMetricaConfig, type LandingCategoria,
 } from '@/services/api/landingOpiniones';
 
 const KIND_OPTS = [
@@ -25,6 +25,11 @@ const KIND_OPTS = [
   { value: 'opiniones', label: 'Total de opiniones (respuestas)' },
   { value: 'publicables', label: 'Total de publicables' },
   { value: 'manual', label: 'Número manual (lo escribís vos)' },
+];
+
+const CATEGORIA_OPTS: Array<{ value: LandingCategoria; label: string }> = [
+  { value: 'alumno', label: 'Alumno · debajo de "Formate con los mejores"' },
+  { value: 'servicio', label: 'Servicio · debajo de "Cómo trabajamos"' },
 ];
 
 function nuevoId() {
@@ -39,6 +44,7 @@ export function LandingOpinionesManager() {
 
   // drafts de datos generales
   const [titulo, setTitulo] = useState('');
+  const [tituloServicios, setTituloServicios] = useState('');
   const [activa, setActiva] = useState(true);
   const [metricas, setMetricas] = useState<LandingMetricaConfig[]>([]);
 
@@ -48,18 +54,21 @@ export function LandingOpinionesManager() {
   const [eComentario, setEComentario] = useState('');
   const [eCurso, setECurso] = useState('');
   const [eFoto, setEFoto] = useState('');
+  const [eCategoria, setECategoria] = useState<LandingCategoria>('alumno');
 
   // alta manual
   const [mNombre, setMNombre] = useState('');
   const [mComentario, setMComentario] = useState('');
   const [mCurso, setMCurso] = useState('');
   const [mFoto, setMFoto] = useState('');
+  const [mCategoria, setMCategoria] = useState<LandingCategoria>('alumno');
 
   async function load() {
     const r = await getLandingOpinionesAdmin();
     if (r.ok) {
       setData(r.data);
       setTitulo(r.data.titulo);
+      setTituloServicios(r.data.titulo_servicios);
       setActiva(r.data.activa);
       setMetricas(r.data.metricas ?? []);
     } else toast.error('No pudimos cargar la sección', { description: humanizeError(r.error) });
@@ -69,7 +78,7 @@ export function LandingOpinionesManager() {
 
   async function guardarGenerales() {
     setBusy(true);
-    const res = await setLandingOpinionesConfig({ titulo: titulo.trim(), activa, metricas });
+    const res = await setLandingOpinionesConfig({ titulo: titulo.trim(), titulo_servicios: tituloServicios.trim(), activa, metricas });
     setBusy(false);
     if (res.ok) { toast.success('Datos generales guardados'); void load(); }
     else toast.error('No pudimos guardar', { description: humanizeError(res.error) });
@@ -95,11 +104,11 @@ export function LandingOpinionesManager() {
   }
 
   function abrirEdit(c: LandingCardAdmin) {
-    setEditId(c.id); setENombre(c.nombre); setEComentario(c.comentario); setECurso(c.curso ?? ''); setEFoto(c.foto_url ?? '');
+    setEditId(c.id); setENombre(c.nombre); setEComentario(c.comentario); setECurso(c.curso ?? ''); setEFoto(c.foto_url ?? ''); setECategoria(c.categoria);
   }
   async function guardarEdit() {
     if (!editId) return;
-    const ok = await accion(() => updateTestimonio(editId, { nombre: eNombre.trim(), comentario: eComentario.trim(), curso_titulo: eCurso.trim() || null, foto_url: eFoto.trim() || null }), 'Card actualizada');
+    const ok = await accion(() => updateTestimonio(editId, { nombre: eNombre.trim(), comentario: eComentario.trim(), curso_titulo: eCurso.trim() || null, foto_url: eFoto.trim() || null, categoria: eCategoria }), 'Card actualizada');
     if (ok) setEditId(null);
   }
 
@@ -111,8 +120,8 @@ export function LandingOpinionesManager() {
 
   async function altaManual() {
     if (!mNombre.trim() || !mComentario.trim()) { toast.error('Nombre y comentario son obligatorios'); return; }
-    const ok = await accion(() => agregarTestimonioManual({ nombre: mNombre.trim(), comentario: mComentario.trim(), curso: mCurso.trim() || null, foto_url: mFoto.trim() || null }), 'Opinión agregada');
-    if (ok) { setMNombre(''); setMComentario(''); setMCurso(''); setMFoto(''); }
+    const ok = await accion(() => agregarTestimonioManual({ nombre: mNombre.trim(), comentario: mComentario.trim(), curso: mCurso.trim() || null, foto_url: mFoto.trim() || null, categoria: mCategoria }), 'Opinión agregada');
+    if (ok) { setMNombre(''); setMComentario(''); setMCurso(''); setMFoto(''); setMCategoria('alumno'); }
   }
 
   if (loading) return <div className="grid place-items-center py-16"><Loader2 className="animate-spin text-brand-muted" /></div>;
@@ -125,7 +134,7 @@ export function LandingOpinionesManager() {
           <p className="kicker">Landing · opiniones</p>
           <h2 className="font-display text-xl font-bold text-brand-ink sm:text-2xl">Sección "La voz de los alumnos"</h2>
           <p className="mt-1 max-w-2xl text-sm text-brand-muted">
-            Lo que se ve en la home, debajo de Cursos. Las métricas son reales (en vivo desde las encuestas); las opiniones las curás vos de las respuestas publicables.
+            Lo que se ve en la home. Cada opinión se muestra en una de dos franjas según su categoría: <strong>Alumnos</strong> (debajo de "Formate con los mejores", con las métricas reales de las encuestas) o <strong>Servicios</strong> (debajo de "Cómo trabajamos"). Las opiniones las curás vos de las respuestas publicables o cargás manuales.
           </p>
         </div>
         <a href="https://www.gestionglobal.ar/#opiniones" target="_blank" rel="noreferrer"
@@ -140,9 +149,12 @@ export function LandingOpinionesManager() {
           <p className="text-sm font-semibold text-brand-ink">Datos generales</p>
           <Switch checked={activa} onChange={setActiva} label="Sección visible en la web" size="sm" />
         </div>
-        <div className="mt-3">
-          <Field label="Título de la sección">
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <Field label='Título · franja de alumnos (debajo de "Formate con los mejores")'>
             <Input value={titulo} onChange={(e) => setTitulo(e.target.value)} />
+          </Field>
+          <Field label='Título · franja de servicios (debajo de "Cómo trabajamos")'>
+            <Input value={tituloServicios} onChange={(e) => setTituloServicios(e.target.value)} />
           </Field>
         </div>
         <div className="mt-3">
@@ -204,7 +216,14 @@ export function LandingOpinionesManager() {
                   <div className="space-y-2">
                     <Field label="Nombre"><Input value={eNombre} onChange={(e) => setENombre(e.target.value)} /></Field>
                     <Field label="Comentario"><Textarea value={eComentario} onChange={(e) => setEComentario(e.target.value)} rows={3} /></Field>
-                    <Field label="Curso / rol"><Input value={eCurso} onChange={(e) => setECurso(e.target.value)} /></Field>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <Field label="Curso / rol"><Input value={eCurso} onChange={(e) => setECurso(e.target.value)} /></Field>
+                      <Field label="Dónde se muestra">
+                        <Select value={eCategoria} onChange={(e) => setECategoria(e.target.value as LandingCategoria)}>
+                          {CATEGORIA_OPTS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                        </Select>
+                      </Field>
+                    </div>
                     <Field label="Foto (URL, opcional)"><Input value={eFoto} onChange={(e) => setEFoto(e.target.value)} placeholder="https://…" /></Field>
                     <div className="flex justify-end gap-2">
                       <Button variant="ghost" onClick={() => setEditId(null)}><X size={14} /> Cancelar</Button>
@@ -223,6 +242,7 @@ export function LandingOpinionesManager() {
                         <p className="text-sm font-semibold text-brand-ink">{c.nombre}</p>
                         {c.estrellas != null && <span className="text-xs font-semibold text-amber-600">★ {c.estrellas}</span>}
                         <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-semibold', c.origen === 'manual' ? 'bg-slate-100 text-slate-600' : 'bg-brand-cyan/10 text-brand-cyan')}>{c.origen === 'manual' ? 'Manual' : 'Encuesta'}</span>
+                        <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-semibold', c.categoria === 'servicio' ? 'bg-brand-teal/10 text-brand-teal' : 'bg-brand-cyan/10 text-brand-cyan')}>{c.categoria === 'servicio' ? 'Servicios' : 'Alumnos'}</span>
                       </div>
                       <p className="mt-0.5 line-clamp-2 text-sm text-brand-ink/80">"{c.comentario}"</p>
                       {c.curso && <p className="mt-0.5 text-xs text-brand-muted">{c.curso}</p>}
@@ -271,6 +291,11 @@ export function LandingOpinionesManager() {
             <Field label="Nombre"><Input value={mNombre} onChange={(e) => setMNombre(e.target.value)} /></Field>
             <Field label="Curso / rol (opcional)"><Input value={mCurso} onChange={(e) => setMCurso(e.target.value)} /></Field>
           </div>
+          <Field label="Dónde se muestra" className="mt-2">
+            <Select value={mCategoria} onChange={(e) => setMCategoria(e.target.value as LandingCategoria)}>
+              {CATEGORIA_OPTS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </Select>
+          </Field>
           <Field label="Comentario" className="mt-2"><Textarea value={mComentario} onChange={(e) => setMComentario(e.target.value)} rows={2} /></Field>
           <Field label="Foto (URL, opcional)" className="mt-2"><Input value={mFoto} onChange={(e) => setMFoto(e.target.value)} placeholder="https://…" /></Field>
           <div className="mt-2 flex justify-end">

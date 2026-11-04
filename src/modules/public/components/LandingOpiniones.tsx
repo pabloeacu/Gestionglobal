@@ -1,15 +1,26 @@
 // LandingOpiniones · DGG-241
-// Sección pública "La voz de los alumnos": métricas reales (en vivo desde las
-// encuestas) + carrusel de testimonios curados por gerencia. Se oculta sola si
-// no está activa / no hay cards. SEO: schema.org AggregateRating + Review.
+// Dos franjas públicas de opiniones, diferenciadas por lugar Y estética
+// (pedido de Pablo 2026-11-03, para que no se mezclen "alumnos" con "servicios"):
+//   • <OpinionesServicios/> → debajo de "Cómo trabajamos". Opiniones sobre la
+//     GESTIÓN/servicio. Tratamiento petróleo, ícono de cita, sin métricas de
+//     curso. Fondo claro: además rompe el "dark+dark" entre Cómo trabajamos y
+//     Plataforma.
+//   • <OpinionesAlumnos/>   → debajo de "Formate con los mejores". La voz de los
+//     ALUMNOS. Tratamiento cian/académico + métricas reales en vivo + SEO.
+// Ambas leen la misma RPC pública (una sola llamada, deduplicada) y se ocultan
+// solas si no hay cards de su categoría. El comportamiento del carrusel (autoplay,
+// snap, flechas) es idéntico en las dos.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronLeft, ChevronRight, GraduationCap, Star, Users } from 'lucide-react';
+import { ChevronLeft, ChevronRight, GraduationCap, MessageSquareQuote, Quote, Star, Users } from 'lucide-react';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import {
   getLandingOpinionesPublicas,
+  type LandingCardPublica,
+  type LandingCategoria,
   type LandingOpinionesPublicas,
 } from '@/services/api/landingOpiniones';
+import type { ApiResponse } from '@/lib/errors';
 
 function Estrellas({ n }: { n: number }) {
   const r = Math.round(n);
@@ -46,7 +57,7 @@ function BarraValor({ valor, max }: { valor: number; max: number }) {
   const pct = Math.max(0, Math.min(100, (valor / max) * 100));
   return (
     <div className="h-2 w-28 overflow-hidden rounded-full bg-slate-200/80" aria-hidden>
-      <div className="h-full rounded-full bg-gradient-to-r from-brand-cyan to-brand-petrol" style={{ width: `${pct}%` }} />
+      <div className="h-full rounded-full bg-gradient-to-r from-brand-cyan to-brand-teal" style={{ width: `${pct}%` }} />
     </div>
   );
 }
@@ -58,7 +69,7 @@ function MetricaViz({ kind, valor }: { kind: string; valor: string }) {
   if (kind === 'escala_global' && Number.isFinite(num)) return <BarraValor valor={num} max={10} />;
   if (kind === 'opiniones' || kind === 'publicables') {
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-cyan/10 px-3 py-1 text-xs font-semibold text-brand-petrol">
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-cyan/10 px-3 py-1 text-xs font-semibold text-brand-teal">
         <Users size={13} /> alumnos reales
       </span>
     );
@@ -66,21 +77,33 @@ function MetricaViz({ kind, valor }: { kind: string; valor: string }) {
   return null;
 }
 
-export function LandingOpiniones() {
-  const [data, setData] = useState<LandingOpinionesPublicas | null>(null);
-  const scroller = useRef<HTMLDivElement | null>(null);
+// ---- fetch deduplicado: ambas franjas comparten UNA llamada por carga ----
+let _enVuelo: Promise<ApiResponse<LandingOpinionesPublicas>> | null = null;
+function fetchOpiniones(): Promise<ApiResponse<LandingOpinionesPublicas>> {
+  if (!_enVuelo) {
+    _enVuelo = getLandingOpinionesPublicas().finally(() => { _enVuelo = null; });
+  }
+  return _enVuelo;
+}
 
+function useOpiniones(): LandingOpinionesPublicas | null {
+  const [data, setData] = useState<LandingOpinionesPublicas | null>(null);
   useEffect(() => {
     let vivo = true;
-    void getLandingOpinionesPublicas().then((r) => {
-      if (vivo && r.ok) setData(r.data);
-    });
+    void fetchOpiniones().then((r) => { if (vivo && r.ok) setData(r.data); });
     return () => { vivo = false; };
   }, []);
+  return data;
+}
 
-  const cards = data?.cards ?? [];
+// ============================================================================
+// Carrusel compartido · `variant` cambia la estética de cada card para que las
+// opiniones de servicios y las de alumnos se distingan a simple vista.
+// ============================================================================
+function Carrusel({ cards, variant, label }: { cards: LandingCardPublica[]; variant: LandingCategoria; label: string }) {
+  const scroller = useRef<HTMLDivElement | null>(null);
+  const esServicio = variant === 'servicio';
 
-  // Autoplay suave del carrusel (pausado al interactuar / con reduced-motion).
   useEffect(() => {
     const el = scroller.current;
     if (!el || cards.length <= 1) return;
@@ -112,7 +135,121 @@ export function LandingOpiniones() {
     el.scrollBy({ left: dir * Math.min(360, el.clientWidth * 0.9), behavior: 'smooth' });
   };
 
-  // JSON-LD para rich snippets (estrellas en Google).
+  return (
+    <div className="relative mt-12">
+      {cards.length > 1 && (
+        <>
+          <button
+            type="button" aria-label="Anterior" onClick={() => mover(-1)}
+            className="absolute -left-3 top-1/2 z-10 hidden -translate-y-1/2 rounded-full border border-slate-200 bg-white p-2 text-brand-ink shadow-sm transition hover:border-brand-cyan hover:text-brand-cyan md:block"
+          >
+            <ChevronLeft size={20} />
+          </button>
+          <button
+            type="button" aria-label="Siguiente" onClick={() => mover(1)}
+            className="absolute -right-3 top-1/2 z-10 hidden -translate-y-1/2 rounded-full border border-slate-200 bg-white p-2 text-brand-ink shadow-sm transition hover:border-brand-cyan hover:text-brand-cyan md:block"
+          >
+            <ChevronRight size={20} />
+          </button>
+        </>
+      )}
+
+      <div
+        ref={scroller}
+        role="region"
+        aria-roledescription="carrusel"
+        aria-label={label}
+        tabIndex={0}
+        className="flex snap-x snap-mandatory gap-5 overflow-x-auto scroll-smooth pb-3 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      >
+        {cards.map((c, i) => (
+          <figure
+            key={`${c.nombre}-${i}`}
+            className={
+              esServicio
+                // SERVICIO · acento petróleo + borde izquierdo marcado + ícono de cita.
+                ? 'flex w-[300px] shrink-0 snap-start flex-col rounded-2xl border border-slate-200 border-l-4 border-l-brand-teal bg-white p-7 sm:w-[340px]'
+                // ALUMNO · card limpia, comilla tipográfica cian + estrellas doradas.
+                : 'flex w-[300px] shrink-0 snap-start flex-col rounded-2xl border border-slate-200 bg-white p-7 sm:w-[340px]'
+            }
+          >
+            {esServicio ? (
+              <span aria-hidden className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-brand-teal/10 text-brand-teal">
+                <Quote size={18} className="fill-current" />
+              </span>
+            ) : (
+              <span aria-hidden className="select-none font-display text-6xl font-bold leading-[0.5] text-brand-cyan/25">
+                &ldquo;
+              </span>
+            )}
+            {!esServicio && c.estrellas != null && <div className="mt-4"><Estrellas n={c.estrellas} /></div>}
+            <blockquote className={`${esServicio ? 'mt-4' : 'mt-3'} flex-1 text-[15px] leading-relaxed text-brand-ink/85`}>
+              {c.comentario}
+            </blockquote>
+            <figcaption className="mt-6 flex items-center gap-3 border-t border-slate-100 pt-4">
+              {c.foto_url && /^https:\/\//.test(c.foto_url) ? (
+                <img src={c.foto_url} alt="" loading="lazy" className="h-11 w-11 shrink-0 rounded-full object-cover ring-1 ring-slate-200" />
+              ) : (
+                <span className={
+                  esServicio
+                    ? 'grid h-11 w-11 shrink-0 place-items-center rounded-full bg-brand-teal/10 text-sm font-bold text-brand-teal'
+                    : 'grid h-11 w-11 shrink-0 place-items-center rounded-full bg-brand-cyan/10 text-sm font-bold text-brand-cyan'
+                }>
+                  {iniciales(c.nombre)}
+                </span>
+              )}
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-brand-ink">{c.nombre}</p>
+                {c.curso && (
+                  <p className={`truncate text-xs ${esServicio ? 'text-brand-teal' : 'text-brand-muted'}`}>{c.curso}</p>
+                )}
+              </div>
+            </figcaption>
+          </figure>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// Opiniones de SERVICIOS · debajo de "Cómo trabajamos" (fondo claro petróleo).
+// ============================================================================
+export function OpinionesServicios() {
+  const data = useOpiniones();
+  const cards = useMemo(() => (data?.cards ?? []).filter((c) => c.categoria === 'servicio'), [data]);
+  if (!data || !data.activa || cards.length === 0) return null;
+
+  return (
+    <section id="opiniones-servicios" className="relative overflow-hidden border-y border-brand-teal/15 bg-brand-zebra py-20 sm:py-24">
+      <span aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-brand-teal via-brand-cyan to-brand-teal" />
+      <TrianglesAccent className="pointer-events-none absolute -left-12 top-10 h-44 w-44 text-brand-teal/10" />
+      <TrianglesAccent className="pointer-events-none absolute -right-12 bottom-8 h-36 w-36 rotate-180 text-brand-cyan/10" />
+      <div className="relative mx-auto max-w-6xl px-6">
+        <header className="mx-auto max-w-2xl text-center">
+          <span className="inline-flex items-center gap-2 rounded-full bg-brand-teal px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-white shadow-sm">
+            <MessageSquareQuote size={15} /> Clientes
+          </span>
+          <p className="kicker mt-4 text-brand-teal">La experiencia de nuestros clientes</p>
+          <h2 className="mt-2 font-display text-4xl font-extrabold leading-tight tracking-tight sm:text-5xl">
+            {data.titulo_servicios}
+          </h2>
+        </header>
+        <Carrusel cards={cards} variant="servicio" label="Opiniones de clientes sobre el servicio" />
+      </div>
+    </section>
+  );
+}
+
+// ============================================================================
+// Opiniones de ALUMNOS · debajo de "Formate con los mejores" (fondo cian).
+// Incluye las métricas reales en vivo + el JSON-LD de SEO (una sola vez).
+// ============================================================================
+export function OpinionesAlumnos() {
+  const data = useOpiniones();
+  const cards = useMemo(() => (data?.cards ?? []).filter((c) => c.categoria === 'alumno'), [data]);
+
+  // JSON-LD para rich snippets (estrellas en Google) — usa TODAS las cards.
   const jsonLd = useMemo(() => {
     if (!data || !data.agg?.rating || !data.agg?.count) return null;
     return {
@@ -140,17 +277,14 @@ export function LandingOpiniones() {
   if (!data || !data.activa || cards.length === 0) return null;
 
   return (
-    <section
-      id="opiniones"
-      className="relative overflow-hidden border-y border-brand-cyan/15 bg-brand-pale/50 py-28 sm:py-32"
-    >
+    <section id="opiniones" className="relative overflow-hidden border-y border-brand-cyan/15 bg-brand-pale/50 py-24 sm:py-28">
       {/* Capacitaciones = franja de color propio, separada de los servicios. */}
-      <span aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-brand-cyan via-brand-petrol to-brand-cyan" />
+      <span aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-brand-cyan via-brand-teal to-brand-cyan" />
       <TrianglesAccent className="pointer-events-none absolute -right-12 top-10 h-48 w-48 text-brand-cyan/10" />
-      <TrianglesAccent className="pointer-events-none absolute -left-12 bottom-8 h-40 w-40 rotate-180 text-brand-petrol/10" />
+      <TrianglesAccent className="pointer-events-none absolute -left-12 bottom-8 h-40 w-40 rotate-180 text-brand-teal/10" />
       <div className="relative mx-auto max-w-6xl px-6">
         <header className="mx-auto max-w-2xl text-center">
-          <span className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-brand-petrol shadow-sm ring-1 ring-brand-cyan/20">
+          <span className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-brand-teal shadow-sm ring-1 ring-brand-cyan/20">
             <GraduationCap size={15} /> Capacitaciones
           </span>
           <p className="kicker mt-4 text-brand-cyan">La voz de los alumnos</p>
@@ -181,62 +315,7 @@ export function LandingOpiniones() {
           </div>
         )}
 
-        {/* Carrusel de testimonios */}
-        <div className="relative mt-12">
-          {cards.length > 1 && (
-            <>
-              <button
-                type="button" aria-label="Anterior" onClick={() => mover(-1)}
-                className="absolute -left-3 top-1/2 z-10 hidden -translate-y-1/2 rounded-full border border-slate-200 bg-white p-2 text-brand-ink shadow-sm transition hover:border-brand-cyan hover:text-brand-cyan md:block"
-              >
-                <ChevronLeft size={20} />
-              </button>
-              <button
-                type="button" aria-label="Siguiente" onClick={() => mover(1)}
-                className="absolute -right-3 top-1/2 z-10 hidden -translate-y-1/2 rounded-full border border-slate-200 bg-white p-2 text-brand-ink shadow-sm transition hover:border-brand-cyan hover:text-brand-cyan md:block"
-              >
-                <ChevronRight size={20} />
-              </button>
-            </>
-          )}
-
-          <div
-            ref={scroller}
-            role="region"
-            aria-roledescription="carrusel"
-            aria-label="Opiniones de alumnos"
-            tabIndex={0}
-            className="flex snap-x snap-mandatory gap-5 overflow-x-auto scroll-smooth pb-3 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-          >
-            {cards.map((c, i) => (
-              <figure
-                key={`${c.nombre}-${i}`}
-                className="flex w-[300px] shrink-0 snap-start flex-col rounded-2xl border border-slate-200 bg-white p-7 sm:w-[340px]"
-              >
-                <span aria-hidden className="select-none font-display text-6xl font-bold leading-[0.5] text-brand-cyan/25">
-                  &ldquo;
-                </span>
-                {c.estrellas != null && <div className="mt-4"><Estrellas n={c.estrellas} /></div>}
-                <blockquote className="mt-3 flex-1 text-[15px] leading-relaxed text-brand-ink/85">
-                  {c.comentario}
-                </blockquote>
-                <figcaption className="mt-6 flex items-center gap-3 border-t border-slate-100 pt-4">
-                  {c.foto_url && /^https:\/\//.test(c.foto_url) ? (
-                    <img src={c.foto_url} alt="" loading="lazy" className="h-11 w-11 shrink-0 rounded-full object-cover ring-1 ring-slate-200" />
-                  ) : (
-                    <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-brand-cyan/10 text-sm font-bold text-brand-cyan">
-                      {iniciales(c.nombre)}
-                    </span>
-                  )}
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-brand-ink">{c.nombre}</p>
-                    {c.curso && <p className="truncate text-xs text-brand-muted">{c.curso}</p>}
-                  </div>
-                </figcaption>
-              </figure>
-            ))}
-          </div>
-        </div>
+        <Carrusel cards={cards} variant="alumno" label="Opiniones de alumnos" />
       </div>
 
       {jsonLd && (

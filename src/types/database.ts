@@ -1799,6 +1799,7 @@ export type Database = {
           landing_opiniones_activa: boolean
           landing_opiniones_metricas: Json
           landing_opiniones_titulo: string
+          landing_opiniones_titulo_servicios: string
           landing_opiniones_ultimo_notif: number
           localidad: string | null
           logo_url: string | null
@@ -1845,6 +1846,7 @@ export type Database = {
           landing_opiniones_activa?: boolean
           landing_opiniones_metricas?: Json
           landing_opiniones_titulo?: string
+          landing_opiniones_titulo_servicios?: string
           landing_opiniones_ultimo_notif?: number
           localidad?: string | null
           logo_url?: string | null
@@ -1891,6 +1893,7 @@ export type Database = {
           landing_opiniones_activa?: boolean
           landing_opiniones_metricas?: Json
           landing_opiniones_titulo?: string
+          landing_opiniones_titulo_servicios?: string
           landing_opiniones_ultimo_notif?: number
           localidad?: string | null
           logo_url?: string | null
@@ -4675,6 +4678,7 @@ export type Database = {
       landing_testimonios: {
         Row: {
           activo: boolean
+          categoria: string
           comentario: string
           created_at: string
           created_by: string | null
@@ -4689,6 +4693,7 @@ export type Database = {
         }
         Insert: {
           activo?: boolean
+          categoria?: string
           comentario: string
           created_at?: string
           created_by?: string | null
@@ -4703,6 +4708,7 @@ export type Database = {
         }
         Update: {
           activo?: boolean
+          categoria?: string
           comentario?: string
           created_at?: string
           created_by?: string | null
@@ -10875,6 +10881,7 @@ export type Database = {
       }
       landing_testimonio_manual: {
         Args: {
+          p_categoria?: string
           p_comentario: string
           p_curso?: string
           p_foto_url?: string
