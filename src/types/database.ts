@@ -2110,6 +2110,83 @@ export type Database = {
           },
         ]
       }
+      credenciales_regulatorias: {
+        Row: {
+          administracion_id: string
+          estado: string
+          key_version: number
+          moderada_at: string | null
+          moderada_por: string | null
+          password_cifrada: string | null
+          plataforma: string
+          updated_at: string
+          updated_by: string | null
+          usuario: string | null
+        }
+        Insert: {
+          administracion_id: string
+          estado?: string
+          key_version?: number
+          moderada_at?: string | null
+          moderada_por?: string | null
+          password_cifrada?: string | null
+          plataforma: string
+          updated_at?: string
+          updated_by?: string | null
+          usuario?: string | null
+        }
+        Update: {
+          administracion_id?: string
+          estado?: string
+          key_version?: number
+          moderada_at?: string | null
+          moderada_por?: string | null
+          password_cifrada?: string | null
+          plataforma?: string
+          updated_at?: string
+          updated_by?: string | null
+          usuario?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "credenciales_regulatorias_administracion_id_fkey"
+            columns: ["administracion_id"]
+            isOneToOne: false
+            referencedRelation: "administraciones"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      credenciales_regulatorias_accesos: {
+        Row: {
+          accedido_por: string | null
+          accion: string
+          administracion_id: string
+          at: string
+          id: number
+          plataforma: string
+          rol: string | null
+        }
+        Insert: {
+          accedido_por?: string | null
+          accion?: string
+          administracion_id: string
+          at?: string
+          id?: never
+          plataforma: string
+          rol?: string | null
+        }
+        Update: {
+          accedido_por?: string | null
+          accion?: string
+          administracion_id?: string
+          at?: string
+          id?: never
+          plataforma?: string
+          rol?: string | null
+        }
+        Relationships: []
+      }
       csp_reports: {
         Row: {
           blocked_uri: string
@@ -9688,6 +9765,23 @@ export type Database = {
           p_youtube_live_url?: string
         }
         Returns: string
+      }
+      credencial_reg_meta: {
+        Args: { p_administracion_id: string; p_plataforma: string }
+        Returns: Json
+      }
+      credencial_reg_revelar: {
+        Args: { p_administracion_id: string; p_plataforma: string }
+        Returns: string
+      }
+      credencial_reg_set: {
+        Args: {
+          p_administracion_id: string
+          p_password: string
+          p_plataforma: string
+          p_usuario: string
+        }
+        Returns: undefined
       }
       csp_report_registrar: {
         Args: {
