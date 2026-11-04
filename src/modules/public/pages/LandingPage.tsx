@@ -257,7 +257,7 @@ function Hero() {
 
 function Pareados() {
   return (
-    <section className="relative border-y border-slate-100 bg-brand-zebra/40 py-20">
+    <section className="relative border-y border-slate-100 bg-brand-zebra/40 py-16">
       <div className="mx-auto grid max-w-6xl gap-12 px-6 sm:grid-cols-3">
         {PAREADOS.map((p) => (
           <div key={p.a} className="text-center sm:text-left">
@@ -278,7 +278,7 @@ function Pareados() {
 
 function Nosotros() {
   return (
-    <section id="nosotros" className="relative overflow-hidden bg-white py-24 sm:py-28">
+    <section id="nosotros" className="relative overflow-hidden bg-white py-16 sm:py-20">
       <TrianglesAccent
         position="top-left"
         size={220}
@@ -430,7 +430,7 @@ const ALIANZA_ISOLOGO: Record<string, { src: string; alt: string }> = {
 
 function Servicios() {
   return (
-    <section id="servicios" className="relative bg-white py-24 sm:py-28">
+    <section id="servicios" className="relative bg-white py-16 sm:py-20">
       <div className="mx-auto max-w-6xl px-6">
         <header className="mx-auto max-w-3xl text-center">
           <p className="kicker text-brand-cyan">Servicios</p>
@@ -727,7 +727,7 @@ function Cursos() {
   return (
     <section
       id="cursos"
-      className="relative overflow-hidden bg-white py-24 sm:py-28"
+      className="relative overflow-hidden bg-white py-16 sm:py-20"
     >
       <TrianglesAccent
         position="top-left"
@@ -837,7 +837,7 @@ function Cursos() {
 
 function Partners() {
   return (
-    <section className="bg-white py-20">
+    <section className="bg-white py-16">
       <div className="mx-auto max-w-6xl px-6">
         <header className="mx-auto max-w-2xl text-center">
           <p className="kicker text-brand-cyan">Alianzas</p>
@@ -881,7 +881,7 @@ function Partners() {
 
 function FinalCTA() {
   return (
-    <section className="relative overflow-hidden bg-white py-24">
+    <section className="relative overflow-hidden bg-white py-16">
       <div className="mx-auto max-w-6xl px-6">
         <div className="relative overflow-hidden rounded-3xl border border-slate-200 bg-gradient-to-br from-white via-brand-cyan-pale/30 to-brand-teal/15 p-12 text-center sm:p-16">
           <TrianglesAccent

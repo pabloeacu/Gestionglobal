@@ -136,7 +136,7 @@ function Carrusel({ cards, variant, label }: { cards: LandingCardPublica[]; vari
   };
 
   return (
-    <div className="relative mt-12">
+    <div className="relative mt-10">
       {cards.length > 1 && (
         <>
           <button
@@ -221,7 +221,7 @@ export function OpinionesServicios() {
   if (!data || !data.activa || cards.length === 0) return null;
 
   return (
-    <section id="opiniones-servicios" className="relative overflow-hidden border-y border-brand-teal/15 bg-brand-zebra py-20 sm:py-24">
+    <section id="opiniones-servicios" className="relative overflow-hidden border-y border-brand-teal/15 bg-brand-zebra py-16 sm:py-20">
       <span aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-brand-teal via-brand-cyan to-brand-teal" />
       <TrianglesAccent className="pointer-events-none absolute -left-12 top-10 h-44 w-44 text-brand-teal/10" />
       <TrianglesAccent className="pointer-events-none absolute -right-12 bottom-8 h-36 w-36 rotate-180 text-brand-cyan/10" />
@@ -276,10 +276,11 @@ export function OpinionesAlumnos() {
 
   if (!data || !data.activa || cards.length === 0) return null;
 
+  // Entre dos secciones CLARAS (Cursos / Partners): se diferencia SÓLO por el
+  // fondo tintado, sin línea divisoria (una línea entre dos claros queda
+  // descolocada; sólo tiene sentido contra un fondo oscuro, como marco).
   return (
-    <section id="opiniones" className="relative overflow-hidden border-y border-brand-cyan/15 bg-brand-pale/50 py-24 sm:py-28">
-      {/* Capacitaciones = franja de color propio, separada de los servicios. */}
-      <span aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-brand-cyan via-brand-teal to-brand-cyan" />
+    <section id="opiniones" className="relative overflow-hidden bg-brand-cyan-pale/40 py-16 sm:py-20">
       <TrianglesAccent className="pointer-events-none absolute -right-12 top-10 h-48 w-48 text-brand-cyan/10" />
       <TrianglesAccent className="pointer-events-none absolute -left-12 bottom-8 h-40 w-40 rotate-180 text-brand-teal/10" />
       <div className="relative mx-auto max-w-6xl px-6">
@@ -295,7 +296,7 @@ export function OpinionesAlumnos() {
 
         {/* Métricas reales */}
         {data.metricas.length > 0 && (
-          <div className="mt-12 grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-3">
             {data.metricas.map((m, i) => (
               <div
                 key={`${m.label}-${i}`}
