@@ -92,3 +92,11 @@ verify_jwt = false
 # (CLI o MCP) lo flipeaba a true y rompía el cron. Se fija explícito (DGG-231).
 [functions.dispatch-vencimientos]
 verify_jwt = false
+
+# meta-capi (DGG-242): API de conversiones de Meta (server-side). verify_jwt=false
+# como el resto de endpoints llamados desde el navegador — no escribe datos ni
+# devuelve nada sensible, sólo normaliza+hashea y reenvía eventos a Meta. La
+# seguridad real es el token (META_CAPI_TOKEN, secret del servidor). Se fija acá
+# para que un deploy por CLI/MCP no lo flipee a true y rompa la llamada del cliente.
+[functions.meta-capi]
+verify_jwt = false
