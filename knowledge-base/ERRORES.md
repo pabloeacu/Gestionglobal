@@ -6661,3 +6661,13 @@ Todos LATENTES (0 admins afectados hoy, motor real DORMIDO) — cazados por la d
 - **Verificación:** EJERCITAR 0640 en rollback (métricas/agg, gate de activa corta datos, dup→ok:false) + prueba en vivo de la landing en el preview local (sección + XSS neutralizado + JSON-LD válido + sin overflow). El manager de gerencia se prueba en vivo en Vercel post-push.
 - **Decisiones de producto zanjadas (no en el aire, §5):** nombre publicado = `testimonio_nombre || full_name` (el `permite_publicar` consiente el nombre per def. DGG-240; gerencia puede acortarlo editando la card); agregados sobre el universo COMPLETO de respuestas (incl. no publicables) = R19 + intención de Pablo ("el resto lo usamos como volumen estadístico sin mencionarlos").
 - **Fecha / módulo:** 2026-11-03 · landing / encuestas · DGG-241 · migs 0639/0640, `src/modules/public/components/LandingOpiniones.tsx` + `configuracion/components/LandingOpinionesManager.tsx`.
+
+## E-GG-248 (2026-11-04) — Merge de UTM pisaba el campo `origen` requerido del form de webinarios (atrapado en auditoría, NO llegó a prod)
+
+**Contexto:** DGG-242 PR #16. Para la atribución de marketing agregué los utm_*/origen first-touch al payload del formulario con `Object.assign(datosFinal, getUtmFirstTouch())`.
+
+**Causa raíz:** `Object.assign` mergea LAST → las claves de atribución pisaban cualquier campo del schema con el mismo nombre. El form `webinarios` (activo, /eventos·/webinars) tiene un campo **`origen` radio REQUERIDO** ("¿Cómo te enteraste?"). Si el first-touch del tab traía `?origen=…` (y lo trae en casos reales: `/eventos?origen=portal`, deep-links `?origen=engagement`, cold-outreach `?origen=prospecto` de DGG-220), la respuesta real del usuario se reemplazaba por 'portal'/'prospecto'/… (valor fuera de las opciones) y el edge la persistía como válida → **datos corruptos en un form de captación en vivo**. Además `SolicitudDetailPage` renderizaba utm_source/origen como pseudo-respuestas en la grilla de gerencia.
+
+**Fix:** las claves de atribución van como **meta-campos con prefijo `_`** (`_utm_source`, `_origen`, …) — convención ya existente (`_origen`, `_origen_canal`) que el edge pasa intacta y que `SolicitudDetailPage`/`FormularioRunner` excluyen del render (`!k.startsWith('_')`). Resuelve la colisión y la polución de la grilla de una.
+
+**Lección:** el atributo de marketing nunca debe compartir namespace con los campos del schema; un merge "last wins" sobre datos de usuario es un foot-gun. Lo capturó la **doble auditoría §6** (agente adversarial) ANTES del merge — nunca tocó producción. Refuerza el valor del "cada entrega la audita otro agente".
