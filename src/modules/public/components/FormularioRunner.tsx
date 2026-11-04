@@ -34,6 +34,8 @@ import { humanizeError } from '@/lib/errors';
 import { formatCuit, validarCuit, esCampoCuit } from '@/lib/cuit';
 import { trackMetaEvent } from '@/lib/metaPixel';
 import { getUtmFirstTouch } from '@/lib/utmTracking';
+import { sendCapiEvent } from '@/lib/metaCapi';
+import { consentGranted } from '@/lib/metaConsent';
 
 // E-GG-170 (caso Rodríguez): espejo de los límites del bucket `form-adjuntos`.
 // Mantener EN SYNC con el bucket (storage.buckets) y con el edge
@@ -674,12 +676,15 @@ export function FormularioRunner({
     if (!vencFichaFallo) toast.success('Formulario enviado');
     // DGG-242 · Conversión del píxel de Meta: sólo en canal público (no portal).
     // Lead (formularios de servicio) o CompleteRegistration (eventos/webinars).
-    // Inerte sin consentimiento / sin píxel. (La CAPI del servidor con el mismo
-    // event_id para deduplicar se suma en PR 3 — feat/meta-capi.)
+    // Inerte sin consentimiento / sin píxel. La CAPI del servidor dispara el
+    // MISMO event_id (dedup), también gateada por consentimiento; fire-and-forget
+    // (si falla, el formulario ya se envió igual).
     if (origenCanal !== 'cliente') {
-      trackMetaEvent(metaConversion === 'registration' ? 'CompleteRegistration' : 'Lead', {
-        content_name: formulario.slug,
-      });
+      const evName = metaConversion === 'registration' ? 'CompleteRegistration' : 'Lead';
+      const eventId = trackMetaEvent(evName, { content_name: formulario.slug });
+      if (consentGranted()) {
+        sendCapiEvent(evName, eventId, { content_name: formulario.slug, datos: datosFinal });
+      }
     }
     setDone({ mensaje: res.data.mensaje, redirect: res.data.redirect_url });
     if (res.data.redirect_url) {
