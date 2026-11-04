@@ -281,8 +281,9 @@ export function OpinionesAlumnos() {
   // descolocada; sólo tiene sentido contra un fondo oscuro, como marco).
   return (
     <section id="opiniones" className="relative overflow-hidden bg-brand-cyan-pale/40 py-16 sm:py-20">
-      <TrianglesAccent className="pointer-events-none absolute -right-12 top-10 h-48 w-48 text-brand-cyan/10" />
-      <TrianglesAccent className="pointer-events-none absolute -left-12 bottom-8 h-40 w-40 rotate-180 text-brand-teal/10" />
+      {/* Triángulos de marca en blanco semi-transparente sobre el celeste (pedido de Pablo). */}
+      <TrianglesAccent size={280} density="rich" className="pointer-events-none absolute -right-10 top-6 text-white/70" />
+      <TrianglesAccent size={210} density="rich" className="pointer-events-none absolute -left-10 bottom-6 rotate-180 text-white/50" />
       <div className="relative mx-auto max-w-6xl px-6">
         <header className="mx-auto max-w-2xl text-center">
           <span className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-brand-teal shadow-sm ring-1 ring-brand-cyan/20">
