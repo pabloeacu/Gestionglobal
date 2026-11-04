@@ -6,6 +6,8 @@ import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import { SiteNav } from '@/components/site/SiteNav';
 import { SiteFooter } from '@/components/site/SiteFooter';
 import { FormularioRunner } from '@/modules/public/components/FormularioRunner';
+import { trackMetaEvent } from '@/lib/metaPixel';
+import { getConsent, onConsentChange, type ConsentValue } from '@/lib/metaConsent';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   getFormularioPorSlug,
@@ -83,6 +85,18 @@ export function FormularioPublicoPage() {
   // mitad del llenado, pisando lo tipeado.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, desdePortal]);
+
+  // DGG-242 · ViewContent del píxel de Meta al ver un formulario/servicio
+  // (content_name = slug). Inerte si no hay píxel / sin consentimiento / autenticado.
+  // Depende también del consentimiento: si el visitante llega directo desde un ad
+  // SIN haber consentido, el primer intento es no-op; al aceptar, se re-emite
+  // (el píxel ya quedó inicializado). trackMetaEvent es idempotente/inerte si no
+  // corresponde, así que no hay doble disparo en el caso ya-consentido.
+  const [metaConsent, setMetaConsent] = useState<ConsentValue | null>(() => getConsent());
+  useEffect(() => onConsentChange(setMetaConsent), []);
+  useEffect(() => {
+    if (formulario?.slug) trackMetaEvent('ViewContent', { content_name: formulario.slug });
+  }, [formulario?.slug, metaConsent]);
 
   // Entidad aliada del curso (logo + subtítulo de alianza), resuelta por slug.
   const entidad = formulario ? FORM_ENTIDAD[formulario.slug] : undefined;

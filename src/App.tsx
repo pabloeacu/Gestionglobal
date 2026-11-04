@@ -14,6 +14,11 @@ import { RestablecerPage } from '@/modules/auth/pages/RestablecerPage';
 import { arrivedWithRecoveryHash, isPasswordRecovery } from '@/lib/supabase';
 import { HealthPage } from '@/modules/public/pages/HealthPage';
 import { BajaPublicaPage } from '@/modules/public/pages/BajaPublicaPage';
+import { PrivacidadPage } from '@/modules/public/pages/PrivacidadPage';
+// DGG-242 · medición de Meta (píxel) + consentimiento. Componentes inertes si
+// no hay VITE_META_PIXEL_ID / sin consentimiento / fuera de rutas públicas.
+import { MetaPixel } from '@/components/site/MetaPixel';
+import { CookieConsent } from '@/components/site/CookieConsent';
 import { GerenciaLayout } from '@/modules/gerencia/components/GerenciaLayout';
 import { GerenciaHome } from '@/modules/gerencia/pages/GerenciaHome';
 import { PortalLayout } from '@/modules/portal/components/PortalLayout';
@@ -354,6 +359,8 @@ export function App() {
           usuario en la mitad del nuevo route — el header queda oculto. */}
       <ScrollToTopOnRouteChange />
       <CaptureEngagementIntent />
+      {/* DGG-242 · PageView + eventos del píxel de Meta (sólo público/anónimo/consentido). */}
+      <MetaPixel />
       {/* Boundary que captura "Failed to fetch dynamically imported module"
           (típico tras un deploy nuevo cuando el bundle viejo aún está abierto
           en el browser) y fuerza un reload duro automático en vez de dejar
@@ -369,6 +376,8 @@ export function App() {
         <Route path="/restablecer" element={<RestablecerPage />} />
         <Route path="/health" element={<HealthPage />} />
         <Route path="/baja" element={<BajaPublicaPage />} />
+        {/* DGG-242 · política de privacidad (incluye el párrafo del píxel de Meta). */}
+        <Route path="/privacidad" element={<PrivacidadPage />} />
         <Route path="/formulario/:slug" element={<FormularioPublicoPage />} />
         {/* F6 (DGG-63) · Inscripción condicional a eventos (branded ó texto).
             /eventos es el nombre nuevo (online/presencial/mixto · DGG-99);
@@ -516,6 +525,8 @@ export function App() {
       </Routes>
       </Suspense>
       </ChunkErrorBoundary>
+      {/* DGG-242 · aviso de cookies/medición (condiciona la carga del píxel). */}
+      <CookieConsent />
     </BrowserRouter>
   );
 }

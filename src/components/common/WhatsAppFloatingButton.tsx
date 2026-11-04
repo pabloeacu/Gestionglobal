@@ -7,20 +7,35 @@
 // el mouse (desktop). Mobile: solo ícono. El número se lee de config_global.
 
 import { useEffect, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { getPublicWhatsapp } from '@/services/api/configGlobal';
+import { trackMetaEvent } from '@/lib/metaPixel';
 
 const DEFAULT_NUMERO = '+5492214317914';
-const DEFAULT_MENSAJE = 'Hola! Tengo una consulta sobre los trámites de Gestión Global.';
+
+// DGG-242 · sección legible a partir del path, para el texto del WhatsApp y el
+// content_name del evento Contact del píxel.
+function seccionDesdePath(path: string): string {
+  const p = (path || '/').replace(/\/+$/, '') || '/';
+  if (p === '/' || p === '/inicio') return 'home';
+  if (p.startsWith('/formulario/')) return p.slice('/formulario/'.length) || 'formulario';
+  return p.replace(/^\//, '') || 'home';
+}
 
 interface Props {
   /** Mensaje pre-rellenado en el chat. */
   mensaje?: string;
   /** Override del número (sin esto, levanta config_global.whatsapp). */
   numero?: string;
+  /** Sección para el texto y el content_name del evento Contact. */
+  seccion?: string;
 }
 
-export function WhatsAppFloatingButton({ mensaje, numero }: Props) {
+export function WhatsAppFloatingButton({ mensaje, numero, seccion }: Props) {
   const [resolvedNumero, setResolvedNumero] = useState<string>(numero ?? DEFAULT_NUMERO);
+  const location = useLocation();
+  const seccionActual = seccion ?? seccionDesdePath(location.pathname);
+  const mensajeDefault = `Hola! Vengo de la web (${seccionActual}) y tengo una consulta sobre los trámites de Gestión Global.`;
 
   useEffect(() => {
     if (numero) return; // override explícito
@@ -38,7 +53,7 @@ export function WhatsAppFloatingButton({ mensaje, numero }: Props) {
   }, [numero]);
 
   const numeroLimpio = resolvedNumero.replace(/[^\d]/g, '');
-  const href = `https://wa.me/${numeroLimpio}?text=${encodeURIComponent(mensaje ?? DEFAULT_MENSAJE)}`;
+  const href = `https://wa.me/${numeroLimpio}?text=${encodeURIComponent(mensaje ?? mensajeDefault)}`;
 
   return (
     <a
@@ -47,6 +62,7 @@ export function WhatsAppFloatingButton({ mensaje, numero }: Props) {
       rel="noopener noreferrer"
       aria-label="Contactate por WhatsApp"
       title="Contactate por WhatsApp"
+      onClick={() => trackMetaEvent('Contact', { content_name: seccionActual })}
       className="fixed bottom-5 right-5 z-40 inline-flex items-center gap-2 rounded-full bg-[#25D366] px-4 py-3 text-sm font-semibold text-white shadow-[0_8px_24px_-6px_rgba(37,211,102,0.6)] transition hover:scale-105 hover:bg-[#1ebe5b] sm:bottom-6 sm:right-6"
       style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
     >
