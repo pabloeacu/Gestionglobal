@@ -22,6 +22,7 @@ import {
   CalendarRange,
   Ban,
   Award,
+  KeyRound,
   CheckCircle2,
   GraduationCap,
   X,
@@ -112,6 +113,7 @@ import { CategoriasConfigManager } from '../components/CategoriasConfigManager';
 import { ProgramarVencimientoModal } from '../components/ProgramarVencimientoModal';
 import { ProgramarVencimientosRpacModal } from '../components/ProgramarVencimientosRpacModal';
 import { CargarOtorgamientoModal } from '../components/CargarOtorgamientoModal';
+import { CargarCredencialDdjjModal } from '../components/CargarCredencialDdjjModal';
 import { CerrarTramiteDialog } from '../components/CerrarTramiteDialog';
 import { useCancelarTramite } from '@/modules/tramites/lib/useAvanzarTramite';
 import { ReabrirTramiteDialog } from '../components/ReabrirTramiteDialog';
@@ -193,6 +195,7 @@ export function TrackingDetailPage() {
   const [programarRpacOpen, setProgramarRpacOpen] = useState(false);
   // DGG-161 · carga manual del otorgamiento + pre-fill del asistente de vencimientos.
   const [cargarOtorgOpen, setCargarOtorgOpen] = useState(false);
+  const [cargarCredDdjjOpen, setCargarCredDdjjOpen] = useState(false);
   const [otorgPrefill, setOtorgPrefill] = useState<{ matriculacion: string; vencimiento: string } | null>(null);
   // DGG-163 · C: el aviso abre el editor pre-cargado (JL edita). El "cerrar +
   // programar" se encadena tras cerrar el editor (flag), no antes.
@@ -1193,6 +1196,13 @@ export function TrackingDetailPage() {
                 <Award className="h-4 w-4" /> Cargar otorgamiento
               </Button>
             )}
+            {/* DGG-243 · cargar credenciales del Portal de DDJJ (gemelo del otorgamiento) — trámites DDJJ. */}
+            {isStaff && data.administracion_id && data.estado !== 'cerrado' && data.estado !== 'cancelado'
+              && (data.servicio?.codigo === 'rpac_ddjj' || data.categoria === 'dj') && (
+              <Button variant="secondary" onClick={() => setCargarCredDdjjOpen(true)}>
+                <KeyRound className="h-4 w-4" /> Cargar credenciales DDJJ
+              </Button>
+            )}
             {isStaff && data.estado !== 'cerrado' && (
               <Button
                 variant="secondary"
@@ -1748,6 +1758,17 @@ export function TrackingDetailPage() {
           fichaMatricula={data.administracion?.matricula_rpac ?? null}
           fichaLegajo={data.administracion?.legajo_rpac ?? null}
           onCargado={handleOtorgamientoCargado}
+        />
+      )}
+
+      {/* DGG-243 · cargar credenciales del Portal de DDJJ (carril de gerencia). */}
+      {data.administracion_id && (
+        <CargarCredencialDdjjModal
+          open={cargarCredDdjjOpen}
+          onClose={() => setCargarCredDdjjOpen(false)}
+          administracionId={data.administracion_id}
+          trackingTitulo={data.titulo}
+          onGuardado={() => { void load(); }}
         />
       )}
 
