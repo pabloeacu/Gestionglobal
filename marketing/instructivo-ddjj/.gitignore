@@ -1,0 +1,7 @@
+# El PDF generado vive en Supabase Storage (bucket público formulario-descargas,
+# path ddjj/instructivo-ddjj-rpac.pdf). Fuente versionada = instructivo.html + render.mjs.
+# Reemplazar = node render.mjs + re-subir al mismo path (ver cabecera de render.mjs).
+Instructivo-DDJJ-RPAC-GestionGlobal.pdf
+# Logos copiados de public/brand/ al renderizar (no duplicar en git).
+logo.png
+logo-white.png

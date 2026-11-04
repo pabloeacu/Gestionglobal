@@ -77,6 +77,7 @@ const PortalEventoDetallePage = lazy(() => import('@/modules/portal/pages/Portal
 const PortalNuevoServicioPage = lazy(() => import('@/modules/portal/pages/PortalNuevoServicioPage').then(m => ({ default: m.PortalNuevoServicioPage })));
 const PortalMiCuentaPage = lazy(() => import('@/modules/portal/pages/PortalMiCuentaPage').then(m => ({ default: m.PortalMiCuentaPage })));
 const PortalFichaRegulatoriaPage = lazy(() => import('@/modules/portal/pages/PortalFichaRegulatoriaPage').then(m => ({ default: m.PortalFichaRegulatoriaPage })));
+const PortalDdjjPage = lazy(() => import('@/modules/portal/pages/PortalDdjjPage').then(m => ({ default: m.PortalDdjjPage })));
 const PerfilPage = lazy(() => import('@/modules/auth/pages/PerfilPage').then(m => ({ default: m.PerfilPage })));
 const FormularioPublicoPage = lazy(() => import('@/modules/public/pages/FormularioPublicoPage').then(m => ({ default: m.FormularioPublicoPage })));
 const FormulariosAdminListPage = lazy(() => import('@/modules/formularios-admin').then(m => ({ default: m.FormulariosAdminListPage })));
@@ -515,6 +516,7 @@ export function App() {
           <Route path="cuenta-corriente" element={<PortalCtaCtePage />} />
           <Route path="mi-cuenta" element={<PortalMiCuentaPage />} />
           <Route path="mi-ficha" element={<PortalFichaRegulatoriaPage />} />
+          <Route path="ddjj" element={<PortalDdjjPage />} />
           <Route path="consorcios" element={<PortalConsorciosPage />} />
           <Route path="campus" element={<MisCursosPage />} />
           <Route path="campus/:slug" element={<CursoDetalleAlumnoPage />} />

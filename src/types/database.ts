@@ -9657,6 +9657,7 @@ export type Database = {
           horas_desde_actividad: number
           id: string
           prioridad: string
+          servicio_codigo: string
           servicio_id: string
           titulo: string
           total_adjuntos: number

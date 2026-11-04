@@ -1,0 +1,351 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Instructivo DDJJ Anual RPAC · Gestión Global</title>
+<style>
+  @font-face{font-family:'GG Oswald';src:url('../../public/fonts/gg-oswald-latin.woff2') format('woff2');font-weight:400 700;font-display:swap;}
+  @font-face{font-family:'GG Archivo';src:url('../../public/fonts/gg-archivo-latin.woff2') format('woff2');font-weight:400 700;font-display:swap;}
+
+  :root{
+    --cyan:#009ECA; --teal:#159AA6; --blue:#2E6FB0; --sky:#9CC7E4;
+    --cyan-pale:#E1F3FA; --teal-pale:#E7F1F9;
+    --ink:#0B1F33; --ink2:#122230; --muted:#5D7284;
+    --line:rgba(11,31,51,.14); --paper:#F3F7FB; --paper2:#EEF3F8;
+    --amber:#C46A10; --amber-bg:#FBEEDD;
+  }
+  @page{ size:A4; margin:0; }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    font-family:'GG Archivo',-apple-system,"Segoe UI",Roboto,sans-serif;
+    color:var(--ink2); font-size:10.7pt; line-height:1.6; background:#fff;
+    font-feature-settings:"tnum" 1,"lnum" 1;
+    -webkit-print-color-adjust:exact; print-color-adjust:exact;
+  }
+  .kicker{ font-family:'GG Oswald',sans-serif; text-transform:uppercase; letter-spacing:3px; font-weight:600; }
+  h1,h2,h3,h4{ font-family:'GG Oswald',sans-serif; text-transform:uppercase; color:var(--ink); margin:0; }
+
+  /* ===== Triángulos decorativos (motivo de marca) ===== */
+  .tri{ position:absolute; }
+
+  /* ===== COVER ===== */
+  .cover{
+    position:relative; height:100vh; width:100%;
+    background:linear-gradient(160deg,#061a2d 0%,#0b1f33 52%,#114c5c 115%);
+    color:#fff; overflow:hidden; padding:62pt 54pt 46pt;
+    display:flex; flex-direction:column; justify-content:space-between;
+    page-break-after:always;
+  }
+  .cover .logo{ height:46px; width:auto; position:relative; z-index:2; }
+  .cover .hero{ position:relative; z-index:2; max-width:460pt; }
+  .cover .hero .kicker{ color:var(--cyan); font-size:11pt; letter-spacing:5px; margin-bottom:18pt; }
+  .cover h1{ color:#fff; font-size:40pt; line-height:1.03; letter-spacing:.5px; }
+  .cover h1 .accent{ color:var(--cyan); }
+  .cover .sub{ font-size:12.5pt; margin-top:16pt; color:rgba(255,255,255,.86); max-width:400pt; }
+  .cover .meta{ position:relative; z-index:2; display:flex; gap:34pt; align-items:flex-end;
+    border-top:1px solid rgba(255,255,255,.18); padding-top:16pt; }
+  .cover .meta .lbl{ font-size:7.5pt; letter-spacing:2.5px; text-transform:uppercase; color:rgba(255,255,255,.55); margin-bottom:3pt; }
+  .cover .meta .val{ font-size:10.5pt; font-weight:600; color:#fff; }
+
+  /* ===== INNER ===== */
+  .page{ position:relative; padding:32pt 52pt 46pt; min-height:100vh; page-break-after:always; overflow:hidden; }
+  .page:last-child{ page-break-after:auto; }
+  .page-head{ display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--line); padding-bottom:10pt; margin-bottom:22pt; }
+  .page-head .brand{ display:flex; align-items:center; gap:8pt; }
+  .page-head .brand img{ height:22px; }
+  .page-head .tag{ font-family:'GG Oswald',sans-serif; text-transform:uppercase; letter-spacing:2px; font-size:8pt; color:var(--muted); }
+
+  .sec-kicker{ color:var(--cyan); font-size:9.5pt; letter-spacing:4px; margin-bottom:8pt; }
+  h2.sec{ font-size:22pt; color:var(--ink); letter-spacing:.5px; margin-bottom:4pt; }
+  h2.sec::after{ content:''; display:block; width:58pt; height:4px; margin-top:12pt;
+    background:linear-gradient(90deg,var(--teal) 0 40pt,var(--ink) 40pt); }
+
+  p{ margin:0 0 10pt; }
+  .lead{ font-size:11.6pt; color:var(--ink2); line-height:1.62; }
+  strong{ color:var(--ink); }
+
+  /* Caja informativa */
+  .box{ border:1px solid var(--line); background:var(--paper); padding:11pt 15pt; margin:10pt 0;
+    position:relative; }
+  .box .bt{ font-family:'GG Oswald',sans-serif; text-transform:uppercase; letter-spacing:2px; font-size:9pt; color:var(--teal); margin-bottom:6pt; display:flex; align-items:center; gap:6pt; }
+  .box.accent{ background:var(--cyan-pale); border-color:rgba(0,158,202,.3); }
+  .box.accent .bt{ color:var(--blue); }
+  .box.warn{ background:var(--amber-bg); border-color:rgba(196,106,16,.35); }
+  .box.warn .bt{ color:var(--amber); }
+
+  /* Chip de dato clave */
+  .factgrid{ display:flex; gap:14pt; margin:12pt 0 4pt; }
+  .fact{ flex:1; border:1px solid var(--line); background:#fff; padding:12pt 14pt; }
+  .fact .fl{ font-size:7.5pt; letter-spacing:2px; text-transform:uppercase; color:var(--muted); font-family:'GG Oswald',sans-serif; margin-bottom:5pt; }
+  .fact .fv{ font-family:'GG Oswald',sans-serif; font-size:16pt; color:var(--ink); line-height:1.05; }
+  .fact .fh{ font-size:8.5pt; color:var(--muted); margin-top:4pt; }
+
+  /* Pasos */
+  .step{ display:flex; gap:14pt; padding:13pt 0; border-bottom:1px solid var(--line); page-break-inside:avoid; }
+  .step:last-child{ border-bottom:0; }
+  .step .num{ flex:0 0 auto; width:34pt; height:34pt; border-radius:0;
+    background:var(--ink); color:#fff; font-family:'GG Oswald',sans-serif; font-weight:700;
+    font-size:15pt; display:flex; align-items:center; justify-content:center;
+    clip-path:polygon(0 0,100% 0,100% 72%,72% 100%,0 100%); }
+  .step .body{ flex:1; }
+  .step .st{ font-family:'GG Oswald',sans-serif; text-transform:uppercase; letter-spacing:.6px; font-size:12.5pt; color:var(--ink); margin:2pt 0 6pt; }
+  .step ul{ margin:0; padding-left:15pt; }
+  .step li{ margin-bottom:5pt; }
+  .step .mini{ font-size:9pt; color:var(--muted); margin-top:5pt; }
+  .pill{ display:inline-block; font-family:'GG Oswald',sans-serif; font-size:7.5pt; letter-spacing:1px;
+    text-transform:uppercase; color:var(--teal); background:var(--teal-pale); border:1px solid rgba(21,154,166,.3);
+    padding:1pt 6pt; margin-left:4pt; vertical-align:middle; }
+
+  .foot{ position:absolute; left:52pt; right:52pt; bottom:26pt; display:flex; justify-content:space-between;
+    align-items:center; font-size:8pt; color:var(--muted); border-top:1px solid var(--line); padding-top:9pt; }
+  .foot .slg{ font-family:'GG Oswald',sans-serif; text-transform:uppercase; letter-spacing:2px; }
+</style>
+</head>
+<body>
+
+<!-- ============ COVER ============ -->
+<section class="cover">
+  <svg class="tri" style="top:-30px;right:-30px;opacity:.5" width="320" height="320" viewBox="0 0 320 320">
+    <path d="M320 0 L320 150 L170 0 Z" fill="#009ECA" opacity=".55"/>
+    <path d="M320 90 L320 230 L180 90 Z" fill="#159AA6" opacity=".45"/>
+    <path d="M320 180 L320 300 L200 180 Z" fill="#2E6FB0" opacity=".35"/>
+  </svg>
+  <svg class="tri" style="bottom:-50px;left:-50px;opacity:.28;transform:rotate(180deg)" width="260" height="260" viewBox="0 0 260 260">
+    <path d="M260 0 L260 140 L120 0 Z" fill="#009ECA"/>
+    <path d="M260 90 L260 210 L140 90 Z" fill="#9CC7E4"/>
+  </svg>
+
+  <img class="logo" src="logo-white.png" alt="Gestión Global">
+
+  <div class="hero">
+    <div class="kicker">Instructivo · RPAC Buenos Aires</div>
+    <h1>Declaración<br>Jurada <span class="accent">Anual</span></h1>
+    <p class="sub">Guía paso a paso para completar tu DDJJ en el Portal de Declaraciones Juradas, de principio a fin y sin vueltas.</p>
+  </div>
+
+  <div class="meta">
+    <div>
+      <div class="lbl">Jurisdicción</div>
+      <div class="val">Provincia de Buenos Aires</div>
+    </div>
+    <div>
+      <div class="lbl">Portal</div>
+      <div class="val">misgestiones.com.ar</div>
+    </div>
+    <div>
+      <div class="lbl">Acompaña</div>
+      <div class="val">Gestión Global</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ INTRO ============ -->
+<section class="page">
+  <div class="page-head">
+    <div class="brand"><img src="logo.png" alt="Gestión Global"></div>
+    <div class="tag">Instructivo DDJJ · RPAC</div>
+  </div>
+
+  <div class="sec-kicker kicker">Antes de empezar</div>
+  <h2 class="sec">De qué se trata</h2>
+
+  <p class="lead">La <strong>Declaración Jurada Anual</strong> es una obligación de todo administrador de consorcios matriculado en el Registro Público de Administradores de Consorcios (<strong>RPAC</strong>) de la Provincia de Buenos Aires, en el marco de la <strong>Ley 14.701</strong>. En ella declarás, consorcio por consorcio, cómo administraste durante el período: facturación, cargas sociales, seguros, capacitaciones, proveedores y juicios.</p>
+
+  <div class="factgrid">
+    <div class="fact">
+      <div class="fl">Vencimiento</div>
+      <div class="fv">31 de marzo</div>
+      <div class="fh">Todos los años, para PBA</div>
+    </div>
+    <div class="fact">
+      <div class="fl">Dónde se carga</div>
+      <div class="fv">Portal online</div>
+      <div class="fh">misgestiones.com.ar</div>
+    </div>
+    <div class="fact">
+      <div class="fl">Pasos</div>
+      <div class="fv">9 pasos</div>
+      <div class="fh">Por cada consorcio</div>
+    </div>
+  </div>
+
+  <div class="box accent">
+    <div class="bt">Cómo ingresás</div>
+    <p style="margin:0">Entrás a <strong>misgestiones.com.ar</strong> con el <strong>usuario y la contraseña</strong> que te asignamos (los encontrás en tu portal de Gestión Global, sección <em>Declaraciones Juradas</em>). En el mismo ingreso vas a ver <strong>todas las administraciones matriculadas</strong> que funcionan en tu empresa.</p>
+  </div>
+
+  <div class="box">
+    <div class="bt">Lo que ya está cargado</div>
+    <p style="margin:0 0 6pt">Para que no arranques de cero, cuando te damos de alta dejamos preparado:</p>
+    <ul style="margin:0;padding-left:16pt">
+      <li>Las <strong>administraciones legales</strong> (matriculadas): ya cargadas, sin datos extra.</li>
+      <li>Los <strong>consorcios</strong>: cargados desde la planilla que presentaste al inscribirte.</li>
+    </ul>
+  </div>
+
+  <p>La declaración es sobre lo que administraste durante el año, total o parcialmente. Si te falta un consorcio porque ya no lo tenés, agregalo desde el botón <strong>“Consorcios”</strong>. Si un consorcio migrado tiene fecha de designación posterior al 31/12 del año declarado, el sistema no te pedirá su información: la debe presentar quien lo administraba en ese momento.</p>
+
+  <div class="box">
+    <div class="bt">Un alivio en casi todos los pasos</div>
+    <p style="margin:0">En la mayoría de las pantallas vas a tener las opciones <strong>“sin información”</strong>, <strong>“no corresponde”</strong> o <strong>“no posee”</strong>, pudiendo indicar el motivo. Usalas con tranquilidad cuando correspondan.</p>
+  </div>
+
+  <p style="margin-top:4pt">En la primera pantalla vas a encontrar, además, un botón para la <strong>nómina de juicios civiles y comerciales a nivel personal</strong> (completalo o indicá que no poseés) y el <strong>listado de consorcios</strong> para empezar la DDJJ, uno por uno.</p>
+
+  <div class="foot">
+    <span>Gestión Global · gestionglobal.ar</span>
+    <span class="slg">Aliados de tu tiempo</span>
+  </div>
+</section>
+
+<!-- ============ PASOS 1-4 ============ -->
+<section class="page">
+  <div class="page-head">
+    <div class="brand"><img src="logo.png" alt="Gestión Global"></div>
+    <div class="tag">Instructivo DDJJ · RPAC</div>
+  </div>
+
+  <div class="sec-kicker kicker">Paso a paso · por cada consorcio</div>
+  <h2 class="sec">Los 9 pasos</h2>
+  <p style="margin-top:14pt;color:var(--muted)">La declaración de cada consorcio está separada en 9 pasos. Los completás en orden, uno por uno.</p>
+
+  <div class="step">
+    <div class="num">1</div>
+    <div class="body">
+      <div class="st">Confirmación de datos del consorcio</div>
+      <ul>
+        <li>Cantidad de empleados permanentes y temporales.</li>
+        <li>PDF de la carátula de rúbrica del <strong>libro de registro de propietarios</strong>.</li>
+        <li>PDF de las <strong>últimas 2 hojas</strong> completas (con información) de ese mismo libro.</li>
+      </ul>
+      <div class="box warn" style="margin:9pt 0 0;padding:9pt 12pt">
+        <div class="bt" style="margin-bottom:3pt">Importante</div>
+        <p style="margin:0">Si todavía no tenés el libro rubricado, en los 2 campos subí una <strong>nota de la escribanía</strong> que indique que están en trámite.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="num">2</div>
+    <div class="body">
+      <div class="st">Facturación y percepción de honorarios</div>
+      <ul>
+        <li>Cargás la información de las facturas emitidas y adjuntás en PDF la <strong>primera y la última factura</strong> del período, desde el botón <strong>“Cargar Factura”</strong>.</li>
+        <li>Si es un consorcio <strong>coadministrado</strong> y no facturaste vos, hay un selector para indicar qué otro administrador facturó, y cargás ahí los datos solicitados.</li>
+      </ul>
+      <div class="mini">Al lado de algunos campos vas a ver 2 cuadraditos que te permiten <strong>repetir lo del primer mes</strong> en todos los restantes. <span class="pill">Atajo</span> Si tenés todo en un Excel o PDF, subilo con <strong>“Carga PDF con toda la información”</strong>.</div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="num">3</div>
+    <div class="body">
+      <div class="st">Acta de aprobación de rendición de cuentas</div>
+      <ul>
+        <li>Cargás en PDF el <strong>acta completa</strong> sacada del libro de actas del consorcio.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="num">4</div>
+    <div class="body">
+      <div class="st">Detalle de pagos, aportes y contribuciones</div>
+      <ul>
+        <li>Cargás la <strong>fecha y forma de pago</strong> de cada boleta de <strong>F-931, Suteryh, Fateryh y Seracarh</strong>. El selector de cada carga social está en la parte superior.</li>
+      </ul>
+      <div class="mini">En “banco donde se realizó el pago” tenés los 2 cuadraditos para copiar el primer mes al resto. <span class="pill">Atajo</span> También podés subir todo junto con <strong>“Carga PDF con toda la información”</strong>.</div>
+    </div>
+  </div>
+
+  <div class="foot">
+    <span>Gestión Global · gestionglobal.ar</span>
+    <span class="slg">Aliados de tu tiempo</span>
+  </div>
+</section>
+
+<!-- ============ PASOS 5-9 ============ -->
+<section class="page">
+  <div class="page-head">
+    <div class="brand"><img src="logo.png" alt="Gestión Global"></div>
+    <div class="tag">Instructivo DDJJ · RPAC</div>
+  </div>
+
+  <div class="sec-kicker kicker">Paso a paso · por cada consorcio</div>
+  <h2 class="sec">Los 9 pasos <span style="font-size:12pt;color:var(--muted)">(continuación)</span></h2>
+
+  <div class="step">
+    <div class="num">5</div>
+    <div class="body">
+      <div class="st">Seguros obligatorios y complementarios</div>
+      <ul>
+        <li>Subís el PDF de <strong>cada póliza</strong> que tuvo el consorcio durante el año: ART, integrales de la propiedad y del administrador, y seguros complementarios.</li>
+        <li>Para demostrar el seguro obligatorio y la Ley de Riesgos del Trabajo, subís el PDF del <strong>último F-931</strong> en el botón <strong>“Cargar F931”</strong>.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="num">6</div>
+    <div class="body">
+      <div class="st">Cursos de capacitación en seguridad e higiene</div>
+      <ul>
+        <li>Subís la boleta del pago del <strong>último curso</strong> de seguridad e higiene emitida por el <strong>SERACARH</strong>.</li>
+        <li>Indicás <strong>“sin información”</strong> y el motivo si no se pudo realizar.</li>
+        <li>Indicás <strong>“no posee”</strong> si no tenés personal que deba hacer el curso.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="num">7</div>
+    <div class="body">
+      <div class="st">Listado de proveedores utilizados</div>
+      <ul>
+        <li>Cargás los proveedores que usaste en el consorcio, indicando <strong>CUIT y monto total liquidado</strong> en el año.</li>
+        <li>Podés <strong>importar un Excel</strong> desde tu sistema de liquidación de expensas (“Importar proveedores”), subir PDFs, o cargarlos uno por uno desde “Carga de proveedor”.</li>
+        <li><strong>“Sin información”</strong> si ya no administrás el consorcio; <strong>“no posee”</strong> si no hubo gastos (ej.: pedidos de fondo).</li>
+      </ul>
+      <div class="box warn" style="margin:9pt 0 0;padding:9pt 12pt">
+        <div class="bt" style="margin-bottom:3pt">Importante</div>
+        <p style="margin:0">Ya no se cargan las liquidaciones mensuales: el informe pide el <strong>importe total</strong> de cada proveedor liquidado en el año.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="num">8</div>
+    <div class="body">
+      <div class="st">Juicios civiles y comerciales del consorcio</div>
+      <ul>
+        <li>Nómina de juicios en los que el consorcio haya sido actor o demandado.</li>
+        <li><strong>“Sin información”</strong> si ya no lo administrás (explicá el motivo); <strong>“no posee”</strong> si no hubo juicios en el año.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="num">9</div>
+    <div class="body">
+      <div class="st">Juicios por cobro de expensas</div>
+      <ul>
+        <li>Cargás cada juicio vigente al último período del año, indicando <strong>carátula, juzgado y monto reclamado</strong>.</li>
+        <li><strong>“Sin información”</strong> si ya no lo administrás (explicá el motivo); <strong>“no posee”</strong> si no hubo juicios en el año.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="box accent" style="margin-top:18pt">
+    <div class="bt">¿Dudas en algún paso?</div>
+    <p style="margin:0">Escribinos a <strong>contacto@gestionglobal.ar</strong> o desde tu portal. Si contrataste la gestoría de DDJJ con Gestión Global, nos encargamos de todo el proceso por vos.</p>
+  </div>
+
+  <div class="foot">
+    <span>Gestión Global · gestionglobal.ar</span>
+    <span class="slg">Aliados de tu tiempo</span>
+  </div>
+</section>
+
+</body>
+</html>

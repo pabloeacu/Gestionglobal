@@ -11,6 +11,17 @@ import { ok, fail, type ApiResponse } from '@/lib/errors';
 
 const PLATAFORMA = 'ddjj';
 
+// F3 · URL pública del instructivo de DDJJ (bucket público formulario-descargas).
+// "Reemplazable": re-subir el PDF al MISMO path con upsert actualiza el instructivo
+// para todos sin tocar código ni deployar (patrón guía de bienvenida).
+export const INSTRUCTIVO_DDJJ_PATH = 'ddjj/instructivo-ddjj-rpac.pdf';
+export function instructivoDdjjUrl(): string {
+  return supabase.storage.from('formulario-descargas').getPublicUrl(INSTRUCTIVO_DDJJ_PATH).data.publicUrl;
+}
+
+/** URL del Portal externo de Declaraciones Juradas (misgestiones.com.ar). */
+export const PORTAL_DDJJ_URL = 'https://misgestiones.com.ar/login';
+
 export type CredencialEstado = 'borrador' | 'propuesto' | 'publicado' | 'descartado';
 
 export interface CredencialMeta {
@@ -19,6 +30,9 @@ export interface CredencialMeta {
   tienePassword: boolean;
   estado: CredencialEstado | null;
   updatedAt: string | null;
+  /** F3 · hay una propuesta de gestoría en curso (sin exponer el secreto). Para el
+   *  cliente marca "estamos preparando tu acceso" aunque todavía no esté publicada. */
+  pendiente: boolean;
 }
 
 /** Carga/edición directa por GERENCIA (staff). Deja la credencial 'publicado'.
@@ -47,7 +61,7 @@ export async function getCredencialDdjjMeta(administracionId: string): Promise<A
   if (error) return fail('CREDENCIAL_DDJJ_META', error.message, error);
   const r = (data ?? {}) as {
     existe?: boolean; usuario?: string | null; tiene_password?: boolean;
-    estado?: string | null; updated_at?: string | null;
+    estado?: string | null; updated_at?: string | null; pendiente?: boolean;
   };
   return ok({
     existe: !!r.existe,
@@ -55,6 +69,7 @@ export async function getCredencialDdjjMeta(administracionId: string): Promise<A
     tienePassword: !!r.tiene_password,
     estado: (r.estado as CredencialEstado | null) ?? null,
     updatedAt: r.updated_at ?? null,
+    pendiente: !!r.pendiente,
   });
 }
 

@@ -195,6 +195,8 @@ export interface ClienteTramite {
   total_adjuntos: number;
   consorcio_id: string | null;
   servicio_id: string | null;
+  /** DGG-243 F3 · código del servicio (p. ej. 'rpac_ddjj') para espejar el gate DDJJ. */
+  servicio_codigo: string | null;
   created_at: string;
 }
 
