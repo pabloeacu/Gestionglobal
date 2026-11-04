@@ -67,3 +67,89 @@ export async function revelarCredencialDdjj(administracionId: string): Promise<A
   if (error) return fail('CREDENCIAL_DDJJ_REVELAR', error.message, error);
   return ok((data as string | null) ?? null);
 }
+
+// ============================================================================
+// F2b · Carril de PROPUESTA de gestoría + MODERACIÓN (gemelo del otorgamiento).
+// El secreto propuesto vive en credenciales_regulatorias.prop_* (cifrado); NUNCA
+// en el tracking. La gestoría propone (por token, ver accesoExterno.ts) y gerencia
+// modera: publicar (con edición opcional) / descartar.
+// ============================================================================
+
+/** Una propuesta de credenciales pendiente de moderación (sin contraseñas). */
+export interface CredencialModeracionPendiente {
+  administracionId: string;
+  plataforma: 'ddjj' | 'arca';
+  adminNombre: string | null;
+  propTramiteId: string | null;
+  propTramiteCodigo: string | null;
+  propUsuario: string | null;
+  propTienePassword: boolean;
+  propOrigen: string | null;
+  propPor: string | null;
+  propAt: string | null;
+  /** Lo PUBLICADO hoy (lo que ve el cliente); null si todavía no hay publicada. */
+  actualUsuario: string | null;
+  actualTienePassword: boolean;
+  actualEstado: CredencialEstado | null;
+}
+
+/** Cola de propuestas de credenciales pendientes de moderación (staff). Sin contraseñas. */
+export async function fetchCredencialModeracionPendientes(): Promise<ApiResponse<CredencialModeracionPendiente[]>> {
+  const { data, error } = await supabase.rpc('credencial_reg_moderacion_pendientes');
+  if (error) return fail('CREDENCIAL_MOD_PENDIENTES', error.message, error);
+  const rows = (data ?? []) as Array<{
+    administracion_id: string; plataforma: string; admin_nombre: string | null;
+    prop_tramite_id: string | null; prop_tramite_codigo: string | null;
+    prop_usuario: string | null; prop_tiene_password: boolean;
+    prop_origen: string | null; prop_por: string | null; prop_at: string | null;
+    actual_usuario: string | null; actual_tiene_password: boolean; actual_estado: string | null;
+  }>;
+  return ok(rows.map((r) => ({
+    administracionId: r.administracion_id,
+    plataforma: (r.plataforma as 'ddjj' | 'arca'),
+    adminNombre: r.admin_nombre ?? null,
+    propTramiteId: r.prop_tramite_id ?? null,
+    propTramiteCodigo: r.prop_tramite_codigo ?? null,
+    propUsuario: r.prop_usuario ?? null,
+    propTienePassword: !!r.prop_tiene_password,
+    propOrigen: r.prop_origen ?? null,
+    propPor: r.prop_por ?? null,
+    propAt: r.prop_at ?? null,
+    actualUsuario: r.actual_usuario ?? null,
+    actualTienePassword: !!r.actual_tiene_password,
+    actualEstado: (r.actual_estado as CredencialEstado | null) ?? null,
+  })));
+}
+
+/** Modera una propuesta: 'publicar' (prop→ficha, con edición opcional) o 'descartar'. Staff. */
+export async function moderarCredencial(input: {
+  administracionId: string;
+  plataforma?: 'ddjj' | 'arca';
+  accion: 'publicar' | 'descartar';
+  usuario?: string | null;
+  password?: string | null;
+}): Promise<ApiResponse<void>> {
+  const { error } = await supabase.rpc('credencial_reg_moderar', {
+    p_administracion_id: input.administracionId,
+    p_plataforma: input.plataforma ?? PLATAFORMA,
+    p_accion: input.accion,
+    // DEFAULT NULL server-side → omitir (undefined) equivale a NULL ("usar la propuesta tal cual").
+    p_usuario: input.usuario ?? undefined,
+    p_password: input.password ?? undefined,
+  });
+  if (error) return fail('CREDENCIAL_MODERAR', error.message, error);
+  return ok(undefined);
+}
+
+/** Revela la contraseña PROPUESTA (staff-only) para verificarla antes de publicar. Auditado. */
+export async function revelarPropuestaCredencial(
+  administracionId: string,
+  plataforma: 'ddjj' | 'arca' = PLATAFORMA,
+): Promise<ApiResponse<string | null>> {
+  const { data, error } = await supabase.rpc('credencial_reg_revelar_propuesta', {
+    p_administracion_id: administracionId,
+    p_plataforma: plataforma,
+  });
+  if (error) return fail('CREDENCIAL_REVELAR_PROP', error.message, error);
+  return ok((data as string | null) ?? null);
+}

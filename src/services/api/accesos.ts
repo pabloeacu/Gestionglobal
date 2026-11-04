@@ -311,3 +311,33 @@ export async function gestorCargarAvance(
     return fail('GESTOR_AVANCE', err.message, err.details);
   }
 }
+
+// DGG-243 F2b · La gestoría PROPONE las credenciales del Portal de DDJJ
+// (misgestiones.com.ar) desde el sitio externo del trámite, igual que informa el
+// otorgamiento. La contraseña viaja a la RPC y se guarda CIFRADA en el store
+// dedicado (credenciales_regulatorias.prop_*) — nunca al tracking. Gerencia la
+// modera (publicar/descartar) antes de que el cliente la vea.
+export async function proponerCredencialDdjjGestor(
+  token: string,
+  usuario: string,
+  password: string,
+): Promise<ApiResponse<void>> {
+  try {
+    const args = {
+      p_token: token,
+      p_plataforma: 'ddjj',
+      p_usuario: usuario,
+      p_password: password,
+    } as unknown as {
+      p_token: string; p_plataforma: string; p_usuario: string; p_password: string;
+    };
+    const { error } = await supabase.rpc('credencial_reg_proponer_gestor' as never, args as never);
+    if (error) throw error;
+    return ok(undefined);
+  } catch (e) {
+    const err = toApiError(e);
+    // Igual que GESTOR_AVANCE: código propio para que humanizeError muestre el
+    // mensaje real del server (token vencido, trámite no-DDJJ, etc.).
+    return fail('CREDENCIAL_PROPONER', err.message, err.details);
+  }
+}

@@ -6671,3 +6671,13 @@ Todos LATENTES (0 admins afectados hoy, motor real DORMIDO) — cazados por la d
 **Fix:** las claves de atribución van como **meta-campos con prefijo `_`** (`_utm_source`, `_origen`, …) — convención ya existente (`_origen`, `_origen_canal`) que el edge pasa intacta y que `SolicitudDetailPage`/`FormularioRunner` excluyen del render (`!k.startsWith('_')`). Resuelve la colisión y la polución de la grilla de una.
 
 **Lección:** el atributo de marketing nunca debe compartir namespace con los campos del schema; un merge "last wins" sobre datos de usuario es un foot-gun. Lo capturó la **doble auditoría §6** (agente adversarial) ANTES del merge — nunca tocó producción. Refuerza el valor del "cada entrega la audita otro agente".
+
+## E-GG-249 (2026-11-04) — Rama `'arca'` sin gate en `credencial_reg_proponer_gestor` (DGG-243 F2b; atrapado en auditoría, NO llegó a prod)
+
+**Contexto:** DGG-243 F2b, mig 0646. El carril de propuesta de gestoría (`credencial_reg_proponer_gestor`, anon por token) gatea que el trámite sea de DDJJ (servicio `rpac_ddjj` O categoría `dj`) antes de aceptar la propuesta.
+
+**Causa raíz:** el gate estaba dentro de `IF p_plataforma = 'ddjj' THEN …`. El store es genérico (`plataforma` ∈ ddjj|arca, pensando en ARCA para F4). Para `p_plataforma='arca'` NO corría ningún gate → un token válido de **cualquier** trámite (no-DDJJ) podía inyectar una propuesta `'arca'` para la administración de ese token, que caía en la cola de moderación (que no filtra por plataforma). Blast radius acotado (tenant-scoped, no auto-publica, ARCA no se consume hasta F4), pero rompe el principio "el gate fuente-de-verdad vive en la RPC" (precedente otorgamiento 0448: un payload crafteado no puede adjuntar a un trámite ajeno a su tipo). Landmine latente para F4.
+
+**Fix (mig 0647):** `credencial_reg_proponer_gestor` rechaza `p_plataforma <> 'ddjj'` al inicio — la **gestoría sólo informa DDJJ** por ahora (ARCA se carga por gerencia; cuando F4 habilite ARCA por gestoría se reemplaza el guard por el gate ARCA real por servicio/categoría). Misma firma (CREATE OR REPLACE, R16). El front siempre manda `'ddjj'` → impacto cero en prod. Verificado e2e (rollback): `proponer(token,'arca',…)` → 22023; DDJJ sigue OK; R16=1 firma.
+
+**Lección:** en un store/firma genérica (multi-valor de un enum), **cada rama del enum necesita su gate** — un `IF plataforma='X'` que envuelve al gate deja las otras ramas abiertas. Lo capturó la **§6 (agente adversarial BD)** antes del commit. Dudas menores del mismo auditor diferidas a F4 (documentadas en DECISIONES DGG-243 F2b): TOCTOU moderación (concurrencia optimista con `p_prop_at`) y `key_version` en publish (multi-key).

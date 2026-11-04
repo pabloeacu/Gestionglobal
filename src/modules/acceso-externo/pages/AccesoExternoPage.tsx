@@ -18,6 +18,9 @@ import {
   X as XIcon,
   UploadCloud,
   Award,
+  KeyRound,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import { cn } from '@/lib/cn';
@@ -25,6 +28,7 @@ import {
   fetchAccesoExterno,
   fetchGestorAvances,
   gestorCargarAvance,
+  proponerCredencialDdjjGestor,
   registrarApertura,
   type AccesoExternoPayload,
   type GestorAvanceLinea,
@@ -527,6 +531,12 @@ type InfoSolicitud = {
    * cacheados no lo traen.
    */
   servicio_codigo?: string | null;
+  /**
+   * Categoría REAL del trámite (DGG-243 F2b, mig 0646). Gatea la sección
+   * "Informar credenciales del Portal de DDJJ" (categoría 'dj'). Opcional:
+   * payloads viejos cacheados no lo traen.
+   */
+  tramite_categoria?: string | null;
   solicitante_nombre: string;
   solicitante_email: string;
   solicitante_telefono: string;
@@ -594,6 +604,41 @@ function PanelGestor({ token }: { token: string }) {
   const otorgTieneDatos = Object.values(otorg).some((v) => v.trim().length > 0);
   const esServicioRpac =
     !!info?.servicio_codigo && SERVICIOS_OTORGAMIENTO_RPAC.has(info.servicio_codigo);
+
+  // DGG-243 F2b · credenciales del Portal de DDJJ (misgestiones.com.ar) que la
+  // gestoría PROPONE. Gemelo del otorgamiento, pero el secreto NUNCA toca el
+  // tracking ni se persiste en localStorage del browser (a diferencia del
+  // borrador del avance): la contraseña vive sólo en memoria hasta enviarse, y
+  // viaja cifrada al store dedicado. Gate = servicio 'rpac_ddjj' O categoría 'dj'
+  // (espeja el botón de gerencia y el gate server-side).
+  const esTramiteDdjj =
+    info?.servicio_codigo === 'rpac_ddjj' || info?.tramite_categoria === 'dj';
+  const [credUsuario, setCredUsuario] = useState('');
+  const [credPassword, setCredPassword] = useState('');
+  const [credVer, setCredVer] = useState(false);
+  const [credAbierto, setCredAbierto] = useState(false);
+  const [credEnviando, setCredEnviando] = useState(false);
+  const [credEnviado, setCredEnviado] = useState(false);
+  const credTieneDatos = credUsuario.trim().length > 0 || credPassword.length > 0;
+
+  async function enviarCredencialDdjj() {
+    if (credUsuario.trim().length === 0 || credPassword.length === 0) {
+      toast.error('Cargá el usuario y la contraseña del Portal de DDJJ.');
+      return;
+    }
+    setCredEnviando(true);
+    const res = await proponerCredencialDdjjGestor(token, credUsuario.trim(), credPassword);
+    setCredEnviando(false);
+    if (!res.ok) {
+      toast.error(humanizeError(res.error));
+      return;
+    }
+    toast.success('Credenciales enviadas · quedan en revisión de la gerencia');
+    setCredEnviado(true);
+    setCredUsuario('');
+    setCredPassword('');
+    setCredVer(false);
+  }
 
   function setOtorgCampo(campo: keyof OtorgamientoDraft, valor: string) {
     setOtorg((prev) => ({ ...prev, [campo]: valor }));
@@ -1294,6 +1339,92 @@ function PanelGestor({ token }: { token: string }) {
         {enviado && (
           <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">
             <CheckCircle2 size={12} /> Recibido · en revisión de la gerencia
+          </div>
+        )}
+
+        {/* DGG-243 F2b · Informar credenciales del Portal de DDJJ — sólo trámites
+            de Declaraciones Juradas. El gestor PROPONE usuario+contraseña; gerencia
+            las publica tras moderar. Acción SEPARADA del avance (botón propio): el
+            secreto viaja cifrado al store dedicado, NO se persiste en el browser ni
+            viaja al tracking. */}
+        {(esTramiteDdjj || credTieneDatos) && (
+          <div className="mt-5 rounded-xl border border-brand-cyan/40 bg-brand-cyan-pale/20 p-3">
+            <button
+              type="button"
+              onClick={() => setCredAbierto((v) => !v)}
+              className="flex w-full items-center justify-between gap-2 text-left"
+              aria-expanded={credAbierto}
+            >
+              <span className="kicker inline-flex items-center gap-1 text-brand-cyan">
+                <KeyRound size={12} /> Informar credenciales del Portal de DDJJ
+                {credEnviado && !credAbierto ? ' · enviadas' : ''}
+              </span>
+              <span className="shrink-0 rounded-lg border border-brand-cyan/30 px-2.5 py-1 text-xs font-medium text-brand-cyan">
+                {credAbierto ? 'Ocultar' : credEnviado ? 'Cargar otra' : 'Completar'}
+              </span>
+            </button>
+            {credAbierto && (
+              <div className="mt-2 space-y-2">
+                <p className="text-xs text-brand-muted">
+                  Si ya generaste el usuario y la contraseña del Portal de DDJJ
+                  (misgestiones.com.ar) para este cliente, cargalos acá. Pasan por
+                  revisión de la gerencia antes de que el cliente los vea. Se guardan{' '}
+                  <strong>cifrados</strong>: la contraseña no queda a la vista de nadie.
+                </p>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <label className="block">
+                    <span className="text-[11px] font-semibold text-brand-ink">Usuario</span>
+                    <input
+                      type="text"
+                      maxLength={120}
+                      value={credUsuario}
+                      onChange={(e) => { setCredUsuario(e.target.value); if (credEnviado) setCredEnviado(false); }}
+                      placeholder="Ej.: 20-12345678-9"
+                      className="mt-0.5 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-sm text-brand-ink shadow-sm transition focus:border-brand-cyan focus:outline-none focus:ring-2 focus:ring-brand-cyan/20"
+                      disabled={credEnviando}
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-[11px] font-semibold text-brand-ink">Contraseña</span>
+                    <div className="relative mt-0.5">
+                      <input
+                        type={credVer ? 'text' : 'password'}
+                        maxLength={200}
+                        value={credPassword}
+                        onChange={(e) => { setCredPassword(e.target.value); if (credEnviado) setCredEnviado(false); }}
+                        className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 pr-9 text-sm text-brand-ink shadow-sm transition focus:border-brand-cyan focus:outline-none focus:ring-2 focus:ring-brand-cyan/20"
+                        disabled={credEnviando}
+                        autoComplete="off"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setCredVer((v) => !v)}
+                        className="absolute inset-y-0 right-0 flex items-center px-2.5 text-brand-muted hover:text-brand-cyan"
+                        aria-label={credVer ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                        tabIndex={-1}
+                      >
+                        {credVer ? <EyeOff size={15} /> : <Eye size={15} />}
+                      </button>
+                    </div>
+                  </label>
+                </div>
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={enviarCredencialDdjj}
+                    disabled={credEnviando || credUsuario.trim().length === 0 || credPassword.length === 0}
+                    className="inline-flex items-center gap-2 rounded-xl bg-brand-cyan px-4 py-2 text-sm font-semibold text-white shadow transition hover:bg-brand-teal disabled:cursor-not-allowed disabled:bg-slate-300"
+                  >
+                    {credEnviando ? (<><Loader2 size={14} className="animate-spin" /> Enviando…</>) : (<><KeyRound size={14} /> Enviar credenciales</>)}
+                  </button>
+                  {credEnviado && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">
+                      <CheckCircle2 size={12} /> Recibidas · en revisión de la gerencia
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

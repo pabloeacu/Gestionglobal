@@ -8,9 +8,9 @@ import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ShieldCheck, Send, EyeOff, Trash2, Pencil, X, Paperclip, Briefcase, Clock, FileInput,
-  Award, AlertCircle,
+  Award, AlertCircle, KeyRound, Eye, Copy, Check,
 } from 'lucide-react';
-import { Button, Select, Textarea, Skeleton, useConfirm, usePrompt, RefreshIndicator, PlantillaMensajePicker } from '@/components/common';
+import { Button, Input, Select, Textarea, Skeleton, useConfirm, usePrompt, RefreshIndicator, PlantillaMensajePicker } from '@/components/common';
 import { IllustratedEmpty } from '@/components/brand/IllustratedEmpty';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
@@ -25,6 +25,12 @@ import {
   type ModeracionPendiente,
   type ModeracionAccion,
 } from '@/services/api/trackings';
+import {
+  fetchCredencialModeracionPendientes,
+  moderarCredencial,
+  revelarPropuestaCredencial,
+  type CredencialModeracionPendiente,
+} from '@/services/api/ddjj';
 import { TRAMITE_ESTADOS, TRAMITE_ESTADO_LABEL, type TramiteEstado } from '@/services/api/tramites';
 import { crearPedidoDoc } from '@/services/api/tramitePedidosDoc';
 import { ProgramarVencimientoModal } from '../components/ProgramarVencimientoModal';
@@ -33,6 +39,10 @@ import { CerrarTramiteDialog } from '../components/CerrarTramiteDialog';
 
 export function ModeracionPage() {
   const [items, setItems] = useState<ModeracionPendiente[]>([]);
+  // DGG-243 F2b · propuestas de credenciales de portales (DDJJ/ARCA) pendientes
+  // de moderación. Carril paralelo al de aportes del gestor (el secreto vive en
+  // el store cifrado, no en tracking_lineas).
+  const [creds, setCreds] = useState<CredencialModeracionPendiente[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const firstRef = useRef(false);
@@ -61,14 +71,25 @@ export function ModeracionPage() {
 
   async function load() {
     if (firstRef.current) setRefreshing(true); else setLoading(true);
-    const res = await fetchModeracionPendientes();
+    const [res, resCred] = await Promise.all([
+      fetchModeracionPendientes(),
+      fetchCredencialModeracionPendientes(),
+    ]);
     setLoading(false); setRefreshing(false); firstRef.current = true;
-    if (!res.ok) { toast.error('No pudimos cargar la cola', { description: humanizeError(res.error) }); return; }
-    setItems(res.data);
+    // §6 B#10: cada carril se setea independiente — una falla transitoria en uno
+    // NO debe ocultar el otro, y un error de credenciales (dato sensible) no es silencioso.
+    if (res.ok) setItems(res.data);
+    else toast.error('No pudimos cargar los aportes', { description: humanizeError(res.error) });
+    if (resCred.ok) setCreds(resCred.data);
+    else toast.error('No pudimos cargar las credenciales a moderar', { description: humanizeError(resCred.error) });
   }
   useEffect(() => { void load(); }, []);
   // §6 C#8 (E5): la columna "En la ficha hoy" del diff de otorgamiento sale de
   // administraciones — refrescar también cuando la ficha cambia por otra vía.
+  // F2b (§6 B#9/C#5b): las propuestas de credenciales NO tienen realtime —
+  // credenciales_regulatorias es un store con RLS deny-all y fuera de la publicación
+  // supabase_realtime (habilitarlo difundiría el cipher a staff) → se refrescan en
+  // esta carga y cuando entra cualquier otra novedad de gestoría (tracking_lineas).
   useRealtimeRefresh(['tracking_lineas', 'administraciones'], () => void load());
 
   return (
@@ -78,49 +99,82 @@ export function ModeracionPage() {
         <p className="kicker text-brand-cyan">Operación</p>
         <h1 className="font-display text-3xl font-bold text-brand-ink sm:text-4xl">Moderación de aportes</h1>
         <p className="mt-1 max-w-2xl text-sm text-brand-muted">
-          Lo que envía la gestoría externa entra acá para tu revisión. Publicá (tal cual o editado),
-          dejalo como nota interna o descartalo. El cliente sólo ve lo que publicás.
+          Lo que envía la gestoría externa entra acá para tu revisión: aportes de trámites y credenciales
+          de portales (DDJJ). Publicá (tal cual o editado), dejalo como nota interna o descartalo. El
+          cliente sólo ve lo que publicás.
         </p>
       </header>
 
       {loading ? (
         <div className="space-y-3">{[0, 1].map((i) => <Skeleton key={i} className="h-44 rounded-2xl" />)}</div>
-      ) : items.length === 0 ? (
+      ) : items.length === 0 && creds.length === 0 ? (
         <IllustratedEmpty
           illustration="lista"
-          title="No hay aportes pendientes"
-          description="Cuando la gestoría externa cargue un avance, aparecerá acá para que lo revises antes de publicarlo al cliente."
+          title="No hay nada para moderar"
+          description="Cuando la gestoría externa cargue un avance o informe credenciales de un portal, aparecerá acá para que lo revises antes de publicarlo al cliente."
         />
       ) : (
-        <ul className="space-y-4">
-          {items.map((it) => (
-            <li key={it.linea_id}>
-              <ModeracionCard
-                item={it}
-                onResuelto={() => void load()}
-                // DGG-160 · cierre SIN otorgamiento que renueva → programador genérico.
-                onCerradoTramite={(t) => { if (t.vigenciaMeses != null) setProgramar(t); }}
-                // DGG-163 · B: otorgamiento de gestoría → el gerente concatena el
-                // cierre por diálogo + el asistente RPAC de 3 fechas pre-llenado.
-                onOtorgamientoParaCerrar={(t) => {
-                  // Categoría REAL del trámite (mig 0468). Fallback a 'matricula'
-                  // sólo por seguridad de tipos: el otorgamiento sólo existe en
-                  // trámites matrícula/renovación (la card no ofrece el bloque en
-                  // otras categorías), así que el fallback es inalcanzable en la
-                  // práctica pero mantiene el union cerrado.
-                  const categoria: 'matricula' | 'renovacion' =
-                    t.categoria === 'renovacion' ? 'renovacion' : 'matricula';
-                  setCerrarOtorg({
-                    tramiteId: t.tramiteId,
-                    codigo: t.codigo,
-                    categoria,
-                    prefill: { matriculacion: t.fechaEmision ?? '', vencimiento: t.fechaVencimiento ?? '' },
-                  });
-                }}
-              />
-            </li>
-          ))}
-        </ul>
+        <div className="space-y-8">
+          {/* F2b · carril de credenciales de portales (DDJJ) — arriba porque es sensible. */}
+          {creds.length > 0 && (
+            <section className="space-y-3">
+              <h2 className="inline-flex items-center gap-2 font-display text-lg font-bold text-brand-ink">
+                <KeyRound size={18} className="text-brand-cyan" />
+                Credenciales de portales · {creds.length}
+              </h2>
+              <p className="-mt-1 text-sm text-brand-muted">
+                La gestoría informó credenciales de acceso. Publicá lo que verá el cliente (podés editarlas antes) o descartá.
+              </p>
+              <ul className="space-y-4">
+                {creds.map((c) => (
+                  <li key={`${c.administracionId}:${c.plataforma}`}>
+                    <CredencialModeracionCard item={c} onResuelto={() => void load()} />
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          {items.length > 0 && (
+            <section className="space-y-3">
+              {creds.length > 0 && (
+                <h2 className="inline-flex items-center gap-2 font-display text-lg font-bold text-brand-ink">
+                  <Briefcase size={18} className="text-brand-cyan" />
+                  Aportes de gestoría · {items.length}
+                </h2>
+              )}
+              <ul className="space-y-4">
+                {items.map((it) => (
+                  <li key={it.linea_id}>
+                    <ModeracionCard
+                      item={it}
+                      onResuelto={() => void load()}
+                      // DGG-160 · cierre SIN otorgamiento que renueva → programador genérico.
+                      onCerradoTramite={(t) => { if (t.vigenciaMeses != null) setProgramar(t); }}
+                      // DGG-163 · B: otorgamiento de gestoría → el gerente concatena el
+                      // cierre por diálogo + el asistente RPAC de 3 fechas pre-llenado.
+                      onOtorgamientoParaCerrar={(t) => {
+                        // Categoría REAL del trámite (mig 0468). Fallback a 'matricula'
+                        // sólo por seguridad de tipos: el otorgamiento sólo existe en
+                        // trámites matrícula/renovación (la card no ofrece el bloque en
+                        // otras categorías), así que el fallback es inalcanzable en la
+                        // práctica pero mantiene el union cerrado.
+                        const categoria: 'matricula' | 'renovacion' =
+                          t.categoria === 'renovacion' ? 'renovacion' : 'matricula';
+                        setCerrarOtorg({
+                          tramiteId: t.tramiteId,
+                          codigo: t.codigo,
+                          categoria,
+                          prefill: { matriculacion: t.fechaEmision ?? '', vencimiento: t.fechaVencimiento ?? '' },
+                        });
+                      }}
+                    />
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+        </div>
       )}
 
       {/* DGG-142 E3 · ofrecimiento post-cierre desde moderación (V7). */}
@@ -692,6 +746,196 @@ export function ModeracionCard({ item, onResuelto, onCerradoTramite, onOtorgamie
         </div>
         <p className="mt-2 flex items-center gap-1 text-[11px] text-brand-muted">
           <ShieldCheck size={12} /> Al publicar, el cliente lo ve en su portal y recibe el aviso.
+        </p>
+      </div>
+    </article>
+  );
+}
+
+// ============================================================================
+// CredencialModeracionCard · DGG-243 F2b — moderación de credenciales de portales.
+// La gestoría propuso usuario+contraseña (cifrada en el store, NO en el tracking).
+// Gerencia publica (editable) o descarta. Descartar NO toca lo ya publicado; la
+// contraseña propuesta se revela on-demand (auditado) para verificarla.
+// ============================================================================
+function CredencialModeracionCard({ item, onResuelto }: {
+  item: CredencialModeracionPendiente;
+  onResuelto: () => void;
+}) {
+  const confirm = useConfirm();
+  const [usuario, setUsuario] = useState(item.propUsuario ?? '');
+  const [nuevaPassword, setNuevaPassword] = useState('');
+  const [verNueva, setVerNueva] = useState(false);
+  const [propRevelada, setPropRevelada] = useState<string | null>(null);
+  const [revelando, setRevelando] = useState(false);
+  const [copiado, setCopiado] = useState(false);
+  const [busy, setBusy] = useState<'publicar' | 'descartar' | null>(null);
+
+  const plataformaLabel = item.plataforma === 'ddjj' ? 'Portal de DDJJ' : 'ARCA';
+
+  async function revelarProp() {
+    setRevelando(true);
+    const r = await revelarPropuestaCredencial(item.administracionId, item.plataforma);
+    setRevelando(false);
+    if (!r.ok) { toast.error('No pudimos revelar la contraseña propuesta', { description: humanizeError(r.error) }); return; }
+    setPropRevelada(r.data ?? '(sin contraseña)');
+  }
+
+  async function copiar(text: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiado(true);
+      setTimeout(() => setCopiado(false), 1500);
+    } catch { toast.error('No pudimos copiar al portapapeles'); }
+  }
+
+  async function publicar() {
+    // §6 B#18: el guard mira el RESULTADO efectivo tras COALESCE server-side (edit → propuesta →
+    // publicada), no sólo el input vivo: borrar el usuario en una propuesta usuario-only no debe
+    // bloquear un publish que igual conservaría prop_usuario.
+    const habraUsuario = usuario.trim().length > 0 || !!item.propUsuario || !!item.actualUsuario;
+    const habraPassword = nuevaPassword.length > 0 || item.propTienePassword || item.actualTienePassword;
+    if (!habraUsuario && !habraPassword) {
+      toast.error('La propuesta no tiene datos para publicar.');
+      return;
+    }
+    setBusy('publicar');
+    const r = await moderarCredencial({
+      administracionId: item.administracionId,
+      plataforma: item.plataforma,
+      accion: 'publicar',
+      usuario: usuario.trim() || null,
+      password: nuevaPassword || null, // vacío → se publica la contraseña propuesta
+    });
+    setBusy(null);
+    if (!r.ok) { toast.error('No pudimos publicar', { description: humanizeError(r.error) }); return; }
+    toast.success('Credenciales publicadas', { description: 'El cliente ya puede verlas en su sección de DDJJ.' });
+    onResuelto();
+  }
+
+  async function descartar() {
+    const ok = await confirm({
+      title: 'Descartar propuesta',
+      message: item.actualUsuario || item.actualTienePassword
+        ? 'Se descarta la propuesta. Las credenciales que el cliente ya tiene publicadas NO cambian. ¿Confirmás?'
+        : 'Se descarta la propuesta (el cliente todavía no tiene credenciales publicadas). ¿Confirmás?',
+      confirmLabel: 'Descartar',
+    });
+    if (!ok) return;
+    setBusy('descartar');
+    const r = await moderarCredencial({ administracionId: item.administracionId, plataforma: item.plataforma, accion: 'descartar' });
+    setBusy(null);
+    if (!r.ok) { toast.error('No pudimos descartar', { description: humanizeError(r.error) }); return; }
+    toast.success('Propuesta descartada');
+    onResuelto();
+  }
+
+  return (
+    <article className="card-premium relative overflow-hidden p-5">
+      <TrianglesAccent position="top-right" size={90} tone="cyan" density="soft" className="opacity-20" />
+      <div className="relative">
+        <header className="flex flex-wrap items-center gap-2 text-xs">
+          {item.propTramiteId && (
+            <Link
+              to={`/gerencia/trackings/${item.propTramiteId}`}
+              className="inline-flex items-center gap-1.5 rounded bg-slate-100 px-2 py-0.5 font-mono uppercase tracking-wider text-brand-muted hover:text-brand-cyan"
+            >
+              <Briefcase size={11} /> {item.propTramiteCodigo ?? 'Trámite'}
+            </Link>
+          )}
+          <Link to={`/gerencia/clientes/${item.administracionId}`} className="font-medium text-brand-ink hover:text-brand-cyan">
+            {item.adminNombre ?? 'Cliente'}
+          </Link>
+          <span className="ml-auto inline-flex items-center gap-1 text-brand-muted">
+            <Clock size={11} /> {item.propAt ? formatDateTime(item.propAt) : ''}
+          </span>
+        </header>
+
+        <p className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-brand-cyan-pale/60 px-2.5 py-0.5 text-[11px] font-semibold text-brand-teal ring-1 ring-brand-cyan/30">
+          <KeyRound size={11} /> Credenciales del {plataformaLabel} · propuesta de {item.propPor ?? 'gestoría'}
+        </p>
+
+        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {/* Propuesto (editable antes de publicar) */}
+          <div>
+            <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-brand-muted">Propuesto (editable)</p>
+            <label className="block">
+              <span className="text-[11px] font-semibold text-brand-ink">Usuario</span>
+              <Input value={usuario} onChange={(e) => setUsuario(e.target.value)} maxLength={120} disabled={busy !== null} className="mt-0.5" />
+            </label>
+            <div className="mt-2">
+              <span className="text-[11px] font-semibold text-brand-ink">Contraseña propuesta</span>
+              {propRevelada === null ? (
+                <button
+                  type="button"
+                  onClick={() => void revelarProp()}
+                  disabled={!item.propTienePassword || revelando}
+                  className="mt-0.5 inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-brand-muted transition hover:border-brand-cyan hover:text-brand-cyan disabled:opacity-50"
+                >
+                  <Eye size={13} /> {item.propTienePassword ? (revelando ? 'Revelando…' : 'Ver contraseña propuesta') : 'Sin contraseña propuesta'}
+                </button>
+              ) : (
+                <div className="mt-0.5 flex items-center gap-2">
+                  <code className="flex-1 truncate rounded-lg bg-slate-100 px-2.5 py-1.5 text-sm text-brand-ink">{propRevelada}</code>
+                  <button type="button" onClick={() => void copiar(propRevelada)} className="rounded-lg border border-slate-200 p-1.5 text-brand-muted hover:border-brand-cyan hover:text-brand-cyan" aria-label="Copiar">
+                    {copiado ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
+                  </button>
+                  {/* §6 B#16: re-ocultar (evita shoulder-surfing si la card queda abierta). */}
+                  <button type="button" onClick={() => setPropRevelada(null)} className="rounded-lg border border-slate-200 p-1.5 text-brand-muted hover:border-brand-cyan hover:text-brand-cyan" aria-label="Ocultar contraseña">
+                    <EyeOff size={14} />
+                  </button>
+                </div>
+              )}
+            </div>
+            <label className="mt-2 block">
+              <span className="text-[11px] font-semibold text-brand-ink">Cambiar contraseña (opcional)</span>
+              <div className="relative mt-0.5">
+                <input
+                  type={verNueva ? 'text' : 'password'}
+                  value={nuevaPassword}
+                  onChange={(e) => setNuevaPassword(e.target.value)}
+                  maxLength={200}
+                  disabled={busy !== null}
+                  placeholder="Dejá vacío para publicar la propuesta"
+                  className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 pr-9 text-sm text-brand-ink shadow-sm transition focus:border-brand-cyan focus:outline-none focus:ring-2 focus:ring-brand-cyan/20"
+                  autoComplete="off"
+                />
+                <button type="button" onClick={() => setVerNueva((v) => !v)} className="absolute inset-y-0 right-0 flex items-center px-2.5 text-brand-muted hover:text-brand-cyan" tabIndex={-1} aria-label="Mostrar/ocultar contraseña">
+                  {verNueva ? <EyeOff size={15} /> : <Eye size={15} />}
+                </button>
+              </div>
+            </label>
+          </div>
+
+          {/* En la ficha hoy */}
+          <div>
+            <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-brand-muted">En la ficha hoy</p>
+            <dl className="space-y-1.5 rounded-lg bg-white/70 p-2.5 text-sm">
+              <div className="flex justify-between gap-2">
+                <dt className="text-brand-muted">Usuario</dt>
+                <dd className="font-medium text-brand-ink">{item.actualUsuario || '—'}</dd>
+              </div>
+              <div className="flex justify-between gap-2">
+                <dt className="text-brand-muted">Contraseña</dt>
+                <dd className="font-medium text-brand-ink">{item.actualTienePassword ? '•••••••• cargada' : '—'}</dd>
+              </div>
+            </dl>
+            {!item.actualUsuario && !item.actualTienePassword && (
+              <p className="mt-1.5 text-[11px] text-brand-muted">El cliente todavía no tiene credenciales publicadas.</p>
+            )}
+          </div>
+        </div>
+
+        <div className="mt-4 flex flex-wrap items-center justify-end gap-2 border-t border-slate-100 pt-3">
+          <Button variant="ghost" onClick={() => void descartar()} loading={busy === 'descartar'} disabled={busy !== null} className="text-red-600 hover:bg-red-50">
+            <Trash2 size={14} /> Descartar
+          </Button>
+          <Button onClick={() => void publicar()} loading={busy === 'publicar'} disabled={busy !== null}>
+            <Send size={14} /> Publicar al cliente
+          </Button>
+        </div>
+        <p className="mt-2 flex items-center gap-1 text-[11px] text-brand-muted">
+          <ShieldCheck size={12} /> La contraseña se guarda cifrada; el cliente la ve en su sección de DDJJ.
         </p>
       </div>
     </article>

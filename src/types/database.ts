@@ -2119,6 +2119,12 @@ export type Database = {
           moderada_por: string | null
           password_cifrada: string | null
           plataforma: string
+          prop_at: string | null
+          prop_origen: string | null
+          prop_password_cifrada: string | null
+          prop_por: string | null
+          prop_tramite_id: string | null
+          prop_usuario: string | null
           updated_at: string
           updated_by: string | null
           usuario: string | null
@@ -2131,6 +2137,12 @@ export type Database = {
           moderada_por?: string | null
           password_cifrada?: string | null
           plataforma: string
+          prop_at?: string | null
+          prop_origen?: string | null
+          prop_password_cifrada?: string | null
+          prop_por?: string | null
+          prop_tramite_id?: string | null
+          prop_usuario?: string | null
           updated_at?: string
           updated_by?: string | null
           usuario?: string | null
@@ -2143,6 +2155,12 @@ export type Database = {
           moderada_por?: string | null
           password_cifrada?: string | null
           plataforma?: string
+          prop_at?: string | null
+          prop_origen?: string | null
+          prop_password_cifrada?: string | null
+          prop_por?: string | null
+          prop_tramite_id?: string | null
+          prop_usuario?: string | null
           updated_at?: string
           updated_by?: string | null
           usuario?: string | null
@@ -9770,7 +9788,48 @@ export type Database = {
         Args: { p_administracion_id: string; p_plataforma: string }
         Returns: Json
       }
+      credencial_reg_moderacion_pendientes: {
+        Args: never
+        Returns: {
+          actual_estado: string
+          actual_tiene_password: boolean
+          actual_usuario: string
+          admin_nombre: string
+          administracion_id: string
+          plataforma: string
+          prop_at: string
+          prop_origen: string
+          prop_por: string
+          prop_tiene_password: boolean
+          prop_tramite_codigo: string
+          prop_tramite_id: string
+          prop_usuario: string
+        }[]
+      }
+      credencial_reg_moderar: {
+        Args: {
+          p_accion: string
+          p_administracion_id: string
+          p_password?: string
+          p_plataforma: string
+          p_usuario?: string
+        }
+        Returns: undefined
+      }
+      credencial_reg_proponer_gestor: {
+        Args: {
+          p_password: string
+          p_plataforma: string
+          p_token: string
+          p_usuario: string
+        }
+        Returns: undefined
+      }
       credencial_reg_revelar: {
+        Args: { p_administracion_id: string; p_plataforma: string }
+        Returns: string
+      }
+      credencial_reg_revelar_propuesta: {
         Args: { p_administracion_id: string; p_plataforma: string }
         Returns: string
       }
