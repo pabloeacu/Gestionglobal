@@ -109,6 +109,10 @@ const AnaliticaPage = lazy(() => import('@/modules/analitica').then(m => ({ defa
 const ComunicacionesPage = lazy(() => import('@/modules/comunicaciones').then(m => ({ default: m.ComunicacionesPage })));
 const SaludSistemaPage = lazy(() => import('@/modules/gerencia/pages/SaludSistemaPage').then(m => ({ default: m.SaludSistemaPage })));
 const AgenteCierrePage = lazy(() => import('@/modules/gerencia/pages/AgenteCierrePage').then(m => ({ default: m.AgenteCierrePage })));
+// DGG-244 · LexPH — CMS editorial (Fase 1, staff-only, a oscuras).
+const LexphArticulosPage = lazy(() => import('@/modules/lexph').then(m => ({ default: m.LexphArticulosPage })));
+const LexphArticuloEditorPage = lazy(() => import('@/modules/lexph').then(m => ({ default: m.LexphArticuloEditorPage })));
+const LexphTagsPage = lazy(() => import('@/modules/lexph').then(m => ({ default: m.LexphTagsPage })));
 
 type Role = 'gerente' | 'operador' | 'administrador' | 'partner';
 
@@ -469,6 +473,11 @@ export function App() {
           <Route path="reportes/importador" element={<ImportadorPage />} />
           <Route path="analitica" element={<AnaliticaPage />} />
           <Route path="comunicaciones" element={<ComunicacionesPage />} />
+          {/* DGG-244 · LexPH — CMS editorial (staff-only; aún sin superficie pública) */}
+          <Route path="contenidos" element={<LexphArticulosPage />} />
+          <Route path="contenidos/nuevo" element={<LexphArticuloEditorPage />} />
+          <Route path="contenidos/etiquetas" element={<LexphTagsPage />} />
+          <Route path="contenidos/:id" element={<LexphArticuloEditorPage />} />
           <Route path="configuracion" element={<ConfiguracionLayout />}>
             <Route index element={<Navigate to="emisores" replace />} />
             <Route path="emisores" element={<EmisoresPage />} />

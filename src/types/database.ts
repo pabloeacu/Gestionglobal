@@ -4826,6 +4826,117 @@ export type Database = {
           },
         ]
       }
+      lexph_articulo_tags: {
+        Row: {
+          articulo_id: string
+          tag_id: string
+        }
+        Insert: {
+          articulo_id: string
+          tag_id: string
+        }
+        Update: {
+          articulo_id?: string
+          tag_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lexph_articulo_tags_articulo_id_fkey"
+            columns: ["articulo_id"]
+            isOneToOne: false
+            referencedRelation: "lexph_articulos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lexph_articulo_tags_tag_id_fkey"
+            columns: ["tag_id"]
+            isOneToOne: false
+            referencedRelation: "lexph_tags"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lexph_articulos: {
+        Row: {
+          campos: Json
+          created_at: string
+          created_by: string | null
+          cuerpo: string | null
+          estado: string
+          fuentes: Json
+          id: string
+          publicado_at: string | null
+          resumen: string | null
+          slug: string
+          tipo: string
+          titulo: string
+          updated_at: string
+        }
+        Insert: {
+          campos?: Json
+          created_at?: string
+          created_by?: string | null
+          cuerpo?: string | null
+          estado?: string
+          fuentes?: Json
+          id?: string
+          publicado_at?: string | null
+          resumen?: string | null
+          slug: string
+          tipo: string
+          titulo: string
+          updated_at?: string
+        }
+        Update: {
+          campos?: Json
+          created_at?: string
+          created_by?: string | null
+          cuerpo?: string | null
+          estado?: string
+          fuentes?: Json
+          id?: string
+          publicado_at?: string | null
+          resumen?: string | null
+          slug?: string
+          tipo?: string
+          titulo?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      lexph_tags: {
+        Row: {
+          activo: boolean
+          created_at: string
+          id: string
+          nombre: string
+          orden: number
+          slug: string
+          tipo: string
+          updated_at: string
+        }
+        Insert: {
+          activo?: boolean
+          created_at?: string
+          id?: string
+          nombre: string
+          orden?: number
+          slug: string
+          tipo: string
+          updated_at?: string
+        }
+        Update: {
+          activo?: boolean
+          created_at?: string
+          id?: string
+          nombre?: string
+          orden?: number
+          slug?: string
+          tipo?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       lotes_facturacion: {
         Row: {
           cerrado_at: string | null
@@ -11048,6 +11159,21 @@ export type Database = {
         Returns: Json
       }
       landing_testimonio_reordenar: { Args: { p_ids: string[] }; Returns: Json }
+      lexph_articulo_guardar: {
+        Args: {
+          p_campos: Json
+          p_cuerpo: string
+          p_estado: string
+          p_fuentes: Json
+          p_id?: string
+          p_resumen: string
+          p_slug: string
+          p_tag_ids: string[]
+          p_tipo: string
+          p_titulo: string
+        }
+        Returns: string
+      }
       list_webinar_kpis: {
         Args: never
         Returns: {

@@ -256,6 +256,16 @@ Recorrido punta a punta logueado sobre la URL de Vercel. **Cobertura amplia** de
 
 ## 2. Trabajo en curso AHORA
 
+**DGG-244 · LexPH — hub editorial de propiedad horizontal (2026-11-05, migs 0652/0653) — Fase 1 HECHA, §6 verde + e2e.**
+LexPH "un servicio de Gestión Global": sección-fuente de consultas (fallos/normativas/internacional/insights) que a futuro se destila en newsletter quincenal. Arranca MANUAL, audiencia abierta a futuro (captación/SEO), **a oscuras** (sin URL pública hasta definir la forma). `dompurify@3` sumado para el render público de la fase siguiente.
+- **Datos (mig 0652):** `lexph_articulos` (tipo fallo|normativa|internacional|insight · estado borrador|publicado · slug · resumen · cuerpo HTML TipTap · campos jsonb por tipo · fuentes jsonb · publicado_at) + `lexph_tags` (materia|jurisdiccion) + `lexph_articulo_tags` M2M. RLS **staff-only**, R6 least-privilege, **anon=0**. RPC `lexph_articulo_guardar` SECDEF (R5/R16). FK indexada (R11).
+- **CMS gerencia** (nav "LexPH" → `/gerencia/contenidos`): grilla (R19 KPIs sobre universo + filtros en memoria) + editor a página completa (TipTap + campos por tipo + fuentes + etiquetas; estado por botones Guardar borrador/Publicar) + CRUD de etiquetas. `services/api/lexph.ts` (R4).
+- **Siembra (mig 0653):** Edición N°2 real = 14 etiquetas + **11 artículos publicados** (6 fallos + 4 normativas + 1 internacional) con campos/fuentes/29 vínculos.
+- **§6 (2 agentes REVISAR + EJERCITAR e2e):** 0 hallazgos de seguridad (admin ve 0/0/0, INSERT/DELETE/RPC bloqueados 42501; gerente ve 11/14). Saldados en el chunk: GAP footer `--sidebar-w`→`md:left-64`, ambigüedad Guardar↔estado (sacado el Select), clamp de página, `danger:true`, comentario stale. Build tsc+vite limpio.
+- **Pendiente (NO de oficio):** F2 ediciones/newsletter quincenal; F3 superficie pública `/lexph` + flag `config_global.lexph_publico_activo` + noindex + render con DOMPurify + SEO; fase posterior asistente IA de carga.
+
+---
+
 **DGG-147/148/149 · 3 frentes de Pablo+JL (2026-08-23, migs 0453 + edge v21 +
 front).** Doble §6 (corrección + refutación) con 2 CONFIRMADA-ROMPE cerradas:
 - **DGG-147 (cierre al fin de gracia):** el asistente de cierre + el AVISO

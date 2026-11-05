@@ -6733,3 +6733,13 @@ Todos LATENTES (0 admins afectados hoy, motor real DORMIDO) — cazados por la d
 **Fix (commit e54bfa3):** `key={admin.updated_at}` en el call-site → el save del drawer bumpea `updated_at`, el componente REMONTA y re-consulta la meta → el indicador refleja la clave recién cargada sin F5. El borrado sigue siendo optimista (no bumpea `updated_at`, lo maneja su propio estado local). Carga fresca ya mostraba bien la clave.
 
 **Lección:** un componente que hace su propio fetch en `useEffect([id])` NO se entera de un refetch del padre si el `id` no cambia (editás la MISMA entidad). Para refrescarlo tras un save in-session, keyar por un token que cambie en cada save (`updated_at`) o pasar un `refreshKey`. **Lo capturó la prueba en vivo** (build + §6 e2e no lo ven: la persistencia estaba bien, el hueco era el refresh de un componente) — refuerza la premisa de QA en vivo ineludible.
+
+## E-GG-255 (2026-11-05) — Footer sticky del editor LexPH se solapaba con el sidebar en desktop (`--sidebar-w` inexistente) (DGG-244 F1; atrapado en §6, NO llegó a prod)
+
+**Contexto:** DGG-244 F1, `LexphArticuloEditorPage`. La barra de acciones del editor es `fixed inset-x-0 bottom-0` y debía quedar offseteada por el ancho del sidebar de gerencia en desktop.
+
+**Causa raíz:** el primer corte usó `lg:left-[var(--sidebar-w,0px)]`, pero **`--sidebar-w` no está definida en ningún lado del repo** → caía siempre al fallback `0px`, y la barra fija arrancaba en `left:0` tapando la franja inferior del sidebar (`GerenciaLayout` rail = `hidden w-64 … md:flex`, layout flex sin margin en el main). Doble error: variable inexistente + breakpoint equivocado (`lg:` 1024px cuando el sidebar aparece en `md:` 768px).
+
+**Fix:** `md:left-64` (ancho real del rail `w-64` = 16rem, en el mismo breakpoint `md:` en que el sidebar se muestra). En mobile (<md) no hay sidebar → `inset-x-0` full-width correcto.
+
+**Lección:** no inventar design tokens CSS (`var(--x)`) que el repo no define — caen al fallback en silencio. Para offsetear un elemento `fixed` respecto de un sidebar de layout flex, usar el ancho literal del rail (`md:left-64`) en su mismo breakpoint. **Lo capturó la §6 (agente de frontend)** cross-chequeando que la variable existiera.

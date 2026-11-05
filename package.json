@@ -24,6 +24,7 @@
     "@webex/widgets": "^1.28.2",
     "@zoom/meetingsdk": "^6.2.0",
     "clsx": "^2.1.1",
+    "dompurify": "^3.4.17",
     "exceljs": "^4.4.0",
     "file-saver": "^2.0.5",
     "html-to-image": "^1.11.13",

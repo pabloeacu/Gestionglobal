@@ -19,6 +19,7 @@ import {
   Command as CommandIcon,
   Megaphone,
   ShieldCheck,
+  Newspaper,
 } from 'lucide-react';
 import { BrandMark } from '@/components/brand/BrandMark';
 import { LandingCoverBadge } from './LandingCoverBadge';
@@ -104,6 +105,7 @@ const NAV: NavGroup[] = [
   },
   { label: 'Campus', to: '/gerencia/campus', icon: GraduationCap },
   { label: 'Comunicaciones', to: '/gerencia/comunicaciones', icon: Megaphone },
+  { label: 'LexPH', to: '/gerencia/contenidos', icon: Newspaper },
   { label: 'Analítica', to: '/gerencia/analitica', icon: BarChart3 },
   {
     label: 'Configuración',
