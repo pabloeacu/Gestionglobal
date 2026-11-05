@@ -1086,7 +1086,10 @@ function TabRegistral({ admin }: { admin: AdministracionRow }) {
             </span>
           </DataRow>
           <DataRow label="Clave Fiscal ARCA">
-            <ClaveFiscalReveal administracionId={admin.id} />
+            {/* DGG-243 F4a · key por updated_at: tras un save del drawer (que lo bumpea) el componente
+                REMONTA y re-consulta su meta en el store → el indicador refleja la clave recién cargada
+                sin F5. El borrado es optimista (no bumpea updated_at) y lo maneja su propio estado. */}
+            <ClaveFiscalReveal key={admin.updated_at ?? admin.id} administracionId={admin.id} />
           </DataRow>
           {/* DGG-123 (pedido Pablo): en personas jurídicas, el CUIT personal del
               titular vinculado en ARCA — junto con la clave, es lo que usa la
