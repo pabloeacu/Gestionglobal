@@ -22,7 +22,7 @@ import {
   CalendarClock, ArrowRight, Info, Loader2, Sparkles, Clock, Lock,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { Button, CopyButton, Skeleton } from '@/components/common';
+import { Button, Skeleton } from '@/components/common';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import { CertezaBadge } from '../components/perfil/CertezaBadge';
 import { toast } from '@/lib/toast';
@@ -255,6 +255,7 @@ function LauncherCredenciales({ adminId, usuario, tienePassword }: { adminId: st
   const [ver, setVer] = useState(false);
   const [revelando, setRevelando] = useState(false);
   const [copiadoPwd, setCopiadoPwd] = useState(false);
+  const [copiadoUsr, setCopiadoUsr] = useState(false);
 
   // Trae y cachea la contraseña una sola vez; devuelve el valor o null si falló.
   async function asegurarRevelada(): Promise<string | null> {
@@ -306,7 +307,15 @@ function LauncherCredenciales({ adminId, usuario, tienePassword }: { adminId: st
             {usuario ? (
               <div className="mt-1 flex items-center justify-between gap-2">
                 <code className="truncate text-sm font-semibold text-brand-ink">{usuario}</code>
-                <CopyButton value={usuario} label="Usuario" />
+                <button
+                  type="button"
+                  onClick={() => { void navigator.clipboard.writeText(usuario).then(() => { setCopiadoUsr(true); toast.success('Usuario copiado al portapapeles'); window.setTimeout(() => setCopiadoUsr(false), 1400); }).catch(() => toast.error('No pudimos copiar al portapapeles')); }}
+                  className="shrink-0 rounded-lg border border-slate-200 p-1.5 text-brand-muted transition hover:border-brand-cyan hover:text-brand-cyan"
+                  aria-label="Copiar usuario"
+                  title="Copiar usuario"
+                >
+                  {copiadoUsr ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
+                </button>
               </div>
             ) : (
               <p className="mt-1 text-sm text-brand-muted">—</p>
