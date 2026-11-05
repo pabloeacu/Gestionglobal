@@ -37,7 +37,9 @@
     display:flex; flex-direction:column; justify-content:space-between;
     page-break-after:always;
   }
-  .cover .logo{ height:46px; width:auto; position:relative; z-index:2; }
+  /* align-self:flex-start → el logo NO se estira al ancho del cover (flex-column, align-items:stretch
+     por defecto estiraba el <img> a lo ancho ignorando su proporción). flex:none refuerza el no-grow/shrink. */
+  .cover .logo{ height:46px; width:auto; flex:none; align-self:flex-start; position:relative; z-index:2; }
   .cover .hero{ position:relative; z-index:2; max-width:460pt; }
   .cover .hero .kicker{ color:var(--cyan); font-size:11pt; letter-spacing:5px; margin-bottom:18pt; }
   .cover h1{ color:#fff; font-size:40pt; line-height:1.03; letter-spacing:.5px; }
