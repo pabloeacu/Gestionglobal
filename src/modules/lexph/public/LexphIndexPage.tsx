@@ -139,7 +139,7 @@ export function LexphIndexPage() {
   };
 
   return (
-    <LexphPublicShell darkHero={status === 'on'}>
+    <LexphPublicShell darkHero={false}>
       {status === 'loading' ? (
         <div className="pt-28">
           <LexphLoader />
@@ -150,7 +150,10 @@ export function LexphIndexPage() {
         </div>
       ) : (
         <>
-          {/* ---------- HERO ---------- */}
+          {/* ---------- MASTHEAD (franja blanca) ---------- */}
+          <LexphMasthead />
+
+          {/* ---------- HERO (nota de tapa, oscuro) ---------- */}
           <section
             className="relative overflow-hidden text-white"
             style={{
@@ -159,15 +162,13 @@ export function LexphIndexPage() {
             }}
           >
             <TrianglesAccent position="top-right" tone="cyan" density="rich" size={340} className="opacity-20" />
-            <div className="relative mx-auto max-w-6xl px-6 pb-14 pt-28 sm:pt-32">
-              <LexphMasthead />
-
+            <div className="relative mx-auto max-w-6xl px-6 pb-14 pt-10 sm:pt-14">
               {loading ? (
                 <div className="py-12">
                   <LexphLoader />
                 </div>
               ) : featured ? (
-                <div className="mt-10 grid gap-10 lg:grid-cols-[1.6fr_1fr]">
+                <div className="grid gap-10 lg:grid-cols-[1.6fr_1fr]">
                   {/* Nota de tapa */}
                   <div>
                     <div className="mb-4 flex flex-wrap items-center gap-3">
@@ -235,7 +236,7 @@ export function LexphIndexPage() {
                   )}
                 </div>
               ) : (
-                <h1 className="mt-10 max-w-3xl font-display text-2xl font-extrabold leading-tight tracking-tight text-white sm:text-3xl">
+                <h1 className="max-w-3xl font-display text-2xl font-extrabold leading-tight tracking-tight text-white sm:text-3xl">
                   {heroTitulo}
                 </h1>
               )}

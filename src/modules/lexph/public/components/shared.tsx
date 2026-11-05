@@ -76,23 +76,23 @@ export function LexphPublicShell({
   );
 }
 
-// Cabecera de publicación: logo LexPH sobre placa blanca (chamfer) + bajada. Sobre hero oscuro.
-export function LexphMasthead({ tagline = true }: { tagline?: boolean }) {
+// Cabecera de publicación: FRANJA BLANCA con motivo triangular + logo LexPH
+// (fondo transparente) + bajada en tinta. Banda propia arriba del hero oscuro.
+export function LexphMasthead() {
   return (
-    <div className="flex flex-wrap items-center gap-x-5 gap-y-3 border-b border-white/15 pb-5">
-      <span className="lexph-chamfer-sm inline-flex bg-white px-4 py-2.5 shadow-xl shadow-black/25 ring-1 ring-white/20">
+    <section className="relative overflow-hidden border-b border-slate-200 bg-white">
+      <TrianglesAccent position="top-right" tone="cyan" density="rich" size={300} className="opacity-[0.12]" />
+      <div className="relative mx-auto flex max-w-6xl flex-wrap items-center gap-x-6 gap-y-3 px-6 pb-8 pt-28">
         <img
           src="/brand/lexph-logo.png"
           alt="LexPH — un servicio de Gestión Global"
-          className="h-10 w-auto sm:h-[52px]"
+          className="h-[60px] w-auto sm:h-[78px]"
         />
-      </span>
-      {tagline && (
-        <p className="font-gg-display mb-0.5 max-w-[260px] text-[11px] font-semibold uppercase leading-[1.5] tracking-[0.13em] text-white/70">
+        <p className="font-gg-display max-w-[300px] text-[11px] font-semibold uppercase leading-[1.5] tracking-[0.13em] text-brand-muted">
           Inteligencia jurídica en propiedad horizontal · un servicio de Gestión Global
         </p>
-      )}
-    </div>
+      </div>
+    </section>
   );
 }
 
