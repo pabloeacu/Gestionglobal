@@ -6743,3 +6743,22 @@ Todos LATENTES (0 admins afectados hoy, motor real DORMIDO) — cazados por la d
 **Fix:** `md:left-64` (ancho real del rail `w-64` = 16rem, en el mismo breakpoint `md:` en que el sidebar se muestra). En mobile (<md) no hay sidebar → `inset-x-0` full-width correcto.
 
 **Lección:** no inventar design tokens CSS (`var(--x)`) que el repo no define — caen al fallback en silencio. Para offsetear un elemento `fixed` respecto de un sidebar de layout flex, usar el ancho literal del rail (`md:left-64`) en su mismo breakpoint. **Lo capturó la §6 (agente de frontend)** cross-chequeando que la variable existiera.
+
+## E-GG-256 (2026-11-05) — Sweep §6 del port de diseño de la web pública LexPH (DGG-244 F3-diseño; TODO atrapado en §6, NADA llegó a prod)
+
+**Contexto:** port de la piel editorial premium a los componentes públicos de LexPH (`src/modules/lexph/public/*`). La doble auditoría §6 (3 agentes REVISAR) destapó 1 bug de correctness + varios GAP de a11y/SEO + hardening de seguridad. Por el canon CERO PENDIENTES, todo se saldó en el mismo chunk antes de deployar.
+
+**Hallazgos y fix (todos en `LexphIndexPage.tsx` salvo nota):**
+- **Bug (correctness):** la nota de tapa (`featured = items[0]`) sólo se excluía de la sección `fallos`; si el artículo más reciente era normativa/internacional/insight aparecía **duplicado** (hero + su sección). Con el seed se dispara apenas el más nuevo no sea un fallo. Fix: `excludeIds = {featured, ...lo-último}` y filtrar las 4 secciones por `!excludeIds.has(id)` (saca también la repetición de "Lo último" en las secciones).
+- **A11y — h1 ausente:** el único `<h1>` vivía dentro del bloque `featured`; en vista filtrada o con 0 artículos la página quedaba sin `<h1>` (el masthead es `<div>`). Fix: `heroTitulo` context-aware en un `<h1>` en el branch sin featured → 1 h1 garantizado en todos los estados.
+- **A11y — búsqueda:** `<input>` sólo con `placeholder` (sin nombre accesible) y `hidden sm:block` (inaccesible en mobile). Fix: `aria-label` + input full-width `sm:hidden` bajo el riel.
+- **A11y — contraste:** textos `white/55`, `white/50`, byline `white/60` sobre hero oscuro bajo AA; número decorativo `white/25`. Fix: subidos a `white/70` / `white/65`; número `aria-hidden`.
+- **A11y — jerarquía:** `AgendaRow` usaba `<h4>` bajo `<h2>` de sección; CTA del remate `<h3>` saltaba de `<h1>`. Fix: `h4→h3`; CTA → `<p>` (no es heading estructural).
+- **Riel sticky:** `sticky top-0` quedaba tapado por la `SiteNav` fija (h-20, z-40). Fix: `top-20`.
+- **Capitular (`lexph-prose.css`):** `p:first-of-type::first-letter` ponía el dropcap en el primer `<p>` aunque estuviera precedido por `<h2>/<ul>` → capitular a mitad del artículo. Fix: `> p:first-child::first-letter` (sólo si el 1er hijo es `<p>`).
+- **SEO:** canonical/JSON-LD se inyectaban en estados no-canónicos (404 de artículo, home off/loading). Fix: gatear `jsonLd`/`canonical` a `estado==='ok'` / `status==='on'`.
+- **Seguridad (hardening):** `fuentes.url` e `imagen_url` (dato de CMS staff) se pintaban como `href`/`src` sin validar esquema. Fix: helper `isSafeHttpUrl()` (sólo http/https) en `shared.tsx`; URL no-http cae a texto / fallback de marca.
+
+**Diferido y documentado (fuera de scope — otro subsistema):** `SafeHtml.ALLOWED_ATTR` incluye `'style'` (más amplio que lo que documenta su comentario); es el componente compartido con TipTap y otras superficies, DOMPurify 3 sanea los valores peligrosos y el autor es staff → hardening opcional, no en este chunk de presentación. Ver E-GG-253.
+
+**Lección:** al armar una home "editorial" con nota de tapa + secciones, excluir explícitamente lo ya destacado de las secciones (dedup) y garantizar **un** `<h1>` en cada estado de la UI (no sólo en el camino feliz). Un elemento `sticky` convive con una nav `fixed`: su `top` = alto de la nav, no `0`. Todo capturado por la §6 **antes** de tocar la página pública (que ya estaba live con el flag on).

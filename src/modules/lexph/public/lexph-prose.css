@@ -48,13 +48,29 @@
 .lexph-prose em, .lexph-prose i { font-style: italic; }
 
 .lexph-prose blockquote {
-  margin: 1.4em 0;
-  padding: 0.3em 0 0.3em 1.1em;
+  margin: 1.5em 0;
+  padding: 0.2em 0 0.2em 1.2em;
   border-left: 3px solid rgb(var(--brand-cyan-rgb));
-  color: rgb(var(--brand-ink-rgb) / 0.72);
+  color: rgb(var(--brand-ink-rgb) / 0.78);
+  /* Acento serif editorial (Cormorant, ya cargado). */
+  font-family: 'Cormorant Garamond', Georgia, serif;
   font-style: italic;
+  font-size: 1.38em;
+  line-height: 1.4;
 }
 .lexph-prose blockquote p:last-child { margin-bottom: 0; }
+
+/* Capitular editorial (opt-in con .lexph-dropcap): primera letra del primer
+   párrafo, en Sora, color cian de marca. */
+.lexph-dropcap > p:first-child::first-letter {
+  font-family: var(--font-display, 'Sora', system-ui, sans-serif);
+  font-weight: 800;
+  font-size: 3.1em;
+  line-height: 0.82;
+  float: left;
+  margin: 0.06em 0.12em 0 0;
+  color: rgb(var(--brand-cyan-rgb));
+}
 
 .lexph-prose hr {
   margin: 2em 0;

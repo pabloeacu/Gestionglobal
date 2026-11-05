@@ -1,0 +1,508 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>LexPH · propuesta web pública</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&family=Oswald:wght@500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --cyan:#009ECA; --teal:#159AA6; --ink:#122230; --night:#0B1F33; --night2:#0E2A45;
+    --muted:#5D7284; --pale:#E7F1F9; --paper:#F3F7FB; --line:rgba(11,31,51,.12);
+    --azul:#2E6FB0; --orange:#C46A10;
+    --display:'Sora',system-ui,sans-serif; --body:'Inter',system-ui,sans-serif;
+    --cond:'Oswald',system-ui,sans-serif; --serif:'Source Serif 4',Georgia,serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:#fff;color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased}
+  a{color:inherit;text-decoration:none}
+  .wrap{max-width:1120px;margin:0 auto;padding:0 24px}
+  .narrow{max-width:760px;margin:0 auto;padding:0 24px}
+  .tab{font-variant-numeric:tabular-nums}
+  .cond{font-family:var(--cond);text-transform:uppercase;letter-spacing:.06em}
+  .kick{font-family:var(--cond);text-transform:uppercase;letter-spacing:.14em;font-weight:600;font-size:12px}
+  .chamfer{clip-path:polygon(0 14px,14px 0,100% 0,100% calc(100% - 14px),calc(100% - 14px) 100%,0 100%)}
+  .chamfer-sm{clip-path:polygon(0 8px,8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%)}
+
+  /* ---------- switcher ---------- */
+  .switch{position:fixed;top:14px;right:14px;z-index:200;display:flex;gap:4px;background:rgba(11,31,51,.9);
+    padding:4px;border-radius:999px;backdrop-filter:blur(6px);box-shadow:0 6px 24px rgba(11,31,51,.3)}
+  .switch button{font-family:var(--cond);text-transform:uppercase;letter-spacing:.08em;font-weight:600;font-size:12px;
+    color:#fff;background:transparent;border:0;padding:7px 15px;border-radius:999px;cursor:pointer;opacity:.6}
+  .switch button.on{background:var(--cyan);opacity:1}
+  .screen{display:none}
+  .screen.on{display:block}
+
+  /* ---------- GG top bar ---------- */
+  .ggbar{position:absolute;top:0;left:0;right:0;z-index:30;height:56px;display:flex;align-items:center}
+  .ggbar .wrap{display:flex;align-items:center;justify-content:space-between;width:100%}
+  .gglogo{display:flex;align-items:center;gap:9px;color:#fff}
+  .gglogo .dot{width:26px;height:26px;background:var(--cyan);clip-path:polygon(50% 0,100% 100%,0 100%)}
+  .gglogo b{font-family:var(--display);font-weight:700;font-size:15px;letter-spacing:-.01em}
+  .gglogo span{opacity:.6;font-size:13px}
+  .ggbar .ingresar{color:#fff;font-size:13px;font-weight:600;border:1px solid rgba(255,255,255,.3);
+    padding:7px 16px;border-radius:999px}
+
+  /* ---------- HERO ---------- */
+  .hero{position:relative;overflow:hidden;color:#fff;
+    background:
+      radial-gradient(1200px 500px at 85% -10%,rgba(0,158,202,.55),transparent 60%),
+      linear-gradient(135deg,var(--night) 0%,var(--night2) 45%,#0d3a5c 100%)}
+  .tri{position:absolute;inset:0;pointer-events:none;opacity:.16;
+    background-image:
+      linear-gradient(60deg,transparent 49.3%,rgba(255,255,255,.9) 49.7%,rgba(255,255,255,.9) 50.3%,transparent 50.7%),
+      linear-gradient(-60deg,transparent 49.3%,rgba(0,158,202,.9) 49.7%,rgba(0,158,202,.9) 50.3%,transparent 50.7%);
+    background-size:120px 210px,120px 210px}
+  .hero .wrap{position:relative;padding:92px 24px 64px}
+  .masthead{display:flex;align-items:flex-end;gap:16px;border-bottom:1px solid rgba(255,255,255,.18);padding-bottom:18px}
+  .masthead .mark{font-family:var(--cond);font-weight:700;font-size:54px;line-height:.85;letter-spacing:.01em;text-transform:uppercase}
+  .masthead .mark i{color:var(--cyan);font-style:normal}
+  .masthead .tagline{font-family:var(--cond);text-transform:uppercase;letter-spacing:.12em;font-size:12px;font-weight:600;
+    color:rgba(255,255,255,.72);max-width:280px;line-height:1.5;padding-bottom:4px}
+
+  .cover{display:grid;grid-template-columns:1.6fr 1fr;gap:40px;margin-top:40px}
+  @media(max-width:860px){.cover{grid-template-columns:1fr;gap:28px}}
+  .cover .eyebrow{display:inline-flex;align-items:center;gap:8px;margin-bottom:16px}
+  .badge{font-family:var(--cond);text-transform:uppercase;letter-spacing:.09em;font-weight:600;font-size:11px;
+    padding:5px 11px;color:#fff;background:var(--cyan)}
+  .badge.normativa{background:var(--teal)} .badge.internacional{background:var(--azul)} .badge.insight{background:var(--orange)}
+  .cover h1{font-family:var(--display);font-weight:800;font-size:40px;line-height:1.08;letter-spacing:-.02em;margin:0}
+  @media(max-width:860px){.cover h1{font-size:31px}}
+  .cover .deck{font-family:var(--serif);font-size:19px;line-height:1.55;color:rgba(255,255,255,.82);margin:20px 0 24px;max-width:44ch}
+  .cover .meta{display:flex;gap:14px;align-items:center;font-size:13px;color:rgba(255,255,255,.6)}
+  .cover .cta{display:inline-flex;align-items:center;gap:8px;margin-top:26px;background:var(--cyan);color:#fff;
+    font-family:var(--cond);text-transform:uppercase;letter-spacing:.07em;font-weight:600;font-size:14px;padding:13px 24px;
+    transition:transform .15s, box-shadow .15s}
+  .cover .cta:hover{transform:translate(-2px,-2px);box-shadow:5px 5px 0 rgba(255,255,255,.22)}
+
+  .sidebar .sbt{font-family:var(--cond);text-transform:uppercase;letter-spacing:.12em;font-size:12px;font-weight:600;
+    color:var(--cyan);border-bottom:1px solid rgba(255,255,255,.2);padding-bottom:10px;margin-bottom:4px}
+  .sb-item{display:flex;gap:14px;padding:16px 0;border-bottom:1px solid rgba(255,255,255,.1)}
+  .sb-item .n{font-family:var(--cond);font-size:26px;font-weight:700;color:rgba(255,255,255,.28);line-height:1}
+  .sb-item .t{font-family:var(--display);font-weight:600;font-size:15px;line-height:1.3}
+  .sb-item .k{font-size:11px;color:rgba(255,255,255,.5);margin-top:5px;font-family:var(--cond);letter-spacing:.08em;text-transform:uppercase}
+
+  /* ---------- filter rail ---------- */
+  .rail{position:sticky;top:0;z-index:20;background:rgba(255,255,255,.92);backdrop-filter:blur(8px);
+    border-bottom:1px solid var(--line)}
+  .rail .wrap{display:flex;gap:6px;align-items:center;height:60px;overflow-x:auto}
+  .rtab{font-family:var(--cond);text-transform:uppercase;letter-spacing:.07em;font-weight:600;font-size:13px;color:var(--muted);
+    padding:9px 16px;cursor:pointer;white-space:nowrap;border:1px solid transparent;display:flex;align-items:center;gap:8px}
+  .rtab .c{width:7px;height:7px}
+  .rtab.on{color:var(--ink);background:var(--pale);border-color:var(--line)}
+  .rtab .num{font-size:11px;opacity:.6}
+  .rail .search{margin-left:auto;display:flex;align-items:center;gap:8px;border:1px solid var(--line);
+    padding:8px 14px;color:var(--muted);font-size:13px;min-width:200px}
+  @media(max-width:700px){.rail .search{display:none}}
+
+  /* ---------- sections ---------- */
+  section.band{padding:56px 0}
+  .shead{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:28px;
+    border-top:2px solid var(--ink);padding-top:14px}
+  .shead h2{font-family:var(--cond);text-transform:uppercase;letter-spacing:.04em;font-weight:700;font-size:26px;margin:0}
+  .shead .more{font-family:var(--cond);text-transform:uppercase;letter-spacing:.08em;font-size:12px;font-weight:600;color:var(--cyan)}
+
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:26px}
+  @media(max-width:860px){.grid{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:560px){.grid{grid-template-columns:1fr}}
+
+  .card{display:flex;flex-direction:column;background:#fff;border:1px solid var(--line);position:relative;
+    transition:transform .18s, box-shadow .18s, border-color .18s;cursor:pointer}
+  .card:hover{transform:translateY(-4px);border-color:rgba(0,158,202,.4);box-shadow:0 18px 40px -22px rgba(11,31,51,.4)}
+  .card .cover-img{aspect-ratio:16/9;position:relative;overflow:hidden;
+    background:linear-gradient(135deg,var(--night) 0%,var(--night2) 60%,#0d3a5c 100%)}
+  .card .cover-img .gword{position:absolute;right:-6px;bottom:-14px;font-family:var(--cond);font-weight:700;
+    text-transform:uppercase;font-size:66px;color:rgba(255,255,255,.07);letter-spacing:.02em;line-height:1}
+  .card .cover-img .tri2{position:absolute;inset:0;opacity:.13;
+    background-image:linear-gradient(60deg,transparent 49.5%,rgba(255,255,255,.8) 49.8%,rgba(255,255,255,.8) 50.2%,transparent 50.5%);
+    background-size:60px 104px}
+  .card .cover-img .ic{position:absolute;left:18px;top:16px;color:rgba(255,255,255,.9)}
+  .accent{height:4px;background:var(--cyan)} .accent.normativa{background:var(--teal)} .accent.internacional{background:var(--azul)}
+  .card .body{padding:18px 20px 20px;display:flex;flex-direction:column;flex:1}
+  .card .body .badge{align-self:flex-start;margin-bottom:12px}
+  .card h3{font-family:var(--display);font-weight:700;font-size:18px;line-height:1.25;letter-spacing:-.01em;margin:0 0 10px}
+  .card:hover h3{color:var(--cyan)}
+  .card p{font-size:14px;color:var(--muted);line-height:1.5;margin:0 0 16px}
+  .card .foot{margin-top:auto;display:flex;align-items:center;justify-content:space-between;gap:10px;
+    padding-top:12px;border-top:1px solid var(--line);font-size:12px;color:var(--muted)}
+  .card .foot .tags{display:flex;gap:6px;overflow:hidden;white-space:nowrap}
+
+  /* ---------- agenda list (normativa) ---------- */
+  .agenda{border-top:1px solid var(--line)}
+  .arow{display:grid;grid-template-columns:120px 1fr auto;gap:20px;align-items:center;padding:20px 4px;
+    border-bottom:1px solid var(--line);cursor:pointer;transition:background .15s}
+  .arow:hover{background:var(--paper)}
+  @media(max-width:640px){.arow{grid-template-columns:1fr;gap:8px}}
+  .arow .date{font-family:var(--cond);font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--teal);font-size:13px}
+  .arow h4{font-family:var(--display);font-weight:600;font-size:17px;line-height:1.3;margin:0}
+  .arow:hover h4{color:var(--teal)}
+  .arow p{font-size:13.5px;color:var(--muted);margin:5px 0 0}
+  .arow .org{font-family:var(--cond);text-transform:uppercase;letter-spacing:.06em;font-size:11px;font-weight:600;
+    color:var(--muted);border:1px solid var(--line);padding:5px 10px;white-space:nowrap}
+
+  /* ---------- newsletter strip ---------- */
+  .news{position:relative;overflow:hidden;color:#fff;margin-top:20px;
+    background:linear-gradient(120deg,var(--teal),var(--cyan))}
+  .news .wrap{position:relative;padding:48px 24px;display:grid;grid-template-columns:1fr auto;gap:28px;align-items:center}
+  @media(max-width:760px){.news .wrap{grid-template-columns:1fr}}
+  .news h3{font-family:var(--cond);text-transform:uppercase;letter-spacing:.03em;font-weight:700;font-size:28px;margin:0 0 8px}
+  .news p{margin:0;opacity:.9;max-width:52ch}
+  .news form{display:flex;gap:10px}
+  .news input{border:0;padding:14px 18px;min-width:230px;font-size:14px;font-family:var(--body)}
+  .news button{background:var(--night);color:#fff;border:0;padding:14px 22px;font-family:var(--cond);
+    text-transform:uppercase;letter-spacing:.07em;font-weight:600;font-size:13px;cursor:pointer}
+
+  /* ---------- footer ---------- */
+  footer{background:var(--night);color:rgba(255,255,255,.7);padding:46px 0;font-size:13px}
+  footer .wrap{display:flex;justify-content:space-between;gap:24px;flex-wrap:wrap}
+  footer .mark{font-family:var(--cond);font-weight:700;text-transform:uppercase;color:#fff;font-size:22px}
+  footer .mark i{color:var(--cyan);font-style:normal}
+  footer .disc{max-width:48ch;line-height:1.6;opacity:.6}
+
+  /* ========== ARTICLE PAGE ========== */
+  .art-hero{position:relative;overflow:hidden;color:#fff;
+    background:radial-gradient(900px 400px at 80% -20%,rgba(0,158,202,.5),transparent 60%),
+      linear-gradient(135deg,var(--night),var(--night2))}
+  .art-hero .narrow{position:relative;padding:92px 24px 54px}
+  .crumb{font-family:var(--cond);text-transform:uppercase;letter-spacing:.1em;font-size:12px;font-weight:600;
+    color:rgba(255,255,255,.6);display:inline-flex;gap:8px;align-items:center;margin-bottom:22px}
+  .art-hero h1{font-family:var(--display);font-weight:800;font-size:38px;line-height:1.1;letter-spacing:-.02em;margin:14px 0 0}
+  @media(max-width:640px){.art-hero h1{font-size:28px}}
+  .art-hero .deck{font-family:var(--serif);font-size:20px;line-height:1.55;color:rgba(255,255,255,.85);margin:20px 0 0;max-width:56ch}
+  .byline{display:flex;flex-wrap:wrap;gap:16px;align-items:center;margin-top:26px;padding-top:20px;
+    border-top:1px solid rgba(255,255,255,.18);font-size:13px;color:rgba(255,255,255,.7)}
+  .byline .tag{font-family:var(--cond);text-transform:uppercase;letter-spacing:.06em;font-size:11px;
+    border:1px solid rgba(255,255,255,.25);padding:4px 10px}
+
+  .art-body{display:grid;grid-template-columns:1fr 300px;gap:52px;max-width:1040px;margin:0 auto;padding:56px 24px 40px}
+  @media(max-width:900px){.art-body{grid-template-columns:1fr;gap:34px}}
+  .prose{font-size:17.5px;line-height:1.78;color:rgba(18,34,48,.92)}
+  .prose p{margin:0 0 1.2em}
+  .prose p.lead::first-letter{font-family:var(--display);font-weight:800;font-size:3.1em;float:left;line-height:.82;
+    padding:6px 12px 0 0;color:var(--cyan)}
+  .prose h2{font-family:var(--display);font-weight:700;font-size:23px;letter-spacing:-.01em;margin:1.7em 0 .5em}
+  .prose blockquote{margin:1.5em 0;padding:4px 0 4px 22px;border-left:3px solid var(--cyan);
+    font-family:var(--serif);font-style:italic;font-size:19px;color:rgba(18,34,48,.78)}
+
+  .sumario{position:sticky;top:20px;align-self:start}
+  .sumario .box{border:1px solid var(--line);background:var(--paper)}
+  .sumario .hd{font-family:var(--cond);text-transform:uppercase;letter-spacing:.1em;font-size:12px;font-weight:700;
+    color:#fff;background:var(--ink);padding:12px 18px}
+  .sumario dl{margin:0;padding:18px}
+  .sumario dt{font-family:var(--cond);text-transform:uppercase;letter-spacing:.08em;font-size:10.5px;color:var(--muted);font-weight:600}
+  .sumario dd{margin:3px 0 15px;font-size:14px;font-weight:500;line-height:1.4}
+  .sumario .voces{padding:0 18px 18px}
+  .sumario .voces .lab{font-family:var(--cond);text-transform:uppercase;letter-spacing:.08em;font-size:10.5px;color:var(--muted);font-weight:600;margin-bottom:9px}
+  .voz{display:inline-block;font-size:12px;background:#fff;border:1px solid var(--line);padding:4px 9px;margin:0 5px 5px 0;color:var(--ink)}
+
+  .callout{margin:30px 0;padding:22px 24px;border:1px solid}
+  .callout .ct{font-family:var(--cond);text-transform:uppercase;letter-spacing:.06em;font-weight:700;font-size:14px;
+    display:flex;align-items:center;gap:9px;margin-bottom:9px}
+  .callout p{margin:0;font-size:15.5px;line-height:1.6;color:var(--ink)}
+  .callout.clave{background:var(--pale);border-color:rgba(0,158,202,.35)} .callout.clave .ct{color:var(--cyan)}
+  .callout.riesgo{background:#FCF4E8;border-color:rgba(196,106,16,.35)} .callout.riesgo .ct{color:var(--orange)}
+
+  .fuentes{margin:36px 0 0;padding-top:20px;border-top:1px solid var(--line)}
+  .fuentes .lab{font-family:var(--cond);text-transform:uppercase;letter-spacing:.1em;font-size:12px;color:var(--muted);font-weight:600;margin-bottom:10px}
+  .fuentes a{color:var(--cyan);font-size:14px;display:inline-flex;gap:6px;align-items:center}
+
+  .endcta{position:relative;overflow:hidden;color:#fff;margin:30px 0 0;padding:40px 30px;
+    background:linear-gradient(130deg,var(--night),#0d3a5c)}
+  .endcta .k{font-family:var(--cond);text-transform:uppercase;letter-spacing:.12em;font-size:12px;color:var(--cyan);font-weight:600}
+  .endcta h3{font-family:var(--display);font-weight:700;font-size:24px;margin:10px 0 8px;line-height:1.2}
+  .endcta p{margin:0 0 20px;opacity:.85;max-width:56ch}
+  .endcta a{display:inline-flex;align-items:center;gap:8px;background:var(--cyan);color:#fff;
+    font-family:var(--cond);text-transform:uppercase;letter-spacing:.07em;font-weight:600;font-size:13px;padding:13px 24px}
+
+  .disclaimer{max-width:1040px;margin:0 auto;padding:0 24px 60px;font-size:12.5px;color:var(--muted);line-height:1.6}
+</style>
+</head>
+<body>
+
+<div class="switch">
+  <button id="btn-home" class="on" onclick="go('home')">Inicio</button>
+  <button id="btn-art" onclick="go('art')">Artículo</button>
+</div>
+
+<!-- ============================ HOME ============================ -->
+<div id="home" class="screen on">
+
+  <div class="hero">
+    <div class="ggbar"><div class="wrap">
+      <a class="gglogo"><span class="dot"></span><b>Gestión Global</b></a>
+      <a class="ingresar">Ingresar</a>
+    </div></div>
+    <div class="tri"></div>
+    <div class="wrap">
+      <div class="masthead">
+        <div class="mark">Lex<i>PH</i></div>
+        <div class="tagline">Inteligencia jurídica en propiedad horizontal · un servicio de Gestión Global</div>
+      </div>
+
+      <div class="cover">
+        <div class="story">
+          <div class="eyebrow"><span class="badge">Fallo comentado</span><span class="kick" style="color:rgba(255,255,255,.55)">Nota de tapa</span></div>
+          <h1>Difamación en el grupo de WhatsApp del edificio: indemnizan a una administradora</h1>
+          <p class="deck">La Sala F elevó a $1.500.000 la indemnización a una administradora difamada en el grupo del edificio: el honor profesional del administrador también se protege.</p>
+          <div class="meta"><span class="tab">3 de noviembre de 2026</span><span>·</span><span>CNCiv, Sala F</span><span>·</span><span>Lectura 4 min</span></div>
+          <a class="cover-cta cta" onclick="go('art')">Leer el fallo →</a>
+        </div>
+        <div class="sidebar">
+          <div class="sbt">Lo último</div>
+          <div class="sb-item"><div class="n">02</div><div><div class="t">Una desarrolladora deberá pagarle al consorcio más de $60 millones por usar su medianera</div><div class="k">Fallo · CABA</div></div></div>
+          <div class="sb-item"><div class="n">03</div><div><div class="t">El FAL entra en vigencia el 1° de diciembre de 2026</div><div class="k">Normativa · Decreto 1228/2026</div></div></div>
+          <div class="sb-item"><div class="n">04</div><div><div class="t">España: sin aprobación de la junta no hay vivienda turística</div><div class="k">Internacional</div></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- filter rail -->
+  <div class="rail"><div class="wrap">
+    <div class="rtab on">Todo</div>
+    <div class="rtab"><span class="c" style="background:var(--cyan)"></span>Fallos <span class="num">6</span></div>
+    <div class="rtab"><span class="c" style="background:var(--teal)"></span>Normativa <span class="num">4</span></div>
+    <div class="rtab"><span class="c" style="background:var(--azul)"></span>Internacional <span class="num">1</span></div>
+    <div class="rtab"><span class="c" style="background:var(--orange)"></span>Insight</div>
+    <div class="search">🔍 Buscar en LexPH…</div>
+  </div></div>
+
+  <!-- FALLOS -->
+  <section class="band"><div class="wrap">
+    <div class="shead"><h2>Fallos comentados</h2><a class="more">Ver todos →</a></div>
+    <div class="grid">
+
+      <article class="card" onclick="go('art')">
+        <div class="cover-img"><div class="tri2"></div><div class="ic">⚖︎</div><div class="gword">Fallo</div></div>
+        <div class="accent"></div>
+        <div class="body"><span class="badge">Fallo</span>
+          <h3>Muerte por caída desde el balcón del SUM: el consorcio responde en un 80%</h3>
+          <p>Responsabilidad objetiva, reparto 80/20 y un límite de póliza irrisorio frente a la condena.</p>
+          <div class="foot"><span class="tags cond" style="font-size:10px">Daños · Seguros</span><span class="tab">10 sep 2026</span></div>
+        </div>
+      </article>
+
+      <article class="card" onclick="go('art')">
+        <div class="cover-img"><div class="tri2"></div><div class="ic">⚖︎</div><div class="gword">Fallo</div></div>
+        <div class="accent"></div>
+        <div class="body"><span class="badge">Fallo</span>
+          <h3>Una desarrolladora deberá pagarle al consorcio más de $60 millones por su medianera</h3>
+          <p>Oportunidad concreta de recupero; clave conservar planos y comprobantes de pago.</p>
+          <div class="foot"><span class="tags cond" style="font-size:10px">Medianería · CABA</span><span class="tab">2 nov 2026</span></div>
+        </div>
+      </article>
+
+      <article class="card" onclick="go('art')">
+        <div class="cover-img"><div class="tri2"></div><div class="ic">⚖︎</div><div class="gword">Fallo</div></div>
+        <div class="accent"></div>
+        <div class="body"><span class="badge">Fallo</span>
+          <h3>Ordenan a un consorcio eliminar barreras arquitectónicas en 120 días</h3>
+          <p>La accesibilidad no puede quedar sujeta a la inactividad de la asamblea.</p>
+          <div class="foot"><span class="tags cond" style="font-size:10px">Accesibilidad · PBA</span><span class="tab">7 oct 2026</span></div>
+        </div>
+      </article>
+
+      <article class="card" onclick="go('art')">
+        <div class="cover-img"><div class="tri2"></div><div class="ic">⚖︎</div><div class="gword">Fallo</div></div>
+        <div class="accent"></div>
+        <div class="body"><span class="badge">Fallo</span>
+          <h3>Matafuego que cae sobre una inquilina: el soporte vencido es del consorcio</h3>
+          <p>Contratar la recarga no traslada la responsabilidad del soporte y la fijación.</p>
+          <div class="foot"><span class="tags cond" style="font-size:10px">Daños · Seguros</span><span class="tab">2 sep 2026</span></div>
+        </div>
+      </article>
+
+      <article class="card" onclick="go('art')">
+        <div class="cover-img"><div class="tri2"></div><div class="ic">⚖︎</div><div class="gword">Fallo</div></div>
+        <div class="accent"></div>
+        <div class="body"><span class="badge">Fallo</span>
+          <h3>Filtraciones con causas mixtas: consorcio y vecino de arriba pagan por partes iguales</h3>
+          <p>Clave: pedir una pericia que separe cada foco y citar al propietario superior.</p>
+          <div class="foot"><span class="tags cond" style="font-size:10px">Filtraciones · CABA</span><span class="tab">26 sep 2026</span></div>
+        </div>
+      </article>
+
+      <article class="card" onclick="go('art')">
+        <div class="cover-img"><div class="tri2"></div><div class="ic">⚖︎</div><div class="gword">Fallo</div></div>
+        <div class="accent"></div>
+        <div class="body"><span class="badge">Fallo</span>
+          <h3>Difamación en el grupo de WhatsApp del edificio: indemnizan a una administradora</h3>
+          <p>El honor profesional del administrador también se protege: $1.500.000 de condena.</p>
+          <div class="foot"><span class="tags cond" style="font-size:10px">Honor · Nacional</span><span class="tab">3 nov 2026</span></div>
+        </div>
+      </article>
+
+    </div>
+  </div></section>
+
+  <!-- NORMATIVA & AGENDA -->
+  <section class="band" style="background:var(--paper);padding-top:48px"><div class="wrap">
+    <div class="shead" style="border-color:var(--teal)"><h2 style="color:var(--teal)">Normativa &amp; agenda</h2><a class="more" style="color:var(--teal)">Ver todas →</a></div>
+    <div class="agenda">
+      <div class="arow" onclick="go('art')">
+        <div class="date">Vence 30 nov</div>
+        <div><h4>Agenda CABA — La DDJJ de consorcios administrados vence el 30/11/2026</h4>
+          <p>Quien no la haya iniciado al vencimiento será considerado infractor (art. 12, Ley 941).</p></div>
+        <div class="org">GCBA · DGDYPC</div>
+      </div>
+      <div class="arow" onclick="go('art')">
+        <div class="date">Vig. 1 dic</div>
+        <div><h4>Decreto 1228/2026 — El FAL entra en vigencia el 1° de diciembre de 2026</h4>
+          <p>Corrió la vigencia del Fondo de Asistencia Laboral y amplió la carencia a 12 períodos.</p></div>
+        <div class="org">Poder Ejecutivo</div>
+      </div>
+      <div class="arow" onclick="go('art')">
+        <div class="date">26 oct</div>
+        <div><h4>RG ARCA 5915/2026 — Ajuste operativo del FAL en las DDJJ de cargas sociales</h4>
+          <p>Aplica a las DDJJ del devengado diciembre 2026 y exige la versión 48 de "Declaración en línea".</p></div>
+        <div class="org">ARCA</div>
+      </div>
+      <div class="arow" onclick="go('art')">
+        <div class="date">23 oct</div>
+        <div><h4>Encargados de edificio — Escalas de octubre 2026 (se pagan en noviembre)</h4>
+          <p>SUTERH publicó las nuevas escalas del CCT 589/10. Revisá la planilla oficial antes de liquidar.</p></div>
+        <div class="org">SUTERH</div>
+      </div>
+    </div>
+  </div></section>
+
+  <!-- INTERNACIONAL (single feature) -->
+  <section class="band"><div class="wrap">
+    <div class="shead" style="border-color:var(--azul)"><h2 style="color:var(--azul)">Mirada internacional</h2></div>
+    <article class="card" style="display:grid;grid-template-columns:1fr 2fr;cursor:pointer" onclick="go('art')">
+      <div class="cover-img" style="aspect-ratio:auto"><div class="tri2"></div><div class="ic">🌐</div><div class="gword" style="font-size:52px">España</div></div>
+      <div class="body"><span class="badge internacional">Internacional · España</span>
+        <h3 style="font-size:22px">Sin aprobación de la junta de propietarios no hay vivienda turística</h3>
+        <p>España confirma que, si la licencia es posterior al 3/4/2025, se necesita aprobación de la junta con mayoría calificada. Posible referencia para una futura regulación local.</p>
+        <div class="foot"><span class="tags cond" style="font-size:10px">Alquileres temporarios · Asambleas</span><span class="tab">BOE · 8 oct 2026</span></div>
+      </div>
+    </article>
+  </div></section>
+
+  <!-- NEWSLETTER -->
+  <div class="news">
+    <div class="tri" style="opacity:.12"></div>
+    <div class="wrap">
+      <div>
+        <h3>LexPH en tu correo, cada quince días</h3>
+        <p>Los fallos, normativas y vencimientos que mueven la propiedad horizontal, destilados y explicados para administrar mejor.</p>
+      </div>
+      <form onsubmit="return false">
+        <input type="email" placeholder="tu@correo.com" />
+        <button>Suscribirme</button>
+      </form>
+    </div>
+  </div>
+
+  <footer><div class="wrap">
+    <div>
+      <div class="mark">Lex<i>PH</i></div>
+      <p style="margin:10px 0 0;opacity:.6">Un servicio de Gestión Global · gestionglobal.ar</p>
+    </div>
+    <p class="disc">Contenido informativo. No constituye asesoramiento jurídico. Ante dudas sobre casos concretos, consultá con un profesional del derecho.</p>
+  </div></footer>
+
+</div>
+
+<!-- ============================ ARTICLE ============================ -->
+<div id="art" class="screen">
+
+  <div class="art-hero">
+    <div class="ggbar"><div class="wrap">
+      <a class="gglogo"><span class="dot"></span><b>Gestión Global</b></a>
+      <a class="ingresar">Ingresar</a>
+    </div></div>
+    <div class="tri"></div>
+    <div class="narrow">
+      <div class="crumb" onclick="go('home')" style="cursor:pointer">← LexPH · Fallos comentados</div>
+      <div class="eyebrow"><span class="badge">Fallo comentado</span></div>
+      <h1>Difamación en el grupo de WhatsApp del edificio: indemnizan a una administradora</h1>
+      <p class="deck">La Sala F elevó a $1.500.000 la indemnización a una administradora difamada en el grupo del edificio: el honor profesional del administrador también se protege.</p>
+      <div class="byline">
+        <span class="tab">3 de noviembre de 2026</span>
+        <span>·</span><span>Lectura 4 min</span>
+        <span class="tag">Responsabilidad del administrador</span>
+        <span class="tag">Honor profesional</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="art-body">
+    <div class="prose">
+      <p class="lead">En los consorcios, el grupo de WhatsApp dejó de ser un detalle: es el canal donde se informa, se discute y —cada vez más— se litiga. La Cámara Nacional Civil, Sala F, acaba de recordarlo con una condena que eleva a $1.500.000 la indemnización a una administradora agraviada por mensajes de un consorcista.</p>
+      <p>El tribunal distinguió con nitidez entre la crítica legítima a la gestión —siempre admisible— y la imputación de deshonestidad sin sustento, que excede el derecho a opinar e ingresa en el terreno de la afectación al honor. La reputación profesional, señaló, es un activo tutelado por el ordenamiento, y su daño se repara.</p>
+      <h2>Qué resolvió el tribunal</h2>
+      <p>La Sala valoró el alcance del canal —un grupo cerrado pero con decenas de destinatarios—, la permanencia del mensaje y la ausencia de prueba sobre las imputaciones. Sobre esa base, confirmó la responsabilidad y ajustó el monto a valores actuales.</p>
+      <blockquote>Las críticas a la gestión son legítimas; las acusaciones de deshonestidad sin sustento, no.</blockquote>
+      <p>El fallo no inhibe el debate entre vecinos: ordena su cauce. El grupo sirve para informar y coordinar; los reclamos formales tienen su vía fehaciente.</p>
+    </div>
+
+    <aside class="sumario">
+      <div class="box chamfer">
+        <div class="hd">Sumario del caso</div>
+        <dl>
+          <dt>Tribunal</dt><dd>CNCiv, Sala F</dd>
+          <dt>Jurisdicción</dt><dd>Nacional</dd>
+          <dt>Fecha</dt><dd class="tab">3 de noviembre de 2026</dd>
+          <dt>Materia</dt><dd>Honor profesional del administrador</dd>
+        </dl>
+        <div class="voces">
+          <div class="lab">Voces</div>
+          <span class="voz">Derecho al honor</span>
+          <span class="voz">Reputación profesional</span>
+          <span class="voz">Daño moral</span>
+          <span class="voz">Mensajería entre consorcistas</span>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <div class="narrow" style="padding-bottom:10px">
+    <div class="callout clave">
+      <div class="ct">💡 Clave para el administrador</div>
+      <p>Las críticas a la gestión son legítimas; las acusaciones de deshonestidad sin sustento, no. Guardá capturas con fecha y testigos de los mensajes. Y respondé a los cuestionamientos con información: rendición de cuentas clara y documentación accesible.</p>
+    </div>
+    <div class="callout riesgo">
+      <div class="ct">⚠ Riesgo / Oportunidad</div>
+      <p>El precedente sirve también para proponer en asamblea reglas de uso del grupo de WhatsApp: canal informativo, sin agravios personales, con los reclamos formales por vía fehaciente.</p>
+    </div>
+
+    <div class="fuentes">
+      <div class="lab">Fuentes</div>
+      <a href="#">CNCiv, Sala F — sentencia comentada ↗</a>
+    </div>
+
+    <div class="endcta chamfer">
+      <div class="tri" style="opacity:.1"></div>
+      <div style="position:relative">
+        <div class="k">LexPH es parte de Gestión Global</div>
+        <h3>Administrá con la ley de tu lado</h3>
+        <p>Agenda de vencimientos, seguimiento de trámites, cursos y una plataforma pensada para administradores de consorcios.</p>
+        <a>Conocé la plataforma →</a>
+      </div>
+    </div>
+  </div>
+
+  <p class="disclaimer">Este contenido tiene carácter exclusivamente informativo y no constituye asesoramiento jurídico. Ante dudas sobre casos concretos, consultá con un profesional del derecho.</p>
+
+  <footer><div class="wrap">
+    <div><div class="mark">Lex<i>PH</i></div><p style="margin:10px 0 0;opacity:.6">Un servicio de Gestión Global · gestionglobal.ar</p></div>
+    <p class="disc">Fallos, normativas e insights de propiedad horizontal, explicados para administrar mejor.</p>
+  </div></footer>
+
+</div>
+
+<script>
+  function go(which){
+    document.getElementById('home').classList.toggle('on', which==='home');
+    document.getElementById('art').classList.toggle('on', which==='art');
+    document.getElementById('btn-home').classList.toggle('on', which==='home');
+    document.getElementById('btn-art').classList.toggle('on', which==='art');
+    window.scrollTo(0,0);
+  }
+</script>
+</body>
+</html>

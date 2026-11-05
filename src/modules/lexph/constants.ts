@@ -7,8 +7,11 @@ export interface TipoMeta {
   label: string;
   plural: string;
   icon: LucideIcon;
-  // clases de acento (chip) — paleta de marca
+  // clases de acento (chip) — paleta de marca · usado por el CMS de gerencia
   chip: string;
+  // DGG-244 F3 (web pública) · color de acento SÓLIDO por tipo (hex), para
+  // badges, barra de acento de card y punto del riel. Paleta de marca pura.
+  accent: string;
 }
 
 export const TIPOS: TipoMeta[] = [
@@ -18,6 +21,7 @@ export const TIPOS: TipoMeta[] = [
     plural: 'Fallos',
     icon: Gavel,
     chip: 'bg-brand-cyan-pale/70 text-brand-cyan',
+    accent: '#009ECA', // cian
   },
   {
     value: 'normativa',
@@ -25,6 +29,7 @@ export const TIPOS: TipoMeta[] = [
     plural: 'Normativas',
     icon: ScrollText,
     chip: 'bg-amber-50 text-amber-700',
+    accent: '#159AA6', // petróleo
   },
   {
     value: 'internacional',
@@ -32,6 +37,7 @@ export const TIPOS: TipoMeta[] = [
     plural: 'Internacional',
     icon: Globe2,
     chip: 'bg-violet-50 text-violet-700',
+    accent: '#2E6FB0', // azul
   },
   {
     value: 'insight',
@@ -39,6 +45,7 @@ export const TIPOS: TipoMeta[] = [
     plural: 'Insights',
     icon: Lightbulb,
     chip: 'bg-emerald-50 text-emerald-700',
+    accent: '#C46A10', // naranja
   },
 ];
 

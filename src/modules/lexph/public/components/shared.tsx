@@ -7,8 +7,18 @@ import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import { cn } from '@/lib/cn';
 import { tipoMeta } from '../../constants';
 import { getLexphPublicoStatus, type LexphFeedItem } from '@/services/api/lexphPublic';
+import type { LexphTipo } from '@/services/api/lexph';
+import '../lexph-public.css';
 
 // DGG-244 · Piezas compartidas de la web pública de LexPH (F3).
+// Piel editorial premium: masthead Oswald, acento serif Cormorant, chamfer,
+// motivo triangular, números tabulares. Todas las fuentes ya están cargadas.
+
+// Sólo http(s) es un href/src seguro (evita javascript:/data: aunque el dato
+// venga del CMS de staff). Usado para imagen_url (portadas) y fuentes.url (§6 2b/5c).
+export function isSafeHttpUrl(u: string | null | undefined): u is string {
+  return !!u && /^https?:\/\//i.test(u.trim());
+}
 
 export function fmtFechaLarga(iso: string | null | undefined): string {
   if (!iso) return '';
@@ -18,6 +28,17 @@ export function fmtFechaLarga(iso: string | null | undefined): string {
       month: 'long',
       year: 'numeric',
     });
+  } catch {
+    return '';
+  }
+}
+
+export function fmtFechaCorta(iso: string | null | undefined): string {
+  if (!iso) return '';
+  try {
+    return new Date(iso)
+      .toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' })
+      .replace(/\./g, '');
   } catch {
     return '';
   }
@@ -38,7 +59,7 @@ export function useLexphPublicoStatus(): 'loading' | 'on' | 'off' {
   return estado;
 }
 
-// Shell público: look clásico de marca (data-gg-classic, Sora/Inter) con SiteNav + SiteFooter.
+// Shell público: look clásico de marca (data-gg-classic) con SiteNav + SiteFooter.
 export function LexphPublicShell({
   children,
   darkHero = false,
@@ -55,6 +76,50 @@ export function LexphPublicShell({
   );
 }
 
+// Cabecera de publicación: logo LexPH sobre placa blanca (chamfer) + bajada. Sobre hero oscuro.
+export function LexphMasthead({ tagline = true }: { tagline?: boolean }) {
+  return (
+    <div className="flex flex-wrap items-center gap-x-5 gap-y-3 border-b border-white/15 pb-5">
+      <span className="lexph-chamfer-sm inline-flex bg-white px-4 py-2.5 shadow-xl shadow-black/25 ring-1 ring-white/20">
+        <img
+          src="/brand/lexph-logo.png"
+          alt="LexPH — un servicio de Gestión Global"
+          className="h-10 w-auto sm:h-[52px]"
+        />
+      </span>
+      {tagline && (
+        <p className="font-gg-display mb-0.5 max-w-[260px] text-[11px] font-semibold uppercase leading-[1.5] tracking-[0.13em] text-white/70">
+          Inteligencia jurídica en propiedad horizontal · un servicio de Gestión Global
+        </p>
+      )}
+    </div>
+  );
+}
+
+// Badge sólido por tipo (Oswald mayúsculas). `label` opcional pisa el default.
+export function LexphBadge({
+  tipo,
+  label,
+  className,
+}: {
+  tipo: LexphTipo;
+  label?: string;
+  className?: string;
+}) {
+  const meta = tipoMeta(tipo);
+  return (
+    <span
+      style={{ backgroundColor: meta.accent }}
+      className={cn(
+        'inline-flex items-center font-gg-display text-[11px] font-semibold uppercase tracking-[0.09em] text-white px-2.5 py-1',
+        className,
+      )}
+    >
+      {label ?? meta.label}
+    </span>
+  );
+}
+
 export function LexphLoader() {
   return (
     <div className="flex min-h-[50vh] items-center justify-center">
@@ -68,8 +133,9 @@ export function LexphComingSoon() {
   return (
     <section className="relative mx-auto max-w-3xl px-6 py-28 text-center sm:py-36">
       <TrianglesAccent position="top-right" tone="cyan" density="soft" size={220} className="opacity-40" />
-      <p className="kicker text-brand-cyan">LexPH · Un servicio de Gestión Global</p>
-      <h1 className="mt-3 font-display text-4xl font-extrabold tracking-tight text-brand-ink sm:text-5xl">
+      <img src="/brand/lexph-logo.png" alt="LexPH" className="mx-auto h-14 w-auto sm:h-16" />
+      <p className="kicker mt-4 text-brand-cyan">Un servicio de Gestión Global</p>
+      <h1 className="mt-6 font-display text-3xl font-extrabold tracking-tight text-brand-ink sm:text-4xl">
         Muy pronto
       </h1>
       <p className="mx-auto mt-4 max-w-xl text-brand-muted">
@@ -80,7 +146,8 @@ export function LexphComingSoon() {
   );
 }
 
-// Portada de artículo: imagen real o fallback de marca por tipo.
+// Portada de artículo: imagen real o fallback de marca por tipo
+// (gradiente tinta→cian + motivo triangular + palabra fantasma del tipo).
 export function LexphCover({
   item,
   className,
@@ -88,7 +155,7 @@ export function LexphCover({
   item: Pick<LexphFeedItem, 'tipo' | 'titulo' | 'imagen_url' | 'imagen_alt'>;
   className?: string;
 }) {
-  if (item.imagen_url) {
+  if (isSafeHttpUrl(item.imagen_url)) {
     return (
       <img
         src={item.imagen_url}
@@ -102,44 +169,49 @@ export function LexphCover({
   const Icon = meta.icon;
   return (
     <div
-      className={cn(
-        'relative flex h-full w-full items-center justify-center overflow-hidden bg-gradient-to-br from-brand-night via-brand-night to-brand-cyan',
-        className,
-      )}
+      className={cn('relative h-full w-full overflow-hidden', className)}
+      style={{
+        background:
+          'linear-gradient(135deg, rgb(var(--brand-night-rgb)) 0%, rgb(var(--brand-night-2-rgb)) 55%, #0d3a5c 100%)',
+      }}
     >
-      <TrianglesAccent position="bottom-right" tone="cyan" density="soft" size={160} className="opacity-25" />
-      <Icon className="relative text-white/90" size={40} strokeWidth={1.5} />
+      <TrianglesAccent position="top-right" tone="cyan" density="rich" size={150} className="opacity-20" />
+      <Icon className="absolute left-4 top-4 text-white/80" size={22} strokeWidth={1.5} />
+      <span
+        aria-hidden
+        className="font-gg-display pointer-events-none absolute -bottom-3 right-2 text-[64px] font-bold uppercase leading-none tracking-wide text-white/[0.07]"
+      >
+        {meta.label}
+      </span>
     </div>
   );
 }
 
-// Card de artículo para grillas públicas.
+// Card de artículo para grillas públicas (editorial premium, esquinas rectas).
 export function LexphCard({ item }: { item: LexphFeedItem }) {
   const meta = tipoMeta(item.tipo);
   return (
     <Link
       to={`/lexph/${item.slug}`}
-      className="group flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white transition hover:-translate-y-0.5 hover:border-brand-cyan/40 hover:shadow-md"
+      className="lexph-card group flex flex-col overflow-hidden border border-slate-200 bg-white"
     >
-      <div className="aspect-[16/9] w-full overflow-hidden">
+      <div className="relative aspect-[16/9] w-full overflow-hidden">
         <LexphCover item={item} className="transition duration-500 group-hover:scale-[1.03]" />
       </div>
-      <div className="flex flex-1 flex-col gap-2 p-4">
-        <span
-          className={cn(
-            'inline-flex w-fit items-center rounded-md px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide',
-            meta.chip,
-          )}
-        >
-          {meta.label}
-        </span>
-        <h3 className="font-display text-lg font-bold leading-snug text-brand-ink transition group-hover:text-brand-cyan">
+      <div style={{ backgroundColor: meta.accent }} className="h-1 w-full" />
+      <div className="flex flex-1 flex-col p-5">
+        <LexphBadge tipo={item.tipo} className="mb-3 self-start" />
+        <h3 className="font-display text-[1.075rem] font-bold leading-snug tracking-tight text-brand-ink transition group-hover:text-brand-cyan">
           {item.titulo}
         </h3>
-        {item.resumen && <p className="line-clamp-3 text-sm text-brand-muted">{item.resumen}</p>}
-        <div className="mt-auto flex items-center justify-between gap-2 pt-2 text-xs text-brand-muted">
-          <span className="truncate">{item.tags.slice(0, 2).map((t) => t.nombre).join(' · ')}</span>
-          <span className="shrink-0 tabular-nums">{fmtFechaLarga(item.publicado_at)}</span>
+        {item.resumen && (
+          <p className="mt-2 line-clamp-3 text-sm leading-relaxed text-brand-muted">{item.resumen}</p>
+        )}
+        <div className="mt-auto flex items-center justify-between gap-3 border-t border-slate-100 pt-3 text-xs text-brand-muted">
+          <span className="truncate font-gg-display uppercase tracking-[0.05em]">
+            {item.tags.slice(0, 2).map((t) => t.nombre).join(' · ')}
+          </span>
+          <span className="shrink-0 tabular-nums">{fmtFechaCorta(item.publicado_at)}</span>
         </div>
       </div>
     </Link>
