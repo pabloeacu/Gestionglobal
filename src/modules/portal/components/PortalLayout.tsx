@@ -28,7 +28,7 @@ import { Tooltip } from '@/components/common/Tooltip';
 import { NotificationBell } from '@/components/common/NotificationBell';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSounds } from '@/contexts/SoundContext';
-import { getAdministracion } from '@/services/api/administraciones';
+import { getAdministracionNombre } from '@/services/api/administraciones';
 import { cn } from '@/lib/cn';
 
 // Portal del administrador (cliente). Diseño tipo Stripe/Linear customer
@@ -68,9 +68,9 @@ export function PortalLayout() {
       setAdminNombre(null);
       return;
     }
-    void getAdministracion(user.administracionId).then((res) => {
+    void getAdministracionNombre(user.administracionId).then((res) => {
       if (!mounted) return;
-      if (res.ok) setAdminNombre(res.data.nombre);
+      if (res.ok) setAdminNombre(res.data);
     });
     return () => {
       mounted = false;

@@ -9785,6 +9785,10 @@ export type Database = {
         }
         Returns: string
       }
+      credencial_reg_borrar: {
+        Args: { p_administracion_id: string; p_plataforma: string }
+        Returns: undefined
+      }
       credencial_reg_meta: {
         Args: { p_administracion_id: string; p_plataforma: string }
         Returns: Json

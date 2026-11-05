@@ -121,6 +121,64 @@ export async function getAdministracion(
   return ok(data);
 }
 
+// DGG-243 F4a · fetch de SÓLO el nombre para el portal del cliente. Reemplaza al
+// getAdministracion(select('*')) del PortalLayout, que mandaba la fila entera al browser
+// del cliente (defensa en profundidad: ni siquiera el ciphertext de la clave ARCA viaja).
+export async function getAdministracionNombre(
+  id: string,
+): Promise<ApiResponse<string | null>> {
+  const { data, error } = await supabase
+    .from('administraciones')
+    .select('nombre')
+    .eq('id', id)
+    .single();
+  if (error) return fail('ADMIN_NOMBRE_GET', error.message, error);
+  return ok((data as { nombre: string | null } | null)?.nombre ?? null);
+}
+
+// DGG-243 F4a (pivote 0651) · la clave fiscal ARCA vive en el store cifrado deny-all
+// credenciales_regulatorias (plataforma='arca'), misma familia de RPCs que DDJJ — NO hay circuito
+// paralelo ni columna en administraciones. Gerencia (staff): revela on-demand (descifra + auditado),
+// carga/edita (credencial_reg_set) y borra (credencial_reg_borrar). El valor nunca viaja en reposo
+// ni en un select('*') del cliente — sólo por estas RPCs SECURITY DEFINER.
+const PLATAFORMA_ARCA = 'arca' as const;
+
+export async function revelarClaveArca(administracionId: string): Promise<ApiResponse<string | null>> {
+  const { data, error } = await supabase.rpc('credencial_reg_revelar', {
+    p_administracion_id: administracionId, p_plataforma: PLATAFORMA_ARCA,
+  });
+  if (error) return fail('CLAVE_ARCA_REVELAR', error.message, error);
+  return ok((data as string | null) ?? null);
+}
+
+/** ¿la administración tiene clave ARCA guardada? (metadata, sin exponer el secreto). */
+export async function tieneClaveArca(administracionId: string): Promise<ApiResponse<boolean>> {
+  const { data, error } = await supabase.rpc('credencial_reg_meta', {
+    p_administracion_id: administracionId, p_plataforma: PLATAFORMA_ARCA,
+  });
+  if (error) return fail('CLAVE_ARCA_META', error.message, error);
+  const r = (data ?? {}) as { tiene_password?: boolean };
+  return ok(!!r.tiene_password);
+}
+
+/** Carga/edita (clave no vacía) o BORRA (clave null/vacía) la clave ARCA. Staff-only server-side. */
+export async function setClaveArca(administracionId: string, clave: string | null): Promise<ApiResponse<void>> {
+  const limpia = (clave ?? '').trim();
+  if (!limpia) {
+    const { error } = await supabase.rpc('credencial_reg_borrar', {
+      p_administracion_id: administracionId, p_plataforma: PLATAFORMA_ARCA,
+    });
+    if (error) return fail('CLAVE_ARCA_BORRAR', error.message, error);
+    return ok(undefined);
+  }
+  const { error } = await supabase.rpc('credencial_reg_set', {
+    p_administracion_id: administracionId, p_plataforma: PLATAFORMA_ARCA,
+    p_usuario: '', p_password: limpia,
+  });
+  if (error) return fail('CLAVE_ARCA_SET', error.message, error);
+  return ok(undefined);
+}
+
 export type MatriculaExtraRow = Database['public']['Tables']['matricula_extra']['Row'];
 
 // DGG-234 F6 · matrícula de jurisdicción NO-PBA (CABA/Neuquén). Vive en la tabla hija

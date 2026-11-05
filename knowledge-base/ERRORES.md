@@ -6693,3 +6693,31 @@ Todos LATENTES (0 admins afectados hoy, motor real DORMIDO) — cazados por la d
 **Fix (migs 0648/0649 + front):** (1) `credencial_reg_meta` expone `pendiente` (prop_at no nulo) sin el secreto → propuesta en curso ⇒ "en curso"; `cliente_tramites_listar` expone `servicio_codigo` (DROP+CREATE, grants preservados) → el front OR-ea `rpac_ddjj || dj`, espejando el gate server. (2) Intro gateada por jurisdicción: sólo se muestra donde aplica (PBA/CABA) y con el marco legal real de cada una (RPAC/Ley 14.701 PBA vs RPA CABA).
 
 **Lección:** cuando el front DERIVA un estado (habilitado/en-curso/vencido) que el backend ya decide con una regla, **el front tiene que espejar la MISMA regla** — si el gate server mira dos señales, el front también (traerlas por el RPC, no inventar un subconjunto). Y **todo copy que afirme un hecho jurisdiccional debe estar gateado por la jurisdicción** (como `matriculaLabel`/`jurisdiccionLabel`), nunca hardcodeado. Lo capturó la doble auditoría §6 (coherencia/fan-out) antes del commit.
+
+## E-GG-251 (2026-11-05) — Clave ARCA cifrada in-place contradecía el plan escrito de F1 (circuito paralelo + ciphertext select('*')-able) (DGG-243 F4; atrapado en §6, corregido en el mismo chunk 0650→0651)
+
+**Contexto:** DGG-243 F4, cifrado at-rest de `administraciones.clave_fiscal_arca` (texto plano, E-GG-32). El primer corte (mig **0650**, F4a) cifró la clave IN-PLACE en una columna bytea de `administraciones` + un BEFORE trigger que absorbía los 2 triggers de sync (para no tocarlos, bajo riesgo). Server-side verificó verde y se aplicó a prod.
+
+**Causa raíz (§6, 3 agentes REVISAR):** el diseño in-place, aunque funcional y seguro en el path vivo, **contradecía la DECISIÓN DE SEGURIDAD ESCRITA de F1** (`0644:9-14,22-23`): "la clave NO va como columna de administraciones — ambas tienen policy SELECT para el cliente dueño y el front usa `select('*')` → cualquier columna ahí, aun cifrada, viajaría al browser del cliente. Por eso TABLA APARTE deny-all; la migración de ARCA al store va en F4". El in-place dejaba **(G1)** el ciphertext técnicamente `select('*')`-able por el cliente dueño (sin ruta viva, pero reabriendo la superficie que F1 cerró) y **(G2)** un **circuito paralelo** (`admin_clave_arca_*` ≠ la familia `credencial_reg_*` del store) — exactamente el "circuito nuevo" que el canon de consistencia prohíbe.
+
+**Fix (mig 0651, pivote, mismo chunk):** ARCA migra al store genérico `credenciales_regulatorias` (`plataforma='arca'`), deny-all, misma familia `credencial_reg_{set,meta,revelar,borrar}`. Se reusó la absorción por trigger apuntándola al store (ahora **AFTER** INS/UPD — BEFORE INSERT fallaba la FK del store porque la fila padre aún no existe) con fill-only + auto-limpieza del landing. Columna bytea y RPCs paralelas **dropeadas**; los 2 triggers de sync quedan intactos (la columna text `clave_fiscal_arca` queda como landing transitorio, siempre NULL). G1+G2 cerrados; cero pérdida de funcionalidad (autofill/gerencia/gestoría/cliente).
+
+**Lección:** cuando una migración anterior **documenta explícitamente** cómo y en qué fase se hace lo que sigue (acá F1 escribió "ARCA al store en F4, sin circuito paralelo"), el chunk siguiente **cumple ese plan, no inventa un atajo paralelo** por conveniencia de riesgo — aunque el atajo "funcione". El canon de consistencia (una sola fuente de verdad, una sola familia de RPCs) manda sobre el impulso de no tocar lo existente. La doble auditoría §6 (que releyó el racional de F1, no sólo el código de F4) lo detectó y se corrigió en el mismo chunk (Premisa #0).
+
+## E-GG-252 (2026-11-05) — Backfill de cifrado sin guard de Vault podía destruir las 48 claves (DGG-243 F4; latente, atrapado en §6, endurecido)
+
+**Contexto:** el backfill de 0650 cifraba las 48 claves existentes: `UPDATE ... SET clave_fiscal_arca_cifrada = pgp_sym_encrypt(btrim(clave), cred_reg_key()), clave_fiscal_arca = NULL`. En prod corrió con Vault presente (48/48 OK).
+
+**Causa raíz (§6 C#16):** `pgp_sym_encrypt` es **STRICT** → si `cred_reg_key()` fuese NULL (Vault ausente: branch/preview/restore/rename del secret), `encrypt(clave, NULL)=NULL` y el UPDATE dejaría la cifrada NULL **y** el plaintext NULL en el mismo statement → **pérdida irreversible** de las 48 claves. Era el único path de la migración sin guard de Vault (el trigger, el set, el revelar y el autofill todos chequeaban).
+
+**Fix:** guard `DO $$ IF private.cred_reg_key() IS NULL THEN RAISE EXCEPTION ... END $$;` ANTES del backfill en 0650, y el mismo guard al inicio del pivote 0651. Sin Vault, la migración aborta sin tocar una fila.
+
+**Lección:** **toda operación de cifrado masivo (backfill) debe abortar explícito si falta la clave** — con cifras STRICT, "clave ausente" no es un no-op, es un destructor silencioso que además borra la fuente. El guard va en el MISMO statement/transacción, no "después". Capitaliza el patrón de guard que el resto de la migración ya tenía y el backfill no.
+
+## E-GG-253 (2026-11-05) — DEUDA F4b: la clave ARCA en el jsonb de submissions sigue en texto plano at-rest (DGG-243; flaggeada, fuera de alcance de F4)
+
+**Contexto:** F4 cifró la clave ARCA en `administraciones` → store. Pero la **fuente que lee la GESTORÍA** es otra: `formulario_submissions.datos->>'clave_fiscal_arca'` (el jsonb que el cliente completa en el formulario, que la gestoría consulta por token en el sitio por trámite). Ese jsonb **sigue en texto plano en reposo**.
+
+**Estado:** NO es regresión de F4 (siempre fue así). Mitigación parcial ya presente: el edge público `acceso-externo` sanea `/clave/i` antes de exponer datos públicamente; el RPC de trabajo del gestor (`gestor_obtener_info_solicitud`) la expone a propósito (la gestoría la necesita), gateado por token con TTL/revocación. El riesgo residual es el plaintext at-rest en la tabla de submissions.
+
+**Por qué queda fuera de F4:** cifrar selectivamente campos del jsonb de submissions toca **todo el pipeline de formularios** (muchos tipos de form, no sólo ARCA), el RPC del gestor, el PDF y el runner — es otro subsistema y requiere una decisión de producto de Pablo (qué campos, cómo descifra la gestoría, impacto en el PDF). Flaggeado como **F4b** en PROJECT_STATUS; se activa con OK de Pablo. Premisa #0: hueco genuinamente out-of-scope → dejado **escrito**, no en el aire.

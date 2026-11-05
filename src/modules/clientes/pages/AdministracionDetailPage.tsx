@@ -21,6 +21,9 @@ import {
   RotateCcw,
   UserRound,
   Send,
+  Loader2,
+  Copy,
+  Check,
 } from 'lucide-react';
 import {
   Button,
@@ -49,6 +52,9 @@ import {
   reactivarAdministracion,
   updateAdministracion,
   fetchMatriculasExtra,
+  revelarClaveArca,
+  setClaveArca,
+  tieneClaveArca,
   type AdministracionRow,
   type AdministracionEstado,
   type MatriculaExtraRow,
@@ -437,7 +443,10 @@ export function AdministracionDetailPage() {
         open={editOpen}
         onClose={() => setEditOpen(false)}
         editing={admin}
-        onSaved={(r) => setAdmin(r)}
+        // DGG-243 F4a · refetch fresco (no setAdmin(res.data)): la clave ARCA se persiste por
+        // RPC DESPUÉS del save de la fila; el reload re-monta la ficha y ClaveFiscalReveal
+        // re-consulta su meta en el store → el indicador "tiene clave" queda correcto sin F5.
+        onSaved={() => void load()}
       />
       <ConsorcioFormDrawer
         open={consorcioFormOpen}
@@ -1077,7 +1086,7 @@ function TabRegistral({ admin }: { admin: AdministracionRow }) {
             </span>
           </DataRow>
           <DataRow label="Clave Fiscal ARCA">
-            <ClaveFiscalReveal valor={(admin as { clave_fiscal_arca?: string | null }).clave_fiscal_arca ?? null} />
+            <ClaveFiscalReveal administracionId={admin.id} />
           </DataRow>
           {/* DGG-123 (pedido Pablo): en personas jurídicas, el CUIT personal del
               titular vinculado en ARCA — junto con la clave, es lo que usa la
@@ -1484,24 +1493,108 @@ function formatMoney(n: number): string {
   }).format(n);
 }
 
-// AJL-3 · Componente helper para mostrar la clave fiscal ARCA con dots + ojito.
-// Reutiliza la lógica de PasswordRevealInput pero sin form input (es solo display).
-function ClaveFiscalReveal({ valor }: { valor: string | null }) {
+// AJL-3 · Clave fiscal ARCA con dots + ojito. DGG-243 F4a (pivote 0651): la clave vive en el store
+// cifrado deny-all credenciales_regulatorias (plataforma='arca'), NO en administraciones. El componente
+// consulta su presencia por RPC (credencial_reg_meta, sin exponer el secreto) al montar; el valor se trae
+// recién al click (revelar → descifra + auditado). El botón 🗑 la borra (credencial_reg_borrar) — repone
+// la capacidad de LIMPIAR que gerencia tenía antes de F4a (R15; el drawer trata "vacío = conservar").
+function ClaveFiscalReveal({ administracionId }: { administracionId: string }) {
+  const confirmar = useConfirm();
+  const [hay, setHay] = useState<boolean | null>(null);   // null = cargando meta
   const [visible, setVisible] = useState(false);
-  if (!valor) return <span className="text-brand-muted">—</span>;
+  const [valor, setValor] = useState<string | null>(null);
+  const [cargando, setCargando] = useState(false);
+  const [borrando, setBorrando] = useState(false);
+  const [copiado, setCopiado] = useState(false);
+  // Consultar la meta al montar / al cambiar de administración (resetea todo el estado local).
+  useEffect(() => {
+    let vivo = true;
+    setHay(null); setValor(null); setVisible(false);
+    void tieneClaveArca(administracionId).then((r) => {
+      if (vivo) setHay(r.ok ? r.data : false);
+    });
+    return () => { vivo = false; };
+  }, [administracionId]);
+
+  if (hay === null) return <Loader2 size={12} className="animate-spin text-brand-muted" />;
+  if (!hay) return <span className="text-brand-muted">—</span>;
+
+  async function asegurar(): Promise<string | null> {
+    if (valor !== null) return valor;
+    setCargando(true);
+    const r = await revelarClaveArca(administracionId);
+    setCargando(false);
+    if (!r.ok) { toast.error('No pudimos mostrar la clave', { description: humanizeError(r.error) }); return null; }
+    const v = r.data ?? '';
+    setValor(v);
+    return v;
+  }
+  async function toggleVer() {
+    if (valor !== null) { setVisible((v) => !v); return; }
+    const v = await asegurar();
+    if (v !== null) setVisible(true);
+  }
+  async function copiar() {
+    const v = await asegurar();
+    if (v === null) return;
+    try {
+      await navigator.clipboard.writeText(v);
+      setCopiado(true);
+      toast.success('Clave copiada al portapapeles');
+      window.setTimeout(() => setCopiado(false), 1400);
+    } catch { toast.error('No pudimos copiar al portapapeles'); }
+  }
+  async function borrar() {
+    const ok = await confirmar({
+      title: 'Borrar clave fiscal ARCA',
+      message: 'Se eliminará la clave fiscal guardada de este cliente. El rellenado automático de formularios dejará de completarla hasta que se cargue una nueva. ¿Confirmás?',
+      confirmLabel: 'Borrar clave',
+      cancelLabel: 'Cancelar',
+      danger: true,
+    });
+    if (!ok) return;
+    setBorrando(true);
+    const r = await setClaveArca(administracionId, null);
+    setBorrando(false);
+    if (!r.ok) { toast.error('No pudimos borrar la clave', { description: humanizeError(r.error) }); return; }
+    setHay(false);
+    setValor(null);
+    setVisible(false);
+    toast.success('Clave fiscal ARCA borrada');
+  }
   return (
     <span className="inline-flex items-center gap-2 font-mono text-sm">
-      <span>{visible ? valor : '•'.repeat(Math.min(valor.length, 12))}</span>
+      <span>{visible && valor !== null ? valor : '••••••••••'}</span>
       <button
         type="button"
-        onClick={() => setVisible((v) => !v)}
-        className="rounded p-1 text-brand-muted transition hover:bg-slate-100 hover:text-brand-cyan"
+        onClick={() => void toggleVer()}
+        disabled={cargando || borrando}
+        className="rounded p-1 text-brand-muted transition hover:bg-slate-100 hover:text-brand-cyan disabled:opacity-50"
         aria-label={visible ? 'Ocultar' : 'Mostrar'}
         title={visible ? 'Ocultar' : 'Mostrar'}
       >
-        {visible ? <EyeOff size={12} /> : <Eye size={12} />}
+        {cargando ? <Loader2 size={12} className="animate-spin" /> : visible ? <EyeOff size={12} /> : <Eye size={12} />}
       </button>
-      <CopyButton value={valor} label="Clave" />
+      <button
+        type="button"
+        onClick={() => void copiar()}
+        disabled={cargando || borrando}
+        className="rounded p-1 text-brand-muted transition hover:bg-slate-100 hover:text-brand-cyan disabled:opacity-50"
+        aria-label="Copiar clave"
+        title="Copiar clave"
+      >
+        {copiado ? <Check size={12} className="text-emerald-600" /> : <Copy size={12} />}
+      </button>
+      <button
+        type="button"
+        onClick={() => void borrar()}
+        disabled={cargando || borrando}
+        className="rounded p-1 text-brand-muted transition hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50"
+        aria-label="Borrar clave"
+        title="Borrar clave"
+      >
+        {borrando ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
+      </button>
     </span>
   );
 }

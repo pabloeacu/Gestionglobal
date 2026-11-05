@@ -18,6 +18,7 @@ import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import {
   createAdministracion,
   updateAdministracion,
+  setClaveArca,
   reactivarAdministracion,
   adminPrecheckIdentidad,
   fetchMatriculasExtra,
@@ -141,7 +142,9 @@ function rowToForm(r: AdministracionRow): FormState {
     padre_apellido_nombre: (r as { padre_apellido_nombre?: string | null }).padre_apellido_nombre ?? '',
     madre_apellido_nombre: (r as { madre_apellido_nombre?: string | null }).madre_apellido_nombre ?? '',
     legajo_rpac: (r as { legajo_rpac?: string | null }).legajo_rpac ?? '',
-    clave_fiscal_arca: (r as { clave_fiscal_arca?: string | null }).clave_fiscal_arca ?? '',
+    // DGG-243 F4a · la clave ARCA ya no viaja en la fila (cifrada at-rest). El drawer NO la
+    // pre-carga; arranca vacía y "vacío = conservar la actual" (se escribe por setClaveArca → store).
+    clave_fiscal_arca: '',
     cuit_titular_arca: (r as { cuit_titular_arca?: string | null }).cuit_titular_arca ?? '',
     origen: r.origen ?? '',
     convenio: r.convenio ?? '',
@@ -303,7 +306,8 @@ export function AdministracionFormDrawer({
       padre_apellido_nombre: form.padre_apellido_nombre.trim() || null,
       madre_apellido_nombre: form.madre_apellido_nombre.trim() || null,
       legajo_rpac: form.legajo_rpac.trim() || null,
-      clave_fiscal_arca: form.clave_fiscal_arca.trim() || null,
+      // DGG-243 F4a · la clave ARCA NO va en el payload directo (se cifra por RPC tras el save,
+      // sólo si gerencia tipeó un valor — ver setClaveArca más abajo).
       // Normalizado a dígitos puros — mismo formato que dejan los triggers de
       // backfill (0399), así el dato es comparable venga de donde venga.
       cuit_titular_arca: soloDigitosCuit(form.cuit_titular_arca) || null,
@@ -356,6 +360,11 @@ export function AdministracionFormDrawer({
             const matRe = await setMatriculaExtra(cuitTwin.id, form.matricula_extra_jur || 'caba', form.matricula_rpa, extraJurOriginal || null);
             if (!matRe.ok) {
               toast.error(`Reactivado, pero no pudimos guardar la matrícula RPA (${extraJurLabel})`, { description: humanizeError(matRe.error) });
+            }
+            // DGG-243 F4a · clave ARCA (cifrada) sólo si gerencia tipeó una; vacío = conservar.
+            if (form.clave_fiscal_arca.trim()) {
+              const ck = await setClaveArca(cuitTwin.id, form.clave_fiscal_arca.trim());
+              if (!ck.ok) toast.error('Reactivado, pero no pudimos guardar la clave ARCA', { description: humanizeError(ck.error) });
             }
             toast.success(`Cliente "${cuitTwin.nombre}" reactivado y actualizado`);
             onSaved?.(upd.data);
@@ -411,6 +420,18 @@ export function AdministracionFormDrawer({
       toast.error(`Cliente guardado, pero no pudimos guardar la matrícula RPA (${extraJurLabel})`, {
         description: humanizeError(matExtra.error),
       });
+    }
+
+    // DGG-243 F4a · clave fiscal ARCA cifrada at-rest en el store deny-all (plataforma='arca'). Ya NO
+    // viaja en el payload de la fila; se persiste vía setClaveArca → credencial_reg_set (RPC SECURITY
+    // DEFINER). Sólo si gerencia tipeó una clave; vacío = conservar la actual (el borrado va por la ficha).
+    if (form.clave_fiscal_arca.trim()) {
+      const ck = await setClaveArca(res.data.id, form.clave_fiscal_arca.trim());
+      if (!ck.ok) {
+        toast.error('Cliente guardado, pero no pudimos guardar la clave ARCA', {
+          description: humanizeError(ck.error),
+        });
+      }
     }
 
     // Alta de acceso al portal (sólo en creación nueva y si se tildó). La cuenta
@@ -774,12 +795,16 @@ export function AdministracionFormDrawer({
                 </Field>
                 <Field
                   label="Clave Fiscal ARCA"
-                  hint="Texto común; se oculta automáticamente con ✦ y se revela con el botón."
+                  hint={
+                    editing
+                      ? 'Se guarda cifrada. Dejá vacío para conservar la clave actual; escribí una nueva sólo si la querés reemplazar.'
+                      : 'Se guarda cifrada. Se oculta con ✦ y se revela con el botón.'
+                  }
                 >
                   <PasswordRevealInput
                     value={form.clave_fiscal_arca}
                     onChange={(e) => setField('clave_fiscal_arca', e.target.value)}
-                    placeholder="Clave fiscal nivel 3"
+                    placeholder={editing ? 'Dejá vacío para conservar la actual' : 'Clave fiscal nivel 3'}
                   />
                 </Field>
                 <Field
