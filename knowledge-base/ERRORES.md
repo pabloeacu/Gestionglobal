@@ -6722,6 +6722,8 @@ Todos LATENTES (0 admins afectados hoy, motor real DORMIDO) — cazados por la d
 
 **Por qué queda fuera de F4:** cifrar selectivamente campos del jsonb de submissions toca **todo el pipeline de formularios** (muchos tipos de form, no sólo ARCA), el RPC del gestor, el PDF y el runner — es otro subsistema y requiere una decisión de producto de Pablo (qué campos, cómo descifra la gestoría, impacto en el PDF). Flaggeado como **F4b** en PROJECT_STATUS; se activa con OK de Pablo. Premisa #0: hueco genuinamente out-of-scope → dejado **escrito**, no en el aire.
 
+**DECISIÓN DE PABLO (2026-11-05): F4b PARQUEADO "para analizar más adelante".** Razón: el cambio es **demasiado invasivo** (reescribe mucho). La premisa es "sumar seguridad SIN romper la operatoria": gerencia, cliente y gestoría tienen que seguir **asignando y leyendo las claves con normalidad** — cosa que hoy funciona. NO reimplementar de oficio; se retoma sólo si Pablo lo pide o aparece una necesidad real (ej. requisito de compliance sobre el jsonb at-rest).
+
 ## E-GG-254 (2026-11-05) — La ficha de gerencia no refrescaba el indicador de clave ARCA tras cargarla por el drawer (DGG-243 F4; capturado en la PRUEBA EN VIVO, no por build+e2e)
 
 **Contexto:** DGG-243 F4, `ClaveFiscalReveal` (ficha de gerencia). El componente consulta la presencia de la clave (`credencial_reg_meta`) en un `useEffect` keyado por `administracionId`.
