@@ -6721,3 +6721,13 @@ Todos LATENTES (0 admins afectados hoy, motor real DORMIDO) — cazados por la d
 **Estado:** NO es regresión de F4 (siempre fue así). Mitigación parcial ya presente: el edge público `acceso-externo` sanea `/clave/i` antes de exponer datos públicamente; el RPC de trabajo del gestor (`gestor_obtener_info_solicitud`) la expone a propósito (la gestoría la necesita), gateado por token con TTL/revocación. El riesgo residual es el plaintext at-rest en la tabla de submissions.
 
 **Por qué queda fuera de F4:** cifrar selectivamente campos del jsonb de submissions toca **todo el pipeline de formularios** (muchos tipos de form, no sólo ARCA), el RPC del gestor, el PDF y el runner — es otro subsistema y requiere una decisión de producto de Pablo (qué campos, cómo descifra la gestoría, impacto en el PDF). Flaggeado como **F4b** en PROJECT_STATUS; se activa con OK de Pablo. Premisa #0: hueco genuinamente out-of-scope → dejado **escrito**, no en el aire.
+
+## E-GG-254 (2026-11-05) — La ficha de gerencia no refrescaba el indicador de clave ARCA tras cargarla por el drawer (DGG-243 F4; capturado en la PRUEBA EN VIVO, no por build+e2e)
+
+**Contexto:** DGG-243 F4, `ClaveFiscalReveal` (ficha de gerencia). El componente consulta la presencia de la clave (`credencial_reg_meta`) en un `useEffect` keyado por `administracionId`.
+
+**Causa raíz:** tras cargar una clave por el drawer y guardar, `onSaved` dispara `load()` (refetch del admin), pero `administracionId` NO cambia (es la misma administración) → el `useEffect` de `ClaveFiscalReveal` no re-corre, el componente arrastra su estado previo (`hay=false` si venía de un borrado) y la fila seguía mostrando "—" hasta un F5. La PERSISTENCIA estaba OK (verificado en BD: la clave sí se guardaba en el store); era sólo display.
+
+**Fix (commit e54bfa3):** `key={admin.updated_at}` en el call-site → el save del drawer bumpea `updated_at`, el componente REMONTA y re-consulta la meta → el indicador refleja la clave recién cargada sin F5. El borrado sigue siendo optimista (no bumpea `updated_at`, lo maneja su propio estado local). Carga fresca ya mostraba bien la clave.
+
+**Lección:** un componente que hace su propio fetch en `useEffect([id])` NO se entera de un refetch del padre si el `id` no cambia (editás la MISMA entidad). Para refrescarlo tras un save in-session, keyar por un token que cambie en cada save (`updated_at`) o pasar un `refreshKey`. **Lo capturó la prueba en vivo** (build + §6 e2e no lo ven: la persistencia estaba bien, el hueco era el refresh de un componente) — refuerza la premisa de QA en vivo ineludible.
