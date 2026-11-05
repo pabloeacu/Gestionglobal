@@ -113,6 +113,10 @@ const AgenteCierrePage = lazy(() => import('@/modules/gerencia/pages/AgenteCierr
 const LexphArticulosPage = lazy(() => import('@/modules/lexph').then(m => ({ default: m.LexphArticulosPage })));
 const LexphArticuloEditorPage = lazy(() => import('@/modules/lexph').then(m => ({ default: m.LexphArticuloEditorPage })));
 const LexphTagsPage = lazy(() => import('@/modules/lexph').then(m => ({ default: m.LexphTagsPage })));
+// DGG-244 F3 · web pública de LexPH (import directo → chunk propio, anon no baja el CMS).
+const LexphIndexPage = lazy(() => import('@/modules/lexph/public/LexphIndexPage').then(m => ({ default: m.LexphIndexPage })));
+const LexphArticuloPublicoPage = lazy(() => import('@/modules/lexph/public/LexphArticuloPublicoPage').then(m => ({ default: m.LexphArticuloPublicoPage })));
+const LexphTagPage = lazy(() => import('@/modules/lexph/public/LexphTagPage').then(m => ({ default: m.LexphTagPage })));
 
 type Role = 'gerente' | 'operador' | 'administrador' | 'partner';
 
@@ -403,6 +407,10 @@ export function App() {
           }
         />
         <Route path="/verificar/:codigo" element={<VerificarCertificadoPage />} />
+        {/* DGG-244 F3 · web pública de LexPH (gateada por flag lexph_publico_activo + noindex) */}
+        <Route path="/lexph" element={<LexphIndexPage />} />
+        <Route path="/lexph/tema/:tag" element={<LexphTagPage />} />
+        <Route path="/lexph/:slug" element={<LexphArticuloPublicoPage />} />
         <Route path="/webinar/:token" element={<WebinarPublicoPage />} />
         {/* G2 · wrapper Campus (DGG-15): mismo magic-link pero shell premium del Campus. */}
         <Route path="/campus/webinar/:token" element={<CampusWebinarPage />} />

@@ -4,7 +4,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Pencil, Trash2, Tags, Search, Newspaper } from 'lucide-react';
+import { Plus, Pencil, Trash2, Tags, Search, Newspaper, Globe, ExternalLink } from 'lucide-react';
 import {
   Button,
   Input,
@@ -25,6 +25,7 @@ import {
   eliminarArticulo,
   type LexphArticuloConTags,
 } from '@/services/api/lexph';
+import { getLexphPublicoStatus, setLexphPublico } from '@/services/api/lexphPublic';
 import { TIPOS, tipoMeta } from '../constants';
 
 type FiltroEstado = 'todos' | 'publicado' | 'borrador';
@@ -52,6 +53,8 @@ export function LexphArticulosPage() {
   const [tipoFiltro, setTipoFiltro] = useState<string | null>(null);
   const [q, setQ] = useState('');
   const [page, setPage] = useState(1);
+  const [publico, setPublico] = useState<boolean | null>(null);
+  const [togglingPublico, setTogglingPublico] = useState(false);
 
   async function refresh() {
     const res = await listArticulos();
@@ -65,8 +68,31 @@ export function LexphArticulosPage() {
 
   useEffect(() => {
     void refresh();
+    void getLexphPublicoStatus().then(setPublico);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  async function togglePublico() {
+    const next = !publico;
+    if (next) {
+      const ok = await confirm({
+        title: 'Abrir la web pública',
+        message:
+          'LexPH quedará accesible en gestionglobal.ar/lexph (sin indexar en Google y sin link en ningún menú). ¿Continuar?',
+        confirmLabel: 'Abrir',
+      });
+      if (!ok) return;
+    }
+    setTogglingPublico(true);
+    const res = await setLexphPublico(next);
+    setTogglingPublico(false);
+    if (!res.ok) {
+      toast.error('No pudimos cambiar el estado', { description: humanizeError(res.error) });
+      return;
+    }
+    setPublico(next);
+    toast.success(next ? 'Web pública activada' : 'Web pública oculta');
+  }
 
   // Realtime: recargar al cambiar artículos o el M2M de etiquetas.
   useRealtimeRefresh(['lexph_articulos', 'lexph_articulo_tags'], () => void refresh());
@@ -160,6 +186,44 @@ export function LexphArticulosPage() {
           </div>
         </div>
       </header>
+
+      {/* Estado de la web pública */}
+      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3">
+        <Globe size={17} className={publico ? 'text-emerald-600' : 'text-brand-muted'} />
+        <div className="text-sm">
+          <span className="font-semibold text-brand-ink">Web pública</span>{' '}
+          <span className={publico ? 'text-emerald-700' : 'text-brand-muted'}>
+            {publico === null ? '· …' : publico ? '· Activa' : '· Oculta (a oscuras)'}
+          </span>
+          {publico && (
+            <a
+              href="/lexph"
+              target="_blank"
+              rel="noreferrer"
+              className="ml-2 inline-flex items-center gap-1 font-medium text-brand-cyan hover:underline"
+            >
+              gestionglobal.ar/lexph <ExternalLink size={12} />
+            </a>
+          )}
+        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={!!publico}
+          aria-label="Activar o desactivar la web pública"
+          onClick={() => void togglePublico()}
+          disabled={togglingPublico || publico === null}
+          className={`ml-auto relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition disabled:opacity-50 ${
+            publico ? 'bg-brand-cyan' : 'bg-slate-300'
+          }`}
+        >
+          <span
+            className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition ${
+              publico ? 'translate-x-5' : 'translate-x-0.5'
+            }`}
+          />
+        </button>
+      </div>
 
       {/* Filtros */}
       <div className="flex flex-wrap items-center gap-3">

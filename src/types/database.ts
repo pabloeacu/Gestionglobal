@@ -1801,6 +1801,7 @@ export type Database = {
           landing_opiniones_titulo: string
           landing_opiniones_titulo_servicios: string
           landing_opiniones_ultimo_notif: number
+          lexph_publico_activo: boolean
           localidad: string | null
           logo_url: string | null
           nombre_fantasia: string
@@ -1848,6 +1849,7 @@ export type Database = {
           landing_opiniones_titulo?: string
           landing_opiniones_titulo_servicios?: string
           landing_opiniones_ultimo_notif?: number
+          lexph_publico_activo?: boolean
           localidad?: string | null
           logo_url?: string | null
           nombre_fantasia?: string
@@ -1895,6 +1897,7 @@ export type Database = {
           landing_opiniones_titulo?: string
           landing_opiniones_titulo_servicios?: string
           landing_opiniones_ultimo_notif?: number
+          lexph_publico_activo?: boolean
           localidad?: string | null
           logo_url?: string | null
           nombre_fantasia?: string
@@ -4865,6 +4868,8 @@ export type Database = {
           estado: string
           fuentes: Json
           id: string
+          imagen_alt: string | null
+          imagen_url: string | null
           publicado_at: string | null
           resumen: string | null
           slug: string
@@ -4880,6 +4885,8 @@ export type Database = {
           estado?: string
           fuentes?: Json
           id?: string
+          imagen_alt?: string | null
+          imagen_url?: string | null
           publicado_at?: string | null
           resumen?: string | null
           slug: string
@@ -4895,6 +4902,8 @@ export type Database = {
           estado?: string
           fuentes?: Json
           id?: string
+          imagen_alt?: string | null
+          imagen_url?: string | null
           publicado_at?: string | null
           resumen?: string | null
           slug?: string
@@ -10970,6 +10979,7 @@ export type Database = {
         Returns: undefined
       }
       get_landing_cover_status: { Args: never; Returns: boolean }
+      get_lexph_publico_status: { Args: never; Returns: boolean }
       get_public_whatsapp: { Args: never; Returns: string }
       gg_agenda_listar_unificada: {
         Args: { p_from: string; p_fuentes?: string[]; p_to: string }
@@ -11166,6 +11176,8 @@ export type Database = {
           p_estado: string
           p_fuentes: Json
           p_id?: string
+          p_imagen_alt?: string
+          p_imagen_url?: string
           p_resumen: string
           p_slug: string
           p_tag_ids: string[]
@@ -11174,6 +11186,8 @@ export type Database = {
         }
         Returns: string
       }
+      lexph_publico_articulo: { Args: { p_slug: string }; Returns: Json }
+      lexph_publico_feed: { Args: never; Returns: Json }
       list_webinar_kpis: {
         Args: never
         Returns: {
@@ -11694,6 +11708,7 @@ export type Database = {
         Returns: undefined
       }
       set_landing_cover: { Args: { p_enabled: boolean }; Returns: boolean }
+      set_lexph_publico: { Args: { p_enabled: boolean }; Returns: boolean }
       solicitud_activar: {
         Args: {
           p_cliente_id?: string

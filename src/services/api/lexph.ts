@@ -45,6 +45,8 @@ export interface GuardarArticuloInput {
   campos?: Record<string, unknown> | null;
   fuentes?: LexphFuente[] | null;
   tagIds?: string[];
+  imagenUrl?: string | null;
+  imagenAlt?: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -138,6 +140,8 @@ export async function guardarArticulo(
       p_campos: input.campos ?? {},
       p_fuentes: input.fuentes ?? [],
       p_tag_ids: input.tagIds ?? [],
+      p_imagen_url: input.imagenUrl ?? null,
+      p_imagen_alt: input.imagenAlt ?? null,
       p_id: input.id ?? undefined,
     } as unknown as Database['public']['Functions']['lexph_articulo_guardar']['Args'];
     const { data, error } = await supabase.rpc('lexph_articulo_guardar', args);

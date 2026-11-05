@@ -1,0 +1,71 @@
+/* DGG-244 · Tipografía long-form del cuerpo de artículos LexPH (web pública).
+   Scopeado a .lexph-prose: NO toca los editores TipTap ni nada más del repo
+   (el repo no tiene @tailwindcss/typography; las clases .prose son inertes). */
+
+.lexph-prose {
+  color: rgb(var(--brand-ink-rgb) / 0.9);
+  font-size: 1.0625rem;
+  line-height: 1.75;
+}
+
+.lexph-prose > :first-child { margin-top: 0; }
+.lexph-prose > :last-child { margin-bottom: 0; }
+
+.lexph-prose p { margin: 0 0 1.15em; }
+
+.lexph-prose h1,
+.lexph-prose h2,
+.lexph-prose h3,
+.lexph-prose h4 {
+  font-family: var(--font-display, 'Sora', system-ui, sans-serif);
+  color: rgb(var(--brand-ink-rgb));
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  line-height: 1.2;
+  margin: 1.8em 0 0.6em;
+}
+.lexph-prose h1 { font-size: 1.9rem; }
+.lexph-prose h2 { font-size: 1.5rem; }
+.lexph-prose h3 { font-size: 1.25rem; }
+.lexph-prose h4 { font-size: 1.1rem; }
+
+.lexph-prose ul,
+.lexph-prose ol { margin: 0 0 1.15em; padding-left: 1.4em; }
+.lexph-prose ul { list-style: disc; }
+.lexph-prose ol { list-style: decimal; }
+.lexph-prose li { margin: 0.35em 0; padding-left: 0.2em; }
+.lexph-prose li::marker { color: rgb(var(--brand-cyan-rgb)); }
+
+.lexph-prose a {
+  color: rgb(var(--brand-cyan-rgb));
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  font-weight: 500;
+}
+.lexph-prose a:hover { color: rgb(var(--brand-teal-rgb, var(--brand-cyan-rgb))); }
+
+.lexph-prose strong, .lexph-prose b { font-weight: 700; color: rgb(var(--brand-ink-rgb)); }
+.lexph-prose em, .lexph-prose i { font-style: italic; }
+
+.lexph-prose blockquote {
+  margin: 1.4em 0;
+  padding: 0.3em 0 0.3em 1.1em;
+  border-left: 3px solid rgb(var(--brand-cyan-rgb));
+  color: rgb(var(--brand-ink-rgb) / 0.72);
+  font-style: italic;
+}
+.lexph-prose blockquote p:last-child { margin-bottom: 0; }
+
+.lexph-prose hr {
+  margin: 2em 0;
+  border: 0;
+  border-top: 1px solid rgb(var(--brand-ink-rgb) / 0.12);
+}
+
+.lexph-prose code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.9em;
+  background: rgb(var(--brand-ink-rgb) / 0.06);
+  padding: 0.12em 0.4em;
+  border-radius: 4px;
+}

@@ -5,7 +5,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Save, Loader2, Plus, Trash2, Link2, FileText } from 'lucide-react';
+import { ArrowLeft, Save, Loader2, Plus, Trash2, Link2, FileText, Image as ImageIcon } from 'lucide-react';
 import {
   Button,
   Field,
@@ -52,6 +52,8 @@ export function LexphArticuloEditorPage() {
   const [campos, setCampos] = useState<CamposMap>({});
   const [fuentes, setFuentes] = useState<LexphFuente[]>([]);
   const [tagIds, setTagIds] = useState<Set<string>>(new Set());
+  const [imagenUrl, setImagenUrl] = useState('');
+  const [imagenAlt, setImagenAlt] = useState('');
 
   const [tags, setTags] = useState<LexphTag[]>([]);
 
@@ -79,6 +81,8 @@ export function LexphArticuloEditorPage() {
       setCampos((a.campos as CamposMap) ?? {});
       setFuentes(Array.isArray(a.fuentes) ? (a.fuentes as unknown as LexphFuente[]) : []);
       setTagIds(new Set(a.tags.map((t) => t.id)));
+      setImagenUrl(a.imagen_url ?? '');
+      setImagenAlt(a.imagen_alt ?? '');
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
@@ -160,6 +164,8 @@ export function LexphArticuloEditorPage() {
       campos: camposLimpios,
       fuentes: fuentesLimpias,
       tagIds: Array.from(tagIds),
+      imagenUrl: imagenUrl.trim() || null,
+      imagenAlt: imagenAlt.trim() || null,
     });
     setSaving(false);
     if (!res.ok) {
@@ -289,6 +295,36 @@ export function LexphArticuloEditorPage() {
               </div>
             </section>
           )}
+
+          {/* Imagen de portada */}
+          <section className="card-premium space-y-3 p-5">
+            <p className="kicker flex items-center gap-1.5 text-brand-muted">
+              <ImageIcon size={11} /> IMAGEN DE PORTADA
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="URL de la imagen" hint="Opcional. Si queda vacío, se usa una portada de marca por tipo.">
+                <Input
+                  value={imagenUrl}
+                  onChange={(e) => setImagenUrl(e.target.value)}
+                  placeholder="https://…"
+                  className="font-mono text-sm"
+                />
+              </Field>
+              <Field label="Texto alternativo (alt)">
+                <Input
+                  value={imagenAlt}
+                  onChange={(e) => setImagenAlt(e.target.value)}
+                  placeholder="Descripción breve de la imagen"
+                />
+              </Field>
+            </div>
+            {imagenUrl.trim() && (
+              <div className="overflow-hidden rounded-lg border border-slate-200">
+                {/* eslint-disable-next-line jsx-a11y/img-redundant-alt */}
+                <img src={imagenUrl} alt={imagenAlt || 'Vista previa'} className="max-h-48 w-full object-cover" />
+              </div>
+            )}
+          </section>
 
           {/* Cuerpo */}
           <section className="card-premium space-y-3 p-5">

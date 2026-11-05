@@ -262,7 +262,8 @@ LexPH "un servicio de Gestión Global": sección-fuente de consultas (fallos/nor
 - **CMS gerencia** (nav "LexPH" → `/gerencia/contenidos`): grilla (R19 KPIs sobre universo + filtros en memoria) + editor a página completa (TipTap + campos por tipo + fuentes + etiquetas; estado por botones Guardar borrador/Publicar) + CRUD de etiquetas. `services/api/lexph.ts` (R4).
 - **Siembra (mig 0653):** Edición N°2 real = 14 etiquetas + **11 artículos publicados** (6 fallos + 4 normativas + 1 internacional) con campos/fuentes/29 vínculos.
 - **§6 (2 agentes REVISAR + EJERCITAR e2e):** 0 hallazgos de seguridad (admin ve 0/0/0, INSERT/DELETE/RPC bloqueados 42501; gerente ve 11/14). Saldados en el chunk: GAP footer `--sidebar-w`→`md:left-64`, ambigüedad Guardar↔estado (sacado el Select), clamp de página, `danger:true`, comentario stale. Build tsc+vite limpio.
-- **Pendiente (NO de oficio):** F2 ediciones/newsletter quincenal; F3 superficie pública `/lexph` + flag `config_global.lexph_publico_activo` + noindex + render con DOMPurify + SEO; fase posterior asistente IA de carga.
+- **F3 (mig 0654) — HECHO, §6 verde + e2e:** web pública `/lexph` (home + `/lexph/:slug` + `/lexph/tema/:tag`), lectura anon por RPCs SECDEF gateadas por flag `lexph_publico_activo` (default false = **a oscuras**), render con `SafeHtml` (DOMPurify), SEO `useSeo` noindex + JSON-LD, shell `SiteNav/SiteFooter` `data-gg-classic`, slot `imagen_url` con fallback de marca, toggle "Web pública" en el CMS. §6: 0 hallazgos de seguridad (no-leak de borradores, solo campos públicos, anon sin grants de tabla, R16=0); saldado: `X-Robots-Tag` edge noindex scopeado a `/lexph*`. **Go-live** = prender el flag + quitar el X-Robots-Tag + robots→index.
+- **Pendiente (NO de oficio):** F2 ediciones/newsletter quincenal (+ envío/campañas/banners); **imágenes** de portada (generación vía Gemini/Nano Banana → Storage, requiere API key o manejar el browser de Pablo); fase posterior asistente IA de carga.
 
 ---
 
