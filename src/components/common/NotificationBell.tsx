@@ -30,6 +30,7 @@ import {
   Info,
   NotebookPen,
   Megaphone,
+  Mail,
   Trash2,
   X,
   ArrowRight,
@@ -62,6 +63,7 @@ const TIPO_META: Record<string, TipoMeta> = {
   frase_dia:           { icon: NotebookPen,   chip: 'bg-amber-50 text-amber-700'    },
   sistema:             { icon: Info,          chip: 'bg-slate-100 text-slate-700'   },
   comunicado:          { icon: Megaphone,     chip: 'bg-cyan-50 text-cyan-700'      },
+  lexph_suscriptor:    { icon: Mail,          chip: 'bg-cyan-50 text-cyan-700'      },
 };
 
 function metaFor(tipo: string): TipoMeta {

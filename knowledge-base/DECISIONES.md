@@ -8330,3 +8330,14 @@ Botón **"Cargar credenciales DDJJ"** en `TrackingDetailPage` (gateado `isStaff 
 - **§6:** R16 (0 overloads: 1 firma por función), R18 (**smoke e2e en BEGIN/ROLLBACK**: suscriptor sintético + contexto staff → `lexph_newsletter_enviar` → template upsert=1, encolado_ok=1, edición marcada=true → ROLLBACK sin residuo). Render del composer verificado contra el diseño aprobado (10.8KB, 01–05, 3 tendencias + "2 más", foto, editorial en el teaser).
 - **QA en vivo:** diseño previsualizado en el browser (desktop + mobile 360, logo blanco sobre navy, foto de la nota de tapa) y **test real en Gmail de Pablo** (3 envíos: minimal → revista → revista+foto). Al cierre, enviado a los **2 gerentes** (pabloeacu@ + adm.saveriano@) por pedido de Pablo "así lo puede ver JL". Datos QA limpiados (0 suscriptores, edición `newsletter_enviado_at` prístina en null para el primer envío real).
 - **Fecha:** 2026-11-06.
+
+### DGG-244 · F2f — Suscriptores: panel de gerencia + avisos + supresión unificada (2026-11-06, mig 0660) — HECHO, §6 verde
+
+Primer entregable del "Frente A" del motor de audiencia LexPH (ver `project_lexph_audiencia` en memoria; plan Frente A sin riesgo de reputación + Frente B con decisión de Pablo: send-as Workspace + goteo ≤1500/día + clientes/captación opt-out).
+
+- **QA en vivo del circuito de suscripción (pedido #1):** verificado punta a punta en prod — suscripción (form `/lexph`) → `pendiente` + email de confirmación enviado → `/lexph/confirmar?token` → `confirmado` → `/lexph/baja?token` → `baja`. Todo OK, dato limpiado. **Hallazgo:** la baja no escribía en `email_suppression` global.
+- **Supresión unificada (fix del hallazgo):** `lexph_suscripcion_baja` ahora agrega el email a `email_suppression` (motivo `baja_usuario`, origen `lexph`) espejando `prospecto_baja`/`administracion_baja`. Como el newsletter ya filtra con `NOT EXISTS` sobre esa tabla, una baja por cualquier vía corta TODAS las vías (base del modelo opt-out del Frente B).
+- **Aviso a gerencia (#2, medir el éxito):** trigger `AFTER INSERT OR UPDATE OF estado ON lexph_suscriptores` → al pasar a (o nacer) `confirmado` dispara `private.notif_emitir_staff('lexph_suscriptor', …)` (campanita + push a los 2 gerentes), con deeplink al panel. No dispara en re-confirmaciones idempotentes.
+- **Panel de suscriptores (#2, UI):** `/gerencia/contenidos/suscriptores` (`LexphSuscriptoresPage`, botón "Suscriptores" en el header de Contenidos). KPIs (confirmados/pendientes/bajas/nuevos-30d), tabs por estado, búsqueda por email/origen (`foldText`), paginado, **export CSV**. Servicio `listSuscriptores()` (select directo, RLS staff-only, R19 todo en memoria). Ícono `Mail` para el tipo `lexph_suscriptor` en `NotificationBell`.
+- **§6:** R16 (1 firma c/u), R18 (smoke e2e BEGIN/ROLLBACK: confirmar → 2 avisos = 2 gerentes; baja → estado `baja` + en `email_suppression`; ROLLBACK sin residuo).
+- **Fecha:** 2026-11-06.

@@ -3,3 +3,4 @@ export { LexphArticulosPage } from './pages/LexphArticulosPage';
 export { LexphArticuloEditorPage } from './pages/LexphArticuloEditorPage';
 export { LexphTagsPage } from './pages/LexphTagsPage';
 export { LexphEdicionPage } from './pages/LexphEdicionPage';
+export { LexphSuscriptoresPage } from './pages/LexphSuscriptoresPage';

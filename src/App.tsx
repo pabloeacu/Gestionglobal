@@ -114,6 +114,7 @@ const LexphArticulosPage = lazy(() => import('@/modules/lexph').then(m => ({ def
 const LexphArticuloEditorPage = lazy(() => import('@/modules/lexph').then(m => ({ default: m.LexphArticuloEditorPage })));
 const LexphTagsPage = lazy(() => import('@/modules/lexph').then(m => ({ default: m.LexphTagsPage })));
 const LexphEdicionPage = lazy(() => import('@/modules/lexph').then(m => ({ default: m.LexphEdicionPage })));
+const LexphSuscriptoresPage = lazy(() => import('@/modules/lexph').then(m => ({ default: m.LexphSuscriptoresPage })));
 // DGG-244 F3 · web pública de LexPH (import directo → chunk propio, anon no baja el CMS).
 const LexphIndexPage = lazy(() => import('@/modules/lexph/public/LexphIndexPage').then(m => ({ default: m.LexphIndexPage })));
 const LexphArticuloPublicoPage = lazy(() => import('@/modules/lexph/public/LexphArticuloPublicoPage').then(m => ({ default: m.LexphArticuloPublicoPage })));
@@ -493,6 +494,7 @@ export function App() {
           <Route path="contenidos/edicion" element={<LexphEdicionPage />} />
           <Route path="contenidos/nuevo" element={<LexphArticuloEditorPage />} />
           <Route path="contenidos/etiquetas" element={<LexphTagsPage />} />
+          <Route path="contenidos/suscriptores" element={<LexphSuscriptoresPage />} />
           <Route path="contenidos/:id" element={<LexphArticuloEditorPage />} />
           <Route path="configuracion" element={<ConfiguracionLayout />}>
             <Route index element={<Navigate to="emisores" replace />} />

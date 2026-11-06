@@ -279,6 +279,32 @@ export async function getSuscriptoresStats(): Promise<ApiResponse<LexphSuscripto
   }
 }
 
+// Listado de suscriptores para gerencia (tabla RLS staff-only). R19: universo completo,
+// filtros/paginación/KPIs en memoria. No exponemos tokens ni email_norm a la UI.
+export interface LexphSuscriptorItem {
+  id: string;
+  email: string;
+  estado: string; // 'pendiente' | 'confirmado' | 'baja'
+  origen: string | null;
+  created_at: string;
+  confirmed_at: string | null;
+  last_email_at: string | null;
+  baja_at: string | null;
+}
+export async function listSuscriptores(): Promise<ApiResponse<LexphSuscriptorItem[]>> {
+  try {
+    const { data, error } = await supabase
+      .from('lexph_suscriptores')
+      .select('id,email,estado,origen,created_at,confirmed_at,last_email_at,baja_at')
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return ok((data ?? []) as LexphSuscriptorItem[]);
+  } catch (e) {
+    const err = toApiError(e);
+    return fail(err.code, err.message, err.details);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // ETIQUETAS (single-table → directo, gateado por RLS staff)
 // ---------------------------------------------------------------------------
