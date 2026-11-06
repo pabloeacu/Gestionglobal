@@ -9,7 +9,13 @@ import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import { cn } from '@/lib/cn';
 import { useSeo } from '@/lib/seo';
 import { TIPOS, tipoMeta } from '../constants';
-import { listPublicados, type LexphFeedItem, type LexphPublicTag } from '@/services/api/lexphPublic';
+import {
+  listPublicados,
+  getEdicionActual,
+  type LexphFeedItem,
+  type LexphPublicTag,
+  type LexphEdicionActual,
+} from '@/services/api/lexphPublic';
 import {
   LexphPublicShell,
   LexphComingSoon,
@@ -23,6 +29,7 @@ import {
   fmtFechaLarga,
   useLexphPublicoStatus,
 } from './components/shared';
+import { LexphDigest } from './components/LexphDigest';
 
 const CANONICAL = 'https://www.gestionglobal.ar/lexph';
 
@@ -33,13 +40,15 @@ export function LexphIndexPage() {
   const [tipo, setTipo] = useState<string | null>(null);
   const [tagSlug, setTagSlug] = useState<string | null>(null);
   const [q, setQ] = useState('');
+  const [edicion, setEdicion] = useState<LexphEdicionActual | null>(null);
 
   useEffect(() => {
     if (status !== 'on') return;
     let cancelled = false;
-    void listPublicados().then((r) => {
+    void Promise.all([listPublicados(), getEdicionActual()]).then(([r, ed]) => {
       if (cancelled) return;
       if (r.ok) setItems(r.data);
+      setEdicion(ed);
       setLoading(false);
     });
     return () => {
@@ -99,29 +108,59 @@ export function LexphIndexPage() {
     });
   }, [items, tipo, tagSlug, q]);
 
-  // Vista curada (sin filtro): nota de tapa + secciones por tipo.
-  const featured = !hasFilter ? items[0] : undefined;
-  const latest = !hasFilter ? items.slice(1, 4) : [];
+  // --- Edición actual: privilegio absoluto + badge "Nuevo" + regla cap-6 (Pablo) ---
+  // La nota DEBUTA en una edición (edicion_id) y se acumula/queda vigente para siempre.
+  const edId = edicion?.id ?? null;
+  const esNuevo = useMemo(
+    () => (a: LexphFeedItem) => edId !== null && a.edicion_id === edId,
+    [edId],
+  );
+  const nuevos = useMemo(() => items.filter(esNuevo), [items, esNuevo]);
+  const historicos = useMemo(() => items.filter((a) => !esNuevo(a)), [items, esNuevo]);
+  // El badge "Nuevo" sólo aporta si hay contraste: si TODO es nuevo, no se marca.
+  const marcarNuevos = nuevos.length > 0 && historicos.length > 0;
+  // Universo del home sin filtro (regla de Pablo): la edición actual tiene privilegio; se
+  // rellena con los históricos más recientes hasta 6; sólo pasa de 6 cuando todas son nuevas.
+  const homeCap = Math.max(6, nuevos.length);
+  const homeUniverse = useMemo(
+    () => (edicion ? [...nuevos, ...historicos].slice(0, homeCap) : items),
+    [edicion, nuevos, historicos, homeCap, items],
+  );
+
+  // Vista curada (sin filtro): nota de tapa (= destacada de la edición) + secciones por tipo.
+  const featured = useMemo(() => {
+    if (hasFilter) return undefined;
+    // La tapa elegida se busca en el universo COMPLETO: una destacada explícita se honra aunque
+    // el cap-6 la dejara fuera de homeUniverse. Fallback: la nota más reciente del home.
+    const dest = edicion?.destacado_slug
+      ? items.find((a) => a.slug === edicion.destacado_slug)
+      : undefined;
+    return dest ?? homeUniverse[0];
+  }, [hasFilter, edicion, items, homeUniverse]);
+  const latest = useMemo(
+    () => (hasFilter ? [] : homeUniverse.filter((a) => a.id !== featured?.id).slice(0, 3)),
+    [hasFilter, homeUniverse, featured],
+  );
   // Lo que ya salió arriba (tapa + "lo último") NO se repite en las secciones.
   const excludeIds = useMemo(
     () => new Set(featured ? [featured.id, ...latest.map((a) => a.id)] : []),
     [featured, latest],
   );
   const fallos = useMemo(
-    () => items.filter((a) => a.tipo === 'fallo' && !excludeIds.has(a.id)),
-    [items, excludeIds],
+    () => homeUniverse.filter((a) => a.tipo === 'fallo' && !excludeIds.has(a.id)),
+    [homeUniverse, excludeIds],
   );
   const normativas = useMemo(
-    () => items.filter((a) => a.tipo === 'normativa' && !excludeIds.has(a.id)),
-    [items, excludeIds],
+    () => homeUniverse.filter((a) => a.tipo === 'normativa' && !excludeIds.has(a.id)),
+    [homeUniverse, excludeIds],
   );
   const internacionales = useMemo(
-    () => items.filter((a) => a.tipo === 'internacional' && !excludeIds.has(a.id)),
-    [items, excludeIds],
+    () => homeUniverse.filter((a) => a.tipo === 'internacional' && !excludeIds.has(a.id)),
+    [homeUniverse, excludeIds],
   );
   const insights = useMemo(
-    () => items.filter((a) => a.tipo === 'insight' && !excludeIds.has(a.id)),
-    [items, excludeIds],
+    () => homeUniverse.filter((a) => a.tipo === 'insight' && !excludeIds.has(a.id)),
+    [homeUniverse, excludeIds],
   );
 
   // Título del hero cuando no hay nota de tapa (vista filtrada o 0 artículos):
@@ -261,6 +300,9 @@ export function LexphIndexPage() {
             </div>
           </section>
 
+          {/* ---------- DIGEST DE LA EDICIÓN (intro · resumen · tendencias · editorial) ---------- */}
+          {!hasFilter && edicion && <LexphDigest edicion={edicion} />}
+
           {/* ---------- RIEL DE FILTROS (sticky bajo la nav fija de 80px) ---------- */}
           <div className="sticky top-20 z-20 border-b border-slate-200 bg-white/92 backdrop-blur-md">
             <div className="mx-auto flex max-w-6xl items-center gap-1.5 overflow-x-auto px-6 py-2.5">
@@ -352,7 +394,7 @@ export function LexphIndexPage() {
                 ) : (
                   <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                     {filtrados.map((a) => (
-                      <LexphCard key={a.id} item={a} />
+                      <LexphCard key={a.id} item={a} nuevo={marcarNuevos && esNuevo(a)} />
                     ))}
                   </div>
                 )}
@@ -364,7 +406,7 @@ export function LexphIndexPage() {
                   <Section titulo="Fallos comentados" accent="#009ECA" onMore={() => setTipo('fallo')}>
                     <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                       {fallos.map((a) => (
-                        <LexphCard key={a.id} item={a} />
+                        <LexphCard key={a.id} item={a} nuevo={marcarNuevos && esNuevo(a)} />
                       ))}
                     </div>
                   </Section>
@@ -374,7 +416,7 @@ export function LexphIndexPage() {
                   <Section titulo="Normativa & agenda" accent="#159AA6" onMore={() => setTipo('normativa')}>
                     <div className="border-t border-slate-200">
                       {normativas.map((a) => (
-                        <AgendaRow key={a.id} item={a} />
+                        <AgendaRow key={a.id} item={a} nuevo={marcarNuevos && esNuevo(a)} />
                       ))}
                     </div>
                   </Section>
@@ -384,7 +426,7 @@ export function LexphIndexPage() {
                   <Section titulo="Mirada internacional" accent="#2E6FB0">
                     <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                       {internacionales.map((a) => (
-                        <LexphCard key={a.id} item={a} />
+                        <LexphCard key={a.id} item={a} nuevo={marcarNuevos && esNuevo(a)} />
                       ))}
                     </div>
                   </Section>
@@ -394,7 +436,7 @@ export function LexphIndexPage() {
                   <Section titulo="Insights" accent="#C46A10" onMore={() => setTipo('insight')}>
                     <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                       {insights.map((a) => (
-                        <LexphCard key={a.id} item={a} />
+                        <LexphCard key={a.id} item={a} nuevo={marcarNuevos && esNuevo(a)} />
                       ))}
                     </div>
                   </Section>
@@ -506,7 +548,7 @@ function Section({
   );
 }
 
-function AgendaRow({ item }: { item: LexphFeedItem }) {
+function AgendaRow({ item, nuevo = false }: { item: LexphFeedItem; nuevo?: boolean }) {
   const tag0 = item.tags[0];
   return (
     <Link
@@ -517,7 +559,14 @@ function AgendaRow({ item }: { item: LexphFeedItem }) {
         {fmtFechaCorta(item.publicado_at)}
       </div>
       <div>
-        <h3 className="font-display text-[1.05rem] font-semibold leading-snug text-brand-ink">{item.titulo}</h3>
+        <h3 className="font-display text-[1.05rem] font-semibold leading-snug text-brand-ink">
+          {nuevo && (
+            <span className="font-gg-display mr-2 inline-block translate-y-[-1px] bg-brand-cyan px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.1em] text-white align-middle">
+              Nuevo
+            </span>
+          )}
+          {item.titulo}
+        </h3>
         {item.resumen && <p className="mt-1 text-sm text-brand-muted">{item.resumen}</p>}
       </div>
       {tag0 && (

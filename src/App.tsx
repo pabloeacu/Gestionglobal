@@ -113,6 +113,7 @@ const AgenteCierrePage = lazy(() => import('@/modules/gerencia/pages/AgenteCierr
 const LexphArticulosPage = lazy(() => import('@/modules/lexph').then(m => ({ default: m.LexphArticulosPage })));
 const LexphArticuloEditorPage = lazy(() => import('@/modules/lexph').then(m => ({ default: m.LexphArticuloEditorPage })));
 const LexphTagsPage = lazy(() => import('@/modules/lexph').then(m => ({ default: m.LexphTagsPage })));
+const LexphEdicionPage = lazy(() => import('@/modules/lexph').then(m => ({ default: m.LexphEdicionPage })));
 // DGG-244 F3 · web pública de LexPH (import directo → chunk propio, anon no baja el CMS).
 const LexphIndexPage = lazy(() => import('@/modules/lexph/public/LexphIndexPage').then(m => ({ default: m.LexphIndexPage })));
 const LexphArticuloPublicoPage = lazy(() => import('@/modules/lexph/public/LexphArticuloPublicoPage').then(m => ({ default: m.LexphArticuloPublicoPage })));
@@ -483,6 +484,7 @@ export function App() {
           <Route path="comunicaciones" element={<ComunicacionesPage />} />
           {/* DGG-244 · LexPH — CMS editorial (staff-only; aún sin superficie pública) */}
           <Route path="contenidos" element={<LexphArticulosPage />} />
+          <Route path="contenidos/edicion" element={<LexphEdicionPage />} />
           <Route path="contenidos/nuevo" element={<LexphArticuloEditorPage />} />
           <Route path="contenidos/etiquetas" element={<LexphTagsPage />} />
           <Route path="contenidos/:id" element={<LexphArticuloEditorPage />} />

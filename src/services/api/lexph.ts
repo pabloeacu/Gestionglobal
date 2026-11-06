@@ -166,6 +166,81 @@ export async function eliminarArticulo(id: string): Promise<ApiResponse<null>> {
 }
 
 // ---------------------------------------------------------------------------
+// EDICIONES (volúmenes) · DGG-244 F2b
+// El digest (intro/resumen/tendencias/editorial) es POR EDICIÓN y se pisa; las notas
+// se acumulan (edicion_id = edición de debut, auto-asignada por trigger al publicar).
+// Guardar/cerrar = RPC SECURITY DEFINER staff-only (R5).
+// ---------------------------------------------------------------------------
+export type LexphEdicion = Database['public']['Tables']['lexph_ediciones']['Row'];
+
+export interface LexphDigestBulletInput {
+  titulo: string;
+  texto: string;
+}
+export interface LexphDigestTendenciaInput {
+  materia: string;
+  texto: string;
+}
+export interface LexphEditorialInput {
+  kicker?: string;
+  titulo?: string;
+  cuerpo?: string;
+}
+export interface GuardarEdicionInput {
+  id: string;
+  tituloInterno?: string | null;
+  intro?: string | null;
+  resumen: LexphDigestBulletInput[];
+  tendencias: LexphDigestTendenciaInput[];
+  editorial: LexphEditorialInput;
+  destacadoArticuloId?: string | null;
+}
+
+// Edición EN CURSO (mayor seq) para el CMS. null si no es staff / no hay ediciones.
+export async function getEdicionActualStaff(): Promise<ApiResponse<LexphEdicion | null>> {
+  try {
+    const { data, error } = await supabase.rpc('lexph_edicion_actual_staff');
+    if (error) throw error;
+    return ok((data ?? null) as unknown as LexphEdicion | null);
+  } catch (e) {
+    const err = toApiError(e);
+    return fail(err.code, err.message, err.details);
+  }
+}
+
+export async function guardarEdicion(input: GuardarEdicionInput): Promise<ApiResponse<string>> {
+  try {
+    const args = {
+      p_id: input.id,
+      p_titulo_interno: input.tituloInterno ?? null,
+      p_intro: input.intro ?? null,
+      p_resumen: input.resumen ?? [],
+      p_tendencias: input.tendencias ?? [],
+      p_editorial: input.editorial ?? {},
+      p_destacado_articulo_id: input.destacadoArticuloId ?? null,
+    } as unknown as Database['public']['Functions']['lexph_edicion_guardar']['Args'];
+    const { data, error } = await supabase.rpc('lexph_edicion_guardar', args);
+    if (error) throw error;
+    return ok(String(data));
+  } catch (e) {
+    const err = toApiError(e);
+    return fail('LEXPH_EDICION_GUARDAR', err.message, err.details);
+  }
+}
+
+// Cierra la edición en curso y abre la próxima (devuelve la nueva).
+export async function cerrarEdicion(id: string): Promise<ApiResponse<LexphEdicion>> {
+  try {
+    const { data, error } = await supabase.rpc('lexph_edicion_cerrar', { p_id: id });
+    if (error) throw error;
+    return ok(data as unknown as LexphEdicion);
+  } catch (e) {
+    const err = toApiError(e);
+    return fail('LEXPH_EDICION_CERRAR', err.message, err.details);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // ETIQUETAS (single-table → directo, gateado por RLS staff)
 // ---------------------------------------------------------------------------
 

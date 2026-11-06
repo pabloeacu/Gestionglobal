@@ -5,7 +5,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, ArrowUp, ExternalLink, Lightbulb, ShieldAlert } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ArrowUp, Clock, ExternalLink, Lightbulb, ShieldAlert } from 'lucide-react';
 import { SafeHtml } from '@/components/common/SafeHtml';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import { cn } from '@/lib/cn';
@@ -88,6 +88,14 @@ export function LexphArticuloPublicoPage() {
     const text = (art?.cuerpo ?? '').replace(/<[^>]+>/g, ' ');
     const words = text.trim().split(/\s+/).filter(Boolean).length;
     return Math.max(2, Math.round(words / 200));
+  }, [art]);
+
+  // Antigüedad: a ≥12 meses, avisamos que la norma/jurisprudencia pudo cambiar (pedido de Pablo).
+  const esAntigua = useMemo(() => {
+    if (!art?.publicado_at) return false;
+    const pub = new Date(art.publicado_at).getTime();
+    if (Number.isNaN(pub)) return false;
+    return Date.now() - pub >= 365 * 24 * 60 * 60 * 1000;
   }, [art]);
 
   const jsonLd = useMemo(() => {
@@ -216,6 +224,16 @@ export function LexphArticuloPublicoPage() {
       >
         {/* Columna principal: cuerpo + callouts + fuentes + remate */}
         <div className="min-w-0">
+          {esAntigua && (
+            <div className="lexph-chamfer-sm mb-8 flex items-start gap-2.5 border border-amber-300/60 bg-amber-50 p-4 text-[13px] leading-relaxed text-amber-900">
+              <Clock size={16} className="mt-0.5 shrink-0" aria-hidden />
+              <span>
+                Esta nota se publicó el {fmtFechaLarga(art.publicado_at)}. La normativa y la
+                jurisprudencia pueden haber cambiado desde entonces: verificá su vigencia antes de
+                aplicarla a un caso concreto.
+              </span>
+            </div>
+          )}
           {art.cuerpo && <SafeHtml html={art.cuerpo} className="lexph-prose lexph-dropcap" />}
 
           {claveAdmin && (

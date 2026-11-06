@@ -26,7 +26,27 @@ export interface LexphFeedItem {
   imagen_url: string | null;
   imagen_alt: string | null;
   publicado_at: string | null;
+  edicion_id: string | null;
   tags: LexphPublicTag[];
+}
+
+// --- Digest editorial de la edición (se pisa en cada edición) ---
+export interface LexphDigestBullet {
+  titulo: string;
+  texto: string;
+}
+export interface LexphDigestTendencia {
+  materia: string;
+  texto: string;
+}
+export interface LexphEdicionActual {
+  id: string;
+  intro: string | null;
+  resumen: LexphDigestBullet[];
+  tendencias: LexphDigestTendencia[];
+  editorial: { kicker?: string; titulo?: string; cuerpo?: string };
+  publicado_at: string | null;
+  destacado_slug: string | null;
 }
 
 export interface LexphFuentePublica {
@@ -72,6 +92,17 @@ export async function listPublicados(): Promise<ApiResponse<LexphFeedItem[]>> {
   } catch (e) {
     const err = toApiError(e);
     return fail(err.code, err.message, err.details);
+  }
+}
+
+// Digest de la edición ACTUAL (última publicada). null si a oscuras o sin ediciones.
+export async function getEdicionActual(): Promise<LexphEdicionActual | null> {
+  try {
+    const { data, error } = await supabase.rpc('lexph_edicion_publica_actual');
+    if (error) return null;
+    return (data ?? null) as unknown as LexphEdicionActual | null;
+  } catch {
+    return null;
   }
 }
 

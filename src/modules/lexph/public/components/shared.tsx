@@ -203,7 +203,8 @@ export function LexphCover({
 }
 
 // Card de artículo para grillas públicas (editorial premium, esquinas rectas).
-export function LexphCard({ item }: { item: LexphFeedItem }) {
+// `nuevo`: badge "Nuevo" para notas de la edición actual (sólo si hay contraste con históricos).
+export function LexphCard({ item, nuevo = false }: { item: LexphFeedItem; nuevo?: boolean }) {
   const meta = tipoMeta(item.tipo);
   return (
     <Link
@@ -212,6 +213,11 @@ export function LexphCard({ item }: { item: LexphFeedItem }) {
     >
       <div className="relative aspect-[16/9] w-full overflow-hidden">
         <LexphCover item={item} className="transition duration-500 group-hover:scale-[1.03]" />
+        {nuevo && (
+          <span className="font-gg-display absolute left-0 top-3 z-10 bg-brand-cyan px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.1em] text-white">
+            Nuevo
+          </span>
+        )}
       </div>
       <div style={{ backgroundColor: meta.accent }} className="h-1 w-full" />
       <div className="flex flex-1 flex-col p-5">

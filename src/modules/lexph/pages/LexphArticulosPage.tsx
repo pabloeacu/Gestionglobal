@@ -4,7 +4,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Pencil, Trash2, Tags, Search, Newspaper, Globe, ExternalLink } from 'lucide-react';
+import { Plus, Pencil, Trash2, Tags, Search, Newspaper, Globe, ExternalLink, BookMarked } from 'lucide-react';
 import {
   Button,
   Input,
@@ -177,6 +177,9 @@ export function LexphArticulosPage() {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <Button variant="ghost" onClick={() => navigate('/gerencia/contenidos/edicion')}>
+              <BookMarked size={15} /> Edición
+            </Button>
             <Button variant="ghost" onClick={() => navigate('/gerencia/contenidos/etiquetas')}>
               <Tags size={15} /> Etiquetas
             </Button>

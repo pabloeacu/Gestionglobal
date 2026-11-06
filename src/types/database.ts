@@ -11253,6 +11253,20 @@ export type Database = {
         }
         Returns: string
       }
+      lexph_edicion_actual_staff: { Args: never; Returns: Json }
+      lexph_edicion_cerrar: { Args: { p_id: string }; Returns: Json }
+      lexph_edicion_guardar: {
+        Args: {
+          p_destacado_articulo_id: string
+          p_editorial: Json
+          p_id: string
+          p_intro: string
+          p_resumen: Json
+          p_tendencias: Json
+          p_titulo_interno: string
+        }
+        Returns: string
+      }
       lexph_edicion_publica_actual: { Args: never; Returns: Json }
       lexph_publico_articulo: { Args: { p_slug: string }; Returns: Json }
       lexph_publico_feed: { Args: never; Returns: Json }
