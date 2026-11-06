@@ -8341,3 +8341,12 @@ Primer entregable del "Frente A" del motor de audiencia LexPH (ver `project_lexp
 - **Panel de suscriptores (#2, UI):** `/gerencia/contenidos/suscriptores` (`LexphSuscriptoresPage`, botón "Suscriptores" en el header de Contenidos). KPIs (confirmados/pendientes/bajas/nuevos-30d), tabs por estado, búsqueda por email/origen (`foldText`), paginado, **export CSV**. Servicio `listSuscriptores()` (select directo, RLS staff-only, R19 todo en memoria). Ícono `Mail` para el tipo `lexph_suscriptor` en `NotificationBell`.
 - **§6:** R16 (1 firma c/u), R18 (smoke e2e BEGIN/ROLLBACK: confirmar → 2 avisos = 2 gerentes; baja → estado `baja` + en `email_suppression`; ROLLBACK sin residuo).
 - **Fecha:** 2026-11-06.
+
+### DGG-244 · F2g — LexPH en la landing (menú + sección con oferta de suscripción) (2026-11-06, commit 1dfa9bf) — HECHO, QA en vivo
+
+Parte del "Frente A" del motor de audiencia (pedido #3 de Pablo). Captación de suscriptores desde la cara pública del negocio.
+
+- **Menú (`SiteNav`):** item "LexPH" tras Cursos, **condicional** a `useLexphPublicoStatus()==='on'` (si Pablo oculta la web pública, el link y la sección desaparecen juntos). Ancla a `#lexph` en la home (off-home → `/#lexph`).
+- **Sección home (`LandingPage` → `function LexPH`, id `#lexph`):** banda navy→cian de marca (TrianglesAccent), 2 columnas en desktop: izquierda la **referencia** (logo LexPH blanco + "Inteligencia jurídica en PH" + "Las novedades del sector, destiladas" + "Explorar LexPH" → `/lexph`), derecha la **oferta de suscripción** (card glass con `LexphSuscripcion`, el form de doble opt-in ya existente). Auto-gateada por el estado público. Ubicada tras Cursos/OpinionesAlumnos, antes de Partners.
+- Aditivo (sin tocar lógica); reusa el form de suscripción F2d existente (no duplica el circuito). Build por Vercel.
+- **Fecha:** 2026-11-06.
