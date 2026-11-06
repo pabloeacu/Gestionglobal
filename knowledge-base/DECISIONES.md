@@ -8359,3 +8359,17 @@ Pedido #7 de Pablo. Al enviar un formulario de **solicitud de servicio** (`categ
 - **Alta real (trigger `formulario_submission_lexph_optin_trg` sobre `formulario_submissions`, SECDEF, sin tocar el edge `submit-formulario` R7):** usa la columna canónica `email_contacto`; sólo esas categorías; **respeta consentimiento** (no re-suscribe suprimidos ni dados de baja); si ya es 'pendiente' lo promueve a 'confirmado' (la solicitud ES el consentimiento); ON CONFLICT (`email_norm`). El alta confirmada dispara el aviso a gerencia (F2f) y la supresión unificada corta esta vía con una baja.
 - **§6 R18 smoke (BEGIN/ROLLBACK):** tramite+nuevo → `confirmado/formulario` + 2 avisos; evento → 0; suprimido → 0; baja previa → intacta; ROLLBACK sin residuo. QA en vivo de la leyenda en prod.
 - **Fecha:** 2026-11-06.
+
+### DGG-244 · F2i — Mail de bienvenida + circuito de suscripción HERMÉTICO (2026-11-06, mig 0662) — cierre Frente A, §6 verde
+
+Requisito de Pablo: suscribirse dos veces, o suscribirse estando ya en la lista (incl. los iniciales/presuntos clientes+captación), NO puede generar doble registro ni pisar/anular el registro original; y a un ya-suscriptor hay que mandarle **sólo** un correo ambiguo "ya estás dentro", sin re-hacerle el circuito de token.
+
+- **Hermeticidad:** `email_norm` es UNIQUE → la BD impide un 2º registro. `lexph_suscribir` opera siempre sobre la fila existente.
+  - **Nuevo** → circuito normal (confirm con token) → al confirmar, bienvenida.
+  - **Ya confirmado** → SÓLO bienvenida ("ya estás dentro", ambiguo), con cooldown 10 min, **sin tocar** estado/confirmed_at/origen/tokens (sólo `last_email_at`). Nunca el circuito de token.
+  - **Pendiente** → re-envía confirm si pasó el cooldown.
+  - **Baja** → re-alta explícita: circuito fresco; al confirmar se **limpia la supresión SOFT** (`motivo='baja_usuario'`), nunca rebote/queja (cierra el hueco de que un re-alta quedaba suprimido y no recibía el newsletter).
+- **Template `lexph-bienvenida`** (manaxer-v1, from `general`): "¡Ya estás dentro!" + CTA "Leer la edición actual" → /lexph + baja. Mismo texto para alta nueva confirmada y para re-intento de un confirmado → **ambiguo**.
+- **§6 R18 smoke (BEGIN/ROLLBACK):** herm1 (nuevo→confirmar→re-suscribe×2): 1 fila, estado confirmado, 1 confirm-mail, 2 welcomes (el 4º bloqueado por cooldown). herm2 (re-alta tras baja con supresión): 1 fila, confirmado, supresión=0, 1 welcome. Sin residuo. Prueba en vivo: welcome a Pablo.
+- **Nota para Frente B:** la marca de clientes+captación como 'confirmado' debe ser idempotente (ON CONFLICT DO NOTHING) para no pisar suscriptores reales — consistente con esta hermeticidad.
+- **Fecha:** 2026-11-06.
