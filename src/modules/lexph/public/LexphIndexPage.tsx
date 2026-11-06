@@ -30,6 +30,7 @@ import {
   useLexphPublicoStatus,
 } from './components/shared';
 import { LexphDigest } from './components/LexphDigest';
+import { LexphSuscripcion } from './components/LexphSuscripcion';
 
 const CANONICAL = 'https://www.gestionglobal.ar/lexph';
 
@@ -468,9 +469,9 @@ export function LexphIndexPage() {
                   explicados para administrar mejor.
                 </p>
               </div>
-              <span className="font-gg-display inline-flex shrink-0 items-center gap-2 self-start border border-white/40 px-5 py-3 text-sm font-semibold uppercase tracking-[0.07em] text-white md:self-auto">
-                Suscripción · muy pronto
-              </span>
+              <div className="w-full md:w-[420px] md:shrink-0">
+                <LexphSuscripcion />
+              </div>
             </div>
           </div>
         </>

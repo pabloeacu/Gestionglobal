@@ -118,6 +118,7 @@ const LexphEdicionPage = lazy(() => import('@/modules/lexph').then(m => ({ defau
 const LexphIndexPage = lazy(() => import('@/modules/lexph/public/LexphIndexPage').then(m => ({ default: m.LexphIndexPage })));
 const LexphArticuloPublicoPage = lazy(() => import('@/modules/lexph/public/LexphArticuloPublicoPage').then(m => ({ default: m.LexphArticuloPublicoPage })));
 const LexphTagPage = lazy(() => import('@/modules/lexph/public/LexphTagPage').then(m => ({ default: m.LexphTagPage })));
+const LexphSuscripcionPage = lazy(() => import('@/modules/lexph/public/LexphSuscripcionPage').then(m => ({ default: m.LexphSuscripcionPage })));
 
 type Role = 'gerente' | 'operador' | 'administrador' | 'partner';
 
@@ -410,6 +411,8 @@ export function App() {
         <Route path="/verificar/:codigo" element={<VerificarCertificadoPage />} />
         {/* DGG-244 F3 · web pública de LexPH (gateada por flag lexph_publico_activo + noindex) */}
         <Route path="/lexph" element={<LexphIndexPage />} />
+        <Route path="/lexph/confirmar" element={<LexphSuscripcionPage modo="confirmar" />} />
+        <Route path="/lexph/baja" element={<LexphSuscripcionPage modo="baja" />} />
         <Route path="/lexph/tema/:tag" element={<LexphTagPage />} />
         <Route path="/lexph/:slug" element={<LexphArticuloPublicoPage />} />
         <Route path="/webinar/:token" element={<WebinarPublicoPage />} />

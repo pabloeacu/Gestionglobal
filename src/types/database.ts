@@ -4980,6 +4980,48 @@ export type Database = {
           },
         ]
       }
+      lexph_suscriptores: {
+        Row: {
+          baja_at: string | null
+          baja_token: string
+          confirm_token: string
+          confirmed_at: string | null
+          created_at: string
+          email: string
+          email_norm: string
+          estado: string
+          id: string
+          last_email_at: string | null
+          origen: string
+        }
+        Insert: {
+          baja_at?: string | null
+          baja_token?: string
+          confirm_token?: string
+          confirmed_at?: string | null
+          created_at?: string
+          email: string
+          email_norm: string
+          estado?: string
+          id?: string
+          last_email_at?: string | null
+          origen?: string
+        }
+        Update: {
+          baja_at?: string | null
+          baja_token?: string
+          confirm_token?: string
+          confirmed_at?: string | null
+          created_at?: string
+          email?: string
+          email_norm?: string
+          estado?: string
+          id?: string
+          last_email_at?: string | null
+          origen?: string
+        }
+        Relationships: []
+      }
       lexph_tags: {
         Row: {
           activo: boolean
@@ -11270,6 +11312,9 @@ export type Database = {
       lexph_edicion_publica_actual: { Args: never; Returns: Json }
       lexph_publico_articulo: { Args: { p_slug: string }; Returns: Json }
       lexph_publico_feed: { Args: never; Returns: Json }
+      lexph_suscribir: { Args: { p_email: string }; Returns: Json }
+      lexph_suscripcion_baja: { Args: { p_token: string }; Returns: Json }
+      lexph_suscripcion_confirmar: { Args: { p_token: string }; Returns: Json }
       list_webinar_kpis: {
         Args: never
         Returns: {

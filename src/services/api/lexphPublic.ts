@@ -106,6 +106,43 @@ export async function getEdicionActual(): Promise<LexphEdicionActual | null> {
   }
 }
 
+// --- Suscripción al newsletter (doble opt-in) · F2d ---
+export type LexphSuscripcionEstado = 'confirmado' | 'baja' | 'invalido';
+
+// Alta pública: siempre responde ok genérico (sin enumeración). Lanza fail sólo en error real.
+export async function suscribirLexph(email: string): Promise<ApiResponse<boolean>> {
+  try {
+    const { error } = await supabase.rpc('lexph_suscribir', { p_email: email });
+    if (error) throw error;
+    return ok(true);
+  } catch (e) {
+    const err = toApiError(e);
+    return fail('LEXPH_SUSCRIBIR', err.message, err.details);
+  }
+}
+
+export async function confirmarSuscripcionLexph(token: string): Promise<LexphSuscripcionEstado> {
+  try {
+    const { data, error } = await supabase.rpc('lexph_suscripcion_confirmar', { p_token: token });
+    if (error) return 'invalido';
+    const estado = (data as { estado?: string } | null)?.estado;
+    return estado === 'confirmado' ? 'confirmado' : 'invalido';
+  } catch {
+    return 'invalido';
+  }
+}
+
+export async function bajaSuscripcionLexph(token: string): Promise<LexphSuscripcionEstado> {
+  try {
+    const { data, error } = await supabase.rpc('lexph_suscripcion_baja', { p_token: token });
+    if (error) return 'invalido';
+    const estado = (data as { estado?: string } | null)?.estado;
+    return estado === 'baja' ? 'baja' : 'invalido';
+  } catch {
+    return 'invalido';
+  }
+}
+
 // Un artículo publicado por slug. null si no existe o si la cortina está cerrada.
 export async function getPublicadoBySlug(
   slug: string,

@@ -26,11 +26,13 @@ import {
   guardarEdicion,
   cerrarEdicion,
   listArticulos,
+  getSuscriptoresStats,
   type LexphEdicion,
   type LexphArticuloConTags,
   type LexphDigestBulletInput,
   type LexphDigestTendenciaInput,
   type LexphEditorialInput,
+  type LexphSuscriptoresStats,
 } from '@/services/api/lexph';
 import { LexphDigest } from '../public/components/LexphDigest';
 import type { LexphEdicionActual } from '@/services/api/lexphPublic';
@@ -63,6 +65,7 @@ export function LexphEdicionPage() {
 
   const [edicion, setEdicion] = useState<LexphEdicion | null>(null);
   const [articulos, setArticulos] = useState<LexphArticuloConTags[]>([]);
+  const [susc, setSusc] = useState<LexphSuscriptoresStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [cerrando, setCerrando] = useState(false);
@@ -87,13 +90,18 @@ export function LexphEdicionPage() {
 
   const cargar = useCallback(async () => {
     setLoading(true);
-    const [edRes, artRes] = await Promise.all([getEdicionActualStaff(), listArticulos()]);
+    const [edRes, artRes, suscRes] = await Promise.all([
+      getEdicionActualStaff(),
+      listArticulos(),
+      getSuscriptoresStats(),
+    ]);
     setLoading(false);
     if (!edRes.ok) {
       toast.error('No pudimos cargar la edición', { description: humanizeError(edRes.error) });
       return;
     }
     if (artRes.ok) setArticulos(artRes.data);
+    if (suscRes.ok) setSusc(suscRes.data);
     hidratar(edRes.data);
   }, [hidratar]);
 
@@ -215,6 +223,14 @@ export function LexphEdicionPage() {
               la web al guardar y se pisa en cada entrega. Las notas se agrupan solas: hoy hay{' '}
               <strong className="text-brand-ink">{notasEdicion.length}</strong> en esta edición.
             </p>
+            {susc && (
+              <p className="mt-1.5 text-sm text-brand-muted">
+                Newsletter:{' '}
+                <strong className="text-brand-ink">{susc.confirmados}</strong> suscriptor
+                {susc.confirmados === 1 ? '' : 'es'} confirmado{susc.confirmados === 1 ? '' : 's'}
+                {susc.pendientes > 0 && <> · {susc.pendientes} sin confirmar</>}
+              </p>
+            )}
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <a

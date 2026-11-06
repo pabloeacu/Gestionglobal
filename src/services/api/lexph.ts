@@ -240,6 +240,28 @@ export async function cerrarEdicion(id: string): Promise<ApiResponse<LexphEdicio
   }
 }
 
+// Conteo de suscriptores del newsletter (staff; tabla RLS staff-only). R19: universo completo.
+export interface LexphSuscriptoresStats {
+  total: number;
+  confirmados: number;
+  pendientes: number;
+}
+export async function getSuscriptoresStats(): Promise<ApiResponse<LexphSuscriptoresStats>> {
+  try {
+    const { data, error } = await supabase.from('lexph_suscriptores').select('estado');
+    if (error) throw error;
+    const rows = (data ?? []) as { estado: string }[];
+    return ok({
+      total: rows.length,
+      confirmados: rows.filter((r) => r.estado === 'confirmado').length,
+      pendientes: rows.filter((r) => r.estado === 'pendiente').length,
+    });
+  } catch (e) {
+    const err = toApiError(e);
+    return fail(err.code, err.message, err.details);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // ETIQUETAS (single-table → directo, gateado por RLS staff)
 // ---------------------------------------------------------------------------
