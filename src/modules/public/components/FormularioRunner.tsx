@@ -16,6 +16,7 @@ import {
   Wallet,
   Copy,
   Eye,
+  Mail,
 } from 'lucide-react';
 import { validarVoucher, type ValidacionVoucher } from '@/services/api/vouchers';
 import { Button, Field, Input, PasswordRevealInput, Select, Textarea } from '@/components/common';
@@ -165,6 +166,11 @@ function motivoRechazoAdjunto(f: File): string | null {
   }
   return null;
 }
+
+// #7 · Alta blanda a LexPH: la leyenda se muestra en los forms de solicitud de
+// servicio. El alta real la hace el trigger de BD `formulario_submission_lexph_optin_trg`
+// sobre estas mismas categorías al persistir la submission (opt-out, con baja fácil).
+const LEXPH_OPTIN_CATEGORIAS = ['tramite', 'curso', 'consulta'];
 
 interface FormularioRunnerProps {
   formulario: FormularioRow;
@@ -914,6 +920,16 @@ export function FormularioRunner({
             </p>
           </div>
         </div>
+      )}
+
+      {LEXPH_OPTIN_CATEGORIAS.includes(formulario.categoria ?? '') && (
+        <p className="flex items-start gap-2 rounded-lg bg-brand-cyan-pale/40 px-3.5 py-2.5 text-xs leading-relaxed text-brand-ink/70">
+          <Mail size={14} className="mt-0.5 shrink-0 text-brand-cyan" aria-hidden />
+          <span>
+            Al enviar, te sumás gratis a <strong className="font-semibold text-brand-ink">LexPH</strong>, nuestro
+            boletín con los fallos y novedades que mueven la propiedad horizontal. Baja con un clic cuando quieras.
+          </span>
+        </p>
       )}
 
       <div className="flex items-center justify-end gap-3">

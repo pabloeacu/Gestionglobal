@@ -8350,3 +8350,12 @@ Parte del "Frente A" del motor de audiencia (pedido #3 de Pablo). Captación de 
 - **Sección home (`LandingPage` → `function LexPH`, id `#lexph`):** banda navy→cian de marca (TrianglesAccent), 2 columnas en desktop: izquierda la **referencia** (logo LexPH blanco + "Inteligencia jurídica en PH" + "Las novedades del sector, destiladas" + "Explorar LexPH" → `/lexph`), derecha la **oferta de suscripción** (card glass con `LexphSuscripcion`, el form de doble opt-in ya existente). Auto-gateada por el estado público. Ubicada tras Cursos/OpinionesAlumnos, antes de Partners.
 - Aditivo (sin tocar lógica); reusa el form de suscripción F2d existente (no duplica el circuito). Build por Vercel.
 - **Fecha:** 2026-11-06.
+
+### DGG-244 · F2h — Alta blanda a LexPH al enviar un formulario de servicio (2026-11-06, mig 0661) — HECHO, §6 verde + QA en vivo (leyenda)
+
+Pedido #7 de Pablo. Al enviar un formulario de **solicitud de servicio** (`categoria` tramite/curso/consulta) con email válido, el mail queda suscripto al newsletter (modelo opt-out, alta por **aviso** en el form, no doble opt-in).
+
+- **Leyenda (FormularioRunner):** copy elegido por Pablo — *"Al enviar, te sumás gratis a LexPH, nuestro boletín con los fallos y novedades que mueven la propiedad horizontal. Baja con un clic cuando quieras."* — discreta (chip cian pálido + ícono Mail), **gateada** a `['tramite','curso','consulta']` (`LEXPH_OPTIN_CATEGORIAS`). 'evento' queda fuera (es un registro, no una solicitud de servicio).
+- **Alta real (trigger `formulario_submission_lexph_optin_trg` sobre `formulario_submissions`, SECDEF, sin tocar el edge `submit-formulario` R7):** usa la columna canónica `email_contacto`; sólo esas categorías; **respeta consentimiento** (no re-suscribe suprimidos ni dados de baja); si ya es 'pendiente' lo promueve a 'confirmado' (la solicitud ES el consentimiento); ON CONFLICT (`email_norm`). El alta confirmada dispara el aviso a gerencia (F2f) y la supresión unificada corta esta vía con una baja.
+- **§6 R18 smoke (BEGIN/ROLLBACK):** tramite+nuevo → `confirmado/formulario` + 2 avisos; evento → 0; suprimido → 0; baja previa → intacta; ROLLBACK sin residuo. QA en vivo de la leyenda en prod.
+- **Fecha:** 2026-11-06.
