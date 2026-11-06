@@ -4865,6 +4865,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           cuerpo: string | null
+          edicion_id: string | null
           estado: string
           fuentes: Json
           id: string
@@ -4882,6 +4883,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           cuerpo?: string | null
+          edicion_id?: string | null
           estado?: string
           fuentes?: Json
           id?: string
@@ -4899,6 +4901,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           cuerpo?: string | null
+          edicion_id?: string | null
           estado?: string
           fuentes?: Json
           id?: string
@@ -4911,7 +4914,71 @@ export type Database = {
           titulo?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "lexph_articulos_edicion_id_fkey"
+            columns: ["edicion_id"]
+            isOneToOne: false
+            referencedRelation: "lexph_ediciones"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lexph_ediciones: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          destacado_articulo_id: string | null
+          editorial: Json
+          estado: string
+          id: string
+          intro: string | null
+          publicado_at: string | null
+          resumen: Json
+          seq: number
+          tendencias: Json
+          titulo_interno: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          destacado_articulo_id?: string | null
+          editorial?: Json
+          estado?: string
+          id?: string
+          intro?: string | null
+          publicado_at?: string | null
+          resumen?: Json
+          seq: number
+          tendencias?: Json
+          titulo_interno: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          destacado_articulo_id?: string | null
+          editorial?: Json
+          estado?: string
+          id?: string
+          intro?: string | null
+          publicado_at?: string | null
+          resumen?: Json
+          seq?: number
+          tendencias?: Json
+          titulo_interno?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lexph_ediciones_destacado_articulo_id_fkey"
+            columns: ["destacado_articulo_id"]
+            isOneToOne: false
+            referencedRelation: "lexph_articulos"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       lexph_tags: {
         Row: {
@@ -11186,6 +11253,7 @@ export type Database = {
         }
         Returns: string
       }
+      lexph_edicion_publica_actual: { Args: never; Returns: Json }
       lexph_publico_articulo: { Args: { p_slug: string }; Returns: Json }
       lexph_publico_feed: { Args: never; Returns: Json }
       list_webinar_kpis: {
