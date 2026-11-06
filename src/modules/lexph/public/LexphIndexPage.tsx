@@ -7,6 +7,7 @@ import { Link } from 'react-router-dom';
 import { ArrowRight, Search } from 'lucide-react';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import { cn } from '@/lib/cn';
+import { foldText } from '@/lib/searchText';
 import { useSeo } from '@/lib/seo';
 import { TIPOS, tipoMeta } from '../constants';
 import {
@@ -94,15 +95,15 @@ export function LexphIndexPage() {
   const hasFilter = tipo !== null || tagSlug !== null || q.trim() !== '';
 
   const filtrados = useMemo(() => {
-    const needle = q.trim().toLowerCase();
+    const needle = foldText(q); // insensible a mayúsculas y acentos ("balcon" ↔ "balcón")
     return items.filter((a) => {
       if (tipo && a.tipo !== tipo) return false;
       if (tagSlug && !a.tags.some((t) => t.slug === tagSlug)) return false;
       if (needle) {
         const hay =
-          a.titulo.toLowerCase().includes(needle) ||
-          (a.resumen ?? '').toLowerCase().includes(needle) ||
-          a.tags.some((t) => t.nombre.toLowerCase().includes(needle));
+          foldText(a.titulo).includes(needle) ||
+          foldText(a.resumen).includes(needle) ||
+          a.tags.some((t) => foldText(t.nombre).includes(needle));
         if (!hay) return false;
       }
       return true;

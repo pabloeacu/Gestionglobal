@@ -9,6 +9,7 @@ import { MailX, Loader2, RotateCcw, Search, ShieldOff, BellOff } from 'lucide-re
 import { useConfirm } from '@/components/common';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import { toast } from '@/lib/toast';
+import { foldText } from '@/lib/searchText';
 import { cn } from '@/lib/cn';
 import { humanizeError } from '@/lib/errors';
 import { listarSuprimidos, reactivarEmail, type Suprimido } from '@/services/api/emails';
@@ -36,10 +37,10 @@ export function CorreosSuprimidosPage() {
   useEffect(() => { void load(); }, [load]);
 
   const visibles = useMemo(() => {
-    const term = q.trim().toLowerCase();
+    const term = foldText(q); // insensible a mayúsculas y acentos
     if (!term) return rows;
     return rows.filter(
-      (r) => r.email.toLowerCase().includes(term) || (r.administracion_nombre ?? '').toLowerCase().includes(term),
+      (r) => foldText(r.email).includes(term) || foldText(r.administracion_nombre).includes(term),
     );
   }, [rows, q]);
 

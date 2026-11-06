@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { hoyISO, toISODate } from '@/lib/dates';
+import { foldText } from '@/lib/searchText';
 import {
   Plus,
   Search,
@@ -82,10 +83,10 @@ export function PartnersListPage() {
       if (activoFilter === 'activos' && !r.activo) return false;
       if (activoFilter === 'inactivos' && r.activo) return false;
       if (search.trim().length > 0) {
-        const s = search.trim().toLowerCase();
+        const s = foldText(search); // insensible a mayúsculas y acentos
         const hay = [r.nombre_legal, r.slug, r.cuit, r.email]
           .filter(Boolean)
-          .some((x) => x!.toLowerCase().includes(s));
+          .some((x) => foldText(x).includes(s));
         if (!hay) return false;
       }
       return true;

@@ -22,6 +22,7 @@ import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import { IllustratedEmpty } from '@/components/brand/IllustratedEmpty';
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
 import { toast } from '@/lib/toast';
+import { foldText } from '@/lib/searchText';
 import { cn } from '@/lib/cn';
 import {
   crearCurso,
@@ -108,10 +109,10 @@ export function CampusListPage() {
     return cursos.filter((c) => {
       if (modalidad !== 'todos' && c.modalidad !== modalidad) return false;
       if (search.trim().length > 0) {
-        const s = search.trim().toLowerCase();
+        const s = foldText(search); // insensible a mayúsculas y acentos
         const hay = [c.titulo, c.slug, c.categoria]
           .filter(Boolean)
-          .some((x) => x!.toLowerCase().includes(s));
+          .some((x) => foldText(x).includes(s));
         if (!hay) return false;
       }
       return true;

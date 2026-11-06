@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Search, Send, AlertTriangle, Filter, ArrowLeft } from 'lucide-react';
 import { toast } from '@/lib/toast';
+import { foldText } from '@/lib/searchText';
 import {
   Field,
   Input,
@@ -96,10 +97,10 @@ export function MorososPage() {
     return rows.filter((r) => {
       if (nivelFilter !== 'todos' && r.nivel_sugerido !== nivelFilter) return false;
       if (search.trim().length > 0) {
-        const s = search.trim().toLowerCase();
+        const s = foldText(search); // insensible a mayúsculas y acentos
         const hay = [r.administracion_nombre, r.consorcio_nombre, r.comprobante_tipo]
           .filter(Boolean)
-          .some((x) => x!.toLowerCase().includes(s));
+          .some((x) => foldText(x).includes(s));
         if (!hay) return false;
       }
       return true;

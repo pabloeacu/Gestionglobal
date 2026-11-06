@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { hoyISO } from '@/lib/dates';
+import { foldText } from '@/lib/searchText';
 import {
   CalendarClock,
   CheckCircle2,
@@ -140,8 +141,8 @@ export function ProspectosListPage() {
       if (filtro === 'sin_convertir' && p.convertido) return false;
       if (filtro === 'convertidos' && !p.convertido) return false;
       if (search.trim()) {
-        const s = search.trim().toLowerCase();
-        if (!p.nombre.toLowerCase().includes(s) && !p.email.toLowerCase().includes(s)) return false;
+        const s = foldText(search); // insensible a mayúsculas y acentos
+        if (!foldText(p.nombre).includes(s) && !foldText(p.email).includes(s)) return false;
       }
       return true;
     });

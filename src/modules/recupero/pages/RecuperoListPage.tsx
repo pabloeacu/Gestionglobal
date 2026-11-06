@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { hoyISO } from '@/lib/dates';
+import { foldText } from '@/lib/searchText';
 import {
   Search,
   Filter,
@@ -88,11 +89,11 @@ export function RecuperoListPage() {
 
   const filtered = useMemo(() => {
     if (!search.trim()) return rows;
-    const s = search.trim().toLowerCase();
+    const s = foldText(search); // insensible a mayúsculas y acentos
     return rows.filter((r) =>
       [r.administracion_nombre, r.consorcio_nombre, r.observaciones]
         .filter(Boolean)
-        .some((x) => x!.toLowerCase().includes(s)),
+        .some((x) => foldText(x).includes(s)),
     );
   }, [rows, search]);
 

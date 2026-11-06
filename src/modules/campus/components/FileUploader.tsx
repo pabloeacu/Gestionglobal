@@ -9,6 +9,7 @@ import { useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Download, FileText, Images, Loader2, Upload, X } from 'lucide-react';
 import { toast } from '@/lib/toast';
+import { foldText } from '@/lib/searchText';
 import {
   listDocentesCvBanco,
   uploadCampusMedia,
@@ -231,7 +232,7 @@ function CvBankModal({
 }) {
   const [q, setQ] = useState('');
   const visibles = (items ?? []).filter((it) =>
-    q.trim() ? it.nombre.toLowerCase().includes(q.trim().toLowerCase()) : true,
+    q.trim() ? foldText(it.nombre).includes(foldText(q)) : true,
   );
   return createPortal(
     <div data-gg="overlay" className="fixed inset-0 z-[60] grid place-items-center bg-brand-ink/60 p-4">

@@ -16,6 +16,7 @@ import type { ReactNode } from 'react';
 import { ChevronDown, Check, Search, X, ChevronUp, ChevronsUpDown } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/cn';
+import { foldText } from '@/lib/searchText';
 
 // Paletas de tono reusadas por SegmentCard y chips.
 const TONES = {
@@ -180,9 +181,9 @@ export function FilterMultiSelect({
   }, [open]);
 
   const filtered = useMemo(() => {
-    const needle = q.trim().toLowerCase();
+    const needle = foldText(q); // insensible a mayúsculas y acentos
     if (!needle) return options;
-    return options.filter((o) => o.label.toLowerCase().includes(needle));
+    return options.filter((o) => foldText(o.label).includes(needle));
   }, [options, q]);
 
   function toggle(v: string) {

@@ -4,6 +4,7 @@
 
 import { supabase } from '@/lib/supabase';
 import { ok, fail, extractEdgeFnError, type ApiResponse } from '@/lib/errors';
+import { foldText } from '@/lib/searchText';
 import type { Database, Json } from '@/types/database';
 
 // ============================================================================
@@ -419,11 +420,11 @@ export async function listMatriculas(
     }),
   );
   if (params.search && params.search.trim().length > 0) {
-    const s = params.search.trim().toLowerCase();
+    const s = foldText(params.search); // insensible a mayúsculas y acentos
     rows = rows.filter((r) =>
       [r.alumno_nombre, r.curso?.titulo, r.administracion_nombre]
         .filter(Boolean)
-        .some((x) => x!.toLowerCase().includes(s)),
+        .some((x) => foldText(x).includes(s)),
     );
   }
   return ok(rows);

@@ -6,6 +6,7 @@ import { createPortal } from 'react-dom';
 import { Link2, Repeat, X } from 'lucide-react';
 import { Button, Field, Input, Select, Textarea } from '@/components/common';
 import { toast } from '@/lib/toast';
+import { foldText } from '@/lib/searchText';
 import {
   type AgendaCategoria,
   type AgendaEvento,
@@ -511,8 +512,8 @@ function BloqueVinculos({
 }) {
   const filtrados = useMemo(() => {
     if (!busqueda) return items;
-    const q = busqueda.toLowerCase();
-    return items.filter((i) => i.label.toLowerCase().includes(q) || (i.hint ?? '').toLowerCase().includes(q));
+    const q = foldText(busqueda); // insensible a mayúsculas y acentos
+    return items.filter((i) => foldText(i.label).includes(q) || foldText(i.hint).includes(q));
   }, [items, busqueda]);
   return (
     <div className="rounded-xl border border-slate-200 bg-white">

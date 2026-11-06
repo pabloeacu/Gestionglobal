@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from '@/lib/toast';
+import { foldText } from '@/lib/searchText';
 import {
   Search,
   FileText,
@@ -120,7 +121,7 @@ export function PortalComprobantesPage() {
 
   // Filtros de UI en memoria (mismos criterios que antes iban al backend).
   const visibleRows = useMemo(() => {
-    const s = search.trim().toLowerCase();
+    const s = foldText(search); // insensible a mayúsculas y acentos
     return rows.filter((r) => {
       if (estado !== 'todos' && r.estado !== estado) return false;
       // E-GG-136: el filtro "Vencido" se resuelve por fecha derivada; el resto
@@ -135,8 +136,8 @@ export function PortalComprobantesPage() {
       if (periodo && r.periodo !== periodo) return false;
       if (s) {
         const hay =
-          (r.receptor_razon_social ?? '').toLowerCase().includes(s) ||
-          (r.receptor_numero_documento ?? '').toLowerCase().includes(s);
+          foldText(r.receptor_razon_social).includes(s) ||
+          foldText(r.receptor_numero_documento).includes(s);
         if (!hay) return false;
       }
       return true;

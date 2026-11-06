@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { History, Paperclip, Plus, X } from 'lucide-react';
 import { Button, Field, Input, Modal, Select, Textarea } from '@/components/common';
 import { toast } from '@/lib/toast';
+import { foldText } from '@/lib/searchText';
 import { hoyISO } from '@/lib/dates';
 import {
   crearMovimientoManual, subirAdjuntoMovimiento, listCategoriasFinanzas, buscarAdministraciones,
@@ -126,10 +127,10 @@ export function NuevoMovimientoModal({ cajas, onClose, onCreated }: Props) {
   const categoriasFiltradas = categorias.filter((c) => c.tipo === tipo || c.tipo === 'ambos');
 
   const provFiltrados = provSearch.trim()
-    ? proveedores.filter((p) => p.nombre.toLowerCase().includes(provSearch.trim().toLowerCase()))
+    ? proveedores.filter((p) => foldText(p.nombre).includes(foldText(provSearch)))
     : proveedores;
   const provMatchExacto = proveedores.some(
-    (p) => p.nombre.trim().toLowerCase() === provSearch.trim().toLowerCase(),
+    (p) => foldText(p.nombre) === foldText(provSearch),
   );
 
   // DGG-130 · abre el mini-modal y trae los últimos 5 egresos del proveedor

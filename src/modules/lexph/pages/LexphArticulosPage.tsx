@@ -18,6 +18,7 @@ import {
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import { IllustratedEmpty } from '@/components/brand/IllustratedEmpty';
 import { toast } from '@/lib/toast';
+import { foldText } from '@/lib/searchText';
 import { humanizeError } from '@/lib/errors';
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
 import {
@@ -107,16 +108,16 @@ export function LexphArticulosPage() {
 
   // Filtro en memoria para la lista visible.
   const filtrados = useMemo(() => {
-    const needle = q.trim().toLowerCase();
+    const needle = foldText(q); // insensible a mayúsculas y acentos ("balcon" ↔ "balcón")
     return items.filter((a) => {
       if (estado !== 'todos' && a.estado !== estado) return false;
       if (tipoFiltro && a.tipo !== tipoFiltro) return false;
       if (needle) {
         const hay =
-          a.titulo.toLowerCase().includes(needle) ||
-          (a.resumen ?? '').toLowerCase().includes(needle) ||
-          a.slug.toLowerCase().includes(needle) ||
-          a.tags.some((t) => t.nombre.toLowerCase().includes(needle));
+          foldText(a.titulo).includes(needle) ||
+          foldText(a.resumen).includes(needle) ||
+          foldText(a.slug).includes(needle) ||
+          a.tags.some((t) => foldText(t.nombre).includes(needle));
         if (!hay) return false;
       }
       return true;

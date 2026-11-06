@@ -11,6 +11,7 @@
 
 import { supabase } from '@/lib/supabase';
 import { ok, fail, type ApiResponse } from '@/lib/errors';
+import { foldText } from '@/lib/searchText';
 import type { Database, Json } from '@/types/database';
 
 // ============================================================================
@@ -119,11 +120,11 @@ export async function listAcciones(
   });
 
   if (params.search && params.search.trim().length > 0) {
-    const s = params.search.trim().toLowerCase();
+    const s = foldText(params.search); // insensible a mayúsculas y acentos
     rows = rows.filter((r) =>
       [r.administracion_nombre, r.consorcio_nombre, r.observaciones]
         .filter(Boolean)
-        .some((x) => x!.toLowerCase().includes(s)),
+        .some((x) => foldText(x).includes(s)),
     );
   }
 
@@ -224,11 +225,11 @@ export async function listMorosos(
   }
 
   if (params.search && params.search.trim().length > 0) {
-    const s = params.search.trim().toLowerCase();
+    const s = foldText(params.search); // insensible a mayúsculas y acentos
     rows = rows.filter((r) =>
       [r.administracion_nombre, r.consorcio_nombre, r.comprobante_tipo]
         .filter(Boolean)
-        .some((x) => x!.toLowerCase().includes(s)),
+        .some((x) => foldText(x).includes(s)),
     );
   }
 

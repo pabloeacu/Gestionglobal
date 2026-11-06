@@ -24,6 +24,7 @@ import {
 } from '@/services/api/ctaCte';
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
 import { cn } from '@/lib/cn';
+import { foldText } from '@/lib/searchText';
 import { KpiStripCtaCte } from '../components/KpiStripCtaCte';
 import { formatMoney, defaultDesde, defaultHasta } from '../lib/format';
 import { ExportButtons } from '@/components/reports/ExportButtons';
@@ -73,10 +74,10 @@ export function CtaCteListPage() {
   );
 
   const filtered = useMemo(() => {
-    const s = search.trim().toLowerCase();
+    const s = foldText(search); // insensible a mayúsculas y acentos
     return rows
       .filter((r) => {
-        if (s && !r.administracion_nombre.toLowerCase().includes(s))
+        if (s && !foldText(r.administracion_nombre).includes(s))
           return false;
         if (estadoFilter === 'con_deuda' && r.deuda_total <= 0) return false;
         if (estadoFilter === 'con_favor' && !((r.saldo_a_favor ?? 0) > 0)) return false;

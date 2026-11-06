@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { RefreshIndicator } from '@/components/common';
 import { toast } from '@/lib/toast';
+import { foldText } from '@/lib/searchText';
 import {
   Plus,
   Search,
@@ -149,7 +150,7 @@ export function VencimientosListPage() {
       if (estado !== 'todos' && r.estado !== estado) return false;
       if (diaFiltro && r.fecha_vencimiento !== diaFiltro) return false;
       if (search.trim().length > 0) {
-        const s = search.trim().toLowerCase();
+        const s = foldText(search); // insensible a mayúsculas y acentos
         const hay = [
           r.administracion_nombre,
           r.consorcio_nombre,
@@ -158,7 +159,7 @@ export function VencimientosListPage() {
           VENCIMIENTO_TIPO_LABEL[r.tipo],
         ]
           .filter(Boolean)
-          .some((x) => x!.toLowerCase().includes(s));
+          .some((x) => foldText(x).includes(s));
         if (!hay) return false;
       }
       return true;
