@@ -6762,3 +6762,13 @@ Todos LATENTES (0 admins afectados hoy, motor real DORMIDO) — cazados por la d
 **Diferido y documentado (fuera de scope — otro subsistema):** `SafeHtml.ALLOWED_ATTR` incluye `'style'` (más amplio que lo que documenta su comentario); es el componente compartido con TipTap y otras superficies, DOMPurify 3 sanea los valores peligrosos y el autor es staff → hardening opcional, no en este chunk de presentación. Ver E-GG-253.
 
 **Lección:** al armar una home "editorial" con nota de tapa + secciones, excluir explícitamente lo ya destacado de las secciones (dedup) y garantizar **un** `<h1>` en cada estado de la UI (no sólo en el camino feliz). Un elemento `sticky` convive con una nav `fixed`: su `top` = alto de la nav, no `0`. Todo capturado por la §6 **antes** de tocar la página pública (que ya estaba live con el flag on).
+
+## E-GG-257 (2026-11-05) — Nota de tapa destacada podía caerse del home si el cap-6 la dejaba fuera (DGG-244 F2c; atrapado en §6 REVISAR, NO llegó a prod)
+
+**Contexto:** al integrar el digest de la edición en el home (`LexphIndexPage`), la nota de tapa (`featured`) se resolvía buscando la destacada **dentro de `homeUniverse`** (el set ya recortado por la regla cap-6 de Pablo: edición actual + relleno de históricas hasta 6). 
+
+**Bug (correctness, latente):** si gerencia elegía como tapa una nota **histórica** (de una edición anterior) que quedaba **fuera del cap-6**, `homeUniverse.find(slug===destacado)` devolvía `undefined` y la tapa **se caía silenciosamente** al fallback `homeUniverse[0]` (la más reciente) — ignorando la elección explícita de gerencia. Con todas las notas en la Edición N°2 (todas "nuevas", cap=11) no se disparaba, pero sí en cuanto hubiera edición nueva + histórica elegida como tapa.
+
+**Fix:** resolver `featured` sobre el **universo COMPLETO** `items` (no `homeUniverse`): `const dest = edicion?.destacado_slug ? items.find(...) : undefined; return dest ?? homeUniverse[0];`. Una tapa elegida se honra siempre; `excludeIds` evita que se duplique en las secciones aunque esté fuera del cap.
+
+**Lección:** cuando una regla de recorte (cap-N) y una selección explícita (destacada) conviven, la selección se resuelve sobre el universo completo, no sobre el set recortado — si no, el recorte "pisa" en silencio la elección del usuario. Hermano del dedup de E-GG-256 (nota de tapa ↔ secciones). Atrapado en el REVISAR del §6 antes de deployar (la página ya estaba live con el flag on).
