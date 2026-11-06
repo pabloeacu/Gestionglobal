@@ -44,6 +44,19 @@ export function fmtFechaCorta(iso: string | null | undefined): string {
   }
 }
 
+// dd/mm/yyyy (para "Última actualización").
+export function fmtDMY(iso: string | null | undefined): string {
+  if (!iso) return '';
+  try {
+    const d = new Date(iso);
+    const dd = String(d.getDate()).padStart(2, '0');
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    return `${dd}/${mm}/${d.getFullYear()}`;
+  } catch {
+    return '';
+  }
+}
+
 // Cortina pública: 'loading' | 'on' | 'off'. Fail-safe a 'off'.
 export function useLexphPublicoStatus(): 'loading' | 'on' | 'off' {
   const [estado, setEstado] = useState<'loading' | 'on' | 'off'>('loading');
@@ -88,8 +101,9 @@ export function LexphMasthead() {
           alt="LexPH — un servicio de Gestión Global"
           className="h-[60px] w-auto sm:h-[78px]"
         />
-        <p className="font-gg-display max-w-[300px] text-[11px] font-semibold uppercase leading-[1.5] tracking-[0.13em] text-brand-muted">
-          Inteligencia jurídica en propiedad horizontal · un servicio de Gestión Global
+        <p className="font-gg-display max-w-[340px] text-[11px] font-semibold uppercase leading-[1.85] tracking-[0.13em] text-brand-muted">
+          <span className="bg-brand-cyan-pale px-1.5 py-0.5 text-brand-ink">Inteligencia jurídica</span> en
+          propiedad horizontal · un servicio de <span className="text-brand-cyan">Gestión Global</span>
         </p>
       </div>
     </section>

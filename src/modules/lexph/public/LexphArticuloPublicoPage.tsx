@@ -5,7 +5,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, ExternalLink, Lightbulb, ShieldAlert } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ArrowUp, ExternalLink, Lightbulb, ShieldAlert } from 'lucide-react';
 import { SafeHtml } from '@/components/common/SafeHtml';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import { cn } from '@/lib/cn';
@@ -207,63 +207,17 @@ export function LexphArticuloPublicoPage() {
         </div>
       )}
 
-      {/* ---------- Cuerpo + Sumario ---------- */}
+      {/* ---------- Cuerpo + Sumario (una sola grilla: el contenido fluye, el sumario es sticky → sin hueco) ---------- */}
       <div
         className={cn(
-          'mx-auto max-w-[1040px] gap-x-12 px-6 pt-14',
+          'mx-auto max-w-[1040px] gap-x-12 px-6 pt-12 pb-4',
           tieneSumario ? 'lg:grid lg:grid-cols-[1fr_300px]' : '',
         )}
       >
+        {/* Columna principal: cuerpo + callouts + fuentes + remate */}
         <div className="min-w-0">
           {art.cuerpo && <SafeHtml html={art.cuerpo} className="lexph-prose lexph-dropcap" />}
-        </div>
 
-        {tieneSumario && (
-          <aside className="mt-10 lg:mt-0">
-            <div className="lexph-chamfer border border-slate-200 bg-slate-50/70 lg:sticky lg:top-6">
-              <div className="font-gg-display bg-brand-ink px-5 py-3 text-xs font-bold uppercase tracking-[0.1em] text-white">
-                {art.tipo === 'fallo' ? 'Sumario del caso' : 'Ficha técnica'}
-              </div>
-              <dl className="px-5 py-4">
-                {fichaPresentes.map((c) => (
-                  <div key={c.key} className="mb-3.5">
-                    <dt className="font-gg-display text-[10.5px] font-semibold uppercase tracking-[0.08em] text-brand-muted">
-                      {c.label}
-                    </dt>
-                    <dd className="mt-0.5 text-sm font-medium leading-snug text-brand-ink">{str(c.key)}</dd>
-                  </div>
-                ))}
-                {jurisdicciones && (
-                  <div className="mb-1">
-                    <dt className="font-gg-display text-[10.5px] font-semibold uppercase tracking-[0.08em] text-brand-muted">
-                      Jurisdicción
-                    </dt>
-                    <dd className="mt-0.5 text-sm font-medium leading-snug text-brand-ink">{jurisdicciones}</dd>
-                  </div>
-                )}
-              </dl>
-              {voces.length > 0 && (
-                <div className="border-t border-slate-200 px-5 py-4">
-                  <p className="font-gg-display mb-2.5 text-[10.5px] font-semibold uppercase tracking-[0.08em] text-brand-muted">
-                    Voces
-                  </p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {voces.map((v, i) => (
-                      <span key={i} className="border border-slate-200 bg-white px-2 py-1 text-xs text-brand-ink">
-                        {v}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          </aside>
-        )}
-      </div>
-
-      {/* ---------- Callouts + fuentes + remate ---------- */}
-      <div className="mx-auto max-w-[1040px] px-6 pb-4">
-        <div className={cn(tieneSumario ? 'lg:max-w-[calc(100%-348px)]' : '')}>
           {claveAdmin && (
             <Callout tone="cyan" icon={<Lightbulb size={18} />} titulo="Clave para el administrador" texto={claveAdmin} />
           )}
@@ -272,7 +226,7 @@ export function LexphArticuloPublicoPage() {
           )}
 
           {art.fuentes.length > 0 && (
-            <div className="mt-10 border-t border-slate-200 pt-5">
+            <div className="mt-8 border-t border-slate-200 pt-5">
               <p className="font-gg-display mb-2.5 text-xs font-semibold uppercase tracking-[0.1em] text-brand-muted">
                 Fuentes
               </p>
@@ -297,9 +251,9 @@ export function LexphArticuloPublicoPage() {
             </div>
           )}
 
-          {/* Remate de captación hacia Gestión Global */}
+          {/* Remate de captación → WhatsApp */}
           <div
-            className="lexph-chamfer relative mt-10 overflow-hidden px-8 py-9 text-white"
+            className="lexph-chamfer relative mt-9 overflow-hidden px-8 py-9 text-white"
             style={{ background: 'linear-gradient(130deg, rgb(var(--brand-night-rgb)), #0d3a5c)' }}
           >
             <TrianglesAccent position="bottom-right" tone="cyan" density="soft" size={180} className="opacity-15" />
@@ -312,12 +266,14 @@ export function LexphArticuloPublicoPage() {
                 Agenda de vencimientos, seguimiento de trámites, cursos y una plataforma pensada para
                 administradores de consorcios.
               </p>
-              <Link
-                to="/"
+              <a
+                href={`https://wa.me/5492214317914?text=${encodeURIComponent('Te contacto desde LexPH para saber más de Gestión Global')}`}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="lexph-cta mt-5 inline-flex items-center gap-2 bg-brand-cyan px-6 py-3 font-gg-display text-sm font-semibold uppercase tracking-[0.07em] text-white"
               >
-                Conocé la plataforma <ArrowRight size={16} />
-              </Link>
+                Contactanos por WhatsApp <ArrowRight size={16} />
+              </a>
             </div>
           </div>
 
@@ -326,6 +282,57 @@ export function LexphArticuloPublicoPage() {
             Ante dudas sobre casos concretos, consultá con un profesional del derecho.
           </p>
         </div>
+
+        {/* Sidebar: sumario + volver a la tapa (sticky) */}
+        {tieneSumario && (
+          <aside className="mt-10 lg:mt-0">
+            <div className="lg:sticky lg:top-6">
+              <div className="lexph-chamfer border border-slate-200 bg-slate-50/70">
+                <div className="font-gg-display bg-brand-ink px-5 py-3 text-xs font-bold uppercase tracking-[0.1em] text-white">
+                  {art.tipo === 'fallo' ? 'Sumario del caso' : 'Ficha técnica'}
+                </div>
+                <dl className="px-5 py-4">
+                  {fichaPresentes.map((c) => (
+                    <div key={c.key} className="mb-3.5">
+                      <dt className="font-gg-display text-[10.5px] font-semibold uppercase tracking-[0.08em] text-brand-muted">
+                        {c.label}
+                      </dt>
+                      <dd className="mt-0.5 text-sm font-medium leading-snug text-brand-ink">{str(c.key)}</dd>
+                    </div>
+                  ))}
+                  {jurisdicciones && (
+                    <div className="mb-1">
+                      <dt className="font-gg-display text-[10.5px] font-semibold uppercase tracking-[0.08em] text-brand-muted">
+                        Jurisdicción
+                      </dt>
+                      <dd className="mt-0.5 text-sm font-medium leading-snug text-brand-ink">{jurisdicciones}</dd>
+                    </div>
+                  )}
+                </dl>
+                {voces.length > 0 && (
+                  <div className="border-t border-slate-200 px-5 py-4">
+                    <p className="font-gg-display mb-2.5 text-[10.5px] font-semibold uppercase tracking-[0.08em] text-brand-muted">
+                      Voces
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {voces.map((v, i) => (
+                        <span key={i} className="border border-slate-200 bg-white px-2 py-1 text-xs text-brand-ink">
+                          {v}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+              <Link
+                to="/lexph"
+                className="lexph-cta mt-4 inline-flex w-full items-center justify-center gap-2 bg-brand-cyan px-5 py-3 font-gg-display text-sm font-semibold uppercase tracking-[0.07em] text-white"
+              >
+                <ArrowUp size={15} /> Volver a la tapa
+              </Link>
+            </div>
+          </aside>
+        )}
       </div>
 
       {/* ---------- Relacionados ---------- */}

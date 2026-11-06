@@ -15,8 +15,10 @@ import {
   LexphComingSoon,
   LexphLoader,
   LexphCard,
+  LexphCover,
   LexphMasthead,
   LexphBadge,
+  fmtDMY,
   fmtFechaCorta,
   fmtFechaLarga,
   useLexphPublicoStatus,
@@ -163,6 +165,11 @@ export function LexphIndexPage() {
           >
             <TrianglesAccent position="top-right" tone="cyan" density="rich" size={340} className="opacity-20" />
             <div className="relative mx-auto max-w-6xl px-6 pb-14 pt-10 sm:pt-14">
+              {items.length > 0 && items[0]?.publicado_at && (
+                <p className="font-gg-display mb-6 text-right text-[11px] uppercase tracking-[0.1em] text-white/50 tabular-nums">
+                  Última actualización: {fmtDMY(items[0].publicado_at)}
+                </p>
+              )}
               {loading ? (
                 <div className="py-12">
                   <LexphLoader />
@@ -171,6 +178,13 @@ export function LexphIndexPage() {
                 <div className="grid gap-10 lg:grid-cols-[1.6fr_1fr]">
                   {/* Nota de tapa */}
                   <div>
+                    {/* Portada de la nota de tapa */}
+                    <Link
+                      to={`/lexph/${featured.slug}`}
+                      className="lexph-chamfer group mb-6 block aspect-[16/8] overflow-hidden"
+                    >
+                      <LexphCover item={featured} className="transition duration-500 group-hover:scale-[1.02]" />
+                    </Link>
                     <div className="mb-4 flex flex-wrap items-center gap-3">
                       <LexphBadge tipo={featured.tipo} />
                       <span className="font-gg-display text-[11px] font-semibold uppercase tracking-[0.14em] text-white/70">
@@ -401,7 +415,7 @@ export function LexphIndexPage() {
             <div className="relative mx-auto flex max-w-6xl flex-col gap-6 px-6 py-12 md:flex-row md:items-center md:justify-between">
               <div>
                 <h3 className="font-gg-display text-2xl font-bold uppercase tracking-[0.02em] sm:text-3xl">
-                  LexPH en tu correo, cada quince días
+                  Recibí LexPH en tu correo
                 </h3>
                 <p className="mt-2 max-w-[52ch] text-white/90">
                   Los fallos, normativas y vencimientos que mueven la propiedad horizontal, destilados y
