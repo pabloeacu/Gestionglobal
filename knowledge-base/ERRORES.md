@@ -6772,3 +6772,13 @@ Todos LATENTES (0 admins afectados hoy, motor real DORMIDO) — cazados por la d
 **Fix:** resolver `featured` sobre el **universo COMPLETO** `items` (no `homeUniverse`): `const dest = edicion?.destacado_slug ? items.find(...) : undefined; return dest ?? homeUniverse[0];`. Una tapa elegida se honra siempre; `excludeIds` evita que se duplique en las secciones aunque esté fuera del cap.
 
 **Lección:** cuando una regla de recorte (cap-N) y una selección explícita (destacada) conviven, la selección se resuelve sobre el universo completo, no sobre el set recortado — si no, el recorte "pisa" en silencio la elección del usuario. Hermano del dedup de E-GG-256 (nota de tapa ↔ secciones). Atrapado en el REVISAR del §6 antes de deployar (la página ya estaba live con el flag on).
+
+## E-GG-258 (2026-11-06) — Re-alta tras baja quedaba sin email de confirmación por el cooldown (DGG-244 F2d-A; atrapado en §6 REVISAR, NO llegó a prod)
+
+**Contexto:** la RPC `lexph_suscribir` tiene un cooldown anti-abuso (no reenvía la confirmación si `last_email_at` < 10 min) para evitar que alguien spamee el form con el mismo email pendiente.
+
+**Bug (lógica, latente):** en el primer diseño el cooldown se evaluaba DESPUÉS de reactivar una suscripción dada de baja. Si un usuario se daba de baja y se re-suscribía dentro de los 10 min, se lo reactivaba a `pendiente` con un `confirm_token` nuevo PERO el cooldown bloqueaba el reenvío → quedaba pendiente **sin ningún email para confirmar** (estado muerto: no puede confirmar nunca).
+
+**Fix:** separar las ramas — la re-alta explícita tras `baja` **siempre** encola una confirmación fresca (es consentimiento nuevo del usuario); el cooldown rige SÓLO la re-submisión de un `pendiente`. Verificado en el e2e (caso 5: re-alta tras baja → 2º email encolado aunque el 1º fue hace segundos).
+
+**Lección:** un cooldown anti-abuso no debe pisar una acción de consentimiento explícita del usuario. Separar "re-envío por impaciencia" (cooldown) de "re-alta tras baja" (siempre honrar). Atrapado en el REVISAR mental del §6 antes de correr el primer e2e.
