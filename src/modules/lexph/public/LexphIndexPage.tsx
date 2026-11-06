@@ -175,69 +175,73 @@ export function LexphIndexPage() {
                   <LexphLoader />
                 </div>
               ) : featured ? (
-                <div className="grid gap-10 lg:grid-cols-[1.6fr_1fr]">
-                  {/* Nota de tapa */}
-                  <div>
-                    {/* Portada de la nota de tapa */}
+                <>
+                  {/* Nota de tapa: foto a la izquierda, texto a la derecha */}
+                  <div className="grid items-center gap-8 lg:grid-cols-2 lg:gap-12">
                     <Link
                       to={`/lexph/${featured.slug}`}
-                      className="lexph-chamfer group mb-6 block aspect-[16/8] overflow-hidden"
+                      className="lexph-chamfer group block aspect-[16/10] overflow-hidden"
                     >
                       <LexphCover item={featured} className="transition duration-500 group-hover:scale-[1.02]" />
                     </Link>
-                    <div className="mb-4 flex flex-wrap items-center gap-3">
-                      <LexphBadge tipo={featured.tipo} />
-                      <span className="font-gg-display text-[11px] font-semibold uppercase tracking-[0.14em] text-white/70">
-                        Nota de tapa
-                      </span>
-                    </div>
-                    <Link to={`/lexph/${featured.slug}`} className="group block">
-                      <h1 className="font-display text-[2rem] font-extrabold leading-[1.08] tracking-tight transition group-hover:text-brand-cyan-pale sm:text-[2.6rem]">
-                        {featured.titulo}
-                      </h1>
-                    </Link>
-                    {featured.resumen && (
-                      <p className="lexph-serif mt-5 max-w-[46ch] text-xl leading-[1.5] text-white/85">
-                        {featured.resumen}
-                      </p>
-                    )}
-                    <div className="mt-5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-white/70">
-                      <span className="tabular-nums">{fmtFechaLarga(featured.publicado_at)}</span>
-                      {featured.tags.slice(0, 2).map((t) => (
-                        <span key={t.slug} className="flex items-center gap-3">
-                          <span aria-hidden>·</span>
-                          {t.nombre}
+                    <div>
+                      <div className="mb-4 flex flex-wrap items-center gap-3">
+                        <LexphBadge tipo={featured.tipo} />
+                        <span className="font-gg-display text-[11px] font-semibold uppercase tracking-[0.14em] text-white/70">
+                          Nota de tapa
                         </span>
-                      ))}
+                      </div>
+                      <Link to={`/lexph/${featured.slug}`} className="group block">
+                        <h1 className="font-display text-[1.9rem] font-extrabold leading-[1.08] tracking-tight transition group-hover:text-brand-cyan-pale sm:text-[2.4rem]">
+                          {featured.titulo}
+                        </h1>
+                      </Link>
+                      {featured.resumen && (
+                        <p className="lexph-serif mt-4 max-w-[52ch] text-lg leading-[1.5] text-white/85 sm:text-xl">
+                          {featured.resumen}
+                        </p>
+                      )}
+                      <div className="mt-5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-white/70">
+                        <span className="tabular-nums">{fmtFechaLarga(featured.publicado_at)}</span>
+                        {featured.tags.slice(0, 2).map((t) => (
+                          <span key={t.slug} className="flex items-center gap-3">
+                            <span aria-hidden>·</span>
+                            {t.nombre}
+                          </span>
+                        ))}
+                      </div>
+                      <Link
+                        to={`/lexph/${featured.slug}`}
+                        className="lexph-cta mt-6 inline-flex items-center gap-2 bg-brand-cyan px-6 py-3 font-gg-display text-sm font-semibold uppercase tracking-[0.07em] text-white"
+                      >
+                        Leer {featured.tipo === 'fallo' ? 'el fallo' : 'la nota'}
+                        <ArrowRight size={16} />
+                      </Link>
                     </div>
-                    <Link
-                      to={`/lexph/${featured.slug}`}
-                      className="lexph-cta mt-7 inline-flex items-center gap-2 bg-brand-cyan px-6 py-3 font-gg-display text-sm font-semibold uppercase tracking-[0.07em] text-white"
-                    >
-                      Leer {featured.tipo === 'fallo' ? 'el fallo' : 'la nota'}
-                      <ArrowRight size={16} />
-                    </Link>
                   </div>
 
-                  {/* Índice "Lo último" */}
+                  {/* "Lo último" — fila horizontal con números fantasma (estilo "top") */}
                   {latest.length > 0 && (
-                    <div>
-                      <p className="font-gg-display border-b border-white/20 pb-2.5 text-[12px] font-semibold uppercase tracking-[0.12em] text-brand-cyan">
+                    <div className="mt-14 border-t border-white/15 pt-8">
+                      <p className="font-gg-display mb-6 text-[12px] font-semibold uppercase tracking-[0.12em] text-brand-cyan">
                         Lo último
                       </p>
-                      <div className="divide-y divide-white/10">
+                      <div className="grid gap-x-8 gap-y-7 sm:grid-cols-2 lg:grid-cols-3">
                         {latest.map((a, i) => {
                           const t0 = a.tags[0];
                           return (
-                            <Link key={a.id} to={`/lexph/${a.slug}`} className="group flex gap-4 py-4">
-                              <span aria-hidden className="font-gg-display text-2xl font-bold leading-none text-white/30">
+                            <Link key={a.id} to={`/lexph/${a.slug}`} className="group flex items-center gap-4">
+                              <span
+                                aria-hidden
+                                className="font-gg-display shrink-0 text-[66px] font-bold leading-[0.8] text-transparent [-webkit-text-stroke:1.5px_rgba(255,255,255,0.33)]"
+                              >
                                 {String(i + 2).padStart(2, '0')}
                               </span>
                               <span>
                                 <span className="font-display block text-[15px] font-semibold leading-snug transition group-hover:text-brand-cyan-pale">
                                   {a.titulo}
                                 </span>
-                                <span className="font-gg-display mt-1.5 block text-[11px] uppercase tracking-[0.08em] text-white/65">
+                                <span className="font-gg-display mt-1.5 block text-[11px] uppercase tracking-[0.08em] text-white/60">
                                   {tipoMeta(a.tipo).label}
                                   {t0 ? ` · ${t0.nombre}` : ''}
                                 </span>
@@ -248,7 +252,7 @@ export function LexphIndexPage() {
                       </div>
                     </div>
                   )}
-                </div>
+                </>
               ) : (
                 <h1 className="max-w-3xl font-display text-2xl font-extrabold leading-tight tracking-tight text-white sm:text-3xl">
                   {heroTitulo}

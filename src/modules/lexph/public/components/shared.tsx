@@ -94,14 +94,15 @@ export function LexphPublicShell({
 export function LexphMasthead() {
   return (
     <section className="relative overflow-hidden border-b border-slate-200 bg-white">
-      <TrianglesAccent position="top-right" tone="cyan" density="rich" size={300} className="opacity-[0.12]" />
+      <TrianglesAccent position="top-right" tone="teal" density="rich" size={360} className="opacity-[0.22]" />
+      <TrianglesAccent position="bottom-left" tone="cyan" density="soft" size={200} className="opacity-[0.12]" />
       <div className="relative mx-auto flex max-w-6xl flex-wrap items-center gap-x-6 gap-y-3 px-6 pb-8 pt-28">
         <img
           src="/brand/lexph-logo.png"
           alt="LexPH — un servicio de Gestión Global"
           className="h-[60px] w-auto sm:h-[78px]"
         />
-        <p className="font-gg-display max-w-[340px] text-[11px] font-semibold uppercase leading-[1.85] tracking-[0.13em] text-brand-muted">
+        <p className="font-gg-display max-w-[400px] text-[13px] font-semibold uppercase leading-[1.9] tracking-[0.13em] text-brand-muted">
           <span className="bg-brand-cyan-pale px-1.5 py-0.5 text-brand-ink">Inteligencia jurídica</span> en
           propiedad horizontal · un servicio de <span className="text-brand-cyan">Gestión Global</span>
         </p>
