@@ -16,6 +16,7 @@ import {
   Newspaper,
   Star,
   GripVertical,
+  Send,
 } from 'lucide-react';
 import { Button, Field, Input, Textarea, Select, Skeleton, useConfirm } from '@/components/common';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
@@ -25,6 +26,7 @@ import {
   getEdicionActualStaff,
   guardarEdicion,
   cerrarEdicion,
+  enviarNewsletter,
   listArticulos,
   getSuscriptoresStats,
   type LexphEdicion,
@@ -38,6 +40,15 @@ import { LexphDigest } from '../public/components/LexphDigest';
 import type { LexphEdicionActual } from '@/services/api/lexphPublic';
 import { tipoMeta } from '../constants';
 import '../public/lexph-public.css'; // sólo utilidades .lexph-* (scopeadas) → vista previa fiel
+
+function fmtDia(iso: string | null | undefined): string {
+  if (!iso) return '';
+  try {
+    return new Date(iso).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' });
+  } catch {
+    return '';
+  }
+}
 
 // --- parseo seguro del jsonb de la edición a estado editable ---
 function asObj(x: unknown): Record<string, unknown> {
@@ -69,6 +80,7 @@ export function LexphEdicionPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [cerrando, setCerrando] = useState(false);
+  const [enviando, setEnviando] = useState(false);
 
   // --- estado editable del digest ---
   const [tituloInterno, setTituloInterno] = useState('');
@@ -187,6 +199,40 @@ export function LexphEdicionPage() {
     void cargar();
   }
 
+  async function handleEnviar() {
+    if (!edicion) return;
+    if (!intro.trim()) {
+      toast.error('Completá al menos la intro antes de enviar el newsletter.');
+      return;
+    }
+    const confirmados = susc?.confirmados ?? 0;
+    if (confirmados === 0) {
+      toast.error('Todavía no hay suscriptores confirmados.');
+      return;
+    }
+    const ya = edicion.newsletter_enviado_at;
+    const n = `${confirmados} suscriptor${confirmados === 1 ? '' : 'es'} confirmado${confirmados === 1 ? '' : 's'}`;
+    const ok = await confirm({
+      title: ya ? 'Reenviar el newsletter' : 'Enviar el newsletter',
+      message: ya
+        ? `Ya enviaste esta edición el ${fmtDia(ya)}. Se reenviará el teaser (con link a la web) a ${n}. ¿Continuar?`
+        : `Se enviará el newsletter —un teaser de marca con link a la edición completa en la web— a ${n}. ¿Continuar?`,
+      confirmLabel: ya ? 'Reenviar' : 'Enviar',
+    });
+    if (!ok) return;
+    setEnviando(true);
+    const res = await enviarNewsletter(edicion.id);
+    setEnviando(false);
+    if (!res.ok) {
+      toast.error('No pudimos enviar', { description: humanizeError(res.error) });
+      return;
+    }
+    toast.success(`Newsletter encolado a ${res.data.enviados} suscriptor${res.data.enviados === 1 ? '' : 'es'}`, {
+      description: 'Se envían de a poco por el throttle de correo. Podés cerrar la edición cuando quieras.',
+    });
+    void cargar();
+  }
+
   if (loading) {
     return (
       <div className="space-y-4 pb-12">
@@ -229,6 +275,12 @@ export function LexphEdicionPage() {
                 <strong className="text-brand-ink">{susc.confirmados}</strong> suscriptor
                 {susc.confirmados === 1 ? '' : 'es'} confirmado{susc.confirmados === 1 ? '' : 's'}
                 {susc.pendientes > 0 && <> · {susc.pendientes} sin confirmar</>}
+                {' · '}
+                {edicion.newsletter_enviado_at ? (
+                  <span className="text-emerald-700">enviado el {fmtDia(edicion.newsletter_enviado_at)}</span>
+                ) : (
+                  <span>sin enviar</span>
+                )}
               </p>
             )}
           </div>
@@ -241,10 +293,13 @@ export function LexphEdicionPage() {
             >
               Ver en la web <ExternalLink size={14} />
             </a>
-            <Button variant="ghost" onClick={() => void handleCerrar()} disabled={cerrando || saving}>
+            <Button variant="ghost" onClick={() => void handleEnviar()} disabled={enviando || saving || cerrando}>
+              <Send size={15} /> {enviando ? 'Enviando…' : edicion.newsletter_enviado_at ? 'Reenviar newsletter' : 'Enviar newsletter'}
+            </Button>
+            <Button variant="ghost" onClick={() => void handleCerrar()} disabled={cerrando || saving || enviando}>
               <FlagOff size={15} /> {cerrando ? 'Cerrando…' : 'Cerrar edición'}
             </Button>
-            <Button onClick={() => void handleGuardar()} disabled={saving || cerrando}>
+            <Button onClick={() => void handleGuardar()} disabled={saving || cerrando || enviando}>
               <Save size={15} /> {saving ? 'Guardando…' : 'Guardar'}
             </Button>
           </div>

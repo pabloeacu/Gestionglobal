@@ -240,6 +240,23 @@ export async function cerrarEdicion(id: string): Promise<ApiResponse<LexphEdicio
   }
 }
 
+// Envía el newsletter (teaser) de una edición a los suscriptores confirmados. Staff.
+export interface LexphNewsletterResult {
+  enviados: number;
+  reenvio: boolean;
+}
+export async function enviarNewsletter(edicionId: string): Promise<ApiResponse<LexphNewsletterResult>> {
+  try {
+    const { data, error } = await supabase.rpc('lexph_newsletter_enviar', { p_edicion_id: edicionId });
+    if (error) throw error;
+    const d = data as { enviados?: number; reenvio?: boolean } | null;
+    return ok({ enviados: Number(d?.enviados ?? 0), reenvio: Boolean(d?.reenvio) });
+  } catch (e) {
+    const err = toApiError(e);
+    return fail('LEXPH_NEWSLETTER', err.message, err.details);
+  }
+}
+
 // Conteo de suscriptores del newsletter (staff; tabla RLS staff-only). R19: universo completo.
 export interface LexphSuscriptoresStats {
   total: number;

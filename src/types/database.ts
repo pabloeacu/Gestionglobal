@@ -4933,6 +4933,7 @@ export type Database = {
           estado: string
           id: string
           intro: string | null
+          newsletter_enviado_at: string | null
           publicado_at: string | null
           resumen: Json
           seq: number
@@ -4948,6 +4949,7 @@ export type Database = {
           estado?: string
           id?: string
           intro?: string | null
+          newsletter_enviado_at?: string | null
           publicado_at?: string | null
           resumen?: Json
           seq: number
@@ -4963,6 +4965,7 @@ export type Database = {
           estado?: string
           id?: string
           intro?: string | null
+          newsletter_enviado_at?: string | null
           publicado_at?: string | null
           resumen?: Json
           seq?: number
@@ -11310,6 +11313,7 @@ export type Database = {
         Returns: string
       }
       lexph_edicion_publica_actual: { Args: never; Returns: Json }
+      lexph_newsletter_enviar: { Args: { p_edicion_id: string }; Returns: Json }
       lexph_publico_articulo: { Args: { p_slug: string }; Returns: Json }
       lexph_publico_feed: { Args: never; Returns: Json }
       lexph_suscribir: { Args: { p_email: string }; Returns: Json }
