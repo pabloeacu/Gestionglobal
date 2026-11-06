@@ -19,6 +19,8 @@ import { OpinionesServicios, OpinionesAlumnos } from '../components/LandingOpini
 import { BrandMark } from '@/components/brand/BrandMark';
 import { HighlightMark } from '@/components/brand/HighlightMark';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
+import { LexphSuscripcion } from '@/modules/lexph/public/components/LexphSuscripcion';
+import { useLexphPublicoStatus } from '@/modules/lexph/public/components/shared';
 
 // ---------------- data ----------------
 
@@ -188,6 +190,8 @@ export function LandingPage() {
       <Cursos />
       {/* La voz de los ALUMNOS (+ métricas de encuestas), debajo de Cursos. */}
       <OpinionesAlumnos />
+      {/* DGG-244 F2g · LexPH: referencia + oferta de suscripción (sólo si la web está pública). */}
+      <LexPH />
       <Partners />
       <FinalCTA />
 
@@ -828,6 +832,61 @@ function Cursos() {
                 loading="lazy"
               />
             </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function LexPH() {
+  // Sólo cuando la web pública de LexPH está activa (si Pablo la oculta, la
+  // sección y el link del menú desaparecen juntos).
+  const status = useLexphPublicoStatus();
+  if (status !== 'on') return null;
+  return (
+    <section id="lexph" className="relative overflow-hidden bg-brand-ink py-16 text-white sm:py-20">
+      <div
+        className="absolute inset-0 bg-gradient-to-br from-brand-ink via-[#122f4c] to-[#13596b]"
+        aria-hidden
+      />
+      <TrianglesAccent position="top-right" size={320} tone="cyan" density="rich" className="opacity-30" />
+      <TrianglesAccent position="bottom-left" size={240} tone="teal" density="soft" className="opacity-20" />
+
+      <div className="relative mx-auto grid max-w-6xl items-center gap-10 px-6 lg:grid-cols-2">
+        {/* Referencia */}
+        <div>
+          <img
+            src="/brand/lexph-logo-white.png"
+            alt="LexPH"
+            width={200}
+            className="h-auto w-[200px]"
+          />
+          <p className="mt-6 text-xs font-semibold uppercase tracking-[0.18em] text-[#9cc7e4]">
+            Inteligencia jurídica en propiedad horizontal
+          </p>
+          <h2 className="mt-3 font-display text-4xl font-extrabold leading-[1.05] tracking-tight sm:text-5xl">
+            Las novedades del sector, <HighlightMark tone="cyan">destiladas</HighlightMark>.
+          </h2>
+          <p className="mt-5 max-w-lg text-lg leading-relaxed text-white/80">
+            Fallos, normativas, vencimientos y tendencias por materia de propiedad horizontal,
+            explicados para administrar mejor. Una edición cada pocas semanas, directo a tu correo.
+          </p>
+          <Link
+            to="/lexph"
+            className="group mt-7 inline-flex items-center gap-1.5 rounded-full border border-white/30 px-6 py-3 text-sm font-semibold text-white transition hover:bg-white hover:text-brand-ink"
+          >
+            Explorar LexPH
+            <ArrowUpRight size={16} className="transition group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+          </Link>
+        </div>
+
+        {/* Oferta de suscripción */}
+        <div className="rounded-2xl border border-white/15 bg-white/5 p-7 backdrop-blur-sm sm:p-8">
+          <p className="font-display text-xl font-bold">Recibí LexPH en tu correo</p>
+          <p className="mt-1.5 text-sm text-white/70">Gratis. Sin spam. Baja con un clic cuando quieras.</p>
+          <div className="mt-5">
+            <LexphSuscripcion />
           </div>
         </div>
       </div>

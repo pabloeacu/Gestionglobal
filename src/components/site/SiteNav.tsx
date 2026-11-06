@@ -4,6 +4,7 @@ import { ArrowRight, LayoutDashboard } from 'lucide-react';
 import { BrandMark } from '@/components/brand/BrandMark';
 import { cn } from '@/lib/cn';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLexphPublicoStatus } from '@/modules/lexph/public/components/shared';
 
 const LINKS = [
   { hash: '#servicios', label: 'Servicios' },
@@ -37,6 +38,14 @@ export function SiteNav({ darkHero = false }: SiteNavProps) {
   const isHome = location.pathname === '/';
   const buildHref = (hash: string) => (isHome ? hash : `/${hash}`);
 
+  // LexPH en el menú sólo si la web pública está activa (si Pablo la oculta,
+  // el link desaparece). Se inserta en el cluster de contenido (tras Cursos).
+  const lexphStatus = useLexphPublicoStatus();
+  const links =
+    lexphStatus === 'on'
+      ? [...LINKS.slice(0, 3), { hash: '#lexph', label: 'LexPH' }, ...LINKS.slice(3)]
+      : LINKS;
+
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8);
     onScroll();
@@ -67,7 +76,7 @@ export function SiteNav({ darkHero = false }: SiteNavProps) {
         )}
 
         <nav className="hidden items-center gap-9 md:flex">
-          {LINKS.map((l) => (
+          {links.map((l) => (
             <a
               key={l.hash}
               href={buildHref(l.hash)}
