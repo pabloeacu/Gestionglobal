@@ -434,7 +434,7 @@ export function LexphIndexPage() {
                 )}
 
                 {insights.length > 0 && (
-                  <Section titulo="Insights" accent="#C46A10" onMore={() => setTipo('insight')}>
+                  <Section titulo="Insights" accent="#0B1F33" onMore={() => setTipo('insight')}>
                     <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                       {insights.map((a) => (
                         <LexphCard key={a.id} item={a} nuevo={marcarNuevos && esNuevo(a)} />

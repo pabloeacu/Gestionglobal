@@ -1,30 +1,20 @@
-// DGG-244 F2c · Digest editorial de la EDICIÓN actual en la web.
-// Las 4 secciones del molde de Pablo: intro (hilo conductor) + resumen ejecutivo
-// (scan rápido) + tendencias por materia + editorial/insight. Se pisa por edición.
+// DGG-244 F2c · Digest editorial de la EDICIÓN actual en la web (rediseño revista).
+// Las 4 piezas del molde de Pablo, en un SPREAD tipo diario: cabecera + apartado
+// "Scan rápido" (resumen ejecutivo, índice 01–05) + spread de dos columnas donde
+// la izquierda es la columna larga de lectura (intro con capitular + teaser del
+// editorial → nota independiente /lexph/editorial) y la derecha es el carrusel de
+// "Tendencias por materia" (scroll-snap, sin librería). Full-width (max-w-6xl) y
+// sólo azules de marca (cero naranja). El editorial completo vive en la nota.
 
-import { ClipboardList, BarChart3, Lightbulb } from 'lucide-react';
+import { useRef } from 'react';
+import { Link } from 'react-router-dom';
+import { ClipboardList, Lightbulb, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import type { LexphEdicionActual } from '@/services/api/lexphPublic';
+import { fmtFechaLarga } from './shared';
 
-// Rotación de colores de marca para las materias de "Tendencias".
-const MATERIA_COLORS = ['#009ECA', '#159AA6', '#2E6FB0', '#C46A10'];
-const ORANGE = '#C46A10';
-
-function DigestHead({ kicker, titulo, icon }: { kicker: string; titulo: string; icon: React.ReactNode }) {
-  return (
-    <div className="mb-6">
-      <p
-        className="font-gg-display flex items-center gap-2 text-[12px] font-semibold uppercase tracking-[0.12em]"
-        style={{ color: ORANGE }}
-      >
-        {icon} {kicker}
-      </p>
-      <h2 className="mt-1.5 font-display text-2xl font-extrabold tracking-tight text-brand-cyan sm:text-[1.7rem]">
-        {titulo}
-      </h2>
-    </div>
-  );
-}
+// Rotación de colores de marca para las materias de "Tendencias" (cero naranja).
+const MATERIA_COLORS = ['#009ECA', '#159AA6', '#2E6FB0', '#0B1F33'];
 
 export function LexphDigest({ edicion }: { edicion: LexphEdicionActual }) {
   const intro = edicion.intro?.trim();
@@ -32,89 +22,149 @@ export function LexphDigest({ edicion }: { edicion: LexphEdicionActual }) {
   const tendencias = Array.isArray(edicion.tendencias) ? edicion.tendencias : [];
   const editorial = edicion.editorial ?? {};
   const hasEditorial = Boolean(editorial.titulo || editorial.cuerpo);
+  const sello = edicion.publicado_at ? `Edición · ${fmtFechaLarga(edicion.publicado_at)}` : 'Esta edición';
+  const bajada = (editorial.cuerpo ?? '').split('\n\n')[0] ?? '';
+
+  const trackRef = useRef<HTMLUListElement>(null);
+  const scrollTrack = (dir: 1 | -1) =>
+    trackRef.current?.scrollBy({ left: dir * 320, behavior: 'smooth' });
 
   if (!intro && resumen.length === 0 && tendencias.length === 0 && !hasEditorial) return null;
 
   return (
-    <section className="border-t border-slate-200 bg-slate-50/50">
-      <div className="mx-auto max-w-4xl px-6 py-14 sm:py-16">
-        {/* Intro / hilo conductor de la edición */}
-        {intro && (
-          <div className="lexph-chamfer-sm mb-14 border-l-4 border-brand-cyan bg-white p-6 shadow-sm sm:p-7">
-            <p className="lexph-serif text-xl leading-[1.5] text-brand-ink/90 sm:text-[1.4rem]">{intro}</p>
-          </div>
-        )}
+    <section className="relative border-t border-slate-200 bg-slate-50">
+      <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
+        <TrianglesAccent position="top-right" tone="teal" density="soft" size={220} className="opacity-[0.07]" />
+      </div>
 
-        {/* Resumen ejecutivo (Scan rápido) */}
+      <div className="relative mx-auto max-w-6xl px-6 py-10 sm:py-12">
+        {/* ---------- Cabecera del spread (patrón Section del home) ---------- */}
+        <div className="mb-8 flex items-baseline justify-between gap-4 border-t-2 border-brand-cyan pt-3.5">
+          <h2 className="font-gg-display text-2xl font-bold uppercase tracking-[0.03em] text-brand-cyan">
+            La edición
+          </h2>
+          <span className="font-gg-display shrink-0 text-[11px] uppercase tracking-[0.12em] text-brand-muted tabular-nums">
+            {sello}
+          </span>
+        </div>
+
+        {/* ---------- Resumen ejecutivo — apartado "Scan rápido" (índice 01–05) ---------- */}
         {resumen.length > 0 && (
-          <div className="mb-16">
-            <DigestHead kicker="Scan rápido" titulo="Resumen ejecutivo" icon={<ClipboardList size={15} />} />
-            <div className="space-y-3">
+          <div className="lexph-chamfer-sm mb-10 border border-slate-200 bg-white p-6 shadow-[0_18px_40px_-30px_rgb(var(--brand-night-rgb)/0.45)]">
+            <p className="font-gg-display mb-1 flex items-center gap-2 text-[12px] font-semibold uppercase tracking-[0.12em] text-brand-teal">
+              <ClipboardList size={15} /> Scan rápido
+            </p>
+            <h3 className="font-display text-xl font-extrabold text-brand-ink">Resumen ejecutivo</h3>
+            <div className="mb-5 mt-3 h-0.5 w-10 bg-brand-cyan" />
+            <ol className="grid gap-x-8 gap-y-4 sm:grid-cols-2">
               {resumen.map((b, i) => (
-                <div
-                  key={i}
-                  className="lexph-chamfer-sm flex gap-3.5 border border-slate-200 bg-white p-5"
-                >
-                  <span className="mt-0.5 shrink-0 font-bold" style={{ color: ORANGE }} aria-hidden>
-                    ▸
+                <li key={i} className="flex gap-3.5">
+                  <span className="font-gg-display shrink-0 pt-0.5 text-[13px] font-bold tabular-nums text-brand-cyan">
+                    {String(i + 1).padStart(2, '0')}
                   </span>
-                  <p className="text-[15px] leading-relaxed text-brand-ink/90">
+                  <p className="text-[14.5px] leading-relaxed text-brand-ink/90">
                     <strong className="text-brand-ink">{b.titulo}:</strong> {b.texto}
                   </p>
-                </div>
+                </li>
               ))}
-            </div>
+            </ol>
           </div>
         )}
 
-        {/* Tendencias por materia */}
-        {tendencias.length > 0 && (
-          <div className="mb-16">
-            <DigestHead kicker="Análisis temático" titulo="Tendencias por materia" icon={<BarChart3 size={15} />} />
-            <div className="space-y-7">
-              {tendencias.map((t, i) => (
-                <div key={i}>
-                  <span
-                    className="lexph-chamfer-sm inline-block font-gg-display text-[11px] font-semibold uppercase tracking-[0.08em] text-white px-3 py-1.5"
-                    style={{ backgroundColor: MATERIA_COLORS[i % MATERIA_COLORS.length] }}
-                  >
-                    {t.materia}
-                  </span>
-                  <p className="mt-3 text-[15px] leading-relaxed text-brand-ink/85">{t.texto}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+        {/* ---------- Spread: columna larga de lectura ↔ columna en carrusel ---------- */}
+        <div className="lg:grid lg:grid-cols-12 lg:gap-x-10">
+          {/* IZQUIERDA — columna larga (intro standfirst + teaser del editorial) */}
+          <div className="lg:col-span-7">
+            {intro && (
+              <p className="lexph-lead-dropcap lexph-serif text-[1.3rem] leading-[1.5] text-brand-ink sm:text-[1.5rem]">
+                {intro}
+              </p>
+            )}
 
-        {/* Editorial / Insight — bloque destacado */}
-        {hasEditorial && (
-          <div
-            className="lexph-chamfer relative overflow-hidden px-8 py-10 text-white sm:px-10"
-            style={{ background: 'linear-gradient(130deg, #B45F0C 0%, #D9810F 55%, #E8920F 100%)' }}
-          >
-            <TrianglesAccent position="bottom-right" tone="cyan" density="soft" size={200} className="opacity-10" />
-            <div className="relative">
-              {editorial.kicker && (
-                <p className="font-gg-display flex items-center gap-2 text-[12px] font-semibold uppercase tracking-[0.12em] text-white/90">
-                  <Lightbulb size={14} /> {editorial.kicker}
+            {intro && hasEditorial && <div className="my-7 h-px bg-slate-200" />}
+
+            {hasEditorial && (
+              <div>
+                <p className="font-gg-display flex items-center gap-2 text-[12px] font-semibold uppercase tracking-[0.12em] text-brand-teal">
+                  <Lightbulb size={14} /> {editorial.kicker ?? 'Editorial'}
                 </p>
-              )}
-              {editorial.titulo && (
-                <h2 className="mt-2.5 font-display text-2xl font-bold leading-tight sm:text-[1.7rem]">
-                  {editorial.titulo}
-                </h2>
-              )}
-              {editorial.cuerpo && (
-                <div className="mt-4 space-y-3.5 text-[15.5px] leading-relaxed text-white/90">
-                  {editorial.cuerpo.split('\n\n').map((p, i) => (
-                    <p key={i}>{p}</p>
-                  ))}
-                </div>
-              )}
-            </div>
+                {editorial.titulo && (
+                  <h3 className="mt-2 font-display text-2xl font-extrabold leading-tight tracking-tight text-brand-ink sm:text-[1.7rem]">
+                    {editorial.titulo}
+                  </h3>
+                )}
+                {editorial.cuerpo && (
+                  <p className="lexph-serif mt-3 text-[1.15rem] leading-[1.5] text-brand-ink/85 line-clamp-4">
+                    {bajada}
+                  </p>
+                )}
+                <Link
+                  to="/lexph/editorial"
+                  className="lexph-cta lexph-cta-ink mt-5 inline-flex items-center gap-2 bg-brand-cyan px-5 py-2.5 font-gg-display text-[13px] font-semibold uppercase tracking-[0.07em] text-white"
+                >
+                  Seguir leyendo <ArrowRight size={16} />
+                </Link>
+              </div>
+            )}
           </div>
-        )}
+
+          {/* DERECHA — columna en carrusel (Tendencias por materia, scroll-snap) */}
+          {tendencias.length > 0 && (
+            <div className="mt-10 lg:col-span-5 lg:mt-0 lg:self-start">
+              <div className="mb-5 flex items-end justify-between gap-3">
+                <h3 className="font-gg-display text-xl font-bold uppercase tracking-[0.03em] text-brand-ink">
+                  Tendencias por materia
+                </h3>
+                <div className="hidden shrink-0 gap-2 lg:flex">
+                  <button
+                    type="button"
+                    aria-label="Tendencia anterior"
+                    onClick={() => scrollTrack(-1)}
+                    className="lexph-chamfer-sm border border-slate-200 p-2 text-brand-ink transition hover:border-brand-cyan hover:text-brand-cyan"
+                  >
+                    <ChevronLeft size={16} />
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Tendencia siguiente"
+                    onClick={() => scrollTrack(1)}
+                    className="lexph-chamfer-sm border border-slate-200 p-2 text-brand-ink transition hover:border-brand-cyan hover:text-brand-cyan"
+                  >
+                    <ChevronRight size={16} />
+                  </button>
+                </div>
+              </div>
+
+              <ul
+                ref={trackRef}
+                role="region"
+                aria-label="Tendencias por materia"
+                className="flex snap-x snap-mandatory gap-4 overflow-x-auto pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+              >
+                {tendencias.map((t, i) => {
+                  const color = MATERIA_COLORS[i % MATERIA_COLORS.length];
+                  return (
+                    <li
+                      key={i}
+                      className="lexph-card lexph-chamfer flex w-[80%] max-w-[300px] shrink-0 snap-start flex-col border border-slate-200 bg-white sm:w-[78%]"
+                    >
+                      <div className="h-1.5 w-full" style={{ backgroundColor: color }} />
+                      <div className="flex flex-1 flex-col p-5">
+                        <span
+                          className="lexph-chamfer-sm mb-3 inline-block w-fit px-3 py-1.5 font-gg-display text-[11px] font-semibold uppercase tracking-[0.08em] text-white"
+                          style={{ backgroundColor: color }}
+                        >
+                          {t.materia}
+                        </span>
+                        <p className="text-[15px] leading-relaxed text-brand-ink/85 line-clamp-6">{t.texto}</p>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
+        </div>
       </div>
     </section>
   );

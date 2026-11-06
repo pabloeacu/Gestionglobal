@@ -45,7 +45,7 @@ export const TIPOS: TipoMeta[] = [
     plural: 'Insights',
     icon: Lightbulb,
     chip: 'bg-emerald-50 text-emerald-700',
-    accent: '#C46A10', // naranja
+    accent: '#0B1F33', // navy (fuera de paleta el naranja; 4º color de marca distinto)
   },
 ];
 

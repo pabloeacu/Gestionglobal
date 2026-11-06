@@ -33,6 +33,19 @@
   box-shadow: 0 18px 40px -22px rgb(var(--brand-night-rgb) / 0.4);
 }
 
+/* Capitular editorial del standfirst del digest (home). Cormorant cian, opt-in.
+   NOMBRE DISTINTO de .lexph-dropcap (lexph-prose.css, Sora, para el cuerpo de
+   artículos) para no colisionar: acá la capitular es SERIF sobre un único <p>. */
+.lexph-lead-dropcap::first-letter {
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-weight: 700;
+  font-size: 3.4em;
+  line-height: 0.72;
+  float: left;
+  margin: 0.02em 0.12em 0 0;
+  color: rgb(var(--brand-cyan-rgb));
+}
+
 /* CTA de marca con offset duro al hover (canon del botón). */
 .lexph-cta {
   transition: transform .15s ease, box-shadow .15s ease;

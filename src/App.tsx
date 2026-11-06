@@ -119,6 +119,7 @@ const LexphIndexPage = lazy(() => import('@/modules/lexph/public/LexphIndexPage'
 const LexphArticuloPublicoPage = lazy(() => import('@/modules/lexph/public/LexphArticuloPublicoPage').then(m => ({ default: m.LexphArticuloPublicoPage })));
 const LexphTagPage = lazy(() => import('@/modules/lexph/public/LexphTagPage').then(m => ({ default: m.LexphTagPage })));
 const LexphSuscripcionPage = lazy(() => import('@/modules/lexph/public/LexphSuscripcionPage').then(m => ({ default: m.LexphSuscripcionPage })));
+const LexphEditorialPage = lazy(() => import('@/modules/lexph/public/LexphEditorialPage').then(m => ({ default: m.LexphEditorialPage })));
 
 type Role = 'gerente' | 'operador' | 'administrador' | 'partner';
 
@@ -414,6 +415,8 @@ export function App() {
         <Route path="/lexph/confirmar" element={<LexphSuscripcionPage modo="confirmar" />} />
         <Route path="/lexph/baja" element={<LexphSuscripcionPage modo="baja" />} />
         <Route path="/lexph/tema/:tag" element={<LexphTagPage />} />
+        {/* /lexph/editorial ANTES de /lexph/:slug: ruta estática no debe caer como slug (E-GG). */}
+        <Route path="/lexph/editorial" element={<LexphEditorialPage />} />
         <Route path="/lexph/:slug" element={<LexphArticuloPublicoPage />} />
         <Route path="/webinar/:token" element={<WebinarPublicoPage />} />
         {/* G2 · wrapper Campus (DGG-15): mismo magic-link pero shell premium del Campus. */}
