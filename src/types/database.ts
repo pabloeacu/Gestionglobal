@@ -4934,6 +4934,7 @@ export type Database = {
           id: string
           intro: string | null
           newsletter_enviado_at: string | null
+          newsletter_reporte_at: string | null
           publicado_at: string | null
           resumen: Json
           seq: number
@@ -4950,6 +4951,7 @@ export type Database = {
           id?: string
           intro?: string | null
           newsletter_enviado_at?: string | null
+          newsletter_reporte_at?: string | null
           publicado_at?: string | null
           resumen?: Json
           seq: number
@@ -4966,6 +4968,7 @@ export type Database = {
           id?: string
           intro?: string | null
           newsletter_enviado_at?: string | null
+          newsletter_reporte_at?: string | null
           publicado_at?: string | null
           resumen?: Json
           seq?: number
@@ -11313,7 +11316,16 @@ export type Database = {
         Returns: string
       }
       lexph_edicion_publica_actual: { Args: never; Returns: Json }
-      lexph_newsletter_enviar: { Args: { p_edicion_id: string }; Returns: Json }
+      lexph_importar_audiencia_inicial: { Args: never; Returns: Json }
+      lexph_newsletter_enviar: {
+        Args: { p_edicion_id: string; p_programado_desde?: string }
+        Returns: Json
+      }
+      lexph_newsletter_enviar_especifico: {
+        Args: { p_edicion_id: string; p_emails: string[] }
+        Returns: Json
+      }
+      lexph_newsletter_html: { Args: { p_edicion_id: string }; Returns: string }
       lexph_publico_articulo: { Args: { p_slug: string }; Returns: Json }
       lexph_publico_feed: { Args: never; Returns: Json }
       lexph_suscribir: { Args: { p_email: string }; Returns: Json }
@@ -12459,3 +12471,4 @@ export const Constants = {
     },
   },
 } as const
+
