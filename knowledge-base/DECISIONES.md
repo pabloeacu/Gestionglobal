@@ -8393,3 +8393,12 @@ Frente B: Pablo dio el "go" para marcar la base inicial como suscriptores (model
 - **§6 R18 smoke (BEGIN/ROLLBACK):** 185 + 2.839 = 3.024; 0 suprimidos colados; 0 avisos del import. Luego corrido en prod (commit).
 - **Todo listo para el primer envío masivo:** disparo manual de Pablo desde el CMS → goteo ≤1500/día (F2j) desde contacto@. Diferido: List-Unsubscribe header (necesita edge, R7); UI de envío a mails específicos/listas (#4).
 - **Fecha:** 2026-11-06.
+
+### DGG-244 · F2m — Alta manual de suscriptores + envío PROGRAMADO (mañana 7:00 ART) + informe final (2026-11-07, mig 0665)
+
+- **Alta manual (4):** `lisandrocingolani@gmail.com` y `adeleon71@gmail.com` (pidieron recibirlo, origen 'manual'); los 2 gerentes como **testigos** (adm.saveriano origen 'gerencia_testigo'; **pabloeacu YA estaba en captación** → `ON CONFLICT DO NOTHING` lo preservó, hermético). Ambos gerentes reciben el newsletter.
+- **Envío programado server-side:** `lexph_newsletter_enviar` ahora toma `p_programado_desde` (R16: DROP firma vieja + CREATE nueva con default; el front sigue llamando con 1 arg). Se encoló la campaña ANCLADA en **2026-11-07 10:00 UTC (= mañana 7:00 ART)** → el dispatcher existente la larga a esa hora (sin cron nuevo). **3.027 destinatarios**, goteo día0=1500/día1=1500/día2=27, prioridad 8. Nada sale de noche; aprovecha toda la jornada.
+- **Baja mid-campaña (hermético):** `lexph_suscripcion_baja` ahora **cancela las filas de newsletter PENDIENTES** del que se da de baja (sin esto recibiría los días 2/3, porque el edge no filtra supresión para el newsletter). Smoke verde.
+- **Informe final automático:** columna `lexph_ediciones.newsletter_reporte_at` + `private.lexph_newsletter_reporte_tick()` + cron horario `lexph-newsletter-reporte` ('7 * * * *'): al completarse la campaña (0 pendientes) avisa a gerencia con stats (entregados/fallidos/bajas), idempotente.
+- **§6:** R16 (1 firma), R18 smoke (goteo anclado + baja-cancel verdes). Remitente contacto@ (F2j). Pie con "Darme de baja" por token (suficiente, decisión de Pablo — no List-Unsubscribe header).
+- **Fecha:** 2026-11-07 (00:50 UTC).
