@@ -233,7 +233,7 @@ export function LexphEdicionPage() {
       return;
     }
     toast.success(`Newsletter encolado a ${res.data.enviados} suscriptor${res.data.enviados === 1 ? '' : 'es'}`, {
-      description: 'Se envían de a poco por el throttle de correo. Podés cerrar la edición cuando quieras.',
+      description: 'Se envían de a poco (hasta 1500/día, por reputación de envío): la base completa tarda unos días. Si Gmail falla, la cola reintenta sola. Podés cerrar la edición cuando quieras.',
     });
     void cargar();
   }
