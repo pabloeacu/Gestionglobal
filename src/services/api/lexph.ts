@@ -285,13 +285,23 @@ export interface LexphSuscriptoresStats {
 }
 export async function getSuscriptoresStats(): Promise<ApiResponse<LexphSuscriptoresStats>> {
   try {
-    const { data, error } = await supabase.from('lexph_suscriptores').select('estado');
-    if (error) throw error;
-    const rows = (data ?? []) as { estado: string }[];
+    // R19 · universo COMPLETO. Antes hacía `.select('estado')` y contaba el array,
+    // pero PostgREST corta en db-max-rows (1000) → sub-contaba cuando la base supera 1000
+    // (p.ej. "1000 confirmados" con 3027 reales, y el diálogo de envío mentía el N° de
+    // destinatarios). Conteo exacto con head:true: no transfiere filas y respeta RLS.
+    const base = () => supabase.from('lexph_suscriptores').select('*', { count: 'exact', head: true });
+    const [tot, conf, pend] = await Promise.all([
+      base(),
+      base().eq('estado', 'confirmado'),
+      base().eq('estado', 'pendiente'),
+    ]);
+    if (tot.error) throw tot.error;
+    if (conf.error) throw conf.error;
+    if (pend.error) throw pend.error;
     return ok({
-      total: rows.length,
-      confirmados: rows.filter((r) => r.estado === 'confirmado').length,
-      pendientes: rows.filter((r) => r.estado === 'pendiente').length,
+      total: tot.count ?? 0,
+      confirmados: conf.count ?? 0,
+      pendientes: pend.count ?? 0,
     });
   } catch (e) {
     const err = toApiError(e);
@@ -313,12 +323,27 @@ export interface LexphSuscriptorItem {
 }
 export async function listSuscriptores(): Promise<ApiResponse<LexphSuscriptorItem[]>> {
   try {
-    const { data, error } = await supabase
-      .from('lexph_suscriptores')
-      .select('id,email,estado,origen,created_at,confirmed_at,last_email_at,baja_at')
-      .order('created_at', { ascending: false });
-    if (error) throw error;
-    return ok((data ?? []) as LexphSuscriptorItem[]);
+    // R19 · universo COMPLETO. PostgREST corta en db-max-rows (1000) por request, así que
+    // paginamos por rangos hasta traer TODO (la página deriva KPIs/tabs/búsqueda/CSV de este
+    // array en memoria; si quedaba capado en 1000, los contadores mentían y el buscador no
+    // encontraba a nadie más allá de la fila 1000). Orden estable (created_at desc, id) para
+    // que los rangos no se solapen. Tope de seguridad: más allá, conviene listado server-side.
+    const PAGE = 1000;
+    const MAX = 100000;
+    const all: LexphSuscriptorItem[] = [];
+    for (let from = 0; from <= MAX; from += PAGE) {
+      const { data, error } = await supabase
+        .from('lexph_suscriptores')
+        .select('id,email,estado,origen,created_at,confirmed_at,last_email_at,baja_at')
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: true })
+        .range(from, from + PAGE - 1);
+      if (error) throw error;
+      const chunk = (data ?? []) as LexphSuscriptorItem[];
+      all.push(...chunk);
+      if (chunk.length < PAGE) break;
+    }
+    return ok(all);
   } catch (e) {
     const err = toApiError(e);
     return fail(err.code, err.message, err.details);
