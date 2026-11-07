@@ -8402,3 +8402,12 @@ Frente B: Pablo dio el "go" para marcar la base inicial como suscriptores (model
 - **Informe final automático:** columna `lexph_ediciones.newsletter_reporte_at` + `private.lexph_newsletter_reporte_tick()` + cron horario `lexph-newsletter-reporte` ('7 * * * *'): al completarse la campaña (0 pendientes) avisa a gerencia con stats (entregados/fallidos/bajas), idempotente.
 - **§6:** R16 (1 firma), R18 smoke (goteo anclado + baja-cancel verdes). Remitente contacto@ (F2j). Pie con "Darme de baja" por token (suficiente, decisión de Pablo — no List-Unsubscribe header).
 - **Fecha:** 2026-11-07 (00:50 UTC).
+
+### DGG-244 · F2n — Envío del newsletter a mails específicos (ad-hoc) (2026-11-07, mig 0666) — HECHO, §6 verde
+
+Pedido #4 de Pablo (UI de envíos específicos). En el CMS de la edición, botón **"Mails específicos"** → modal para pegar una lista de correos (coma/espacio/salto) → les envía esta edición.
+
+- **RPC `lexph_newsletter_enviar_especifico(edicion, emails[])`** (staff-only): reusa el render (`lexph_newsletter_html`) + el template por-edición; **asegura un suscriptor** por mail (hermético `ON CONFLICT DO NOTHING`, origen 'manual' → quedan suscriptos con baja de un clic), **saltea suprimidos e inválidos**, dedup por email_norm, encola con prioridad 8 + goteo ≤1500/día.
+- **UI** (`LexphEdicionPage`): botón + `Modal` con `Textarea` (parseo coma/espacio/salto, dedup en vivo, contador de mails detectados) + servicio `enviarNewsletterEspecifico`.
+- **§6 R18 smoke (BEGIN/ROLLBACK):** lista mixta (nuevos/suprimido/inválido/duplicado) → 2 encolados, 2 suscriptos, 0 suprimido colado. Build por Vercel.
+- **Fecha:** 2026-11-07.

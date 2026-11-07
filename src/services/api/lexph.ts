@@ -257,6 +257,26 @@ export async function enviarNewsletter(edicionId: string): Promise<ApiResponse<L
   }
 }
 
+// Envía el newsletter de una edición a una lista de mails ESPECÍFICOS (ad-hoc). Staff.
+// Asegura un suscriptor por mail (hermético), saltea suprimidos, encola con goteo.
+export async function enviarNewsletterEspecifico(
+  edicionId: string,
+  emails: string[],
+): Promise<ApiResponse<{ enviados: number }>> {
+  try {
+    const { data, error } = await supabase.rpc('lexph_newsletter_enviar_especifico', {
+      p_edicion_id: edicionId,
+      p_emails: emails,
+    });
+    if (error) throw error;
+    const d = data as { enviados?: number } | null;
+    return ok({ enviados: Number(d?.enviados ?? 0) });
+  } catch (e) {
+    const err = toApiError(e);
+    return fail('LEXPH_NEWSLETTER_ESPECIFICO', err.message, err.details);
+  }
+}
+
 // Conteo de suscriptores del newsletter (staff; tabla RLS staff-only). R19: universo completo.
 export interface LexphSuscriptoresStats {
   total: number;

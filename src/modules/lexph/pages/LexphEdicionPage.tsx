@@ -17,8 +17,9 @@ import {
   Star,
   GripVertical,
   Send,
+  Mail,
 } from 'lucide-react';
-import { Button, Field, Input, Textarea, Select, Skeleton, useConfirm } from '@/components/common';
+import { Button, Field, Input, Textarea, Select, Skeleton, Modal, useConfirm } from '@/components/common';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import { toast } from '@/lib/toast';
 import { humanizeError } from '@/lib/errors';
@@ -27,6 +28,7 @@ import {
   guardarEdicion,
   cerrarEdicion,
   enviarNewsletter,
+  enviarNewsletterEspecifico,
   listArticulos,
   getSuscriptoresStats,
   type LexphEdicion,
@@ -81,6 +83,9 @@ export function LexphEdicionPage() {
   const [saving, setSaving] = useState(false);
   const [cerrando, setCerrando] = useState(false);
   const [enviando, setEnviando] = useState(false);
+  const [especOpen, setEspecOpen] = useState(false);
+  const [especEmails, setEspecEmails] = useState('');
+  const [especEnviando, setEspecEnviando] = useState(false);
 
   // --- estado editable del digest ---
   const [tituloInterno, setTituloInterno] = useState('');
@@ -233,6 +238,36 @@ export function LexphEdicionPage() {
     void cargar();
   }
 
+  // #4 · envío a mails específicos (ad-hoc): parsea la lista pegada (coma/salto/espacio).
+  const especList = Array.from(
+    new Set(especEmails.split(/[\s,;]+/).map((x) => x.trim().toLowerCase()).filter(Boolean)),
+  );
+
+  async function handleEnviarEspecifico() {
+    if (!edicion) return;
+    if (!intro.trim()) {
+      toast.error('Completá al menos la intro antes de enviar el newsletter.');
+      return;
+    }
+    if (especList.length === 0) {
+      toast.error('Pegá al menos un mail válido.');
+      return;
+    }
+    setEspecEnviando(true);
+    const res = await enviarNewsletterEspecifico(edicion.id, especList);
+    setEspecEnviando(false);
+    if (!res.ok) {
+      toast.error('No pudimos enviar', { description: humanizeError(res.error) });
+      return;
+    }
+    setEspecOpen(false);
+    setEspecEmails('');
+    toast.success(`Newsletter encolado a ${res.data.enviados} mail${res.data.enviados === 1 ? '' : 's'}`, {
+      description: 'Los inválidos y los suprimidos se saltearon. Se envían de a poco por el throttle.',
+    });
+    void cargar();
+  }
+
   if (loading) {
     return (
       <div className="space-y-4 pb-12">
@@ -295,6 +330,9 @@ export function LexphEdicionPage() {
             </a>
             <Button variant="ghost" onClick={() => void handleEnviar()} disabled={enviando || saving || cerrando}>
               <Send size={15} /> {enviando ? 'Enviando…' : edicion.newsletter_enviado_at ? 'Reenviar newsletter' : 'Enviar newsletter'}
+            </Button>
+            <Button variant="ghost" onClick={() => setEspecOpen(true)} disabled={enviando || saving || cerrando}>
+              <Mail size={15} /> Mails específicos
             </Button>
             <Button variant="ghost" onClick={() => void handleCerrar()} disabled={cerrando || saving || enviando}>
               <FlagOff size={15} /> {cerrando ? 'Cerrando…' : 'Cerrar edición'}
@@ -475,6 +513,39 @@ export function LexphEdicionPage() {
           </div>
         </aside>
       </div>
+
+      {/* #4 · Envío a mails específicos (ad-hoc) */}
+      <Modal
+        open={especOpen}
+        onClose={() => setEspecOpen(false)}
+        title="Enviar a mails específicos"
+        footer={
+          <div className="flex items-center justify-end gap-2">
+            <Button variant="ghost" onClick={() => setEspecOpen(false)} disabled={especEnviando}>
+              Cancelar
+            </Button>
+            <Button onClick={() => void handleEnviarEspecifico()} disabled={especEnviando || especList.length === 0}>
+              <Send size={15} /> {especEnviando ? 'Enviando…' : `Enviar a ${especList.length}`}
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-3">
+          <p className="text-sm text-brand-muted">
+            Pegá los correos (separados por coma, espacio o salto de línea). Se les envía esta edición y quedan
+            como suscriptores (con baja de un clic en el pie). Los inválidos y los suprimidos se saltean solos.
+          </p>
+          <Textarea
+            value={especEmails}
+            onChange={(e) => setEspecEmails(e.target.value)}
+            rows={6}
+            placeholder={'uno@correo.com, otro@correo.com\ntercero@correo.com'}
+          />
+          <p className="text-xs text-brand-muted">
+            {especList.length} mail{especList.length === 1 ? '' : 's'} detectado{especList.length === 1 ? '' : 's'}.
+          </p>
+        </div>
+      </Modal>
     </div>
   );
 }
