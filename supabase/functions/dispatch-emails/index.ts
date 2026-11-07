@@ -74,6 +74,15 @@ const BATCH_MAX = 1;
 // por-destinatario, se intenta con los siguientes (sin saltear prioridades
 // entre destinatarios distintos: el orden prioridad/programado_para se respeta).
 const CANDIDATE_MAX = 10;
+// E-GG-261 [1] · Watchdog del claim atómico (ver paso 0 y 6-bis más abajo): una
+// fila 'sending' cuyo invocador murió entre el claim y el desenlace queda
+// huérfana con enviado_at NULL. Pasado este umbral la devolvemos a 'pending'
+// para que un tick futuro la re-reclame. 10 min >> cualquier envío legítimo (el
+// runtime de la edge corta mucho antes), así que sólo reclama invocaciones
+// realmente muertas. Depende SÓLO de sending_started_at (que escribe el claim y
+// limpian las ramas de éxito/fallo) — nunca de un marcador que otra ruta
+// reescriba (lección E-GG-265: nada de resucitadores frágiles con loop).
+const CLAIM_WATCHDOG_MS = 10 * 60 * 1000;
 
 type Casilla = string;
 
@@ -167,6 +176,18 @@ Deno.serve(async (req) => {
     serviceKey,
   );
 
+  // 0) Watchdog del claim atómico (E-GG-261 [1] · §6 C-B/A#9). Corre en CADA tick,
+  // aun si luego throttleamos. Reclama las filas 'sending' huérfanas (el invocador
+  // murió entre el claim y el desenlace) vía RPC que CONSUME un intento y, al agotar
+  // max_intentos, las manda a 'failed' terminal. Consumir el intento es clave: un
+  // watchdog que sólo hiciera sending→pending dejaría loopear a un invocador que
+  // muere SIEMPRE (p.ej. envío que cuelga hasta el tope ~150s de la edge) → nunca
+  // converge y el informe final nunca se emite (clase E-GG-265). Depende sólo de
+  // sending_started_at, columna que únicamente escribe esta edge.
+  await admin.rpc('email_queue_watchdog_reclaim', {
+    p_max_age_sec: Math.floor(CLAIM_WATCHDOG_MS / 1000),
+  });
+
   // 1) Throttle GLOBAL (ritmo entre mails de destinatarios distintos — DGG-113).
   const { data: throttleRow } = await admin
     .from('email_throttle').select('last_sent_at').eq('key', THROTTLE_KEY).maybeSingle();
@@ -183,6 +204,10 @@ Deno.serve(async (req) => {
     .select('id, template_slug, to_email, to_nombre, variables, prioridad, intento, max_intentos, administracion_id, consorcio_id, attachments_jsonb, related_table, related_id')
     .eq('kind', 'workflow')
     .is('enviado_at', null)
+    // E-GG-261 [1] · excluir filas ya reclamadas por otro tick en vuelo (el
+    // watchdog del paso 0 reclama las 'sending' huérfanas, así que esto nunca
+    // esconde una fila para siempre).
+    .neq('status', 'sending')
     .lte('programado_para', new Date().toISOString())
     .order('prioridad', { ascending: true })
     .order('programado_para', { ascending: true })
@@ -198,7 +223,8 @@ Deno.serve(async (req) => {
   const recipientCutoff = new Date(Date.now() - RECIPIENT_FLOOR_MS).toISOString();
   let job: QueueRow | null = null;
   for (const candidate of rows as QueueRow[]) {
-    const { count, error: errRecent } = await admin
+    // (i) ¿recibió un 'sent' en la ventana de 5 min?
+    const { count: cSent, error: errRecent } = await admin
       .from('email_queue')
       .select('id', { count: 'exact', head: true })
       .eq('to_email', candidate.to_email)
@@ -206,7 +232,16 @@ Deno.serve(async (req) => {
       .gte('sent_at', recipientCutoff);
     // Ante un error de lectura, preferimos NO enviar (fail-closed del piso).
     if (errRecent) return jsonError(500, `recipient check: ${errRecent.message}`);
-    if (!count) {
+    // (ii) E-GG-261 §6-A#8: el piso E42 también debe ver lo EN VUELO ('sending',
+    // reclamada por otro tick pero aún sin marcar 'sent') — si no, una llamada a
+    // Gmail lenta deja la ventana abierta para un 2º mail al mismo destinatario.
+    const { count: cSending, error: errSending } = await admin
+      .from('email_queue')
+      .select('id', { count: 'exact', head: true })
+      .eq('to_email', candidate.to_email)
+      .eq('status', 'sending');
+    if (errSending) return jsonError(500, `recipient check: ${errSending.message}`);
+    if (!cSent && !cSending) {
       job = candidate;
       break;
     }
@@ -225,7 +260,7 @@ Deno.serve(async (req) => {
     if (bloqueado === true) {
       await admin.from('email_queue')
         .update({ enviado_at: new Date().toISOString(), status: 'cancelled', ultimo_error: 'destinatario descartado/rebotado (casilla muerta)' })
-        .eq('id', job.id);
+        .eq('id', job.id).is('enviado_at', null);
       return json({ ok: true, drained: 0, blocked_dead: true });
     }
   }
@@ -267,7 +302,7 @@ Deno.serve(async (req) => {
     if (suprimido === true) {
       await admin.from('email_queue')
         .update({ enviado_at: new Date().toISOString(), status: 'cancelled', ultimo_error: 'suprimido (opt-out / baja)' })
-        .eq('id', job.id);
+        .eq('id', job.id).is('enviado_at', null);
       return json({ ok: true, drained: 0, suppressed: true });
     }
     // (b) Link de baja OBLIGATORIO. Fail-CLOSED: ningún mail de marketing sin baja.
@@ -349,6 +384,32 @@ Deno.serve(async (req) => {
     return jsonError(502, 'oauth refresh failed');
   }
 
+  // 6-bis) CLAIM ATÓMICO (E-GG-261 [1]) · reservamos la fila ANTES del fetch a
+  // Gmail. Dos ticks del cron (*/1) pueden seleccionar el mismo candidato si una
+  // llamada a Gmail tarda más que el intervalo; este UPDATE condicional es el
+  // árbitro atómico: sólo UNO gana (Postgres serializa el lock de fila y el
+  // perdedor re-evalúa el WHERE contra la versión ya 'sending' → 0 filas).
+  // RETURNING id (vía .select) nos dice si ganamos. Si 0 filas, otro tick la
+  // tomó/terminó entre la selección y acá → no enviamos. Cierra la ventana de
+  // doble-entrega por LENTITUD (TOCTOU, el caso del hallazgo [1]); queda un
+  // residual at-least-once si el proceso MUERE entre el 200 de Gmail y la marca de
+  // enviado_at (sin idempotency key de proveedor no es evitable; documentado en
+  // E-GG-266). Va DESPUÉS del OAuth (último gate que puede failJob) para no dejar
+  // un 'sending' en una rama que no envía.
+  {
+    const { data: claimed, error: claimErr } = await admin
+      .from('email_queue')
+      .update({ status: 'sending', sending_started_at: new Date().toISOString() })
+      .eq('id', job.id)
+      .is('enviado_at', null)
+      .neq('status', 'sending')
+      .select('id');
+    if (claimErr) return jsonError(500, `claim: ${claimErr.message}`);
+    if (!claimed || claimed.length === 0) {
+      return json({ ok: true, drained: 0, claim_lost: true });
+    }
+  }
+
   // 7) MIME + Gmail send.
   // DGG-118: adjuntos opcionales del job. Se resuelven acá y NUNCA bloquean el
   // envío — un adjunto irrecuperable se omite con log de error (un mail de
@@ -411,17 +472,27 @@ Deno.serve(async (req) => {
   }
 
   const fromHeader = `${encodeRfc2047('Gestión Global')} <${senderEmail}>`;
-  const mime = buildMimeMessage({
-    from: fromHeader,
-    to: [job.to_email],
-    replyTo: replyToEmail,
-    subject,
-    html,
-    text,
-    attachments,
-    bajaUrl: bajaUrl ?? undefined,
-  });
-  const raw = base64UrlEncode(mime);
+  // E-GG-261 §6-A#9: envolver el armado del MIME. Un valor "veneno" (p.ej. un
+  // lone-surrogate en una variable → encodeURIComponent lanza) NO debe escapar el
+  // handler dejando la fila colgada en 'sending': la fallamos por el camino normal
+  // (failJob consume el intento + backoff) en vez de esperar 10 min al watchdog.
+  let raw: string;
+  try {
+    const mime = buildMimeMessage({
+      from: fromHeader,
+      to: [job.to_email],
+      replyTo: replyToEmail,
+      subject,
+      html,
+      text,
+      attachments,
+      bajaUrl: bajaUrl ?? undefined,
+    });
+    raw = base64UrlEncode(mime);
+  } catch (e) {
+    await failJob(admin, job, `MIME build: ${(e as Error).message}`);
+    return jsonError(500, 'mime build failed');
+  }
 
   let providerMsgId: string | null = null;
   try {
@@ -457,6 +528,7 @@ Deno.serve(async (req) => {
     enviado_at: nowIso,
     sent_at: nowIso,
     status: 'sent',
+    sending_started_at: null,
     // DGG-118 (§6 A#5): si algún adjunto se omitió, dejar rastro PERSISTENTE
     // (el mail salió, pero incompleto — visible en EmailQueuePage, no solo en
     // logs efímeros de la edge). status sigue 'sent': el mail SÍ se entregó.
@@ -630,6 +702,11 @@ async function failJob(admin: ReturnType<typeof createClient>, job: QueueRow, ms
   const backoffMin = Math.min(Math.pow(2, nextIntento), 60);
   const nextSchedule = new Date(Date.now() + backoffMin * 60 * 1000).toISOString();
 
+  // E-GG-264: NUNCA pisar una fila ya entregada/cerrada (enviado_at set). Con el
+  // claim atómico (E-GG-261 [1]) la carrera que motivó esto ya no ocurre, pero el
+  // guard `.is('enviado_at', null)` es barato y elimina de raíz el riesgo de
+  // pisar un 'sent' con 'failed'. Ambas ramas limpian el claim (sending_started_at
+  // = null) para que el watchdog no tenga nada que reclamar.
   if (exhausted) {
     // E-GG-108: además de enviado_at (stop marker), avanzar status a 'failed'
     // para que no quede 'pending' contando como "atascado" tras agotar reintentos.
@@ -638,13 +715,19 @@ async function failJob(admin: ReturnType<typeof createClient>, job: QueueRow, ms
       ultimo_error: msg,
       enviado_at: new Date().toISOString(),
       status: 'failed',
-    }).eq('id', job.id);
+      sending_started_at: null,
+    }).eq('id', job.id).is('enviado_at', null);
   } else {
+    // Reintento: liberamos el claim (status→'pending') para que un tick futuro
+    // re-reclame la fila en su horario de backoff. (Antes del claim esto era un
+    // no-op: la fila seguía 'pending'.)
     await admin.from('email_queue').update({
       intento: nextIntento,
       ultimo_error: msg,
       programado_para: nextSchedule,
-    }).eq('id', job.id);
+      status: 'pending',
+      sending_started_at: null,
+    }).eq('id', job.id).is('enviado_at', null);
   }
 }
 

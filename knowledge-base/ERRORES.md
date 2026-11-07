@@ -6871,3 +6871,41 @@ Todos LATENTES (0 admins afectados hoy, motor real DORMIDO) — cazados por la d
 **DECISIÓN (mig 0671): remover la resurrección entera.** Se restauró `lexph_newsletter_supresion_sweep` a supresión-sólo (terminal, sin loop posible). La tolerancia a caídas de Gmail la da el `max_intentos=10` (E-GG-262 [5](a), ~5h de reintentos con backoff) SIN piezas móviles ni riesgo; para el caso remoto de outage sostenido >5h, el fallback es MANUAL: el informe reporta los 'fallidos' y gerencia los reenvía por el feature #4 (ahora funcional, E-GG-263). **Smoke post-revert:** failed-transitorio → queda failed INTACTO (no se resucita); suprimido → cancelled. Campaña de 3027 intacta.
 
 **Lección (la grande):** un "hardening" puede ser NETO NEGATIVO. El resucitador cubría un residuo ínfimo (outage >5h) y a cambio introducía loop infinito + informe roto + fila no-cancelable. La doble auditoría adversarial §6 lo cazó porque ejercitó el camino de FALLO REPETIDO, no sólo el happy-path del smoke. Regla capitalizada: antes de agregar un reintentador/resucitador, enumerar el ciclo de vida COMPLETO del dato bajo fallo repetido (quién reescribe cada campo del que dependo, converge el universo a estado terminal, qué lector asume terminalidad). Y: preferir el mínimo robusto (max_intentos) a la maquinaria frágil.
+
+## E-GG-266 (2026-11-07) — Claim atómico anti doble-envío en `dispatch-emails` (resuelve el hallazgo [1] de E-GG-261) + §6 completa (DGG-244 F2q; migs 0672/0673; edge dispatch-emails v35)
+
+**Contexto:** el hallazgo [1] de E-GG-261 (doble-entrega por concurrencia TOCTOU) fue diferido por Pablo a una sesión aparte porque toca la edge money-crítica `dispatch-emails` (gate R7 · reference_edge_deploy_drift_r7). Se retomó en ventana LIMPIA: 2026-11-07 00:36 ART, con el burst de 3027 del newsletter LexPH **NO en vuelo** (abre 10:00 UTC; `pending_due_now=0`, `sending=0`). Deploy cerrado antes de las 10:00 UTC.
+
+**El bug (confirmado en el fuente):** el dispatcher seleccionaba candidatos por `enviado_at IS NULL` y escribía `enviado_at`/`status='sent'`/`email_throttle.last_sent_at` recién DESPUÉS del fetch a Gmail. No reclamaba la fila antes del envío. Si una llamada a Gmail tardaba más que el intervalo del cron `dispatch-emails-1min` (`*/1`), el tick siguiente re-seleccionaba la MISMA fila (enviado_at aún NULL, throttle aún del envío previo) → doble entrega. Severidad menor (disparador raro), real.
+
+**El fix (edge, dispatch-emails/index.ts):**
+- **CLAIM ATÓMICO** antes del fetch a Gmail (justo después del OAuth, último gate que puede `failJob`): `UPDATE email_queue SET status='sending', sending_started_at=now() WHERE id=:id AND enviado_at IS NULL AND status<>'sending' RETURNING id`. Postgres serializa el lock de fila; el perdedor re-evalúa el WHERE contra la versión ya `'sending'` → 0 filas → `claim_lost`, no envía. El estado `'sending'` y la columna `sending_started_at` existían desde mig 0006, SIN uso — el fix los activa.
+- Candidate SELECT agrega `.neq('status','sending')` (no re-selecciona lo ya reclamado en vuelo).
+- **Watchdog** (RPC `public.email_queue_watchdog_reclaim`, mig 0673) corre en CADA tick: reclama filas `'sending'` huérfanas (invocador muerto entre claim y desenlace) **CONSUMIENDO un intento**; al agotar `max_intentos` → `'failed'` terminal. Depende sólo de `sending_started_at`, columna que únicamente escribe esta edge (verificado contra pg_proc/pg_trigger/grep).
+- `failJob`: ambas ramas limpian `sending_started_at` + guard `.is('enviado_at', null)` (E-GG-264: nunca pisar un `'sent'`); la rama de reintento libera el claim (status→`'pending'`).
+- Rama de éxito limpia `sending_started_at`.
+- **Poison-guard:** armado del MIME (`buildMimeMessage`/`base64UrlEncode`) en try/catch → `failJob` (un valor que haga lanzar `encodeURIComponent` ya no deja la fila colgada en `'sending'`).
+- Piso por-destinatario (E42) ahora cuenta también lo `'sending'` en vuelo, no sólo `'sent'` (cierra un hueco pre-existente del piso de 5 min que la concurrencia del claim hizo visible).
+
+**El fix (DB, "misma pasada" · nota de E-GG-265):** `private.lexph_newsletter_reporte_tick` deriva entregados/fallidos cruzando `sent_emails` como **fuente de verdad de entrega** (una fila entregada que `failJob` pisó a `'failed'` se cuenta ENTREGADO), a nivel **DESTINATARIO** (distinct `to_email`, colapsa reenvíos #4 que reusan el slug) y **PARTICIONANDO** el universo terminal (ningún destinatario no-entregado queda fuera de cancelado/fallido; cubre el `cancelar()` de UI que deja `status='pending'`). migs **0672** (v1: cruce sent_emails + índice parcial `idx_email_queue_sending`) → **0673** (v2: recipient-level + partición + watchdog RPC).
+
+**Gate R7:** la edge deployada v34 se bajó con `get_edge_function` y resultó **byte-idéntica** al repo (función self-contained, sólo importa `esm.sh/@supabase/supabase-js`, SIN deps `_shared` aplanadas → el pipeline de drift de reference_edge_deploy_drift_r7 NO aplica a esta función). No hubo drift que reconciliar. Deploy con `verify_jwt=false` (DGG-113: con `true` la plataforma 401-ea el bearer del cron antes del código → el dispatch se frena mudo).
+
+**Doble auditoría §6 (3 agentes estáticos en paralelo + EJERCITAR e2e en BD):** el núcleo (claim, watchdog, fan-out, migración) verificado correcto por los 3. Hallazgos, TODOS saldados en el chunk:
+- **A#8** — piso por-destinatario ciego a `'sending'` → incluido en el chequeo de recencia.
+- **A#9 / C-B** — el watchdog inline NO consumía `intento` → un invocador que muere DETERMINÍSTICAMENTE en cada intento (envío que cuelga hasta el tope ~150s de la edge → kill antes de `failJob`) loopearía claim→crash→reclaim sin converger, y el "Informe final" (dispara con pendientes=0) NUNCA se emitiría (clase E-GG-265 por otra vía) → watchdog convertido a RPC con circuit-breaker (consume intento + exhausta a `'failed'`).
+- **A#9** — excepción "veneno" post-claim escapaba `failJob` → try/catch del MIME.
+- **A#11** — cancels pre-claim (`blocked_dead`/`suppressed`) sin guard `enviado_at` → agregado `.is('enviado_at', null)`.
+- **B1** — `reporte_tick` doble-contaba el reenvío manual #4 (2 filas mismo to_email+slug) → conteo distinct-destinatario.
+- **B2** — `cancelar()` de UI deja `status='pending'` → subconteo en el informe → partición vía `ultimo_error ~ 'cancel%'` (robusto sin depender del front).
+
+**Residuales DOCUMENTADOS (no fixeables sin más):**
+- **At-least-once:** si el proceso MUERE entre el 200 de Gmail y la marca de `enviado_at`, el watchdog revive la fila → re-envía → 1 duplicado. NO es regresión (la edge vieja tenía ventana MÁS ancha: cualquier Gmail >60s); el watchdog es necesario para converger. Eliminarlo exige una idempotency key de proveedor (Gmail no la expone trivial) — residuo honesto at-least-once.
+- **Carrera cosmética `cancelar()`↔envío:** `'sending'` se muestra `'pendiente'` en EmailQueuePage (el botón Cancelar queda habilitado); cancelar en los segundos de envío y que Gmail responda OK → la rama de éxito pisa a `'sent'` y el cancel se pierde. El mail se entregó igual; ventana diminuta; pre-existente. (El display `'cancelado'`→`'fallido'` de la vista `v_email_registro` es un quirk pre-existente, fuera de scope.)
+
+**EJERCITAR e2e (BEGIN / RAISE EXCEPTION / ROLLBACK, 0 residuo verificado):**
+- claim: 1er UPDATE reclama 1 fila, 2º reclama 0 (ya `'sending'`); fila queda `'sending'` con `sending_started_at`.
+- watchdog RPC: huérfana intento0→`pending`/int1 (reclaimed=1); huérfana int9/max10→`failed`/int10/`enviado_at` set (exhausted=1); `'sending'` fresca intacta.
+- reporte_tick v2: 6 destinatarios → entregados 3 (incl. uno `'failed'` con registro en sent_emails, y un reenvío #4 colapsado), fallidos 1, cancelados 2 (incl. un `cancelar()` que dejó `status='pending'`), bajas 1.
+
+**Lección:** (1) una cola drenada por cron fire-and-forget necesita claim atómico ANTES del efecto externo. (2) Un watchdog/reclamador debe CONSUMIR el presupuesto de reintentos (converger a terminal), si no reabre la no-convergencia de E-GG-265 ("informe que nunca finaliza") por otra puerta. (3) Sin idempotency key de proveedor, at-least-once es el techo honesto: el claim elimina el doble-envío por LENTITUD (el caso real), no por muerte-del-proceso-post-entrega.

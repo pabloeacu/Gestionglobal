@@ -8411,3 +8411,27 @@ Pedido #4 de Pablo (UI de envíos específicos). En el CMS de la edición, botó
 - **UI** (`LexphEdicionPage`): botón + `Modal` con `Textarea` (parseo coma/espacio/salto, dedup en vivo, contador de mails detectados) + servicio `enviarNewsletterEspecifico`.
 - **§6 R18 smoke (BEGIN/ROLLBACK):** lista mixta (nuevos/suprimido/inválido/duplicado) → 2 encolados, 2 suscriptos, 0 suprimido colado. Build por Vercel.
 - **Fecha:** 2026-11-07.
+
+
+## DGG-244 F2q (2026-11-07) — Claim atómico anti doble-envío en dispatch-emails (cierra E-GG-261 [1])
+
+Decisión de Pablo (2026-11-07): retomar en sesión aparte el único hallazgo diferido de E-GG-261
+—el [1], doble-entrega por concurrencia— que toca la edge money-crítica `dispatch-emails` (gate R7).
+
+**Qué se hizo:** claim atómico de la fila ANTES del fetch a Gmail (reserva `status='sending'`,
+`sending_started_at=now()` con `WHERE enviado_at IS NULL AND status<>'sending' RETURNING`); watchdog
+(RPC `public.email_queue_watchdog_reclaim`) que reclama 'sending' huérfanas CONSUMIENDO un intento y
+exhaustándolas a 'failed' al agotar `max_intentos` (garantiza convergencia a terminal — no reabre la
+no-convergencia de E-GG-265); candidate-select excluye 'sending'; éxito y `failJob` limpian el claim
+con guard `enviado_at` (E-GG-264); piso por-destinatario (E42) ahora ve lo 'sending' en vuelo;
+poison-guard del armado del MIME. **Aprovechando la pasada** (nota de E-GG-265): `lexph_newsletter_
+reporte_tick` deriva entregados/fallidos cruzando `sent_emails` como fuente de verdad de entrega, a
+nivel-destinatario y particionando el universo terminal.
+
+**Cómo:** migs 0672 (índice parcial + cruce sent_emails) y 0673 (watchdog RPC con breaker +
+reporte por-destinatario). Edge `dispatch-emails` **v35** deployada con `verify_jwt=false` bajo gate
+R7 (la v34 viva era byte-idéntica al repo; función self-contained sin drift `_shared`). §6 completa
+(3 agentes adversariales + EJERCITAR e2e) con 6 hallazgos cerrados en el chunk; 2 residuales
+documentados (at-least-once por crash post-entrega — necesita idempotency key de proveedor, no es
+regresión; carrera cosmética cancelar()↔envío). Deploy en ventana limpia (~05:00 UTC, burst de 3027
+del newsletter LexPH NO en vuelo, abre 10:00 UTC). Detalle técnico y lecciones en E-GG-266.
