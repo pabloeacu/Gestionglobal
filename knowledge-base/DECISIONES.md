@@ -8383,3 +8383,13 @@ Frente B del motor de audiencia. Dos decisiones/entregas:
 - **§6 R18 smoke (BEGIN/ROLLBACK):** 3.500 suscriptores sintéticos → 3.500 en prioridad 8; distribución día0=1500, día1=1500, día2=500. Sin residuo (trigger de avisos desactivado durante el seed para no generar 7.000 campanitas de prueba).
 - **Pendiente Frente B:** importar audiencia inicial (clientes 185 + captación 2.892 como 'confirmado', idempotente ON CONFLICT DO NOTHING — requiere "go" explícito de Pablo, marca ~3.000 personas); envío a mails específicos/listas; UI launcher. List-Unsubscribe header del newsletter necesita cambio de edge (R7) → diferido.
 - **Fecha:** 2026-11-06.
+
+### DGG-244 · F2k — Importar audiencia inicial (clientes + captación) (2026-11-06, mig 0664) — HECHO, §6 verde, CORRIDO
+
+Frente B: Pablo dio el "go" para marcar la base inicial como suscriptores (modelo opt-out). **Corrido en prod: 3.024 suscriptores** (185 clientes + 2.839 captación), todos 'confirmado'.
+
+- **RPC `lexph_importar_audiencia_inicial()`** (staff-only, idempotente): marca `administraciones` (activas, `ofrecimientos_habilitados`, email válido) como `origen='cliente'` y `prospectos` (no baja, email válido) como `origen='captacion'`, estado 'confirmado'. **Hermético:** `ON CONFLICT (email_norm) DO NOTHING` (nunca pisa/duplica un suscriptor existente), dedup `DISTINCT ON`, skip `email_suppression`, skip bajas/opt-out. Re-ejecutable sin efecto (idempotente).
+- **Anti-flood:** el trigger de aviso a gerencia (F2f) ahora **NO dispara** para `origen IN ('cliente','captacion')` → el import de ~3.000 no generó ~6.000 campanitas. Gerencia sí recibe aviso por los suscriptores **orgánicos** (web/formulario). Se mandó **un** aviso resumen manual ("3.024 suscriptores listos").
+- **§6 R18 smoke (BEGIN/ROLLBACK):** 185 + 2.839 = 3.024; 0 suprimidos colados; 0 avisos del import. Luego corrido en prod (commit).
+- **Todo listo para el primer envío masivo:** disparo manual de Pablo desde el CMS → goteo ≤1500/día (F2j) desde contacto@. Diferido: List-Unsubscribe header (necesita edge, R7); UI de envío a mails específicos/listas (#4).
+- **Fecha:** 2026-11-06.
