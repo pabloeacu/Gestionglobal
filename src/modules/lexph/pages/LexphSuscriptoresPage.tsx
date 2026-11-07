@@ -40,6 +40,8 @@ function origenLabel(origen: string | null): string {
   if (origen.startsWith('form')) return 'Formulario';
   if (origen === 'cliente') return 'Cliente';
   if (origen.startsWith('padron') || origen === 'captacion') return 'Captación';
+  if (origen === 'gerencia_testigo') return 'Testigo';
+  if (origen === 'manual') return 'Manual (gerencia)';
   if (origen.startsWith('qa')) return 'QA';
   return origen;
 }
