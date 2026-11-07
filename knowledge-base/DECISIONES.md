@@ -8373,3 +8373,13 @@ Requisito de Pablo: suscribirse dos veces, o suscribirse estando ya en la lista 
 - **§6 R18 smoke (BEGIN/ROLLBACK):** herm1 (nuevo→confirmar→re-suscribe×2): 1 fila, estado confirmado, 1 confirm-mail, 2 welcomes (el 4º bloqueado por cooldown). herm2 (re-alta tras baja con supresión): 1 fila, confirmado, supresión=0, 1 welcome. Sin residuo. Prueba en vivo: welcome a Pablo.
 - **Nota para Frente B:** la marca de clientes+captación como 'confirmado' debe ser idempotente (ON CONFLICT DO NOTHING) para no pisar suscriptores reales — consistente con esta hermeticidad.
 - **Fecha:** 2026-11-06.
+
+### DGG-244 · F2j — Goteo del envío masivo + remitente del newsletter (2026-11-06, mig 0663) — §6 verde
+
+Frente B del motor de audiencia. Dos decisiones/entregas:
+
+- **Remitente del newsletter masivo = `contacto@` (general).** Investigué el edge **deployado** (coincide con el repo, no divergido): `aliasFor` sólo conoce cursos@/consultoriajuridica@/contacto@; un From de alias inexistente Gmail lo **acepta pero no entrega** (se descarta); hay precedente (`webinar@`) de send-as dedicado que **no entregaba**; y **ningún template usa hoy consultoriajuridica@** (no probado). Además todos los alias comparten cuenta/IP de Workspace → **aislamiento por alias casi nulo** (el real sería subdominio+ESP, parqueado). Pablo eligió `contacto@` (probado, sin riesgo) sabiendo esto (AskUserQuestion 2026-11-06). Si quiere el brand `novedades@`, se monta con **prueba de entrega real** antes de confiarle la lista.
+- **Goteo/loteo (`lexph_newsletter_enviar`):** encola con **prioridad 8** (el transaccional, prioridad ≤5, se envía primero; el newsletter usa slots libres) + **`programado_para` escalonado**: a lo sumo **1500 filas "due" por día** (`floor(rownum/1500)` días) → el paquete de N se cubre en `ceil(N/1500)` días. El throttle global del edge (~1440/día) refuerza el techo. Devuelve `enviados` + `dias`.
+- **§6 R18 smoke (BEGIN/ROLLBACK):** 3.500 suscriptores sintéticos → 3.500 en prioridad 8; distribución día0=1500, día1=1500, día2=500. Sin residuo (trigger de avisos desactivado durante el seed para no generar 7.000 campanitas de prueba).
+- **Pendiente Frente B:** importar audiencia inicial (clientes 185 + captación 2.892 como 'confirmado', idempotente ON CONFLICT DO NOTHING — requiere "go" explícito de Pablo, marca ~3.000 personas); envío a mails específicos/listas; UI launcher. List-Unsubscribe header del newsletter necesita cambio de edge (R7) → diferido.
+- **Fecha:** 2026-11-06.
