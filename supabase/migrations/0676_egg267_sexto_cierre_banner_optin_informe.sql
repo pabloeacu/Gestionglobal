@@ -1,8 +1,8 @@
--- 0673 · E-GG-266 cont. — Cierre §6 (doble auditoría adversarial, 3 agentes) del fix
+-- 0676 · E-GG-267 cont. — Cierre §6 (doble auditoría adversarial, 3 agentes) del fix
 -- de las direcciones sintéticas del newsletter LexPH. Saldados los hallazgos DB-only:
 --
 --  C#7 (GAP) — `email_bloqueado_total` no reconocía motivo='invalida' → una sintética
---    ya rebotada (suprimida 'invalida' por 0672) SE FILTRABA al banner "Emails Rebotados"
+--    ya rebotada (suprimida 'invalida' por 0675) SE FILTRABA al banner "Emails Rebotados"
 --    del Inicio de gerencia (con el copy inútil "verificá la casilla del cliente"). Fix:
 --    sumar 'invalida' a los motivos de bloqueo total. (Refuerza además el dispatcher:
 --    cancela cualquier 'invalida' antes de enviar.)
@@ -21,7 +21,7 @@
 --    contador "Bajas" del panel de suscriptores (no es churn real). No son suscriptores:
 --    son placeholders sin email real, 100% reconstruibles desde `prospectos` + preservados
 --    en `email_suppression`. Sin FK que las referencie → se ELIMINAN (panel honesto, cero
---    cambio de frontend). El guard del import (0672) + A#5 impiden la re-entrada.
+--    cambio de frontend). El guard del import (0675) + A#5 impiden la re-entrada.
 --
 -- NOTA: aperturas/clicks del newsletter NO se registran (envío por Workspace sin pixel;
 --   sent_emails.opened_at/clicked_at/delivered_at = NULL para 140/140). El ruido de
@@ -75,7 +75,7 @@ begin
     raise exception 'Email inválido.' using errcode = '22023';
   end if;
 
-  -- E-GG-266 (A#5): no resucitar ni encolar para direcciones sin email real (.invalid)
+  -- E-GG-267 (A#5): no resucitar ni encolar para direcciones sin email real (.invalid)
   -- ni para destinatarios ya suprimidos. No-op silencioso (no filtra existencia).
   if v_norm like '%.invalid'
      or exists (select 1 from public.email_suppression s where s.email = v_norm) then
@@ -181,7 +181,7 @@ begin
                      and eq.ultimo_error ilike '%baja%') as baja_like
         from public.email_queue eq
        where eq.template_slug = v_slug
-         and eq.to_email not like '%.invalid'   -- E-GG-266 (B#4b): no contar sintéticas
+         and eq.to_email not like '%.invalid'   -- E-GG-267 (B#4b): no contar sintéticas
        group by eq.to_email
     )
     select count(*),

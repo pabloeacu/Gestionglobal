@@ -1,4 +1,4 @@
--- 0672 · DGG-244 F2 / E-GG-266 — El newsletter LexPH estaba enviando a direcciones
+-- 0675 · DGG-244 F2 / E-GG-267 — El newsletter LexPH estaba enviando a direcciones
 -- SINTÉTICAS 'no-figura-<matricula>@padron.invalid' (matriculados "NO FIGURA" del
 -- padrón PBA, sin email real). Rebotan siempre y floodean a gerencia con avisos
 -- "Rebotó un email a ...". Pablo recibió un montón de estos. Causa raíz + guarda + limpieza.
@@ -41,7 +41,7 @@
 --   (sintéticas cortadas en origen, 0 rebotes reales), pero el roll-up de rebotes de
 --   campaña masiva al informe de la edición (en vez de 1 aviso/dirección) es mejora
 --   pendiente que requiere el procedimiento R7 (bajar/diff/deploy/observar). Ver
---   PROJECT_STATUS §5 + ERRORES E-GG-266.
+--   PROJECT_STATUS §5 + ERRORES E-GG-267.
 
 -- ============================================================================
 -- (1) GUARD en el import de audiencia: nunca importar un sentinela .invalid
@@ -68,7 +68,7 @@ begin
       from public.administraciones a
      where coalesce(a.email, '') <> ''
        and lower(btrim(a.email)) ~ c_email_re
-       and lower(btrim(a.email)) not like '%.invalid'   -- E-GG-266
+       and lower(btrim(a.email)) not like '%.invalid'   -- E-GG-267
        and a.estado is distinct from 'baja'
        and coalesce(a.ofrecimientos_habilitados, true) = true
      order by lower(btrim(a.email)), a.created_at
@@ -89,7 +89,7 @@ begin
       from public.prospectos p
      where coalesce(p.email, '') <> ''
        and lower(btrim(p.email)) ~ c_email_re
-       and lower(btrim(p.email)) not like '%.invalid'   -- E-GG-266: excluye 'no-figura-*@padron.invalid'
+       and lower(btrim(p.email)) not like '%.invalid'   -- E-GG-267: excluye 'no-figura-*@padron.invalid'
        and coalesce(p.estado_captacion, '') <> 'baja'
        and p.baja_at is null
      order by lower(btrim(p.email)), p.created_at
@@ -134,7 +134,7 @@ update public.lexph_suscriptores
 -- (2c) Stop-the-bleed: cancelar las pendientes en la cola del newsletter.
 update public.email_queue
    set status = 'cancelled', enviado_at = now(),
-       ultimo_error = 'dirección sintética sin email real (NO FIGURA en padrón); excluida del envío (E-GG-266)'
+       ultimo_error = 'dirección sintética sin email real (NO FIGURA en padrón); excluida del envío (E-GG-267)'
  where template_slug like 'lexph-newsletter%'
    and lower(to_email) like '%.invalid'
    and status = 'pending'
