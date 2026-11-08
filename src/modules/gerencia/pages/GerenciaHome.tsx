@@ -26,6 +26,7 @@ import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
 import { getDashboardGlobal, type DashboardKpis } from '@/services/api/dashboard';
 import { DashboardKpiStrip } from '@/modules/gerencia/components/DashboardKpiStrip';
 import { SparklineFacturado } from '@/modules/gerencia/components/SparklineFacturado';
+import { TraficoWebWidget } from '@/modules/gerencia/components/TraficoWebWidget';
 import { ReporteMensualBanner } from '@/components/common/ReporteMensualBanner';
 // Re-uso del asistente de instalación PWA del portal: detecta browser y
 // muestra instrucciones tanto en Chrome desktop/Android como en iOS Safari /
@@ -157,6 +158,10 @@ export function GerenciaHome() {
         serie={kpis?.serie_facturado ?? []}
         loading={loadingKpis}
       />
+
+      {/* DGG-245 · tráfico web (Vercel Web Analytics) — Landing / vs LexPH,
+          discriminadas. Snapshot server-side por cron (tabla vercel_trafico). */}
+      <TraficoWebWidget />
 
       <section className="grid gap-6 lg:grid-cols-2">
         <ProximosVencimientosWidget />

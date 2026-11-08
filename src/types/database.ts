@@ -8792,6 +8792,33 @@ export type Database = {
           },
         ]
       }
+      vercel_trafico: {
+        Row: {
+          actualizado_at: string
+          desde_newsletter: number
+          superficie: string
+          ventana: string
+          visitantes: number
+          vistas: number
+        }
+        Insert: {
+          actualizado_at?: string
+          desde_newsletter?: number
+          superficie: string
+          ventana: string
+          visitantes?: number
+          vistas?: number
+        }
+        Update: {
+          actualizado_at?: string
+          desde_newsletter?: number
+          superficie?: string
+          ventana?: string
+          visitantes?: number
+          vistas?: number
+        }
+        Relationships: []
+      }
       vistas_guardadas: {
         Row: {
           created_at: string
@@ -10349,6 +10376,13 @@ export type Database = {
       email_bloqueado_total: { Args: { p_email: string }; Returns: boolean }
       email_descartar: { Args: { p_email: string }; Returns: Json }
       email_esta_suprimido: { Args: { p_email: string }; Returns: boolean }
+      email_queue_watchdog_reclaim: {
+        Args: { p_max_age_sec?: number }
+        Returns: {
+          exhausted: number
+          reclaimed: number
+        }[]
+      }
       email_reactivar: { Args: { p_email: string }; Returns: Json }
       email_suppression_list: {
         Args: never
@@ -12471,4 +12505,3 @@ export const Constants = {
     },
   },
 } as const
-

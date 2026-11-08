@@ -100,3 +100,12 @@ verify_jwt = false
 # para que un deploy por CLI/MCP no lo flipee a true y rompa la llamada del cliente.
 [functions.meta-capi]
 verify_jwt = false
+
+# vercel-trafico-snapshot (DGG-245): cron cada 3h que consulta Vercel Web Analytics
+# server-side y guarda el snapshot de tráfico (landing/lexph) para las cards de gerencia.
+# verify_jwt=false A PROPÓSITO: la auth es el CRON_SECRET validado ADENTRO (is_cron_token);
+# con verify_jwt=true la plataforma rechaza el bearer del cron (cron_bearer) con 401. NO
+# se expone nada sensible (el VERCEL_ANALYTICS_TOKEN es secret del servidor). OJO: el deploy
+# por MCP lo flipea a true → hay que re-asegurar verify_jwt=false (panel/CLI) tras cada deploy.
+[functions.vercel-trafico-snapshot]
+verify_jwt = false
