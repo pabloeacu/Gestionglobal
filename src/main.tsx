@@ -8,6 +8,9 @@ import { DialogProvider } from '@/components/common';
 import { ToastViewport } from '@/components/common/ToastViewport';
 import { CommandPalette } from '@/components/common/CommandPalette';
 import { App } from '@/App';
+// DGG-245 · Vercel Web Analytics (cookieless, sin PII) — mide tráfico por URL
+// (landing vs /lexph) server-side. El componente no-opea fuera de Vercel/prod.
+import { Analytics } from '@vercel/analytics/react';
 import { installGlobalErrorReporter } from '@/lib/errorReport';
 import '@/index.css';
 // DGG-136 · tema conmutable gg-brand: inerte sin data-theme="gg-brand" en <html>
@@ -27,6 +30,7 @@ createRoot(document.getElementById('root')!).render(
               <App />
               <ToastViewport />
               <CommandPalette />
+              <Analytics />
             </DialogProvider>
           </GlobalPeriodProvider>
         </CommandPaletteProvider>
