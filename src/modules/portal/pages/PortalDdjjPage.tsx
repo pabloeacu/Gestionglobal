@@ -34,7 +34,7 @@ import {
   getCredencialDdjjMeta, revelarCredencialDdjj, instructivoDdjjUrl, PORTAL_DDJJ_URL,
   type CredencialMeta,
 } from '@/services/api/ddjj';
-import { fetchClienteTramites, type ClienteTramite } from '@/services/api/portal-dashboard';
+import { fetchClienteTramites, esTramiteDdjj, type ClienteTramite } from '@/services/api/portal-dashboard';
 
 const ESTADOS_ABIERTOS = ['abierto', 'en_progreso', 'esperando_cliente'];
 
@@ -86,10 +86,9 @@ export function PortalDdjjPage() {
   // también cuenta un trámite 'dj' abierto. Así nunca mostramos el CTA comercial si ya hay gestión.
   const credPendiente = cred?.pendiente === true;
   // §6 C#1: espeja el gate server (servicio 'rpac_ddjj' O categoría 'dj').
+  // DGG-246: criterio unificado en `esTramiteDdjj` (fuente única, R14/R15).
   const tramiteDjAbierto = useMemo(
-    () => tramites.some(
-      (t) => (t.categoria === 'dj' || t.servicio_codigo === 'rpac_ddjj') && ESTADOS_ABIERTOS.includes(t.estado),
-    ),
+    () => tramites.some((t) => esTramiteDdjj(t) && ESTADOS_ABIERTOS.includes(t.estado)),
     [tramites],
   );
   const estado: EstadoDdjj = credAsignada

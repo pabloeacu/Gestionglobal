@@ -97,6 +97,10 @@ export async function conciliarPago(input: {
   // E-GG-128 (pág.4 JL): el pago informado supera el saldo → dejar el excedente
   // como saldo a favor (paridad con el flujo Cobrar). Opt-in explícito del gerente.
   permitirExcedente?: boolean;
+  // DGG-246 obs 2 (doc JL): N° de transferencia editable por gerencia al conciliar.
+  // Si se completa, prevalece; si se deja vacío, la RPC cae a lo que informó el
+  // cliente. Va a movimientos.referencia → se muestra como "Transf N°".
+  referencia?: string | null;
 }): Promise<ApiResponse<string>> {
   const { data, error } = await rpc('pago_conciliar', {
     p_pago_id: input.pagoId,
@@ -107,6 +111,7 @@ export async function conciliarPago(input: {
     p_monto: input.monto ?? null,
     p_partner_id_atribucion: input.partnerId ?? null,
     p_permitir_excedente: input.permitirExcedente ?? false,
+    p_referencia: input.referencia ?? null,
   });
   if (error) return fail('PAGO_CONCILIAR', error.message, error);
   return ok(data as string);

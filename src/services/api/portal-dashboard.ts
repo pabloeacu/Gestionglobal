@@ -200,6 +200,16 @@ export interface ClienteTramite {
   created_at: string;
 }
 
+/**
+ * DGG-246 (obs 7 JL) · predicado compartido "esta gestión es una DDJJ". Espeja el
+ * gate del portal (PortalDdjjPage) y se usa en el detalle de Mis Gestiones para
+ * ofrecer el acceso a la sección Declaraciones Juradas (vencimiento + credenciales).
+ * Fuente única para no re-caer en criterios divergentes (R14/R15).
+ */
+export function esTramiteDdjj(t: Pick<ClienteTramite, 'categoria' | 'servicio_codigo'>): boolean {
+  return t.categoria === 'dj' || t.servicio_codigo === 'rpac_ddjj';
+}
+
 export async function fetchClienteTramites(soloAbiertos = false): Promise<ApiResponse<ClienteTramite[]>> {
   const { data, error } = await supabase.rpc('cliente_tramites_listar', {
     p_solo_abiertos: soloAbiertos,

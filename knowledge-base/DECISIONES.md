@@ -8435,3 +8435,53 @@ R7 (la v34 viva era byte-idéntica al repo; función self-contained sin drift `_
 documentados (at-least-once por crash post-entrega — necesita idempotency key de proveedor, no es
 regresión; carrera cosmética cancelar()↔envío). Deploy en ventana limpia (~05:00 UTC, burst de 3027
 del newsletter LexPH NO en vuelo, abre 10:00 UTC). Detalle técnico y lecciones en E-GG-266.
+
+## DGG-246 · Ronda de observaciones de José Luis (doc "Sistema Gestion Global") — 7 resueltas una por una (2026-11-08)
+
+**Qué:** Pablo pasó un doc de JL con 7 observaciones (c/captura). Se resolvieron todas, con
+metodología canónica (cirugía + EJERCITAR BEGIN/ROLLBACK + §6 + prueba en vivo) y comentario a JL en
+el mismo doc.
+
+1. **Pago informado sin mail de aviso.** `pago_reportar` avisaba a gerencia sólo por campanita + push
+   (el email quedó pateado desde 0328). → mig **0678**: reemplazo del loop manual por
+   `notify_all_gerentes('pago_reportado', …, send_email=true, 'gerencia-notif-generica', …)` → suma
+   el **mail** a los 2 gerentes manteniendo la campanita idéntica (mismo tipo/título/cuerpo/url/
+   payload) + push ahora condicional a suscripción (estrictamente mejor). Smoke: 2 mails + 2
+   campanitas; link del mail absoluto (`cta_url = https://www.gestionglobal.ar{{url}}`).
+2. **N° de transferencia al conciliar.** El dato vive en `movimientos.referencia` ("Transf N°") pero
+   `pago_conciliar` usaba SIEMPRE el del cliente (campo opcional del portal) y gerencia no tenía dónde
+   cargarlo/corregirlo → inconsistente. → mig **0679** (DROP firma vieja + CREATE con `p_referencia`,
+   R16): `v_ref = coalesce(nullif(btrim(p_referencia),''), v_pago.referencia)`; + input "N° de
+   transferencia / comprobante" en `ConciliarModal`, prellenado y editable. Se deja `pagos_reportados.
+   referencia` intacto (rastro de lo que informó el cliente); sólo el movimiento toma el valor final.
+   Smoke A (gerencia carga) / B (fallback cliente) OK.
+3/5/6. **Planilla de consorcios sólo Excel (.xlsx) + nota de obligatoriedad.** El campo aceptaba
+   cualquier cosa (llegaron PDFs, inútiles para el RPAC). `accept` en el schema sólo filtra el picker;
+   la restricción real exige mirar `field.accept` en cliente y edge. → mig **0680** (`accept:[".xlsx"]`
+   + hint en los 3 forms RPAC/DDJJ + subtitle de obligatoriedad en la DDJJ) + **validación por-campo**
+   en `FormularioRunner` (`extensionesPermitidas` + `motivoRechazoAdjunto(f, accept)`) y edge
+   `submit-formulario` v16 (`extsPermitidas`/`extDe`). La whitelist global (con `.xls`) NO se toca.
+4. **"Encabezado" basura (E-GG-268).** 5 campos fantasma del builder fugados al form público de la
+   DDJJ → eliminados del schema (mig 0680, snapshot reversible). Respuesta a JL: "no es para nada,
+   quedaron pegados por error".
+7. **Mis Gestiones → Declaraciones Juradas.** El cliente veía la gestión de DDJJ en "Mis Gestiones"
+   pero no tenía referencia a la sección donde están las credenciales publicadas. → bloque de enlace
+   condicional en `PortalGestionDetailPage` (helper compartido `esTramiteDdjj`, R14; refactor de
+   `PortalDdjjPage` al mismo helper) hacia `/portal/ddjj` + label de categoría ("dj"→"Declaración
+   jurada").
+
+**Por qué (decisiones):** (a) usar `notify_all_gerentes` (canon) en vez de agregar el email inline →
+DRY + 3 canales; el loop viejo se REEMPLAZA (no se duplica). (b) N° de transferencia: override de
+gerencia prevalece, sino cae a lo del cliente; no se pisa el registro del cliente. (c) xlsx-only es
+por-campo (no global) para no romper DNI/comprobantes/certificados. (d) el enlace de Mis Gestiones es
+genérico (`/portal/ddjj` resuelve por administración) — sin riesgo de filtrar credenciales de otra
+gestión.
+
+**Cómo / verificación:** migs 0678/0679/0680 aplicadas; edge `submit-formulario` **v29** deployada
+(verify_jwt=true; **drift R7 reconciliado** — el repo decía v14 pero ya tenía el bloque `date` de
+v15/DGG-218, sólo faltaba el bump de comentario, verificado marcador a marcador → v16); types
+regenerados; tsc limpio. EJERCITAR: smokes BEGIN/ROLLBACK de pago_reportar (mail+campanita) y
+pago_conciliar (referencia A/B) + POST crafteado al edge (PDF con nombre engañoso → 422 "acepta
+únicamente XLSX"; xlsx → OK). **§6:** los 3 agentes adversariales se colgaron por watchdog de infra
+(no hallazgos) → revisión estática hecha inline + EJERCITAR por smokes. Comentarios a JL en el doc.
+Ver E-GG-268.

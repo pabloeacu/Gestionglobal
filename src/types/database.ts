@@ -11543,6 +11543,7 @@ export type Database = {
           p_pago_id: string
           p_partner_id_atribucion?: string
           p_permitir_excedente?: boolean
+          p_referencia?: string
         }
         Returns: string
       }

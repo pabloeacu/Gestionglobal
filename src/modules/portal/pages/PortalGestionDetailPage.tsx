@@ -19,6 +19,7 @@ import {
   ArrowRight,
   Calendar,
   Tag,
+  FileCheck2,
 } from 'lucide-react';
 import { toast } from '@/lib/toast';
 import { abrirArchivoProtegido } from '@/lib/storageUrls';
@@ -27,6 +28,7 @@ import {
   fetchClienteTramites,
   fetchClienteTrackingLineas,
   marcarTrackingAvanceLeido,
+  esTramiteDdjj,
   type ClienteTramite,
   type ClienteTrackingLinea,
 } from '@/services/api/portal-dashboard';
@@ -160,6 +162,31 @@ export function PortalGestionDetailPage() {
           <DataChip icon={Clock} label="Actividad" value={formatActividad(tramite.horas_desde_actividad)} />
         </div>
       </section>
+
+      {/* DGG-246 obs 7 (doc JL): si la gestión es una DDJJ, enlace de referencia
+          a la sección "Declaraciones Juradas" (vencimiento + credenciales del
+          Portal de DDJJ que gerencia publica). Antes no había ninguna referencia
+          desde Mis Gestiones hacia esa sección. Enlace genérico: /portal/ddjj ya
+          resuelve los 3 estados por administración (no muestra credenciales de
+          otra gestión). */}
+      {esTramiteDdjj(tramite) && (
+        <Link
+          to="/portal/ddjj"
+          className="group flex items-center gap-3 rounded-2xl border border-brand-cyan/30 bg-brand-cyan-pale/30 p-4 transition hover:border-brand-cyan hover:bg-brand-cyan-pale/50"
+        >
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand-cyan/10 text-brand-cyan">
+            <FileCheck2 size={18} />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold text-brand-ink">Tu acceso y datos de DDJJ</p>
+            <p className="text-xs text-brand-muted">
+              Esta gestión es tu Declaración Jurada anual. Entrá a la sección Declaraciones
+              Juradas para ver tu vencimiento y tus credenciales del Portal de DDJJ.
+            </p>
+          </div>
+          <ArrowRight size={16} className="shrink-0 text-brand-cyan transition group-hover:translate-x-0.5" />
+        </Link>
+      )}
 
       {/* N2 · Pedidos de documentación al cliente (banner amber con upload por item) */}
       <PedidosDocPanel
@@ -332,8 +359,20 @@ function nombreArchivo(url: string): string {
   }
 }
 
+// DGG-246 obs 7 (doc JL): mismo diccionario que PortalGestionesPage — el detalle
+// mostraba la categoría cruda ("dj" en vez de "Declaración jurada"). Fallback al
+// replace de guiones para categorías no mapeadas.
 function labelCategoria(s: string): string {
-  return s.replace(/_/g, ' ');
+  const map: Record<string, string> = {
+    matricula: 'Matrícula',
+    dj: 'Declaración jurada',
+    consulta_juridica: 'Consulta jurídica',
+    renovacion: 'Renovación',
+    curso: 'Curso',
+    reclamo: 'Reclamo',
+    otro: 'Otro',
+  };
+  return map[s] ?? s.replace(/_/g, ' ');
 }
 
 function capitalize(s: string): string {

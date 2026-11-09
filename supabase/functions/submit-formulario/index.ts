@@ -1,3 +1,9 @@
+// submit-formulario v16 (DGG-246 · obs 3 JL): restricción REAL por-campo — un
+// campo con `accept` propio (ej. la planilla de consorcios → sólo .xlsx) rechaza
+// en el SERVER los archivos fuera de esa lista (el `accept` del picker se saltea
+// con drag&drop / payload crafteado). Espejo de FormularioRunner.extensionesPermitidas.
+// (Reconciliación R7 del header stale v14→v16: el repo YA tenía el bloque `date`
+// de v15/DGG-218; sólo faltaba bumpear el comentario — verificado marcador a marcador.)
 // submit-formulario v14 (E-GG-171 · §6 ultra del merge): (a) el pre-check de
 // tamaño descuenta el padding base64 — un archivo de EXACTAMENTE 10 MB pasaba
 // front y bucket pero el estimado floor(len*3/4) lo 422aba con mensaje
@@ -91,6 +97,31 @@ function inferMime(filename: string, given?: string): string {
   return MIME_POR_EXTENSION[ext] ?? g;
 }
 
+// DGG-246 (obs 3 JL): restricción REAL por-campo. Un campo con `accept` propio
+// (ej. la planilla de consorcios → sólo `.xlsx`) debe RECHAZAR en el server los
+// archivos fuera de esa lista — el `accept` del picker se saltea con drag&drop o
+// payload crafteado. Espejo de FormularioRunner.extensionesPermitidas.
+// null = el campo no restringe (cae a la whitelist global ALLOWED_MIMES).
+function extsPermitidas(accept?: string[]): Set<string> | null {
+  if (!Array.isArray(accept) || accept.length === 0) return null;
+  const exts = new Set<string>();
+  for (const a of accept) {
+    const e = String(a ?? '').trim().toLowerCase();
+    if (!e) continue;
+    if (e === 'image/*') { ['jpg', 'jpeg', 'png', 'webp'].forEach((x) => exts.add(x)); continue; }
+    if (e.startsWith('.')) { const x = e.slice(1); if (x) exts.add(x); continue; }
+    if (MIME_POR_EXTENSION[e]) { exts.add(e); continue; } // extensión sin punto
+    for (const [ext, mime] of Object.entries(MIME_POR_EXTENSION)) { // mime completo
+      if (mime === e) exts.add(ext);
+    }
+  }
+  return exts.size ? exts : null;
+}
+function extDe(filename: string): string {
+  const parts = String(filename ?? '').toLowerCase().split('.');
+  return parts.length > 1 ? (parts.pop() ?? '') : '';
+}
+
 interface FieldDef {
   name: string;
   type: string;
@@ -98,6 +129,7 @@ interface FieldDef {
   required?: boolean;
   options?: string[];
   max_files?: number;
+  accept?: string[];
   condition?: { field: string; equals: string | string[] };
   validation?: { min?: number; max?: number; pattern?: string };
 }
@@ -266,6 +298,13 @@ Deno.serve(async (req) => {
           if (!ALLOWED_MIMES.has(inferMime(f.filename, f.mime))) {
             validationErrors.push(
               `${field.label}: el formato de «${f.filename}» no está soportado. Aceptamos ${FORMATOS_LABEL}`,
+            );
+          }
+          // DGG-246 obs 3: restricción por-campo (ej. planilla de consorcios → .xlsx).
+          const permit = extsPermitidas(field.accept);
+          if (permit && !permit.has(extDe(f.filename))) {
+            validationErrors.push(
+              `${field.label}: «${f.filename}» no tiene el formato correcto. Este campo acepta únicamente ${[...permit].map((x) => x.toUpperCase()).join(', ')}`,
             );
           }
         }

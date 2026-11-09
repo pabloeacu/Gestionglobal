@@ -151,8 +151,38 @@ function sanearAccept(accept?: string[]): string {
   const unicas = [...new Set(partes.join(',').split(',').filter(Boolean))].join(',');
   return unicas || ACCEPT_ADJUNTO_DEFAULT;
 }
+// DGG-246 (obs 3 JL): un campo con `accept` propio (ej. la planilla de
+// consorcios → sólo `.xlsx`) debe RECHAZAR de verdad los archivos fuera de esa
+// lista, no sólo filtrar el picker (que se saltea con drag&drop o "todos los
+// archivos"). Devuelve el set de extensiones permitidas (sin punto) para ese
+// campo, o null si el campo no restringe (cae a la whitelist global).
+function extensionesPermitidas(accept?: string[]): Set<string> | null {
+  if (!accept || accept.length === 0) return null;
+  const exts = new Set<string>();
+  for (const a of accept) {
+    const e = a.trim().toLowerCase();
+    if (!e) continue;
+    if (e === 'image/*') {
+      ['jpg', 'jpeg', 'png', 'webp'].forEach((x) => exts.add(x));
+      continue;
+    }
+    const porMime = EXTENSIONES_POR_MIME[e]; // p.ej. 'image/jpeg' -> '.jpg,.jpeg'
+    if (porMime) {
+      porMime.split(',').forEach((x) => exts.add(x.replace(/^\./, '')));
+      continue;
+    }
+    if (e.startsWith('.')) {
+      const ext = e.slice(1);
+      if (ext) exts.add(ext);
+      continue;
+    }
+    if (MIME_POR_EXTENSION[e]) exts.add(e);
+  }
+  return exts.size ? exts : null;
+}
+
 /** Devuelve el motivo de rechazo del archivo, o null si es válido. */
-function motivoRechazoAdjunto(f: File): string | null {
+function motivoRechazoAdjunto(f: File, accept?: string[]): string | null {
   // §6 B#1d: placeholder de cloud drive no descargado (0 bytes) satisfacía
   // el required con un comprobante inservible.
   if (f.size === 0) {
@@ -163,6 +193,15 @@ function motivoRechazoAdjunto(f: File): string | null {
   }
   if (!MIMES_ADJUNTO.has(mimeDeArchivo(f))) {
     return `El formato de «${f.name}» no está soportado. Aceptamos ${FORMATOS_ADJUNTO_LABEL}.`;
+  }
+  // DGG-246 obs 3: restricción por-campo (ej. planilla de consorcios → sólo .xlsx).
+  const permitidas = extensionesPermitidas(accept);
+  if (permitidas) {
+    const ext = f.name.split('.').pop()?.toLowerCase() ?? '';
+    if (!permitidas.has(ext)) {
+      const labels = [...permitidas].map((x) => x.toUpperCase()).join(', ');
+      return `«${f.name}» no tiene el formato correcto. Este campo acepta únicamente ${labels}.`;
+    }
   }
   return null;
 }
@@ -437,7 +476,7 @@ export function FormularioRunner({
           // E-GG-170: cinturón al submit (el picker ya filtra, pero un file
           // que haya entrado por otro camino no debe viajar inválido).
           for (const f of fl) {
-            const motivo = motivoRechazoAdjunto(f);
+            const motivo = motivoRechazoAdjunto(f, field.accept);
             if (motivo) errors.push(`${field.label}: ${motivo}`);
             totalAdjuntosBytes += f.size;
           }
@@ -1517,7 +1556,7 @@ function FileUploader({
     // entra a la lista (antes viajaba y moría silenciosamente en Storage).
     const aceptados: File[] = [];
     for (const f of Array.from(e.target.files ?? [])) {
-      const motivo = motivoRechazoAdjunto(f);
+      const motivo = motivoRechazoAdjunto(f, field.accept);
       if (motivo) toast.error(motivo);
       else aceptados.push(f);
     }

@@ -210,6 +210,10 @@ function ConciliarModal({
   // E-GG-128 (pág.4 JL): el cliente informó más que el saldo del comprobante →
   // dejar el excedente como saldo a favor (paridad con el flujo Cobrar, E-GG-113).
   const [permitirExcedente, setPermitirExcedente] = useState(false);
+  // DGG-246 obs 2 (doc JL): N° de transferencia editable. Prellenado con lo que
+  // informó el cliente (puede venir vacío); gerencia lo completa o corrige. Va al
+  // movimiento (referencia) → se muestra como "Transf N°".
+  const [referencia, setReferencia] = useState<string>(pago.referencia ?? '');
 
   useEffect(() => {
     // Comprobantes del cliente con saldo pendiente, para elegir a cuál imputar.
@@ -254,6 +258,8 @@ function ConciliarModal({
       // E-GG-128 (audit §6 #3): gatear a excedeSaldo — si el check quedó tildado
       // pero el monto/comprobante ya no excede, el flag no debe viajar como true.
       permitirExcedente: permitirExcedente && excedeSaldo,
+      // DGG-246 obs 2: N° de transferencia (vacío → la RPC cae a lo del cliente).
+      referencia: referencia.trim() || null,
     });
     setSaving(false);
     if (!res.ok) {
@@ -329,6 +335,21 @@ function ConciliarModal({
           </Select>
         </Field>
       </div>
+
+      {/* DGG-246 obs 2 (doc JL): N° de transferencia / comprobante. Prellenado con
+          lo que informó el cliente; gerencia lo completa o corrige. Queda en el
+          movimiento y se ve como "Transf N°" en Finanzas. */}
+      <Field
+        label="N° de transferencia / comprobante"
+        className="mt-3"
+        hint='Lo que informó el cliente (puede venir vacío). Completalo o corregilo: queda en el movimiento como "Transf N°".'
+      >
+        <Input
+          value={referencia}
+          onChange={(e) => setReferencia(e.target.value)}
+          placeholder="Ej. 183769820930"
+        />
+      </Field>
 
       <Field label="Importe a conciliar" required className="mt-3">
         <Input
