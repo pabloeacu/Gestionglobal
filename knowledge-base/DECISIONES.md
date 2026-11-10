@@ -8485,3 +8485,26 @@ pago_conciliar (referencia A/B) + POST crafteado al edge (PDF con nombre engaño
 únicamente XLSX"; xlsx → OK). **§6:** los 3 agentes adversariales se colgaron por watchdog de infra
 (no hallazgos) → revisión estática hecha inline + EJERCITAR por smokes. Comentarios a JL en el doc.
 Ver E-GG-268.
+
+## DGG-247 · PWA: rebote de sesión viva en /ingresar (el cliente "volvía a entrar" en cada apertura) — 2026-11-10
+
+**Contexto (JL):** estamos estimulando a los clientes a instalar la app (PWA), pero cada vez que
+la abrían tenían que loguearse de nuevo, en Chrome y Safari por igual. Parecía falta de "recordarme".
+
+**Diagnóstico (datos duros, no supuestos):** la sesión NO se pierde. Sobre 683 sesiones de rol
+`administrador`: 0 con time-box, 476 refrescadas +2h y 370 +1 día después de crearse, vida máxima
+~91 días. El `refresh_token` persiste en `localStorage` y rota solo; `AuthContext` (E-GG-07/144/155/155b)
+anda perfecto; el service worker no toca `localStorage`. El problema era de ruteo: el `manifest.json`
+usa `start_url:/ingresar`, la PWA abre siempre en el login, y `LoginPage` no rebotaba al usuario ya
+logueado (sí lo hacen `/`→`RoleHomeOrLanding` y `Protected`). Con sesión viva, el cliente veía el
+formulario y re-tipeaba. Ver E-GG-269.
+
+**Decisión:** fix mínimo y aditivo en `LoginPage.tsx` — un guard al inicio (recovery→/restablecer;
+`authLoading`→loader de marca; sesión sana→`<Navigate to="/">` que mapea rol→panel, única fuente del
+mapeo). Se **mantiene** `start_url:/ingresar` a propósito: con el guard, el logueado rebota al panel y
+el deslogueado entra directo al login (mejor para una app de clientes que ir a la landing). NO se toca
+auth, manifest ni service worker. El autocompletado de credenciales ya está cableado (`autoComplete`
+email/current-password); con este fix, en el caso normal el cliente ni siquiera ve el login.
+
+**Alcance:** arregla la PWA y cualquier reentrada manual a `/ingresar` estando logueado (bookmarks,
+link viejo). Regla capitalizada: toda ruta pública de entrada debe rebotar al autenticado.

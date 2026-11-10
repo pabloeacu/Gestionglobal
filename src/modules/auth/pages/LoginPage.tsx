@@ -1,7 +1,9 @@
 import { useState, type FormEvent } from 'react';
-import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { useNavigate, useLocation, Link, Navigate } from 'react-router-dom';
 import { LogIn, ArrowLeft, ShieldCheck, Loader2, KeyRound, MailCheck } from 'lucide-react';
-import { supabase, isSupabaseConfigured } from '@/lib/supabase';
+import { supabase, isSupabaseConfigured, arrivedWithRecoveryHash, isPasswordRecovery } from '@/lib/supabase';
+import { useAuth } from '@/contexts/AuthContext';
+import { BrandLoaderScreen } from '@/components/brand/BrandLoader';
 import { Button } from '@/components/common';
 import { BrandBackdrop } from '@/components/brand/BrandBackdrop';
 import { BrandMark } from '@/components/brand/BrandMark';
@@ -32,6 +34,20 @@ export function LoginPage() {
   const [mode, setMode] = useState<'login' | 'forgot'>('login');
   const [forgotSending, setForgotSending] = useState(false);
   const [forgotSent, setForgotSent] = useState(false);
+
+  // Rebote de sesión viva: si ya hay sesión sana y se cae en /ingresar (lo que
+  // pasa SIEMPRE en la PWA instalada, cuyo start_url del manifest es /ingresar),
+  // redirigir al panel en vez de mostrar el formulario. Sin esto, el usuario con
+  // sesión activa (que persiste ~90 días, verificado) veía el login y "volvía a
+  // entrar" en cada apertura de la app → la queja de JL. (DGG-247 / E-GG-269)
+  const {
+    loading: authLoading,
+    user,
+    session,
+    profileMissing,
+    profileLoadFailed,
+    accesoRevocado,
+  } = useAuth();
 
   // DGG-238 §6 (A#2) · Valida que un destino sea una ruta interna segura
   // (anti open-redirect): empieza con "/" simple, nunca "//" ni "/\" (vectores
@@ -131,6 +147,23 @@ export function LoginPage() {
     setMfaStep(null);
     setMfaCode('');
     setError(null);
+  }
+
+  // Recovery: nunca mostrar el login; ir al reset (consistente con
+  // RoleHomeOrLanding, que hace lo mismo en `/`).
+  if (arrivedWithRecoveryHash() || isPasswordRecovery()) {
+    return <Navigate to="/restablecer" replace />;
+  }
+  // Auth todavía resolviendo (en el cold-start de la PWA el refresh del token
+  // guardado es async) → loader de marca, NO el formulario (evita el "flash de
+  // login" con sesión viva).
+  if (authLoading) return <BrandLoaderScreen />;
+  // Sesión sana ya establecida → al panel según rol. Redirigimos a `/`
+  // (RoleHomeOrLanding), única fuente del mapeo rol→ruta — no duplicar acá
+  // (R14/R15). Cubre la PWA y cualquier re-entrada manual a /ingresar logueado.
+  if (session && !profileMissing && !profileLoadFailed && !accesoRevocado) {
+    if (!user) return <BrandLoaderScreen />; // perfil en vuelo (TOKEN_REFRESHED)
+    return <Navigate to="/" replace />;
   }
 
   return (
