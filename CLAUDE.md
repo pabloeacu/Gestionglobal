@@ -31,7 +31,7 @@ Ecosistema digital único de **Gestión Global** (servicios a administradores de
 consorcios) bajo el dominio **gestionglobal.ar**. Tres accesos: panel de socios
 gerentes, portal de administradores clientes, formularios públicos sin login.
 
-## 2. Las 16 reglas no negociables
+## 2. Las 20 reglas no negociables
 
 1. **Persistencia en BD siempre.** Toda mutación de negocio pasa por Supabase
    (INSERT/UPDATE/DELETE o RPC). `setState` sin persistir = bug.
@@ -204,7 +204,7 @@ gerentes, portal de administradores clientes, formularios públicos sin login.
 ## 4. Stack
 
 React 18 + TS strict + Vite 6 + Tailwind + lucide + sonner · Supabase
-(Postgres 15 + Auth + Storage + Edge/Deno) · pg_cron + pg_net · Resend ·
+(Postgres 17 + Auth + Storage + Edge/Deno) · pg_cron + pg_net · Resend ·
 ARCA SOAP nativo (node-forge) · Web Push VAPID · NIC.ar → Cloudflare →
 Vercel → GitHub → Supabase → Google Workspace.
 
