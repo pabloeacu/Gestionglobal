@@ -8508,3 +8508,55 @@ email/current-password); con este fix, en el caso normal el cliente ni siquiera 
 
 **Alcance:** arregla la PWA y cualquier reentrada manual a `/ingresar` estando logueado (bookmarks,
 link viejo). Regla capitalizada: toda ruta pública de entrada debe rebotar al autenticado.
+
+## DGG-248 · Auto-materialización de la DDJJ-de-marzo (y demás obligaciones RPAC) para TODO matriculado — 2026-11-12 (migs 0681-0683 + edge dispatch-vencimientos v24)
+
+**Pedido de Pablo (opción b):** que la DDJJ anual del RPAC — que vence el 31/03 para todo
+matriculado de PBA — se materialice sola para todos, sin depender de que un gerente la tipee en
+el modal de cierre.
+
+**Hallazgo (no era un motor faltante, era ALCANCE):** el circuito ya existía completo —
+`private.perfil_regulatorio_calc` YA infiere `proxima_ddjj = próximo 31/03` con `certeza='inferido'`
+para todo matriculado RPAC (de `administraciones.matricula_rpac`, sin necesitar dato declarado), y
+el cron diario `gg_perfil_declarado_materializar_diario` → `private.perfil_declarado_sync_venc`
+ya materializa cuando la certeza es 'declarado' **O 'inferido'**, con todas las alarmas/avisos
+(mail/push/campanita/ficha) cableados. **El bug:** el loop del cron hacía `INNER JOIN
+perfil_regulatorio`, así que sólo procesaba a los **45 de 157** matriculados que habían declarado
+u opt-outeado algo; los otros **112** (106 sin DDJJ) nunca pasaban por el materializador.
+`perfil_regulatorio` es ON-DEMAND (lo crean sólo `perfil_regulatorio_declarar` /
+`_set_no_requiere`), NO 1:1 con administraciones → backfillearlo sería incorrecto.
+
+**Decisión:** EXTENDER el alcance del materializador existente (reusarlo, NO duplicar un motor
+paralelo — habría roto la consistencia) para que cubra TODO matriculado activo (RPAC/RPA o con
+inscripción/renovación resuelta) ∪ los que tengan fila en `perfil_regulatorio`. El cálculo funciona
+sin fila declarada (COALESCE sobre `d` NULL). Opt-outs (`no_requiere`), supresión por fila OFICIAL
+(tipo `ddjj_anual`/`curso_actualizacion` ya existente) y roll anual (UPDATE in-place de la fecha)
+los sigue manejando el sync reusado. Alcance confirmado por Pablo: **las 3 obligaciones** (no sólo
+DDJJ) — el curso sólo se materializa con EVIDENCIA (curso previo resuelto → inferido last+12m),
+nunca inventa fecha para quien no cursó.
+
+**Efecto (backfill verificado 2026-11-12):** +106 `ddjj_anual_declarada` (31/03/2027), +75
+`curso_actualizacion_declarado`, +1 `renovacion_matricula_declarada`. **154/157** matriculados con
+DDJJ (los 3 restantes son opt-out, respetados). **Cero disparo hoy** (ventana declarado de la DDJJ
+31/03/2027 ≈ 14/02→21/04/2027; el aviso es 100% pull por el cron, no hay trigger on-insert).
+
+**Doble auditoría §6 (3 agentes adversariales + e2e dry-run con rollback):** el motor de
+ofrecimientos (`gg_ofrecimientos_diario`, cron activo) NO consume la familia `_declarada`/`origen='declarado'`
+→ cero riesgo de ofertas masivas; RLS/tenancy sana (cliente ve sólo las suyas, no puede mutar);
+timing 0 hoy. Destapó y se cerró TODO en el mismo chunk: **E-GG-270..274**.
+
+**Decisión de voz (copy honesto, pedido explícito de Pablo = "voz de calendario"):** las filas
+inferidas (el cliente NUNCA declaró; la fecha se infiere de su matrícula que tiene GG) no pueden
+decir "según los datos que cargaste" — a 106 matriculados sería un envío masivo mintiendo. Se
+unificó la familia 'declarado' a una voz de calendario honesta ("Según el calendario regulatorio de
+tu matrícula…") en email (`vencimiento-declarado-cliente`), push (edge) y badge de la ficha. En la
+ficha, el badge `inferido` pasó de 'Datos declarados' a **'Agenda regulatoria'** — refina la decisión
+DGG-231 de "no distinguir" (que asumía "deriva de lo que cargaste", premisa que NO aplica a la DDJJ
+universal inferida de la matrícula).
+
+**Decisión documentada (no es bug):** la card urgente "Tu DDJJ vence pronto" del home del cliente
+(`cliente_portal_dashboard`) lee tipo `ddjj_anual` OFICIAL, no la `ddjj_anual_declarada`. Para un
+matriculado cuya única DDJJ es la inferida, la coherencia aviso↔home queda cubierta por el nudge
+`ddjj_diciembre` (PBA, meses 11–3, que solapa la ventana del 31/03) + la card "Tu agenda de avisos"
+de la ficha + el email. Se deja así a propósito; si se quisiera, se puede extender el candidato
+`ddjj_proxima` a incluir la declarada (follow-up menor).

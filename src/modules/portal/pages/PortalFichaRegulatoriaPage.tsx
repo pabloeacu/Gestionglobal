@@ -646,6 +646,10 @@ export function PortalFichaRegulatoriaPage() {
             <p className="text-xs text-brand-muted">Datos que cargaste vos. Con ellos calculamos tus próximas obligaciones y te avisamos; podés corregirlos cuando quieras.</p>
           </div>
           <div className="flex items-start gap-3">
+            <CertezaBadge certeza="inferido" />
+            <p className="text-xs text-brand-muted">Lo calculamos a partir de tu matrícula y el calendario regulatorio del RPAC. Confirmá o corregí la fecha cuando quieras.</p>
+          </div>
+          <div className="flex items-start gap-3">
             <CertezaBadge certeza="desconocido" />
             <p className="text-xs text-brand-muted">Todavía no lo tenemos. Cargá el dato{esPba ? ' o tu legajo RPAC' : ''}.</p>
           </div>

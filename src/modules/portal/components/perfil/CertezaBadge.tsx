@@ -1,4 +1,4 @@
-import { BadgeCheck, UserCheck, ShieldCheck, CircleHelp } from 'lucide-react';
+import { BadgeCheck, UserCheck, ShieldCheck, CircleHelp, CalendarClock } from 'lucide-react';
 import type { CertezaDato, FuenteDato, HechoConCerteza } from '@/services/api/perfilRegulatorio';
 import { formatDateShort } from '@/lib/dates';
 import { cn } from '@/lib/cn';
@@ -35,11 +35,14 @@ export const CERTEZA_META: Record<CertezaDato, CertezaMeta> = {
     hint: 'Son datos que cargaste vos. Podés corregirlos cuando quieras.',
   },
   inferido: {
-    // Misma voz que "declarado": se calcula a partir de lo que el cliente cargó.
-    label: 'Datos declarados',
-    Icon: UserCheck,
+    // DGG-248: 'inferido' puede derivar de un dato del cliente O de su matrícula
+    // (la DDJJ-de-marzo se infiere de la matrícula que tiene GG, no de algo que el
+    // cliente cargó). Voz de calendario — honesta para ambos casos, no afirma una
+    // carga que puede no haber ocurrido.
+    label: 'Agenda regulatoria',
+    Icon: CalendarClock,
     chip: 'bg-white text-gg-petrolD border border-gg-petrol/50',
-    hint: 'Lo calculamos a partir de los datos que cargaste.',
+    hint: 'Lo calculamos a partir de tu matrícula y el calendario regulatorio del RPAC.',
   },
   desconocido: {
     label: 'Pendiente',

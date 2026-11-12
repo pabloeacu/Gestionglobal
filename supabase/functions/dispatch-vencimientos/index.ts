@@ -440,7 +440,7 @@ Deno.serve(async (req) => {
               ? `${tipoLabel}: vence hoy`
               : `${tipoLabel}: vence en ${p.offset_dias} días`);
         const notifCuerpo = declarado
-          ? `Según tus datos, ${fraseDeclarada(tipoLabel, p.fecha_vencimiento, p.offset_dias)}. Si ya la hiciste, actualizala en tu ficha.`
+          ? `Según el calendario de tu matrícula, ${fraseDeclarada(tipoLabel, p.fecha_vencimiento, p.offset_dias)}. Si ya la presentaste, cargá la fecha en tu ficha.`
           : `Tu ${labelMinus(tipoLabel)} vence el ${p.fecha_vencimiento}. Iniciá la gestión con un click.`;
         const { error: errNotif } = await supabase.rpc('gg_notif_emitir_cliente', {
           p_user: admin.user_id,
