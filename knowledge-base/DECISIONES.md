@@ -8590,3 +8590,54 @@ del usuario real de un cliente → `comunicaciones_vigentes_cliente()` devuelve 
 edición de LexPH · Leer la edición → /lexph", `imagen_url=null` (navega, no modal), sin ver. (El
 rol-swap NO sirve para esta superficie: el RPC resuelve el cliente por `administraciones.user_id =
 auth.uid()`, no por `current_administracion_id()`.)
+
+## DGG-249 · Egresos-obligación: fundamento contable (chunk 1 de 3) — 2026-11-12 (mig 0685)
+
+**Pedido de Pablo:** adoptar para los EGRESOS la misma lógica que ya tienen los ingresos
+(comprobante↔cobranza↔obligación): un comprobante de gasto que, en el mismo acto, pueda pagarse
+total / parcial / quedar impago (pasivo de GG, eventualmente compartido con un partner). Fin:
+registro contable más fino (financiero **y patrimonial**) y **rendición real a partners** (FundPlata
+no infla rentabilidad al ignorar costos aún no pagados). Premisa sagrada: no romper los asientos.
+
+**Análisis (3 agentes §6 + e2e sobre los 227 comprobantes vivos):** los ingresos son una
+obligación (`comprobantes`, saldo_pendiente/estado_cobranza) saldada por `movimientos` (ingreso)
+imputados vía `movimiento_imputaciones`; un trigger (`recalcular_saldo_comprobante_imputado`)
+deriva saldo + estado. Los **egresos hoy son sólo cash-out** (128 `movimientos` tipo='egreso', sin
+obligación). La rentabilidad del partner se computa **base COBRADO** (costos = sólo egresos
+pagados) → el gasto impago es invisible e infla la rentabilidad presunta (el hueco exacto de Pablo).
+
+**Decisiones de Pablo (AskUserQuestion):** simetría completa (total/parcial/impago + vencimiento) ·
+**total interno** (sin IVA/ARCA; el crédito fiscal queda para si activan ARCA) · partner
+**devengado + transparente** (el costo atribuido cuenta apenas se carga la obligación, impago
+incluido, y el partner lo ve) · **sin backfill** de los 128 egresos cash históricos.
+
+**Arquitectura (quirúrgica, AISLADA):** entidad y camino de imputación PROPIOS — NO reusar
+`comprobantes` (acoplado a ARCA/receptor/fiscal) ni `movimiento_imputaciones` (su trigger
+recalcular_saldo es TIPO-CIEGO: suma por comprobante_id sin mirar tipo → un egreso ahí corrompería
+el saldo de los ingresos). Único toque a lo existente: ampliar (aditivo) el CHECK
+`movimientos.origen` con `'pago_egreso'`.
+
+**Fundamento (mig 0685):** tabla `egresos` (obligación: total, saldo_pendiente derivado, estado_pago
+pendiente/parcial/pagado/anulado, vencimiento, proveedor, categoria, partner_id_atribucion,
+curso_id/tramite_id, administracion_id nullable=gasto de la casa). Tabla `egreso_pagos` (imputación
+pago↔obligación, aislada). Triggers espejo: init saldo=total; `egreso_recalcular_saldo` (saldo =
+GREATEST(0, total−Σpagado) + estado_pago, misma fórmula que ingresos, 'vencido' derivado no
+persistido); `egreso_pago_validar_topes` (Σ≤total y Σ≤monto_movimiento). RPCs: `emitir_egreso` (nace
+impago, con pago opcional atómico en el mismo acto), `registrar_pago_egreso` (crea `movimientos`
+egreso origen='pago_egreso' + imputación — la caja lo ve), `anular_egreso`. Todas SECDEF/is_staff/
+idempotentes. RLS staff-only + GRANTs (R6).
+
+**El pago SÍ emite un `movimientos` egreso (toca caja → los reportes de caja lo ven); la obligación
+IMPAGA NO toca `movimientos`** (igual que un comprobante devengado no toca caja), para no duplicar
+el egreso al pagarlo. El pasivo y la rentabilidad devengada se leen de `egresos`.
+
+**§6 EJERCITAR (e2e BEGIN/ROLLBACK, impersonando staff): VERDE** — emitir impago→parcial→pagado,
+guardas (over-pay/anular-pagado rechazados), atómico total/parcial, anulación, idempotencia, y lo
+crítico: **`ISO_imput=0`** (el pago NO entra en `movimiento_imputaciones`) + **`comprobantes_desync=0`**
+sobre los 228 (ningún saldo de ingreso tocado). Rollback sin rastro.
+
+**Falta (chunks 2 y 3, pendientes):** (2) reportes — tarjeta de **Pasivo** en el home de gerencia
+(`kpis_dashboard_global`) + **rentabilidad devengada del partner** (sumar costos de `egresos`
+atribuidos, pagados + impagos, en `partner_crear_rendicion`/`partner_sabana`/`partner_rendicion_movimientos`,
+con chip pagado/impago y respetando rendiciones cerradas inmutables); (3) **UI** — alta de egreso con
+"pagar ahora" total/parcial/impago, grilla de obligaciones por pagar, cuenta corriente de proveedor.
