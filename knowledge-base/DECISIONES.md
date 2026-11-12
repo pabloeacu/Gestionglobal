@@ -8560,3 +8560,33 @@ matriculado cuya única DDJJ es la inferida, la coherencia aviso↔home queda cu
 `ddjj_diciembre` (PBA, meses 11–3, que solapa la ventana del 31/03) + la card "Tu agenda de avisos"
 de la ficha + el email. Se deja así a propósito; si se quisiera, se puede extender el candidato
 `ddjj_proxima` a incluir la declarada (follow-up menor).
+
+## DGG-244 F2r · Aviso in-app del newsletter LexPH en el portal del cliente — 2026-11-12 (mig 0684)
+
+**GAP reportado por un cliente:** al lanzar una edición del newsletter LexPH el cliente recibe el
+EMAIL (modelo opt-out: clientes + captación como presuntos suscriptos), pero en el home de su portal
+**no tenía ningún acceso directo** para leer la edición. Se había hablado de banner + campanita +
+push + email; sólo se construyó el email (F2d-B). Faltaban las superficies in-app del cliente —
+quedó a medias (E-GG-275).
+
+**Decisión de Pablo (2026-11-12):** banner + campanita + push; el banner **"hasta clic o X"** (por
+edición/cliente); retroactivo a la edición vigente.
+
+**Solución (aditiva, reusa el sistema de Comunicaciones de gerencia — CERO frontend nuevo):** el
+lanzamiento crea+envía una `comunicaciones` con `canal_email=false` (el newsletter ya manda su mail,
+no duplicar), `push`+`campanita=true`, `cta_url='/lexph'` (teaser→web), apuntada por audiencia
+'manual' a los **clientes que son suscriptores confirmados del newsletter** (los mismos que reciben
+el mail, menos suprimidos → coherencia aviso↔display §6e; hoy 192). El banner (`NovedadesBanner`),
+la campanita (`notificaciones_internas`), el push (`encolar_push`) y el dismiss por cliente
+(`comunicaciones_destinatarios.visto_at` + `comunicacion_marcar_vista`) ya existían y están probados.
+Nuevo RPC `lexph_edicion_avisar_portal(edicion, con_push)` SECDEF staff-gated, **idempotente** por
+`lexph_ediciones.portal_comunicacion_id`; wired a `lexph_newsletter_enviar` (guarded: un fallo del
+aviso NUNCA rompe el envío de mails). El retroactivo de la edición vigente se dispara con
+`con_push=false` (banner + campanita, sin push — el mail ya salió hace días); las ediciones futuras
+van con los 3 canales al lanzar.
+
+**Verificado (2026-11-12):** audiencia = 192 clientes (coherente con el mail); e2e por impersonación
+del usuario real de un cliente → `comunicaciones_vigentes_cliente()` devuelve el banner "Nueva
+edición de LexPH · Leer la edición → /lexph", `imagen_url=null` (navega, no modal), sin ver. (El
+rol-swap NO sirve para esta superficie: el RPC resuelve el cliente por `administraciones.user_id =
+auth.uid()`, no por `current_administracion_id()`.)
