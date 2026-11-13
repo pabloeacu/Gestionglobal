@@ -4,3 +4,4 @@ export { FinanzasAdminPage } from './pages/FinanzasAdminPage';
 export { FinanzasReportesPage } from './pages/FinanzasReportesPage';
 export { FinanzasImportarPage } from './pages/FinanzasImportarPage';
 export { ObligacionesPage } from './pages/ObligacionesPage';
+export { ProveedoresPage } from './pages/ProveedoresPage';

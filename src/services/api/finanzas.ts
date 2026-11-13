@@ -232,6 +232,98 @@ export async function crearProveedorFrecuente(
   }
 }
 
+// ============================================================================
+// DGG-251 · Gestión de proveedores frecuentes (editar/desactivar/eliminar).
+// El catálogo es sólo nombres para autocompletar (mig 0394): el nombre vive
+// DENORMALIZADO (egresos.proveedor_nombre + caja en la descripción). Por eso el
+// rename es RETROACTIVO (RPC coherente) y el borrado sólo si no tiene uso.
+// RPCs nuevas → raw-rpc (los types aún no las conocen; patrón de egresos.ts).
+// ============================================================================
+export interface ProveedorFrecuenteFullRow {
+  id: string;
+  nombre: string;
+  activo: boolean;
+}
+export interface ProveedorUso {
+  nombre: string;
+  egresos: number;
+  caja: number;
+  total: number;
+}
+
+type RawRpcFz = (
+  name: string,
+  args?: Record<string, unknown>,
+) => Promise<{ data: unknown; error: { message: string } | null }>;
+const rawRpcFz: RawRpcFz = (name, args) =>
+  (supabase.rpc as unknown as RawRpcFz).call(supabase, name, args);
+
+/** Lista completa (incluye inactivos) para la pantalla de gestión. */
+export async function listProveedoresFrecuentesAll(): Promise<ApiResponse<ProveedorFrecuenteFullRow[]>> {
+  try {
+    const { data, error } = await supabase
+      .from('proveedores_frecuentes')
+      .select('id, nombre, activo')
+      .order('activo', { ascending: false })
+      .order('nombre', { ascending: true });
+    if (error) throw error;
+    return ok((data ?? []) as ProveedorFrecuenteFullRow[]);
+  } catch (e) {
+    const err = toApiError(e);
+    return fail(err.code, err.message, err.details);
+  }
+}
+
+/** Uso (obligaciones + caja) de un proveedor — para el preview del rename y el guard del borrado. */
+export async function proveedorFrecuenteUso(id: string): Promise<ApiResponse<ProveedorUso>> {
+  const { data, error } = await rawRpcFz('proveedor_frecuente_uso', { p_id: id });
+  if (error) return fail('PROV_USO', error.message, error);
+  const j = (data ?? {}) as Record<string, unknown>;
+  return ok({
+    nombre: String(j.nombre ?? ''),
+    egresos: Number(j.egresos ?? 0),
+    caja: Number(j.caja ?? 0),
+    total: Number(j.total ?? 0),
+  });
+}
+
+/** Renombra el proveedor y, retroactivamente, el texto en obligaciones (y caja si incluirCaja). */
+export async function renombrarProveedorFrecuente(
+  id: string,
+  nombreNuevo: string,
+  incluirCaja = true,
+): Promise<ApiResponse<{ egresos_renombrados: number; caja_renombrados: number; nombre: string }>> {
+  const { data, error } = await rawRpcFz('proveedor_frecuente_renombrar', {
+    p_id: id,
+    p_nombre_nuevo: nombreNuevo,
+    p_incluir_caja: incluirCaja,
+  });
+  if (error) return fail('PROV_RENOMBRAR', error.message, error);
+  const j = (data ?? {}) as Record<string, unknown>;
+  return ok({
+    egresos_renombrados: Number(j.egresos_renombrados ?? 0),
+    caja_renombrados: Number(j.caja_renombrados ?? 0),
+    nombre: String(j.nombre ?? nombreNuevo),
+  });
+}
+
+/** Activa/desactiva (soft-delete reversible). */
+export async function setProveedorFrecuenteActivo(
+  id: string,
+  activo: boolean,
+): Promise<ApiResponse<void>> {
+  const { error } = await rawRpcFz('proveedor_frecuente_set_activo', { p_id: id, p_activo: activo });
+  if (error) return fail('PROV_ACTIVO', error.message, error);
+  return ok(undefined);
+}
+
+/** Elimina de verdad — sólo si NO tiene uso (la RPC lo garantiza). */
+export async function eliminarProveedorFrecuente(id: string): Promise<ApiResponse<void>> {
+  const { error } = await rawRpcFz('proveedor_frecuente_eliminar', { p_id: id });
+  if (error) return fail('PROV_ELIMINAR', error.message, error);
+  return ok(undefined);
+}
+
 export async function getDashboardKpis(): Promise<ApiResponse<DashboardKpis>> {
   try {
     const { data, error } = await supabase.rpc('fz_dashboard_kpis');

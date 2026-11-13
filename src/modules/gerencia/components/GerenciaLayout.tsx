@@ -100,6 +100,7 @@ const NAV: NavGroup[] = [
     children: [
       { label: 'Cajas y movimientos', to: '/gerencia/finanzas', end: true },
       { label: 'Obligaciones de pago', to: '/gerencia/finanzas/obligaciones' },
+      { label: 'Proveedores', to: '/gerencia/finanzas/proveedores' },
       { label: 'Conciliación', to: '/gerencia/finanzas/conciliacion' },
       { label: 'Partners', to: '/gerencia/partners' },
     ],
