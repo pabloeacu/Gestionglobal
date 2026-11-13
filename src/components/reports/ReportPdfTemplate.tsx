@@ -38,6 +38,8 @@ export interface ReportPdfTemplateProps<T = Record<string, unknown>> {
   subtitulo?: string;
   filtros?: Array<{ label: string; value: string }>;
   kpis?: ReportKpi[];
+  /** DGG-250 · bloque libre (paneles/gráficos) entre los KPIs y la tabla. Sólo página 1. */
+  headerExtra?: ReactNode;
   columns: ReportColumn<T>[];
   rows: T[];
   pagina?: number;
@@ -58,6 +60,7 @@ export function ReportPdfTemplate<T>({
   subtitulo,
   filtros = [],
   kpis = [],
+  headerExtra,
   columns,
   rows,
   pagina = 1,
@@ -219,6 +222,9 @@ export function ReportPdfTemplate<T>({
           })}
         </div>
       )}
+
+      {/* DGG-250 · bloque libre (paneles/gráficos), sólo primera página */}
+      {headerExtra && <div style={{ marginBottom: 16 }}>{headerExtra}</div>}
 
       {/* Tabla */}
       <div style={{ flex: 1, overflow: 'hidden' }}>

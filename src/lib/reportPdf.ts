@@ -11,6 +11,7 @@ import { createRoot } from 'react-dom/client';
 import { createElement } from 'react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+import type { ReactNode } from 'react';
 import {
   ReportPdfTemplate,
   REPORT_W,
@@ -26,6 +27,10 @@ export interface GenerateReportPdfInput<T> {
   subtitulo?: string;
   filtros?: Array<{ label: string; value: string }>;
   kpis?: ReportKpi[];
+  /** DGG-250 · bloque libre (paneles/gráficos) en la primera página, entre KPIs y tabla. */
+  headerExtra?: ReactNode;
+  /** Filas en la primera página (default = ROWS_PER_PAGE). Bajalo si hay headerExtra alto. */
+  firstPageRows?: number;
   columns: ReportColumn<T>[];
   rows: T[];
 }
@@ -52,8 +57,16 @@ async function esperarRecursos(node: HTMLElement): Promise<void> {
 export async function generateReportPdf<T>(
   input: GenerateReportPdfInput<T>,
 ): Promise<void> {
-  const totalPaginas = Math.max(1, Math.ceil(input.rows.length / ROWS_PER_PAGE));
+  const firstPageRows = input.firstPageRows ?? ROWS_PER_PAGE;
+  // página 1 toma firstPageRows; las siguientes, ROWS_PER_PAGE.
+  const restRows = Math.max(0, input.rows.length - firstPageRows);
+  const totalPaginas = Math.max(1, 1 + Math.ceil(restRows / ROWS_PER_PAGE));
   const fechaGeneracion = new Date();
+  const sliceFor = (p: number): T[] => {
+    if (p === 0) return input.rows.slice(0, firstPageRows);
+    const start = firstPageRows + (p - 1) * ROWS_PER_PAGE;
+    return input.rows.slice(start, start + ROWS_PER_PAGE);
+  };
 
   // Container offscreen
   const container = document.createElement('div');
@@ -77,17 +90,16 @@ export async function generateReportPdf<T>(
 
   try {
     for (let p = 0; p < totalPaginas; p++) {
-      const sliceStart = p * ROWS_PER_PAGE;
-      const sliceEnd = sliceStart + ROWS_PER_PAGE;
-      const pageRows = input.rows.slice(sliceStart, sliceEnd);
+      const pageRows = sliceFor(p);
 
       root.render(
         createElement(ReportPdfTemplate, {
           titulo: input.titulo,
           subtitulo: input.subtitulo,
           filtros: input.filtros,
-          // KPIs solo en la primera página
+          // KPIs y bloque libre solo en la primera página
           kpis: p === 0 ? input.kpis : [],
+          headerExtra: p === 0 ? input.headerExtra : undefined,
           columns: input.columns,
           rows: pageRows,
           pagina: p + 1,

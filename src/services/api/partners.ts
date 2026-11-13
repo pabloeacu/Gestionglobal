@@ -430,9 +430,17 @@ export interface ListAtribucionesParams {
   hasta?: string;
 }
 
+/** DGG-249/250: estado de pago de la obligación de egreso atribuida (null si la línea no es obligación). */
+export type AtribEstadoPagoEgreso = 'pendiente' | 'parcial' | 'pagado' | 'anulado';
+
 export interface AtribucionListItem extends PartnerAtribucionRow {
   comprobante_resumen: string | null;
   movimiento_resumen: string | null;
+  // DGG-250 · obligación de egreso atribuida (devengada): etiqueta + estado de pago vivo.
+  egreso_resumen: string | null;
+  egreso_estado_pago: AtribEstadoPagoEgreso | null;
+  egreso_saldo: number | null;
+  egreso_vencimiento: string | null;
 }
 
 export async function listAtribuciones(
@@ -443,7 +451,8 @@ export async function listAtribuciones(
     .select(
       `*,
        comprobantes(id, tipo, numero, total, fecha),
-       movimientos(id, fecha, monto, descripcion, tipo)`,
+       movimientos(id, fecha, monto, descripcion, tipo),
+       egresos(id, proveedor_nombre, concepto, total, saldo_pendiente, estado_pago, fecha, vencimiento)`,
     )
     .order('created_at', { ascending: false })
     .limit(500);
@@ -470,6 +479,16 @@ export async function listAtribuciones(
       descripcion: string | null;
       tipo: string;
     } | null;
+    egresos: {
+      id: string;
+      proveedor_nombre: string;
+      concepto: string;
+      total: number;
+      saldo_pendiente: number;
+      estado_pago: string;
+      fecha: string;
+      vencimiento: string | null;
+    } | null;
   };
 
   const rows: AtribucionListItem[] = (data as unknown as RawRow[] | null ?? [])
@@ -483,7 +502,9 @@ export async function listAtribuciones(
           : r.movimientos
             ? r.movimientos.fecha >= params.desde &&
               r.movimientos.fecha <= params.hasta
-            : true),
+            : r.egresos
+              ? r.egresos.fecha >= params.desde && r.egresos.fecha <= params.hasta
+              : true),
     )
     .map((r) => ({
       ...(r as PartnerAtribucionRow),
@@ -493,6 +514,14 @@ export async function listAtribuciones(
       movimiento_resumen: r.movimientos
         ? `${r.movimientos.fecha} · $${r.movimientos.monto} · ${r.movimientos.descripcion ?? ''}`.trim()
         : null,
+      egreso_resumen: r.egresos
+        ? `Obligación · ${r.egresos.proveedor_nombre} · ${r.egresos.concepto}`
+        : null,
+      egreso_estado_pago: r.egresos
+        ? (r.egresos.estado_pago as AtribEstadoPagoEgreso)
+        : null,
+      egreso_saldo: r.egresos ? Number(r.egresos.saldo_pendiente) : null,
+      egreso_vencimiento: r.egresos ? r.egresos.vencimiento : null,
     }));
 
   return ok(rows);
@@ -622,6 +651,52 @@ export async function getRendicion(
     rendicion: { ...(raw as PartnerRendicionRow) },
     partner: raw.partners ?? null,
     atribuciones: atribRes.data,
+  });
+}
+
+// ============================================================================
+// DGG-250 · Resumen "devengado vs pagado" de una rendición.
+// La participación del partner es DEVENGADA (sobre el costo incurrido), pero parte
+// de ese costo puede estar aún impago por GG. Esta data expone, con honestidad, cuánto
+// de los costos imputados ya pagó GG y cuánto queda pendiente — para la cabecera + gráficos.
+// ============================================================================
+export interface RendicionResumenPago {
+  ingresos_atribuidos: number;
+  costos_atribuidos: number;
+  costos_brutos: number;
+  neto: number;
+  costo_pendiente_bruto: number;
+  costo_pagado_bruto: number;
+  costo_pendiente_atribuido: number;
+  costo_pagado_atribuido: number;
+  tiene_pendiente: boolean;
+}
+
+export async function getRendicionResumenPago(
+  rendicionId: string,
+): Promise<ApiResponse<RendicionResumenPago>> {
+  // raw-rpc: los types regenerados aún no conocen esta RPC nueva (mismo patrón que egresos.ts).
+  type RawRpc = (
+    name: string,
+    args?: Record<string, unknown>,
+  ) => Promise<{ data: unknown; error: { message: string } | null }>;
+  const rpc: RawRpc = (name, args) =>
+    (supabase.rpc as unknown as RawRpc).call(supabase, name, args);
+  const { data, error } = await rpc('partner_rendicion_resumen_pago', {
+    p_rendicion_id: rendicionId,
+  });
+  if (error) return fail('PREND_RESUMEN_PAGO', error.message, error);
+  const j = (data ?? {}) as Record<string, unknown>;
+  return ok({
+    ingresos_atribuidos: Number(j.ingresos_atribuidos ?? 0),
+    costos_atribuidos: Number(j.costos_atribuidos ?? 0),
+    costos_brutos: Number(j.costos_brutos ?? 0),
+    neto: Number(j.neto ?? 0),
+    costo_pendiente_bruto: Number(j.costo_pendiente_bruto ?? 0),
+    costo_pagado_bruto: Number(j.costo_pagado_bruto ?? 0),
+    costo_pendiente_atribuido: Number(j.costo_pendiente_atribuido ?? 0),
+    costo_pagado_atribuido: Number(j.costo_pagado_atribuido ?? 0),
+    tiene_pendiente: Boolean(j.tiene_pendiente ?? false),
   });
 }
 
