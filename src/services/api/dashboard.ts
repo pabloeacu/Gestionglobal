@@ -11,6 +11,10 @@ export interface DashboardKpis {
   admins_morosos: number;
   tramites_abiertos: number;
   vencimientos_proximos: number;
+  // DGG-249 · patrimonial: pasivo (obligaciones de egreso por pagar) + egreso devengado/pagado del período.
+  pasivo_total: number;
+  egreso_devengado_periodo: number;
+  egreso_pagado_periodo: number;
   serie_facturado: Array<{ fecha: string; facturado: number }>;
 }
 

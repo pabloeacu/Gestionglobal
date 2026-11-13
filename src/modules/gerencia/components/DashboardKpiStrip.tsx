@@ -1,4 +1,4 @@
-import { AlertCircle, CalendarClock, TrendingUp, Wallet } from 'lucide-react';
+import { AlertCircle, CalendarClock, HandCoins, TrendingUp, Wallet } from 'lucide-react';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import { AnimatedNumber } from '@/components/common/AnimatedNumber';
 import { cn } from '@/lib/cn';
@@ -121,7 +121,7 @@ export function DashboardKpiStrip({ data, loading }: DashboardKpiStripProps) {
   return (
     <section>
       <p className="kicker mb-3 text-brand-muted">Resumen de los últimos 30 días</p>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <KpiCard
           label="Facturado 30d"
           hint="Comprobantes autorizados"
@@ -153,13 +153,23 @@ export function DashboardKpiStrip({ data, loading }: DashboardKpiStripProps) {
           loading={loading}
         />
         <KpiCard
+          label="Pasivo"
+          hint="Obligaciones de egreso por pagar"
+          value={data?.pasivo_total ?? 0}
+          format={fmtMoneda}
+          icon={HandCoins}
+          tone="amber"
+          delay={240}
+          loading={loading}
+        />
+        <KpiCard
           label="Trámites abiertos"
           hint={`${fmtEntero(data?.vencimientos_proximos ?? 0)} vencimientos en 30d`}
           value={data?.tramites_abiertos ?? 0}
           format={fmtEntero}
           icon={CalendarClock}
           tone="slate"
-          delay={240}
+          delay={320}
           loading={loading}
         />
       </div>

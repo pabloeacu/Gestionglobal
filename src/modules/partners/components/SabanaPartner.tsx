@@ -30,6 +30,13 @@ function signed(l: SabanaLinea): number {
   return l.tipo === 'ingreso' ? Number(l.participacion_monto) : -Number(l.participacion_monto);
 }
 
+// DGG-249 · chips de estado: ingresos usan 'total'/'parcial' (como antes); las
+// obligaciones de egreso agregan 'pagado'/'impago'. 'total'/'pagado' = saldado (verde),
+// 'parcial' = amarillo, 'impago' = por pagar (rojo).
+const CHIP_LABEL: Record<string, string> = { total: 'Total', parcial: 'Parcial', pagado: 'Pagado', impago: 'Impago' };
+const chipLabel = (c: string): string => CHIP_LABEL[c] ?? c;
+const chipSettled = (c: string): boolean => c === 'total' || c === 'pagado';
+
 export function SabanaPartner({
   partnerId,
   partnerNombre,
@@ -115,7 +122,7 @@ export function SabanaPartner({
         { key: 'operacion_monto', label: 'Operación', align: 'right', width: '13%',
           format: (r) => fmtMoneda(r.operacion_monto) },
         { key: 'chip', label: 'Estado', width: '9%',
-          format: (r) => (r.chip === 'total' ? 'Total' : 'Parcial') },
+          format: (r) => chipLabel(r.chip) },
         { key: 'porcentaje', label: '%', align: 'right', width: '7%',
           format: (r) => fmtPct(r.porcentaje) },
         { key: 'participacion_monto', label: 'Participación', align: 'right', width: '12%',
@@ -142,7 +149,7 @@ export function SabanaPartner({
         { key: 'comprobante_total', label: 'Total comprob.', width: 15, value: (r) => Number(r.comprobante_total ?? 0) },
         { key: 'comprobante_saldo', label: 'Saldo comprob.', width: 15, value: (r) => Number(r.comprobante_saldo ?? 0) },
         { key: 'operacion_monto', label: 'Operación', width: 15, value: (r) => Number(r.operacion_monto) },
-        { key: 'chip', label: 'Estado', width: 10, value: (r) => (r.chip === 'total' ? 'Total' : 'Parcial') },
+        { key: 'chip', label: 'Estado', width: 10, value: (r) => chipLabel(r.chip) },
         { key: 'porcentaje', label: '%', width: 8, value: (r) => Number(r.porcentaje) },
         { key: 'participacion_monto', label: 'Participación', width: 15, value: (r) => signed(r) },
         { key: 'saldo_participacion', label: 'Saldo', width: 15, value: (r) => Number(r.saldo_participacion) },
@@ -246,12 +253,14 @@ export function SabanaPartner({
                     <span
                       className={cn(
                         'inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide',
-                        l.chip === 'total'
+                        chipSettled(l.chip)
                           ? 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200'
-                          : 'bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-200',
+                          : l.chip === 'impago'
+                            ? 'bg-rose-50 text-rose-700 ring-1 ring-inset ring-rose-200'
+                            : 'bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-200',
                       )}
                     >
-                      {l.chip === 'total' ? 'Total' : 'Parcial'}
+                      {chipLabel(l.chip)}
                     </span>
                   </td>
                   <td

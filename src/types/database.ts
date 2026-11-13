@@ -3443,6 +3443,185 @@ export type Database = {
           },
         ]
       }
+      egreso_pagos: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          egreso_id: string
+          id: string
+          monto_pagado: number
+          movimiento_id: string
+          nota: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          egreso_id: string
+          id?: string
+          monto_pagado: number
+          movimiento_id: string
+          nota?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          egreso_id?: string
+          id?: string
+          monto_pagado?: number
+          movimiento_id?: string
+          nota?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "egreso_pagos_egreso_id_fkey"
+            columns: ["egreso_id"]
+            isOneToOne: false
+            referencedRelation: "egresos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "egreso_pagos_movimiento_id_fkey"
+            columns: ["movimiento_id"]
+            isOneToOne: false
+            referencedRelation: "movimientos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      egresos: {
+        Row: {
+          administracion_id: string | null
+          anulado_at: string | null
+          anulado_por: string | null
+          categoria_id: string | null
+          concepto: string
+          consorcio_id: string | null
+          created_at: string
+          created_by: string | null
+          curso_id: string | null
+          estado: string
+          estado_pago: string
+          fecha: string
+          id: string
+          idempotency_key: string | null
+          motivo_anulacion: string | null
+          observaciones: string | null
+          origen: string
+          partner_id_atribucion: string | null
+          proveedor_id: string | null
+          proveedor_nombre: string
+          saldo_pendiente: number
+          total: number
+          tramite_id: string | null
+          updated_at: string
+          vencimiento: string | null
+        }
+        Insert: {
+          administracion_id?: string | null
+          anulado_at?: string | null
+          anulado_por?: string | null
+          categoria_id?: string | null
+          concepto: string
+          consorcio_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          curso_id?: string | null
+          estado?: string
+          estado_pago?: string
+          fecha?: string
+          id?: string
+          idempotency_key?: string | null
+          motivo_anulacion?: string | null
+          observaciones?: string | null
+          origen?: string
+          partner_id_atribucion?: string | null
+          proveedor_id?: string | null
+          proveedor_nombre: string
+          saldo_pendiente?: number
+          total: number
+          tramite_id?: string | null
+          updated_at?: string
+          vencimiento?: string | null
+        }
+        Update: {
+          administracion_id?: string | null
+          anulado_at?: string | null
+          anulado_por?: string | null
+          categoria_id?: string | null
+          concepto?: string
+          consorcio_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          curso_id?: string | null
+          estado?: string
+          estado_pago?: string
+          fecha?: string
+          id?: string
+          idempotency_key?: string | null
+          motivo_anulacion?: string | null
+          observaciones?: string | null
+          origen?: string
+          partner_id_atribucion?: string | null
+          proveedor_id?: string | null
+          proveedor_nombre?: string
+          saldo_pendiente?: number
+          total?: number
+          tramite_id?: string | null
+          updated_at?: string
+          vencimiento?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "egresos_administracion_id_fkey"
+            columns: ["administracion_id"]
+            isOneToOne: false
+            referencedRelation: "administraciones"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "egresos_categoria_id_fkey"
+            columns: ["categoria_id"]
+            isOneToOne: false
+            referencedRelation: "categorias_finanzas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "egresos_consorcio_id_fkey"
+            columns: ["consorcio_id"]
+            isOneToOne: false
+            referencedRelation: "consorcios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "egresos_curso_id_fkey"
+            columns: ["curso_id"]
+            isOneToOne: false
+            referencedRelation: "cursos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "egresos_partner_id_atribucion_fkey"
+            columns: ["partner_id_atribucion"]
+            isOneToOne: false
+            referencedRelation: "partners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "egresos_proveedor_id_fkey"
+            columns: ["proveedor_id"]
+            isOneToOne: false
+            referencedRelation: "proveedores_frecuentes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "egresos_tramite_id_fkey"
+            columns: ["tramite_id"]
+            isOneToOne: false
+            referencedRelation: "tramites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       email_plantillas: {
         Row: {
           activo: boolean
@@ -4935,6 +5114,7 @@ export type Database = {
           intro: string | null
           newsletter_enviado_at: string | null
           newsletter_reporte_at: string | null
+          portal_comunicacion_id: string | null
           publicado_at: string | null
           resumen: Json
           seq: number
@@ -4952,6 +5132,7 @@ export type Database = {
           intro?: string | null
           newsletter_enviado_at?: string | null
           newsletter_reporte_at?: string | null
+          portal_comunicacion_id?: string | null
           publicado_at?: string | null
           resumen?: Json
           seq: number
@@ -4969,6 +5150,7 @@ export type Database = {
           intro?: string | null
           newsletter_enviado_at?: string | null
           newsletter_reporte_at?: string | null
+          portal_comunicacion_id?: string | null
           publicado_at?: string | null
           resumen?: Json
           seq?: number
@@ -4982,6 +5164,13 @@ export type Database = {
             columns: ["destacado_articulo_id"]
             isOneToOne: false
             referencedRelation: "lexph_articulos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lexph_ediciones_portal_comunicacion_id_fkey"
+            columns: ["portal_comunicacion_id"]
+            isOneToOne: false
+            referencedRelation: "comunicaciones"
             referencedColumns: ["id"]
           },
         ]
@@ -5831,6 +6020,7 @@ export type Database = {
           convenio_id: string
           created_at: string
           created_by: string | null
+          egreso_id: string | null
           id: string
           imputacion_id: string | null
           monto_atribuido: number
@@ -5847,6 +6037,7 @@ export type Database = {
           convenio_id: string
           created_at?: string
           created_by?: string | null
+          egreso_id?: string | null
           id?: string
           imputacion_id?: string | null
           monto_atribuido: number
@@ -5863,6 +6054,7 @@ export type Database = {
           convenio_id?: string
           created_at?: string
           created_by?: string | null
+          egreso_id?: string | null
           id?: string
           imputacion_id?: string | null
           monto_atribuido?: number
@@ -5901,6 +6093,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_atribuciones_egreso_id_fkey"
+            columns: ["egreso_id"]
+            isOneToOne: false
+            referencedRelation: "egresos"
             referencedColumns: ["id"]
           },
           {
@@ -9548,6 +9747,10 @@ export type Database = {
         Args: { p_comprobante_id: string }
         Returns: Json
       }
+      anular_egreso: {
+        Args: { p_egreso_id: string; p_motivo: string }
+        Returns: undefined
+      }
       apply_resend_event: {
         Args: {
           p_data: Json
@@ -10498,6 +10701,28 @@ export type Database = {
         }
         Returns: Json
       }
+      emitir_egreso: {
+        Args: {
+          p_administracion_id?: string
+          p_categoria_id?: string
+          p_concepto: string
+          p_consorcio_id?: string
+          p_curso_id?: string
+          p_fecha?: string
+          p_idempotency_key?: string
+          p_observaciones?: string
+          p_pago_caja_id?: string
+          p_pago_fecha?: string
+          p_pago_monto?: number
+          p_partner_id_atribucion?: string
+          p_proveedor_id?: string
+          p_proveedor_nombre: string
+          p_total: number
+          p_tramite_id?: string
+          p_vencimiento?: string
+        }
+        Returns: string
+      }
       encolar_email: {
         Args: {
           p_administracion_id: string
@@ -11336,6 +11561,10 @@ export type Database = {
         Returns: string
       }
       lexph_edicion_actual_staff: { Args: never; Returns: Json }
+      lexph_edicion_avisar_portal: {
+        Args: { p_con_push?: boolean; p_edicion_id: string }
+        Returns: Json
+      }
       lexph_edicion_cerrar: { Args: { p_id: string }; Returns: Json }
       lexph_edicion_guardar: {
         Args: {
@@ -11387,6 +11616,35 @@ export type Database = {
           origen_detalle: string
           origen_tipo: string
           saldo_disponible: number
+        }[]
+      }
+      listar_egresos: {
+        Args: {
+          p_desde?: string
+          p_hasta?: string
+          p_incluir_anulados?: boolean
+        }
+        Returns: {
+          admin_nombre: string
+          administracion_id: string
+          categoria_id: string
+          categoria_nombre: string
+          concepto: string
+          created_at: string
+          curso_id: string
+          estado: string
+          estado_pago: string
+          fecha: string
+          id: string
+          observaciones: string
+          partner_id_atribucion: string
+          partner_nombre: string
+          proveedor_nombre: string
+          saldo_pendiente: number
+          total: number
+          tramite_id: string
+          vencido: boolean
+          vencimiento: string
         }[]
       }
       listar_eventos_agenda: {
@@ -11849,6 +12107,18 @@ export type Database = {
         }
         Returns: string
       }
+      registrar_pago_egreso: {
+        Args: {
+          p_caja_id: string
+          p_descripcion?: string
+          p_egreso_id: string
+          p_fecha: string
+          p_idempotency_key?: string
+          p_monto: number
+          p_referencia?: string
+        }
+        Returns: string
+      }
       reintentar_arca_job: { Args: { p_job_id: string }; Returns: string }
       reset_arca_jobs_colgados: {
         Args: { p_max_age_min?: number }
@@ -11880,6 +12150,10 @@ export type Database = {
         Returns: string
       }
       restaurar_solicitud: { Args: { p_solicitud_id: string }; Returns: string }
+      revertir_pagos_egreso: {
+        Args: { p_egreso_id: string; p_motivo?: string }
+        Returns: number
+      }
       revocar_acceso_externo: { Args: { p_token: string }; Returns: undefined }
       revocar_certificado: {
         Args: { p_id: string; p_motivo: string }

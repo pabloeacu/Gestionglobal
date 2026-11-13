@@ -640,7 +640,7 @@ export interface SabanaLinea {
   comprobante_total: number | null;
   comprobante_saldo: number | null;
   operacion_monto: number;
-  chip: 'total' | 'parcial';
+  chip: 'total' | 'parcial' | 'pagado' | 'impago'; // DGG-249: obligaciones de egreso suman pagado/impago
   porcentaje: number;
   participacion_monto: number;
   saldo_participacion: number;

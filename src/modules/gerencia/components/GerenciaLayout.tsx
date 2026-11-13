@@ -99,6 +99,7 @@ const NAV: NavGroup[] = [
     icon: PiggyBank,
     children: [
       { label: 'Cajas y movimientos', to: '/gerencia/finanzas', end: true },
+      { label: 'Obligaciones de pago', to: '/gerencia/finanzas/obligaciones' },
       { label: 'Conciliación', to: '/gerencia/finanzas/conciliacion' },
       { label: 'Partners', to: '/gerencia/partners' },
     ],

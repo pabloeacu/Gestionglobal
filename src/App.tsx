@@ -88,6 +88,7 @@ const ConciliacionPage = lazy(() => import('@/modules/finanzas').then(m => ({ de
 const FinanzasAdminPage = lazy(() => import('@/modules/finanzas').then(m => ({ default: m.FinanzasAdminPage })));
 const FinanzasReportesPage = lazy(() => import('@/modules/finanzas').then(m => ({ default: m.FinanzasReportesPage })));
 const FinanzasImportarPage = lazy(() => import('@/modules/finanzas').then(m => ({ default: m.FinanzasImportarPage })));
+const ObligacionesPage = lazy(() => import('@/modules/finanzas').then(m => ({ default: m.ObligacionesPage })));
 const WebinarsListPage = lazy(() => import('@/modules/webinars-admin').then(m => ({ default: m.WebinarsListPage })));
 const WebinarDetailPage = lazy(() => import('@/modules/webinars-admin').then(m => ({ default: m.WebinarDetailPage })));
 const ProspectosListPage = lazy(() => import('@/modules/webinars-admin').then(m => ({ default: m.ProspectosListPage })));
@@ -480,6 +481,7 @@ export function App() {
           <Route path="finanzas/admin" element={<FinanzasAdminPage />} />
           <Route path="finanzas/reportes" element={<FinanzasReportesPage />} />
           <Route path="finanzas/importar" element={<FinanzasImportarPage />} />
+          <Route path="finanzas/obligaciones" element={<ObligacionesPage />} />
           <Route path="campus" element={<CampusListPage />} />
           <Route path="campus/sandbox" element={<CertificadoSandboxPage />} />
           <Route path="campus/plantillas" element={<CertificadoPlantillasPage />} />

@@ -8658,3 +8658,33 @@ cash de 'total' a 'pagado' y `SabanaPartner.tsx` (chip==='total'?Total:Parcial) 
 para egresos pagados → revertido a 'total'; los chips pagado/parcial/impago quedan sólo para las
 obligaciones, que el chunk 3 mapea. **Pendiente chunk 3 (UI):** alta de egreso con pagar-ahora, grilla de
 obligaciones, display del pasivo en el home, y mapear los chips de obligación + `movimiento_id` NULL en la sábana.
+
+**Chunk 3/3 HECHO — UI (mig 0687 + frontend, 2026-11-12):** RPC `listar_egresos` (staff-gated, universo
+completo; R19 filtra tabs en memoria). Servicio `src/services/api/egresos.ts` (emitir/pagar/anular/listar,
+raw-rpc castable sin regenerar types). **Alta** `NuevaObligacionModal` (proveedor/concepto/total/vencimiento/
+categoría/atribución a partner/administración + "¿Pagar ahora?" impaga/total/parcial, pago atómico en el
+mismo acto). **Página** `ObligacionesPage` (`/gerencia/finanzas/obligaciones`, en el nav de Finanzas):
+resumen patrimonial (pasivo total / por pagar / vencidas) + tabs por-pagar/pagadas/todas + grilla con chips
++ acciones Pagar/Anular. **Pasivo en el home**: `DashboardKpis` += pasivo_total/egreso_devengado/egreso_pagado;
+tarjeta "Pasivo" en `DashboardKpiStrip` (junto a Deuda = activo vs pasivo). **Sábana del partner**:
+`SabanaPartner.tsx` mapea los chips nuevos (pagado/impago, color verde/rojo/amarillo) y maneja `movimiento_id`
+NULL de las obligaciones. Build + prueba en vivo + auditoría transversal final a continuación.
+
+**Fix de coherencia (mig 0688, E-GG-276, 2026-11-13):** la auditoría transversal §6 (fan-out del
+nuevo `origen='pago_egreso'`) encontró que `fz_anular_movimiento`/`fz_revertir_movimiento` de la caja
+operaban sobre el movimiento de pago SIN tocar `egreso_pagos` → la obligación quedaba "pagada" con la
+caja anulada (desync; reproducido e2e). Fix simétrico con la reversión de cobranzas: ambas RPC de caja
+**bloquean** los movimientos que son pago de una obligación (dirigen a Obligaciones) + nueva RPC
+`revertir_pagos_egreso` que deshace el/los pago(s) de forma atómica (borra `egreso_pagos` → recalcula a
+impaga; anula el/los movimiento(s) → salen de caja/KPIs/sábana/rendición). Botón "Deshacer pago" en
+`ObligacionesPage`. Regresión 0 (había 0 `egreso_pagos` pre-existentes). Es la vía única y consistente
+para corregir un pago equivocado (antes quedaba trabado: `anular_egreso` bloquea obligaciones con pagos).
+
+**§6 auditoría final — EJERCITAR (2026-11-13):** 5 baterías e2e, **43 escenarios, 0 fallos** (emisión
+impaga/total/parcial/overpay-cap/idempotencia/validaciones; pago full/parcial-secuencia/over/cero/anulado/
+idempotencia; anular impaga/doble/con-pago-bloqueado; topes 23514; non-staff 42501; XOR 3-vías ambas
+direcciones; **no-doble-conteo** probado con mezcla real+sintética: `costo_brutos = Σ obligaciones activas
++ Σ standalone`, exacto; Pasivo KPI; `listar_egresos` derivados; chips de sábana + sin doble línea; el fix
+0688 completo). Aditividad confirmada: para datos pre-existentes (sin obligaciones ni `egreso_pagos`) la
+rendición computa idéntico a antes. R16=0 overloads, R17=0 violaciones, migs 0685/0686/0687/0688 trackeadas,
+types regenerados. Prueba en vivo en el navegador a continuación.
