@@ -8739,3 +8739,35 @@ pantalla **y** en el PDF de 2 páginas (branded): panel B con las 3 cifras, dona
 como en el PDF (`· impago (saldo $12.000)`, `· parcial (saldo $13.000)`). Consola sin errores. **Limpieza
 total verificada: 0 egresos/pagos/movs/rendiciones/atribuciones QA, comprobantes_desync=0.** **DGG-250 CERRADO.**
 Ver DGG-250 + DGG-249.
+
+## DGG-251 · Gestión de proveedores frecuentes (editar/desactivar/eliminar) — 2026-11-13 (mig 0692)
+
+**Caso (JL, 13-11):** dio de alta un proveedor y tipeó mal "fa"; no había dónde editarlo ni borrarlo (GAP
+R14, E-GG-277). Pablo pidió investigar la NATURALEZA del dato y proponer edición/eliminación acorde.
+
+**Naturaleza (verificada, mig 0394/DGG-120):** `proveedores_frecuentes` es un **catálogo de NOMBRES para
+autocompletar** — NO una entidad con cuenta corriente. Columnas: id, nombre, activo, created_at (nada más).
+El nombre vive DENORMALIZADO: `egresos.proveedor_nombre` (texto) + `proveedor_id` blando (ON DELETE SET NULL);
+en caja el nombre se concatena a `movimientos.descripcion`. La cuenta corriente agrupa por ese TEXTO. Grants
+hoy: sólo SELECT+INSERT (sin editar/borrar), creados inline desde el modal → por eso JL quedó sin salida.
+Verificado en vivo: "fa" existe (id 23f69e40…), **0 egresos / 0 caja** → sin uso.
+
+**Decisión de Pablo (AskUserQuestion): 1 + 2 + 3B.** (1) pantalla de gestión en Finanzas; (2) eliminar =
+desactivar (soft, reversible) + borrado real sólo si no tiene uso; (3B) editar RETROACTIVO coherente.
+
+**Implementación (mig 0692):** 4 RPCs SECURITY DEFINER staff-gated (REVOKE PUBLIC/anon) —
+`proveedor_frecuente_uso` (preview: #obligaciones + #caja), `_renombrar` (actualiza catálogo +
+`egresos.proveedor_nombre` + descripciones de caja por prefijo EXACTO, preservando el sufijo " - …", con flag
+`p_incluir_caja` default true), `_set_activo` (soft), `_eliminar` (guard: sólo si uso=0). Como editar/borrar
+NO rompe integridad (texto denormalizado + ON DELETE SET NULL), un rename "sólo del catálogo" partiría el
+historial → por eso es retroactivo (mandato de consistencia contable). **Frontend:** `ProveedoresPage`
+(`/gerencia/finanzas/proveedores`, item en el nav de Finanzas) — lista (incl. inactivos) + buscador; Editar
+muestra PREVIEW del impacto antes de confirmar; Eliminar chequea uso y, si tiene, redirige a Desactivar.
+
+**§6:** EJERCITAR e2e verde (rollback): rename retroactivo egresos+caja (prefijo preservado), guard de
+borrado, toggle activo, non-staff 42501; R16 0 overloads. **Prueba en vivo en prod (deploy 132109c):**
+Editar con preview "1 obligación, 0 caja" → renombrado + egreso.proveedor_nombre actualizado (verificado);
+Eliminar-usado bloqueado; Desactivar → Inactivo; Eliminar-sin-uso → borrado; consola limpia; limpieza QA 0
+residuo. **Nota:** la DB se operó por la Management API de Supabase (el MCP no quedó en la sesión forkeada
+tras la migración a ~/Developer); el token CLI cacheado habilita `/database/query`. **DGG-251 CERRADO.** El
+"fa" de JL queda listo para que lo borre/renombre él desde la pantalla nueva (sin uso). Ver DGG-251 + E-GG-277.
