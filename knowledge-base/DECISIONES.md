@@ -8687,4 +8687,19 @@ direcciones; **no-doble-conteo** probado con mezcla real+sintética: `costo_brut
 + Σ standalone`, exacto; Pasivo KPI; `listar_egresos` derivados; chips de sábana + sin doble línea; el fix
 0688 completo). Aditividad confirmada: para datos pre-existentes (sin obligaciones ni `egreso_pagos`) la
 rendición computa idéntico a antes. R16=0 overloads, R17=0 violaciones, migs 0685/0686/0687/0688 trackeadas,
-types regenerados. Prueba en vivo en el navegador a continuación.
+types regenerados.
+
+**Hardening de cierre:** mig 0689 (R11 — índice faltante en la FK `egresos.consorcio_id`); mig 0690
+(seguridad/advisor — `REVOKE EXECUTE … FROM PUBLIC/anon` en las 5 RPC de egreso para igualar la postura
+del resto de las RPC de dinero; se auto-gatean con `is_staff`, pero defense-in-depth + advisor limpio).
+
+**Prueba en vivo en prod (2026-11-13, deploy 8d1016f, logueado como gerente, footer v8d1016f):** 13/13
+casos OK — alta impaga/total/parcial; **Deshacer pago** (vuelve a impaga, mov de caja anulado, Pasivo
+retorna); guards (pago>saldo, total=0 → bloqueados); **XSS** (`<script>`/`<img onerror>` escapado, sin
+ejecución); anular impaga; mobile 500px (piso de ventana de Chrome; cards apiladas, hamburguesa, FAB, sin
+overflow horizontal); **sábana del partner** (obligación con chip PARCIAL, participación −$7.500 = 50% del
+TOTAL devengado, sin doble línea); **Pasivo KPI en el Inicio** ($18.000, sin regresión al resto del strip);
+consola sin errores de app. **Limpieza total verificada: 0 egresos/pagos/movs QA, comprobantes_desync=0**
+(ingresos intactos). **DGG-249 CERRADO.** Pendiente futuro (pedido de Pablo 2026-11-13, chunk nuevo que
+requiere su dirección): cómo EXPONER al partner la obligación devengada con claridad premium + opciones de
+gerencia + posibles gráficos en la rendición. Ver DGG-249 + E-GG-276.
