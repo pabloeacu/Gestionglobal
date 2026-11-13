@@ -8641,3 +8641,20 @@ sobre los 228 (ningún saldo de ingreso tocado). Rollback sin rastro.
 atribuidos, pagados + impagos, en `partner_crear_rendicion`/`partner_sabana`/`partner_rendicion_movimientos`,
 con chip pagado/impago y respetando rendiciones cerradas inmutables); (3) **UI** — alta de egreso con
 "pagar ahora" total/parcial/impago, grilla de obligaciones por pagar, cuenta corriente de proveedor.
+
+**Chunk 2/3 HECHO — reportes (mig 0686, 2026-11-12):** `partner_atribuciones += egreso_id` (4ª vía;
+XOR ampliado a "exactamente uno de comprobante/movimiento/egreso"). Rentabilidad DEVENGADA del partner:
+el costo cuenta `obligaciones atribuidas (total) + egresos cash standalone (NO ligados a obligación)` —
+**sin doble-conteo** (el pago de una obligación se excluye del leg cash vía `egreso_pagos`). Invariante
+verificada e2e sobre datos reales: **costo devengado = pagado + impago** (86000 = 85700 + 300). `neto`
+es columna GENERADA (ing_atrib−cos_atrib) → se autopobla (el "gap neto nunca poblado" NO existía). Las 3
+superficies del partner (crear_rendicion/sabana/rendicion_movimientos) quedaron en paridad. `kpis_dashboard_global`
+sumó (aditivo) `pasivo_total` (Σ egresos.saldo_pendiente activos), `egreso_devengado_periodo`,
+`egreso_pagado_periodo` — claves previas intactas (verificado: deuda/facturado/cobrado + filtro origen
+declarado E-GG-271 siguen). **§6:** EJERCITAR e2e VERDE (no doble-conteo, paridad, rollback sin rastro,
+comprobantes_desync=0 → ingresos intactos) + REVISAR a mano (el Workflow se colgó por infra; fallback
+canónico). El REVISAR atajó **1 regresión antes de commitear**: había cambiado el chip de los egresos
+cash de 'total' a 'pagado' y `SabanaPartner.tsx` (chip==='total'?Total:Parcial) habría mostrado "Parcial"
+para egresos pagados → revertido a 'total'; los chips pagado/parcial/impago quedan sólo para las
+obligaciones, que el chunk 3 mapea. **Pendiente chunk 3 (UI):** alta de egreso con pagar-ahora, grilla de
+obligaciones, display del pasivo en el home, y mapear los chips de obligación + `movimiento_id` NULL en la sábana.
