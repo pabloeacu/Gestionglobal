@@ -8703,3 +8703,39 @@ consola sin errores de app. **Limpieza total verificada: 0 egresos/pagos/movs QA
 (ingresos intactos). **DGG-249 CERRADO.** Pendiente futuro (pedido de Pablo 2026-11-13, chunk nuevo que
 requiere su dirección): cómo EXPONER al partner la obligación devengada con claridad premium + opciones de
 gerencia + posibles gráficos en la rendición. Ver DGG-249 + E-GG-276.
+
+## DGG-250 · Exposición premium "devengado vs pagado" de la rendición del partner — 2026-11-13 (migs 0691 + frontend)
+
+**Pedido de Pablo (13-11):** como la rendición del partner ahora incluye costos devengados que pueden estar
+IMPAGOS (su participación se reduce por un costo que GG aún no desembolsó), exponerlo con claridad premium y
+honestidad; que gerencia pueda señalar que las obligaciones pendientes afectan la rendición; con gráficos
+premium. **Decisiones (AskUserQuestion):** alcance **B + A + gráficos** (sin modos configurables); vive en la
+**vista de rendición** (sirve a gerencia + futuro portal del partner) **y en el PDF/export**.
+
+**Verificación previa:** FundPlata (único partner) aún NO tiene usuario de portal → hoy nadie lo ve como
+partner; cuando exista, lo verá vía `partner_sabana`/`getRendicion` (mismas RPC que gerencia). El problema
+concreto: las líneas de costo que eran obligaciones mostraban "—" (listAtribuciones no traía egresos) y nada
+explicaba por qué un costo impago igual cuenta.
+
+**Chunk 1 — datos (mig 0691):** RPC `partner_rendicion_resumen_pago(p_rendicion_id)` → jsonb. Desde las
+atribuciones de COSTO de la rendición calcula **devengado / ya pagado por GG / pendiente de pago** (bruto y
+atribuido): pendiente = Σ `egreso.saldo_pendiente` ACTUAL de las obligaciones (los cash standalone siempre
+pagados); pagado = bruto − pendiente. Auth: partner dueño (`current_partner_id`) o staff; REVOKE PUBLIC/anon.
+e2e verde (invariante pagado = bruto − pendiente; atribuido = × %).
+
+**Chunk 2 — frontend:** (B) panel "Cómo leer tu rendición" — participación sobre el costo INCURRIDO
+(devengado) + cifras honestas (imputado / GG pagó / pendiente) + leyenda. (A) `listAtribuciones` suma el join
+a `egresos` → las líneas de obligación muestran su etiqueta + chip de estado (Pagado/Parcial/Impago) + nota
+"Pendiente de pago por GG: $X · ya rendido (servicio prestado)". (D) 2 gráficos marca-nativos (SVG inline, sin
+deps): dona Ingresos/Costos con el Neto al centro + barra apilada Pagado/Pendiente. (PDF) botón "PDF" en la
+rendición → export premium con el panel + los gráficos + el detalle (ReportPdfTemplate con `headerExtra`
+opcional; reportPdf con `firstPageRows`). El panel usa estilos inline → idéntico en pantalla y en el PDF
+(html2canvas). `getRendicionResumenPago` por raw-rpc (types aún no conocen la RPC, patrón de egresos.ts).
+
+**Prueba en vivo en prod (2026-11-13, deploy 1f84169):** rendición QA de FundPlata (ingresos 520.000 / costos
+61.200 / neto 458.800; devengado-vs-pagado: imputado 61.200 / pagado 48.700 / pendiente 12.500). Verificado en
+pantalla **y** en el PDF de 2 páginas (branded): panel B con las 3 cifras, dona (Neto al centro) + barra
+80%/20%, y las líneas de obligación con chip PAGADO/IMPAGO/PARCIAL + nota de pendiente — tanto en la grilla
+como en el PDF (`· impago (saldo $12.000)`, `· parcial (saldo $13.000)`). Consola sin errores. **Limpieza
+total verificada: 0 egresos/pagos/movs/rendiciones/atribuciones QA, comprobantes_desync=0.** **DGG-250 CERRADO.**
+Ver DGG-250 + DGG-249.
