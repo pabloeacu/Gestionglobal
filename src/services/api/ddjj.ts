@@ -33,6 +33,9 @@ export interface CredencialMeta {
   /** F3 · hay una propuesta de gestoría en curso (sin exponer el secreto). Para el
    *  cliente marca "estamos preparando tu acceso" aunque todavía no esté publicada. */
   pendiente: boolean;
+  /** DGG-253 · mostrar el banner del dashboard "credenciales DDJJ cargadas": está
+   *  publicada con usuario+password y el cliente todavía no lo cerró (X ni primer ingreso). */
+  bannerPendiente: boolean;
 }
 
 /** Carga/edición directa por GERENCIA (staff). Deja la credencial 'publicado'.
@@ -62,6 +65,7 @@ export async function getCredencialDdjjMeta(administracionId: string): Promise<A
   const r = (data ?? {}) as {
     existe?: boolean; usuario?: string | null; tiene_password?: boolean;
     estado?: string | null; updated_at?: string | null; pendiente?: boolean;
+    banner_pendiente?: boolean;
   };
   return ok({
     existe: !!r.existe,
@@ -70,7 +74,18 @@ export async function getCredencialDdjjMeta(administracionId: string): Promise<A
     estado: (r.estado as CredencialEstado | null) ?? null,
     updatedAt: r.updated_at ?? null,
     pendiente: !!r.pendiente,
+    bannerPendiente: !!r.banner_pendiente,
   });
+}
+
+/** DGG-253 · Cierra el banner "credenciales DDJJ cargadas" (X del banner o primer
+ *  ingreso a /portal/ddjj). Persiste cross-device (aviso_banner_visto_at). Dueño o staff. */
+export async function descartarBannerDdjj(administracionId: string): Promise<ApiResponse<void>> {
+  const { error } = await supabase.rpc('credencial_ddjj_banner_descartar', {
+    p_administracion_id: administracionId,
+  });
+  if (error) return fail('CREDENCIAL_DDJJ_BANNER_DESCARTAR', error.message, error);
+  return ok(undefined);
 }
 
 /** Revela la contraseña descifrada on-demand (dueño o staff). Auditado server-side. */

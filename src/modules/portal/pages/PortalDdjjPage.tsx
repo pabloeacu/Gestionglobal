@@ -31,7 +31,7 @@ import { formatDateLong, daysBetween } from '@/lib/dates';
 import { getPerfilRegulatorio, type PerfilRegulatorio } from '@/services/api/perfilRegulatorio';
 import { jurNorm, type JurNorm } from '../components/perfil/fichaModel';
 import {
-  getCredencialDdjjMeta, revelarCredencialDdjj, instructivoDdjjUrl, PORTAL_DDJJ_URL,
+  getCredencialDdjjMeta, revelarCredencialDdjj, descartarBannerDdjj, instructivoDdjjUrl, PORTAL_DDJJ_URL,
   type CredencialMeta,
 } from '@/services/api/ddjj';
 import { fetchClienteTramites, esTramiteDdjj, type ClienteTramite } from '@/services/api/portal-dashboard';
@@ -74,6 +74,10 @@ export function PortalDdjjPage() {
     }
   }
   useEffect(() => { void load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [adminId]);
+
+  // DGG-253 · entrar a la sección cuenta como "primer ingreso" → cierra el banner
+  // del dashboard (cross-device). Fire-and-forget; no bloquea ni molesta si falla.
+  useEffect(() => { if (adminId) void descartarBannerDdjj(adminId); }, [adminId]);
 
   const jur: JurNorm | null = perfil ? jurNorm(perfil) : null;
   const aplica = jur === 'pba' || jur === 'caba';

@@ -31,6 +31,7 @@ import {
   NotebookPen,
   Megaphone,
   Mail,
+  KeyRound,
   Trash2,
   X,
   ArrowRight,
@@ -64,6 +65,7 @@ const TIPO_META: Record<string, TipoMeta> = {
   sistema:             { icon: Info,          chip: 'bg-slate-100 text-slate-700'   },
   comunicado:          { icon: Megaphone,     chip: 'bg-cyan-50 text-cyan-700'      },
   lexph_suscriptor:    { icon: Mail,          chip: 'bg-cyan-50 text-cyan-700'      },
+  ddjj_credencial_lista: { icon: KeyRound,    chip: 'bg-cyan-50 text-cyan-700'      },
 };
 
 function metaFor(tipo: string): TipoMeta {

@@ -15,6 +15,7 @@ export type NotifTipo =
   | 'tracking_cerrado'
   | 'vencimiento_proximo'
   | 'comprobante_pagado'
+  | 'ddjj_credencial_lista'
   | 'sistema';
 
 export interface NotifItem {

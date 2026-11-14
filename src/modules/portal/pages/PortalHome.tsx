@@ -54,6 +54,7 @@ import { ActivarPushAssistant } from '@/components/common/ActivarPushAssistant';
 import { CertCelebracionBanner } from '@/modules/campus/components/CertCelebracionBanner';
 import { listCertsCelebrarCliente } from '@/services/api/campus';
 import { NovedadesBanner } from '../components/NovedadesBanner';
+import { CredencialesDdjjBanner } from '../components/CredencialesDdjjBanner';
 import { PerfilRegulatorioHotCard } from '../components/PerfilRegulatorioHotCard';
 import { PortalOnboardingTour, tourCompletado } from '../components/PortalOnboardingTour';
 import { PortalPwaAssistant } from '../components/PortalPwaAssistant';
@@ -197,6 +198,10 @@ export function PortalHome() {
       {/* Novedades enviadas por gerencia (panel Comunicaciones).
           Sólo aparece si hay alguna vigente sin marcar como vista. */}
       <NovedadesBanner />
+
+      {/* DGG-253 · Aviso one-time "credenciales DDJJ cargadas" (premium, mismo
+          footprint). Server-gated: sólo aparece con el circuito armado y sin descartar. */}
+      <CredencialesDdjjBanner />
 
       {/* CTA universal de push. Si el cliente llegó desde el email de engagement
           el bloque de arriba ya lo muestra forzado → acá se omite para no duplicar. */}

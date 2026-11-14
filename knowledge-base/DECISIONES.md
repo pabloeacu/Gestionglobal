@@ -8806,3 +8806,48 @@ Los 19 son PBA (matrícula RPAC) → el launcher del portal se muestra para todo
 contraseña enmascarada; botón copiar → toast "Contraseña copiada" (descifrado OK, sin exponer el texto);
 consola sin errores. Restaurado EXACTO (gerente/null/null/updated_at original, trigger de updated_at salteado
 con DISABLE TRIGGER USER) + borrado el 1 acceso QA de auditoría (0 residuo). **DGG-252 CERRADO.**
+
+## DGG-253 · Aviso "credenciales DDJJ listas" multicanal + banner premium — 2026-11-14 (mig 0693)
+
+**Pedido (Pablo):** cuando se cargan usuario+contraseña de DDJJ de un cliente, avisarle por
+**mail + banner (dashboard) + push + campanita**, UNA SOLA VEZ (dato que se carga una vez). Mail con
+gancho de vencimiento (DDJJ vence 31/03) para ganar tiempo; "aliados de tu tiempo / es un placer
+asistirte". Banner con acceso al portal, retirable con X o al primer ingreso. **Update mid-chunk:** el
+portal externo (misgestiones) NO está listo para 2026 → dejar TODO preparado pero **NO disparar nada**
+hasta que Pablo diga "disparemos los avisos de DDJJ". Y los banners del dashboard deben mantener el
+**mismo tamaño** (compactos/responsive), sólo verse premium.
+
+**Mapa (workflow 4 lectores):** email = cola `email_queue` + `encolar_email(slug,…)` drenada por edge
+`dispatch-emails` (Gmail/Workspace); plantillas = filas en `email_templates` (layout `manaxer-v1`,
+masthead PNG en `public/email/`). Campanita+push = **una** llamada `private.notif_emitir(user,tipo,…)`
+(INSERT a `notificaciones_internas` + encola push si hay suscripción; Realtime ya cableado). Banner del
+dashboard = superficie propia (el motor de oportunidades topea a 2 → no meterlo ahí); modelo `NovedadesBanner`.
+
+**Implementación (mig 0693):**
+- Columnas-sello en `credenciales_regulatorias`: `aviso_lista_enviado_at` (one-time) + `aviso_banner_visto_at` (dismiss).
+- **ARM flag** `config_global.ddjj_avisos_habilitados` (**OFF por defecto**): mientras OFF, el trigger NO
+  sella ni avisa y el banner NO aparece. Es el interruptor del "disparemos".
+- Trigger `credencial_ddjj_aviso` AFTER INS/UPD con WHEN (`plataforma='ddjj' AND estado='publicado' AND
+  usuario NOT NULL AND password_cifrada NOT NULL AND aviso_lista_enviado_at IS NULL`) → fn SECURITY DEFINER
+  (R17) que, si el circuito está armado, sella + `private.credencial_ddjj_aviso_fanout()` (mail + campanita+push),
+  best-effort (EXCEPTION no aborta el guardado). **CRÍTICO:** filtra `plataforma='ddjj' AND usuario NOT NULL`
+  → NO alcanza a las 50 credenciales ARCA. Cubre `credencial_reg_set` + `credencial_reg_moderar` + INSERT directo,
+  sin tocar esas RPCs (R16).
+- Plantilla `ddjj-credenciales-cargadas` (manaxer-v1, slug TRANSACCIONAL — no `ofrecimiento-`/`engagement-`
+  para que el dispatcher no la suprima por opt-out), masthead premium `public/email/ddjj-credenciales.png`
+  (puppeteer, theme renovacion), gancho 31/03, CTA → /portal/ddjj. NO incluye usuario/contraseña (viven en el portal).
+- `credencial_reg_meta` extendida con `banner_pendiente` (gateado por el flag + publicado+usuario+pwd+no-visto).
+  RPC `credencial_ddjj_banner_descartar` (R12 tenancy) para la X y el primer ingreso.
+- Front: `CredencialesDdjjBanner.tsx` (premium marca-nativa: degradé tinta→teal, chamfer, Oswald, TrianglesAccent,
+  glass tile — **mismo footprint** que los otros banners, p-4/sm:p-5, responsive) montado en `PortalHome`;
+  `PortalDdjjPage` marca el primer ingreso; `NotificationBell` TIPO_META + `NotifTipo` suman `ddjj_credencial_lista`.
+- **GG Cursos** (admin 49527761, entidad interna, no cliente) marcada `aviso_lista_enviado_at=now()` sin enviar.
+
+**§6 EJERCITAR (e2e BEGIN/RAISE/rollback, verde):** trigger OFF → 0 mail / sin sellar / banner_pendiente=false;
+trigger ON → 1 mail + 1 campanita + sellado + banner=true; ARCA → 0 mail; idempotencia → editar password no re-dispara.
+Build `tsc`+vite verde. **Preview del mail (masthead) y del banner (desktop+mobile 360px) aprobados visualmente.**
+
+**PENDIENTE DE "GO" (no disparado):** cuando Pablo diga "disparemos los avisos de DDJJ":
+`UPDATE config_global SET ddjj_avisos_habilitados=true;` (arma: aparece el banner + futuras cargas auto-avisan)
+**+ backfill** de los 19 ya cargados (impersonando gerente: PERFORM fanout + sellar donde
+`aviso_lista_enviado_at IS NULL`). Drenan ~1 mail/min (~20'). **DGG-253 LISTO Y ARMADO EN OFF.**

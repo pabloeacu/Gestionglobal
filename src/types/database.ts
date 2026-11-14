@@ -1784,6 +1784,7 @@ export type Database = {
           condicion_iva: string
           created_at: string
           cuit: string | null
+          ddjj_avisos_habilitados: boolean
           domicilio_fiscal: string | null
           email_contacto: string | null
           email_remitente_nombre: string | null
@@ -1832,6 +1833,7 @@ export type Database = {
           condicion_iva?: string
           created_at?: string
           cuit?: string | null
+          ddjj_avisos_habilitados?: boolean
           domicilio_fiscal?: string | null
           email_contacto?: string | null
           email_remitente_nombre?: string | null
@@ -1880,6 +1882,7 @@ export type Database = {
           condicion_iva?: string
           created_at?: string
           cuit?: string | null
+          ddjj_avisos_habilitados?: boolean
           domicilio_fiscal?: string | null
           email_contacto?: string | null
           email_remitente_nombre?: string | null
@@ -2116,6 +2119,8 @@ export type Database = {
       credenciales_regulatorias: {
         Row: {
           administracion_id: string
+          aviso_banner_visto_at: string | null
+          aviso_lista_enviado_at: string | null
           estado: string
           key_version: number
           moderada_at: string | null
@@ -2134,6 +2139,8 @@ export type Database = {
         }
         Insert: {
           administracion_id: string
+          aviso_banner_visto_at?: string | null
+          aviso_lista_enviado_at?: string | null
           estado?: string
           key_version?: number
           moderada_at?: string | null
@@ -2152,6 +2159,8 @@ export type Database = {
         }
         Update: {
           administracion_id?: string
+          aviso_banner_visto_at?: string | null
+          aviso_lista_enviado_at?: string | null
           estado?: string
           key_version?: number
           moderada_at?: string | null
@@ -10250,6 +10259,10 @@ export type Database = {
         }
         Returns: string
       }
+      credencial_ddjj_banner_descartar: {
+        Args: { p_administracion_id: string }
+        Returns: undefined
+      }
       credencial_reg_borrar: {
         Args: { p_administracion_id: string; p_plataforma: string }
         Returns: undefined
@@ -11890,6 +11903,10 @@ export type Database = {
           tipo: string
         }[]
       }
+      partner_rendicion_resumen_pago: {
+        Args: { p_rendicion_id: string }
+        Returns: Json
+      }
       partner_sabana: {
         Args: { p_desde?: string; p_hasta?: string; p_partner_id?: string }
         Returns: {
@@ -12051,6 +12068,19 @@ export type Database = {
       prospectos_reporte_semanal: { Args: never; Returns: Json }
       prospectos_reverify_watcher: { Args: never; Returns: Json }
       prospectos_revisita_en_tramite: { Args: never; Returns: Json }
+      proveedor_frecuente_eliminar: {
+        Args: { p_id: string }
+        Returns: undefined
+      }
+      proveedor_frecuente_renombrar: {
+        Args: { p_id: string; p_incluir_caja?: boolean; p_nombre_nuevo: string }
+        Returns: Json
+      }
+      proveedor_frecuente_set_activo: {
+        Args: { p_activo: boolean; p_id: string }
+        Returns: undefined
+      }
+      proveedor_frecuente_uso: { Args: { p_id: string }; Returns: Json }
       proximos_vencimientos: {
         Args: { p_administracion_id?: string; p_dias?: number }
         Returns: {
