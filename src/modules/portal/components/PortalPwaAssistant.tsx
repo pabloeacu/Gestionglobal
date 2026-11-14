@@ -15,6 +15,8 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import { toast } from '@/lib/toast';
+import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
+import { BANNER_TONES, premiumCtaClass } from './premiumBanner';
 
 const STORAGE_KEY = 'gg_portal_pwa_dismissed_until_v1';
 const COOLDOWN_DAYS = 7;
@@ -94,30 +96,33 @@ export function PortalPwaAssistant({ forceOpen = false }: { forceOpen?: boolean 
     setInstallEvent(null);
   }
 
+  // DGG-254 · premium marca-nativa (tono 'brand').
+  const T = BANNER_TONES.brand;
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 via-white to-cyan-50 p-4 shadow-sm sm:p-5">
+    <div className={`relative overflow-hidden gg-chamfer bg-gradient-to-br p-4 text-white sm:p-5 ${T.grad}`}>
+      <TrianglesAccent position="top-right" size={132} tone={T.tri} density="rich" className="opacity-20" />
       {/* Dismiss */}
       <button
         type="button"
         onClick={dismiss}
-        className="absolute right-2 top-2 grid h-7 w-7 place-items-center rounded-full text-brand-muted transition hover:bg-white/80 hover:text-brand-ink"
+        className="absolute right-2.5 top-2.5 rounded-md p-1.5 text-white/60 transition hover:bg-white/10 hover:text-white"
         aria-label="Cerrar"
       >
-        <X size={13} />
+        <X size={16} />
       </button>
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <span className="grid h-12 w-12 flex-shrink-0 place-items-center rounded-2xl bg-emerald-100 text-emerald-700">
-          <Smartphone size={22} />
+      <div className="relative flex flex-col gap-3 pr-7 sm:flex-row sm:items-center">
+        <span className={`grid h-11 w-11 flex-shrink-0 place-items-center gg-chamfer-sm bg-white/10 ring-1 ring-white/25 ${T.accent}`}>
+          <Smartphone size={20} />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="kicker text-emerald-700 opacity-80">EXPERIENCIA APP</p>
-          <h3 className="font-display text-lg font-bold text-brand-ink">
+          <p className={`kicker ${T.accent}`}>Experiencia app</p>
+          <h3 className="font-display text-base uppercase leading-tight tracking-tight sm:text-lg">
             {showOpenInSafariCard
               ? 'Abrí esta página en Safari'
               : 'Instalá Gestión Global en tu pantalla'}
           </h3>
-          <p className="mt-0.5 text-xs text-brand-muted">
+          <p className="mt-0.5 text-xs text-white/80">
             {showOpenInSafariCard
               ? 'En iPhone, las notificaciones y la app instalada SÓLO funcionan desde Safari (no desde Chrome).'
               : showIosCard
@@ -130,7 +135,7 @@ export function PortalPwaAssistant({ forceOpen = false }: { forceOpen?: boolean 
           <button
             type="button"
             onClick={() => void handleInstall()}
-            className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700"
+            className={`shrink-0 ${premiumCtaClass('brand')}`}
           >
             <Download size={14} /> Instalar
           </button>
@@ -139,27 +144,27 @@ export function PortalPwaAssistant({ forceOpen = false }: { forceOpen?: boolean 
 
       {/* Chrome/Edge/Firefox iOS: instrucciones para cambiar a Safari */}
       {showOpenInSafariCard && (
-        <div className="mt-3 rounded-xl bg-white/80 p-3 text-sm text-brand-ink ring-1 ring-emerald-200">
-          <p className="mb-2 font-semibold text-brand-ink">Cómo abrir en Safari:</p>
+        <div className="relative mt-3 gg-chamfer-sm bg-white/10 p-3 text-sm text-white ring-1 ring-white/20">
+          <p className="mb-2 font-semibold text-white">Cómo abrir en Safari:</p>
           <ol className="space-y-1.5 text-xs">
             <li className="flex items-start gap-2">
-              <span className="grid h-5 w-5 flex-shrink-0 place-items-center rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold">1</span>
+              <span className="grid h-5 w-5 flex-shrink-0 place-items-center rounded-full bg-white/15 text-brand-cyan-light text-[10px] font-bold">1</span>
               <span>Mantené presionada la dirección <strong>gestionglobal.ar</strong> arriba</span>
             </li>
             <li className="flex items-start gap-2">
-              <span className="grid h-5 w-5 flex-shrink-0 place-items-center rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold">2</span>
+              <span className="grid h-5 w-5 flex-shrink-0 place-items-center rounded-full bg-white/15 text-brand-cyan-light text-[10px] font-bold">2</span>
               <span>Elegí <strong>Copiar</strong> el enlace</span>
             </li>
             <li className="flex items-start gap-2">
-              <span className="grid h-5 w-5 flex-shrink-0 place-items-center rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold">3</span>
+              <span className="grid h-5 w-5 flex-shrink-0 place-items-center rounded-full bg-white/15 text-brand-cyan-light text-[10px] font-bold">3</span>
               <span>Abrí <strong>Safari</strong> desde la pantalla de inicio, pegá la URL y entrá</span>
             </li>
             <li className="flex items-start gap-2">
-              <span className="grid h-5 w-5 flex-shrink-0 place-items-center rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold">4</span>
+              <span className="grid h-5 w-5 flex-shrink-0 place-items-center rounded-full bg-white/15 text-brand-cyan-light text-[10px] font-bold">4</span>
               <span>Una vez en Safari, vas a poder instalar la app y activar notificaciones <Sparkles size={11} className="inline mb-0.5" /></span>
             </li>
           </ol>
-          <p className="mt-2 text-[10px] text-brand-muted">
+          <p className="mt-2 text-[10px] text-white/70">
             Es una limitación de iOS: todos los navegadores menos Safari corren sobre WebKit con notificaciones deshabilitadas por Apple.
           </p>
         </div>
@@ -167,8 +172,8 @@ export function PortalPwaAssistant({ forceOpen = false }: { forceOpen?: boolean 
 
       {/* Desktop sin beforeinstallprompt (forzado desde el email): instrucciones manuales */}
       {genericFallback && (
-        <div className="mt-3 rounded-xl bg-white/80 p-3 text-xs text-brand-ink ring-1 ring-emerald-200">
-          <p className="mb-1 font-semibold text-brand-ink">Cómo instalarla:</p>
+        <div className="relative mt-3 gg-chamfer-sm bg-white/10 p-3 text-xs text-white ring-1 ring-white/20">
+          <p className="mb-1 font-semibold text-white">Cómo instalarla:</p>
           <p>
             En la compu (Chrome/Edge): tocá el ícono <strong>⊕ Instalar</strong> en la barra de
             direcciones, o el menú <strong>⋮</strong> → <strong>“Instalar Gestión Global”</strong>.
@@ -179,19 +184,19 @@ export function PortalPwaAssistant({ forceOpen = false }: { forceOpen?: boolean 
 
       {/* Instrucciones iOS Safari */}
       {showIosCard && (
-        <div className="mt-3 rounded-xl bg-white/80 p-3 text-sm text-brand-ink ring-1 ring-emerald-200">
-          <p className="mb-2 font-semibold text-brand-ink">3 pasos en Safari (iPhone/iPad):</p>
+        <div className="relative mt-3 gg-chamfer-sm bg-white/10 p-3 text-sm text-white ring-1 ring-white/20">
+          <p className="mb-2 font-semibold text-white">3 pasos en Safari (iPhone/iPad):</p>
           <ol className="space-y-1.5 text-xs">
             <li className="flex items-start gap-2">
-              <span className="grid h-5 w-5 flex-shrink-0 place-items-center rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold">1</span>
+              <span className="grid h-5 w-5 flex-shrink-0 place-items-center rounded-full bg-white/15 text-brand-cyan-light text-[10px] font-bold">1</span>
               <span>Tocá <Share2 size={11} className="inline mb-0.5" /> <strong>Compartir</strong> abajo</span>
             </li>
             <li className="flex items-start gap-2">
-              <span className="grid h-5 w-5 flex-shrink-0 place-items-center rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold">2</span>
+              <span className="grid h-5 w-5 flex-shrink-0 place-items-center rounded-full bg-white/15 text-brand-cyan-light text-[10px] font-bold">2</span>
               <span>Bajá y elegí <Plus size={11} className="inline mb-0.5" /> <strong>Agregar a inicio</strong></span>
             </li>
             <li className="flex items-start gap-2">
-              <span className="grid h-5 w-5 flex-shrink-0 place-items-center rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold">3</span>
+              <span className="grid h-5 w-5 flex-shrink-0 place-items-center rounded-full bg-white/15 text-brand-cyan-light text-[10px] font-bold">3</span>
               <span>Confirmá. Ya tenés Gestión Global como app <Sparkles size={11} className="inline mb-0.5" /></span>
             </li>
           </ol>

@@ -17,6 +17,8 @@ import {
   pedirPermisoYSuscribir,
 } from '@/services/api/push';
 import { humanizeError } from '@/lib/errors';
+import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
+import { BANNER_TONES, premiumCtaClass } from '@/modules/portal/components/premiumBanner';
 
 const STORAGE_KEY = 'gg.activar_push.dismissed_until';
 const COOLDOWN_DAYS = 14;
@@ -90,27 +92,30 @@ export function ActivarPushAssistant({ forceOpen = false }: { forceOpen?: boolea
   // ignora el cooldown de descarte para que el CTA aparezca sí o sí.
   if (!forceOpen && dismissedUntil && dismissedUntil > new Date()) return null;
 
+  // DGG-254 · premium marca-nativa (tono 'brand').
+  const T = BANNER_TONES.brand;
   return (
-    <section data-gg-remind="warn" className="relative overflow-hidden rounded-2xl border-2 border-cyan-200 bg-gradient-to-br from-cyan-50 via-white to-teal-50 p-4 shadow-sm ring-1 ring-cyan-100 sm:p-5">
+    <section className={`relative overflow-hidden gg-chamfer bg-gradient-to-br p-4 text-white sm:p-5 ${T.grad}`}>
+      <TrianglesAccent position="top-right" size={132} tone={T.tri} density="rich" className="opacity-20" />
       <button
         type="button"
         onClick={dismiss}
-        className="absolute right-2 top-2 grid h-7 w-7 place-items-center rounded-full text-brand-muted transition hover:bg-white/80 hover:text-brand-ink"
+        className="absolute right-2.5 top-2.5 rounded-md p-1.5 text-white/60 transition hover:bg-white/10 hover:text-white"
         aria-label="Cerrar"
       >
-        <X size={13} />
+        <X size={16} />
       </button>
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <span className="grid h-12 w-12 flex-shrink-0 place-items-center rounded-2xl bg-brand-cyan text-white shadow-sm">
-          <Bell size={22} className="motion-safe:animate-[wiggle_1.2s_ease-in-out_infinite]" />
+      <div className="relative flex flex-col gap-3 pr-7 sm:flex-row sm:items-center">
+        <span className={`grid h-11 w-11 flex-shrink-0 place-items-center gg-chamfer-sm bg-white/10 ring-1 ring-white/25 ${T.accent}`}>
+          <Bell size={20} className="motion-safe:animate-[wiggle_1.2s_ease-in-out_infinite]" />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="kicker text-brand-cyan">Activá las notificaciones</p>
-          <h3 className="font-display text-lg font-bold text-brand-ink">
+          <p className={`kicker ${T.accent}`}>Activá las notificaciones</p>
+          <h3 className="font-display text-base uppercase leading-tight tracking-tight sm:text-lg">
             No te pierdas ninguna novedad
           </h3>
-          <p className="mt-0.5 text-xs text-brand-muted sm:text-sm">
+          <p className="mt-0.5 text-xs text-white/80 sm:text-sm">
             Recibí avisos de avances, vencimientos, cobranzas y recordatorios — directo a tu teléfono o desktop, incluso con la app cerrada.
           </p>
         </div>
@@ -118,7 +123,7 @@ export function ActivarPushAssistant({ forceOpen = false }: { forceOpen?: boolea
           type="button"
           onClick={() => void activar()}
           disabled={activando}
-          className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-brand-cyan px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-cyan-700 disabled:opacity-60"
+          className={`shrink-0 ${premiumCtaClass('brand')}`}
         >
           {activando ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
           Activar

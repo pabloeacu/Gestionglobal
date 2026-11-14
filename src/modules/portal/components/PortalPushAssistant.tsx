@@ -11,6 +11,8 @@ import {
   pedirPermisoYSuscribir,
 } from '@/services/api/push';
 import { humanizeError } from '@/lib/errors';
+import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
+import { BANNER_TONES, premiumCtaClass } from './premiumBanner';
 
 const STORAGE_KEY = 'gg_portal_push_dismissed_until_v1';
 const COOLDOWN_DAYS = 7;
@@ -68,27 +70,30 @@ export function PortalPushAssistant() {
     toast.success('¡Notificaciones activadas!', { description: 'Te avisaremos antes de cada clase, evento y vencimiento.' });
   }
 
+  // DGG-254 · premium marca-nativa (tono 'brand').
+  const T = BANNER_TONES.brand;
   return (
-    <div data-gg-remind="warn" className="relative overflow-hidden rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50 via-white to-yellow-50 p-4 shadow-sm sm:p-5">
+    <div className={`relative overflow-hidden gg-chamfer bg-gradient-to-br p-4 text-white sm:p-5 ${T.grad}`}>
+      <TrianglesAccent position="top-right" size={132} tone={T.tri} density="rich" className="opacity-20" />
       <button
         type="button"
         onClick={dismiss}
-        className="absolute right-2 top-2 grid h-7 w-7 place-items-center rounded-full text-brand-muted transition hover:bg-white/80 hover:text-brand-ink"
+        className="absolute right-2.5 top-2.5 rounded-md p-1.5 text-white/60 transition hover:bg-white/10 hover:text-white"
         aria-label="Cerrar"
       >
-        <X size={13} />
+        <X size={16} />
       </button>
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <span className="grid h-12 w-12 flex-shrink-0 place-items-center rounded-2xl bg-amber-100 text-amber-700">
-          <Bell size={22} />
+      <div className="relative flex flex-col gap-3 pr-7 sm:flex-row sm:items-center">
+        <span className={`grid h-11 w-11 flex-shrink-0 place-items-center gg-chamfer-sm bg-white/10 ring-1 ring-white/25 ${T.accent}`}>
+          <Bell size={20} />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="kicker text-amber-700 opacity-80">RECORDATORIOS</p>
-          <h3 className="font-display text-lg font-bold text-brand-ink">
+          <p className={`kicker ${T.accent}`}>Recordatorios</p>
+          <h3 className="font-display text-base uppercase leading-tight tracking-tight sm:text-lg">
             Activá la campanita
           </h3>
-          <p className="mt-0.5 text-xs text-brand-muted">
+          <p className="mt-0.5 text-xs text-white/80">
             Te avisamos antes de cada clase, evento y vencimiento importante. Sin spam, sólo lo necesario.
           </p>
         </div>
@@ -97,7 +102,7 @@ export function PortalPushAssistant() {
           type="button"
           onClick={() => void handleActivate()}
           disabled={working}
-          className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-amber-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-amber-700 disabled:opacity-60"
+          className={`shrink-0 ${premiumCtaClass('brand')}`}
         >
           {working ? <Loader2 size={14} className="animate-spin" /> : <Bell size={14} />}
           {working ? 'Activando…' : 'Activar'}

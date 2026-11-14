@@ -38,7 +38,6 @@ export function PerfilRegulatorioHotCard() {
   return (
     <Link
       to="/portal/mi-ficha"
-      data-gg-remind
       className={`group relative flex items-center gap-4 overflow-hidden gg-chamfer bg-gradient-to-br p-4 text-white transition sm:p-5 ${T.grad}`}
     >
       <TrianglesAccent position="top-right" size={120} tone={T.tri} density="rich" className="opacity-20" />

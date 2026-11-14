@@ -817,7 +817,7 @@ function DocsPendientesBanner({ items }: { items: PedidoAbiertoResumen[] }) {
   // DGG-254 · premium marca-nativa (tono 'alto' = atención requerida).
   const T = BANNER_TONES.alto;
   return (
-    <section data-gg-remind="warn" className={`relative overflow-hidden gg-chamfer bg-gradient-to-br p-4 text-white sm:p-5 ${T.grad}`}>
+    <section className={`relative overflow-hidden gg-chamfer bg-gradient-to-br p-4 text-white sm:p-5 ${T.grad}`}>
       <TrianglesAccent position="top-right" size={120} tone={T.tri} density="rich" className="opacity-20" />
       <div className="relative flex items-start gap-3">
         <span className={`grid h-11 w-11 flex-shrink-0 place-items-center gg-chamfer-sm bg-white/10 ring-1 ring-white/25 ${T.accent}`}>
@@ -882,7 +882,6 @@ function AvancesNuevosBanner({ count }: { count: number }) {
   return (
     <Link
       to="/portal/gestiones"
-      data-gg-remind
       className={`group relative flex items-center gap-4 overflow-hidden gg-chamfer bg-gradient-to-br p-4 text-white transition sm:p-5 ${T.grad}`}
     >
       <TrianglesAccent position="top-right" size={120} tone={T.tri} density="rich" className="opacity-20" />
