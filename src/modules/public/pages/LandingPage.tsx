@@ -845,20 +845,13 @@ function LexPH() {
   const status = useLexphPublicoStatus();
   if (status !== 'on') return null;
   return (
-    <section id="lexph" className="relative overflow-hidden bg-[#06080d] py-16 text-white sm:py-20">
-      {/* DGG-254-b (Pablo): el banner de LexPH va NEGRO con matices de fondo
-          (logo en blanco). Base casi-negra + degradé con tintes muy tenues de
-          tinta/teal + un glow suave, para que el negro respire sin perder marca. */}
+    <section id="lexph" className="relative overflow-hidden bg-brand-ink py-16 text-white sm:py-20">
       <div
-        className="absolute inset-0 bg-gradient-to-br from-black via-[#0a1018] to-[#08232a]"
+        className="absolute inset-0 bg-gradient-to-br from-brand-ink via-[#122f4c] to-[#13596b]"
         aria-hidden
       />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -right-24 -top-28 h-80 w-80 rounded-full bg-brand-cyan/10 blur-3xl"
-      />
-      <TrianglesAccent position="top-right" size={320} tone="cyan" density="rich" className="opacity-20" />
-      <TrianglesAccent position="bottom-left" size={240} tone="teal" density="soft" className="opacity-10" />
+      <TrianglesAccent position="top-right" size={320} tone="cyan" density="rich" className="opacity-30" />
+      <TrianglesAccent position="bottom-left" size={240} tone="teal" density="soft" className="opacity-20" />
 
       <div className="relative mx-auto grid max-w-6xl items-center gap-10 px-6 lg:grid-cols-2">
         {/* Referencia */}
