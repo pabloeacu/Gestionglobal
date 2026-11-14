@@ -8871,5 +8871,8 @@ shell), `NovedadesBanner` (tono por `banner_estilo`), `HotCard` + stripe `Oportu
 `PerfilRegulatorioHotCard`, `EncuentroHoyBanner`, `CertCelebracionBanner`. **Sólo capa de presentación** —
 ninguna lógica/ruta/dato/copy cambió (regla de oro del skill); los complejos (modal de novedades, descarga de
 cert, lista de docs) se re-estilaron in-place preservando su estructura. Fuera de alcance: `ReporteMensualBanner`
-(gerencia, no portal) y los assistants de push/PWA (no son banners). Build `tsc`+vite verde. Preview integral
-(4 tonos + hot cards + mobile 360px) aprobado. **DGG-254.**
+(gerencia, no portal). **Ajuste post-feedback de Pablo:** (a) los assistants de push/PWA (ActivarPushAssistant,
+PortalPushAssistant, PortalPwaAssistant) SÍ se premiaron (aparecen en el dashboard); (b) E-GG-278: `data-gg-remind`
+de gg-theme.css pisaba el degradé → se quitó de los migrados; (c) **FULL-WIDTH**: los banners deben ocupar el ancho
+en web y adaptarse en mobile → `HotCards` y la stripe `Oportunidades` pasaron de grilla multi-columna a
+**apilado full-width** (layout horizontal icono+texto+CTA, responsive). Build verde. **DGG-254.**

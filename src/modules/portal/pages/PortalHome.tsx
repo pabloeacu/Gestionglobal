@@ -427,8 +427,9 @@ function HotCards({
   }
 
   if (cards.length === 0) return null;
+  // DGG-254 · banners full-width (ocupan el ancho en web), apilados y responsive.
   return (
-    <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+    <section className="space-y-3">
       {cards}
     </section>
   );
@@ -455,22 +456,21 @@ function HotCard({
   const T = BANNER_TONES[HOT_TONE[tone]];
 
   const linkContent = (
-    <div className={`group relative flex h-full flex-col gap-3 overflow-hidden gg-chamfer bg-gradient-to-br p-4 text-white transition sm:p-5 ${T.grad}`}>
-      <TrianglesAccent position="top-right" size={108} tone={T.tri} density="rich" className="opacity-20" />
-      <div className="relative flex items-start gap-3">
-        <div className={`grid h-11 w-11 flex-shrink-0 place-items-center gg-chamfer-sm bg-white/10 ring-1 ring-white/25 ${T.accent}`}>
-          {icon}
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className={`kicker truncate ${T.accent}`}>{kicker}</p>
-          <h3 className="font-display text-base uppercase leading-tight tracking-tight sm:text-lg">{titulo}</h3>
-          <p className="mt-0.5 line-clamp-2 text-sm text-white/75">{descripcion}</p>
-        </div>
+    <div className={`group relative flex items-center gap-4 overflow-hidden gg-chamfer bg-gradient-to-br p-4 text-white transition sm:p-5 ${T.grad}`}>
+      <TrianglesAccent position="top-right" size={120} tone={T.tri} density="rich" className="opacity-20" />
+      <div className={`relative grid h-11 w-11 flex-shrink-0 place-items-center gg-chamfer-sm bg-white/10 ring-1 ring-white/25 ${T.accent}`}>
+        {icon}
       </div>
-      <div className="relative mt-auto flex items-center justify-end gap-1 font-display text-xs uppercase tracking-wider text-white/90 transition group-hover:gap-2">
+      <div className="relative min-w-0 flex-1">
+        <p className={`kicker truncate ${T.accent}`}>{kicker}</p>
+        <h3 className="font-display text-base uppercase leading-tight tracking-tight sm:text-lg">{titulo}</h3>
+        <p className="mt-0.5 line-clamp-2 text-sm text-white/75">{descripcion}</p>
+      </div>
+      <div className="relative hidden shrink-0 items-center gap-1.5 font-display text-xs uppercase tracking-wider text-white/90 transition group-hover:gap-2 sm:flex">
         <span>{ctaLabel}</span>
         <ArrowRight size={14} className="transition group-hover:translate-x-0.5" />
       </div>
+      <ArrowRight size={18} className="relative shrink-0 text-white/80 transition group-hover:translate-x-1 sm:hidden" />
     </div>
   );
 
@@ -563,29 +563,31 @@ function Oportunidades({
         <span data-gg-secico className="hidden" aria-hidden><Sparkles size={21} strokeWidth={1.7} /></span>
         <p className="kicker text-brand-muted">SUGERIDO PARA VOS</p>
       </header>
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="space-y-3">
         {restantes.map((op) => {
-          // DGG-254 · premium marca-nativa, mismo footprint.
+          // DGG-254 · banner full-width (ocupa el ancho), responsive.
           const OP_TONE: Record<string, BannerTone> = { urgente: 'urgente', alto: 'alto', medio: 'brand', suave: 'suave' };
           const T = BANNER_TONES[OP_TONE[op.tone] ?? 'brand'];
           return (
             <div key={op.codigo} className="relative">
               <Link
                 to={op.cta_path}
-                className={`group flex h-full items-start gap-3 overflow-hidden gg-chamfer bg-gradient-to-br p-4 text-white transition ${T.grad}`}
+                className={`group relative flex items-center gap-4 overflow-hidden gg-chamfer bg-gradient-to-br p-4 text-white transition sm:p-5 ${T.grad}`}
               >
-                <TrianglesAccent position="top-right" size={92} tone={T.tri} density="rich" className="opacity-15" />
-                <span className={`relative grid h-10 w-10 flex-shrink-0 place-items-center gg-chamfer-sm bg-white/10 ring-1 ring-white/25 ${T.accent}`}>
+                <TrianglesAccent position="top-right" size={120} tone={T.tri} density="rich" className="opacity-20" />
+                <span className={`relative grid h-11 w-11 flex-shrink-0 place-items-center gg-chamfer-sm bg-white/10 ring-1 ring-white/25 ${T.accent}`}>
                   {iconForOportunidad(op.icono)}
                 </span>
-                <div className="relative min-w-0 flex-1 pr-5">
+                <div className="relative min-w-0 flex-1 pr-6">
                   <p className={`kicker ${T.accent}`}>{op.kicker}</p>
-                  <p className="font-display text-sm uppercase leading-tight tracking-tight">{op.titulo}</p>
-                  <p className="line-clamp-2 text-xs text-white/70">{op.descripcion}</p>
-                  <p className="mt-1 inline-flex items-center gap-1 font-display text-[11px] uppercase tracking-wider text-white/90 transition group-hover:gap-1.5">
-                    {op.cta_label} <ArrowRight size={11} />
-                  </p>
+                  <h3 className="font-display text-base uppercase leading-tight tracking-tight sm:text-lg">{op.titulo}</h3>
+                  <p className="mt-0.5 line-clamp-2 text-sm text-white/70">{op.descripcion}</p>
                 </div>
+                <div className="relative hidden shrink-0 items-center gap-1.5 font-display text-xs uppercase tracking-wider text-white/90 transition group-hover:gap-2 sm:flex">
+                  <span>{op.cta_label}</span>
+                  <ArrowRight size={14} />
+                </div>
+                <ArrowRight size={18} className="relative shrink-0 text-white/80 transition group-hover:translate-x-1 sm:hidden" />
               </Link>
               {/* DGG-45 · "Recordar después" — sólo en banners suaves (posponibles) */}
               {op.posponible && (
@@ -594,7 +596,7 @@ function Oportunidades({
                   onClick={() => onPosponer(op.codigo)}
                   title="Recordar más tarde"
                   aria-label="Recordar más tarde"
-                  className="absolute right-2 top-2 grid h-6 w-6 place-items-center rounded-full bg-white/10 text-white/70 ring-1 ring-inset ring-white/20 backdrop-blur-sm transition hover:bg-white/20 hover:text-white"
+                  className="absolute right-2.5 top-2.5 grid h-6 w-6 place-items-center rounded-full bg-white/10 text-white/70 ring-1 ring-inset ring-white/20 backdrop-blur-sm transition hover:bg-white/20 hover:text-white"
                 >
                   <X size={12} />
                 </button>
