@@ -70,8 +70,9 @@ export function PortalPushAssistant() {
     toast.success('¡Notificaciones activadas!', { description: 'Te avisaremos antes de cada clase, evento y vencimiento.' });
   }
 
-  // DGG-254 · premium marca-nativa (tono 'brand').
-  const T = BANNER_TONES.brand;
+  // DGG-254 · premium marca-nativa. Tono 'cielo' (azul cielo) para distinguir
+  // los assistants del nudge de agenda (brand) cuando conviven (DGG-254-b).
+  const T = BANNER_TONES.cielo;
   return (
     <div className={`relative overflow-hidden gg-chamfer bg-gradient-to-br p-4 text-white sm:p-5 ${T.grad}`}>
       <TrianglesAccent position="top-right" size={132} tone={T.tri} density="rich" className="opacity-20" />
@@ -102,7 +103,7 @@ export function PortalPushAssistant() {
           type="button"
           onClick={() => void handleActivate()}
           disabled={working}
-          className={`shrink-0 ${premiumCtaClass('brand')}`}
+          className={`shrink-0 ${premiumCtaClass('cielo')}`}
         >
           {working ? <Loader2 size={14} className="animate-spin" /> : <Bell size={14} />}
           {working ? 'Activando…' : 'Activar'}

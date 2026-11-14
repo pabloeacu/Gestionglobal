@@ -43,9 +43,12 @@ const ICONS = {
 } as const;
 
 // DGG-254 · tono premium marca-nativa por estilo de comunicación.
+// DGG-254-b: info/novedad usan el tono 'novedad' (violeta) — propio de las
+// comunicaciones de gerencia — para no confundirse con la agenda (brand) ni con
+// los assistants (cielo) cuando conviven en el inicio. aviso=alto, urgente=urgente.
 const TONE: Record<NovedadCliente['banner_estilo'], BannerTone> = {
-  info: 'brand',
-  novedad: 'brand',
+  info: 'novedad',
+  novedad: 'novedad',
   aviso: 'alto',
   urgente: 'urgente',
 };

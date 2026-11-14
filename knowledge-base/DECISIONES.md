@@ -8876,3 +8876,33 @@ PortalPushAssistant, PortalPwaAssistant) SÍ se premiaron (aparecen en el dashbo
 de gg-theme.css pisaba el degradé → se quitó de los migrados; (c) **FULL-WIDTH**: los banners deben ocupar el ancho
 en web y adaptarse en mobile → `HotCards` y la stripe `Oportunidades` pasaron de grilla multi-columna a
 **apilado full-width** (layout horizontal icono+texto+CTA, responsive). Build verde. **DGG-254.**
+
+## DGG-254-b · Variaciones mínimas de tono para que banners que coexisten no se vean idénticos — 2026-11-14 (sin migración)
+
+**Pedido (Pablo):** "que los colores tengan pequeñas variaciones … para que cuando convivan dos
+banners en el mismo inicio, se sepa que son distintos". Ejemplo que aprobó y pidió **NO tocar**:
+"matrícula vencida" (verde `exito`) vs "completá tu agenda" (cyan `brand`) ya se distinguen. Regla:
+**si dos banners que coexisten resuelven al MISMO tono (idénticos), darle al secundario una variación
+mínima**. Además: el banner de **LexPH** (sección de la landing pública) va **negro con matices de
+fondo + logo en blanco**.
+
+**Problema de raíz:** varios propósitos de banner compartían tono (sobre todo `brand`): agenda +
+assistants + avances + credenciales + novedades caían todos en navy→teal cyan y se veían calcados al
+apilarse. Además `suave`≡`brand` y `deuda`≡`alto` estaban definidos idénticos.
+
+**Diseño:** `BANNER_TONES` pasó de 6 a **14 tonos** = un único **espectro premium navy→acento**
+recorrido de teal→azul→violeta→cálido, con **paso mínimo** entre vecinos; cada propósito tiene su
+matiz propio pero todo sigue leyéndose como familia. Tonos **bloqueados por Pablo (sin tocar):
+`brand`=agenda, `exito`=matrícula/oportunidad**. Nuevos hermanos mínimos: `app` (instalar PWA, azur,
+≠ `cielo` de notificaciones), `logro` (certificado, verde laurel, ≠ `exito`), `evento` (webinar
+próximo, dorado, ≠ `alto` atención), `sugerido` (oportunidad medio del stripe, índigo, ≠ `info` de
+avances). Reasignaciones: assistants push→`cielo`, PWA→`app`, AvancesNuevos→`info`, Novedades
+info/novedad→`novedad` (violeta, voz de gerencia), CredencialesDDJJ→`ddjj` (teal), EncuentroHoy→`urgente`
+(clase en vivo hoy, ≠ agenda), HotCard deuda sin-vencidos→`deuda` (naranja), webinar próximo→`evento`,
+op stripe medio→`sugerido`. **LexPH** (`LandingPage.tsx` fn `LexPH`): `bg-[#06080d]` + degradé
+`from-black via-[#0a1018] to-[#08232a]` + glow suave, logo `/brand/lexph-logo-white.png` intacto.
+
+**QA:** build verde + **workflow adversarial read-only** (3 agentes: colisiones / contraste / regresión+LexPH)
+— confirmó `brand`/`exito` intactos, LexPH ok, y cada colisión de coexistencia detectada se resolvió con
+un hermano mínimo; contraste de los 14 tonos ≥ piso aprobado (emerald-500/white). **Sólo capa de
+presentación.** **DGG-254-b.**

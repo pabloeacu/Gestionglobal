@@ -96,8 +96,9 @@ export function PortalPwaAssistant({ forceOpen = false }: { forceOpen?: boolean 
     setInstallEvent(null);
   }
 
-  // DGG-254 · premium marca-nativa (tono 'brand').
-  const T = BANNER_TONES.brand;
+  // DGG-254-b · tono 'app' (azul-azur): INSTALAR la app va distinto del assistant
+  // de notificaciones (cielo) — en el bloque de engagement aparecen pegados.
+  const T = BANNER_TONES.app;
   return (
     <div className={`relative overflow-hidden gg-chamfer bg-gradient-to-br p-4 text-white sm:p-5 ${T.grad}`}>
       <TrianglesAccent position="top-right" size={132} tone={T.tri} density="rich" className="opacity-20" />
@@ -135,7 +136,7 @@ export function PortalPwaAssistant({ forceOpen = false }: { forceOpen?: boolean 
           <button
             type="button"
             onClick={() => void handleInstall()}
-            className={`shrink-0 ${premiumCtaClass('brand')}`}
+            className={`shrink-0 ${premiumCtaClass('app')}`}
           >
             <Download size={14} /> Instalar
           </button>

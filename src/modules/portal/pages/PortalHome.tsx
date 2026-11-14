@@ -388,7 +388,7 @@ function HotCards({
         }
         ctaExternal={!!webinar.link && webinar.status === 'en_curso'}
         icon={<Video size={22} />}
-        tone={webinar.status === 'en_curso' ? 'urgente' : 'alto'}
+        tone={webinar.status === 'en_curso' ? 'urgente' : 'evento'}
       />
     );
   }
@@ -421,7 +421,7 @@ function HotCards({
         ctaLabel="Ver detalle"
         ctaHref="/portal/cuenta-corriente"
         icon={<Wallet size={22} />}
-        tone={deuda.vencidos_count > 0 ? 'urgente' : 'medio'}
+        tone={deuda.vencidos_count > 0 ? 'urgente' : 'deuda'}
       />
     );
   }
@@ -445,13 +445,14 @@ function HotCard({
   ctaHref: string;
   ctaExternal?: boolean;
   icon: React.ReactNode;
-  // urgente = rojo (clase), alto = amarillo (webinar), oportunidad = verde
-  // (renovaciones), medio = cyan (info), suave = violeta (cross-sell suave)
-  tone: 'urgente' | 'alto' | 'oportunidad' | 'medio' | 'suave';
+  // urgente = rojo (clase), evento = dorado (webinar próximo), oportunidad = verde
+  // (renovaciones), deuda = naranja (saldo), medio = azul (info), suave = fucsia
+  tone: 'urgente' | 'alto' | 'evento' | 'oportunidad' | 'deuda' | 'medio' | 'suave';
 }) {
   // DGG-254 · premium marca-nativa (degradé tinta→acento, chamfer, Oswald, triángulos).
+  // DGG-254-b: cada semántica tiene su matiz propio → dos hot cards nunca idénticas.
   const HOT_TONE: Record<typeof tone, BannerTone> = {
-    urgente: 'urgente', alto: 'alto', oportunidad: 'exito', medio: 'brand', suave: 'suave',
+    urgente: 'urgente', alto: 'alto', evento: 'evento', oportunidad: 'exito', deuda: 'deuda', medio: 'info', suave: 'suave',
   };
   const T = BANNER_TONES[HOT_TONE[tone]];
 
@@ -566,7 +567,10 @@ function Oportunidades({
       <div className="space-y-3">
         {restantes.map((op) => {
           // DGG-254 · banner full-width (ocupa el ancho), responsive.
-          const OP_TONE: Record<string, BannerTone> = { urgente: 'urgente', alto: 'alto', medio: 'brand', suave: 'suave' };
+          // DGG-254-b: medio → 'sugerido' (índigo propio del stripe) para no
+          // confundirse con AvancesNuevos ('info' azul) ni la agenda (brand);
+          // suave → 'suave' (fucsia, cross-sell).
+          const OP_TONE: Record<string, BannerTone> = { urgente: 'urgente', alto: 'alto', medio: 'sugerido', suave: 'suave' };
           const T = BANNER_TONES[OP_TONE[op.tone] ?? 'brand'];
           return (
             <div key={op.codigo} className="relative">
@@ -879,8 +883,9 @@ function DocsPendientesBanner({ items }: { items: PedidoAbiertoResumen[] }) {
 
 function AvancesNuevosBanner({ count }: { count: number }) {
   const plural = count > 1;
-  // DGG-254 · premium marca-nativa (tono 'brand' = info positiva).
-  const T = BANNER_TONES.brand;
+  // DGG-254 · premium marca-nativa. Tono 'info' (azul) para que no se confunda
+  // con la agenda (brand) ni los assistants (cielo) cuando conviven (DGG-254-b).
+  const T = BANNER_TONES.info;
   return (
     <Link
       to="/portal/gestiones"
@@ -901,7 +906,7 @@ function AvancesNuevosBanner({ count }: { count: number }) {
       </div>
       <ArrowRight
         size={18}
-        className="relative shrink-0 text-brand-cyan-light transition group-hover:translate-x-1"
+        className={`relative shrink-0 transition group-hover:translate-x-1 ${T.accent}`}
       />
     </Link>
   );

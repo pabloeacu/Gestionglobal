@@ -57,7 +57,7 @@ export function CredencialesDdjjBanner() {
 
   return (
     <PremiumBanner
-      tone="brand"
+      tone="ddjj"
       ariaLabel="Tus credenciales de DDJJ ya están cargadas"
       kicker="Accesos listos · DDJJ"
       title="Tus credenciales de DDJJ ya están cargadas"
@@ -65,7 +65,7 @@ export function CredencialesDdjjBanner() {
       onDismiss={() => void cerrar()}
       dismissing={dismissing}
       actions={
-        <button type="button" onClick={irAlPortal} className={premiumCtaClass('brand')}>
+        <button type="button" onClick={irAlPortal} className={premiumCtaClass('ddjj')}>
           Ir a mis accesos <ArrowRight size={14} />
         </button>
       }

@@ -106,8 +106,9 @@ export function CertCelebracionBanner({ cursoId }: Props) {
 
   if (loading || items.length === 0) return null;
 
-  // DGG-254 · premium marca-nativa (tono 'exito' = logro/celebración).
-  const T = BANNER_TONES.exito;
+  // DGG-254-b · tono 'logro' (verde laurel): logro de certificado, distinto del
+  // verde 'exito' de la oportunidad/"matrícula vencida" (que Pablo dejó fijo).
+  const T = BANNER_TONES.logro;
   return (
     <div className="space-y-3">
       {items.map((it) => (
@@ -153,7 +154,7 @@ export function CertCelebracionBanner({ cursoId }: Props) {
               type="button"
               onClick={() => void descargar(it)}
               disabled={busyId === it.cert_id}
-              className={premiumCtaClass('exito')}
+              className={premiumCtaClass('logro')}
             >
               {busyId === it.cert_id ? (
                 <Loader2 size={16} className="animate-spin" />

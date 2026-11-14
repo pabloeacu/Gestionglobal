@@ -13,7 +13,10 @@ import { X } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 
-export type BannerTone = 'brand' | 'urgente' | 'alto' | 'exito' | 'deuda' | 'suave';
+export type BannerTone =
+  | 'brand' | 'urgente' | 'alto' | 'exito' | 'deuda' | 'suave'
+  | 'cielo' | 'info' | 'ddjj' | 'novedad'
+  | 'app' | 'logro' | 'evento' | 'sugerido';
 
 interface ToneConfig {
   grad: string;      // degradé del fondo (tinta → acento)
@@ -23,13 +26,37 @@ interface ToneConfig {
 }
 
 // Base tinta (navy) SIEMPRE; cambia el 3er stop + el acento según semántica.
+//
+// DGG-254-b (pedido de Pablo 2026-11-14): "que los colores tengan pequeñas
+// variaciones ... para que cuando convivan dos banners en el mismo inicio se
+// sepa que son distintos". Mantiene el MISMO lenguaje premium (navy → acento,
+// chamfer, Oswald) pero cada propósito de banner tiene su propio matiz, de modo
+// que dos banners que coexisten nunca se vean idénticos. Los tonos que Pablo
+// aprobó explícitamente NO se tocan: `brand` (agenda) y `exito` (matrícula).
+// Un ÚNICO espectro premium navy→acento, recorriéndolo de teal a violeta a cálido,
+// con un paso mínimo entre vecinos: cada propósito de banner tiene su matiz propio,
+// de modo que dos banners que coexisten en el inicio nunca se ven idénticos, pero
+// todo sigue leyéndose como una familia. Cada clave anota su banner dueño.
 export const BANNER_TONES: Record<BannerTone, ToneConfig> = {
-  brand:   { grad: 'from-brand-night via-brand-night-2 to-brand-teal',       accent: 'text-brand-cyan-light', cta: 'bg-brand-cyan text-white hover:bg-brand-cyan-light hover:text-brand-ink', tri: 'cyan' },
-  urgente: { grad: 'from-[#2b0f18] via-brand-night to-[#6d2233]',            accent: 'text-rose-200',         cta: 'bg-rose-500 text-white hover:bg-rose-400',                                 tri: 'cyan' },
-  alto:    { grad: 'from-[#2a1c06] via-brand-night to-[#7a5212]',            accent: 'text-amber-200',        cta: 'bg-amber-400 text-brand-ink hover:bg-amber-300',                           tri: 'cyan' },
-  exito:   { grad: 'from-brand-night via-[#0d4a40] to-brand-teal',           accent: 'text-emerald-200',      cta: 'bg-emerald-500 text-white hover:bg-emerald-400',                           tri: 'teal' },
-  deuda:   { grad: 'from-[#2a1c06] via-brand-night to-[#7a5212]',            accent: 'text-amber-200',        cta: 'bg-amber-400 text-brand-ink hover:bg-amber-300',                           tri: 'cyan' },
-  suave:   { grad: 'from-brand-night via-brand-night-2 to-brand-teal',       accent: 'text-brand-cyan-light', cta: 'bg-brand-cyan text-white hover:bg-brand-cyan-light hover:text-brand-ink', tri: 'cyan' },
+  // ── Tonos aprobados por Pablo — NO CAMBIAR ────────────────────────────────
+  brand:   { grad: 'from-brand-night via-brand-night-2 to-brand-teal',       accent: 'text-brand-cyan-light', cta: 'bg-brand-cyan text-white hover:bg-brand-cyan-light hover:text-brand-ink', tri: 'cyan' }, // agenda / perfil regulatorio
+  exito:   { grad: 'from-brand-night via-[#0d4a40] to-brand-teal',           accent: 'text-emerald-200',      cta: 'bg-emerald-500 text-white hover:bg-emerald-400',                           tri: 'teal' }, // matrícula vencida / oportunidad hot
+  // ── Verdes / teal (positivo, logro) ───────────────────────────────────────
+  ddjj:    { grad: 'from-brand-night via-[#0b4a4a] to-[#0c827a]',            accent: 'text-teal-200',         cta: 'bg-teal-400 text-brand-ink hover:bg-teal-300',                             tri: 'teal' }, // credenciales DDJJ
+  logro:   { grad: 'from-brand-night via-[#0e5a2f] to-[#1fa85a]',            accent: 'text-green-200',        cta: 'bg-green-500 text-white hover:bg-green-400',                               tri: 'teal' }, // certificado / logro (≠ matrícula verde)
+  // ── Azules (notificaciones · app · info · sugerido) ───────────────────────
+  cielo:   { grad: 'from-brand-night via-brand-night-2 to-[#0a6ba8]',        accent: 'text-sky-200',          cta: 'bg-sky-400 text-brand-ink hover:bg-sky-300',                               tri: 'cyan' }, // activar notificaciones
+  app:     { grad: 'from-brand-night via-brand-night-2 to-[#2558a8]',        accent: 'text-sky-300',          cta: 'bg-sky-500 text-white hover:bg-sky-400',                                   tri: 'cyan' }, // instalar app (PWA)
+  info:    { grad: 'from-brand-night via-brand-night-2 to-[#2b4a9c]',        accent: 'text-indigo-200',       cta: 'bg-indigo-500 text-white hover:bg-indigo-400',                             tri: 'cyan' }, // avances en gestiones
+  sugerido:{ grad: 'from-brand-night via-brand-night-2 to-[#4848b8]',        accent: 'text-indigo-300',       cta: 'bg-indigo-500 text-white hover:bg-indigo-400',                             tri: 'cyan' }, // oportunidad "sugerido" (stripe medio)
+  // ── Violetas (novedades gerencia · cross-sell) ────────────────────────────
+  novedad: { grad: 'from-brand-night via-brand-night-2 to-[#5a3aa0]',        accent: 'text-violet-200',       cta: 'bg-violet-500 text-white hover:bg-violet-400',                             tri: 'cyan' }, // novedades de gerencia
+  suave:   { grad: 'from-brand-night via-[#2a1c4a] to-[#6d3a8f]',            accent: 'text-fuchsia-200',      cta: 'bg-fuchsia-600 text-white hover:bg-fuchsia-500',                           tri: 'cyan' }, // cross-sell suave (fuchsia-600 = AA pleno)
+  // ── Cálidos (atención · evento · dinero · urgente) ────────────────────────
+  alto:    { grad: 'from-[#2a1c06] via-brand-night to-[#7a5212]',            accent: 'text-amber-200',        cta: 'bg-amber-400 text-brand-ink hover:bg-amber-300',                           tri: 'cyan' }, // docs pendientes / aviso
+  evento:  { grad: 'from-[#2a2306] via-brand-night to-[#9a7a12]',            accent: 'text-yellow-200',       cta: 'bg-yellow-400 text-brand-ink hover:bg-yellow-300',                         tri: 'cyan' }, // webinar próximo (≠ ámbar atención)
+  deuda:   { grad: 'from-[#2a1206] via-brand-night to-[#8a3d12]',            accent: 'text-orange-200',       cta: 'bg-orange-400 text-brand-ink hover:bg-orange-300',                         tri: 'cyan' }, // saldo / cobranza
+  urgente: { grad: 'from-[#2b0f18] via-brand-night to-[#6d2233]',            accent: 'text-rose-200',         cta: 'bg-rose-500 text-white hover:bg-rose-400',                                 tri: 'cyan' }, // clase en vivo / urgente
 };
 
 /** Clase del CTA primario (relleno con el acento del tono). Chamfer + Oswald MAYÚS. */

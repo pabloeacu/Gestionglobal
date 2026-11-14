@@ -92,8 +92,9 @@ export function ActivarPushAssistant({ forceOpen = false }: { forceOpen?: boolea
   // ignora el cooldown de descarte para que el CTA aparezca sí o sí.
   if (!forceOpen && dismissedUntil && dismissedUntil > new Date()) return null;
 
-  // DGG-254 · premium marca-nativa (tono 'brand').
-  const T = BANNER_TONES.brand;
+  // DGG-254 · premium marca-nativa. Tono 'cielo' (azul cielo) para distinguirlo
+  // de la agenda/perfil (brand) cuando ambos conviven en el inicio (DGG-254-b).
+  const T = BANNER_TONES.cielo;
   return (
     <section className={`relative overflow-hidden gg-chamfer bg-gradient-to-br p-4 text-white sm:p-5 ${T.grad}`}>
       <TrianglesAccent position="top-right" size={132} tone={T.tri} density="rich" className="opacity-20" />
@@ -123,7 +124,7 @@ export function ActivarPushAssistant({ forceOpen = false }: { forceOpen?: boolea
           type="button"
           onClick={() => void activar()}
           disabled={activando}
-          className={`shrink-0 ${premiumCtaClass('brand')}`}
+          className={`shrink-0 ${premiumCtaClass('cielo')}`}
         >
           {activando ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
           Activar

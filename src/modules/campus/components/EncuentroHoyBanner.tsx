@@ -53,7 +53,10 @@ export function EncuentroHoyBanner() {
           minute: '2-digit',
           timeZone: 'America/Argentina/Buenos_Aires',
         });
-        const T = BANNER_TONES.brand; // DGG-254 · premium marca-nativa
+        // DGG-254-b · tono 'urgente' (rojo en vivo): "tu clase es HOY" es el
+        // evento del día (Radio pulsante) → distinto de la agenda (brand) y
+        // coherente con la HotCard de clase que apunta al mismo encuentro.
+        const T = BANNER_TONES.urgente;
         return (
           <div
             key={e.encuentro_id}
@@ -80,7 +83,7 @@ export function EncuentroHoyBanner() {
                 El link crudo de Zoom acá dejaba al alumno invisible para la
                 asistencia automática. */}
             {now >= new Date(e.fecha_hora).getTime() - GATE_PREV_MS ? (
-              <Link to={`/portal/campus/${e.curso_slug ?? ''}`} className={`relative shrink-0 ${premiumCtaClass('brand')}`}>
+              <Link to={`/portal/campus/${e.curso_slug ?? ''}`} className={`relative shrink-0 ${premiumCtaClass('urgente')}`}>
                 Entrar a la clase <ArrowRight size={15} />
               </Link>
             ) : (
