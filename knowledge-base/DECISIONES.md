@@ -8771,3 +8771,38 @@ Eliminar-usado bloqueado; Desactivar → Inactivo; Eliminar-sin-uso → borrado;
 residuo. **Nota:** la DB se operó por la Management API de Supabase (el MCP no quedó en la sesión forkeada
 tras la migración a ~/Developer); el token CLI cacheado habilita `/database/query`. **DGG-251 CERRADO.** El
 "fa" de JL queda listo para que lo borre/renombre él desde la pantalla nueva (sin uso). Ver DGG-251 + E-GG-277.
+
+## DGG-252 · Carga masiva de credenciales DDJJ desde Excel de la gestoría — 2026-11-14 (sin código/migración)
+
+**Pedido (Pablo, 14-11):** adjuntó `Usuarios y Contraseñas de DD.JJ. a Mayo-2026.xlsx` (hoja Hoja3,
+54 filas: `Administración | Usurario(email de login) | Contraseña | Administrador`). Pidió matchear por
+relación de **nombre de administración / mail / nombre del administrador** con el criterio MÁS PRECISO
+posible contra los clientes YA cargados, y cargarles usuario+contraseña en la ficha (mecanismo DGG-243 F3:
+`credencial_reg_set` → `credenciales_regulatorias`, password cifrado con Vault `cred_reg_key`).
+
+**Clave del matching:** el "Usuario" del Excel es el **login del Portal de DDJJ** (misgestiones.com.ar),
+NO el email de contacto GG — por eso el email sólo matchea a veces; el eje son nombre-admin + nombre-responsable
+normalizados (NFKD, sin acentos, tokens sin stopwords de razón social, orden-insensible) + subconjunto de
+tokens para apellidos distintivos. Motor en scratchpad (python), passwords NUNCA impresos.
+
+**Resultado sobre 195 administraciones:** **19 cargadas** (17 CONFIANZA: 14 por email exacto + 3 por
+nombre único con email casi-idéntico; **2 CASI** matcheadas por apellido distintivo único — *Lima Ana Maria*
+(Excel "ANA LIMA") y *Yazji Silvia Monica* (Excel "SILVIA YAZJI"), sin email coincidente pero únicas en la
+base). **33 SIN_MATCH** = administradores del libro de la gestoría que NO son clientes GG (todo fuzzy top ≤0.71,
+personas distintas; sin matrícula/email en la base). **2 descartadas** (Vaccaro, Bartolomeo: único candidato
+era apellido equivocado). No se pisó la 1 credencial ddjj preexistente (admin 49527761, otro cliente) — el
+RPC usa `COALESCE`/`ON CONFLICT` y el set apuntaba sólo a los 19.
+
+**Seguridad de la operación:** RPC `credencial_reg_set` es staff-gated; se ejecutó impersonando al gerente
+(jwt claim `sub`=Pablo en transacción) por la Management API con el SQL dollar-quoted en archivo local
+(passwords fuera de args/logs). **§6 EJERCITAR:** dry-run con RAISE→rollback (19 filas materializan con
+user+pass) → carga real atómica (commit) → verificación round-trip server-side: **descifrado == Excel en
+19/19** (usuario+password), 19 publicadas, 0 mismatches. **Camino de lectura del cliente** ejercitado
+impersonando los 19 perfiles reales (`credencial_reg_meta`+`credencial_reg_revelar`, rollback): **19/19 ok**.
+Los 19 son PBA (matrícula RPAC) → el launcher del portal se muestra para todos; los 19 tienen cuenta de portal.
+
+**Prueba en vivo (prod gestionglobal.ar):** rol-swap de Pablo → cliente Libano Sebastián (canon QA método #1):
+`/portal/ddjj` renderizó el launcher "YA TENÉS TUS CREDENCIALES" con usuario `libanoconsorcios@gmail.com` y
+contraseña enmascarada; botón copiar → toast "Contraseña copiada" (descifrado OK, sin exponer el texto);
+consola sin errores. Restaurado EXACTO (gerente/null/null/updated_at original, trigger de updated_at salteado
+con DISABLE TRIGGER USER) + borrado el 1 acceso QA de auditoría (0 residuo). **DGG-252 CERRADO.**
