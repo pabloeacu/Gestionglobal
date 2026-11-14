@@ -10,6 +10,8 @@ import {
   fetchAlumnoEncuentrosHoy,
   type EncuentroHoy,
 } from '@/services/api/campus';
+import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
+import { BANNER_TONES, premiumCtaClass, premiumGhostCtaClass } from '@/modules/portal/components/premiumBanner';
 
 // F9-ter: el join directo a la sala recién se habilita 10 min antes del inicio
 // (mismo criterio que EncuentrosEnVivoAlumno y la HotCard de PortalHome — "no
@@ -51,22 +53,24 @@ export function EncuentroHoyBanner() {
           minute: '2-digit',
           timeZone: 'America/Argentina/Buenos_Aires',
         });
+        const T = BANNER_TONES.brand; // DGG-254 · premium marca-nativa
         return (
           <div
             key={e.encuentro_id}
-            className="flex flex-col gap-3 rounded-3xl border border-brand-cyan/30 bg-gradient-to-r from-brand-cyan-pale/50 via-white to-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between motion-safe:animate-fade-up"
+            className={`relative flex flex-col gap-3 overflow-hidden gg-chamfer bg-gradient-to-br p-4 text-white motion-safe:animate-fade-up sm:flex-row sm:items-center sm:justify-between sm:p-5 ${T.grad}`}
           >
-            <div className="min-w-0">
-              <p className="kicker inline-flex items-center gap-1.5 text-brand-cyan">
+            <TrianglesAccent position="top-right" size={120} tone={T.tri} density="rich" className="opacity-20" />
+            <div className="relative min-w-0">
+              <p className={`kicker inline-flex items-center gap-1.5 ${T.accent}`}>
                 <Radio size={13} className="animate-pulse" /> Tu clase es hoy
               </p>
-              <p className="mt-1 font-display text-lg font-bold leading-tight text-brand-ink">
+              <h3 className="mt-1 font-display text-base uppercase leading-tight tracking-tight sm:text-lg">
                 ¡Hoy se dicta «{e.modulo}»!
-              </p>
-              <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-sm text-brand-muted">
+              </h3>
+              <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-sm text-white/75">
                 <span className="truncate">{e.curso_titulo}</span>
                 <span aria-hidden>·</span>
-                <span className="inline-flex items-center gap-1 font-medium text-brand-ink">
+                <span className="inline-flex items-center gap-1 font-medium text-white">
                   <Clock size={13} /> {hora} hs · {e.duracion_min} min
                 </span>
               </p>
@@ -76,17 +80,11 @@ export function EncuentroHoyBanner() {
                 El link crudo de Zoom acá dejaba al alumno invisible para la
                 asistencia automática. */}
             {now >= new Date(e.fecha_hora).getTime() - GATE_PREV_MS ? (
-              <Link
-                to={`/portal/campus/${e.curso_slug ?? ''}`}
-                className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-brand-cyan px-4 py-2.5 text-sm font-semibold text-white shadow transition hover:bg-brand-teal"
-              >
+              <Link to={`/portal/campus/${e.curso_slug ?? ''}`} className={`relative shrink-0 ${premiumCtaClass('brand')}`}>
                 Entrar a la clase <ArrowRight size={15} />
               </Link>
             ) : (
-              <Link
-                to={`/portal/campus/${e.curso_slug ?? ''}`}
-                className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl border border-brand-cyan/40 bg-white px-4 py-2.5 text-sm font-semibold text-brand-cyan transition hover:bg-brand-cyan-pale/40"
-              >
+              <Link to={`/portal/campus/${e.curso_slug ?? ''}`} className={`relative shrink-0 ${premiumGhostCtaClass}`}>
                 Ver en el campus <ArrowRight size={15} />
               </Link>
             )}

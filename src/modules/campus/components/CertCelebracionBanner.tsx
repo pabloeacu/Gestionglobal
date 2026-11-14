@@ -23,6 +23,8 @@ import { useEffect, useState } from 'react';
 import { GraduationCap, Download, X, Loader2 } from 'lucide-react';
 import { toast } from '@/lib/toast';
 import { humanizeError } from '@/lib/errors';
+import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
+import { BANNER_TONES, premiumCtaClass, premiumGhostCtaClass } from '@/modules/portal/components/premiumBanner';
 import {
   listCertsCelebrarCliente,
   marcarCelebracionVista,
@@ -104,38 +106,41 @@ export function CertCelebracionBanner({ cursoId }: Props) {
 
   if (loading || items.length === 0) return null;
 
+  // DGG-254 · premium marca-nativa (tono 'exito' = logro/celebración).
+  const T = BANNER_TONES.exito;
   return (
     <div className="space-y-3">
       {items.map((it) => (
         <article
           key={it.cert_id}
-          className="relative overflow-hidden rounded-2xl border-2 border-amber-300 bg-gradient-to-br from-amber-50 via-white to-cyan-50 p-5 shadow-md sm:p-6 motion-safe:animate-fade-up"
+          className={`relative overflow-hidden gg-chamfer bg-gradient-to-br p-4 text-white motion-safe:animate-fade-up sm:p-5 ${T.grad}`}
         >
+          <TrianglesAccent position="top-right" size={140} tone={T.tri} density="rich" className="opacity-20" />
           {/* Botón Cerrar */}
           <button
             type="button"
             onClick={() => void descartar(it)}
             disabled={busyId === it.cert_id}
             aria-label="Cerrar"
-            className="absolute right-3 top-3 rounded-full p-1.5 text-slate-400 transition hover:bg-white hover:text-slate-700 disabled:opacity-40"
+            className="absolute right-2.5 top-2.5 rounded-md p-1.5 text-white/60 transition hover:bg-white/10 hover:text-white disabled:opacity-40"
           >
             <X size={16} />
           </button>
 
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+          <div className="relative flex flex-col gap-4 pr-7 sm:flex-row sm:items-center">
             {/* Icono ceremonial */}
-            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-amber-400 text-3xl text-white shadow-lg shadow-amber-200">
-              🎓
+            <div className={`grid h-14 w-14 shrink-0 place-items-center gg-chamfer-sm bg-white/10 ring-1 ring-white/25 ${T.accent}`}>
+              <GraduationCap size={26} />
             </div>
 
             {/* Texto */}
             <div className="min-w-0 flex-1">
-              <p className="kicker text-amber-600">Logro alcanzado</p>
-              <h3 className="font-display text-xl font-bold text-brand-ink sm:text-2xl">
+              <p className={`kicker ${T.accent}`}>Logro alcanzado</p>
+              <h3 className="font-display text-lg uppercase leading-tight tracking-tight sm:text-xl">
                 ¡FELICITACIONES! {it.origen === 'evento' ? 'Asististe a' : 'Terminaste el curso'}<br />
-                <span className="text-brand-cyan">{it.curso_titulo}</span>
+                <span className="text-emerald-200">{it.curso_titulo}</span>
               </h3>
-              <blockquote className="mt-3 border-l-4 border-amber-400 bg-amber-50/70 px-4 py-2 text-sm italic leading-relaxed text-amber-900 sm:text-base">
+              <blockquote className="mt-3 border-l-4 border-emerald-300 bg-white/10 px-4 py-2 text-sm italic leading-relaxed text-white/90">
                 Sin lugar a dudas, tu esfuerzo valió la pena.<br />
                 Recordá: <strong>el éxito no se basa en encajar, sino en sobresalir</strong>.
               </blockquote>
@@ -143,12 +148,12 @@ export function CertCelebracionBanner({ cursoId }: Props) {
           </div>
 
           {/* CTA */}
-          <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+          <div className="relative mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
             <button
               type="button"
               onClick={() => void descargar(it)}
               disabled={busyId === it.cert_id}
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 px-5 py-2.5 text-sm font-semibold text-white shadow-md shadow-amber-200 transition hover:from-amber-600 hover:to-amber-700 disabled:opacity-60"
+              className={premiumCtaClass('exito')}
             >
               {busyId === it.cert_id ? (
                 <Loader2 size={16} className="animate-spin" />
@@ -161,7 +166,7 @@ export function CertCelebracionBanner({ cursoId }: Props) {
               href={it.link_verificacion}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center justify-center gap-1 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-xs font-medium text-brand-muted transition hover:bg-slate-50"
+              className={premiumGhostCtaClass}
             >
               <GraduationCap size={13} /> Ver verificación pública
             </a>

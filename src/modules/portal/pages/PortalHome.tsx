@@ -55,6 +55,7 @@ import { CertCelebracionBanner } from '@/modules/campus/components/CertCelebraci
 import { listCertsCelebrarCliente } from '@/services/api/campus';
 import { NovedadesBanner } from '../components/NovedadesBanner';
 import { CredencialesDdjjBanner } from '../components/CredencialesDdjjBanner';
+import { BANNER_TONES, type BannerTone } from '../components/premiumBanner';
 import { PerfilRegulatorioHotCard } from '../components/PerfilRegulatorioHotCard';
 import { PortalOnboardingTour, tourCompletado } from '../components/PortalOnboardingTour';
 import { PortalPwaAssistant } from '../components/PortalPwaAssistant';
@@ -447,35 +448,26 @@ function HotCard({
   // (renovaciones), medio = cyan (info), suave = violeta (cross-sell suave)
   tone: 'urgente' | 'alto' | 'oportunidad' | 'medio' | 'suave';
 }) {
-  const toneClasses = {
-    urgente:     'bg-gradient-to-br from-rose-50 via-white to-orange-50 ring-rose-200 hover:ring-rose-300',
-    alto:        'bg-gradient-to-br from-amber-50 via-white to-yellow-50 ring-amber-200 hover:ring-amber-300',
-    oportunidad: 'bg-gradient-to-br from-emerald-50 via-white to-green-50 ring-emerald-200 hover:ring-emerald-300',
-    medio:       'bg-gradient-to-br from-brand-cyan-pale/60 via-white to-cyan-50 ring-cyan-200 hover:ring-brand-cyan/50',
-    suave:       'bg-gradient-to-br from-violet-50 via-white to-fuchsia-50 ring-violet-200 hover:ring-violet-300',
-  }[tone];
-
-  const iconClasses = {
-    urgente:     'bg-rose-100 text-rose-700',
-    alto:        'bg-amber-100 text-amber-700',
-    oportunidad: 'bg-emerald-100 text-emerald-700',
-    medio:       'bg-brand-cyan-pale text-brand-cyan',
-    suave:       'bg-violet-100 text-violet-700',
-  }[tone];
+  // DGG-254 · premium marca-nativa (degradé tinta→acento, chamfer, Oswald, triángulos).
+  const HOT_TONE: Record<typeof tone, BannerTone> = {
+    urgente: 'urgente', alto: 'alto', oportunidad: 'exito', medio: 'brand', suave: 'suave',
+  };
+  const T = BANNER_TONES[HOT_TONE[tone]];
 
   const linkContent = (
-    <div className={`group relative flex h-full flex-col gap-3 overflow-hidden rounded-2xl p-4 ring-1 ring-inset transition sm:p-5 ${toneClasses}`}>
-      <div className="flex items-start gap-3">
-        <div className={`grid h-11 w-11 flex-shrink-0 place-items-center rounded-xl ${iconClasses}`}>
+    <div className={`group relative flex h-full flex-col gap-3 overflow-hidden gg-chamfer bg-gradient-to-br p-4 text-white transition sm:p-5 ${T.grad}`}>
+      <TrianglesAccent position="top-right" size={108} tone={T.tri} density="rich" className="opacity-20" />
+      <div className="relative flex items-start gap-3">
+        <div className={`grid h-11 w-11 flex-shrink-0 place-items-center gg-chamfer-sm bg-white/10 ring-1 ring-white/25 ${T.accent}`}>
           {icon}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="kicker truncate text-brand-cyan opacity-80">{kicker}</p>
-          <h3 className="font-display text-lg font-bold leading-tight text-brand-ink">{titulo}</h3>
-          <p className="mt-0.5 line-clamp-2 text-sm text-brand-muted">{descripcion}</p>
+          <p className={`kicker truncate ${T.accent}`}>{kicker}</p>
+          <h3 className="font-display text-base uppercase leading-tight tracking-tight sm:text-lg">{titulo}</h3>
+          <p className="mt-0.5 line-clamp-2 text-sm text-white/75">{descripcion}</p>
         </div>
       </div>
-      <div className="mt-auto flex items-center justify-end gap-1 text-sm font-semibold text-brand-ink transition group-hover:gap-2">
+      <div className="relative mt-auto flex items-center justify-end gap-1 font-display text-xs uppercase tracking-wider text-white/90 transition group-hover:gap-2">
         <span>{ctaLabel}</span>
         <ArrowRight size={14} className="transition group-hover:translate-x-0.5" />
       </div>
@@ -572,38 +564,44 @@ function Oportunidades({
         <p className="kicker text-brand-muted">SUGERIDO PARA VOS</p>
       </header>
       <div className="grid gap-3 sm:grid-cols-2">
-        {restantes.map((op) => (
-          <div key={op.codigo} className="relative">
-            <Link
-              to={op.cta_path}
-              className="group flex h-full items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4 transition hover:border-brand-cyan hover:shadow-md"
-            >
-              <span className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-xl bg-brand-cyan-pale text-brand-cyan">
-                {iconForOportunidad(op.icono)}
-              </span>
-              <div className="min-w-0 flex-1 pr-5">
-                <p className="kicker text-brand-cyan opacity-80">{op.kicker}</p>
-                <p className="font-semibold text-brand-ink">{op.titulo}</p>
-                <p className="line-clamp-2 text-xs text-brand-muted">{op.descripcion}</p>
-                <p className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-brand-cyan transition group-hover:gap-1.5">
-                  {op.cta_label} <ArrowRight size={11} />
-                </p>
-              </div>
-            </Link>
-            {/* DGG-45 · "Recordar después" — sólo en banners suaves (posponibles) */}
-            {op.posponible && (
-              <button
-                type="button"
-                onClick={() => onPosponer(op.codigo)}
-                title="Recordar más tarde"
-                aria-label="Recordar más tarde"
-                className="absolute right-2 top-2 grid h-6 w-6 place-items-center rounded-full bg-white/80 text-brand-muted ring-1 ring-inset ring-slate-200 backdrop-blur-sm transition hover:bg-white hover:text-brand-ink"
+        {restantes.map((op) => {
+          // DGG-254 · premium marca-nativa, mismo footprint.
+          const OP_TONE: Record<string, BannerTone> = { urgente: 'urgente', alto: 'alto', medio: 'brand', suave: 'suave' };
+          const T = BANNER_TONES[OP_TONE[op.tone] ?? 'brand'];
+          return (
+            <div key={op.codigo} className="relative">
+              <Link
+                to={op.cta_path}
+                className={`group flex h-full items-start gap-3 overflow-hidden gg-chamfer bg-gradient-to-br p-4 text-white transition ${T.grad}`}
               >
-                <X size={12} />
-              </button>
-            )}
-          </div>
-        ))}
+                <TrianglesAccent position="top-right" size={92} tone={T.tri} density="rich" className="opacity-15" />
+                <span className={`relative grid h-10 w-10 flex-shrink-0 place-items-center gg-chamfer-sm bg-white/10 ring-1 ring-white/25 ${T.accent}`}>
+                  {iconForOportunidad(op.icono)}
+                </span>
+                <div className="relative min-w-0 flex-1 pr-5">
+                  <p className={`kicker ${T.accent}`}>{op.kicker}</p>
+                  <p className="font-display text-sm uppercase leading-tight tracking-tight">{op.titulo}</p>
+                  <p className="line-clamp-2 text-xs text-white/70">{op.descripcion}</p>
+                  <p className="mt-1 inline-flex items-center gap-1 font-display text-[11px] uppercase tracking-wider text-white/90 transition group-hover:gap-1.5">
+                    {op.cta_label} <ArrowRight size={11} />
+                  </p>
+                </div>
+              </Link>
+              {/* DGG-45 · "Recordar después" — sólo en banners suaves (posponibles) */}
+              {op.posponible && (
+                <button
+                  type="button"
+                  onClick={() => onPosponer(op.codigo)}
+                  title="Recordar más tarde"
+                  aria-label="Recordar más tarde"
+                  className="absolute right-2 top-2 grid h-6 w-6 place-items-center rounded-full bg-white/10 text-white/70 ring-1 ring-inset ring-white/20 backdrop-blur-sm transition hover:bg-white/20 hover:text-white"
+                >
+                  <X size={12} />
+                </button>
+              )}
+            </div>
+          );
+        })}
       </div>
     </section>
   );
@@ -816,22 +814,25 @@ function DocsPendientesBanner({ items }: { items: PedidoAbiertoResumen[] }) {
   );
   const hayAccionPendiente = totalItemsPendientes > 0 || faltaEnviar;
   const tramiteUnico = total === 1 ? items[0] : null;
+  // DGG-254 · premium marca-nativa (tono 'alto' = atención requerida).
+  const T = BANNER_TONES.alto;
   return (
-    <section data-gg-remind="warn" className="relative overflow-hidden rounded-2xl border-2 border-amber-300 bg-gradient-to-br from-amber-50 via-white to-orange-50 p-4 shadow-sm ring-1 ring-amber-100 sm:p-5">
-      <div className="flex items-start gap-3">
-        <span className="grid h-12 w-12 flex-shrink-0 place-items-center rounded-2xl bg-amber-500 text-white shadow-sm">
-          <AlertCircle size={22} className={hayAccionPendiente ? 'motion-safe:animate-[wiggle_1.2s_ease-in-out_infinite]' : ''} />
+    <section data-gg-remind="warn" className={`relative overflow-hidden gg-chamfer bg-gradient-to-br p-4 text-white sm:p-5 ${T.grad}`}>
+      <TrianglesAccent position="top-right" size={120} tone={T.tri} density="rich" className="opacity-20" />
+      <div className="relative flex items-start gap-3">
+        <span className={`grid h-11 w-11 flex-shrink-0 place-items-center gg-chamfer-sm bg-white/10 ring-1 ring-white/25 ${T.accent}`}>
+          <AlertCircle size={20} className={hayAccionPendiente ? 'motion-safe:animate-[wiggle_1.2s_ease-in-out_infinite]' : ''} />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="kicker text-amber-700">{hayAccionPendiente ? 'Acción requerida' : 'En revisión'}</p>
-          <p className="font-display text-base font-bold leading-tight text-brand-ink sm:text-lg">
+          <p className={`kicker ${T.accent}`}>{hayAccionPendiente ? 'Acción requerida' : 'En revisión'}</p>
+          <h3 className="font-display text-base uppercase leading-tight tracking-tight sm:text-lg">
             {!hayAccionPendiente
               ? 'Estamos revisando tu documentación'
               : tramiteUnico
                 ? 'Necesitamos documentación para tu trámite'
                 : `Necesitamos documentación en ${total} de tus trámites`}
-          </p>
-          <p className="mt-0.5 line-clamp-2 text-xs text-amber-900 sm:text-sm">
+          </h3>
+          <p className="mt-0.5 line-clamp-2 text-xs text-white/80 sm:text-sm">
             {totalItemsPendientes > 0
               ? `Tenés ${totalItemsPendientes} ítem(s) para completar. Cuando estén todos, enviá el lote a gerencia.`
               : faltaEnviar
@@ -841,29 +842,29 @@ function DocsPendientesBanner({ items }: { items: PedidoAbiertoResumen[] }) {
           <ul className="mt-2 space-y-1">
             {items.slice(0, 3).map(p => (
               <li key={p.pedido_id} className="flex items-center gap-2 text-xs">
-                <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 font-mono text-[10px] text-amber-700">
+                <span className="inline-flex items-center gg-chamfer-sm bg-white/10 px-2 py-0.5 font-mono text-[10px] text-amber-100">
                   {p.tramite_codigo ?? '—'}
                 </span>
                 <Link
                   to={`/portal/gestiones/${p.tramite_id}`}
-                  className="truncate text-amber-900 hover:underline"
+                  className="truncate text-white/90 hover:underline"
                 >
                   {p.tramite_titulo ?? p.descripcion}
                 </Link>
                 {p.items_rechazados > 0 && (
-                  <span className="text-[10px] font-semibold text-red-600">· {p.items_rechazados} observado(s)</span>
+                  <span className="text-[10px] font-semibold text-rose-300">· {p.items_rechazados} observado(s)</span>
                 )}
               </li>
             ))}
             {items.length > 3 && (
-              <li className="text-[11px] text-amber-700">…y {items.length - 3} trámite(s) más</li>
+              <li className="text-[11px] text-amber-200">…y {items.length - 3} trámite(s) más</li>
             )}
           </ul>
         </div>
         {tramiteUnico && (
           <Link
             to={`/portal/gestiones/${tramiteUnico.tramite_id}`}
-            className="shrink-0 self-center inline-flex items-center gap-1.5 rounded-md bg-amber-600 px-3 py-2 text-xs font-semibold text-white shadow-sm hover:bg-amber-700"
+            className={`relative shrink-0 self-center inline-flex items-center gap-1.5 gg-chamfer-sm px-3 py-2 font-display text-xs uppercase tracking-wider ${T.cta}`}
           >
             Subir docs
             <ArrowRight size={13} />
@@ -876,27 +877,30 @@ function DocsPendientesBanner({ items }: { items: PedidoAbiertoResumen[] }) {
 
 function AvancesNuevosBanner({ count }: { count: number }) {
   const plural = count > 1;
+  // DGG-254 · premium marca-nativa (tono 'brand' = info positiva).
+  const T = BANNER_TONES.brand;
   return (
     <Link
       to="/portal/gestiones"
       data-gg-remind
-      className="group relative flex items-center gap-4 overflow-hidden rounded-2xl border border-cyan-200 bg-gradient-to-br from-cyan-50 via-white to-teal-50 p-4 shadow-sm ring-1 ring-cyan-100 transition hover:border-brand-cyan hover:shadow-md sm:p-5"
+      className={`group relative flex items-center gap-4 overflow-hidden gg-chamfer bg-gradient-to-br p-4 text-white transition sm:p-5 ${T.grad}`}
     >
-      <span className="grid h-12 w-12 flex-shrink-0 place-items-center rounded-2xl bg-brand-cyan text-white shadow-sm">
-        <BellRing size={22} className="motion-safe:animate-[wiggle_1.2s_ease-in-out_infinite]" />
+      <TrianglesAccent position="top-right" size={120} tone={T.tri} density="rich" className="opacity-20" />
+      <span className={`relative grid h-11 w-11 flex-shrink-0 place-items-center gg-chamfer-sm bg-white/10 ring-1 ring-white/25 ${T.accent}`}>
+        <BellRing size={20} className="motion-safe:animate-[wiggle_1.2s_ease-in-out_infinite]" />
       </span>
-      <div className="min-w-0 flex-1">
-        <p className="kicker text-brand-cyan">Tenés novedades</p>
-        <p className="font-display text-base font-bold leading-tight text-brand-ink sm:text-lg">
+      <div className="relative min-w-0 flex-1">
+        <p className={`kicker ${T.accent}`}>Tenés novedades</p>
+        <h3 className="font-display text-base uppercase leading-tight tracking-tight sm:text-lg">
           {count} {plural ? 'nuevos avances' : 'nuevo avance'} en tus gestiones
-        </p>
-        <p className="mt-0.5 line-clamp-2 text-xs text-brand-muted sm:text-sm">
+        </h3>
+        <p className="mt-0.5 line-clamp-2 text-xs text-white/75 sm:text-sm">
           Entrá a Mis gestiones para ver el detalle completo y los archivos adjuntos.
         </p>
       </div>
       <ArrowRight
         size={18}
-        className="shrink-0 text-brand-cyan transition group-hover:translate-x-1"
+        className="relative shrink-0 text-brand-cyan-light transition group-hover:translate-x-1"
       />
     </Link>
   );

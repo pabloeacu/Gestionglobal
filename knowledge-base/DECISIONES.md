@@ -8851,3 +8851,25 @@ Build `tsc`+vite verde. **Preview del mail (masthead) y del banner (desktop+mobi
 `UPDATE config_global SET ddjj_avisos_habilitados=true;` (arma: aparece el banner + futuras cargas auto-avisan)
 **+ backfill** de los 19 ya cargados (impersonando gerente: PERFORM fanout + sellar donde
 `aviso_lista_enviado_at IS NULL`). Drenan ~1 mail/min (~20'). **DGG-253 LISTO Y ARMADO EN OFF.**
+
+## DGG-254 · Rediseño premium de TODOS los banners del dashboard del cliente — 2026-11-14 (sin migración)
+
+**Pedido (Pablo):** los banners del dashboard se veían genéricos (pasteles Tailwind crudos:
+`rounded-2xl` + `from-rose-50` + `shadow-sm`) → llevarlos al "aspecto premium" del banner de DDJJ
+(DGG-253), **sin cambiar el tamaño** (compactos/responsive), sin dejar ninguno.
+
+**Diseño (skill gestionglobal-ui):** un lenguaje ÚNICO marca-nativa — fondo degradé **tinta(navy)→acento**,
+**chamfer** (clip-path, no border-radius), **Oswald MAYÚSCULAS**, **motivo triangular** (TrianglesAccent),
+glass icon tile, CTA relleno con chamfer, texto blanco. La **semántica se da por el TONO** (color del acento +
+3er stop del degradé), no por fondos pastel: `brand`=cyan (info), `urgente`=rose (vencida/urgente),
+`alto`=amber (atención), `exito`=emerald (logro), `deuda`=amber, `suave`=cyan. Mismo footprint `p-4 sm:p-5`.
+
+**Implementación:** nuevo `src/modules/portal/components/premiumBanner.tsx` = **fuente única** (`BANNER_TONES`,
+`<PremiumBanner>` shell, `premiumCtaClass()`/`premiumGhostCtaClass`). Migrados: `CredencialesDdjjBanner` (al
+shell), `NovedadesBanner` (tono por `banner_estilo`), `HotCard` + stripe `Oportunidades` (motor, incl. la
+"matrícula vencida" de la captura de Pablo), `DocsPendientesBanner`, `AvancesNuevosBanner`,
+`PerfilRegulatorioHotCard`, `EncuentroHoyBanner`, `CertCelebracionBanner`. **Sólo capa de presentación** —
+ninguna lógica/ruta/dato/copy cambió (regla de oro del skill); los complejos (modal de novedades, descarga de
+cert, lista de docs) se re-estilaron in-place preservando su estructura. Fuera de alcance: `ReporteMensualBanner`
+(gerencia, no portal) y los assistants de push/PWA (no son banners). Build `tsc`+vite verde. Preview integral
+(4 tonos + hot cards + mobile 360px) aprobado. **DGG-254.**
