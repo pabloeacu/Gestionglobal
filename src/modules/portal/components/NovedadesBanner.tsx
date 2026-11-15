@@ -16,7 +16,7 @@
 // Reglas: 4 (API en services/), 13 (no window.confirm).
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
   ArrowRight,
   AlertCircle,
@@ -24,6 +24,7 @@ import {
   Sparkles,
   Bell,
   ShieldCheck,
+  X,
 } from 'lucide-react';
 import { toast } from '@/lib/toast';
 import { Modal, Button } from '@/components/common';
@@ -33,6 +34,7 @@ import {
   type NovedadCliente,
 } from '@/services/api/comunicaciones';
 import { humanizeError } from '@/lib/errors';
+import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import { PremiumBanner, premiumCtaClass, type BannerTone } from './premiumBanner';
 
 const ICONS = {
@@ -43,13 +45,14 @@ const ICONS = {
 } as const;
 
 // DGG-254 · tono premium marca-nativa por estilo de comunicación.
-// DGG-254-b: info/novedad usan el tono 'novedad' (violeta) — propio de las
-// comunicaciones de gerencia — para no confundirse con la agenda (brand) ni con
-// los assistants (cielo) cuando conviven en el inicio. aviso=alto, urgente=urgente.
+// DGG-254-b: toda comunicación de gerencia NO urgente (info/novedad/aviso) usa el
+// tono 'novedad' (violeta) — voz unificada de gerencia — para no confundirse con la
+// agenda (brand), los assistants (cielo) ni DocsPendientes (alto/ámbar) al convivir.
+// Sólo 'urgente' se despega a rojo. (El icono + label distinguen info/aviso/novedad.)
 const TONE: Record<NovedadCliente['banner_estilo'], BannerTone> = {
   info: 'novedad',
   novedad: 'novedad',
-  aviso: 'alto',
+  aviso: 'novedad',
   urgente: 'urgente',
 };
 
@@ -157,6 +160,19 @@ export function NovedadesBanner() {
       {bannerItems.length > 0 && (
         <div className="space-y-2">
           {bannerItems.map((n) => {
+            // DGG-254-b · el aviso de nueva edición de LexPH (mig 0684,
+            // cta_url='/lexph') tiene su propia piel: NEGRO con matices + logo
+            // LexPH en blanco. Distinto de las demás comunicaciones de gerencia.
+            if (n.cta_url === '/lexph') {
+              return (
+                <LexphNovedadBanner
+                  key={n.id}
+                  novedad={n}
+                  dismissing={dismissing === n.id}
+                  onDismiss={() => void dismiss(n.id)}
+                />
+              );
+            }
             const tone = TONE[n.banner_estilo];
             const Icon = ICONS[n.banner_estilo];
             const esImagen = !!n.imagen_url;
@@ -222,5 +238,50 @@ export function NovedadesBanner() {
         </Modal>
       )}
     </>
+  );
+}
+
+// DGG-254-b · Banner de LexPH para el portal del cliente (aviso de nueva edición
+// del newsletter, cta_url='/lexph'). Piel propia: NEGRO con matices de fondo +
+// logo LexPH en BLANCO, CTA blanco. Mismo footprint/chamfer que los demás.
+function LexphNovedadBanner({
+  novedad, dismissing, onDismiss,
+}: {
+  novedad: NovedadCliente;
+  dismissing: boolean;
+  onDismiss: () => void;
+}) {
+  return (
+    <section className="relative overflow-hidden gg-chamfer bg-gradient-to-br from-black via-[#0a1018] to-[#08232a] p-4 text-white motion-safe:animate-fade-up sm:p-5">
+      <TrianglesAccent position="top-right" size={132} tone="cyan" density="rich" className="opacity-15" />
+      <div aria-hidden className="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full bg-brand-cyan/10 blur-2xl" />
+      <button
+        type="button"
+        onClick={onDismiss}
+        disabled={dismissing}
+        aria-label="Cerrar"
+        className="absolute right-2.5 top-2.5 rounded-md p-1.5 text-white/60 transition hover:bg-white/10 hover:text-white disabled:opacity-40"
+      >
+        <X size={16} />
+      </button>
+      <div className="relative flex flex-col gap-3 pr-7 sm:flex-row sm:items-center">
+        <img src="/brand/lexph-logo-white.png" alt="LexPH" className="h-9 w-auto shrink-0 sm:h-10" />
+        <div className="min-w-0 flex-1">
+          <p className="kicker text-brand-cyan-light">Inteligencia jurídica en PH</p>
+          <h3 className="font-display text-base uppercase leading-tight tracking-tight sm:text-lg">
+            {novedad.titulo}
+          </h3>
+          {novedad.cuerpo_md && (
+            <p className="mt-0.5 line-clamp-2 text-xs text-white/75 sm:text-sm">{novedad.cuerpo_md}</p>
+          )}
+        </div>
+        <Link
+          to="/lexph"
+          className="inline-flex shrink-0 items-center justify-center gap-1.5 gg-chamfer-sm bg-white px-4 py-2 font-display text-xs uppercase tracking-wider text-brand-ink transition hover:bg-white/90"
+        >
+          {novedad.cta_label || 'Leer la edición'} <ArrowRight size={14} />
+        </Link>
+      </div>
+    </section>
   );
 }

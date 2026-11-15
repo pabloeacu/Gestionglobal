@@ -421,7 +421,7 @@ function HotCards({
         ctaLabel="Ver detalle"
         ctaHref="/portal/cuenta-corriente"
         icon={<Wallet size={22} />}
-        tone={deuda.vencidos_count > 0 ? 'urgente' : 'deuda'}
+        tone="deuda"
       />
     );
   }

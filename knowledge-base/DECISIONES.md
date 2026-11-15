@@ -8883,8 +8883,8 @@ en web y adaptarse en mobile → `HotCards` y la stripe `Oportunidades` pasaron 
 banners en el mismo inicio, se sepa que son distintos". Ejemplo que aprobó y pidió **NO tocar**:
 "matrícula vencida" (verde `exito`) vs "completá tu agenda" (cyan `brand`) ya se distinguen. Regla:
 **si dos banners que coexisten resuelven al MISMO tono (idénticos), darle al secundario una variación
-mínima**. Además: el banner de **LexPH** (sección de la landing pública) va **negro con matices de
-fondo + logo en blanco**.
+mínima**. Además: el banner de **LexPH** va **negro con matices de fondo + logo en blanco** (ojo:
+esto es el banner del **portal del cliente**, NO la sección de la landing — ver corrección en DGG-254-c).
 
 **Problema de raíz:** varios propósitos de banner compartían tono (sobre todo `brand`): agenda +
 assistants + avances + credenciales + novedades caían todos en navy→teal cyan y se veían calcados al
@@ -8899,10 +8899,41 @@ próximo, dorado, ≠ `alto` atención), `sugerido` (oportunidad medio del strip
 avances). Reasignaciones: assistants push→`cielo`, PWA→`app`, AvancesNuevos→`info`, Novedades
 info/novedad→`novedad` (violeta, voz de gerencia), CredencialesDDJJ→`ddjj` (teal), EncuentroHoy→`urgente`
 (clase en vivo hoy, ≠ agenda), HotCard deuda sin-vencidos→`deuda` (naranja), webinar próximo→`evento`,
-op stripe medio→`sugerido`. **LexPH** (`LandingPage.tsx` fn `LexPH`): `bg-[#06080d]` + degradé
-`from-black via-[#0a1018] to-[#08232a]` + glow suave, logo `/brand/lexph-logo-white.png` intacto.
+op stripe medio→`sugerido`. **El banner de LexPH NO se diseñó en esta ronda** (ver DGG-254-c: el
+negro+logo-blanco va en el **portal**, y la **landing NO se toca**).
 
 **QA:** build verde + **workflow adversarial read-only** (3 agentes: colisiones / contraste / regresión+LexPH)
-— confirmó `brand`/`exito` intactos, LexPH ok, y cada colisión de coexistencia detectada se resolvió con
+— confirmó `brand`/`exito` intactos y cada colisión de coexistencia detectada se resolvió con
 un hermano mínimo; contraste de los 14 tonos ≥ piso aprobado (emerald-500/white). **Sólo capa de
 presentación.** **DGG-254-b.**
+
+## DGG-254-c · Separar ámbar/rojo + banner LexPH del PORTAL (negro) + corrección de la landing — 2026-11-14 (sin migración)
+
+**Pedido (Pablo, aprobado banner por banner antes de publicar):** (1) "separá también los que comparten
+ámbar y rojo"; (2) "no logro ver el banner de LexPH para el portal de clientes — lo que me mostrás es el
+de la landing. **El banner de la landing estaba perfecto. Si lo tocaste está mal.** Lo que quiero es que
+los banners del **portal del propietario** tengan el mismo estilo"; (3) "recorré TODOS los banners, mostrame
+una captura individual de cada uno para aprobar antes de publicar".
+
+**Corrección de rumbo (error propio, capturado):** en DGG-254-b toqué la sección LexPH de la **landing
+pública** (`LandingPage.tsx` fn `LexPH`) para hacerla negra. Era el lugar equivocado: Pablo la quería
+**perfecta tal cual estaba**. Se **revirtió exacta** (commit `4773c99`) y nunca llegó a prod aprobada.
+Ver `E-GG-279` en ERRORES.md.
+
+**Lo que sí se hizo (portal del cliente):**
+- **Separación ámbar.** El aviso de gerencia no urgente (`aviso`) pasó de `alto` (ámbar) → `novedad`
+  (violeta), unificando la voz de gerencia (info/novedad/aviso = violeta). DocsPendientes se queda con
+  `alto` (ámbar) en soledad. (`NovedadesBanner.tsx` TONE).
+- **Separación rojo.** La HotCard de deuda SIEMPRE usa `deuda` (naranja), incluso con vencidos>0 (antes
+  saltaba a `urgente`/rojo). El rojo (`urgente`) queda reservado para clase en vivo / comunicados urgentes.
+  (`PortalHome.tsx` HotCards).
+- **Banner LexPH del PORTAL (nuevo).** El aviso de "Nueva edición de LexPH" (mig 0684, `comunicaciones`
+  con `cta_url='/lexph'`) se renderiza con piel propia en `NovedadesBanner.tsx` (componente
+  `LexphNovedadBanner`): **negro** (`from-black via-[#0a1018] to-[#08232a]`) + matices (TrianglesAccent
+  cyan opacity-15 + glow brand-cyan/10), **logo `/brand/lexph-logo-white.png` en blanco**, kicker
+  "Inteligencia jurídica en PH", CTA blanco → `/lexph`, X de descarte. Detección: `n.cta_url === '/lexph'`
+  (early-return en el `.map`), así no entra al switch de tonos de gerencia.
+
+**QA:** build verde + **preview dev-only** de los 18 banners individualizados (página+ruta efímeras,
+removidas antes del push) → **capturas enviadas a Pablo y aprobadas una por una** ("todo exquisito, dale
+para adelante"). Prueba en vivo post-deploy. **Sólo capa de presentación.** **DGG-254-c.**
