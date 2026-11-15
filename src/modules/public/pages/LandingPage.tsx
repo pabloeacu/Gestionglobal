@@ -754,26 +754,56 @@ function Cursos() {
             actualizados y enfoque práctico.
           </p>
 
-          <ul className="mt-8 space-y-4 text-sm text-brand-ink/90">
+          <ul className="mt-8 space-y-5 text-sm text-brand-ink/90">
             <li className="flex items-start gap-3">
               <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-brand-cyan" />
-              <span>
-                <strong className="font-semibold">Curso de Formación RPAC (Pcia. de Bs. As.)</strong>{' '}
-                · sincrónico · con clases en vivo y campus propio.
+              <span className="min-w-0">
+                <span className="block">
+                  <strong className="font-semibold">Curso de Formación RPAC (Pcia. de Bs. As.)</strong>{' '}
+                  · sincrónico · con clases en vivo y campus propio.
+                </span>
+                <Link
+                  to="/formulario/curso-formacion"
+                  aria-label="Inscribirme al Curso de Formación RPAC de Provincia de Buenos Aires"
+                  className="mt-2 inline-flex items-center gap-1 font-semibold text-brand-cyan transition-all hover:gap-2"
+                >
+                  Inscribirme
+                  <ArrowUpRight size={14} />
+                </Link>
               </span>
             </li>
             <li className="flex items-start gap-3">
               <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-brand-cyan" />
-              <span>
-                <strong className="font-semibold">Actualización RPAC (Pcia. de Bs. As.)</strong> ·
-                4 asignaturas asincrónicas + 2 sincrónicas en vivo, con material exclusivo.
+              <span className="min-w-0">
+                <span className="block">
+                  <strong className="font-semibold">Actualización RPAC (Pcia. de Bs. As.)</strong> ·
+                  4 asignaturas asincrónicas + 2 sincrónicas en vivo, con material exclusivo.
+                </span>
+                <Link
+                  to="/formulario/curso-actualizacion"
+                  aria-label="Inscribirme al curso de Actualización RPAC de Provincia de Buenos Aires"
+                  className="mt-2 inline-flex items-center gap-1 font-semibold text-brand-cyan transition-all hover:gap-2"
+                >
+                  Inscribirme
+                  <ArrowUpRight size={14} />
+                </Link>
               </span>
             </li>
             <li className="flex items-start gap-3">
               <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-brand-cyan" />
-              <span>
-                <strong className="font-semibold">Actualización RPA · CABA</strong>{' '}
-                · 100% asincrónico, a tu ritmo.
+              <span className="min-w-0">
+                <span className="block">
+                  <strong className="font-semibold">Actualización RPA · CABA</strong>{' '}
+                  · 100% asincrónico, a tu ritmo.
+                </span>
+                <Link
+                  to="/formulario/curso-actualizacion-caba"
+                  aria-label="Inscribirme al curso de Actualización RPA de CABA"
+                  className="mt-2 inline-flex items-center gap-1 font-semibold text-brand-cyan transition-all hover:gap-2"
+                >
+                  Inscribirme
+                  <ArrowUpRight size={14} />
+                </Link>
               </span>
             </li>
           </ul>

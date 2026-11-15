@@ -8937,3 +8937,24 @@ Ver `E-GG-279` en ERRORES.md.
 **QA:** build verde + **preview dev-only** de los 18 banners individualizados (página+ruta efímeras,
 removidas antes del push) → **capturas enviadas a Pablo y aprobadas una por una** ("todo exquisito, dale
 para adelante"). Prueba en vivo post-deploy. **Sólo capa de presentación.** **DGG-254-c.**
+
+## DGG-255 · CTA "Inscribirme" por curso en la sección Capacitación de la landing — 2026-11-15 (sin migración)
+
+**Pedido (Pablo):** en la sección "Formate con los mejores" (`#cursos` de la landing) se listan los 3
+cursos principales (Formación RPAC PBA, Actualización RPAC PBA, Actualización RPA CABA) pero sin acceso
+directo al formulario — el usuario tenía que ir a la sección Servicios/formularios. "Si llegó hasta acá
+y está leyendo, tiene interés: dale el acceso". Condición expresa: **botón NO invasivo, ni grotesco, ni
+que deforme el diseño** de la sección (que le gusta tal cual).
+
+**Diseño:** se reutilizó el **CTA inline propio de la landing** (el mismo de las tarjetas de Servicios:
+texto cian `text-brand-cyan` + `ArrowUpRight` 14px que se separa en hover vía `transition-all hover:gap-2`),
+NO el botón sólido de marca (`variant="primary"`) — que acá sería invasivo y rompería la estética
+editorial de la sección. Un `<Link>` "Inscribirme" bajo cada curso, cada uno a su formulario público:
+Formación→`/formulario/curso-formacion`, Actualización PBA→`/formulario/curso-actualizacion`,
+CABA→`/formulario/curso-actualizacion-caba` (mismas rutas que ya usan las tarjetas de Servicios y el
+pop-up promo). `aria-label` descriptivo por curso (3 links "Inscribirme" idénticos para lectores de
+pantalla). `space-y-4`→`space-y-5` en el `<ul>` para dar aire al CTA.
+
+**QA:** build verde + prueba en vivo (dev + prod): los 3 CTA renderizan bajo cada curso, no invasivos,
+sección intacta, desktop + mobile 375px, consola limpia; **las 3 rutas navegan a su formulario real**
+(verificado click→form Formación y carga de CABA/PBA). **Sólo capa de presentación.** **DGG-255.**
