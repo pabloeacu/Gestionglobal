@@ -9008,3 +9008,44 @@ sin clip porque la banda auto-crece), `lg:text-sm lg:tracking-[0.14em]` en deskt
 verificado → delta 0 intacto). Verificado: desktop 1024/1280/1440 (1 línea, delta 0), mobile 360px
 (banda visible, 1 línea) y 320px (2 líneas contenidas), foto sin badge en todos, consola limpia,
 tsc/build verdes. Sólo presentación.
+
+## DGG-256 · Baja MANUAL desde gerencia (Captación PBA + Suscriptores LexPH) — 2026-11-16 (mig 0694)
+
+**Pedido (Pablo):** cuando alguien pide la baja del newsletter LexPH ("XPH") o de la captación
+por fuera del link self-service (lo avisa por WhatsApp/mail), gerencia necesita un botón para
+desafectar ese email — hoy no existía (sólo baja por token). Riesgo: sin forma de instrumentarlo,
+quejas → daño reputacional. Caso disparador: `mirtaradivoy@hotmail.com.ar` (activa en ambos).
+
+**Hallazgo de arquitectura (2 agentes en paralelo):** ya existe una **lista de supresión UNIFICADA**
+`public.email_suppression` (PK email normalizado) que corta TODOS los canales, y las dos bajas
+self-service (`prospecto_baja(id,token)` 0545 · `lexph_suscripcion_baja(token)` 0660) hacen el
+mismo doble efecto: estado local `='baja'` **+** INSERT en `email_suppression`. Ninguna era llamable
+por gerencia (la de prospectos fue revocada de `authenticated` en 0575; las dos son por token).
+
+**Solución (aditiva, mig 0694):** dos RPC net-new `SECURITY DEFINER` gated `is_staff()`, gemelas por
+`id` sin token, que replican EXACTO el doble efecto, con `motivo='manual', origen='gerencia'`:
+`prospecto_baja_manual(uuid)` y `lexph_suscripcion_baja_staff(uuid)`. Servicios
+`darBajaProspectoManual` / `bajaSuscriptorLexph`. UI: botón por fila en `ProspectosCaptacionPage`
+(icon-only, visible si `!convertido_at && !baja_at && !suprimido && !sin_email`) y en
+`LexphSuscriptoresPage` (visible si `estado!=='baja'`), ambos con `useConfirm(danger)` + toast +
+recarga. **Nota de diseño clave:** como la supresión es global, una baja en CUALQUIERA de los dos
+paneles corta al email en AMBOS canales (captación + newsletter) y también el **marketing** del
+cliente (ofrecimientos/engagement) si ese email es cliente — **NO toca lo transaccional** (dos gates:
+`email_bloqueado_total` duro sólo mira bounce/queja; `email_esta_suprimido` blando sólo corre para
+marketing). Es el comportamiento buscado ("desafectar el correo") y la unificación es por diseño.
+
+**§6 doble auditoría (3 agentes REVISAR + EJERCITAR e2e BEGIN/DO+RAISE):** sin críticos. Confirmado:
+gate `is_staff` + 42501, R5/R6/R16/R17 OK, normalización y `ON CONFLICT` correctos, paridad fiel con
+las self-service, y —lo más importante— **la baja NO rompe el correo transaccional del cliente**.
+Fixes aplicados en el mismo chunk de los hallazgos: (A) `baja_at = COALESCE(baja_at, now())` en la
+RPC LexPH (robustez ante doble-baja, paridad con prospectos); (B) **guard `convertido_at IS NULL`**
+en `prospecto_baja_manual` → devuelve `ya_convertido` y NO suprime a un prospecto ya convertido en
+cliente (cinturón del RPC ante UI desactualizada / llamada directa); (C) spinner `Loader2` en el botón
+LexPH (feedback en mobile, paridad) + `aria-label` en los botones icon-only. e2e verde: guard
+`ya_convertido` (estado intacto, sin supresión), baja normal OK, `baja_at` estable tras doble baja,
+gate 42501 como no-staff. **Deuda conocida documentada (fuera de v1, no bloqueante):** (1) el panel
+LexPH no refleja la supresión global → un email bajado por otra vía (captación/bounce) se ve
+"Confirmado" aunque el newsletter no le llegue (pre-existente; el envío es fail-closed, sólo el chip
+"miente"); (2) el chip Estado de captación no contempla `suprimido` sin `baja_at`; (3) no hay botón
+"reactivar" suscriptor LexPH (`email_reactivar` no resetea `lexph_suscriptores.estado`); (4) re-opt-in
+`lexph_suscripcion_confirmar` sólo limpia `motivo='baja_usuario'`, no `'manual'`. Ver E-GG-281.

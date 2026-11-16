@@ -350,6 +350,21 @@ export async function listSuscriptores(): Promise<ApiResponse<LexphSuscriptorIte
   }
 }
 
+// DGG-256 · Baja MANUAL por gerencia de un suscriptor (para quien pidió la baja
+// por fuera del link del mail). Setea estado='baja' + baja_at Y suprime el email
+// en email_suppression (opt-out GLOBAL: corta el newsletter LexPH y toda otra vía).
+// RPC staff-gated (is_staff) de la mig 0694; replica la baja self-service sin token.
+export async function bajaSuscriptorLexph(id: string): Promise<ApiResponse<{ ok: boolean; email?: string }>> {
+  try {
+    const { data, error } = await supabase.rpc('lexph_suscripcion_baja_staff', { p_id: id });
+    if (error) throw error;
+    return ok(data as unknown as { ok: boolean; email?: string });
+  } catch (e) {
+    const err = toApiError(e);
+    return fail(err.code, err.message, err.details);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // ETIQUETAS (single-table → directo, gateado por RLS staff)
 // ---------------------------------------------------------------------------

@@ -218,3 +218,18 @@ export async function pausarMotor(pausar: boolean): Promise<ApiResponse<{ ok: bo
     return fail(err.code, err.message, err.details);
   }
 }
+
+// DGG-256 · Baja MANUAL por gerencia (para quien pidió la baja por fuera del link).
+// Setea estado_captacion='baja' + baja_at Y suprime el email en email_suppression
+// (opt-out GLOBAL: corta el cron de captación, el dispatcher y también el newsletter
+// de LexPH). RPC staff-gated (is_staff) de la mig 0694.
+export async function darBajaProspectoManual(prospectoId: string): Promise<ApiResponse<{ ok: boolean; email?: string }>> {
+  try {
+    const { data, error } = await supabase.rpc('prospecto_baja_manual', { p_prospecto_id: prospectoId });
+    if (error) throw error;
+    return ok(data as unknown as { ok: boolean; email?: string });
+  } catch (e) {
+    const err = toApiError(e);
+    return fail(err.code, err.message, err.details);
+  }
+}

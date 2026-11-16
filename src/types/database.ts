@@ -11606,6 +11606,7 @@ export type Database = {
       lexph_publico_feed: { Args: never; Returns: Json }
       lexph_suscribir: { Args: { p_email: string }; Returns: Json }
       lexph_suscripcion_baja: { Args: { p_token: string }; Returns: Json }
+      lexph_suscripcion_baja_staff: { Args: { p_id: string }; Returns: Json }
       lexph_suscripcion_confirmar: { Args: { p_token: string }; Returns: Json }
       list_webinar_kpis: {
         Args: never
@@ -11968,6 +11969,7 @@ export type Database = {
         Args: { p_prospecto_id: string; p_token: string }
         Returns: Json
       }
+      prospecto_baja_manual: { Args: { p_prospecto_id: string }; Returns: Json }
       prospecto_eventos: {
         Args: { p_prospecto_id: string }
         Returns: {

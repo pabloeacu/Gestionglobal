@@ -6,10 +6,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Search, ArrowLeft, Download, Mail, CheckCircle2, Clock, UserMinus, TrendingUp,
+  Search, ArrowLeft, Download, Mail, CheckCircle2, Clock, UserMinus, TrendingUp, Loader2,
 } from 'lucide-react';
 import {
-  Button, Input, Tabs, Skeleton, Paginador, PAGE_SIZE_DEFAULT, type TabItem,
+  Button, Input, Tabs, Skeleton, Paginador, PAGE_SIZE_DEFAULT, useConfirm, type TabItem,
 } from '@/components/common';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import { IllustratedEmpty } from '@/components/brand/IllustratedEmpty';
@@ -20,7 +20,7 @@ import { hoyISO } from '@/lib/dates';
 import { rowsToCsv } from '@/lib/csvCopy';
 import { downloadBlob } from '@/modules/reportes/lib/_helpers';
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
-import { listSuscriptores, type LexphSuscriptorItem } from '@/services/api/lexph';
+import { listSuscriptores, bajaSuscriptorLexph, type LexphSuscriptorItem } from '@/services/api/lexph';
 
 type FiltroEstado = 'todos' | 'confirmado' | 'pendiente' | 'baja';
 
@@ -48,6 +48,8 @@ function origenLabel(origen: string | null): string {
 
 export function LexphSuscriptoresPage() {
   const navigate = useNavigate();
+  const confirmar = useConfirm();
+  const [bajaId, setBajaId] = useState<string | null>(null);
 
   const [items, setItems] = useState<LexphSuscriptorItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -63,6 +65,29 @@ export function LexphSuscriptoresPage() {
       return;
     }
     setItems(res.data);
+  }
+
+  // DGG-256 · baja manual por gerencia (p. ej. pidió la baja por WhatsApp/mail).
+  // Suprime el email globalmente (email_suppression) → deja de recibir el newsletter
+  // y cualquier otra vía. No se puede deshacer desde acá.
+  async function handleBaja(s: LexphSuscriptorItem) {
+    const ok = await confirmar({
+      title: 'Dar de baja del newsletter',
+      message: `Vas a dar de baja a "${s.email}" de LexPH y suprimir ese correo de todos los envíos. Se usa cuando alguien pide la baja por fuera del link del mail. ¿Confirmás?`,
+      confirmLabel: 'Dar de baja',
+      cancelLabel: 'Cancelar',
+      danger: true,
+    });
+    if (!ok) return;
+    setBajaId(s.id);
+    const res = await bajaSuscriptorLexph(s.id);
+    setBajaId(null);
+    if (!res.ok) {
+      toast.error('No pudimos dar de baja', { description: humanizeError(res.error) });
+      return;
+    }
+    toast.success(`"${s.email}" dado de baja y suprimido de los envíos`);
+    void refresh();
   }
 
   useEffect(() => {
@@ -219,6 +244,19 @@ export function LexphSuscriptoresPage() {
                       <p className="tabular-nums text-rose-500">Baja {fmtFecha(s.baja_at)}</p>
                     )}
                   </div>
+                  {s.estado !== 'baja' && (
+                    <button
+                      type="button"
+                      onClick={() => void handleBaja(s)}
+                      disabled={bajaId === s.id}
+                      aria-label={`Dar de baja a ${s.email} y suprimir el correo de todos los envíos`}
+                      className="inline-flex flex-shrink-0 items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-brand-muted transition hover:border-rose-300 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50"
+                      title="Dar de baja y suprimir el correo de todos los envíos"
+                    >
+                      {bajaId === s.id ? <Loader2 size={14} className="animate-spin" /> : <UserMinus size={14} />}
+                      <span className="hidden sm:inline">{bajaId === s.id ? 'Dando de baja…' : 'Dar de baja'}</span>
+                    </button>
+                  )}
                 </div>
               </li>
             ))}

@@ -15,6 +15,7 @@ import {
   Search,
   ShieldAlert,
   ShieldCheck,
+  UserMinus,
   UserPlus,
   Users,
 } from 'lucide-react';
@@ -26,6 +27,7 @@ import { humanizeError } from '@/lib/errors';
 import {
   CAMPANAS_CATALOGO,
   SEGMENTO_LABEL,
+  darBajaProspectoManual,
   enviarCampana,
   getCaptacionKpis,
   listProspectosCaptacion,
@@ -78,6 +80,32 @@ export function ProspectosCaptacionPage() {
   const [editing, setEditing] = useState<ProspectoRow | null>(null);
   const [convertir, setConvertir] = useState<ProspectoCaptacionRow | null>(null);
   const [launcherOpen, setLauncherOpen] = useState(false);
+  const confirmar = useConfirm();
+  const [bajaId, setBajaId] = useState<string | null>(null);
+
+  // DGG-256 · baja manual por gerencia (pidió la baja por WhatsApp/mail en vez del
+  // link). Suprime el email globalmente (email_suppression) → el cron de captación
+  // deja de mandarle, y también se corta el newsletter LexPH si estaba suscripto.
+  async function handleBajaProspecto(p: ProspectoCaptacionRow) {
+    const ok = await confirmar({
+      title: 'Dar de baja de la captación',
+      message: `Vas a dar de baja a "${p.email}" y suprimir ese correo de todos los envíos (captación y newsletter). Se usa cuando alguien pide la baja por fuera del link del mail. ¿Confirmás?`,
+      confirmLabel: 'Dar de baja',
+      cancelLabel: 'Cancelar',
+      danger: true,
+    });
+    if (!ok) return;
+    setBajaId(p.id);
+    const res = await darBajaProspectoManual(p.id);
+    setBajaId(null);
+    if (!res.ok) {
+      toast.error('No pudimos dar de baja', { description: humanizeError(res.error) });
+      return;
+    }
+    toast.success(`"${p.email}" dado de baja y suprimido de los envíos`);
+    void recargarLista();
+    void recargarKpis();
+  }
 
   async function recargarKpis() {
     const res = await getCaptacionKpis();
@@ -361,6 +389,18 @@ export function ProspectosCaptacionPage() {
                         {!p.convertido_at && (
                           <Button variant="tonal" onClick={() => setConvertir(p)} title="Convertir a cliente">
                             <UserPlus size={12} /> Convertir
+                          </Button>
+                        )}
+                        {!p.convertido_at && !p.baja_at && !p.suprimido && !p.sin_email && (
+                          <Button
+                            variant="ghost"
+                            onClick={() => void handleBajaProspecto(p)}
+                            disabled={bajaId === p.id}
+                            aria-label={`Dar de baja a ${p.email} y suprimir el correo de todos los envíos`}
+                            className="hover:!bg-rose-50 hover:!text-rose-600"
+                            title="Dar de baja y suprimir el correo de todos los envíos"
+                          >
+                            {bajaId === p.id ? <Loader2 size={12} className="animate-spin" /> : <UserMinus size={12} />}
                           </Button>
                         )}
                       </div>
