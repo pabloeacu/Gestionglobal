@@ -98,6 +98,18 @@ export async function revelarCredencialDdjj(administracionId: string): Promise<A
   return ok((data as string | null) ?? null);
 }
 
+/** Borra el usuario+contraseña DDJJ del cliente (staff). Gated/auditado server-side
+ *  (credencial_reg_borrar, R12). Repone la capacidad de LIMPIAR — `setCredencialDdjj`
+ *  con vacío CONSERVA (COALESCE), no borra. Gemelo de `setClaveArca(id, null)`. */
+export async function borrarCredencialDdjj(administracionId: string): Promise<ApiResponse<void>> {
+  const { error } = await supabase.rpc('credencial_reg_borrar', {
+    p_administracion_id: administracionId,
+    p_plataforma: PLATAFORMA,
+  });
+  if (error) return fail('CREDENCIAL_DDJJ_BORRAR', error.message, error);
+  return ok(undefined);
+}
+
 // ============================================================================
 // F2b · Carril de PROPUESTA de gestoría + MODERACIÓN (gemelo del otorgamiento).
 // El secreto propuesto vive en credenciales_regulatorias.prop_* (cifrado); NUNCA

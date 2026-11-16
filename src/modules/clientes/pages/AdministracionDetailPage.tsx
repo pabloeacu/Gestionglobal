@@ -73,6 +73,7 @@ import { formatDateShort, parseLocalDate } from '@/lib/dates';
 import { cn } from '@/lib/cn';
 import { TabWebinars } from '../components/TabWebinars';
 import { PerfilRegulatorioPanel } from '../components/PerfilRegulatorioPanel';
+import { CredencialesDdjjCard } from '../components/CredencialesDdjjCard';
 import { humanizeError } from '@/lib/errors';
 import { validarCuit, soloDigitosCuit, esCuitJuridico } from '@/lib/cuit';
 
@@ -1145,6 +1146,11 @@ function TabRegistral({ admin }: { admin: AdministracionRow }) {
           </DataRow>
         </dl>
       </div>
+      {/* DGG-243 F5 (pedido Pablo) · credenciales del Portal de DDJJ en la ficha —
+          consulta/carga/edita/borra sin depender de un trámite. Siempre visible
+          (estado vacío "Sin cargar") para poder cargarlas aun antes de que exista
+          un trámite de DDJJ. */}
+      <CredencialesDdjjCard administracionId={admin.id} />
       {/* DGG-234 F8 · matrícula de otra jurisdicción (CABA/Neuquén) desde matricula_extra.
           Sólo se muestra si el cliente tiene una (los PBA no ensucian con una card vacía). */}
       {extra && (
