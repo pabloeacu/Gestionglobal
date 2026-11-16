@@ -828,27 +828,22 @@ function Cursos() {
         </div>
 
         <div className="lg:col-span-2 lg:flex lg:h-full lg:flex-col lg:gap-4">
-          {/* Foto del campus virtual */}
+          {/* Foto del campus virtual — limpia, sin badge (el rótulo vive en el
+              panel de marca de abajo). */}
           <div className="relative overflow-hidden rounded-3xl border border-slate-200 shadow-[0_24px_60px_-30px_rgba(0,93,105,0.35)]">
             <img
               src="/landing/cursos-capacitacion.jpg"
-              alt="Campus virtual en vivo — clase sincrónica con docentes y alumnos"
+              alt="Campus virtual — clase sincrónica con docentes y alumnos"
               className="block h-auto w-full object-cover"
               loading="lazy"
             />
-            <span className="absolute left-4 bottom-4 inline-flex items-center gap-2 rounded-full bg-white/95 px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-brand-cyan shadow">
-              Campus en vivo · sincrónico
-            </span>
           </div>
-          {/* Separador de marca — en desktop crece (flex-1) para acompañar la
-              altura de la columna de cursos y cerrar el hueco bajo "Aliados
-              académicos". Hace eco del gradiente de la tarjeta "+400" de la
-              izquierda + motivo triangular GG. Sólo desktop; en mobile no
-              existe (la columna apila imagen + aliados como antes). */}
-          <div
-            aria-hidden
-            className="relative hidden min-h-[48px] flex-1 items-center justify-center overflow-hidden rounded-2xl border border-brand-cyan/20 bg-gradient-to-br from-brand-cyan-pale/40 via-white to-brand-teal/10 lg:flex"
-          >
+          {/* Panel de marca — en desktop crece (flex-1) para acompañar la altura
+              de la columna de cursos y cerrar el hueco bajo "Aliados académicos".
+              Hace eco del gradiente de la tarjeta "+400" + motivo triangular GG,
+              y lleva el rótulo del campus (antes badge sobre la foto). Sólo
+              desktop; en mobile no existe (la columna apila imagen + aliados). */}
+          <div className="relative hidden min-h-[56px] flex-1 items-center justify-center overflow-hidden rounded-2xl border border-brand-cyan/20 bg-gradient-to-br from-brand-cyan-pale/40 via-white to-brand-teal/10 lg:flex">
             <TrianglesAccent
               position="top-left"
               size={130}
@@ -863,6 +858,9 @@ function Cursos() {
               density="rich"
               className="opacity-40"
             />
+            <p className="relative z-10 px-6 text-center font-display text-sm font-bold uppercase tracking-[0.14em] text-brand-cyan">
+              Campus virtual · Calidad inédita
+            </p>
           </div>
           {/* Mini-card aliados académicos */}
           <div className="mt-4 rounded-2xl border border-slate-200 bg-brand-zebra p-5 lg:mt-0">

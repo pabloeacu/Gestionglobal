@@ -8977,3 +8977,13 @@ desktop (59px al ancho tapado, hasta 174px a 1024), así que 48 nunca restringe 
 (probé 96) sí sobre-pasaba y dejaba el aliados ~36px por debajo del "+400". Verificado en vivo
 (dev+prod) desktop 1024/1280/1440 (bottoms alineados delta 0) + mobile 360px (panel `display:none`,
 stack intacto), consola limpia, tsc/build verdes. Sólo presentación, cero lógica/datos/copy.
+
+**Ampliación DGG-255-c (rótulo del campus, 2026-11-16, idea de Pablo):** el badge
+"Campus en vivo · sincrónico" (pill blanco `absolute` sobre la foto) **se sacó de la imagen** (queda
+limpia) y el panel de marca de abajo **dejó de ser puramente decorativo**: ahora lleva centrado, en
+Oswald cian uppercase (`font-display ... tracking-[0.14em]`), el rótulo nuevo **"Campus virtual ·
+Calidad inédita"** (texto de Pablo) sobre el motivo triangular. `min-h` 48→56 para dar aire al texto
+(sigue < 59 = gap mínimo en desktop, así que la alineación delta 0 se mantiene). El panel pasó a ser
+contenido semántico (se le quitó el `aria-hidden`; los `TrianglesAccent` ya traen `aria-hidden` propio).
+Verificado: rótulo en 1 línea sin overflow, delta 0 a 1024/1280/1440, foto sin badge, mobile intacto
+(panel oculto), consola limpia, tsc/build verdes. Sólo presentación.
