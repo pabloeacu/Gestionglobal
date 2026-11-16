@@ -8958,3 +8958,17 @@ pantalla). `space-y-4`→`space-y-5` en el `<ul>` para dar aire al CTA.
 **QA:** build verde + prueba en vivo (dev + prod): los 3 CTA renderizan bajo cada curso, no invasivos,
 sección intacta, desktop + mobile 375px, consola limpia; **las 3 rutas navegan a su formulario real**
 (verificado click→form Formación y carga de CABA/PBA). **Sólo capa de presentación.** **DGG-255.**
+
+**Ampliación DGG-255-b (balance de columnas, 2026-11-15):** al sumar los 3 CTA, la columna de cursos
+(izq, `col-span-3`) creció y rompió la simetría con la columna derecha (`col-span-2`, foto + card
+"Aliados académicos"): con el grid en `items-center`, la columna corta flotaba centrada y el card de
+aliados terminaba bastante arriba de la tarjeta "+400 alumnos" de la izquierda (hueco en blanco abajo).
+Fix pedido por Pablo ("alargar la imagen o separar imagen↔aliados y en el medio triángulos/elementos GG
+para decorar"): grid `items-center`→`items-stretch`; columna derecha pasa a `lg:flex lg:h-full
+lg:flex-col lg:gap-4`; **se insertó entre la foto y el card de aliados un panel de marca `flex-1`**
+(gradiente que hace eco de la tarjeta "+400" de la izquierda `from-brand-cyan-pale/40 via-white
+to-brand-teal/10` + borde `brand-cyan/20` + motivo `TrianglesAccent` en dos esquinas) que **crece para
+cerrar el hueco** y baja-alinea el card de aliados con el "+400". **Sólo desktop:** el panel es
+`hidden lg:flex` (en mobile la columna apila foto + aliados como antes, sin hueco). Verificado desktop
+1280 (bottoms alineados, panel con triángulos) + mobile 360px (panel `display:none`, stack intacto),
+consola limpia, tsc/build verdes. Sólo presentación, cero lógica/datos/copy.

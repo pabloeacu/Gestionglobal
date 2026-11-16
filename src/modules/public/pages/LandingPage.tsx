@@ -741,7 +741,7 @@ function Cursos() {
         className="opacity-60"
       />
 
-      <div className="mx-auto grid max-w-6xl items-center gap-12 px-6 lg:grid-cols-5">
+      <div className="mx-auto grid max-w-6xl items-stretch gap-12 px-6 lg:grid-cols-5">
         <div className="lg:col-span-3">
           <p className="kicker text-brand-cyan">Capacitación</p>
           <h2 className="mt-2 font-display text-4xl font-extrabold leading-tight tracking-tight sm:text-5xl">
@@ -827,7 +827,7 @@ function Cursos() {
           </div>
         </div>
 
-        <div className="lg:col-span-2">
+        <div className="lg:col-span-2 lg:flex lg:h-full lg:flex-col lg:gap-4">
           {/* Foto del campus virtual */}
           <div className="relative overflow-hidden rounded-3xl border border-slate-200 shadow-[0_24px_60px_-30px_rgba(0,93,105,0.35)]">
             <img
@@ -840,8 +840,32 @@ function Cursos() {
               Campus en vivo · sincrónico
             </span>
           </div>
+          {/* Separador de marca — en desktop crece (flex-1) para acompañar la
+              altura de la columna de cursos y cerrar el hueco bajo "Aliados
+              académicos". Hace eco del gradiente de la tarjeta "+400" de la
+              izquierda + motivo triangular GG. Sólo desktop; en mobile no
+              existe (la columna apila imagen + aliados como antes). */}
+          <div
+            aria-hidden
+            className="relative hidden min-h-[96px] flex-1 items-center justify-center overflow-hidden rounded-2xl border border-brand-cyan/20 bg-gradient-to-br from-brand-cyan-pale/40 via-white to-brand-teal/10 lg:flex"
+          >
+            <TrianglesAccent
+              position="top-left"
+              size={130}
+              tone="cyan"
+              density="soft"
+              className="opacity-50"
+            />
+            <TrianglesAccent
+              position="bottom-right"
+              size={150}
+              tone="teal"
+              density="rich"
+              className="opacity-40"
+            />
+          </div>
           {/* Mini-card aliados académicos */}
-          <div className="mt-4 rounded-2xl border border-slate-200 bg-brand-zebra p-5">
+          <div className="mt-4 rounded-2xl border border-slate-200 bg-brand-zebra p-5 lg:mt-0">
             <p className="kicker text-brand-cyan">Aliados académicos</p>
             <p className="mt-2 text-sm text-brand-muted">
               Certificaciones oficiales en PBA con{' '}
