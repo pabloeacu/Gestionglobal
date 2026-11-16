@@ -838,12 +838,13 @@ function Cursos() {
               loading="lazy"
             />
           </div>
-          {/* Panel de marca — en desktop crece (flex-1) para acompañar la altura
-              de la columna de cursos y cerrar el hueco bajo "Aliados académicos".
-              Hace eco del gradiente de la tarjeta "+400" + motivo triangular GG,
-              y lleva el rótulo del campus (antes badge sobre la foto). Sólo
-              desktop; en mobile no existe (la columna apila imagen + aliados). */}
-          <div className="relative hidden min-h-[56px] flex-1 items-center justify-center overflow-hidden rounded-2xl border border-brand-cyan/20 bg-gradient-to-br from-brand-cyan-pale/40 via-white to-brand-teal/10 lg:flex">
+          {/* Panel de marca — lleva el rótulo del campus (antes badge sobre la
+              foto). En desktop crece (flex-1) para acompañar la altura de la
+              columna de cursos y cerrar el hueco bajo "Aliados académicos"; hace
+              eco del gradiente de la tarjeta "+400" + motivo triangular GG. En
+              mobile se muestra como banda compacta (min-h) para no perder el
+              rótulo que antes vivía en la foto. */}
+          <div className="relative mt-4 flex min-h-[56px] flex-1 items-center justify-center overflow-hidden rounded-2xl border border-brand-cyan/20 bg-gradient-to-br from-brand-cyan-pale/40 via-white to-brand-teal/10 lg:mt-0">
             <TrianglesAccent
               position="top-left"
               size={130}
@@ -858,7 +859,7 @@ function Cursos() {
               density="rich"
               className="opacity-40"
             />
-            <p className="relative z-10 px-6 text-center font-display text-sm font-bold uppercase tracking-[0.14em] text-brand-cyan">
+            <p className="relative z-10 px-4 text-center font-display text-xs font-bold uppercase leading-tight tracking-wider text-brand-cyan lg:px-6 lg:text-sm lg:tracking-[0.14em]">
               Campus virtual · Calidad inédita
             </p>
           </div>

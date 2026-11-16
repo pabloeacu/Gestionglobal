@@ -8985,5 +8985,11 @@ Oswald cian uppercase (`font-display ... tracking-[0.14em]`), el rótulo nuevo *
 Calidad inédita"** (texto de Pablo) sobre el motivo triangular. `min-h` 48→56 para dar aire al texto
 (sigue < 59 = gap mínimo en desktop, así que la alineación delta 0 se mantiene). El panel pasó a ser
 contenido semántico (se le quitó el `aria-hidden`; los `TrianglesAccent` ya traen `aria-hidden` propio).
-Verificado: rótulo en 1 línea sin overflow, delta 0 a 1024/1280/1440, foto sin badge, mobile intacto
-(panel oculto), consola limpia, tsc/build verdes. Sólo presentación.
+**Paridad mobile (§6 fan-out):** como el rótulo antes vivía en la foto (visible en mobile), el panel —
+que era `hidden lg:flex` — ahora se muestra TAMBIÉN en mobile como **banda compacta** (`flex` +
+`mt-4 lg:mt-0`), para no perder el rótulo en celular. El texto es responsive para entrar en 1 línea:
+`text-xs tracking-wider` en mobile (1 línea ≥360px; en 320px rarísimo envuelve a 2 líneas centradas,
+sin clip porque la banda auto-crece), `lg:text-sm lg:tracking-[0.14em]` en desktop (idéntico a lo
+verificado → delta 0 intacto). Verificado: desktop 1024/1280/1440 (1 línea, delta 0), mobile 360px
+(banda visible, 1 línea) y 320px (2 líneas contenidas), foto sin badge en todos, consola limpia,
+tsc/build verdes. Sólo presentación.
