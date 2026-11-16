@@ -8969,6 +8969,11 @@ lg:flex-col lg:gap-4`; **se insertó entre la foto y el card de aliados un panel
 (gradiente que hace eco de la tarjeta "+400" de la izquierda `from-brand-cyan-pale/40 via-white
 to-brand-teal/10` + borde `brand-cyan/20` + motivo `TrianglesAccent` en dos esquinas) que **crece para
 cerrar el hueco** y baja-alinea el card de aliados con el "+400". **Sólo desktop:** el panel es
-`hidden lg:flex` (en mobile la columna apila foto + aliados como antes, sin hueco). Verificado desktop
-1280 (bottoms alineados, panel con triángulos) + mobile 360px (panel `display:none`, stack intacto),
-consola limpia, tsc/build verdes. Sólo presentación, cero lógica/datos/copy.
+`hidden lg:flex` (en mobile la columna apila foto + aliados como antes, sin hueco). El panel es
+`flex-1` con `min-h-[48px]`: **flex-1 auto-dimensiona el gap exacto** para que el card de aliados
+baje-alinee al pixel con la tarjeta "+400" (delta 0 medido en 1024/1280/1440). El `min-h` es sólo
+seguro de presencia: como el layout tapa en `max-w-6xl`, el gap necesario nunca baja de ~59px en
+desktop (59px al ancho tapado, hasta 174px a 1024), así que 48 nunca restringe — un `min-h` muy alto
+(probé 96) sí sobre-pasaba y dejaba el aliados ~36px por debajo del "+400". Verificado en vivo
+(dev+prod) desktop 1024/1280/1440 (bottoms alineados delta 0) + mobile 360px (panel `display:none`,
+stack intacto), consola limpia, tsc/build verdes. Sólo presentación, cero lógica/datos/copy.

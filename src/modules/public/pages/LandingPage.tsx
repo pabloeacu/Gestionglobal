@@ -847,7 +847,7 @@ function Cursos() {
               existe (la columna apila imagen + aliados como antes). */}
           <div
             aria-hidden
-            className="relative hidden min-h-[96px] flex-1 items-center justify-center overflow-hidden rounded-2xl border border-brand-cyan/20 bg-gradient-to-br from-brand-cyan-pale/40 via-white to-brand-teal/10 lg:flex"
+            className="relative hidden min-h-[48px] flex-1 items-center justify-center overflow-hidden rounded-2xl border border-brand-cyan/20 bg-gradient-to-br from-brand-cyan-pale/40 via-white to-brand-teal/10 lg:flex"
           >
             <TrianglesAccent
               position="top-left"
