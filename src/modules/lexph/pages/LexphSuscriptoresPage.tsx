@@ -6,7 +6,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Search, ArrowLeft, Download, Mail, CheckCircle2, Clock, UserMinus, TrendingUp, Loader2,
+  Search, ArrowLeft, Download, Mail, CheckCircle2, Clock, UserMinus, TrendingUp, Loader2, RotateCcw,
 } from 'lucide-react';
 import {
   Button, Input, Tabs, Skeleton, Paginador, PAGE_SIZE_DEFAULT, useConfirm, type TabItem,
@@ -20,9 +20,17 @@ import { hoyISO } from '@/lib/dates';
 import { rowsToCsv } from '@/lib/csvCopy';
 import { downloadBlob } from '@/modules/reportes/lib/_helpers';
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
-import { listSuscriptores, bajaSuscriptorLexph, type LexphSuscriptorItem } from '@/services/api/lexph';
+import { listSuscriptores, bajaSuscriptorLexph, reactivarSuscriptorLexph, type LexphSuscriptorItem } from '@/services/api/lexph';
 
 type FiltroEstado = 'todos' | 'confirmado' | 'pendiente' | 'baja';
+
+// DGG-257 · motivos de "casilla muerta" (hard) legibles para el aviso al reactivar.
+const MOTIVO_DURO_LABEL: Record<string, string> = {
+  bounce: 'rebote',
+  queja: 'queja de spam',
+  invalida: 'casilla inválida',
+  descartado_gerencia: 'descarte de gerencia',
+};
 
 function fmtFecha(iso: string | null): string {
   if (!iso) return '—';
@@ -50,6 +58,7 @@ export function LexphSuscriptoresPage() {
   const navigate = useNavigate();
   const confirmar = useConfirm();
   const [bajaId, setBajaId] = useState<string | null>(null);
+  const [reactId, setReactId] = useState<string | null>(null);
 
   const [items, setItems] = useState<LexphSuscriptorItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -82,11 +91,45 @@ export function LexphSuscriptoresPage() {
     setBajaId(s.id);
     const res = await bajaSuscriptorLexph(s.id);
     setBajaId(null);
-    if (!res.ok) {
-      toast.error('No pudimos dar de baja', { description: humanizeError(res.error) });
+    if (!res.ok || !res.data.ok) {
+      toast.error('No pudimos dar de baja', { description: res.ok ? (res.data.error ?? '') : humanizeError(res.error) });
       return;
     }
     toast.success(`"${s.email}" dado de baja y suprimido de los envíos`);
+    void refresh();
+  }
+
+  // DGG-257 · reactivar manual (inverso de la baja): quita la supresión global y
+  // devuelve el email al newsletter (estado='confirmado') y a cualquier otra vía.
+  // Si la casilla está muerta (rebote/queja/inválida/descarte) el server la frena y
+  // deriva a Configuración → Correos suprimidos (override consciente).
+  async function handleReactivar(s: LexphSuscriptorItem) {
+    const ok = await confirmar({
+      title: 'Reactivar en el newsletter',
+      message: `Vas a reactivar a "${s.email}": se quita de la lista de suprimidos y vuelve a recibir el newsletter de LexPH. ¿Confirmás?`,
+      confirmLabel: 'Reactivar',
+      cancelLabel: 'Cancelar',
+    });
+    if (!ok) return;
+    setReactId(s.id);
+    const res = await reactivarSuscriptorLexph(s.id);
+    setReactId(null);
+    if (!res.ok) {
+      toast.error('No pudimos reactivar', { description: humanizeError(res.error) });
+      return;
+    }
+    if (!res.data.ok) {
+      if (res.data.error === 'bloqueo_duro') {
+        const m = MOTIVO_DURO_LABEL[res.data.motivo ?? ''] ?? 'casilla muerta';
+        toast.error('Casilla bloqueada', {
+          description: `"${s.email}" está suprimido por ${m}. Para reactivarlo igual, usá Configuración → Correos suprimidos.`,
+        });
+      } else {
+        toast.error('No pudimos reactivar', { description: res.data.error ?? '' });
+      }
+      return;
+    }
+    toast.success(`"${s.email}" reactivado · vuelve a recibir el newsletter`);
     void refresh();
   }
 
@@ -255,6 +298,19 @@ export function LexphSuscriptoresPage() {
                     >
                       {bajaId === s.id ? <Loader2 size={14} className="animate-spin" /> : <UserMinus size={14} />}
                       <span className="hidden sm:inline">{bajaId === s.id ? 'Dando de baja…' : 'Dar de baja'}</span>
+                    </button>
+                  )}
+                  {s.estado === 'baja' && (
+                    <button
+                      type="button"
+                      onClick={() => void handleReactivar(s)}
+                      disabled={reactId === s.id}
+                      aria-label={`Reactivar a ${s.email} y devolverlo al newsletter`}
+                      className="inline-flex flex-shrink-0 items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-brand-muted transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-600 disabled:opacity-50"
+                      title="Reactivar y devolver el correo al newsletter"
+                    >
+                      {reactId === s.id ? <Loader2 size={14} className="animate-spin" /> : <RotateCcw size={14} />}
+                      <span className="hidden sm:inline">{reactId === s.id ? 'Reactivando…' : 'Reactivar'}</span>
                     </button>
                   )}
                 </div>

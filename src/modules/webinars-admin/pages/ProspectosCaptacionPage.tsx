@@ -12,6 +12,7 @@ import {
   Pencil,
   Play,
   RefreshCw,
+  RotateCcw,
   Search,
   ShieldAlert,
   ShieldCheck,
@@ -28,6 +29,7 @@ import {
   CAMPANAS_CATALOGO,
   SEGMENTO_LABEL,
   darBajaProspectoManual,
+  reactivarProspectoManual,
   enviarCampana,
   getCaptacionKpis,
   listProspectosCaptacion,
@@ -58,6 +60,14 @@ function fmtFecha(iso: string | null): string {
   catch { return iso; }
 }
 
+// DGG-257 · motivos de "casilla muerta" (hard) legibles para el aviso al reactivar.
+const MOTIVO_DURO_LABEL: Record<string, string> = {
+  bounce: 'rebote',
+  queja: 'queja de spam',
+  invalida: 'casilla inválida',
+  descartado_gerencia: 'descarte de gerencia',
+};
+
 type SegmentoFiltro = SegmentoCaptacion | '';
 
 export function ProspectosCaptacionPage() {
@@ -82,6 +92,7 @@ export function ProspectosCaptacionPage() {
   const [launcherOpen, setLauncherOpen] = useState(false);
   const confirmar = useConfirm();
   const [bajaId, setBajaId] = useState<string | null>(null);
+  const [reactId, setReactId] = useState<string | null>(null);
 
   // DGG-256 · baja manual por gerencia (pidió la baja por WhatsApp/mail en vez del
   // link). Suprime el email globalmente (email_suppression) → el cron de captación
@@ -98,11 +109,46 @@ export function ProspectosCaptacionPage() {
     setBajaId(p.id);
     const res = await darBajaProspectoManual(p.id);
     setBajaId(null);
-    if (!res.ok) {
-      toast.error('No pudimos dar de baja', { description: humanizeError(res.error) });
+    if (!res.ok || !res.data.ok) {
+      toast.error('No pudimos dar de baja', { description: res.ok ? (res.data.error ?? '') : humanizeError(res.error) });
       return;
     }
     toast.success(`"${p.email}" dado de baja y suprimido de los envíos`);
+    void recargarLista();
+    void recargarKpis();
+  }
+
+  // DGG-257 · reactivar manual (inverso de la baja): quita la supresión global y
+  // devuelve el email a la captación (y a LexPH / marketing del cliente si aplica).
+  // Si la casilla está muerta (rebote/queja/inválida/descarte) el server la frena y
+  // deriva a Configuración → Correos suprimidos (override consciente).
+  async function handleReactivarProspecto(p: ProspectoCaptacionRow) {
+    const ok = await confirmar({
+      title: 'Reactivar en la captación',
+      message: `Vas a reactivar a "${p.email}": se quita de la lista de suprimidos y vuelve a entrar en las campañas de captación. ¿Confirmás?`,
+      confirmLabel: 'Reactivar',
+      cancelLabel: 'Cancelar',
+    });
+    if (!ok) return;
+    setReactId(p.id);
+    const res = await reactivarProspectoManual(p.id);
+    setReactId(null);
+    if (!res.ok) {
+      toast.error('No pudimos reactivar', { description: humanizeError(res.error) });
+      return;
+    }
+    if (!res.data.ok) {
+      if (res.data.error === 'bloqueo_duro') {
+        const m = MOTIVO_DURO_LABEL[res.data.motivo ?? ''] ?? 'casilla muerta';
+        toast.error('Casilla bloqueada', {
+          description: `"${p.email}" está suprimido por ${m}. Para reactivarlo igual, usá Configuración → Correos suprimidos.`,
+        });
+      } else {
+        toast.error('No pudimos reactivar', { description: res.data.error ?? '' });
+      }
+      return;
+    }
+    toast.success(`"${p.email}" reactivado · vuelve a recibir correos`);
     void recargarLista();
     void recargarKpis();
   }
@@ -401,6 +447,18 @@ export function ProspectosCaptacionPage() {
                             title="Dar de baja y suprimir el correo de todos los envíos"
                           >
                             {bajaId === p.id ? <Loader2 size={12} className="animate-spin" /> : <UserMinus size={12} />}
+                          </Button>
+                        )}
+                        {!p.convertido_at && (p.baja_at || p.suprimido) && (
+                          <Button
+                            variant="ghost"
+                            onClick={() => void handleReactivarProspecto(p)}
+                            disabled={reactId === p.id}
+                            aria-label={`Reactivar a ${p.email} y devolverlo a los envíos`}
+                            className="hover:!bg-emerald-50 hover:!text-emerald-600"
+                            title="Reactivar y devolver el correo a los envíos"
+                          >
+                            {reactId === p.id ? <Loader2 size={12} className="animate-spin" /> : <RotateCcw size={12} />}
                           </Button>
                         )}
                       </div>

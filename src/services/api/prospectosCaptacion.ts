@@ -223,11 +223,31 @@ export async function pausarMotor(pausar: boolean): Promise<ApiResponse<{ ok: bo
 // Setea estado_captacion='baja' + baja_at Y suprime el email en email_suppression
 // (opt-out GLOBAL: corta el cron de captación, el dispatcher y también el newsletter
 // de LexPH). RPC staff-gated (is_staff) de la mig 0694.
-export async function darBajaProspectoManual(prospectoId: string): Promise<ApiResponse<{ ok: boolean; email?: string }>> {
+export async function darBajaProspectoManual(prospectoId: string): Promise<ApiResponse<{ ok: boolean; email?: string; error?: string }>> {
   try {
     const { data, error } = await supabase.rpc('prospecto_baja_manual', { p_prospecto_id: prospectoId });
     if (error) throw error;
-    return ok(data as unknown as { ok: boolean; email?: string });
+    return ok(data as unknown as { ok: boolean; email?: string; error?: string });
+  } catch (e) {
+    const err = toApiError(e);
+    return fail(err.code, err.message, err.details);
+  }
+}
+
+// DGG-257 · REACTIVAR manual por gerencia (inverso de la baja). Quita el email de
+// email_suppression Y lo devuelve a la base de envíos EN TODAS las superficies
+// (captación: estado_captacion='contactado'+baja_at=NULL; también LexPH y el
+// marketing del cliente si aplica), vía la RPC global `email_reactivar`. Guarda de
+// bloqueo duro: si la casilla está muerta (rebote/queja/inválida/descarte) devuelve
+// {ok:false, error:'bloqueo_duro', motivo} — ese override se hace, consciente, en
+// Configuración → Correos suprimidos. RPC staff-gated (is_staff) de la mig 0695.
+export async function reactivarProspectoManual(
+  prospectoId: string,
+): Promise<ApiResponse<{ ok: boolean; email?: string; error?: string; motivo?: string }>> {
+  try {
+    const { data, error } = await supabase.rpc('prospecto_reactivar_manual', { p_prospecto_id: prospectoId });
+    if (error) throw error;
+    return ok(data as unknown as { ok: boolean; email?: string; error?: string; motivo?: string });
   } catch (e) {
     const err = toApiError(e);
     return fail(err.code, err.message, err.details);

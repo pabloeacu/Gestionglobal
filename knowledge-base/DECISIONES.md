@@ -9049,3 +9049,54 @@ LexPH no refleja la supresión global → un email bajado por otra vía (captaci
 "miente"); (2) el chip Estado de captación no contempla `suprimido` sin `baja_at`; (3) no hay botón
 "reactivar" suscriptor LexPH (`email_reactivar` no resetea `lexph_suscriptores.estado`); (4) re-opt-in
 `lexph_suscripcion_confirmar` sólo limpia `motivo='baja_usuario'`, no `'manual'`. Ver E-GG-281.
+
+## DGG-257 · Reactivar MANUAL desde gerencia (Captación PBA + Suscriptores LexPH) — 2026-11-17 (migs 0695 + 0696)
+
+Pedido Pablo: "Agregá el botón reactivar en los dos paneles." Es el **inverso** de la
+baja de DGG-256 y **cierra la mitad `reactivar` de E-GG-281**.
+
+**Hallazgo del circuito:** ya existía `public.email_reactivar(email)` (DGG-224, panel
+"Correos suprimidos") que reactiva GLOBAL por email (DELETE `email_suppression` +
+prospectos `estado_captacion='contactado'`/`baja_at=NULL` + administraciones
+`ofrecimientos_habilitados=true`), **pero NO tocaba `lexph_suscriptores`** → el newsletter
+no se reanudaba (su envío filtra `estado='confirmado' AND NOT suprimido`). Esa era la
+pieza faltante.
+
+**Solución (aditiva):**
+- **mig 0695:** se EXTIENDE `email_reactivar` para además des-bajar `lexph_suscriptores`
+  (`estado='confirmado'`, `baja_at=NULL`, `confirmed_at=COALESCE`). Misma firma (R16: 0
+  overloads); el panel "Correos suprimidos" que ya la llama hereda la mejora, resto intacto.
+  Dos RPC net-new STAFF por-id (gemelas de las bajas de 0694): `prospecto_reactivar_manual(uuid)`
+  y `lexph_suscripcion_reactivar_staff(uuid)` (SECDEF, `is_staff`, REVOKE/GRANT), con
+  **guarda de bloqueo duro**: si la supresión del email es casilla muerta
+  (`bounce`/`queja`/`invalida`/`descartado_gerencia`) **no** reactivan desde el botón
+  (protege reputación) y devuelven `{ok:false,error:'bloqueo_duro',motivo}`; ese override
+  consciente queda para Config → Correos suprimidos (que llama `email_reactivar` directo,
+  sin guarda, by design DGG-224). El caso típico (baja por link/manual = soft) pasa.
+- **mig 0696 (fixes §6):** (A) el trigger `lexph_suscriptor_confirmado_trg` ya no manda la
+  campanita "se sumó al newsletter" en una reactivación (`baja→confirmado`) — sólo altas/
+  confirmaciones genuinas; (#12) se extrae `private.motivo_es_hard(text)` (único set duro,
+  consumido por las 2 guardas) para evitar drift; (#6) los wrappers propagan el `{ok:false}`
+  real de `email_reactivar` (p.ej. email vacío).
+- **Front:** servicios `reactivarProspectoManual`/`reactivarSuscriptorLexph`; botón "Reactivar"
+  por fila cuando está bajada/suprimida (captación `!convertido && (baja_at||suprimido)`;
+  LexPH `estado==='baja'`), con `useConfirm` + manejo del camino `bloqueo_duro` (toast que
+  deriva a Correos suprimidos). De paso se endurecieron los handlers de baja para chequear
+  `res.data.ok` (no sólo el envelope).
+
+**Coherencia GLOBAL (cierra E-GG-281 lado reactivar):** reactivar desde CUALQUIER panel
+devuelve el email a TODAS las superficies (captación manual+cron, newsletter, engagement,
+ofrecimientos, dispatcher) de forma coherente, igual que la baja es global.
+
+**Decisión #11 (asimetría intencional):** la guarda de bloqueo duro NO replica el carve-out
+`origen='webhook' AND cliente activo` de `email_bloqueado_total`. El botón es a propósito
+conservador (ante casilla muerta deriva al panel dedicado); el override vive en Correos
+suprimidos. No es bug de datos.
+
+**§6:** 3 agentes estáticos (persistencia/UI, seguridad/fan-out, lectores downstream) +
+e2e en BD (rollback, 9 casos): happy path captación/LexPH, guarda dura (bounce/queja frenados
++ supresión intacta), cross-surface (prospecto+lexph reactivados juntos), gate 42501, trigger
+sin campanita en reactivación / con campanita en confirmación genuina, propagación email vacío.
+R16 smoke: 0 overloads. tsc+build verdes. **Deuda remanente de E-GG-281 (mitad display, fuera
+de alcance de este pedido):** panel LexPH no es suppression-aware (un confirmado suprimido por
+otra vía se ve "Confirmado"); se ofrece a Pablo como follow-up. Ver DGG-257 + E-GG-282.
