@@ -11573,6 +11573,7 @@ export type Database = {
         }
         Returns: string
       }
+      lexph_confirmados_reciben: { Args: never; Returns: number }
       lexph_edicion_actual_staff: { Args: never; Returns: Json }
       lexph_edicion_avisar_portal: {
         Args: { p_con_push?: boolean; p_edicion_id: string }
@@ -11612,6 +11613,7 @@ export type Database = {
         Args: { p_id: string }
         Returns: Json
       }
+      lexph_suscriptores_suprimidos: { Args: never; Returns: Json }
       list_webinar_kpis: {
         Args: never
         Returns: {

@@ -282,6 +282,10 @@ export interface LexphSuscriptoresStats {
   total: number;
   confirmados: number;
   pendientes: number;
+  /** DGG-257 · confirmados que REALMENTE reciben = confirmados − suprimidos por
+   *  cualquier vía. Es el universo exacto del INSERT de lexph_newsletter_enviar, así
+   *  que el estimado/confirm de envío no "miente" (§6-e aviso↔display). */
+  confirmadosReciben: number;
 }
 export async function getSuscriptoresStats(): Promise<ApiResponse<LexphSuscriptoresStats>> {
   try {
@@ -290,18 +294,21 @@ export async function getSuscriptoresStats(): Promise<ApiResponse<LexphSuscripto
     // (p.ej. "1000 confirmados" con 3027 reales, y el diálogo de envío mentía el N° de
     // destinatarios). Conteo exacto con head:true: no transfiere filas y respeta RLS.
     const base = () => supabase.from('lexph_suscriptores').select('*', { count: 'exact', head: true });
-    const [tot, conf, pend] = await Promise.all([
+    const [tot, conf, pend, reciben] = await Promise.all([
       base(),
       base().eq('estado', 'confirmado'),
       base().eq('estado', 'pendiente'),
+      supabase.rpc('lexph_confirmados_reciben'), // neto de supresión (universo real del envío)
     ]);
     if (tot.error) throw tot.error;
     if (conf.error) throw conf.error;
     if (pend.error) throw pend.error;
+    if (reciben.error) throw reciben.error;
     return ok({
       total: tot.count ?? 0,
       confirmados: conf.count ?? 0,
       pendientes: pend.count ?? 0,
+      confirmadosReciben: Number(reciben.data ?? 0),
     });
   } catch (e) {
     const err = toApiError(e);
@@ -378,6 +385,27 @@ export async function reactivarSuscriptorLexph(
     const { data, error } = await supabase.rpc('lexph_suscripcion_reactivar_staff', { p_id: id });
     if (error) throw error;
     return ok(data as unknown as { ok: boolean; email?: string; error?: string; motivo?: string });
+  } catch (e) {
+    const err = toApiError(e);
+    return fail(err.code, err.message, err.details);
+  }
+}
+
+// DGG-257 (cierre display E-GG-281) · Para cada suscriptor LexPH cuyo email está
+// en email_suppression (por CUALQUIER vía: baja en captación, rebote, queja,
+// descarte), devuelve {email (normalizado), motivo, es_hard}. El panel lo cruza
+// en memoria para mostrar que "no recibe" aunque su estado local sea 'confirmado'
+// (el envío es fail-closed: filtra NOT EXISTS email_suppression). Staff-gated.
+export interface LexphSuprimido {
+  email: string; // email_norm (lower(btrim))
+  motivo: string;
+  es_hard: boolean;
+}
+export async function getSuscriptoresSuprimidos(): Promise<ApiResponse<LexphSuprimido[]>> {
+  try {
+    const { data, error } = await supabase.rpc('lexph_suscriptores_suprimidos');
+    if (error) throw error;
+    return ok((data ?? []) as unknown as LexphSuprimido[]);
   } catch (e) {
     const err = toApiError(e);
     return fail(err.code, err.message, err.details);

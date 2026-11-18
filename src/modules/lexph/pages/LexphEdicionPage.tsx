@@ -211,12 +211,20 @@ export function LexphEdicionPage() {
       return;
     }
     const confirmados = susc?.confirmados ?? 0;
-    if (confirmados === 0) {
-      toast.error('Todavía no hay suscriptores confirmados.');
+    // DGG-257 · el estimado usa el conteo NETO (confirmados que realmente reciben =
+    // menos los suprimidos), el mismo universo que encola lexph_newsletter_enviar, para
+    // que el diálogo no diga un número y se envíe otro (§6-e aviso↔display).
+    const reciben = susc?.confirmadosReciben ?? confirmados;
+    if (reciben === 0) {
+      toast.error(confirmados === 0
+        ? 'Todavía no hay suscriptores confirmados.'
+        : 'Ningún confirmado puede recibir (están todos suprimidos).');
       return;
     }
+    const suprimidos = Math.max(0, confirmados - reciben);
     const ya = edicion.newsletter_enviado_at;
-    const n = `${confirmados} suscriptor${confirmados === 1 ? '' : 'es'} confirmado${confirmados === 1 ? '' : 's'}`;
+    const n = `${reciben} suscriptor${reciben === 1 ? '' : 'es'}`
+      + (suprimidos > 0 ? ` (${suprimidos} suprimido${suprimidos === 1 ? '' : 's'} no recibe${suprimidos === 1 ? '' : 'n'})` : '');
     const ok = await confirm({
       title: ya ? 'Reenviar el newsletter' : 'Enviar el newsletter',
       message: ya
@@ -309,6 +317,9 @@ export function LexphEdicionPage() {
                 Newsletter:{' '}
                 <strong className="text-brand-ink">{susc.confirmados}</strong> suscriptor
                 {susc.confirmados === 1 ? '' : 'es'} confirmado{susc.confirmados === 1 ? '' : 's'}
+                {susc.confirmados > susc.confirmadosReciben && (
+                  <span className="text-rose-500"> · {susc.confirmados - susc.confirmadosReciben} no recibe{susc.confirmados - susc.confirmadosReciben === 1 ? '' : 'n'} (suprimidos)</span>
+                )}
                 {susc.pendientes > 0 && <> · {susc.pendientes} sin confirmar</>}
                 {' · '}
                 {edicion.newsletter_enviado_at ? (

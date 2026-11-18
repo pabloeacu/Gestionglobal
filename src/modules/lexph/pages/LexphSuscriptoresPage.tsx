@@ -6,7 +6,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Search, ArrowLeft, Download, Mail, CheckCircle2, Clock, UserMinus, TrendingUp, Loader2, RotateCcw,
+  Search, ArrowLeft, Download, Mail, MailX, CheckCircle2, Clock, UserMinus, TrendingUp, Loader2, RotateCcw,
 } from 'lucide-react';
 import {
   Button, Input, Tabs, Skeleton, Paginador, PAGE_SIZE_DEFAULT, useConfirm, type TabItem,
@@ -20,7 +20,10 @@ import { hoyISO } from '@/lib/dates';
 import { rowsToCsv } from '@/lib/csvCopy';
 import { downloadBlob } from '@/modules/reportes/lib/_helpers';
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
-import { listSuscriptores, bajaSuscriptorLexph, reactivarSuscriptorLexph, type LexphSuscriptorItem } from '@/services/api/lexph';
+import {
+  listSuscriptores, bajaSuscriptorLexph, reactivarSuscriptorLexph, getSuscriptoresSuprimidos,
+  type LexphSuscriptorItem, type LexphSuprimido,
+} from '@/services/api/lexph';
 
 type FiltroEstado = 'todos' | 'confirmado' | 'pendiente' | 'baja';
 
@@ -31,6 +34,16 @@ const MOTIVO_DURO_LABEL: Record<string, string> = {
   invalida: 'casilla inválida',
   descartado_gerencia: 'descarte de gerencia',
 };
+
+// DGG-257 (display E-GG-281) · todos los motivos legibles para el badge "No recibe".
+const MOTIVO_LABEL: Record<string, string> = {
+  ...MOTIVO_DURO_LABEL,
+  baja_usuario: 'baja de marketing',
+  manual: 'baja manual',
+};
+
+// Normaliza igual que email_norm (lower(btrim)) para cruzar con la supresión.
+const normEmail = (e: string) => e.trim().toLowerCase();
 
 function fmtFecha(iso: string | null): string {
   if (!iso) return '—';
@@ -61,19 +74,25 @@ export function LexphSuscriptoresPage() {
   const [reactId, setReactId] = useState<string | null>(null);
 
   const [items, setItems] = useState<LexphSuscriptorItem[]>([]);
+  // DGG-257 (display E-GG-281) · overlay de supresión GLOBAL (por cualquier vía),
+  // para no "mentir" cuando un confirmado está suprimido por otra superficie.
+  const [supr, setSupr] = useState<LexphSuprimido[]>([]);
   const [loading, setLoading] = useState(true);
   const [estado, setEstado] = useState<FiltroEstado>('todos');
   const [q, setQ] = useState('');
   const [page, setPage] = useState(1);
 
   async function refresh() {
-    const res = await listSuscriptores();
+    // R19 · universo completo + overlay de supresión, en paralelo. El cruce es en memoria.
+    const [res, resSupr] = await Promise.all([listSuscriptores(), getSuscriptoresSuprimidos()]);
     setLoading(false);
     if (!res.ok) {
       toast.error('No pudimos cargar los suscriptores', { description: humanizeError(res.error) });
       return;
     }
     setItems(res.data);
+    // Si el overlay falla, el panel degrada al estado local (no rompe) — mejor eso que romper la lista.
+    setSupr(resSupr.ok ? resSupr.data : []);
   }
 
   // DGG-256 · baja manual por gerencia (p. ej. pidió la baja por WhatsApp/mail).
@@ -140,19 +159,31 @@ export function LexphSuscriptoresPage() {
 
   useRealtimeRefresh(['lexph_suscriptores'], () => void refresh());
 
+  // Supresión GLOBAL por email_norm (una sola fuente de verdad del envío).
+  const suprMap = useMemo(() => {
+    const m = new Map<string, LexphSuprimido>();
+    for (const x of supr) m.set(x.email, x);
+    return m;
+  }, [supr]);
+  const suprDe = (s: LexphSuscriptorItem) => suprMap.get(normEmail(s.email));
+
   // R19 · KPIs sobre el universo completo (items crudos).
   const kpis = useMemo(() => {
     const confirmados = items.filter((s) => s.estado === 'confirmado').length;
     const pendientes = items.filter((s) => s.estado === 'pendiente').length;
     const bajas = items.filter((s) => s.estado === 'baja').length;
+    // Confirmados que NO reciben porque su email está suprimido por otra vía (§6-e).
+    const confirmadosNoReciben = items.filter(
+      (s) => s.estado === 'confirmado' && suprMap.has(normEmail(s.email)),
+    ).length;
     // Crecimiento: altas de los últimos 30 días.
     const hace30 = Date.now() - 30 * 24 * 60 * 60 * 1000;
     const nuevos30 = items.filter((s) => {
       const t = new Date(s.created_at).getTime();
       return Number.isFinite(t) && t >= hace30;
     }).length;
-    return { total: items.length, confirmados, pendientes, bajas, nuevos30 };
-  }, [items]);
+    return { total: items.length, confirmados, pendientes, bajas, nuevos30, confirmadosNoReciben };
+  }, [items, suprMap]);
 
   const filtrados = useMemo(() => {
     const needle = foldText(q);
@@ -191,6 +222,7 @@ export function LexphSuscriptoresPage() {
     const csv = rowsToCsv(filtrados, [
       { key: 'email', label: 'Email' },
       { key: 'estado', label: 'Estado' },
+      { key: 'estado', label: 'Entrega', format: (r) => (suprMap.has(normEmail(r.email)) ? 'no recibe (suprimido)' : r.estado === 'baja' ? 'baja' : 'ok') },
       { key: 'origen', label: 'Origen', format: (r) => origenLabel(r.origen) },
       { key: 'created_at', label: 'Alta', format: (r) => fmtFecha(r.created_at) },
       { key: 'confirmed_at', label: 'Confirmado', format: (r) => fmtFecha(r.confirmed_at) },
@@ -230,7 +262,8 @@ export function LexphSuscriptoresPage() {
 
       {/* KPIs */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <KpiCard label="Confirmados" value={kpis.confirmados} icon={CheckCircle2} tone="green" />
+        <KpiCard label="Confirmados" value={kpis.confirmados} icon={CheckCircle2} tone="green"
+          hint={kpis.confirmadosNoReciben > 0 ? `${kpis.confirmadosNoReciben} no reciben (suprimidos)` : undefined} />
         <KpiCard label="Pendientes" value={kpis.pendientes} icon={Clock} tone="amber" />
         <KpiCard label="Bajas" value={kpis.bajas} icon={UserMinus} tone="slate" />
         <KpiCard label="Nuevos · 30 días" value={kpis.nuevos30} icon={TrendingUp} tone="cyan" />
@@ -263,7 +296,13 @@ export function LexphSuscriptoresPage() {
       ) : (
         <>
           <ul className="space-y-2">
-            {pageItems.map((s) => (
+            {pageItems.map((s) => {
+              const sup = suprDe(s);
+              // Suprimido por OTRA vía pero con estado local no-baja (el chip "Confirmado"
+              // mentía): badge "No recibe" + el botón pasa a Reactivar (igual que una baja).
+              const suprVisible = s.estado !== 'baja' && !!sup;
+              const mostrarReactivar = s.estado === 'baja' || !!sup;
+              return (
               <li key={s.id}>
                 <div className="card-premium flex items-center gap-4 p-4">
                   <span className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-xl bg-brand-cyan-pale/60 text-brand-cyan">
@@ -275,6 +314,14 @@ export function LexphSuscriptoresPage() {
                       <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600">
                         {origenLabel(s.origen)}
                       </span>
+                      {suprVisible && (
+                        <span
+                          className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-semibold ${sup!.es_hard ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'}`}
+                          title={`No recibe envíos · ${MOTIVO_LABEL[sup!.motivo] ?? sup!.motivo}`}
+                        >
+                          <MailX size={11} /> No recibe
+                        </span>
+                      )}
                     </div>
                     <p className="mt-1 truncate font-medium text-brand-ink">{s.email}</p>
                   </div>
@@ -287,7 +334,7 @@ export function LexphSuscriptoresPage() {
                       <p className="tabular-nums text-rose-500">Baja {fmtFecha(s.baja_at)}</p>
                     )}
                   </div>
-                  {s.estado !== 'baja' && (
+                  {!mostrarReactivar && (
                     <button
                       type="button"
                       onClick={() => void handleBaja(s)}
@@ -300,7 +347,7 @@ export function LexphSuscriptoresPage() {
                       <span className="hidden sm:inline">{bajaId === s.id ? 'Dando de baja…' : 'Dar de baja'}</span>
                     </button>
                   )}
-                  {s.estado === 'baja' && (
+                  {mostrarReactivar && (
                     <button
                       type="button"
                       onClick={() => void handleReactivar(s)}
@@ -315,7 +362,8 @@ export function LexphSuscriptoresPage() {
                   )}
                 </div>
               </li>
-            ))}
+              );
+            })}
           </ul>
           <Paginador page={page} pageSize={PAGE_SIZE_DEFAULT} total={totalFiltrados} onPage={setPage} />
         </>
@@ -332,8 +380,8 @@ const TONES = {
 } as const;
 
 function KpiCard({
-  label, value, icon: Icon, tone,
-}: { label: string; value: number; icon: typeof Mail; tone: keyof typeof TONES }) {
+  label, value, icon: Icon, tone, hint,
+}: { label: string; value: number; icon: typeof Mail; tone: keyof typeof TONES; hint?: string }) {
   return (
     <div className="card-premium flex items-center gap-3 p-4">
       <span className={`grid h-10 w-10 flex-shrink-0 place-items-center rounded-xl ${TONES[tone]}`}>
@@ -342,6 +390,7 @@ function KpiCard({
       <div className="min-w-0">
         <p className="font-display text-2xl font-bold tabular-nums text-brand-ink">{value}</p>
         <p className="truncate text-xs text-brand-muted">{label}</p>
+        {hint && <p className="mt-0.5 truncate text-[11px] font-medium text-rose-500">{hint}</p>}
       </div>
     </div>
   );

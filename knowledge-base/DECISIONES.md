@@ -9100,3 +9100,27 @@ sin campanita en reactivación / con campanita en confirmación genuina, propaga
 R16 smoke: 0 overloads. tsc+build verdes. **Deuda remanente de E-GG-281 (mitad display, fuera
 de alcance de este pedido):** panel LexPH no es suppression-aware (un confirmado suprimido por
 otra vía se ve "Confirmado"); se ofrece a Pablo como follow-up. Ver DGG-257 + E-GG-282.
+
+### DGG-257 · Cierre de la mitad DISPLAY de E-GG-281 (2026-11-17, migs 0697-0699)
+
+Pablo pidió cerrar también la mitad display. El panel de Suscriptores LexPH ahora es
+**suppression-aware**: cruza (en memoria, R19) la supresión GLOBAL
+(`lexph_suscriptores_suprimidos()` → {email_norm, motivo, es_hard}) y pinta badge
+"No recibe" (rose si casilla muerta, amber si baja) + ofrece **Reactivar** (no "Dar de
+baja") cuando el email está suprimido por cualquier vía, aunque el `estado` local sea
+'confirmado'. KPI "N no reciben" + columna CSV "Entrega". Dato real: 38 confirmados
+estaban suprimidos (34 rebote) y se veían "Confirmado" sin recibir.
+
+**Fan-out §6-a (todos los lectores del conteo de confirmados):** se agregó
+`lexph_confirmados_reciben()` (neto = `estado='confirmado' AND NOT EXISTS email_suppression`,
+= universo exacto del envío); `getSuscriptoresStats` lo expone como `confirmadosReciben` y
+la **edición** (`LexphEdicionPage`) usa el neto en el display y en el diálogo de envío
+("a N, M suprimidos no reciben") en vez del crudo que mentía. El **informe diario**
+interno (`private.lexph_reporte_envio_diario`, mig 0699) pasó a audiencia NETA para cerrar
+en 100% (antes mostraba "COMPLETO" con pct<100). `lexph_confirmados_reciben` NO se reusa
+en el cron (gatea is_staff y el cron no tiene JWT) → se inlinea el mismo filtro.
+
+**§6:** e2e del overlay verde; 2º agente confirmó filtro badge/neto == filtro del envío
+carácter por carácter y enumeró el fan-out (el único lector faltante era el informe diario,
+fixeado). `email_norm == lower(btrim(email))` en 0 filas → cruce JS confiable. **E-GG-281
+CERRADO.** Ver E-GG-283.
