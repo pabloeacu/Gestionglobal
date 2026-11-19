@@ -10736,6 +10736,15 @@ export type Database = {
         }
         Returns: string
       }
+      emitir_nota_credito: {
+        Args: {
+          p_comprobante_id: string
+          p_fecha?: string
+          p_monto: number
+          p_motivo: string
+        }
+        Returns: string
+      }
       encolar_email: {
         Args: {
           p_administracion_id: string

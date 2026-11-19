@@ -127,14 +127,15 @@ function aplicarFiltrosComprobantes<T>(q0: T, params: ListComprobantesParams): T
 export async function kpisComprobantesUniverso(
   params: ListComprobantesParams = {},
 ): Promise<ApiResponse<{
-  rows: Array<Pick<ComprobanteRow, 'estado' | 'total' | 'saldo_pendiente' | 'estado_cobranza' | 'vencimiento'>>;
+  rows: Array<Pick<ComprobanteRow, 'tipo' | 'estado' | 'total' | 'saldo_pendiente' | 'estado_cobranza' | 'vencimiento'>>;
   truncado: boolean;
 }>> {
   const CAP = 5000;
   const q = aplicarFiltrosComprobantes(
     supabase
       .from('comprobantes')
-      .select('estado,total,saldo_pendiente,estado_cobranza,vencimiento')
+      // DGG-259: `tipo` necesario para firmar las notas de crédito (NC_*) en los KPIs de plata.
+      .select('tipo,estado,total,saldo_pendiente,estado_cobranza,vencimiento')
       .limit(CAP),
     params,
   );

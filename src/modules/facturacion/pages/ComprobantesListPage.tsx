@@ -77,7 +77,7 @@ export function ComprobantesListPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(PAGE_SIZE_DEFAULT);
   const [kpiUniverso, setKpiUniverso] = useState<{
-    rows: Array<Pick<ComprobanteListItem, 'estado' | 'total' | 'saldo_pendiente' | 'estado_cobranza' | 'vencimiento'>>;
+    rows: Array<Pick<ComprobanteListItem, 'tipo' | 'estado' | 'total' | 'saldo_pendiente' | 'estado_cobranza' | 'vencimiento'>>;
     truncado: boolean;
   }>({ rows: [], truncado: false });
   const [loading, setLoading] = useState(true);
@@ -147,10 +147,14 @@ export function ComprobantesListPage() {
     // completo (query liviana de 5 columnas), no sobre la página visible —
     // antes sumaban solo 50 filas y las cifras financieras mentían.
     const u = kpiUniverso.rows;
-    const emitidos = u.filter((r) => r.estado === 'autorizado').length;
+    // DGG-259 · las notas de crédito (NC_*) ACREDITAN: no son emisión y restan del facturado.
+    // El original compensado (estado 'compensado') sí es emisión → se incluye.
+    const esNC = (t?: string | null) => !!t && t.startsWith('NC_');
+    const vivo = (e?: string | null) => e === 'autorizado' || e === 'compensado';
+    const emitidos = u.filter((r) => vivo(r.estado) && !esNC(r.tipo)).length;
     const totalEmitido = u
-      .filter((r) => r.estado === 'autorizado')
-      .reduce((s, r) => s + Number(r.total ?? 0), 0);
+      .filter((r) => vivo(r.estado))
+      .reduce((s, r) => s + (esNC(r.tipo) ? -1 : 1) * Number(r.total ?? 0), 0);
     const totalPendiente = u
       .filter((r) => r.estado_cobranza === 'pendiente' || r.estado_cobranza === 'parcial')
       .reduce((s, r) => s + Number(r.saldo_pendiente ?? 0), 0);
