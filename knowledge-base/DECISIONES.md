@@ -9159,3 +9159,62 @@ nuevos, no-op con los 5 vivos).
 **§6:** e2e 14/14 (matriz estado×motivo) + 9/9 (suscribir endurecido + round-trip); 3 verdictos
 unánimes "listo para prod"; R16 overloads=0; tsc+build verdes. **E-GG-281 COMPLETAMENTE CERRADO
 (reactivar + display + re-opt-in).** Ver E-GG-284 + E-GG-285.
+
+## DGG-259 · Notas de Crédito (motor contable + UI) + acciones en la cuenta corriente (2026-11-19, migs 0702-0705)
+
+Pedido Pablo: emitir NC totales/parciales contra el **saldo pendiente** de un comprobante que lo
+"compensen" (mismo canon que la NC fiscal: sólo contra saldo; con cobranza aplicada, NC ≤ saldo
+salvo que primero se revierta la cobranza; un fiscal jamás se elimina, sólo se compensa). "En el
+caso de la imagen es un comprobante simple (no fiscal), pero el comportamiento debe ser el mismo…
+la única diferencia es que el simple sí se puede eliminar." Y botones de acción en la cuenta
+corriente del cliente.
+
+**Decisiones de producto (AskUserQuestion 2026-11-19):**
+- **"Eliminar" un comprobante simple = anulación con rastro** (`estado='anulado'`, conserva número
+  + auditoría + no rompe FKs), no borrado físico. Sólo si no tiene cobranzas ni NC.
+- **Alcance:** NC simple (NC_X) completa AHORA; NC fiscal (NC_A/B/C) estructura-lista pero emisión a
+  ARCA **diferida** (ARCA dormido, 0 fiscales en prod). El motor contable es fiscal-ready (trata
+  NC_% uniforme); `emitir_nota_credito` rebota A/B/C hasta activar ARCA.
+- **"Revertir cobranzas y aplicar NC" = 2 casos EXPLÍCITOS para que gerencia elija y operación
+  haga los asientos** (la clave contable que marcó Pablo): (1) **Anular el pago** → contra-asientos
+  en cuenta corriente + caja/banco (`fz_revertir_movimiento`, trazable como anulado, sale del saldo
+  vivo); (2) **Dejar a cuenta** → el pago queda como saldo a favor del cliente (`desimputar_dejar_a_cuenta`,
+  reaplicable). Ambos liberan el saldo → después se emite la NC por el total.
+
+**Modelo (ya previsto en el schema):** la NC es un comprobante propio (tipo NC_X) con
+`comprobante_referencia_id` al original + `motivo_nc`; `estado` admite `compensado`;
+`chk_cae_no_anulable` ya blindaba "fiscal con CAE no se anula".
+
+**Chunk 1 — motor (migs 0702+0703):**
+- `private.recompute_comprobante_saldo` = **fuente única** del saldo/estado. NC_% → saldo 0,
+  estado_cobranza 'pagado' (inerte), y recomputa su original. Factura/X → `saldo = total −
+  cobranzas − ΣNC vigentes`; estado_cobranza saldo-based; estado `autorizado`↔`compensado`;
+  **preserva `en_recupero`** (si no, el comprobante salía del recupero manual y re-entraba a avisos).
+- `emitir_nota_credito(comp, monto, motivo, fecha)` con tope `monto ≤ saldo_pendiente`.
+- `matricula_estado_pago_desde_comprobante` pasa a base-**cobranzas** (un compensado por NC ya no
+  figura `pago_completo`; compensado ≠ pagado).
+- **Consistencia (verificada):** firmar la NC como cargo negativo (haber) en los agregados Y reducir
+  el saldo del original mantiene `saldo_actual = deuda_total − saldo_a_favor` sin doble conteo.
+  Fan-out NC-aware: `cuenta_corriente_extracto` (NC=haber), `cuenta_corriente_resumen(_global)`,
+  `kpis_dashboard_global` (facturado+serie), `analitica_facturacion_mensual/top_clientes` (firman
+  NC), `analitica_mix_servicios` (excluye NC). **Guard anti-NC-huérfana** en `anular_comprobante`
+  (anular el original con NC viva rompía el invariante → crédito fantasma). `trg_imp_validar_sum`
+  NC-aware (`total − ΣNC`). `partner_sabana`/`tramite_cobro_resumen` NC-aware.
+
+**Chunk 2 — UI + operaciones (migs 0704+0705):**
+- `desimputar_dejar_a_cuenta` (Caso 2); `listar_imputaciones_credito` (distingue crédito aplicado
+  de cobranza directa en la cta cte). Componentes `EmitirNotaCreditoDrawer`, `RevertirCobranzaDialog`.
+- `ComprobanteDetailPage` NC-aware (emitir NC, bloque de referencia al original, lista de NCs,
+  "Revertir NC", oculta banner/Transformar/Anular en compensado/NC).
+- **Cuenta corriente de la ficha** (antes sólo lectura) → acciones por fila: Cobrar / Emitir NC /
+  Eliminar (simple sin cobranzas/NC) / Revertir cobranza (2 casos) / Revertir NC / Quitar crédito.
+- Portal del cliente + PDF NC-aware.
+
+**§6 (metodología completa):** 5 agentes adversariales en total (3 contable/fan-out/UI del Chunk 1
++ 2 UI/e2e del Chunk 2). e2e en BD: 16/16 (matriz NC) + 9/9 (fixes) + 6/6 (reversión) + ciclo
+completo 6 escenarios + guards, con **barrido real de 199 admins: 0 invariantes rotos**. Se cerraron
+EN-CHUNK 8 hallazgos contables (anular-huérfana crítico, kpis fan-out positivo, en_recupero pisado,
+validador no NC-aware, etc.) + 5 de coherencia UI (ruteo del crédito aplicado R14, doble-submit del
+drawer, gating "cobrable" en rechazado/error, copy de NC anulada, hint compensado). tsc+build verdes;
+R16 overloads=0; 235 comprobantes reales intactos (drift=0). **QA en vivo en prod (Chrome gerente):
+OK** (admin QA efímero pv 9999, 0 residuo) — ver PROJECT_STATUS. Ver E-GG-286..E-GG-290.

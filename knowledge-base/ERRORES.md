@@ -7056,3 +7056,35 @@ Todos LATENTES (0 admins afectados hoy, motor real DORMIDO) — cazados por la d
 - **Verificación:** clasificación sobre datos reales: invalida(150)/bounce(69)/descartado_gerencia(5) → hard; manual(1)/baja_usuario(16) → soft; motivo nuevo hipotético → hard (fail-closed); NULL → no-hard.
 - **Prevención:** no duplicar la clasificación hard/soft en literales dispersos; todo lector usa `private.motivo_es_hard`. Fan-out §6-a: al centralizar un criterio, enumerar y reconvertir sus copias.
 - **Fecha / módulo:** 2026-11-19 · DGG-258 · mig 0701 · `email_suppression_list`, `private.motivo_es_hard`, `CorreosSuprimidosPage.tsx`.
+
+## E-GG-286 (2026-11-19) — Anular un comprobante con NC viva dejaba un crédito fantasma (invariante roto) (DGG-259)
+- **Síntoma:** emitir NC 400 sobre X=1000, luego `anular_comprobante(X)` → la NC (autorizado) quedaba acreditando un comprobante anulado; medido `saldo_actual=−400` con `deuda=0, saldo_a_favor=0` → **invariante `saldo_actual = deuda_total − saldo_a_favor` roto** y crédito de 400 sin cargo que lo respalde.
+- **Causa raíz:** el trigger `trg_comprobante_nc_sync` sólo dispara `WHEN tipo LIKE 'NC_%'`; `anular_comprobante` (pre-existente) no tocaba las NC dependientes → NC huérfana.
+- **Fix (mig 0703):** guard en `anular_comprobante` — un comprobante positivo (A/B/C/X) con NCs activas no se anula ("anulá/revertí las notas de crédito primero"). El estado `compensado` queda cubierto (tiene NCs). Hallazgo de la auditoría §6 adversarial, cerrado en el mismo chunk.
+- **Verificación:** e2e — anular X con NC viva bloqueado; tras revertir la NC, X se anula OK. Barrido real 199 admins sin rupturas.
+- **Fecha / módulo:** 2026-11-19 · DGG-259 · mig 0703 · `anular_comprobante`.
+
+## E-GG-287 (2026-11-19) — Lectores de facturación sumaban la NC como ingreso POSITIVO (fan-out) (DGG-259)
+- **Síntoma:** `kpis_dashboard_global` (facturado del período + serie diaria), `analitica_facturacion_mensual`, `analitica_top_clientes` y `ComprobantesListPage` "Total emitido" calculaban `SUM(total) WHERE estado='autorizado'` → una NC_X (estado autorizado) **sumaba** su total en vez de restarlo, y el original `compensado` CAÍA del cálculo. Contradecía la firma negativa que el propio chunk aplicó en `cuenta_corriente_*` (regla 19 / §6 2-bis-a: productor firmado, lector viejo no actualizado).
+- **Causa raíz:** lectores pre-existentes de `comprobantes.total` como facturación, no NC-aware, no enumerados al introducir la NC.
+- **Fix (mig 0703 + front):** firmar la NC negativa (`SUM(CASE WHEN tipo LIKE 'NC_%' THEN -total ELSE total END)`) e incluir `compensado` donde corresponde; `analitica_mix_servicios` excluye NC; `kpisComprobantesUniverso` trae `tipo` y `ComprobantesListPage` firma/excluye NC. 0 NC hoy → sin impacto vivo, pero el chunk lo introdujo.
+- **Prevención:** al introducir un dato/estado/tipo nuevo, `grep` de todos los lectores (§6 2-bis-a) antes de cerrar.
+- **Fecha / módulo:** 2026-11-19 · DGG-259 · mig 0703 · `kpis_dashboard_global`, `analitica_*`, `ComprobantesListPage.tsx`, `comprobantes.ts`.
+
+## E-GG-288 (2026-11-19) — El recompute de saldo pisaba `en_recupero` → re-entraba a avisos automáticos (DGG-259)
+- **Síntoma:** un comprobante en recupero manual (`estado_cobranza='en_recupero'`), al primer evento (NC/ítem/imputación), volvía a `vencido`/`pendiente`. La vista `vw_comprobantes_para_avisar` EXCLUYE `en_recupero` → al perderlo, el comprobante re-entraba a los avisos automáticos de vencimiento (doble gestión). 9 comprobantes reales en ese estado.
+- **Causa raíz:** `recompute_comprobante_saldo` derivaba `estado_cobranza` sin preservar `en_recupero` (parcialmente heredado del recalc viejo; el nuevo trigger de NC agregó un disparador más).
+- **Fix (mig 0703):** preservar `en_recupero` mientras el comprobante tenga saldo > 0.
+- **Verificación:** e2e (en_recupero + NC parcial → sigue en_recupero); control: los 9 reales intactos.
+- **Fecha / módulo:** 2026-11-19 · DGG-259 · mig 0703 · `private.recompute_comprobante_saldo`.
+
+## E-GG-289 (2026-11-19) — Una NC naciendo "cobrable"/una matrícula "pagada" por compensación (DGG-259)
+- **Síntoma potencial:** (a) `emitir_comprobante_manual` crea el NC_X con `estado_cobranza='pendiente'` y total > 0 → sin tratamiento sería una cuenta por cobrar (aparecería en avisos/morosos). (b) `matricula_estado_pago_desde_comprobante` marcaba `pago_completo` cuando `saldo<=0` → un comprobante compensado por NC (saldo 0 sin cobro) se vería "pagado".
+- **Fix (mig 0702):** (a) el recompute fuerza NC_% → `saldo_pendiente=0, estado_cobranza='pagado'` (inerte, no cobrable) → auto-excluida de morosos/avisos. (b) la sync de matrícula pasa a base-COBRANZAS (no saldo): compensado ≠ pagado (un compensado sin cobro queda `adeudado`). Idéntico para datos sin NC.
+- **Fecha / módulo:** 2026-11-19 · DGG-259 · mig 0702 · `recompute_comprobante_saldo`, `matricula_estado_pago_desde_comprobante`.
+
+## E-GG-290 (2026-11-19) — Coherencia UI de NC: ruteo del crédito aplicado + 4 menores (DGG-259)
+- **Síntoma (R14):** en la cuenta corriente, una fila de **saldo a favor aplicado** ofrecía la reversión de 2 casos, pero "Anular el pago" (`fz_revertir_movimiento`) rebota (el ingreso tiene crédito aplicado a otro comprobante) → acción visible que falla. Más 4 menores: doble-submit del `EmitirNotaCreditoDrawer` por Enter (dos NC parciales posibles); "Cobrar" visible en `rechazado`/`error`; banner de NC anulada seguía diciendo "acredita"; KPI "Saldo pendiente" decía "cobrado" en un compensado.
+- **Fix (mig 0705 + front):** `listar_imputaciones_credito` distingue crédito-aplicado de cobranza directa → esas filas ofrecen "Quitar crédito" (desimputar) en vez del diálogo 2-casos; guard `if (saving) return` en el drawer; flag `cobrable` (excluye anulado/rechazado/error/borrador); copy de NC anulada ("fue revertida"); hint "compensado".
+- **Verificación:** e2e (`listar_imputaciones_credito` marca el crédito aplicado y NO la cobranza directa); QA en vivo del flujo core. Hallazgos de la auditoría §6 de la UI (2 agentes), cerrados en el mismo chunk.
+- **Fecha / módulo:** 2026-11-19 · DGG-259 · mig 0705 · `AdministracionDetailPage.tsx`, `EmitirNotaCreditoDrawer.tsx`, `ComprobanteDetailPage.tsx`, `cobranzas.ts`.
