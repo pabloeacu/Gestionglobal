@@ -107,7 +107,9 @@ export async function getEdicionActual(): Promise<LexphEdicionActual | null> {
 }
 
 // --- Suscripción al newsletter (doble opt-in) · F2d ---
-export type LexphSuscripcionEstado = 'confirmado' | 'baja' | 'invalido';
+// 'bloqueado' (DGG-258): la casilla tiene supresión DURA (rebote/queja/descarte) y no
+// se reactiva por self-service — el override consciente vive en Correos suprimidos.
+export type LexphSuscripcionEstado = 'confirmado' | 'baja' | 'invalido' | 'bloqueado';
 
 // Alta pública: siempre responde ok genérico (sin enumeración). Lanza fail sólo en error real.
 export async function suscribirLexph(email: string): Promise<ApiResponse<boolean>> {
@@ -126,7 +128,9 @@ export async function confirmarSuscripcionLexph(token: string): Promise<LexphSus
     const { data, error } = await supabase.rpc('lexph_suscripcion_confirmar', { p_token: token });
     if (error) return 'invalido';
     const estado = (data as { estado?: string } | null)?.estado;
-    return estado === 'confirmado' ? 'confirmado' : 'invalido';
+    if (estado === 'confirmado') return 'confirmado';
+    if (estado === 'bloqueado') return 'bloqueado';
+    return 'invalido';
   } catch {
     return 'invalido';
   }

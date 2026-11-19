@@ -43,18 +43,24 @@ export function LexphSuscripcionPage({ modo }: { modo: 'confirmar' | 'baja' }) {
   }, [modo, token]);
 
   const ok = modo === 'confirmar' ? resultado === 'confirmado' : resultado === 'baja';
+  // DGG-258 · casilla con supresión DURA: no se reactiva por self-service (honestidad > éxito falso).
+  const bloqueado = modo === 'confirmar' && resultado === 'bloqueado';
 
   const titulo = ok
     ? modo === 'confirmar'
       ? '¡Suscripción confirmada!'
       : 'Te diste de baja'
-    : 'No pudimos procesar el enlace';
+    : bloqueado
+      ? 'No pudimos activar tu suscripción'
+      : 'No pudimos procesar el enlace';
 
   const mensaje = ok
     ? modo === 'confirmar'
       ? 'Ya vas a recibir LexPH en tu correo: fallos, normativas e insights de propiedad horizontal, destilados para administrar mejor.'
       : 'No vas a recibir más correos de LexPH. Si cambiás de idea, podés volver a suscribirte cuando quieras desde la web.'
-    : 'El enlace puede haber expirado o ser incorrecto. Probá de nuevo desde el correo que te enviamos, o volvé a suscribirte.';
+    : bloqueado
+      ? 'Esta casilla tuvo problemas de entrega (rebotes) o fue marcada como no deseada, así que la pausamos para cuidar la llegada de los correos. Si creés que es un error, escribinos a contacto@gestionglobal.ar y la revisamos.'
+      : 'El enlace puede haber expirado o ser incorrecto. Probá de nuevo desde el correo que te enviamos, o volvé a suscribirte.';
 
   return (
     <LexphPublicShell>

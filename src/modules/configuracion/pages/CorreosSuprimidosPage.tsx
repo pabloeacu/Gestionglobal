@@ -18,7 +18,9 @@ const MOTIVO_LABEL: Record<string, string> = {
   descartado_gerencia: 'Descartada por gerencia',
   bounce: 'Rebote',
   queja: 'Queja de spam',
+  invalida: 'Casilla inexistente',
   baja_usuario: 'Baja de marketing',
+  manual: 'Baja manual (gerencia)',
 };
 
 export function CorreosSuprimidosPage() {
