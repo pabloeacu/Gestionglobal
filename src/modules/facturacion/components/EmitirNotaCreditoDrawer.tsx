@@ -40,6 +40,7 @@ export function EmitirNotaCreditoDrawer({ open, onClose, comprobante, onSaved }:
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
+    if (saving) return; // DGG-259 · anti doble-submit (Enter en el input numérico re-disparaba)
     if (fiscal) {
       setError('La nota de crédito fiscal (A/B/C) se habilita al activar ARCA. Por ahora sólo comprobantes simples (X).');
       return;

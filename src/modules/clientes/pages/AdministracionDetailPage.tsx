@@ -68,6 +68,8 @@ import {
 } from '@/services/api/consorcios';
 import {
   listCtaCteAdministracion,
+  listCreditoImputacionIds,
+  desimputarCobranza,
   type CtaCteEntry,
 } from '@/services/api/cobranzas';
 import {
@@ -1319,6 +1321,8 @@ function TabCtaCte({ administracionId }: { administracionId: string }) {
   const [resumen, setResumen] = useState<CtaCteResumen | null>(null);
   // DGG-259 · estado liviano de los comprobantes para decidir las acciones por fila.
   const [compMap, setCompMap] = useState<Map<string, ComprobanteEstadoCtaCte>>(new Map());
+  // DGG-259 · imputaciones que son saldo a favor APLICADO (ofrecen "Quitar crédito", no 2-casos).
+  const [creditoImps, setCreditoImps] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   // DGG-259 · acciones: el comprobante cargado para el drawer + los diálogos abiertos.
@@ -1339,7 +1343,8 @@ function TabCtaCte({ administracionId }: { administracionId: string }) {
       listCtaCteAdministracion(administracionId),
       getResumenAdministracion(administracionId, '2000-01-01', '2100-12-31'),
       listComprobantesEstadoCtaCte(administracionId),
-    ]).then(([ext, res, cmp]) => {
+      listCreditoImputacionIds(administracionId),
+    ]).then(([ext, res, cmp, cred]) => {
       setLoading(false);
       if (!ext.ok) {
         setError(humanizeError(ext.error));
@@ -1348,6 +1353,7 @@ function TabCtaCte({ administracionId }: { administracionId: string }) {
       setRows(ext.data);
       if (res.ok) setResumen(res.data);
       if (cmp.ok) setCompMap(new Map(cmp.data.map((c) => [c.id, c])));
+      if (cred.ok) setCreditoImps(cred.data);
     });
   }, [administracionId]);
 
@@ -1380,6 +1386,17 @@ function TabCtaCte({ administracionId }: { administracionId: string }) {
     const res = await anularComprobante(id, 'Reversión de nota de crédito');
     if (!res.ok) { toast.error(humanizeError(res.error)); return; }
     toast.success('Nota de crédito revertida'); load();
+  }
+  async function onQuitarCredito(imputacionId: string) {
+    const ok = await confirm({
+      title: 'Quitar saldo a favor',
+      message: 'Vas a quitar este saldo a favor del comprobante. El saldo del comprobante vuelve a subir y el crédito queda otra vez disponible para aplicarlo a otra deuda.',
+      confirmLabel: 'Quitar', cancelLabel: 'Volver', danger: true,
+    });
+    if (!ok) return;
+    const res = await desimputarCobranza(imputacionId);
+    if (!res.ok) { toast.error(humanizeError(res.error)); return; }
+    toast.success('Saldo a favor quitado'); load();
   }
 
   if (loading) {
@@ -1521,10 +1538,12 @@ function TabCtaCte({ administracionId }: { administracionId: string }) {
                   <CtaCteRowActions
                     r={r}
                     comp={r.comprobante_id ? compMap.get(r.comprobante_id) : undefined}
+                    esCreditoAplicado={!!r.imputacion_id && creditoImps.has(r.imputacion_id)}
                     onCobrar={(id) => void openDrawerFor(id, 'cobrar')}
                     onEmitirNC={(id) => void openDrawerFor(id, 'nc')}
                     onEliminar={(id, label) => void onEliminar(id, label)}
                     onRevertirNC={(id, label) => void onRevertirNC(id, label)}
+                    onQuitarCredito={(imp) => void onQuitarCredito(imp)}
                     onRevertirCobranza={(imp, mov, monto, label) => setRevertir({ imputacionId: imp, movimientoId: mov, monto, label })}
                   />
                 </td>
@@ -1565,20 +1584,34 @@ function TabCtaCte({ administracionId }: { administracionId: string }) {
 
 /** DGG-259 · Acciones por fila de la cuenta corriente, según el tipo de movimiento. */
 function CtaCteRowActions({
-  r, comp, onCobrar, onEmitirNC, onEliminar, onRevertirNC, onRevertirCobranza,
+  r, comp, esCreditoAplicado, onCobrar, onEmitirNC, onEliminar, onRevertirNC, onQuitarCredito, onRevertirCobranza,
 }: {
   r: CtaCteEntry;
   comp?: ComprobanteEstadoCtaCte;
+  esCreditoAplicado: boolean;
   onCobrar: (id: string) => void;
   onEmitirNC: (id: string) => void;
   onEliminar: (id: string, label: string) => void;
   onRevertirNC: (id: string, label: string) => void;
+  onQuitarCredito: (imputacionId: string) => void;
   onRevertirCobranza: (imputacionId: string, movimientoId: string | null, monto: number, label: string) => void;
 }) {
   const btn = 'inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition';
 
-  // Cobranza → revertir (2 casos).
+  // Abono → saldo a favor aplicado: "Quitar crédito" (desimputar). Cobranza directa: revertir 2-casos.
   if (r.rawTipo === 'abono' && r.imputacion_id) {
+    if (esCreditoAplicado) {
+      return (
+        <button
+          type="button"
+          onClick={() => onQuitarCredito(r.imputacion_id!)}
+          className={`${btn} text-brand-muted hover:bg-violet-50 hover:text-violet-700`}
+          title="Quitar el saldo a favor aplicado (vuelve a quedar disponible)"
+        >
+          <Undo2 size={13} /> Quitar crédito
+        </button>
+      );
+    }
     return (
       <button
         type="button"
@@ -1613,7 +1646,8 @@ function CtaCteRowActions({
     const total = Number(comp.total ?? 0);
     const esX = comp.tipo === 'X';
     const autorizado = comp.estado === 'autorizado';
-    const puedeCobrar = saldo > 0 && comp.estado !== 'anulado';
+    // E-GG-136/142: "cobrable" excluye anulado/rechazado/error (no sólo anulado).
+    const puedeCobrar = saldo > 0 && !['anulado', 'rechazado', 'error', 'borrador'].includes(comp.estado);
     const puedeNC = esX && autorizado && saldo > 0;
     const puedeEliminar = esX && autorizado && Math.abs(saldo - total) < 0.009; // sin cobranzas ni NC
     if (!puedeCobrar && !puedeNC && !puedeEliminar) {

@@ -11714,6 +11714,10 @@ export type Database = {
           vencimiento_id: string
         }[]
       }
+      listar_imputaciones_credito: {
+        Args: { p_administracion_id: string }
+        Returns: string[]
+      }
       lote_consolidado_administracion: {
         Args: {
           p_administracion_id: string

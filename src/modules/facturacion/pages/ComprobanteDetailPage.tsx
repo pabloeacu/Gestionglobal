@@ -337,6 +337,8 @@ export function ComprobanteDetailPage() {
   const ncsActivas = ncs.filter((n) => n.estado !== 'anulado' && n.estado !== 'borrador');
   const tieneNCActivas = ncsActivas.length > 0;
   const puedeEmitirNC = !esNC && comp.tipo === 'X' && comp.estado === 'autorizado' && saldoComp > 0;
+  // E-GG-136/142: "cobrable" = saldo pendiente y estado cobrable (no anulado/rechazado/error/borrador/compensado).
+  const cobrable = saldoComp > 0 && !esNC && !['anulado', 'rechazado', 'error', 'borrador', 'compensado'].includes(comp.estado);
   const numeroStr = comp.numero
     ? `${String(comp.punto_venta).padStart(5, '0')}-${String(comp.numero).padStart(8, '0')}`
     : '—';
@@ -474,7 +476,9 @@ export function ComprobanteDetailPage() {
                 {refOriginal.tipo} {String(refOriginal.punto_venta).padStart(5, '0')}-{String(refOriginal.numero ?? 0).padStart(8, '0')}
               </Link></> : ''}</p>
             <p className="mt-0.5 text-xs text-violet-800/90">
-              Acredita (compensa) el comprobante original por {formatMoney(Number(comp.total ?? 0))}.
+              {comp.estado === 'anulado'
+                ? <>Esta nota de crédito fue <strong>revertida</strong>: ya no acredita el comprobante original (su saldo volvió a subir).</>
+                : <>Acredita (compensa) el comprobante original por {formatMoney(Number(comp.total ?? 0))}.</>}
               {comp.motivo_nc ? <> Motivo: <strong>{comp.motivo_nc}</strong>.</> : ''}
             </p>
           </div>
@@ -534,11 +538,13 @@ export function ComprobanteDetailPage() {
             </span>
           }
           hint={
-            Number(comp.saldo_pendiente) === 0
-              ? 'cobrado'
-              : Number(comp.saldo_pendiente) < Number(comp.total)
-                ? 'parcial'
-                : 'sin pagos'
+            comp.estado === 'compensado'
+              ? 'compensado'
+              : Number(comp.saldo_pendiente) === 0
+                ? 'cobrado'
+                : Number(comp.saldo_pendiente) < Number(comp.total)
+                  ? 'parcial'
+                  : 'sin pagos'
           }
           tone={Number(comp.saldo_pendiente) === 0 ? 'teal' : 'amber'}
           delay={60}
@@ -753,9 +759,7 @@ export function ComprobanteDetailPage() {
                 </h3>
               </div>
             </div>
-            {saldoAFavorCliente > 0 &&
-              Number(comp.saldo_pendiente) > 0 &&
-              comp.estado !== 'anulado' && (
+            {saldoAFavorCliente > 0 && cobrable && (
                 <div className="mb-3 flex flex-col gap-2 rounded-xl border border-emerald-300/60 bg-emerald-50 p-3 sm:flex-row sm:items-center sm:justify-between">
                   <p className="text-sm text-emerald-900">
                     <PiggyBank size={14} className="mr-1 inline" />
@@ -768,8 +772,7 @@ export function ComprobanteDetailPage() {
                   </Button>
                 </div>
               )}
-            {Number(comp.saldo_pendiente) > 0 &&
-              comp.estado !== 'anulado' && !esNC && (
+            {cobrable && (
                 <div className="flex flex-wrap items-center gap-2">
                   {puedeEmitirNC && (
                     <Button variant="secondary" onClick={() => setNcOpen(true)}>

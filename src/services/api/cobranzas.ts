@@ -191,6 +191,18 @@ export async function desimputarDejarACuenta(
   return ok({ comprobante_id: data as string });
 }
 
+/** DGG-259 · Ids de imputación que son un SALDO A FAVOR aplicado (no una cobranza directa).
+ *  Esas filas de la cuenta corriente ofrecen "Quitar crédito" en vez de la reversión 2-casos. */
+export async function listCreditoImputacionIds(
+  administracion_id: string,
+): Promise<ApiResponse<Set<string>>> {
+  const { data, error } = await supabase.rpc('listar_imputaciones_credito' as never, {
+    p_administracion_id: administracion_id,
+  } as never);
+  if (error) return fail('COBR_CREDITO_IMPS', error.message, error);
+  return ok(new Set(((data ?? []) as string[]).map(String)));
+}
+
 // ============================================================================
 // Saldo a favor / crédito (JL #3 · DGG-91): al anular un comprobante ya pagado
 // (p. ej. inscripción duplicada) el pago queda como INGRESO sin imputar = saldo
