@@ -9124,3 +9124,38 @@ en el cron (gatea is_staff y el cron no tiene JWT) → se inlinea el mismo filtr
 carácter por carácter y enumeró el fan-out (el único lector faltante era el informe diario,
 fixeado). `email_norm == lower(btrim(email))` en 0 filas → cruce JS confiable. **E-GG-281
 CERRADO.** Ver E-GG-283.
+
+### DGG-258 · Re-opt-in self-service de LexPH levanta la supresión SOFT — cierre del ítem (4) de E-GG-281 (2026-11-19, migs 0700-0701)
+
+Pablo pidió cerrar también el ítem (4): el flujo público de re-suscripción. Dos agujeros
+(E-GG-284): (A) `lexph_suscripcion_confirmar` borraba literal `motivo='baja_usuario'` → un
+suscriptor bajado a mano (`manual`) confirmaba pero seguía sin recibir; (B) `lexph_suscribir`
+bloqueaba el alta ante CUALQUIER supresión → los soft no podían re-suscribirse (el form
+mentía "revisá tu casilla").
+
+**Decisión — criterio soft/hard unificado (= guard de reactivar DGG-257, `private.motivo_es_hard`):**
+- **DURA** (bounce/queja/invalida/descartado_gerencia = casilla muerta): NO se levanta por
+  self-service. `confirmar` → `{ok:false,estado:'bloqueado'}` sin mutar; el override consciente
+  vive sólo en Config → Correos suprimidos (`email_reactivar`, staff, sin guarda).
+- **BLANDA** (baja_usuario/manual = "pará de mandarme", reversible): se levanta con un alta
+  genuina por **doble opt-in**. Clave de seguridad: el borrado de la supresión ocurre SÓLO en
+  el `confirmar` (click en el mail = prueba de control de la casilla), nunca en `lexph_suscribir`
+  (tipear un email de un tercero no prueba control ni muta nada de la víctima).
+- La decisión de que `manual` (baja puesta por gerencia) sea reversible por el propio usuario
+  vía doble opt-in es explícita y simétrica con `lexph_suscripcion_reactivar_staff`.
+
+**Por qué no se tocó ningún edge (R7-safe):** el mail de confirmación a una casilla soft SALE
+porque el gate soft de `dispatch-emails` (§2c) aplica sólo a `related_table` prospectos/
+administraciones (slugs ofrecimiento-/engagement-); LexPH usa `related_table='lexph_suscriptores'`
+→ sólo pasa por el gate DURO (§2b-bis, `email_bloqueado_total`). Verificado leyendo el edge.
+
+**Fixes de la doble auditoría §6 (3 agentes + e2e), cerrados en el mismo chunk (mig 0701):**
+#1b la rama `baja` de `lexph_suscribir` mutaba la fila de la víctima sin cooldown ante un
+request anónimo → endurecida (ninguna rama muta el estado); GAP #14 `email_suppression_list.es_hard`
+no incluía `invalida` (150 casillas mal clasificadas en Config) → unificado con `motivo_es_hard`
+(E-GG-285); `private.motivo_es_hard` de blacklist→whitelist-de-soft (fail-closed ante motivos
+nuevos, no-op con los 5 vivos).
+
+**§6:** e2e 14/14 (matriz estado×motivo) + 9/9 (suscribir endurecido + round-trip); 3 verdictos
+unánimes "listo para prod"; R16 overloads=0; tsc+build verdes. **E-GG-281 COMPLETAMENTE CERRADO
+(reactivar + display + re-opt-in).** Ver E-GG-284 + E-GG-285.
