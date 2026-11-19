@@ -221,15 +221,17 @@ export async function generateComprobantePdf({
   // Lado derecho: COMPROBANTE + tipo XL + numero
   const rightCx = splitX + (pageW - splitX) / 2;
 
+  // DGG-259 · una nota de crédito se rotula como tal (no "COMPROBANTE / NC_X").
+  const esNC = c.tipo.startsWith('NC_');
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7);
   doc.setTextColor(...WHITE);
-  doc.text('COMPROBANTE', rightCx, 8, { align: 'center', charSpace: 1.6 });
+  doc.text(esNC ? 'NOTA DE CREDITO' : 'COMPROBANTE', rightCx, 8, { align: 'center', charSpace: 1.6 });
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(26);
   doc.setTextColor(...WHITE);
-  doc.text(c.tipo, rightCx, coverH / 2 + 3, { align: 'center' });
+  doc.text(c.tipo.replace('_', ' '), rightCx, coverH / 2 + 3, { align: 'center' });
 
   const numStr = c.numero
     ? `${String(c.punto_venta).padStart(5, '0')} - ${String(c.numero).padStart(8, '0')}`

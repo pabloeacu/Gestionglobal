@@ -376,6 +376,87 @@ export async function anularComprobantePreview(
   return ok(data as AnularPreview);
 }
 
+/**
+ * DGG-259 · Emite una Nota de Crédito (NC_X) contra un comprobante simple.
+ * TOPE = saldo_pendiente del original. Descuenta del saldo del original y, si lo
+ * cubre entero, lo deja 'compensado'. NC fiscal (A/B/C) está diferida (ARCA dormido).
+ */
+export async function emitirNotaCredito(
+  comprobanteId: string,
+  monto: number,
+  motivo: string,
+  fecha?: string,
+): Promise<ApiResponse<{ id: string }>> {
+  const { data, error } = await supabase.rpc('emitir_nota_credito' as never, {
+    p_comprobante_id: comprobanteId,
+    p_monto: monto,
+    p_motivo: motivo,
+    p_fecha: fecha ?? null,
+  } as never);
+  if (error) return fail('COMP_NOTA_CREDITO', error.message, error);
+  return ok({ id: data as string });
+}
+
+export interface NotaCreditoRef {
+  id: string;
+  tipo: string;
+  punto_venta: number;
+  numero: number | null;
+  fecha: string;
+  total: number;
+  estado: string;
+  motivo_nc: string | null;
+}
+
+/** DGG-259 · Notas de crédito que ACREDITAN a un comprobante (su referencia). */
+export async function listNotasCreditoDeComprobante(
+  comprobanteId: string,
+): Promise<ApiResponse<NotaCreditoRef[]>> {
+  const { data, error } = await supabase
+    .from('comprobantes')
+    .select('id, tipo, punto_venta, numero, fecha, total, estado, motivo_nc')
+    .eq('comprobante_referencia_id', comprobanteId)
+    .like('tipo', 'NC_%')
+    .order('fecha', { ascending: false });
+  if (error) return fail('COMP_NC_LIST', error.message, error);
+  return ok((data ?? []) as NotaCreditoRef[]);
+}
+
+export interface ComprobanteEstadoCtaCte {
+  id: string;
+  tipo: string;
+  estado: string;
+  saldo_pendiente: number;
+  total: number;
+}
+
+/** DGG-259 · Estado liviano de los comprobantes de una admin, para decidir las
+ *  acciones por fila en la cuenta corriente (cobrar / emitir NC / eliminar). */
+export async function listComprobantesEstadoCtaCte(
+  administracionId: string,
+): Promise<ApiResponse<ComprobanteEstadoCtaCte[]>> {
+  const { data, error } = await supabase
+    .from('comprobantes')
+    .select('id, tipo, estado, saldo_pendiente, total')
+    .eq('administracion_id', administracionId)
+    .not('estado', 'in', '("anulado","borrador")');
+  if (error) return fail('COMP_ESTADO_CTACTE', error.message, error);
+  return ok((data ?? []) as ComprobanteEstadoCtaCte[]);
+}
+
+/** Datos mínimos de un comprobante para linkear/rotular (p. ej. el original de una NC). */
+export async function getComprobanteMini(
+  id: string,
+): Promise<ApiResponse<NotaCreditoRef | null>> {
+  const { data, error } = await supabase
+    .from('comprobantes')
+    .select('id, tipo, punto_venta, numero, fecha, total, estado, motivo_nc')
+    .eq('id', id)
+    .maybeSingle();
+  if (error) return fail('COMP_MINI', error.message, error);
+  return ok((data as NotaCreditoRef | null) ?? null);
+}
+
 export async function peekProximoNumero(
   puntoVenta: number,
   tipo: ComprobanteTipo,

@@ -10569,6 +10569,10 @@ export type Database = {
         Args: { p_imputacion_id: string }
         Returns: string
       }
+      desimputar_dejar_a_cuenta: {
+        Args: { p_imputacion_id: string }
+        Returns: string
+      }
       disparar_recupero_manual: {
         Args: {
           p_comprobante_id: string

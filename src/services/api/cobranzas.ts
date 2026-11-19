@@ -158,6 +158,40 @@ export async function desimputarCobranza(
 }
 
 // ============================================================================
+// DGG-259 · Revertir una cobranza — DOS casos explícitos (decisión Pablo):
+//   · Caso 1 "Anular el pago": el pago se revierte con CONTRA-ASIENTOS en todos
+//     lados donde impactó (cuenta corriente, caja/banco), queda trazable y
+//     desaparece del saldo vivo. → fz_revertir_movimiento (crea el contra-asiento).
+//   · Caso 2 "Dejar a cuenta": sólo se desconecta del comprobante; el pago queda
+//     como SALDO A FAVOR del cliente, reaplicable a otro comprobante.
+// Ambos liberan el saldo del comprobante → habilitan emitir la NC por el total.
+// ============================================================================
+
+/** Caso 1 · Anula el pago (contra-asiento). Revierte el movimiento entero. */
+export async function revertirPagoCobranza(
+  movimiento_id: string,
+  motivo?: string,
+): Promise<ApiResponse<{ reverso_id: string }>> {
+  const { data, error } = await supabase.rpc('fz_revertir_movimiento', {
+    p_movimiento_id: movimiento_id,
+    p_motivo: motivo ?? null,
+  } as never);
+  if (error) return fail('COBR_REVERTIR_PAGO', error.message, error);
+  return ok({ reverso_id: data as string });
+}
+
+/** Caso 2 · Desimputa dejando el pago a cuenta (saldo a favor del cliente). */
+export async function desimputarDejarACuenta(
+  imputacion_id: string,
+): Promise<ApiResponse<{ comprobante_id: string }>> {
+  const { data, error } = await supabase.rpc('desimputar_dejar_a_cuenta', {
+    p_imputacion_id: imputacion_id,
+  } as never);
+  if (error) return fail('COBR_DEJAR_A_CUENTA', error.message, error);
+  return ok({ comprobante_id: data as string });
+}
+
+// ============================================================================
 // Saldo a favor / crédito (JL #3 · DGG-91): al anular un comprobante ya pagado
 // (p. ej. inscripción duplicada) el pago queda como INGRESO sin imputar = saldo
 // a favor del cliente. Estas RPCs lo exponen y permiten aplicarlo a otra deuda
@@ -339,12 +373,16 @@ export interface CtaCteEntry {
   id: string;
   fecha: string;
   tipo: 'comprobante' | 'cobranza';
+  // DGG-259 · tipo crudo del extracto para decidir las acciones por fila.
+  rawTipo: 'cargo' | 'abono' | 'nota_credito' | 'saldo_favor' | 'saldo_inicial';
   titulo: string;
   detalle: string | null;
-  signo: 1 | -1; // +1 cargo (comprobante), -1 abono (cobranza)
+  signo: 1 | -1; // +1 cargo (comprobante), -1 abono (cobranza / NC / saldo a favor)
   monto: number;
   saldo: number; // acumulado al final de esta entrada
   comprobante_id: string | null;
+  movimiento_id: string | null;
+  imputacion_id: string | null;
   consorcio_nombre: string | null;
 }
 
@@ -376,7 +414,8 @@ export async function listCtaCteAdministracion(
   type ExtractoRow = {
     fecha: string;
     // E-GG-86: 'saldo_favor' = pago que quedó como crédito (se muestra como haber).
-    tipo: 'saldo_inicial' | 'cargo' | 'abono' | 'saldo_favor';
+    // DGG-259: 'nota_credito' = NC que acredita (haber).
+    tipo: 'saldo_inicial' | 'cargo' | 'abono' | 'saldo_favor' | 'nota_credito';
     descripcion: string | null;
     debe: number | string;
     haber: number | string;
@@ -404,12 +443,15 @@ export async function listCtaCteAdministracion(
           id: `saldo_inicial:${r.fecha}`,
           fecha: r.fecha,
           tipo: 'comprobante' as const,
+          rawTipo: 'saldo_inicial' as const,
           titulo: 'Saldo de períodos anteriores',
           detalle: null,
           signo: 1 as const,
           monto: 0,
           saldo: Number(r.saldo) || 0,
           comprobante_id: null,
+          movimiento_id: null,
+          imputacion_id: null,
           consorcio_nombre: null,
         };
       }
@@ -418,12 +460,15 @@ export async function listCtaCteAdministracion(
         id: `${r.tipo}:${r.comprobante_id ?? r.imputacion_id ?? r.movimiento_id ?? r.fecha}`,
         fecha: r.fecha,
         tipo: isCargo ? 'comprobante' : 'cobranza',
+        rawTipo: r.tipo,
         titulo: r.descripcion ?? (isCargo ? 'Comprobante' : 'Cobranza'),
         detalle: r.consorcio_nombre,
         signo: isCargo ? 1 : -1,
         monto: isCargo ? debe : haber,
         saldo: Number(r.saldo) || 0,
         comprobante_id: r.comprobante_id,
+        movimiento_id: r.movimiento_id,
+        imputacion_id: r.imputacion_id,
         consorcio_nombre: r.consorcio_nombre,
       };
     });

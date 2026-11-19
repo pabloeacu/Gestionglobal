@@ -17,6 +17,8 @@ import {
   Plus,
   XCircle,
   PiggyBank,
+  FileMinus,
+  Undo2,
 } from 'lucide-react';
 import {
   generateComprobantePdf,
@@ -24,6 +26,8 @@ import {
 import { EnviarComprobanteModal } from '../components/EnviarComprobanteModal';
 import { RegistrarCobranzaDrawer } from '../components/RegistrarCobranzaDrawer';
 import { AplicarSaldoAFavorDrawer } from '../components/AplicarSaldoAFavorDrawer';
+import { EmitirNotaCreditoDrawer } from '../components/EmitirNotaCreditoDrawer';
+import { RevertirCobranzaDialog } from '../components/RevertirCobranzaDialog';
 import { getResumenAdministracion } from '@/services/api/ctaCte';
 import {
   listCobranzasDeComprobante,
@@ -54,10 +58,13 @@ import {
   anularComprobante,
   anularComprobantePreview,
   transformarComprobanteAFiscal,
+  listNotasCreditoDeComprobante,
+  getComprobanteMini,
   type ComprobanteRow,
   type ComprobanteItemRow,
   type ComprobanteEstado,
   type CobranzaEstado,
+  type NotaCreditoRef,
 } from '@/services/api/comprobantes';
 import { cn } from '@/lib/cn';
 import { FileCheck2 } from 'lucide-react';
@@ -94,6 +101,12 @@ export function ComprobanteDetailPage() {
   const [enviarOpen, setEnviarOpen] = useState(false);
   const [cobranzaOpen, setCobranzaOpen] = useState(false);
   const [saldoFavorOpen, setSaldoFavorOpen] = useState(false);
+  const [ncOpen, setNcOpen] = useState(false);
+  // DGG-259 · reversión de cobranza (2 casos): guarda la fila a revertir.
+  const [revertir, setRevertir] = useState<{ imputacionId: string; movimientoId: string | null; monto: number; label: string } | null>(null);
+  // NCs que acreditan a este comprobante (si es positivo); o el original (si es NC).
+  const [ncs, setNcs] = useState<NotaCreditoRef[]>([]);
+  const [refOriginal, setRefOriginal] = useState<NotaCreditoRef | null>(null);
   const [cobranzas, setCobranzas] = useState<CobranzaListItem[]>([]);
   const [envios, setEnvios] = useState<SentEmailRow[]>([]);
   // Punto 7 (pedido Pablo): saldo a favor disponible del cliente → banner/CTA
@@ -117,6 +130,23 @@ export function ComprobanteDetailPage() {
     setItems(res.data.items);
     if (cobRes.ok) setCobranzas(cobRes.data);
     if (sentRes.ok) setEnvios(sentRes.data);
+
+    // DGG-259 · NCs del comprobante (si es positivo) o el original (si es NC).
+    const c = res.data.comprobante;
+    if (c.tipo.startsWith('NC_')) {
+      setNcs([]);
+      if (c.comprobante_referencia_id) {
+        const refRes = await getComprobanteMini(c.comprobante_referencia_id);
+        setRefOriginal(refRes.ok ? refRes.data : null);
+      } else {
+        setRefOriginal(null);
+      }
+    } else {
+      setRefOriginal(null);
+      const ncRes = await listNotasCreditoDeComprobante(c.id);
+      setNcs(ncRes.ok ? ncRes.data : []);
+    }
+
     // Crédito disponible del cliente (para ofrecer aplicarlo — punto 7 JL).
     const adminId = res.data.comprobante.administracion_id;
     if (adminId) {
@@ -167,6 +197,23 @@ export function ComprobanteDetailPage() {
 
   async function onAnular() {
     if (!comp) return;
+    // DGG-259 · Si es una NC, "anular" = revertir la nota de crédito: el saldo del
+    // comprobante original vuelve a subir. Copy dedicado (no el de anulación de factura).
+    if (comp.tipo.startsWith('NC_')) {
+      const okNc = await confirm({
+        title: '¿Revertir esta nota de crédito?',
+        message: 'La nota de crédito queda anulada y el saldo del comprobante original vuelve a subir por el mismo importe. La numeración no se reutiliza.',
+        confirmLabel: 'Sí, revertir',
+        cancelLabel: 'Volver',
+        danger: true,
+      });
+      if (!okNc) return;
+      const resNc = await anularComprobante(comp.id, 'Reversión de nota de crédito');
+      if (!resNc.ok) { toast.error(humanizeError(resNc.error)); return; }
+      toast.success('Nota de crédito revertida');
+      void load();
+      return;
+    }
     // E-GG-86: si el comprobante ya tiene un pago, anularlo NO borra la plata:
     // el pago queda como saldo a favor del cliente. Se lo advertimos explícitamente
     // a la gerencia antes de confirmar (pedido de Pablo).
@@ -284,6 +331,12 @@ export function ComprobanteDetailPage() {
 
   const estado = ESTADO_BADGES[comp.estado as ComprobanteEstado];
   const cobranza = COBRANZA_BADGES[comp.estado_cobranza as CobranzaEstado];
+  // DGG-259 · banderas NC
+  const esNC = comp.tipo.startsWith('NC_');
+  const saldoComp = Number(comp.saldo_pendiente ?? 0);
+  const ncsActivas = ncs.filter((n) => n.estado !== 'anulado' && n.estado !== 'borrador');
+  const tieneNCActivas = ncsActivas.length > 0;
+  const puedeEmitirNC = !esNC && comp.tipo === 'X' && comp.estado === 'autorizado' && saldoComp > 0;
   const numeroStr = comp.numero
     ? `${String(comp.punto_venta).padStart(5, '0')}-${String(comp.numero).padStart(8, '0')}`
     : '—';
@@ -372,15 +425,24 @@ export function ComprobanteDetailPage() {
                   <Send size={14} /> Enviar
                 </Button>
               )}
-              {/* #150 · Solo comprobantes simples (X) sin envío a ARCA pueden transformarse */}
-              {comp.tipo === 'X' && comp.estado !== 'anulado' && !comp.emitido_arca && (
+              {/* DGG-259 · Emitir nota de crédito (acredita contra el saldo pendiente). */}
+              {puedeEmitirNC && (
+                <Button variant="secondary" onClick={() => setNcOpen(true)}>
+                  <FileMinus size={14} /> Emitir NC
+                </Button>
+              )}
+              {/* #150 · Solo comprobantes simples (X) AUTORIZADOS sin envío a ARCA pueden transformarse
+                  (un 'compensado' ya fue acreditado → no se transforma). */}
+              {comp.tipo === 'X' && comp.estado === 'autorizado' && !comp.emitido_arca && (
                 <Button variant="secondary" onClick={() => void onTransformar()}>
                   <FileCheck2 size={14} /> Transformar a factura
                 </Button>
               )}
-              {comp.estado !== 'anulado' && !comp.cae && (
+              {/* Anular: para una NC = "Revertir NC". Para un comprobante positivo con NCs vivas,
+                  se oculta (hay que revertir las NC primero — el backend lo bloquea). */}
+              {comp.estado !== 'anulado' && !comp.cae && (esNC || !tieneNCActivas) && (
                 <Button variant="ghost" onClick={() => void onAnular()}>
-                  <Trash2 size={14} /> Anular
+                  <Trash2 size={14} /> {esNC ? 'Revertir NC' : 'Anular'}
                 </Button>
               )}
             </div>
@@ -388,8 +450,8 @@ export function ComprobanteDetailPage() {
         </div>
       </section>
 
-      {/* #150 · Banner informativo cuando el comprobante es simple */}
-      {comp.tipo === 'X' && comp.estado !== 'anulado' && (
+      {/* #150 · Banner informativo cuando el comprobante es simple (sólo autorizado, no compensado/NC) */}
+      {comp.tipo === 'X' && comp.estado === 'autorizado' && (
         <section className="flex items-start gap-3 rounded-2xl border border-cyan-200 bg-cyan-50/60 p-4 text-sm text-cyan-900 shadow-sm">
           <FileCheck2 className="mt-0.5 shrink-0 text-cyan-600" size={18} />
           <div className="min-w-0">
@@ -399,6 +461,50 @@ export function ComprobanteDetailPage() {
               tocá <strong>Transformar a factura</strong> para emitirlo ante ARCA (A/B/C).
             </p>
           </div>
+        </section>
+      )}
+
+      {/* DGG-259 · Si es una NOTA DE CRÉDITO: referencia al comprobante original + motivo. */}
+      {esNC && (
+        <section className="flex items-start gap-3 rounded-2xl border border-violet-200 bg-violet-50/60 p-4 text-sm text-violet-900 shadow-sm">
+          <FileMinus className="mt-0.5 shrink-0 text-violet-600" size={18} />
+          <div className="min-w-0">
+            <p className="font-semibold">Nota de crédito{refOriginal ? <> de{' '}
+              <Link to={`/gerencia/facturacion/${refOriginal.id}`} className="underline decoration-violet-400 underline-offset-2 hover:text-violet-700">
+                {refOriginal.tipo} {String(refOriginal.punto_venta).padStart(5, '0')}-{String(refOriginal.numero ?? 0).padStart(8, '0')}
+              </Link></> : ''}</p>
+            <p className="mt-0.5 text-xs text-violet-800/90">
+              Acredita (compensa) el comprobante original por {formatMoney(Number(comp.total ?? 0))}.
+              {comp.motivo_nc ? <> Motivo: <strong>{comp.motivo_nc}</strong>.</> : ''}
+            </p>
+          </div>
+        </section>
+      )}
+
+      {/* DGG-259 · Si el comprobante TIENE notas de crédito: listarlas con link + motivo. */}
+      {!esNC && ncs.length > 0 && (
+        <section className="rounded-2xl border border-violet-200 bg-white p-4 shadow-sm">
+          <div className="flex items-center gap-2">
+            <FileMinus className="shrink-0 text-violet-600" size={16} />
+            <p className="kicker text-violet-700">Notas de crédito</p>
+          </div>
+          <ul className="mt-2 divide-y divide-slate-100">
+            {ncs.map((n) => {
+              const anulada = n.estado === 'anulado';
+              return (
+                <li key={n.id} className="flex items-center justify-between gap-3 py-2 text-sm">
+                  <Link to={`/gerencia/facturacion/${n.id}`} className="min-w-0 truncate font-medium text-brand-ink hover:text-brand-cyan">
+                    {n.tipo} {String(n.punto_venta).padStart(5, '0')}-{String(n.numero ?? 0).padStart(8, '0')}
+                    {n.motivo_nc ? <span className="ml-2 text-xs text-brand-muted">· {n.motivo_nc}</span> : ''}
+                    {anulada ? <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-500">anulada</span> : ''}
+                  </Link>
+                  <span className={cn('tabular font-semibold', anulada ? 'text-brand-muted line-through' : 'text-violet-700')}>
+                    −{formatMoney(Number(n.total ?? 0))}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
         </section>
       )}
 
@@ -663,8 +769,13 @@ export function ComprobanteDetailPage() {
                 </div>
               )}
             {Number(comp.saldo_pendiente) > 0 &&
-              comp.estado !== 'anulado' && (
+              comp.estado !== 'anulado' && !esNC && (
                 <div className="flex flex-wrap items-center gap-2">
+                  {puedeEmitirNC && (
+                    <Button variant="secondary" onClick={() => setNcOpen(true)}>
+                      <FileMinus size={15} /> Emitir NC
+                    </Button>
+                  )}
                   <Button variant="secondary" onClick={() => setSaldoFavorOpen(true)}>
                     <PiggyBank size={15} /> Aplicar saldo a favor
                   </Button>
@@ -742,17 +853,28 @@ export function ComprobanteDetailPage() {
                       </td>
                       <td className="px-4 py-3 text-right">
                         {comp.estado !== 'anulado' && (
-                          <button
-                            onClick={() => void onDesimputar(c.id, esCredito)}
-                            className="rounded-md p-1.5 text-brand-muted hover:bg-red-50 hover:text-red-600"
-                            title={
-                              esCredito
-                                ? 'Quitar el saldo a favor (vuelve a quedar disponible)'
-                                : 'Desimputar (revierte el pago)'
-                            }
-                          >
-                            <XCircle size={14} />
-                          </button>
+                          esCredito ? (
+                            <button
+                              onClick={() => void onDesimputar(c.id, true)}
+                              className="rounded-md p-1.5 text-brand-muted hover:bg-red-50 hover:text-red-600"
+                              title="Quitar el saldo a favor (vuelve a quedar disponible)"
+                            >
+                              <XCircle size={14} />
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => setRevertir({
+                                imputacionId: c.id,
+                                movimientoId: c.movimiento.id,
+                                monto: Number(c.monto_imputado),
+                                label: `Cobranza · ${formatMoney(Number(c.monto_imputado))}`,
+                              })}
+                              className="inline-flex items-center gap-1 rounded-md px-2 py-1.5 text-xs font-medium text-brand-muted hover:bg-amber-50 hover:text-amber-700"
+                              title="Revertir la cobranza (anular el pago o dejarlo a cuenta)"
+                            >
+                              <Undo2 size={13} /> Revertir
+                            </button>
+                          )
                         )}
                       </td>
                     </tr>
@@ -877,6 +999,21 @@ export function ComprobanteDetailPage() {
         onClose={() => setSaldoFavorOpen(false)}
         comprobante={comp}
         onSaved={() => void load()}
+      />
+      <EmitirNotaCreditoDrawer
+        open={ncOpen}
+        onClose={() => setNcOpen(false)}
+        comprobante={comp}
+        onSaved={() => void load()}
+      />
+      <RevertirCobranzaDialog
+        open={!!revertir}
+        onClose={() => setRevertir(null)}
+        imputacionId={revertir?.imputacionId ?? ''}
+        movimientoId={revertir?.movimientoId ?? null}
+        montoCobranza={revertir?.monto ?? 0}
+        label={revertir?.label}
+        onDone={() => void load()}
       />
     </div>
   );

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { toast } from '@/lib/toast';
 import {
@@ -24,6 +24,8 @@ import {
   Loader2,
   Copy,
   Check,
+  FileMinus,
+  Undo2,
 } from 'lucide-react';
 import {
   Button,
@@ -68,6 +70,16 @@ import {
   listCtaCteAdministracion,
   type CtaCteEntry,
 } from '@/services/api/cobranzas';
+import {
+  getComprobante,
+  anularComprobante,
+  listComprobantesEstadoCtaCte,
+  type ComprobanteRow,
+  type ComprobanteEstadoCtaCte,
+} from '@/services/api/comprobantes';
+import { RegistrarCobranzaDrawer } from '@/modules/facturacion/components/RegistrarCobranzaDrawer';
+import { EmitirNotaCreditoDrawer } from '@/modules/facturacion/components/EmitirNotaCreditoDrawer';
+import { RevertirCobranzaDialog } from '@/modules/facturacion/components/RevertirCobranzaDialog';
 import { getResumenAdministracion, type CtaCteResumen } from '@/services/api/ctaCte';
 import { formatDateShort, parseLocalDate } from '@/lib/dates';
 import { cn } from '@/lib/cn';
@@ -1302,22 +1314,32 @@ function TabConsorcios({
 }
 
 function TabCtaCte({ administracionId }: { administracionId: string }) {
+  const confirm = useConfirm();
   const [rows, setRows] = useState<CtaCteEntry[]>([]);
   const [resumen, setResumen] = useState<CtaCteResumen | null>(null);
+  // DGG-259 · estado liviano de los comprobantes para decidir las acciones por fila.
+  const [compMap, setCompMap] = useState<Map<string, ComprobanteEstadoCtaCte>>(new Map());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // DGG-259 · acciones: el comprobante cargado para el drawer + los diálogos abiertos.
+  const [actionComp, setActionComp] = useState<ComprobanteRow | null>(null);
+  const [cobranzaOpen, setCobranzaOpen] = useState(false);
+  const [ncOpen, setNcOpen] = useState(false);
+  const [revertir, setRevertir] = useState<
+    { imputacionId: string; movimientoId: string | null; monto: number; label: string } | null
+  >(null);
 
-  useEffect(() => {
+  const load = useCallback(() => {
     setLoading(true);
     setError(null);
     // Fuente ÚNICA de saldo/totales = RPC `cuenta_corriente_resumen` (la misma que
     // usa Facturación → CtaCteDetailPage). El extracto queda SÓLO para la tabla de
-    // movimientos, nunca para calcular el saldo (bug histórico: rows[0] = mov más
-    // viejo; JL — ficha 410k vs cta cte 205k). Rango amplio = todo el histórico.
+    // movimientos, nunca para calcular el saldo. Rango amplio = todo el histórico.
     void Promise.all([
       listCtaCteAdministracion(administracionId),
       getResumenAdministracion(administracionId, '2000-01-01', '2100-12-31'),
-    ]).then(([ext, res]) => {
+      listComprobantesEstadoCtaCte(administracionId),
+    ]).then(([ext, res, cmp]) => {
       setLoading(false);
       if (!ext.ok) {
         setError(humanizeError(ext.error));
@@ -1325,8 +1347,40 @@ function TabCtaCte({ administracionId }: { administracionId: string }) {
       }
       setRows(ext.data);
       if (res.ok) setResumen(res.data);
+      if (cmp.ok) setCompMap(new Map(cmp.data.map((c) => [c.id, c])));
     });
   }, [administracionId]);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function openDrawerFor(id: string, which: 'cobrar' | 'nc') {
+    const r = await getComprobante(id);
+    if (!r.ok) { toast.error(humanizeError(r.error)); return; }
+    setActionComp(r.data.comprobante);
+    if (which === 'cobrar') setCobranzaOpen(true); else setNcOpen(true);
+  }
+  async function onEliminar(id: string, label: string) {
+    const ok = await confirm({
+      title: 'Eliminar comprobante',
+      message: `Vas a eliminar ${label}. Como es un comprobante simple sin cobranzas ni notas de crédito, queda ANULADO (conserva el número y el rastro de auditoría). No se puede deshacer.`,
+      confirmLabel: 'Eliminar', cancelLabel: 'Volver', danger: true,
+    });
+    if (!ok) return;
+    const res = await anularComprobante(id, 'Eliminado desde cuenta corriente');
+    if (!res.ok) { toast.error(humanizeError(res.error)); return; }
+    toast.success('Comprobante eliminado'); load();
+  }
+  async function onRevertirNC(id: string, label: string) {
+    const ok = await confirm({
+      title: 'Revertir nota de crédito',
+      message: `Vas a revertir ${label}. La nota de crédito queda anulada y el saldo del comprobante original vuelve a subir por el mismo importe.`,
+      confirmLabel: 'Revertir', cancelLabel: 'Volver', danger: true,
+    });
+    if (!ok) return;
+    const res = await anularComprobante(id, 'Reversión de nota de crédito');
+    if (!res.ok) { toast.error(humanizeError(res.error)); return; }
+    toast.success('Nota de crédito revertida'); load();
+  }
 
   if (loading) {
     return (
@@ -1411,6 +1465,7 @@ function TabCtaCte({ administracionId }: { administracionId: string }) {
               <th className="px-4 py-2.5 text-right">Cargo</th>
               <th className="px-4 py-2.5 text-right">Cobranza</th>
               <th className="px-4 py-2.5 text-right">Saldo</th>
+              <th className="px-4 py-2.5 text-right">Acciones</th>
             </tr>
           </thead>
           <tbody>
@@ -1427,7 +1482,7 @@ function TabCtaCte({ administracionId }: { administracionId: string }) {
                   {formatDateShort(r.fecha)}
                 </td>
                 <td className="px-4 py-3">
-                  {r.tipo === 'comprobante' && r.comprobante_id ? (
+                  {r.comprobante_id && (r.tipo === 'comprobante' || r.rawTipo === 'nota_credito') ? (
                     <Link
                       to={`/gerencia/facturacion/${r.comprobante_id}`}
                       className="font-medium text-brand-ink hover:text-brand-cyan"
@@ -1462,13 +1517,133 @@ function TabCtaCte({ administracionId }: { administracionId: string }) {
                 }`}>
                   {moneyTab(r.saldo)}
                 </td>
+                <td className="px-4 py-3 text-right">
+                  <CtaCteRowActions
+                    r={r}
+                    comp={r.comprobante_id ? compMap.get(r.comprobante_id) : undefined}
+                    onCobrar={(id) => void openDrawerFor(id, 'cobrar')}
+                    onEmitirNC={(id) => void openDrawerFor(id, 'nc')}
+                    onEliminar={(id, label) => void onEliminar(id, label)}
+                    onRevertirNC={(id, label) => void onRevertirNC(id, label)}
+                    onRevertirCobranza={(imp, mov, monto, label) => setRevertir({ imputacionId: imp, movimientoId: mov, monto, label })}
+                  />
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+
+      {actionComp && (
+        <>
+          <RegistrarCobranzaDrawer
+            open={cobranzaOpen}
+            onClose={() => { setCobranzaOpen(false); setActionComp(null); }}
+            comprobante={actionComp}
+            onSaved={() => load()}
+          />
+          <EmitirNotaCreditoDrawer
+            open={ncOpen}
+            onClose={() => { setNcOpen(false); setActionComp(null); }}
+            comprobante={actionComp}
+            onSaved={() => load()}
+          />
+        </>
+      )}
+      <RevertirCobranzaDialog
+        open={!!revertir}
+        onClose={() => setRevertir(null)}
+        imputacionId={revertir?.imputacionId ?? ''}
+        movimientoId={revertir?.movimientoId ?? null}
+        montoCobranza={revertir?.monto ?? 0}
+        label={revertir?.label}
+        onDone={() => load()}
+      />
     </div>
   );
+}
+
+/** DGG-259 · Acciones por fila de la cuenta corriente, según el tipo de movimiento. */
+function CtaCteRowActions({
+  r, comp, onCobrar, onEmitirNC, onEliminar, onRevertirNC, onRevertirCobranza,
+}: {
+  r: CtaCteEntry;
+  comp?: ComprobanteEstadoCtaCte;
+  onCobrar: (id: string) => void;
+  onEmitirNC: (id: string) => void;
+  onEliminar: (id: string, label: string) => void;
+  onRevertirNC: (id: string, label: string) => void;
+  onRevertirCobranza: (imputacionId: string, movimientoId: string | null, monto: number, label: string) => void;
+}) {
+  const btn = 'inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition';
+
+  // Cobranza → revertir (2 casos).
+  if (r.rawTipo === 'abono' && r.imputacion_id) {
+    return (
+      <button
+        type="button"
+        onClick={() => onRevertirCobranza(r.imputacion_id!, r.movimiento_id, r.monto, r.titulo || 'Cobranza')}
+        className={`${btn} text-brand-muted hover:bg-amber-50 hover:text-amber-700`}
+        title="Revertir la cobranza (anular el pago o dejarlo a cuenta)"
+      >
+        <Undo2 size={13} /> Revertir
+      </button>
+    );
+  }
+
+  // Nota de crédito → revertir NC.
+  if (r.rawTipo === 'nota_credito' && r.comprobante_id) {
+    const anulada = comp?.estado === 'anulado';
+    if (anulada) return <span className="text-xs text-brand-muted">—</span>;
+    return (
+      <button
+        type="button"
+        onClick={() => onRevertirNC(r.comprobante_id!, r.titulo || 'Nota de crédito')}
+        className={`${btn} text-brand-muted hover:bg-rose-50 hover:text-rose-700`}
+        title="Revertir la nota de crédito (el saldo del original vuelve a subir)"
+      >
+        <Undo2 size={13} /> Revertir NC
+      </button>
+    );
+  }
+
+  // Comprobante (cargo) → cobrar / emitir NC / eliminar, según su estado.
+  if (r.tipo === 'comprobante' && r.comprobante_id && comp) {
+    const saldo = Number(comp.saldo_pendiente ?? 0);
+    const total = Number(comp.total ?? 0);
+    const esX = comp.tipo === 'X';
+    const autorizado = comp.estado === 'autorizado';
+    const puedeCobrar = saldo > 0 && comp.estado !== 'anulado';
+    const puedeNC = esX && autorizado && saldo > 0;
+    const puedeEliminar = esX && autorizado && Math.abs(saldo - total) < 0.009; // sin cobranzas ni NC
+    if (!puedeCobrar && !puedeNC && !puedeEliminar) {
+      return <span className="text-xs text-brand-muted">—</span>;
+    }
+    return (
+      <div className="flex flex-wrap items-center justify-end gap-1">
+        {puedeCobrar && (
+          <button type="button" onClick={() => onCobrar(r.comprobante_id!)}
+            className={`${btn} text-brand-cyan hover:bg-brand-cyan-pale/40`} title="Registrar cobranza">
+            <Plus size={13} /> Cobrar
+          </button>
+        )}
+        {puedeNC && (
+          <button type="button" onClick={() => onEmitirNC(r.comprobante_id!)}
+            className={`${btn} text-violet-700 hover:bg-violet-50`} title="Emitir nota de crédito">
+            <FileMinus size={13} /> NC
+          </button>
+        )}
+        {puedeEliminar && (
+          <button type="button" onClick={() => onEliminar(r.comprobante_id!, r.titulo || 'comprobante')}
+            className={`${btn} text-brand-muted hover:bg-rose-50 hover:text-rose-700`} title="Eliminar (sin cobranzas ni NC)">
+            <Trash2 size={13} /> Eliminar
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  return <span className="text-xs text-brand-muted">—</span>;
 }
 
 function moneyTab(n: number): string {

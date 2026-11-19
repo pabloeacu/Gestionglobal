@@ -132,7 +132,8 @@ export async function getPortalDashboard(
   }
 
   return ok({
-    comprobantesActivos: rows.filter((r) => r.estado === 'autorizado').length,
+    // DGG-259: las NC no son comprobantes "activos" (acreditan) → no contarlas.
+    comprobantesActivos: rows.filter((r) => r.estado === 'autorizado' && !String(r.tipo).startsWith('NC_')).length,
     saldoPendienteTotal,
     vencidosCount,
     proximoVencimiento,

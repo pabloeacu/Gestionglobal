@@ -104,7 +104,10 @@ export function PortalComprobantesPage() {
 
   // KPIs SIEMPRE sobre el universo completo (`rows`), nunca sobre lo filtrado.
   const kpis = useMemo(() => {
-    const emitidos = rows.filter((r) => r.estado === 'autorizado').length;
+    // DGG-259 · las notas de crédito (NC_*) acreditan: no son "emitidos" ni "pagados".
+    // Un 'compensado' se saldó con NC (no se pagó) → tampoco cuenta como pagado.
+    const esNC = (t?: string | null) => !!t && t.startsWith('NC_');
+    const emitidos = rows.filter((r) => !esNC(r.tipo) && (r.estado === 'autorizado' || r.estado === 'compensado')).length;
     const totalPendiente = rows
       .filter((r) => r.estado_cobranza === 'pendiente' || r.estado_cobranza === 'parcial')
       .reduce((s, r) => s + Number(r.saldo_pendiente ?? 0), 0);
@@ -114,7 +117,7 @@ export function PortalComprobantesPage() {
       .filter((r) => esComprobanteVencido(r))
       .reduce((s, r) => s + Number(r.saldo_pendiente ?? 0), 0);
     const totalPagado = rows
-      .filter((r) => r.estado_cobranza === 'pagado')
+      .filter((r) => r.estado_cobranza === 'pagado' && !esNC(r.tipo) && r.estado !== 'compensado')
       .reduce((s, r) => s + Number(r.total ?? 0), 0);
     return { emitidos, totalPendiente, totalVencido, totalPagado };
   }, [rows]);
