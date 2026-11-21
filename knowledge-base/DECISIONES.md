@@ -9218,3 +9218,34 @@ validador no NC-aware, etc.) + 5 de coherencia UI (ruteo del crédito aplicado R
 drawer, gating "cobrable" en rechazado/error, copy de NC anulada, hint compensado). tsc+build verdes;
 R16 overloads=0; 235 comprobantes reales intactos (drift=0). **QA en vivo en prod (Chrome gerente):
 OK** (admin QA efímero pv 9999, 0 residuo) — ver PROJECT_STATUS. Ver E-GG-286..E-GG-290.
+
+## DGG-260 (2026-11-21) — Una reversión debe repercutir en TODAS las puntas (también el Partner)
+
+Pablo detectó que un egreso a docente revertido en la Caja (la fecha del detalle estaba mal; se
+recargó correcto como otra fecha) seguía descontando su participación (−$25.000) en la sábana del
+partner FundPlata. Principio reafirmado (`feedback_consistencia_contable`): **una operación impacta
+TODAS las puntas que toca; la fuente de verdad es `movimientos.revertido_at` y todo lector/productor
+debe respetarla.** `fz_revertir_movimiento` ya hace lo suyo (setea `revertido_at` + contra-asiento);
+no debe "empujar" al partner — son los lectores los que filtran.
+
+`partner_sabana` deriva la participación **en vivo** desde `movimientos` (no hay atribuciones
+persistidas de egresos-cash); su CTE `egresos_cash` filtraba sólo `estado<>'anulado'`, no
+`revertido_at` → el egreso revertido (que queda `estado='identificado'`) se seguía sumando. Las
+cobranzas (ingresos) revertidas YA caían porque la reversión borra sus `movimiento_imputaciones` y la
+sábana lee ingresos por imputación; el hueco era sólo egresos-cash. El mismo hueco estaba en
+`partner_crear_rendicion` (productor: habría snapshoteado el egreso revertido en una rendición futura).
+
+**Decisión/fix (mig 0706):** en toda derivación de participación de partner desde `movimientos`,
+excluir `revertido_at IS NULL AND movimiento_revertido_id IS NULL` (1º el original revertido, 2º el
+contra-asiento). Fijados el **lector** (`partner_sabana`, que alimenta la sábana + las tarjetas del
+header) y el **productor** (`partner_crear_rendicion`). `CREATE OR REPLACE` con la misma firma (R16
+OK). **Sin mutación de datos** (0 atribuciones persistidas / 0 rendiciones → la línea cae sola de la
+derivación en vivo). La Caja ya excluía la reversión (`0056_finanzas_kpis_excluir_reversion`); el
+partner era la punta faltante.
+
+**§6:** barrido de TODOS los movimientos con partner revertidos/anulados (3, sólo FundPlata; sólo el
+egreso era el bug vivo — las 2 cobranzas ya limpias) + barrido de funciones que derivan plata de
+partner desde `movimientos` (sólo sabana + rendición; el resto RLS/listados/writers). e2e
+`BEGIN…ROLLBACK` (insertar egreso de partner → aparece en sábana → revertir → desaparece, delta
+correcto) + RPC real (23/10 = 0 líneas, 26/10 = 1) + prueba en vivo (ficha FundPlata: 23/10 ausente,
+26/10 presente, saldo a favor consistente con la Caja). Ver E-GG-291.
