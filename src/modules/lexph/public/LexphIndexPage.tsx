@@ -148,21 +148,28 @@ export function LexphIndexPage() {
     () => new Set(featured ? [featured.id, ...latest.map((a) => a.id)] : []),
     [featured, latest],
   );
+  // Secciones curadas (regla de Pablo): ACUMULAN a través de ediciones. A diferencia del
+  // hero / "Lo último" / digest —que son privilegio exclusivo de la edición actual
+  // (homeUniverse, cap-6)— cada sección por tipo recopila: primero las de la edición en curso
+  // (badge "Nuevo") y detrás se rellena con las históricas más recientes, hasta un tope por
+  // sección. El archivo completo de cada tipo vive en "Ver todas" / la vista filtrada.
+  const SECCION_CAP = 6;
+  const curadoUniverso = useMemo(() => [...nuevos, ...historicos], [nuevos, historicos]);
   const fallos = useMemo(
-    () => homeUniverse.filter((a) => a.tipo === 'fallo' && !excludeIds.has(a.id)),
-    [homeUniverse, excludeIds],
+    () => curadoUniverso.filter((a) => a.tipo === 'fallo' && !excludeIds.has(a.id)).slice(0, SECCION_CAP),
+    [curadoUniverso, excludeIds],
   );
   const normativas = useMemo(
-    () => homeUniverse.filter((a) => a.tipo === 'normativa' && !excludeIds.has(a.id)),
-    [homeUniverse, excludeIds],
+    () => curadoUniverso.filter((a) => a.tipo === 'normativa' && !excludeIds.has(a.id)).slice(0, SECCION_CAP),
+    [curadoUniverso, excludeIds],
   );
   const internacionales = useMemo(
-    () => homeUniverse.filter((a) => a.tipo === 'internacional' && !excludeIds.has(a.id)),
-    [homeUniverse, excludeIds],
+    () => curadoUniverso.filter((a) => a.tipo === 'internacional' && !excludeIds.has(a.id)).slice(0, SECCION_CAP),
+    [curadoUniverso, excludeIds],
   );
   const insights = useMemo(
-    () => homeUniverse.filter((a) => a.tipo === 'insight' && !excludeIds.has(a.id)),
-    [homeUniverse, excludeIds],
+    () => curadoUniverso.filter((a) => a.tipo === 'insight' && !excludeIds.has(a.id)).slice(0, SECCION_CAP),
+    [curadoUniverso, excludeIds],
   );
 
   // Título del hero cuando no hay nota de tapa (vista filtrada o 0 artículos):
