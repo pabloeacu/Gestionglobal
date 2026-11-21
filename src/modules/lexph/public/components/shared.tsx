@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Star } from 'lucide-react';
 import { SiteNav } from '@/components/site/SiteNav';
 import { SiteFooter } from '@/components/site/SiteFooter';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
@@ -135,6 +135,21 @@ export function LexphBadge({
   );
 }
 
+// Badge "Nuevo" (edición actual): estrella blanca de marca + label, sobre fondo cian.
+export function LexphNuevoBadge({ className, iconSize = 11 }: { className?: string; iconSize?: number }) {
+  return (
+    <span
+      className={cn(
+        'font-gg-display inline-flex items-center gap-1 bg-brand-cyan font-bold uppercase tracking-[0.1em] text-white',
+        className,
+      )}
+    >
+      <Star size={iconSize} strokeWidth={0} className="shrink-0 fill-white" aria-hidden />
+      Nuevo
+    </span>
+  );
+}
+
 export function LexphLoader() {
   return (
     <div className="flex min-h-[50vh] items-center justify-center">
@@ -214,9 +229,7 @@ export function LexphCard({ item, nuevo = false }: { item: LexphFeedItem; nuevo?
       <div className="relative aspect-[16/9] w-full overflow-hidden">
         <LexphCover item={item} className="transition duration-500 group-hover:scale-[1.03]" />
         {nuevo && (
-          <span className="font-gg-display absolute left-0 top-3 z-10 bg-brand-cyan px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.1em] text-white">
-            Nuevo
-          </span>
+          <LexphNuevoBadge iconSize={11} className="absolute left-0 top-3 z-10 px-2.5 py-1 text-[10px]" />
         )}
       </div>
       <div style={{ backgroundColor: meta.accent }} className="h-1 w-full" />

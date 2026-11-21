@@ -25,6 +25,7 @@ import {
   LexphCover,
   LexphMasthead,
   LexphBadge,
+  LexphNuevoBadge,
   fmtDMY,
   fmtFechaCorta,
   fmtFechaLarga,
@@ -564,15 +565,18 @@ function AgendaRow({ item, nuevo = false }: { item: LexphFeedItem; nuevo?: boole
       to={`/lexph/${item.slug}`}
       className="grid grid-cols-1 items-center gap-x-5 gap-y-1 border-b border-slate-200 px-1 py-5 transition hover:bg-slate-50 sm:grid-cols-[110px_1fr_auto]"
     >
-      <div className="font-gg-display text-[13px] font-semibold uppercase tracking-[0.05em] text-brand-teal tabular-nums">
+      <div
+        className={cn(
+          'font-gg-display text-[13px] font-semibold uppercase tracking-[0.05em] tabular-nums',
+          nuevo ? 'text-brand-teal' : 'text-brand-ink',
+        )}
+      >
         {fmtFechaCorta(item.publicado_at)}
       </div>
       <div>
         <h3 className="font-display text-[1.05rem] font-semibold leading-snug text-brand-ink">
           {nuevo && (
-            <span className="font-gg-display mr-2 inline-block translate-y-[-1px] bg-brand-cyan px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.1em] text-white align-middle">
-              Nuevo
-            </span>
+            <LexphNuevoBadge iconSize={9} className="mr-2 translate-y-[-1px] px-1.5 py-0.5 text-[9px] align-middle" />
           )}
           {item.titulo}
         </h3>
