@@ -330,8 +330,13 @@ latente.
   generationConfig:{ responseModalities:["IMAGE"], imageConfig:{ aspectRatio:"16:9" } } }`.
   La imagen vuelve en base64 (`candidates[].content.parts[].inlineData.data`). Costo ~US$0.04/img.
   - **Billing PREPAGO AR obligatorio** (cargar saldo en AI Studio → Facturación → prepago;
-    proyecto `gen-lang-client-0299269938`, cuenta personal de Pablo). **La API key es
-    secreta**: vive en un archivo local fuera del repo, **nunca** se commitea ni se imprime.
+    proyecto `gen-lang-client-0299269938`, cuenta `pabloeacu@gmail.com`).
+  - **Dónde está la API key (ruta persistente):** en `.env.local` del repo como variable
+    **`GEMINI_API_KEY`** (gitignored por `*.local`/`.env`; no se commitea; chmod 600). Al no
+    tener prefijo `VITE_`, Vite NO la bundlea. Leela sin imprimirla:
+    `KEY="$(grep '^GEMINI_API_KEY=' .env.local | cut -d= -f2-)"` y pasala por header
+    `x-goog-api-key: $KEY`. **La key es secreta: nunca la imprimas ni la commitees.** Formato
+    actual: empieza con `AQ.…` (~53 chars), ya no el viejo `AIza…`.
   - `429 limit:0` = free tier (habilitar billing); `402` = sin saldo prepago.
   - **No** usar el MCP `generate-image` (es de Canva: sólo thumbnail 200px, no batcheable).
 - **Enganche a la nota:** `UPDATE lexph_articulos SET imagen_url =
@@ -604,8 +609,9 @@ cerrar la 2 se abrirá y recién ahí se ejercita el ciclo completo por 2ª vez.
 - **Logos:** `/brand/lexph-logo.png` (franja blanca), `/brand/lexph-logo-white.png` (mail + banner portal).
 - **Difusión:** `lexph_newsletter_enviar(edicion_id)` · re-agendar `lexph-reporte-diario` ·
   avisar portal `lexph_edicion_avisar_portal(edicion_id, true)`.
-- **Gemini:** `gemini-2.5-flash-image` REST, 16:9, key prepaga AR secreta local, proyecto
-  `gen-lang-client-0299269938`.
+- **Gemini:** `gemini-2.5-flash-image` REST, 16:9, proyecto `gen-lang-client-0299269938`
+  (cuenta `pabloeacu@gmail.com`, prepago). **Key en `.env.local` → `GEMINI_API_KEY`**
+  (gitignored; formato `AQ.…`; nunca imprimir/commitear).
 - **Regenerar types** tras cada migración: `bash scripts/generate-types.sh`. **Build:**
   `npm run build` (incluye `tsc --noEmit`). **Nunca** `supabase.from()` en componentes.
 
