@@ -21,6 +21,8 @@ import {
   Video,
   PlusCircle,
   ShieldCheck,
+  PanelLeftOpen,
+  PanelLeftClose,
 } from 'lucide-react';
 import { BrandMark } from '@/components/brand/BrandMark';
 import { IsoMark } from '@/components/brand/IsoMark';
@@ -59,6 +61,11 @@ export function PortalLayout() {
   const { user, signOut } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  // Riel desktop: arranca SIEMPRE colapsado (pedido Pablo 2026-11-22 — muchos
+  // administradores no descubren los tooltips al pasar el mouse por los íconos;
+  // con un clic pueden expandirlo lateralmente y ver las descripciones). No se
+  // persiste a propósito: cada carga vuelve a colapsado ("por defecto colapsado").
+  const [railExpanded, setRailExpanded] = useState(false);
   const [adminNombre, setAdminNombre] = useState<string | null>(null);
   const location = useLocation();
 
@@ -95,20 +102,39 @@ export function PortalLayout() {
     // DGG-136 · data-gg="portal": hook INERTE del tema gg-brand — todos los
     // overrides visuales viven en CSS bajo [data-theme="gg-brand"] [data-gg="portal"].
     <div data-gg="portal" className="flex min-h-screen bg-white font-sans">
-      {/* Sidebar (desktop) */}
-      <aside data-gg-rail className="hidden w-[72px] shrink-0 flex-col border-r border-slate-200 bg-white md:flex">
-        <div className="flex h-16 items-center justify-center border-b border-slate-100">
+      {/* Sidebar (desktop) · colapsable: 72px (íconos) ⇄ 224px (íconos + labels) */}
+      <aside
+        data-gg-rail
+        className={cn(
+          'hidden shrink-0 flex-col border-r border-slate-200 bg-white transition-[width] duration-200 ease-out md:flex',
+          railExpanded ? 'w-56' : 'w-[72px]',
+        )}
+      >
+        <div
+          className={cn(
+            'flex h-16 items-center border-b border-slate-100',
+            railExpanded ? 'px-4' : 'justify-center',
+          )}
+        >
           <Link
             to="/portal"
-            className="block transition hover:opacity-80"
+            className="flex items-center gap-2.5 transition hover:opacity-80"
             aria-label="Inicio"
             title="Gestión Global"
           >
             <IsoMark size={34} />
+            {railExpanded && (
+              <span className="font-display text-base font-semibold leading-none text-brand-ink">
+                Gestión Global
+              </span>
+            )}
           </Link>
         </div>
-        <SidebarNavCompact />
-        <SidebarFootCompact onSignOut={signOut} />
+        <SidebarNavCompact
+          expanded={railExpanded}
+          onToggle={() => setRailExpanded((v) => !v)}
+        />
+        <SidebarFootCompact expanded={railExpanded} onSignOut={signOut} />
       </aside>
 
       {/* Sidebar (mobile) */}
@@ -239,41 +265,87 @@ export function PortalLayout() {
   );
 }
 
-function SidebarNavCompact() {
+function SidebarNavCompact({
+  expanded,
+  onToggle,
+}: {
+  expanded: boolean;
+  onToggle: () => void;
+}) {
   return (
-    <nav className="flex-1 overflow-y-auto px-2 py-4">
+    <nav className="flex-1 overflow-y-auto px-2 py-3">
+      {/* Control expandir/contraer el riel. Afform discoverible (chevron ») para
+          los administradores que no descubren los tooltips al hacer hover. */}
+      <div className="mb-1 border-b border-slate-100 pb-2">
+        {expanded ? (
+          <button
+            type="button"
+            onClick={onToggle}
+            aria-label="Contraer menú"
+            aria-expanded
+            className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-brand-muted transition hover:bg-slate-100 hover:text-brand-ink"
+          >
+            <PanelLeftClose size={18} className="shrink-0" />
+            <span>Contraer</span>
+          </button>
+        ) : (
+          <Tooltip label="Expandir menú" side="right">
+            <button
+              type="button"
+              onClick={onToggle}
+              aria-label="Expandir menú"
+              aria-expanded={false}
+              className="grid h-11 w-full place-items-center rounded-xl text-brand-muted transition hover:bg-slate-100 hover:text-brand-ink"
+            >
+              <PanelLeftOpen size={18} />
+            </button>
+          </Tooltip>
+        )}
+      </div>
+
       <ul className="space-y-1">
         {NAV.map((item) => {
           const Icon = item.icon;
+          const link = (
+            <NavLink
+              to={item.to}
+              end={item.end}
+              aria-label={item.label}
+              className={({ isActive }) =>
+                cn(
+                  'relative flex h-11 items-center rounded-xl transition',
+                  expanded ? 'gap-3 px-3' : 'w-full justify-center',
+                  isActive
+                    ? 'bg-brand-cyan/10 text-brand-cyan'
+                    : 'text-brand-muted hover:bg-slate-100 hover:text-brand-ink',
+                )
+              }
+            >
+              {({ isActive }) => (
+                <>
+                  <Icon size={18} className="shrink-0" />
+                  {expanded && (
+                    <span className="truncate text-sm font-medium">{item.label}</span>
+                  )}
+                  {isActive && (
+                    <span
+                      aria-hidden
+                      className="absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-r bg-brand-cyan"
+                    />
+                  )}
+                </>
+              )}
+            </NavLink>
+          );
           return (
             <li key={item.to}>
-              <Tooltip label={item.label} side="right">
-                <NavLink
-                  to={item.to}
-                  end={item.end}
-                  aria-label={item.label}
-                  className={({ isActive }) =>
-                    cn(
-                      'relative grid h-11 w-full place-items-center rounded-xl transition',
-                      isActive
-                        ? 'bg-brand-cyan/10 text-brand-cyan'
-                        : 'text-brand-muted hover:bg-slate-100 hover:text-brand-ink',
-                    )
-                  }
-                >
-                  {({ isActive }) => (
-                    <>
-                      <Icon size={18} />
-                      {isActive && (
-                        <span
-                          aria-hidden
-                          className="absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-r bg-brand-cyan"
-                        />
-                      )}
-                    </>
-                  )}
-                </NavLink>
-              </Tooltip>
+              {expanded ? (
+                link
+              ) : (
+                <Tooltip label={item.label} side="right">
+                  {link}
+                </Tooltip>
+              )}
             </li>
           );
         })}
@@ -314,26 +386,65 @@ function SidebarNavExpanded({ onNavigate }: { onNavigate?: () => void }) {
   );
 }
 
-function SidebarFootCompact({ onSignOut }: { onSignOut: () => Promise<void> }) {
+function SidebarFootCompact({
+  expanded,
+  onSignOut,
+}: {
+  expanded: boolean;
+  onSignOut: () => Promise<void>;
+}) {
   const { enabled, setEnabled, play } = useSounds();
+  const toggleSound = () => {
+    const next = !enabled;
+    setEnabled(next);
+    if (next) play('click');
+  };
+  const soundLabel = enabled ? 'Silenciar sonidos' : 'Activar sonidos';
+
+  if (expanded) {
+    return (
+      <div className="border-t border-slate-100 p-2">
+        <button
+          type="button"
+          onClick={toggleSound}
+          aria-label={soundLabel}
+          className={cn(
+            'flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition',
+            enabled
+              ? 'text-brand-cyan hover:bg-brand-cyan-pale/40'
+              : 'text-brand-muted hover:bg-slate-100 hover:text-brand-ink',
+          )}
+        >
+          {enabled ? <Volume2 size={16} className="shrink-0" /> : <VolumeX size={16} className="shrink-0" />}
+          <span>{soundLabel}</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => void onSignOut()}
+          aria-label="Cerrar sesión"
+          className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-brand-muted transition hover:bg-slate-100 hover:text-brand-ink"
+        >
+          <LogOut size={16} className="shrink-0" />
+          <span>Cerrar sesión</span>
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="border-t border-slate-100 p-2">
       <div className="flex flex-col items-center gap-1">
-        <Tooltip label={enabled ? 'Silenciar sonidos' : 'Activar sonidos'} side="right">
+        <Tooltip label={soundLabel} side="right">
           <button
             type="button"
-            onClick={() => {
-              const next = !enabled;
-              setEnabled(next);
-              if (next) play('click');
-            }}
+            onClick={toggleSound}
             className={cn(
               'grid h-10 w-10 place-items-center rounded-lg transition',
               enabled
                 ? 'text-brand-cyan hover:bg-brand-cyan-pale/40'
                 : 'text-brand-muted hover:bg-slate-100 hover:text-brand-ink',
             )}
-            aria-label={enabled ? 'Silenciar sonidos' : 'Activar sonidos'}
+            aria-label={soundLabel}
           >
             {enabled ? <Volume2 size={15} /> : <VolumeX size={15} />}
           </button>
