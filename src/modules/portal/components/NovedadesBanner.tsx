@@ -243,7 +243,15 @@ export function NovedadesBanner() {
 
 // DGG-254-b · Banner de LexPH para el portal del cliente (aviso de nueva edición
 // del newsletter, cta_url='/lexph'). Piel propia: NEGRO con matices de fondo +
-// logo LexPH en BLANCO, CTA blanco. Mismo footprint/chamfer que los demás.
+// logo LexPH en BLANCO, CTA blanco.
+//
+// DGG-261 (E-GG-292) · MISMA anatomía que PremiumBanner (fila única
+// `flex items-start gap-3` → mismo footprint/alto que el resto de los banners del
+// inicio). El logo va como marca de la izquierda con su proporción NATURAL
+// (900×304 ≈ 2.96:1, atributos width/height + self-start → NUNCA lo estira el
+// `align-items:stretch` del flex) y la info se redistribuye en la columna
+// (kicker → título → cuerpo → CTA) igual que los demás. Antes usaba `flex-col`
+// en mobile y el logo, con `w-auto` bajo stretch, se deformaba a lo ancho.
 function LexphNovedadBanner({
   novedad, dismissing, onDismiss,
 }: {
@@ -264,23 +272,34 @@ function LexphNovedadBanner({
       >
         <X size={16} />
       </button>
-      <div className="relative flex flex-col gap-3 pr-7 sm:flex-row sm:items-center">
-        <img src="/brand/lexph-logo-white.png" alt="LexPH" className="h-9 w-auto shrink-0 sm:h-10" />
+      <div className="relative flex items-start gap-3 pr-7">
+        {/* Marca LexPH: proporción natural preservada (width/height intrínsecos +
+            self-start para que el stretch del flex no la deforme). Ocupa el lugar
+            del glyph de los demás banners, a la altura del tile (h-11). */}
+        <img
+          src="/brand/lexph-logo-white.png"
+          alt="LexPH"
+          width={900}
+          height={304}
+          className="h-8 w-auto shrink-0 self-start sm:h-9"
+        />
         <div className="min-w-0 flex-1">
           <p className="kicker text-brand-cyan-light">Inteligencia jurídica en PH</p>
           <h3 className="font-display text-base uppercase leading-tight tracking-tight sm:text-lg">
             {novedad.titulo}
           </h3>
           {novedad.cuerpo_md && (
-            <p className="mt-0.5 line-clamp-2 text-xs text-white/75 sm:text-sm">{novedad.cuerpo_md}</p>
+            <p className="mt-1 line-clamp-2 text-sm text-white/80">{novedad.cuerpo_md}</p>
           )}
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <Link
+              to="/lexph"
+              className="inline-flex items-center justify-center gap-1.5 gg-chamfer-sm bg-white px-4 py-2 font-display text-xs uppercase tracking-wider text-brand-ink transition hover:bg-white/90"
+            >
+              {novedad.cta_label || 'Leer la edición'} <ArrowRight size={14} />
+            </Link>
+          </div>
         </div>
-        <Link
-          to="/lexph"
-          className="inline-flex shrink-0 items-center justify-center gap-1.5 gg-chamfer-sm bg-white px-4 py-2 font-display text-xs uppercase tracking-wider text-brand-ink transition hover:bg-white/90"
-        >
-          {novedad.cta_label || 'Leer la edición'} <ArrowRight size={14} />
-        </Link>
       </div>
     </section>
   );
