@@ -281,7 +281,7 @@ function LexphNovedadBanner({
           alt="LexPH"
           width={900}
           height={304}
-          className="h-8 w-auto shrink-0 self-start sm:h-9"
+          className="mt-0.5 h-7 w-auto shrink-0 self-start sm:h-8"
         />
         <div className="min-w-0 flex-1">
           <p className="kicker text-brand-cyan-light">Inteligencia jurídica en PH</p>
