@@ -923,7 +923,7 @@ function LexPH() {
           </h2>
           <p className="mt-5 max-w-lg text-lg leading-relaxed text-white/80">
             Fallos, normativas, vencimientos y tendencias por materia de propiedad horizontal,
-            explicados para administrar mejor. Una edición cada pocas semanas, directo a tu correo.
+            explicados para administrar mejor. Suscribite y recibí cada edición en tu correo.
           </p>
           <Link
             to="/lexph"
