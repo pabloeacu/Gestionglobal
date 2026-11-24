@@ -60,9 +60,13 @@ Deno.serve(async (req) => {
     url.searchParams.set('projectId', PROJECT_ID);
     for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
     const r = await fetch(url.toString(), { headers: { Authorization: `Bearer ${token}` } });
-    // 404 = WA prendido sin datos aun; 402 = dimension UTM sin el add-on Web
-    // Analytics Plus (Pablo lo dejo para despues). Ambos -> "0", sin error.
-    if (r.status === 404 || r.status === 402) return { __nodata: true };
+    // DGG-265 / E-GG-295 — distinguir, NO mentir con un 0:
+    //  · 404 = Web Analytics prendido pero sin filas para ese filtro/ventana → cero REAL.
+    //  · 402 = la dimensión UTM requiere el add-on "Web Analytics Plus"; si falta o se
+    //    cayó, NO sabemos el valor → sin_addon (se guarda NULL, nunca 0).
+    //  · cualquier otro no-ok (401/403/5xx) → throw → el caller lo marca 'error' (NULL).
+    if (r.status === 404) return { __nodata: true };
+    if (r.status === 402) return { __sinAddon: true };
     const txt = await r.text();
     if (!r.ok) throw new Error(`Vercel ${r.status}: ${txt.slice(0, 220)}`);
     const data = txt ? JSON.parse(txt) : {};
@@ -96,14 +100,39 @@ Deno.serve(async (req) => {
     return { vistas, visitantes };
   }
 
-  // Pageviews de un filtro (para la atribución del newsletter por UTM).
-  async function countViews(filter: string, since: string): Promise<number> {
-    const res = await va('visits/count', {
-      since, until,
-      filter: `${filter} and environment eq 'production'`,
-    });
-    if (res.__nodata) return 0;
-    return Number(res?.count ?? res?.total ?? res?.data?.count ?? 0);
+  // Atribución por dimensión UTM, con ESTADO honesto (DGG-265 / E-GG-295):
+  //  · {value:N, estado:'ok'}      → medido (N real; 0 es un cero genuino).
+  //  · {value:null, estado:'sin_addon'} → 402: dimensión UTM sin Web Analytics Plus.
+  //  · {value:null, estado:'error'}     → otra falla de la API.
+  // IMPORTANTE (E-GG-295b): se usa visits/aggregate agrupando por la dimensión (dimField)
+  // y se lee el bucket wantValue — EXACTAMENTE lo que hace el dashboard de Vercel. El
+  // endpoint visits/count con un filtro `utmSource eq ...` devuelve 0 (no soporta el corte
+  // por UTM), aunque el dashboard sí lo muestre. Nunca devuelve 0 cuando no se pudo medir.
+  // Cuenta VISITANTES del bucket (coincide con la columna VISITORS del dashboard, que es
+  // lo que Pablo cruza). Shape verificado: {visitors, pageviews, <dimField>:'<valor>'}.
+  type Attr = { value: number | null; estado: 'ok' | 'sin_addon' | 'error' };
+  async function attrDim(dimField: string, wantValue: string, since: string, tag: string): Promise<Attr> {
+    try {
+      const res = await va('visits/aggregate', {
+        by: dimField, since, until,
+        filter: `environment eq 'production'`,
+        limit: '100',
+      });
+      if (res.__sinAddon) return { value: null, estado: 'sin_addon' };
+      if (res.__nodata) return { value: 0, estado: 'ok' };
+      const arr: any[] = Array.isArray(res?.data) ? res.data : [];
+      let total = 0;
+      for (const r of arr) {
+        const dv = String(r?.[dimField] ?? r?.key ?? r?.value ?? r?.name ?? r?.group ?? '');
+        if (dv === wantValue) {
+          total += Number(r?.visitors ?? r?.uniqueVisitors ?? r?.count ?? r?.pageviews ?? r?.total ?? 0);
+        }
+      }
+      return { value: total, estado: 'ok' };
+    } catch (e) {
+      errors.push(`${tag}: ${(e as Error).message}`);
+      return { value: null, estado: 'error' };
+    }
   }
 
   const rows: any[] = [];
@@ -112,17 +141,28 @@ Deno.serve(async (req) => {
 
   for (const [vkey, ms] of Object.entries(WINDOWS)) {
     const since = new Date(now - ms).toISOString();
+    // Atribución UTM a NIVEL PROYECTO (no por requestPath) — E-GG-295b. Vercel atribuye
+    // el UTM a la VISITA, no a cada pageview: combinar utmSource con startswith(requestPath,
+    // '/lexph') devuelve 0 aunque el dashboard muestre datos (verificado en vivo: el panel
+    // UTM da newsletter>0 pero el count con filtro de ruta daba 0). El newsletter sólo
+    // linkea a /lexph y la captación a la landing, así que el corte por source/medium YA
+    // identifica la campaña sin el filtro de ruta. Se calcula UNA vez por ventana y se
+    // guarda igual en ambas superficies (es un total de proyecto, no por superficie).
+    const aNl = await attrDim('utmSource', 'newsletter', since, `nl ${vkey}`);
+    const aEm = await attrDim('utmMedium', 'email', since, `em ${vkey}`);
+    const estado: 'ok' | 'sin_addon' | 'error' =
+      aNl.estado === 'ok' && aEm.estado === 'ok' ? 'ok'
+        : aNl.estado === 'sin_addon' || aEm.estado === 'sin_addon' ? 'sin_addon' : 'error';
     for (const [skey, sfilter] of Object.entries(SURFACES)) {
       try {
         const { vistas, visitantes } = await surfaceTotals(sfilter, since);
-        let desde_newsletter = 0;
-        if (skey === 'lexph') {
-          try { desde_newsletter = await countViews(`${sfilter} and utmSource eq 'newsletter'`, since); }
-          catch (e) { errors.push(`nl ${skey}/${vkey}: ${(e as Error).message}`); }
-        }
         rows.push({
           superficie: skey, ventana: vkey,
-          visitantes, vistas, desde_newsletter, actualizado_at: nowIso,
+          visitantes, vistas,
+          desde_newsletter: aNl.value, // NULL si no medible (no 0 falso) · total proyecto
+          desde_email: aEm.value,
+          medicion_estado: estado,
+          actualizado_at: nowIso,
         });
       } catch (e) {
         errors.push(`${skey}/${vkey}: ${(e as Error).message}`);

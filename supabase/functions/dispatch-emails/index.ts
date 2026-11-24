@@ -381,16 +381,19 @@ Deno.serve(async (req) => {
   // E-GG-79: body_text es texto PLANO → no debe HTML-escaparse (rompería URLs).
   const text = tpl.body_text ? renderVarsRaw(tpl.body_text, vars) : undefined;
 
-  // 5-bis) Atribución del newsletter (2026-11-23, Pablo "hacé medible el impacto").
-  // SÓLO a las ediciones del newsletter LexPH (slug 'lexph-newsletter*') les
-  // agregamos utm_source/medium/campaign a los links del sitio (/lexph), para poder
-  // medir en Vercel Web Analytics cuánto tráfico trae cada envío (requiere el add-on
-  // "Web Analytics Plus" para el corte por UTM — mitad de Pablo). TODO lo demás
-  // (transaccional, comprobantes, captación, bienvenida/confirmación) queda
-  // byte-idéntico: addNewsletterUtm devuelve el html intacto si el slug no aplica,
-  // y nunca toca el link de baja.
-  if (job.template_slug?.startsWith('lexph-newsletter')) {
-    html = addNewsletterUtm(html, job.template_slug);
+  // 5-bis) Atribución de MARKETING por UTM (2026-11-23 newsletter → 2026-11-24
+  // DGG-265 "aplicá el UTM a TODOS los correos de captación"). A cada email de
+  // marketing (allow-list en marketingUtmFor: newsletter, captación, ofrecimiento,
+  // engagement) le agregamos utm_source/medium/campaign a sus links al sitio, para
+  // medir en Vercel Web Analytics el tráfico que trae cada campaña Y atribuir
+  // conversiones de formularios (utmTracking.ts / DGG-242). TODO lo transaccional
+  // (comprobantes, tracking, reset, bienvenida, notifs de gerencia) NO entra a la
+  // allow-list → queda byte-idéntico, sin UTM. addMarketingUtm nunca toca el link de
+  // baja ni los <img src> (sólo href), y es idempotente. Corte por UTM requiere el
+  // add-on "Web Analytics Plus" (activo desde 2026-11-23).
+  const mkt = marketingUtmFor(job.template_slug);
+  if (mkt) {
+    html = addMarketingUtm(html, mkt.source, mkt.campaign);
   }
 
   // 6) OAuth2 access token.
@@ -710,20 +713,33 @@ function sanitizeHex(s: string | null | undefined): string | null {
   return /^#[0-9a-fA-F]{6}$/.test(s) ? s : null;
 }
 
-// Agrega utm_source/medium/campaign a los links del SITIO (/lexph) del newsletter.
-// Reglas: (a) sólo href que apuntan a https://www.gestionglobal.ar/lexph o
-// /lexph/<slug>; (b) NUNCA el link de baja (/lexph/baja) — no se trackea el opt-out;
-// (c) respeta un query existente (une con &amp;) y un #hash; (d) usa &amp; (HTML-
-// correcto: el cliente de mail lo decodifica a & al navegar). campaign = slug de la
-// edición (p.ej. 'lexph-newsletter-e3'). Idempotente: si el link ya trae utm_source
-// no lo duplica. Cualquier otro href (home, imágenes, otros dominios) queda intacto.
-function addNewsletterUtm(html: string, campaign: string): string {
-  const utm = `utm_source=newsletter&amp;utm_medium=email&amp;utm_campaign=${encodeURIComponent(campaign)}`;
+// Clasifica el slug de un job en su (utm_source, utm_campaign) de marketing, o null
+// si NO es marketing (→ no se etiqueta, queda byte-idéntico). ALLOW-LIST explícita:
+// todo lo que no matchee acá (comprobantes, constancias, certificados, tracking,
+// reset, alta-portal, bienvenida, notifs de gerencia…) NUNCA recibe UTM. DGG-265.
+function marketingUtmFor(slug: string | null | undefined): { source: string; campaign: string } | null {
+  const s = slug ?? '';
+  if (s.startsWith('lexph-newsletter')) return { source: 'newsletter', campaign: s };
+  if (s.startsWith('captacion-')) return { source: 'captacion', campaign: s };
+  if (s.startsWith('ofrecimiento-')) return { source: 'ofrecimiento', campaign: s };
+  if (s.startsWith('engagement-')) return { source: 'engagement', campaign: s };
+  return null;
+}
+
+// Agrega utm_source/medium/campaign a los links del SITIO (gestionglobal.ar) de un
+// email de marketing. Reglas: (a) sólo href a https://[www.]gestionglobal.ar/... —
+// los <img src> y otros dominios (wa.me, imágenes) quedan intactos; (b) NUNCA el link
+// de baja (/baja o /lexph/baja) — no se trackea el opt-out; (c) respeta un query
+// existente (une con &amp;) y un #hash; (d) usa &amp; (HTML-correcto: el cliente de
+// mail lo decodifica a & al navegar). Idempotente: si el link ya trae utm_source no lo
+// duplica. utm_medium='email' siempre (eje para la métrica desde_email).
+function addMarketingUtm(html: string, source: string, campaign: string): string {
+  const utm = `utm_source=${source}&amp;utm_medium=email&amp;utm_campaign=${encodeURIComponent(campaign)}`;
   return html.replace(
-    /href="(https:\/\/www\.gestionglobal\.ar\/lexph(?:\/[^"?#]*)?)(\?[^"#]*)?(#[^"]*)?"/g,
+    /href="(https:\/\/(?:www\.)?gestionglobal\.ar(?:\/[^"?#]*)?)(\?[^"#]*)?(#[^"]*)?"/gi,
     (m: string, base: string, query: string | undefined, hash: string | undefined) => {
-      if (/\/lexph\/baja/i.test(base)) return m;                 // no trackear la baja
-      if (query && /(?:\?|&|&amp;)utm_source=/i.test(query)) return m; // ya tiene utm
+      if (/\/(?:lexph\/)?baja(?:[/?]|$)/i.test(base)) return m;         // no trackear la baja
+      if (query && /(?:\?|&|&amp;)utm_source=/i.test(query)) return m;  // ya tiene utm
       const sep = query ? '&amp;' : '?';
       return `href="${base}${query ?? ''}${sep}${utm}${hash ?? ''}"`;
     },

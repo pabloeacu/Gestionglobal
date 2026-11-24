@@ -41,13 +41,11 @@ interface CardProps {
   datos: Partial<Record<Ventana, TraficoFila>>;
   loading: boolean;
   delay: number;
-  mostrarNewsletter?: boolean;
 }
 
 function TraficoCard({
-  titulo, ruta, icon: Icon, accent, datos, loading, delay, mostrarNewsletter,
+  titulo, ruta, icon: Icon, accent, datos, loading, delay,
 }: CardProps) {
-  const nl = datos['30d']?.desde_newsletter ?? 0;
   return (
     <div
       className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 transition hover:border-brand-cyan/40 motion-safe:animate-fade-up"
@@ -99,14 +97,34 @@ function TraficoCard({
             );
           })}
         </div>
-        {mostrarNewsletter && nl > 0 && (
-          <p className="mt-3 text-xs text-brand-muted">
-            <span className="font-semibold tabular-nums text-brand-cyan">{fmt(nl)}</span>{' '}
-            desde el newsletter (30d)
-          </p>
-        )}
       </div>
     </div>
+  );
+}
+
+// Línea de atribución de marketing (total de proyecto, 30d). DGG-265: honesta —
+// si la medición UTM no está disponible avisa en vez de mostrar un 0 falso.
+function AtribucionLinea({ fila }: { fila: TraficoFila | undefined }) {
+  const estado = fila?.medicion_estado ?? 'ok';
+  if (estado !== 'ok' || fila?.desde_email == null) {
+    return (
+      <p className="mt-3 text-xs text-brand-muted/80">
+        Atribución por campaña no disponible
+        {estado === 'sin_addon' ? ' (add-on de Vercel)' : estado === 'error' ? ' (error de medición)' : ''}.
+      </p>
+    );
+  }
+  const email = fila.desde_email;
+  const nl = fila.desde_newsletter;
+  if (email <= 0) return null;
+  return (
+    <p className="mt-3 text-xs text-brand-muted">
+      <span className="font-semibold tabular-nums text-brand-cyan">{fmt(email)}</span>{' '}
+      visitas desde campañas de email (30d)
+      {nl != null && nl > 0 && nl <= email && (
+        <> · <span className="font-semibold tabular-nums text-brand-cyan">{fmt(nl)}</span> del newsletter</>
+      )}
+    </p>
   );
 }
 
@@ -161,9 +179,9 @@ export function TraficoWebWidget() {
           datos={mapa.lexph}
           loading={loading}
           delay={80}
-          mostrarNewsletter
         />
       </div>
+      {!loading && <AtribucionLinea fila={mapa.lexph['30d'] ?? mapa.landing['30d']} />}
       {!loading && totalVistas === 0 && (
         <p className="mt-2 text-xs text-brand-muted">
           La medición recién arrancó; las cards se van llenando con las visitas.

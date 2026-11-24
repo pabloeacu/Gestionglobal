@@ -9003,7 +9003,9 @@ export type Database = {
       vercel_trafico: {
         Row: {
           actualizado_at: string
-          desde_newsletter: number
+          desde_email: number | null
+          desde_newsletter: number | null
+          medicion_estado: string
           superficie: string
           ventana: string
           visitantes: number
@@ -9011,7 +9013,9 @@ export type Database = {
         }
         Insert: {
           actualizado_at?: string
-          desde_newsletter?: number
+          desde_email?: number | null
+          desde_newsletter?: number | null
+          medicion_estado?: string
           superficie: string
           ventana: string
           visitantes?: number
@@ -9019,7 +9023,9 @@ export type Database = {
         }
         Update: {
           actualizado_at?: string
-          desde_newsletter?: number
+          desde_email?: number | null
+          desde_newsletter?: number | null
+          medicion_estado?: string
           superficie?: string
           ventana?: string
           visitantes?: number
