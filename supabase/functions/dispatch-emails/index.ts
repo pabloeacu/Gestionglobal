@@ -60,14 +60,20 @@ function aliasFor(casilla: string | null | undefined): string {
 }
 
 const THROTTLE_KEY = 'global';
-// DGG-113 (2026-07-21, decisión Pablo): el throttle se separa en dos pisos.
-// La lección real de E42 fue una RÁFAGA AL MISMO CLIENTE (4 mails en 30s):
-// ese piso de 5 min POR DESTINATARIO se conserva intacto (RECIPIENT_FLOOR_MS).
-// El ritmo GLOBAL entre mails de destinatarios distintos baja a 60s — sigue
-// siendo humilde para Gmail API (cupo Workspace: 2.000/día por casilla; acá
-// máx. 1.440/día teóricos) y elimina las esperas prácticas (password-reset
-// detrás de una cola, recordatorios de encuentros con N alumnos).
-const THROTTLE_MS = 60 * 1000;
+// DGG-113 (2026-07-21): el throttle tiene dos pisos. La lección real de E42 fue
+// una RÁFAGA AL MISMO CLIENTE (4 mails en 30s): ese piso de 5 min POR
+// DESTINATARIO (RECIPIENT_FLOOR_MS) es SAGRADO y se conserva intacto — garantiza
+// que jamás salgan 2 mails al mismo email, sea cual sea el ritmo global.
+// 2026-11-23 (Pablo, "acelerá el goteo"): el ritmo GLOBAL entre destinatarios
+// DISTINTOS baja de 60s → 30s. Con el cron */1 min y last_sent_at sellado al
+// COMPLETAR el envío, 60s hacía que el tick del minuto siguiente cayera siempre
+// dentro de la ventana → throttled → salía 1 cada 2 min (~30/h, ~720/día real,
+// aunque el comentario viejo decía "1.440 teóricos"). A 30s el tick del minuto
+// siguiente ya superó la ventana → 1 por minuto = ~60/h = 1.440/día (el techo
+// real con BATCH_MAX=1), que es el goteo planeado y sigue holgado bajo el cupo
+// Workspace (2.000/día por casilla). Para ir MÁS rápido haría falta enviar varios
+// por corrida (batch) — no se hace acá para no arriesgar la ruta money-crítica.
+const THROTTLE_MS = 30 * 1000;
 const RECIPIENT_FLOOR_MS = 5 * 60 * 1000;
 const BATCH_MAX = 1;
 // Candidatos a examinar por corrida: si el primero está bloqueado por el piso
@@ -374,6 +380,18 @@ Deno.serve(async (req) => {
   }
   // E-GG-79: body_text es texto PLANO → no debe HTML-escaparse (rompería URLs).
   const text = tpl.body_text ? renderVarsRaw(tpl.body_text, vars) : undefined;
+
+  // 5-bis) Atribución del newsletter (2026-11-23, Pablo "hacé medible el impacto").
+  // SÓLO a las ediciones del newsletter LexPH (slug 'lexph-newsletter*') les
+  // agregamos utm_source/medium/campaign a los links del sitio (/lexph), para poder
+  // medir en Vercel Web Analytics cuánto tráfico trae cada envío (requiere el add-on
+  // "Web Analytics Plus" para el corte por UTM — mitad de Pablo). TODO lo demás
+  // (transaccional, comprobantes, captación, bienvenida/confirmación) queda
+  // byte-idéntico: addNewsletterUtm devuelve el html intacto si el slug no aplica,
+  // y nunca toca el link de baja.
+  if (job.template_slug?.startsWith('lexph-newsletter')) {
+    html = addNewsletterUtm(html, job.template_slug);
+  }
 
   // 6) OAuth2 access token.
   let accessToken: string;
@@ -690,6 +708,26 @@ function escapeAttr(s: string): string {
 function sanitizeHex(s: string | null | undefined): string | null {
   if (!s) return null;
   return /^#[0-9a-fA-F]{6}$/.test(s) ? s : null;
+}
+
+// Agrega utm_source/medium/campaign a los links del SITIO (/lexph) del newsletter.
+// Reglas: (a) sólo href que apuntan a https://www.gestionglobal.ar/lexph o
+// /lexph/<slug>; (b) NUNCA el link de baja (/lexph/baja) — no se trackea el opt-out;
+// (c) respeta un query existente (une con &amp;) y un #hash; (d) usa &amp; (HTML-
+// correcto: el cliente de mail lo decodifica a & al navegar). campaign = slug de la
+// edición (p.ej. 'lexph-newsletter-e3'). Idempotente: si el link ya trae utm_source
+// no lo duplica. Cualquier otro href (home, imágenes, otros dominios) queda intacto.
+function addNewsletterUtm(html: string, campaign: string): string {
+  const utm = `utm_source=newsletter&amp;utm_medium=email&amp;utm_campaign=${encodeURIComponent(campaign)}`;
+  return html.replace(
+    /href="(https:\/\/www\.gestionglobal\.ar\/lexph(?:\/[^"?#]*)?)(\?[^"#]*)?(#[^"]*)?"/g,
+    (m: string, base: string, query: string | undefined, hash: string | undefined) => {
+      if (/\/lexph\/baja/i.test(base)) return m;                 // no trackear la baja
+      if (query && /(?:\?|&|&amp;)utm_source=/i.test(query)) return m; // ya tiene utm
+      const sep = query ? '&amp;' : '?';
+      return `href="${base}${query ?? ''}${sep}${utm}${hash ?? ''}"`;
+    },
+  );
 }
 
 // =========================================================================
