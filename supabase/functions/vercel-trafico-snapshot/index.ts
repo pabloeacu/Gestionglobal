@@ -1,7 +1,15 @@
-// vercel-trafico-snapshot — DGG-245.
-// Consulta la API de Web Analytics de Vercel (server-side, con VERCEL_ANALYTICS_TOKEN)
-// y hace UPSERT del tráfico por superficie (landing = '/', lexph = '/lexph*') y ventana
-// (hoy=24h / 7d / 30d) en public.vercel_trafico, que leen las cards de gerencia.
+// vercel-trafico-snapshot — DGG-245 / DGG-265 / DGG-266.
+// Consulta Vercel Web Analytics (server-side, VERCEL_ANALYTICS_TOKEN) y persiste:
+//   · public.vercel_trafico  → totales por superficie (landing / lexph) × ventana +
+//     atribución desde_newsletter / desde_email (lo que leen las cards del Inicio).
+//   · public.vercel_metricas → breakdown por dimensión (campaign/source/medium/path/
+//     referrer/device/country) × ventana, para el reporte semanal integral y el panel
+//     de analytics de gerencia (DGG-266: "traé toda la info adentro de la plataforma").
+//
+// Medición HONESTA (DGG-265 / E-GG-295): nunca se inventa un 0. 402 (dimensión UTM sin
+// el add-on Web Analytics Plus) → sin_addon; error de API → error; en ambos casos NO se
+// escribe un dato falso (vercel_trafico guarda NULL+estado; vercel_metricas no upserta
+// esa dimensión y conserva el último valor bueno).
 //
 // Auth: verify_jwt=false (config.toml) + is_cron_token adentro (patrón del repo).
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4';
@@ -32,6 +40,20 @@ const SURFACES: Record<string, string> = {
   landing: "requestPath eq '/'",
   lexph: "startswith(requestPath, '/lexph')",
 };
+// Dimensión interna → campo de Vercel. Las utm* requieren Web Analytics Plus.
+const DIMS: Record<string, string> = {
+  campaign: 'utmCampaign',
+  source: 'utmSource',
+  medium: 'utmMedium',
+  path: 'requestPath',
+  referrer: 'referrerHostname',
+  device: 'deviceType',
+  country: 'country',
+};
+
+type Estado = 'ok' | 'sin_addon' | 'error';
+type Bucket = { valor: string; visitantes: number; vistas: number };
+type Breakdown = { estado: Estado; buckets: Bucket[] };
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
@@ -44,15 +66,14 @@ Deno.serve(async (req) => {
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
   );
 
-  // Auth interna (verify_jwt=false + validación propia, patrón del repo): sólo el cron,
-  // que manda Authorization = Bearer <cron_secret> (private.cron_bearer / is_cron_token).
   const authToken = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '').trim();
   const { data: isCron } = await admin.rpc('is_cron_token', { p_token: authToken });
   if (!isCron) return json({ ok: false, error: 'No autorizado.' }, 401);
 
   const now = Date.now();
   const until = new Date(now).toISOString();
-  let loggedRaw = false;
+  const nowIso = new Date().toISOString();
+  const errors: string[] = [];
 
   async function va(path: string, params: Record<string, string>): Promise<any> {
     const url = new URL(`${VA}/${path}`);
@@ -60,122 +81,126 @@ Deno.serve(async (req) => {
     url.searchParams.set('projectId', PROJECT_ID);
     for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
     const r = await fetch(url.toString(), { headers: { Authorization: `Bearer ${token}` } });
-    // DGG-265 / E-GG-295 — distinguir, NO mentir con un 0:
-    //  · 404 = Web Analytics prendido pero sin filas para ese filtro/ventana → cero REAL.
-    //  · 402 = la dimensión UTM requiere el add-on "Web Analytics Plus"; si falta o se
-    //    cayó, NO sabemos el valor → sin_addon (se guarda NULL, nunca 0).
-    //  · cualquier otro no-ok (401/403/5xx) → throw → el caller lo marca 'error' (NULL).
-    if (r.status === 404) return { __nodata: true };
-    if (r.status === 402) return { __sinAddon: true };
+    if (r.status === 404) return { __nodata: true };      // WA prendido, sin filas → 0 real
+    if (r.status === 402) return { __sinAddon: true };     // dimensión UTM sin el add-on
     const txt = await r.text();
     if (!r.ok) throw new Error(`Vercel ${r.status}: ${txt.slice(0, 220)}`);
-    const data = txt ? JSON.parse(txt) : {};
-    if (!loggedRaw) { loggedRaw = true; console.log(`[raw ${path}]`, txt.slice(0, 600)); }
-    return data;
+    return txt ? JSON.parse(txt) : {};
   }
 
-  // Totales de una superficie+ventana: aggregate agrupado por environment (1 grupo prod)
-  // → count (vistas) + visitors (visitantes únicos del universo filtrado).
-  async function surfaceTotals(filter: string, since: string) {
+  const vis = (r: any) => Number(r?.visitors ?? r?.uniqueVisitors ?? r?.devices ?? 0);
+  const views = (r: any) => Number(r?.pageviews ?? r?.count ?? r?.views ?? r?.total ?? 0);
+
+  // Totales de una superficie: aggregate by environment (1 grupo prod).
+  async function surfaceTotals(filter: string, since: string): Promise<{ vistas: number; visitantes: number }> {
     const res = await va('visits/aggregate', {
-      by: 'environment',
-      since, until,
-      filter: `${filter} and environment eq 'production'`,
-      limit: '5',
+      by: 'environment', since, until,
+      filter: `${filter} and environment eq 'production'`, limit: '5',
     });
+    if (res.__sinAddon) throw new Error('402 en totales base (no debería: no usa UTM)'); // B1: no coercer 402→0
     if (res.__nodata) return { vistas: 0, visitantes: 0 };
-    const rows: any[] = Array.isArray(res?.data)
-      ? res.data
-      : (res?.data && typeof res.data === 'object' ? [res.data] : []);
+    const arr: any[] = Array.isArray(res?.data) ? res.data : (res?.data ? [res.data] : []);
     let vistas = 0, visitantes = 0;
-    for (const row of rows) {
-      vistas += Number(row?.count ?? row?.total ?? row?.pageviews ?? row?.views ?? 0);
-      visitantes += Number(row?.visitors ?? row?.uniqueVisitors ?? row?.devices ?? 0);
-    }
-    // Fallback: algunas respuestas traen el total en el nivel superior.
-    if (!rows.length) {
-      vistas = Number(res?.count ?? res?.total ?? 0);
-      visitantes = Number(res?.visitors ?? res?.uniqueVisitors ?? 0);
-    }
+    for (const row of arr) { vistas += views(row); visitantes += vis(row); }
+    if (!arr.length) { vistas = views(res); visitantes = vis(res); }
     return { vistas, visitantes };
   }
 
-  // Atribución por dimensión UTM, con ESTADO honesto (DGG-265 / E-GG-295):
-  //  · {value:N, estado:'ok'}      → medido (N real; 0 es un cero genuino).
-  //  · {value:null, estado:'sin_addon'} → 402: dimensión UTM sin Web Analytics Plus.
-  //  · {value:null, estado:'error'}     → otra falla de la API.
-  // IMPORTANTE (E-GG-295b): se usa visits/aggregate agrupando por la dimensión (dimField)
-  // y se lee el bucket wantValue — EXACTAMENTE lo que hace el dashboard de Vercel. El
-  // endpoint visits/count con un filtro `utmSource eq ...` devuelve 0 (no soporta el corte
-  // por UTM), aunque el dashboard sí lo muestre. Nunca devuelve 0 cuando no se pudo medir.
-  // Cuenta VISITANTES del bucket (coincide con la columna VISITORS del dashboard, que es
-  // lo que Pablo cruza). Shape verificado: {visitors, pageviews, <dimField>:'<valor>'}.
-  type Attr = { value: number | null; estado: 'ok' | 'sin_addon' | 'error' };
-  async function attrDim(dimField: string, wantValue: string, since: string, tag: string): Promise<Attr> {
+  // Breakdown COMPLETO de una dimensión (todos los buckets). Honesto: sin_addon/error no
+  // inventan datos. B3: si vienen filas pero ninguna trae el campo de la dimensión →
+  // shape inesperado → error (no un 0 'ok'). Métrica de visitantes NO cae a pageviews.
+  async function dimBreakdown(dimField: string, since: string, tag: string): Promise<Breakdown> {
     try {
       const res = await va('visits/aggregate', {
-        by: dimField, since, until,
-        filter: `environment eq 'production'`,
-        limit: '100',
+        by: dimField, since, until, filter: `environment eq 'production'`, limit: '100',
       });
-      if (res.__sinAddon) return { value: null, estado: 'sin_addon' };
-      if (res.__nodata) return { value: 0, estado: 'ok' };
+      if (res.__sinAddon) return { estado: 'sin_addon', buckets: [] };
+      if (res.__nodata) return { estado: 'ok', buckets: [] };
       const arr: any[] = Array.isArray(res?.data) ? res.data : [];
-      let total = 0;
-      for (const r of arr) {
-        const dv = String(r?.[dimField] ?? r?.key ?? r?.value ?? r?.name ?? r?.group ?? '');
-        if (dv === wantValue) {
-          total += Number(r?.visitors ?? r?.uniqueVisitors ?? r?.count ?? r?.pageviews ?? r?.total ?? 0);
-        }
+      if (arr.length > 0 && !arr.some((r) => r?.[dimField] !== undefined)) {
+        errors.push(`${tag}: shape inesperado (sin campo ${dimField})`);
+        return { estado: 'error', buckets: [] };
       }
-      return { value: total, estado: 'ok' };
+      const buckets: Bucket[] = arr.map((r) => {
+        const raw = String(r?.[dimField] ?? '').slice(0, 300);
+        return { valor: raw === '' ? '(directo)' : raw, visitantes: vis(r), vistas: views(r) };
+      });
+      return { estado: 'ok', buckets };
     } catch (e) {
       errors.push(`${tag}: ${(e as Error).message}`);
-      return { value: null, estado: 'error' };
+      return { estado: 'error', buckets: [] };
     }
   }
 
-  const rows: any[] = [];
-  const errors: string[] = [];
-  const nowIso = new Date().toISOString();
+  // 1) Breakdowns por dimensión × ventana (una sola pasada; de acá sale todo).
+  const bd: Record<string, Record<string, Breakdown>> = {};
+  for (const [dim, field] of Object.entries(DIMS)) {
+    bd[dim] = {};
+    for (const [vkey, ms] of Object.entries(WINDOWS)) {
+      const since = new Date(now - ms).toISOString();
+      bd[dim][vkey] = await dimBreakdown(field, since, `${dim}/${vkey}`);
+    }
+  }
 
-  for (const [vkey, ms] of Object.entries(WINDOWS)) {
-    const since = new Date(now - ms).toISOString();
-    // Atribución UTM a NIVEL PROYECTO (no por requestPath) — E-GG-295b. Vercel atribuye
-    // el UTM a la VISITA, no a cada pageview: combinar utmSource con startswith(requestPath,
-    // '/lexph') devuelve 0 aunque el dashboard muestre datos (verificado en vivo: el panel
-    // UTM da newsletter>0 pero el count con filtro de ruta daba 0). El newsletter sólo
-    // linkea a /lexph y la captación a la landing, así que el corte por source/medium YA
-    // identifica la campaña sin el filtro de ruta. Se calcula UNA vez por ventana y se
-    // guarda igual en ambas superficies (es un total de proyecto, no por superficie).
-    const aNl = await attrDim('utmSource', 'newsletter', since, `nl ${vkey}`);
-    const aEm = await attrDim('utmMedium', 'email', since, `em ${vkey}`);
-    const estado: 'ok' | 'sin_addon' | 'error' =
+  // 2) vercel_metricas: upsert de todos los buckets medidos (estado 'ok').
+  const metricRows: any[] = [];
+  const refreshed: Array<[string, string]> = []; // [dimension, ventana] efectivamente medidas
+  for (const [dim, perV] of Object.entries(bd)) {
+    for (const [vkey, b] of Object.entries(perV)) {
+      if (b.estado !== 'ok') continue; // no escribir datos falsos; conserva lo último bueno
+      refreshed.push([dim, vkey]);
+      for (const bk of b.buckets) {
+        if (bk.visitantes <= 0 && bk.vistas <= 0) continue;
+        metricRows.push({ dimension: dim, valor: bk.valor, ventana: vkey, visitantes: bk.visitantes, vistas: bk.vistas, actualizado_at: nowIso });
+      }
+    }
+  }
+  if (metricRows.length) {
+    const { error } = await admin.from('vercel_metricas').upsert(metricRows, { onConflict: 'dimension,valor,ventana' });
+    if (error) errors.push(`upsert metricas: ${error.message}`);
+  }
+  // Limpieza de buckets viejos que ya no aparecen (ventana rodante), sólo para las dim×ventana
+  // que SÍ se midieron bien en esta corrida (no tocar las que fallaron → se conserva lo último).
+  for (const [dim, vkey] of refreshed) {
+    const { error } = await admin.from('vercel_metricas')
+      .delete().eq('dimension', dim).eq('ventana', vkey).lt('actualizado_at', nowIso);
+    if (error) errors.push(`clean ${dim}/${vkey}: ${error.message}`);
+  }
+
+  // 3) vercel_trafico: totales por superficie + atribución derivada de los breakdowns.
+  const pick = (dim: string, vkey: string, wantValue: string): { value: number | null; estado: Estado } => {
+    const b = bd[dim]?.[vkey];
+    if (!b || b.estado !== 'ok') return { value: null, estado: b?.estado ?? 'error' };
+    const hit = b.buckets.find((x) => x.valor === wantValue);
+    return { value: hit ? hit.visitantes : 0, estado: 'ok' };
+  };
+  const rows: any[] = [];
+  for (const vkey of Object.keys(WINDOWS)) {
+    const aNl = pick('source', vkey, 'newsletter');
+    const aEm = pick('medium', vkey, 'email');
+    const estado: Estado =
       aNl.estado === 'ok' && aEm.estado === 'ok' ? 'ok'
         : aNl.estado === 'sin_addon' || aEm.estado === 'sin_addon' ? 'sin_addon' : 'error';
     for (const [skey, sfilter] of Object.entries(SURFACES)) {
+      const since = new Date(now - WINDOWS[vkey]).toISOString();
       try {
         const { vistas, visitantes } = await surfaceTotals(sfilter, since);
         rows.push({
-          superficie: skey, ventana: vkey,
-          visitantes, vistas,
-          desde_newsletter: aNl.value, // NULL si no medible (no 0 falso) · total proyecto
-          desde_email: aEm.value,
-          medicion_estado: estado,
-          actualizado_at: nowIso,
+          superficie: skey, ventana: vkey, visitantes, vistas,
+          desde_newsletter: aNl.value, desde_email: aEm.value,
+          medicion_estado: estado, actualizado_at: nowIso,
         });
       } catch (e) {
+        // No upsertamos la fila: se conserva la anterior (last-good); su actualizado_at
+        // viejo es la señal honesta de staleness (el widget muestra "actualizado hace X").
         errors.push(`${skey}/${vkey}: ${(e as Error).message}`);
       }
     }
   }
-
   if (rows.length) {
-    const { error } = await admin
-      .from('vercel_trafico')
-      .upsert(rows, { onConflict: 'superficie,ventana' });
-    if (error) errors.push(`upsert: ${error.message}`);
+    const { error } = await admin.from('vercel_trafico').upsert(rows, { onConflict: 'superficie,ventana' });
+    if (error) errors.push(`upsert trafico: ${error.message}`);
   }
 
-  return json({ ok: errors.length === 0, actualizados: rows.length, rows, errors }, 200);
+  return json({ ok: errors.length === 0, trafico: rows.length, metricas: metricRows.length, errors }, 200);
 });
