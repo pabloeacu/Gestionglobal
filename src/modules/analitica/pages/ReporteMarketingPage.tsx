@@ -3,7 +3,7 @@
 // plataforma con sus datos de interés (envíos, entregabilidad, y engagement medido por
 // CLICKS→VISITAS vía UTM — NO aperturas: mandamos por Gmail sin píxel, por entregabilidad).
 // Fuente única: RPC reporte_semanal_data (la misma que consume el email semanal).
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Send, MousePointerClick, AlertTriangle, Users, Megaphone, Newspaper, Target,
   Rocket, Bell, Wrench, Globe, Monitor, Loader2, Info,
@@ -52,10 +52,10 @@ export function ReporteMarketingPage() {
 
   const t = rep?.totales;
   const traf = rep?.trafico;
-  const totalVisitasEmail = useMemo(
-    () => (rep?.campanas ?? []).reduce((a, c) => a + c.visitas, 0),
-    [rep],
-  );
+  // Figura autoritativa (utm_medium=email, nivel proyecto). No usamos la suma por-campaña
+  // (parcial) para no mostrar dos números distintos. 'n/d' honesto si no es medible.
+  const visitasEmail = traf && traf.medicion_estado === 'ok' ? traf.desde_email : null;
+  const medNoDisponible = !!rep && (!traf || traf.medicion_estado !== 'ok');
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
@@ -91,7 +91,7 @@ export function ReporteMarketingPage() {
           <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
             <Kpi label="Correos enviados" value={t ? fmt(t.enviados) : '—'} icon={Send} tone="cyan" sub={`últimos ${dias} días`} />
             <Kpi label="Tasa de rebote" value={t ? pct(t.rebote_pct) : '—'} icon={AlertTriangle} tone={(t?.rebote_pct ?? 0) > 2 ? 'rose' : 'emerald'} sub={t ? `${fmt(t.rebotes)} rebotes` : undefined} />
-            <Kpi label="Visitas desde emails" value={loading ? '—' : fmt(totalVisitasEmail)} icon={MousePointerClick} tone="amber" sub="engagement (UTM)" />
+            <Kpi label="Visitas desde emails" value={loading ? '—' : visitasEmail == null ? 'n/d' : fmt(visitasEmail)} icon={MousePointerClick} tone="amber" sub="engagement (UTM)" />
             <Kpi label="Conversiones captación" value={rep ? fmt(rep.captacion.conversiones_semana) : '—'} icon={Users} tone="ink" sub={rep ? `${fmt(rep.captacion.conversiones_total)} en total` : undefined} />
           </div>
         </div>
@@ -102,9 +102,9 @@ export function ReporteMarketingPage() {
         <span>
           El <strong>engagement se mide por clicks&nbsp;→&nbsp;visitas al sitio</strong> (vía UTM, lo que paga Vercel),
           no por aperturas: enviamos por Gmail sin píxel de tracking a propósito, para cuidar la entregabilidad.
-          Los rebotes sí se trackean. {traf && traf.medicion_estado !== 'ok' && (
-            <strong className="text-amber-700">Atención: la medición por campaña está no disponible ahora
-            ({traf.medicion_estado === 'sin_addon' ? 'add-on de Vercel' : 'error'}).</strong>
+          Los rebotes sí se trackean. {medNoDisponible && (
+            <strong className="text-amber-700">Atención: la medición por campaña no está disponible ahora
+            ({traf?.medicion_estado === 'sin_addon' ? 'add-on de Vercel' : traf?.medicion_estado === 'error' ? 'error de medición' : 'snapshot sin datos'}).</strong>
           )}
         </span>
       </p>

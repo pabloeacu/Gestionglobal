@@ -3,7 +3,7 @@
 // campaña, visitas por UTM (engagement), tráfico, referrers/dispositivos/países y
 // captación. Mismo dato que consume el email semanal → una sola fuente de verdad.
 import { supabase } from '@/lib/supabase';
-import { fail, ok, type ApiResponse } from '@/lib/errors';
+import { fail, ok, humanizeError, toApiError, type ApiResponse } from '@/lib/errors';
 
 export type MedicionEstado = 'ok' | 'sin_addon' | 'error';
 
@@ -68,6 +68,6 @@ export interface ReporteSemanal {
 
 export async function getReporteSemanal(dias = 7): Promise<ApiResponse<ReporteSemanal>> {
   const { data, error } = await supabase.rpc('reporte_semanal_data', { p_dias: dias });
-  if (error) return fail('REPORTE_SEMANAL', error.message, error);
+  if (error) return fail('REPORTE_SEMANAL', humanizeError(toApiError(error)), error);
   return ok(data as unknown as ReporteSemanal);
 }
