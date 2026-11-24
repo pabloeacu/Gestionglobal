@@ -9310,3 +9310,50 @@ por diseño), drop de `prospectos_reporte_semanal()` huérfana, KPI honesto, err
 **Observación transitoria** (no bug): hoy sólo el newsletter muestra visitas por campaña;
 captación/ofrecimientos están en 0 porque sus clicks previos traían un `utm_campaign` legacy
 (el asunto slugificado, no el slug) — caduca de la ventana ~30d, self-healing. Ver DGG-265 / E-GG-295.
+
+## DGG-267 · Captación nacional + multiplicar LexPH desde los Excel de GG (2026-11-24, migs 0713/0714)
+
+**Contexto (Pablo):** la base de captación es solo PBA, pero GG da servicios a otras
+jurisdicciones (cursos RPA CABA, consultoría jurídica nacional) y tiene LexPH (newsletter
+gratis, nacional) + webinars gratuitos como catapulta. Hay info **legítimamente recolectada**
+(congresos, convenciones, webinars, acuerdos previos a la plataforma) en 2 Excel. Objetivo:
+multiplicar el alcance de marketing.
+
+**Dato de entrada:** los 2 Excel (`base_contactos_limpia` + `BDD_GESTION_GLOBAL_actualizada`)
+son la misma base → unión **12.433 contactos únicos** (CABA 8.332 / PBA 4.082). Dry-run contra
+la BD: 151 ya clientes, 2.063 ya captación PBA, 2.150 ya LexPH, 65 suprimidos → **10.250 nuevos
+captación + 10.248 nuevos LexPH**.
+
+**Decisión 1 — Reusar el modelo existente, no inventar.** La baja/rebote YA es GLOBAL
+(`email_suppression`, consultada por todos los senders de marketing) → el punto "la baja de
+LexPH baja de captación" ya estaba resuelto; solo hubo que asegurar que las listas nuevas
+pasen por ahí (lo hacen). Sembrar LexPH desde captación ya tenía precedente (los 2.686 con
+origen='captacion'). Esto fue EXTENDER, no construir de cero.
+
+**Decisión 2 — Jurisdicción como eje de segmentación.** Se agregó `prospectos.jurisdiccion`
+(CABA/PBA/OTRO). Los nuevos entran con `origen='import_nacional'`. El motor de captación PBA
+(`prospectos_campana_tick`) y las RPCs de la grilla/KPIs filtran `origen='padron_pba'` → los
+import_nacional **NO reciben las campañas PBA ni ensucian la vista PBA**; quedan aislados,
+reservados para campañas targeteadas futuras (CABA→cursos, nacional→consultoría).
+
+**Decisión 3 — LexPH es nacional y gratis → todos los nuevos entran como suscriptores
+`confirmado`** (modelo opt-out con baja + List-Unsubscribe, igual que el seed de captación).
+El cron del padrón PBA ahora también suma los matriculados nuevos a LexPH (automático,
+continuo). Audiencia LexPH: 2.870 → **13.117 confirmados (×4,6)**.
+
+**Decisión 4 — Backfill de la E3 con el goteo actual (elección explícita de Pablo, sobre la
+recomendación de warm-up).** Se encolaron los 10.248 nuevos a la edición E3 en curso
+(`lexph_newsletter_enviar_especifico`), goteo 1.500/día (24-30/11), 0 dobles. Quedan en todas
+las ediciones futuras. **Salvaguarda que NO cambia la decisión, solo protege:** un cron horario
+(`lexph_freno_rebotes_check`) alerta a gerencia si el newsletter rebota >4% en 6h — porque la
+reputación del remitente es compartida con los comprobantes (cuenta Workspace única, E-GG-294).
+Un blast en frío a 10k sin vigilancia podría contaminar la entregabilidad transaccional.
+
+**Mecánica de carga:** universo mergeado localmente (pandas) → `mkt_import_staging` por bulk
+PostgREST (policy anon de INSERT temporal, agregada y quitada en el acto; requirió `NOTIFY pgrst
+reload schema` porque la tabla era nueva). RPC `mkt_import_aplicar()` idempotente (ON CONFLICT
+DO NOTHING) hace el alta set-based desde el staging.
+
+**§6 (3 agentes) + verificaciones inline:** counts = dry-run; 0 dobles (ningún import tenía la
+E3); motor captación y grillas filtran padron_pba (nacional aislado); supresión global cubre #4;
+smoke ROLLBACK OK. Ver DGG-267 / DGG-220 (captación) / DGG-244 (LexPH).

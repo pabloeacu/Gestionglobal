@@ -3,7 +3,7 @@
 // filtros/paginación en memoria). Medición del éxito del proyecto: crecimiento,
 // confirmados/pendientes/bajas, origen, y export CSV.
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Search, ArrowLeft, Download, Mail, MailX, CheckCircle2, Clock, UserMinus, TrendingUp, Loader2, RotateCcw,
@@ -61,6 +61,7 @@ function origenLabel(origen: string | null): string {
   if (origen.startsWith('form')) return 'Formulario';
   if (origen === 'cliente') return 'Cliente';
   if (origen.startsWith('padron') || origen === 'captacion') return 'Captación';
+  if (origen === 'import_nacional') return 'Importado (nacional)';
   if (origen === 'gerencia_testigo') return 'Testigo';
   if (origen === 'manual') return 'Manual (gerencia)';
   if (origen.startsWith('qa')) return 'QA';
@@ -82,7 +83,12 @@ export function LexphSuscriptoresPage() {
   const [q, setQ] = useState('');
   const [page, setPage] = useState(1);
 
+  // DGG-267: con ~13k suscriptores, evitar re-fetchear todo el universo por cada update de
+  // last_email_at durante los envíos (realtime). Throttle de 30s para el refresh por realtime.
+  const lastRtRef = useRef(0);
+
   async function refresh() {
+    lastRtRef.current = Date.now();
     // R19 · universo completo + overlay de supresión, en paralelo. El cruce es en memoria.
     const [res, resSupr] = await Promise.all([listSuscriptores(), getSuscriptoresSuprimidos()]);
     setLoading(false);
@@ -157,7 +163,12 @@ export function LexphSuscriptoresPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useRealtimeRefresh(['lexph_suscriptores'], () => void refresh());
+  useRealtimeRefresh(['lexph_suscriptores'], () => {
+    // Throttle: durante una ventana de envío last_email_at cambia ~1/min sobre 13k filas;
+    // sin esto se re-fetchearía todo el universo en cada evento.
+    if (Date.now() - lastRtRef.current < 30_000) return;
+    void refresh();
+  });
 
   // Supresión GLOBAL por email_norm (una sola fuente de verdad del envío).
   const suprMap = useMemo(() => {

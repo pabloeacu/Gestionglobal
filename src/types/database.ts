@@ -6795,6 +6795,7 @@ export type Database = {
           en_tramite: boolean
           estado_captacion: string
           id: string
+          jurisdiccion: string | null
           legajo: string | null
           matricula: string | null
           matricula_vencimiento: string | null
@@ -6821,6 +6822,7 @@ export type Database = {
           en_tramite?: boolean
           estado_captacion?: string
           id?: string
+          jurisdiccion?: string | null
           legajo?: string | null
           matricula?: string | null
           matricula_vencimiento?: string | null
@@ -6847,6 +6849,7 @@ export type Database = {
           en_tramite?: boolean
           estado_captacion?: string
           id?: string
+          jurisdiccion?: string | null
           legajo?: string | null
           matricula?: string | null
           matricula_vencimiento?: string | null
