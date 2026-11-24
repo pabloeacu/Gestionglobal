@@ -9249,3 +9249,64 @@ partner desde `movimientos` (sólo sabana + rendición; el resto RLS/listados/wr
 `BEGIN…ROLLBACK` (insertar egreso de partner → aparece en sábana → revertir → desaparece, delta
 correcto) + RPC real (23/10 = 0 líneas, 26/10 = 1) + prueba en vivo (ficha FundPlata: 23/10 ausente,
 26/10 presente, saldo a favor consistente con la Caja). Ver E-GG-291.
+
+## DGG-266 · Reporte semanal INTEGRAL de automatización + marketing — email ampliado + panel navegable (2026-11-24, migs 0709-0712)
+
+**Contexto / pedido (Pablo):** "No voy a ir a Vercel a chequear nada: traé por API toda la
+info que puedas para hacer el análisis adentro de la plataforma. Poné este tipo de medición
+(UTM) a todo. Y el mail de 'Reporte semanal · Captación PBA' hacelo mucho más amplio: un
+reporte semanal de TODOS los correos enviados automáticamente con sus datos de interés
+(cantidad por LexPH, aperturas, avisos automáticos a clientes por vencimientos/agenda,
+campañas por tipo y apertura…), para evaluar el marketing y la automatización integral de
+toda la plataforma." Construido sobre DGG-265 (UTM en todo el marketing + medición honesta).
+
+**Decisión 1 — Engagement = CLICKS → VISITAS por campaña (UTM), NO aperturas.** Se verificó
+que NO trackeamos aperturas: `sent_emails.opened_at/clicked_at/delivered_at` están en 0 en los
+últimos 30 días (9.310 envíos) porque mandamos por **Gmail API sin píxel de tracking, a
+propósito**. Meter un píxel de apertura sería un error: Apple Mail Privacy lo infla hasta
+volverlo basura y arriesga la entregabilidad del DMARC endurecido (DGG-223). → La métrica de
+engagement es el **click que llega al sitio**, medido por UTM (lo que paga Vercel con Web
+Analytics Plus). Es mejor señal que las aperturas. Los rebotes SÍ se trackean (DSN/webhook).
+El reporte explicita esto en el mail y en el panel ("el engagement se mide por clicks, no por
+aperturas").
+
+**Decisión 2 — Email = DIGEST; Panel = detalle navegable.** El render de variables del
+dispatcher **escapa HTML** (`renderVars`→`escapeHtmlIfNeeded`), así que no se puede inyectar
+HTML dinámico libre en una variable → el **email** es un digest de KPIs con variables
+escalares (números/strings): total enviados, rebote%, visitas desde emails, tabla por las 6
+categorías, campaña top, tráfico, captación, + botón al panel. El **detalle completo**
+(todas las campañas, referrers, dispositivos, países, por template) vive en el **panel**
+navegable `/gerencia/analitica/marketing` (nav Analítica → Marketing y correos). Email = push
+semanal; panel = deep-dive on-demand. Una sola fuente de verdad alimenta a los dos.
+
+**Decisión 3 — Arquitectura de datos (migs 0709/0710).** (a) `vercel_metricas`
+(dimension×valor×ventana) poblada por el edge `vercel-trafico-snapshot` con 7 dimensiones
+(campaign/source/medium/path/referrer/device/country) a nivel proyecto → "toda la info de
+Vercel adentro". (b) `private._reporte_semanal_build(p_dias)` (builder, el único lugar con la
+lógica, service_role) + `public.reporte_semanal_data(p_dias)` (wrapper staff-gated con
+`private.is_staff()`, lo lee el panel) + `public.reporte_semanal_enviar(p_dias)` (sender,
+arma las vars y usa `notify_all_gerentes`). El join campaña↔envíos es `vercel_metricas.valor`
+(dimension='campaign') = `sent_emails.template_slug`, porque DGG-265 setea `utm_campaign=slug`.
+Categorización por slug: newsletter / captacion / ofrecimiento / engagement / avisos_clientes
+(vencimiento/recordatorio/recupero/tracking/campus/servicio/gestoria) / transaccional.
+
+**Decisión 4 — Cron: misma frecuencia que el reporte anterior.** Se retiró el cron
+`prospectos-reporte-semanal` (reporte acotado de captación) y se agendó
+`reporte-semanal-plataforma` en el **mismo slot: `0 12 * * 1` = lunes 9:00 AR**. El reporte
+integral incluye las métricas de captación, así que lo supersede. Confirmado por Pablo:
+"que quede con la misma frecuencia que llevaba hasta ahora".
+
+**Decisión 5 — Medición honesta (hereda DGG-265 / E-GG-295).** Nunca un 0 mentiroso: si la
+medición UTM no está disponible (402 sin add-on, o error), el panel y el tile muestran
+"n/d" / "medición no disponible", no un cero. El tile "Visitas desde emails" usa la figura
+autoritativa `desde_email` (nivel proyecto), no una suma parcial por campaña.
+
+**§6 (3 agentes) APROBADO sin críticos.** Verificado e2e: números del RPC == COUNT crudo
+sobre `sent_emails`; seguridad/ACL/R5/R16 OK; smoke del sender con ROLLBACK (0 envíos reales);
+prueba en vivo (email renderizado en Gmail + panel logueado como gerente). Menores corregidos
+en mig 0712: coherencia del número de visitas (email+panel), categorización recordatorio/
+recupero, exclusión de preview/QA/self-reference, `layout_version='legacy'` (render robusto
+por diseño), drop de `prospectos_reporte_semanal()` huérfana, KPI honesto, error humanizado.
+**Observación transitoria** (no bug): hoy sólo el newsletter muestra visitas por campaña;
+captación/ofrecimientos están en 0 porque sus clicks previos traían un `utm_campaign` legacy
+(el asunto slugificado, no el slug) — caduca de la ventana ~30d, self-healing. Ver DGG-265 / E-GG-295.
