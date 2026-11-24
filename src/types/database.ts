@@ -12185,6 +12185,7 @@ export type Database = {
         Returns: string
       }
       reintentar_arca_job: { Args: { p_job_id: string }; Returns: string }
+      reporte_semanal_data: { Args: { p_dias?: number }; Returns: Json }
       reset_arca_jobs_colgados: {
         Args: { p_max_age_min?: number }
         Returns: number

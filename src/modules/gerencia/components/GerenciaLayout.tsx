@@ -108,7 +108,14 @@ const NAV: NavGroup[] = [
   { label: 'Campus', to: '/gerencia/campus', icon: GraduationCap },
   { label: 'Comunicaciones', to: '/gerencia/comunicaciones', icon: Megaphone },
   { label: 'LexPH', to: '/gerencia/contenidos', icon: Newspaper },
-  { label: 'Analítica', to: '/gerencia/analitica', icon: BarChart3 },
+  {
+    label: 'Analítica',
+    icon: BarChart3,
+    children: [
+      { label: 'Negocio', to: '/gerencia/analitica', end: true },
+      { label: 'Marketing y correos', to: '/gerencia/analitica/marketing' },
+    ],
+  },
   {
     label: 'Configuración',
     icon: Settings,
