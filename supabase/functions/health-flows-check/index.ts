@@ -50,8 +50,8 @@ function jsonResp(status: number, body: unknown): Response {
 // ----------------------------------------------------------------------------
 
 async function check_email_queue_atascada(admin: ReturnType<typeof createClient>): Promise<CheckResult> {
-  // E-GG-108: el dispatcher de emails envía CON throttle (DGG-113: 60s global
-  // entre destinatarios distintos + piso 5 min por destinatario, lección E42/
+  // E-GG-108: el dispatcher de emails envía CON throttle (DGG-113/DGG-264: 30s
+  // global entre destinatarios distintos + piso 5 min por destinatario, lección E42/
   // D05). Por eso una cola de emails esperando NO es "cron caído": es el
   // throttle drenando de a uno (un burst de N a destinatarios distintos tarda
   // ~N minutos). La versión anterior gritaba "crítico" ante cualquier backlog
@@ -100,7 +100,7 @@ async function check_email_queue_atascada(admin: ReturnType<typeof createClient>
   if (backlog > 40) {
     return {
       status: 'warning',
-      detail: `${backlog} emails en cola (throttle 60s; ~${Math.max(1, Math.round(backlog / 60))}h para drenar)`,
+      detail: `${backlog} emails en cola (throttle 30s ≈ 60/h; ~${Math.max(1, Math.round(backlog / 60))}h para drenar)`,
       metric: backlog,
     };
   }

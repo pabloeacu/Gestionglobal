@@ -1,6 +1,6 @@
 // dispatch-emails · drena email_queue (kind=workflow), aplica throttle en dos
-// pisos (DGG-113: 60s global entre destinatarios distintos + 5 min POR
-// destinatario, la lección real de E42/D05) y envía vía Gmail API REST con
+// pisos (DGG-113 + DGG-264: 30s global entre destinatarios distintos + 5 min
+// POR destinatario, la lección real de E42/D05) y envía vía Gmail API REST con
 // OAuth2 refresh_token.
 //
 // Reuso del patrón de send-comprobante-email/index.ts: misma técnica para
