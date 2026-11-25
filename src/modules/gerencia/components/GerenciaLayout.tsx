@@ -78,6 +78,7 @@ const NAV: NavGroup[] = [
       { label: 'Eventos', to: '/gerencia/formularios/webinars' },
       { label: 'Prospectos', to: '/gerencia/formularios/prospectos', end: true },
       { label: 'Captación PBA', to: '/gerencia/formularios/prospectos/captacion' },
+      { label: 'Captación Federal', to: '/gerencia/formularios/prospectos/captacion-federal' },
     ],
   },
   { label: 'Clientes', to: '/gerencia/clientes', icon: Users },

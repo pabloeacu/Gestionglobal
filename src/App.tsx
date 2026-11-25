@@ -94,6 +94,7 @@ const WebinarsListPage = lazy(() => import('@/modules/webinars-admin').then(m =>
 const WebinarDetailPage = lazy(() => import('@/modules/webinars-admin').then(m => ({ default: m.WebinarDetailPage })));
 const ProspectosListPage = lazy(() => import('@/modules/webinars-admin').then(m => ({ default: m.ProspectosListPage })));
 const ProspectosCaptacionPage = lazy(() => import('@/modules/webinars-admin').then(m => ({ default: m.ProspectosCaptacionPage })));
+const CaptacionFederalPage = lazy(() => import('@/modules/webinars-admin').then(m => ({ default: m.CaptacionFederalPage })));
 const WebinarPublicoPage = lazy(() => import('@/modules/webinars-publico/WebinarPublicoPage').then(m => ({ default: m.WebinarPublicoPage })));
 const WebinarInscripcionPublicaPage = lazy(() => import('@/modules/webinars-publico/WebinarInscripcionPublicaPage').then(m => ({ default: m.WebinarInscripcionPublicaPage })));
 const CampusWebinarPage = lazy(() => import('@/modules/webinars-publico/CampusWebinarPage').then(m => ({ default: m.CampusWebinarPage })));
@@ -476,6 +477,7 @@ export function App() {
           <Route path="formularios/webinars/:id" element={<WebinarDetailPage />} />
           <Route path="formularios/prospectos" element={<ProspectosListPage />} />
           <Route path="formularios/prospectos/captacion" element={<ProspectosCaptacionPage />} />
+          <Route path="formularios/prospectos/captacion-federal" element={<CaptacionFederalPage />} />
           <Route path="formularios/:id" element={<FormularioBuilderPage />} />
           <Route path="formularios/:id/versiones" element={<FormularioVersionesPage />} />
           <Route path="finanzas" element={<FinanzasDashboardPage />} />

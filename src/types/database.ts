@@ -1795,6 +1795,7 @@ export type Database = {
           encuesta_cm_emails: string
           encuesta_cm_ultimo_envio_at: string | null
           engagement_onboarding_activo: boolean
+          federal_campanas_activo: boolean
           id: number
           landing_cover_enabled: boolean
           landing_opiniones_activa: boolean
@@ -1844,6 +1845,7 @@ export type Database = {
           encuesta_cm_emails?: string
           encuesta_cm_ultimo_envio_at?: string | null
           engagement_onboarding_activo?: boolean
+          federal_campanas_activo?: boolean
           id?: number
           landing_cover_enabled?: boolean
           landing_opiniones_activa?: boolean
@@ -1893,6 +1895,7 @@ export type Database = {
           encuesta_cm_emails?: string
           encuesta_cm_ultimo_envio_at?: string | null
           engagement_onboarding_activo?: boolean
+          federal_campanas_activo?: boolean
           id?: number
           landing_cover_enabled?: boolean
           landing_opiniones_activa?: boolean
@@ -5437,6 +5440,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      mkt_import_staging: {
+        Row: {
+          cargado_at: string
+          email: string
+          jurisdiccion: string | null
+          matricula: string | null
+          nombre: string | null
+          origen_fuente: string | null
+          telefono: string | null
+        }
+        Insert: {
+          cargado_at?: string
+          email: string
+          jurisdiccion?: string | null
+          matricula?: string | null
+          nombre?: string | null
+          origen_fuente?: string | null
+          telefono?: string | null
+        }
+        Update: {
+          cargado_at?: string
+          email?: string
+          jurisdiccion?: string | null
+          matricula?: string | null
+          nombre?: string | null
+          origen_fuente?: string | null
+          telefono?: string | null
+        }
+        Relationships: []
       }
       movimiento_adjuntos: {
         Row: {
@@ -9003,6 +9036,33 @@ export type Database = {
           },
         ]
       }
+      vercel_metricas: {
+        Row: {
+          actualizado_at: string
+          dimension: string
+          valor: string
+          ventana: string
+          visitantes: number
+          vistas: number
+        }
+        Insert: {
+          actualizado_at?: string
+          dimension: string
+          valor: string
+          ventana: string
+          visitantes?: number
+          vistas?: number
+        }
+        Update: {
+          actualizado_at?: string
+          dimension?: string
+          valor?: string
+          ventana?: string
+          visitantes?: number
+          vistas?: number
+        }
+        Relationships: []
+      }
       vercel_trafico: {
         Row: {
           actualizado_at: string
@@ -11783,6 +11843,8 @@ export type Database = {
           user_agent: string
         }[]
       }
+      mkt_import_aplicar: { Args: never; Returns: Json }
+      nombre_pila_federal: { Args: { p_nombre: string }; Returns: string }
       normalizar_nombre: { Args: { p: string }; Returns: string }
       notif_archivar: { Args: { p_id: string }; Returns: boolean }
       notif_archivar_todas: { Args: never; Returns: number }
@@ -12076,6 +12138,49 @@ export type Database = {
         }
         Returns: Json
       }
+      prospectos_federal_enviar_campana: {
+        Args: {
+          p_forzar?: boolean
+          p_jurisdiccion?: string
+          p_limite_diario?: number
+          p_template_slug: string
+        }
+        Returns: Json
+      }
+      prospectos_federal_kpis: { Args: never; Returns: Json }
+      prospectos_federal_list: {
+        Args: {
+          p_estado?: string
+          p_jurisdiccion?: string
+          p_limit?: number
+          p_offset?: number
+          p_search?: string
+          p_solo_con_email?: boolean
+        }
+        Returns: {
+          baja_at: string
+          campanas_enviadas: Json
+          convertido_at: string
+          email: string
+          estado_captacion: string
+          id: string
+          jurisdiccion: string
+          matricula: string
+          nombre: string
+          nombre_pila: string
+          origen_detalle: string
+          suprimido: boolean
+          telefono: string
+          total_count: number
+          ultimo_mail_asunto: string
+          ultimo_mail_at: string
+          ultimo_mail_slug: string
+        }[]
+      }
+      prospectos_federal_preview_campana: {
+        Args: { p_jurisdiccion?: string; p_template_slug: string }
+        Returns: Json
+      }
       prospectos_listado: {
         Args: { p_webinar_id?: string }
         Returns: {
@@ -12103,7 +12208,6 @@ export type Database = {
         Returns: Json
       }
       prospectos_reimport_aplicar: { Args: { p_rows: Json }; Returns: Json }
-      prospectos_reporte_semanal: { Args: never; Returns: Json }
       prospectos_reverify_watcher: { Args: never; Returns: Json }
       prospectos_revisita_en_tramite: { Args: never; Returns: Json }
       proveedor_frecuente_eliminar: {
@@ -12189,6 +12293,7 @@ export type Database = {
       }
       reintentar_arca_job: { Args: { p_job_id: string }; Returns: string }
       reporte_semanal_data: { Args: { p_dias?: number }; Returns: Json }
+      reporte_semanal_enviar: { Args: { p_dias?: number }; Returns: Json }
       reset_arca_jobs_colgados: {
         Args: { p_max_age_min?: number }
         Returns: number

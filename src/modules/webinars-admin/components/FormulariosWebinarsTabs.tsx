@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { FileText, Megaphone, Radio, Users } from 'lucide-react';
+import { FileText, Megaphone, MapPin, Radio, Users } from 'lucide-react';
 import { cn } from '@/lib/cn';
 
 // DGG-11/15: header de tabs compartido entre /gerencia/formularios y los
@@ -11,7 +11,8 @@ const TABS = [
   { to: '/gerencia/formularios', label: 'Formularios', icon: FileText, match: /^\/gerencia\/formularios\/?$|^\/gerencia\/formularios\/[a-f0-9-]{36}/ },
   { to: '/gerencia/formularios/webinars', label: 'Eventos', icon: Radio, match: /^\/gerencia\/formularios\/webinars/ },
   { to: '/gerencia/formularios/prospectos', label: 'Prospectos', icon: Users, match: /^\/gerencia\/formularios\/prospectos\/?$/ },
-  { to: '/gerencia/formularios/prospectos/captacion', label: 'Captación PBA', icon: Megaphone, match: /^\/gerencia\/formularios\/prospectos\/captacion/ },
+  { to: '/gerencia/formularios/prospectos/captacion', label: 'Captación PBA', icon: Megaphone, match: /^\/gerencia\/formularios\/prospectos\/captacion($|\/)/ },
+  { to: '/gerencia/formularios/prospectos/captacion-federal', label: 'Captación Federal', icon: MapPin, match: /^\/gerencia\/formularios\/prospectos\/captacion-federal/ },
 ];
 
 export function FormulariosWebinarsTabs() {
