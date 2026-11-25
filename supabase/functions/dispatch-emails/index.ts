@@ -40,6 +40,13 @@ const DOMAIN = 'gestionglobal.ar';
 const CONTACTO = `contacto@${DOMAIN}`;
 const LOGO_URL = `https://www.${DOMAIN}/logo-color.png`;
 
+// DGG-268 · Carril de envío masivo por Amazon SES (Opción B). El marketing (allow-list de
+// marketingUtmFor) sale por SES desde el subdominio dedicado SES_FROM_DOMAIN cuando el
+// kill-switch config_global.bulk_via_ses está ON y hay credenciales IAM; todo lo demás
+// (transaccional) sigue por Gmail API. Objetivo: aislar la reputación del envío masivo.
+const SES_FROM_DOMAIN = Deno.env.get('SES_FROM_DOMAIN') ?? 'envios.gestionglobal.ar';
+const SES_REGION = Deno.env.get('AWS_SES_REGION') ?? 'us-east-1';
+
 // Mapeo casilla (metadata semántica del template) → alias REAL.
 // Casillas no listadas caen al default (contacto@).
 // 2026-07-09 (Pablo · DGG-100): 'webinar'/'evento' YA NO mapean a webinar@ —
@@ -319,11 +326,16 @@ Deno.serve(async (req) => {
       bajaUrlApp = `https://www.${DOMAIN}/baja?a=${job.related_id}&t=${arow.baja_token}`;
       bajaTexto = 'Recibís este correo como cliente de Gestión Global. ¿No querés recibir novedades y ofertas por correo?';
     } else {
-      const { data: prow, error: pErr } = await admin.from('prospectos').select('baja_token').eq('id', job.related_id).maybeSingle();
+      const { data: prow, error: pErr } = await admin.from('prospectos').select('baja_token, origen').eq('id', job.related_id).maybeSingle();
       if (pErr || !prow?.baja_token) return await deferir('sin_baja_token');
       bajaUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/email-baja?p=${job.related_id}&t=${prow.baja_token}`;
       bajaUrlApp = `https://www.${DOMAIN}/baja?p=${job.related_id}&t=${prow.baja_token}`;
-      bajaTexto = 'Recibís este correo porque figurás en el registro público de administradores de consorcios (DPPJ · Pcia. de Buenos Aires). ¿No querés recibir estos correos?';
+      // DGG-269: la línea de fuente depende del origen del prospecto. 'padron_pba' = registro
+      // público DPPJ (Pcia. Bs As). 'import_nacional' (CABA/nacional, de congresos/jornadas/
+      // Excel de GG) NO viene del padrón → ese texto sería falso (§6, "nunca mentir").
+      bajaTexto = prow.origen === 'import_nacional'
+        ? 'Recibís este correo porque nos dejaste tus datos en una jornada, congreso o actividad de Gestión Global. ¿No querés recibir estos correos?'
+        : 'Recibís este correo porque figurás en el registro público de administradores de consorcios (DPPJ · Pcia. de Buenos Aires). ¿No querés recibir estos correos?';
     }
   }
 
@@ -492,49 +504,98 @@ Deno.serve(async (req) => {
     }
   }
 
-  const fromHeader = `${encodeRfc2047('Gestión Global')} <${senderEmail}>`;
+  // DGG-268 · Decisión de transporte. El marketing (mkt != null ⇔ allow-list de
+  // marketingUtmFor) sale por SES cuando el kill-switch config_global.bulk_via_ses está ON
+  // y hay credenciales IAM; el From usa el subdominio verificado (reputación aislada) y el
+  // Reply-To queda en la casilla real (@gestionglobal.ar) para que las respuestas lleguen.
+  // Fail-closed: si falta el flag o una credencial → Gmail API (byte-idéntico a antes). El
+  // transaccional (mkt == null) nunca entra acá: siempre Gmail.
+  const sesAccessKey = Deno.env.get('AWS_SES_ACCESS_KEY_ID');
+  const sesSecretKey = Deno.env.get('AWS_SES_SECRET_ACCESS_KEY');
+  let bulkViaSes = false;
+  try {
+    const { data: cfgRow } = await admin.from('config_global').select('bulk_via_ses').maybeSingle();
+    bulkViaSes = !!(cfgRow as { bulk_via_ses?: boolean } | null)?.bulk_via_ses;
+  } catch { bulkViaSes = false; }
+  // Decisión de RUTA. Con el kill-switch ON, el marketing (mkt != null ⇔ allow-list) DEBE salir
+  // por SES. Mandato fail-closed (Pablo): NUNCA cruzar marketing a Gmail cuando SES es la ruta
+  // elegida. Si el flag está ON pero faltan credenciales IAM (misconfig), se DIFIERE la fila
+  // (vuelve en 5') en vez de caer a Workspace. Con el flag OFF, el marketing usa Gmail (pre-SES).
+  const routeSes = bulkViaSes && !!mkt;
+  if (routeSes && (!sesAccessKey || !sesSecretKey)) {
+    await admin.from('email_queue').update({
+      status: 'pending', sending_started_at: null,
+      programado_para: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+      ultimo_error: 'SES es la ruta elegida pero faltan credenciales IAM — diferido (no se cruza a Gmail)',
+    }).eq('id', job.id);
+    return json({ ok: true, drained: 0, deferred: 'ses_sin_credenciales' });
+  }
+  const useSes = routeSes; // credenciales garantizadas si routeSes
+  const fromEmail = useSes ? `${senderEmail.split('@')[0]}@${SES_FROM_DOMAIN}` : senderEmail;
+  const effectiveReplyTo = useSes ? senderEmail : replyToEmail;
+  const fromHeader = `${encodeRfc2047('Gestión Global')} <${fromEmail}>`;
+
   // E-GG-261 §6-A#9: envolver el armado del MIME. Un valor "veneno" (p.ej. un
   // lone-surrogate en una variable → encodeURIComponent lanza) NO debe escapar el
   // handler dejando la fila colgada en 'sending': la fallamos por el camino normal
   // (failJob consume el intento + backoff) en vez de esperar 10 min al watchdog.
-  let raw: string;
+  let mime: string;
   try {
-    const mime = buildMimeMessage({
+    mime = buildMimeMessage({
       from: fromHeader,
       to: [job.to_email],
-      replyTo: replyToEmail,
+      replyTo: effectiveReplyTo,
       subject,
       html,
       text,
       attachments,
       bajaUrl: bajaUrl ?? undefined,
     });
-    raw = base64UrlEncode(mime);
   } catch (e) {
     await failJob(admin, job, `MIME build: ${(e as Error).message}`);
     return jsonError(500, 'mime build failed');
   }
 
   let providerMsgId: string | null = null;
-  try {
-    const r = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ raw }),
-    });
-    if (!r.ok) {
-      const txt = await r.text();
-      await failJob(admin, job, `Gmail ${r.status}: ${txt.slice(0, 500)}`);
-      return jsonError(502, `gmail ${r.status}`);
+  if (useSes) {
+    // Carril SES (marketing masivo): SendEmail v2 con el MIME crudo ya armado — SES le pone
+    // DKIM/SPF del subdominio. Mismo failJob/backoff que Gmail ante error (la fila reintenta).
+    try {
+      const res = await sendViaSes({
+        region: SES_REGION, accessKeyId: sesAccessKey!, secretAccessKey: sesSecretKey!,
+        rawBase64: base64Std(mime),
+      });
+      if (!res.ok) {
+        await failJob(admin, job, `SES ${res.status}: ${res.error ?? ''}`.slice(0, 500));
+        return jsonError(502, `ses ${res.status}`);
+      }
+      providerMsgId = res.messageId ?? null;
+    } catch (e) {
+      await failJob(admin, job, `SES error: ${(e as Error).message}`);
+      return jsonError(502, 'ses error');
     }
-    const j = await r.json() as { id?: string };
-    providerMsgId = j.id ?? null;
-  } catch (e) {
-    await failJob(admin, job, `Gmail error: ${(e as Error).message}`);
-    return jsonError(502, 'gmail error');
+  } else {
+    const raw = base64UrlEncode(mime);
+    try {
+      const r = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ raw }),
+      });
+      if (!r.ok) {
+        const txt = await r.text();
+        await failJob(admin, job, `Gmail ${r.status}: ${txt.slice(0, 500)}`);
+        return jsonError(502, `gmail ${r.status}`);
+      }
+      const j = await r.json() as { id?: string };
+      providerMsgId = j.id ?? null;
+    } catch (e) {
+      await failJob(admin, job, `Gmail error: ${(e as Error).message}`);
+      return jsonError(502, 'gmail error');
+    }
   }
 
   // 8) Marcar enviado + sent_emails + throttle.
@@ -560,9 +621,9 @@ Deno.serve(async (req) => {
 
   await admin.from('sent_emails').insert({
     to_email: job.to_email,
-    from_email: senderEmail,
+    from_email: fromEmail,          // DGG-268: el From REAL (subdominio SES si useSes, si no el alias)
     from_casilla: casilla,
-    reply_to: replyToEmail,
+    reply_to: effectiveReplyTo,
     asunto: subject,
     plantilla: tpl.slug,
     template_slug: tpl.slug,
@@ -721,6 +782,7 @@ function marketingUtmFor(slug: string | null | undefined): { source: string; cam
   const s = slug ?? '';
   if (s.startsWith('lexph-newsletter')) return { source: 'newsletter', campaign: s };
   if (s.startsWith('captacion-')) return { source: 'captacion', campaign: s };
+  if (s.startsWith('federal-')) return { source: 'federal', campaign: s };
   if (s.startsWith('ofrecimiento-')) return { source: 'ofrecimiento', campaign: s };
   if (s.startsWith('engagement-')) return { source: 'engagement', campaign: s };
   return null;
@@ -965,6 +1027,80 @@ function base64UrlEncode(s: string): string {
   let bin = '';
   for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]!);
   return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+// ─────────────── DGG-268 · Amazon SES (SendEmail v2 Raw + SigV4) ───────────────
+// Sin SDK: firma SigV4 a mano con crypto.subtle. Envía el MIME crudo ya armado (DKIM/SPF
+// del subdominio los pone SES). Devuelve {ok,status,messageId|error}; el caller falla la
+// fila (failJob) ante error, igual que con Gmail.
+function base64Std(s: string): string {
+  const bytes = new TextEncoder().encode(s);
+  let bin = '';
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]!);
+  return btoa(bin); // estándar (con +/=): lo que espera SES Raw.Data
+}
+
+function hexFromBuf(buf: ArrayBuffer): string {
+  const b = new Uint8Array(buf);
+  let s = '';
+  for (let i = 0; i < b.length; i++) s += b[i]!.toString(16).padStart(2, '0');
+  return s;
+}
+
+async function sha256Hex(msg: string): Promise<string> {
+  const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(msg));
+  return hexFromBuf(d);
+}
+
+async function hmacRaw(key: ArrayBuffer | Uint8Array, msg: string): Promise<ArrayBuffer> {
+  const k = await crypto.subtle.importKey('raw', key, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  return await crypto.subtle.sign('HMAC', k, new TextEncoder().encode(msg));
+}
+
+async function sigV4SigningKey(secret: string, dateStamp: string, region: string, service: string): Promise<ArrayBuffer> {
+  const kDate = await hmacRaw(new TextEncoder().encode('AWS4' + secret), dateStamp);
+  const kRegion = await hmacRaw(kDate, region);
+  const kService = await hmacRaw(kRegion, service);
+  return await hmacRaw(kService, 'aws4_request');
+}
+
+async function sendViaSes(o: {
+  region: string; accessKeyId: string; secretAccessKey: string; rawBase64: string;
+}): Promise<{ ok: boolean; status: number; messageId?: string; error?: string }> {
+  const service = 'ses';
+  const host = `email.${o.region}.amazonaws.com`;
+  const path = '/v2/email/outbound-emails';
+  // Raw: SES toma From/To/Reply-To/List-Unsubscribe de los headers del MIME.
+  const body = JSON.stringify({ Content: { Raw: { Data: o.rawBase64 } } });
+  const amzDate = new Date().toISOString().replace(/[:-]|\.\d{3}/g, ''); // YYYYMMDDTHHMMSSZ
+  const dateStamp = amzDate.slice(0, 8);
+  const payloadHash = await sha256Hex(body);
+  const canonicalHeaders =
+    `content-type:application/json\nhost:${host}\nx-amz-content-sha256:${payloadHash}\nx-amz-date:${amzDate}\n`;
+  const signedHeaders = 'content-type;host;x-amz-content-sha256;x-amz-date';
+  const canonicalRequest = ['POST', path, '', canonicalHeaders, signedHeaders, payloadHash].join('\n');
+  const scope = `${dateStamp}/${o.region}/${service}/aws4_request`;
+  const stringToSign = ['AWS4-HMAC-SHA256', amzDate, scope, await sha256Hex(canonicalRequest)].join('\n');
+  const signingKey = await sigV4SigningKey(o.secretAccessKey, dateStamp, o.region, service);
+  const signature = hexFromBuf(await hmacRaw(signingKey, stringToSign));
+  const authorization =
+    `AWS4-HMAC-SHA256 Credential=${o.accessKeyId}/${scope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
+  const r = await fetch(`https://${host}${path}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Amz-Date': amzDate,
+      'X-Amz-Content-Sha256': payloadHash,
+      'Authorization': authorization,
+    },
+    body,
+  });
+  if (!r.ok) {
+    const txt = await r.text();
+    return { ok: false, status: r.status, error: txt.slice(0, 500) };
+  }
+  const j = await r.json().catch(() => ({})) as { MessageId?: string };
+  return { ok: true, status: r.status, messageId: j.MessageId };
 }
 
 function json(data: unknown, status = 200) {
