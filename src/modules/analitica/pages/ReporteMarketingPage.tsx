@@ -20,16 +20,17 @@ const pct = (n: number) => `${n.toLocaleString('es-AR', { maximumFractionDigits:
 const CAT_LABEL: Record<string, string> = {
   newsletter: 'Newsletter LexPH',
   captacion: 'Captación PBA',
+  federal: 'Captación Federal',
   ofrecimiento: 'Ofrecimientos a clientes',
   engagement: 'Engagement / onboarding',
   avisos_clientes: 'Avisos automáticos a clientes',
   transaccional: 'Transaccional / operativo',
 };
 const CAT_ICON: Record<string, typeof Newspaper> = {
-  newsletter: Newspaper, captacion: Target, ofrecimiento: Megaphone,
+  newsletter: Newspaper, captacion: Target, federal: Globe, ofrecimiento: Megaphone,
   engagement: Rocket, avisos_clientes: Bell, transaccional: Wrench,
 };
-const esMarketing = (c: string) => ['newsletter', 'captacion', 'ofrecimiento', 'engagement'].includes(c);
+const esMarketing = (c: string) => ['newsletter', 'captacion', 'federal', 'ofrecimiento', 'engagement'].includes(c);
 
 export function ReporteMarketingPage() {
   const [dias, setDias] = useState(7);

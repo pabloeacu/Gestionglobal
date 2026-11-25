@@ -109,7 +109,7 @@ export function CaptacionFederalPage() {
   async function handleReactivar(p: ProspectoFederalRow) {
     const ok = await confirmar({
       title: 'Reactivar en la captación',
-      message: `Vas a reactivar a "${p.email}": se quita de la lista de suprimidos y vuelve a entrar en las campañas. ¿Confirmás?`,
+      message: `Vas a reactivar a "${p.email}": se quita de la lista de suprimidos y vuelve a entrar en las campañas de captación federal y en el newsletter LexPH. ¿Confirmás?`,
       confirmLabel: 'Reactivar', cancelLabel: 'Cancelar',
     });
     if (!ok) return;
