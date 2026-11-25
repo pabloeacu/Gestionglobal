@@ -37,7 +37,7 @@ const b64 = (p) => readFileSync(resolve(ROOT, p)).toString('base64');
 const FONTS = `
 @font-face{font-family:'GG Oswald';src:url(data:font/woff2;base64,${b64('public/fonts/gg-oswald-latin.woff2')}) format('woff2');font-weight:300 700;font-display:block;}
 @font-face{font-family:'GG Archivo';src:url(data:font/woff2;base64,${b64('public/fonts/gg-archivo-latin.woff2')}) format('woff2');font-weight:400 700;font-display:block;}`;
-const fundplataLogo = cobrand === 'fundplata' ? b64('public/landing/partners/fundplata.png') : null;
+const cobrandLogo = cobrand ? b64(`public/landing/partners/${cobrand}.png`) : null;
 const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
 // Auto-escala el título para que la línea más larga entre en la columna (~640px).
 const maxLen = Math.max(...titleLines.map((l) => l.length), 1);
@@ -51,11 +51,12 @@ const GLYPHS = {
   tramites: `<circle cx="26" cy="26" r="9" fill="#35C9EE"/><path d="M22 26l3 3 6-7" stroke="#063B4C" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/><circle cx="26" cy="50" r="9" fill="#35C9EE"/><path d="M22 50l3 3 6-7" stroke="#063B4C" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/><circle cx="26" cy="74" r="9" fill="url(#gw)"/><rect x="42" y="22" width="40" height="8" rx="4" fill="url(#gw)"/><rect x="42" y="46" width="40" height="8" rx="4" fill="url(#gw)"/><rect x="42" y="70" width="28" height="8" rx="4" fill="url(#gw)"/><path d="M26 35v6M26 59v6" stroke="rgba(255,255,255,.35)" stroke-width="3"/>`,
   capacitaciones: `<circle cx="50" cy="40" r="22" fill="url(#gw)"/><circle cx="50" cy="40" r="13" fill="none" stroke="#35C9EE" stroke-width="4"/><path d="M50 30l2.6 5.6 6.1.8-4.5 4.2 1.2 6-5.4-3-5.4 3 1.2-6-4.5-4.2 6.1-.8L50 30z" fill="#35C9EE"/><path d="M40 58l-6 22 16-9 16 9-6-22" fill="url(#gw)"/>`,
   agenda: `<rect x="16" y="22" width="68" height="58" rx="6" fill="url(#gw)"/><rect x="16" y="22" width="68" height="15" rx="6" fill="#0B3A4A"/><rect x="28" y="14" width="7" height="14" rx="3.5" fill="#35C9EE"/><rect x="65" y="14" width="7" height="14" rx="3.5" fill="#35C9EE"/><circle cx="32" cy="50" r="4" fill="#0B3A4A"/><circle cx="50" cy="50" r="4" fill="#0B3A4A"/><circle cx="68" cy="50" r="8" fill="#35C9EE"/><path d="M63.5 50l3 3 6-6" stroke="#063B4C" stroke-width="3.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/><circle cx="32" cy="66" r="4" fill="#0B3A4A"/><circle cx="50" cy="66" r="4" fill="#0B3A4A"/><circle cx="68" cy="66" r="4" fill="#0B3A4A"/>`,
+  legal: `<rect x="46.5" y="18" width="7" height="58" rx="2.5" fill="url(#gw)"/><rect x="29" y="74" width="42" height="7" rx="3.5" fill="url(#gw)"/><circle cx="50" cy="18" r="6.5" fill="#35C9EE"/><rect x="14" y="27" width="72" height="5" rx="2.5" fill="url(#gw)"/><path d="M23 32 L11 51 M23 32 L35 51 M77 32 L65 51 M77 32 L89 51" stroke="rgba(255,255,255,.6)" stroke-width="2.2" stroke-linecap="round"/><path d="M11 51 Q23 63 35 51 Z" fill="#35C9EE"/><path d="M65 51 Q77 63 89 51 Z" fill="url(#gw)"/>`,
 };
 const ACCENT_CHIP = `<div class="chip"></div>`;
 
-const cobrandEyebrow = fundplataLogo
-  ? `<div class="sep"></div><span class="slg" style="color:#cfe0ea;">con</span><img class="fp" src="data:image/png;base64,${fundplataLogo}" alt="FUNDPLATA"/>`
+const cobrandEyebrow = cobrandLogo
+  ? `<div class="sep"></div><span class="slg" style="color:#cfe0ea;">con</span><img class="fp" src="data:image/png;base64,${cobrandLogo}" alt="${esc((cobrand || '').toUpperCase())}"/>`
   : '';
 
 const html = `<!doctype html><html><head><meta charset="utf-8"><style>
