@@ -1821,6 +1821,11 @@ export type Database = {
           provincia: string | null
           proximo_dni_ficticio: number
           razon_social: string
+          ses_pausado_at: string | null
+          ses_pausado_motivo: string | null
+          ses_pausado_reputacion: boolean
+          ses_warmup_cap_override: number | null
+          ses_warmup_inicio: string | null
           sitio_web: string | null
           telefono: string | null
           updated_at: string
@@ -1872,6 +1877,11 @@ export type Database = {
           provincia?: string | null
           proximo_dni_ficticio?: number
           razon_social?: string
+          ses_pausado_at?: string | null
+          ses_pausado_motivo?: string | null
+          ses_pausado_reputacion?: boolean
+          ses_warmup_cap_override?: number | null
+          ses_warmup_inicio?: string | null
           sitio_web?: string | null
           telefono?: string | null
           updated_at?: string
@@ -1923,6 +1933,11 @@ export type Database = {
           provincia?: string | null
           proximo_dni_ficticio?: number
           razon_social?: string
+          ses_pausado_at?: string | null
+          ses_pausado_motivo?: string | null
+          ses_pausado_reputacion?: boolean
+          ses_warmup_cap_override?: number | null
+          ses_warmup_inicio?: string | null
           sitio_web?: string | null
           telefono?: string | null
           updated_at?: string
@@ -12399,6 +12414,8 @@ export type Database = {
         }
         Returns: Json
       }
+      ses_lane_estado: { Args: never; Returns: Json }
+      ses_warmup_cap_hoy: { Args: never; Returns: number }
       set_landing_cover: { Args: { p_enabled: boolean }; Returns: boolean }
       set_lexph_publico: { Args: { p_enabled: boolean }; Returns: boolean }
       solicitud_activar: {
