@@ -109,3 +109,18 @@ verify_jwt = false
 # por MCP lo flipea a true → hay que re-asegurar verify_jwt=false (panel/CLI) tras cada deploy.
 [functions.vercel-trafico-snapshot]
 verify_jwt = false
+
+# ses-event-webhook (DGG-268 F4): receptor de rebotes/quejas de Amazon SES vía SNS.
+# verify_jwt=false OBLIGATORIO — SNS postea sin JWT. La auth es: firma SNS (X.509 RSA)
+# verificada adentro + TopicArn allow-list + secreto compartido en el query (?s=). Se fija
+# acá para que un deploy (CLI o MCP) no lo flipee a true y rompa la recepción de SNS.
+[functions.ses-event-webhook]
+verify_jwt = false
+
+# email-bounce-harvester: cron */30 que cosecha DSNs de rebote de Gmail. verify_jwt=false A
+# PROPÓSITO — la auth es CRON_SECRET validado ADENTRO; con verify_jwt=true la plataforma
+# rechaza el bearer del cron con 401 ANTES del código. Estaba deployado en false pero SIN
+# declarar acá → un deploy por CLI lo habría flipeado a true y roto la cosecha. Se fija
+# explícito (DGG-268, al tocarlo por E-GG-298).
+[functions.email-bounce-harvester]
+verify_jwt = false

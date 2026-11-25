@@ -526,58 +526,85 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      // DGG-220: hard-bounce o queja de un PROSPECTO → supresión (protege la
-      // reputación del mailing en frío; el motor/dispatch no vuelven a mandarle).
-      // Scoped a prospectos: un rebote de cliente se maneja por el aviso a gerencia.
+      // DGG-268 E-GG-298: aplicar el rebote/queja de un envío REAL que rebotó.
+      // CRÍTICO (§6 auditoría B): el gate esNotifInterna envuelve TANTO la supresión como el
+      // aviso. Si una notif interna a un gerente ('gerencia-notif-generica') rebota, NO hay que
+      // suprimir/bajar a ese gerente: no es administración activa → sin carve-out → quedaría
+      // hard-bloqueado de TODO email y, por el anti-loop, nadie se enteraría (auto-perpetuante).
+      // Para ese caso sólo emitimos campanita+push (sin email) para no realimentar el loop E-GG-117
+      // pero NO perder la señal "la casilla de un gerente rebota".
       if (estado === 'bounced' || estado === 'complained') {
-        try {
-          const em = (sent.to_email || '').toLowerCase().trim();
-          if (em) {
-            const { data: prow } = await admin.from('prospectos').select('id').eq('email', em).maybeSingle();
-            if (prow?.id) {
-              await admin.from('email_suppression').upsert(
-                { email: em, motivo: estado === 'complained' ? 'queja' : 'bounce', origen: 'webhook', prospecto_id: prow.id },
-                { onConflict: 'email', ignoreDuplicates: true },
-              );
+        const esNotifInterna = sent.template_slug === 'gerencia-notif-generica';
+
+        if (esNotifInterna) {
+          try {
+            await admin.rpc('notify_all_gerentes', {
+              p_evento_codigo: 'email_bounced',
+              p_titulo: `Rebotó una notificación interna a ${sent.to_email}`,
+              p_cuerpo:
+                `La casilla de gerencia ${sent.to_email} rebotó una notificación interna ` +
+                `("${sent.asunto ?? sent.template_slug ?? 'email'}"). Revisá que la casilla esté activa.`,
+              p_url: '/gerencia/configuracion/emails/cola',
+              p_send_email: false,
+              p_related_table: 'sent_emails',
+              p_related_id: sent.id,
+            });
+          } catch (e) {
+            errors.push(`notif ${sent.id}: ${(e as Error).message}`);
+          }
+        } else {
+          // Rebote de un envío normal: suprimir + bajar la entidad de marketing vía RPC
+          // (prospecto/lexph; a cliente puro no lo toca — lo protege el carve-out de
+          // email_bloqueado_total). Devuelve es_cliente para decidir el aviso. Best-effort.
+          let fb: {
+            suprimido?: boolean; es_cliente?: boolean;
+            administracion_id?: string | null; nombre?: string | null;
+          } = {};
+          try {
+            const em = (sent.to_email || '').toLowerCase().trim();
+            if (em) {
+              const { data } = await admin.rpc('bounce_feedback_apply', {
+                p_email: em,
+                p_complaint: estado === 'complained',
+              });
+              fb = (data ?? {}) as typeof fb;
+            }
+          } catch { /* best-effort: no abortar la cosecha */ }
+
+          // Aviso: NO por marketing frío (prospecto/lexph) — la falsa alarma del import nacional;
+          // SÍ por CLIENTES (actionable) y por rebotes no-marketing sueltos (transaccional a un
+          // no-cliente). Copy honesto. Idempotente: 1 DSN = 1 aviso (dsn_msg_id UNIQUE).
+          const avisar = !fb.suprimido || fb.es_cliente;
+          if (avisar) {
+            try {
+              const adminId = fb.administracion_id ?? sent.administracion_id;
+              const url = adminId
+                ? `/gerencia/clientes/${adminId}`
+                : '/gerencia/configuracion/emails/cola';
+              const titulo =
+                estado === 'complained'
+                  ? (fb.es_cliente ? `Queja de spam de un cliente: ${sent.to_email}` : `Queja de spam: ${sent.to_email}`)
+                  : (fb.es_cliente ? `Rebotó un email a un cliente: ${sent.to_email}` : `Rebotó un email: ${sent.to_email}`);
+              const cuerpo = fb.es_cliente
+                ? `${estado === 'complained' ? 'Una queja de spam' : 'Un rebote permanente'} de ${sent.to_email}` +
+                  `${fb.nombre ? ` (${fb.nombre})` : ''}. El cliente sigue recibiendo comprobantes/avisos; ` +
+                  `verificá o corregí su mail de acceso desde la ficha.`
+                : `"${sent.asunto ?? sent.template_slug ?? 'email'}" no llegó a ${sent.to_email}. ` +
+                  `Motivo: ${(errMsg || 'desconocido').slice(0, 180)}.`;
+              const { error: notifErr } = await admin.rpc('notify_all_gerentes', {
+                p_evento_codigo: 'email_bounced',
+                p_titulo: titulo,
+                p_cuerpo: cuerpo,
+                p_url: url,
+                p_send_email: true,
+                p_related_table: 'sent_emails',
+                p_related_id: sent.id,
+              });
+              if (notifErr) errors.push(`notif ${sent.id}: ${notifErr.message}`);
+            } catch (e) {
+              errors.push(`notif ${sent.id}: ${(e as Error).message}`);
             }
           }
-        } catch { /* best-effort: no abortar la cosecha */ }
-      }
-
-      // DGG-117 (v3): avisar a gerencia (campanita + push + email) cuando un
-      // envío REBOTA de verdad (no por demoras transitorias). Best-effort: un
-      // fallo acá no aborta la cosecha. Idempotente por diseño: cada DSN se
-      // procesa una sola vez (dsn_msg_id UNIQUE) → un solo aviso por rebote.
-      if (estado === 'bounced' || estado === 'complained') {
-        try {
-          // §6 C#7 (v4) ANTI-LOOP: si lo que rebotó es un email interno a
-          // gerencia (gerencia-notif-generica), avisar SOLO por campanita/push
-          // (p_send_email=false). Si no, el ciclo aviso→mail a gerentes→rebote
-          // del mail de un gerente→nuevo aviso→... se retroalimenta cada 30min.
-          const esNotifInterna = sent.template_slug === 'gerencia-notif-generica';
-          const url = sent.administracion_id
-            ? `/gerencia/clientes/${sent.administracion_id}`
-            : '/gerencia/configuracion/emails/cola';
-          const titulo =
-            estado === 'complained'
-              ? `Queja de spam: ${sent.to_email}`
-              : `Rebotó un email a ${sent.to_email}`;
-          const cuerpo =
-            `"${sent.asunto ?? sent.template_slug ?? 'email'}" no llegó a ${sent.to_email}. ` +
-            `Motivo: ${(errMsg || 'desconocido').slice(0, 180)}. ` +
-            `Verificá la casilla del cliente o corregí su mail de acceso desde la ficha.`;
-          const { error: notifErr } = await admin.rpc('notify_all_gerentes', {
-            p_evento_codigo: 'email_bounced',
-            p_titulo: titulo,
-            p_cuerpo: cuerpo,
-            p_url: url,
-            p_send_email: !esNotifInterna,
-            p_related_table: 'sent_emails',
-            p_related_id: sent.id,
-          });
-          if (notifErr) errors.push(`notif ${sent.id}: ${notifErr.message}`);
-        } catch (e) {
-          errors.push(`notif ${sent.id}: ${(e as Error).message}`);
         }
       }
 

@@ -1780,6 +1780,7 @@ export type Database = {
           agente_cierre_cap: number
           agente_cierre_dias: number
           arca_intervalo_emision_seg: number
+          bulk_via_ses: boolean
           codigo_postal: string | null
           condicion_iva: string
           created_at: string
@@ -1830,6 +1831,7 @@ export type Database = {
           agente_cierre_cap?: number
           agente_cierre_dias?: number
           arca_intervalo_emision_seg?: number
+          bulk_via_ses?: boolean
           codigo_postal?: string | null
           condicion_iva?: string
           created_at?: string
@@ -1880,6 +1882,7 @@ export type Database = {
           agente_cierre_cap?: number
           agente_cierre_dias?: number
           arca_intervalo_emision_seg?: number
+          bulk_via_ses?: boolean
           codigo_postal?: string | null
           condicion_iva?: string
           created_at?: string
@@ -7529,6 +7532,51 @@ export type Database = {
           },
         ]
       }
+      ses_feedback_events: {
+        Row: {
+          email: string | null
+          emails: string[]
+          es_permanente: boolean
+          feedback_id: string | null
+          id: string
+          payload: Json
+          provider_msg_id: string | null
+          recibido_at: string
+          sns_message_id: string
+          subtipo: string | null
+          suprimidos: number
+          tipo: string
+        }
+        Insert: {
+          email?: string | null
+          emails?: string[]
+          es_permanente?: boolean
+          feedback_id?: string | null
+          id?: string
+          payload: Json
+          provider_msg_id?: string | null
+          recibido_at?: string
+          sns_message_id: string
+          subtipo?: string | null
+          suprimidos?: number
+          tipo: string
+        }
+        Update: {
+          email?: string | null
+          emails?: string[]
+          es_permanente?: boolean
+          feedback_id?: string | null
+          id?: string
+          payload?: Json
+          provider_msg_id?: string | null
+          recibido_at?: string
+          sns_message_id?: string
+          subtipo?: string | null
+          suprimidos?: number
+          tipo?: string
+        }
+        Relationships: []
+      }
       solicitud_derivaciones: {
         Row: {
           acceso_externo_token: string | null
@@ -9912,6 +9960,10 @@ export type Database = {
           total: number
           ultimos_7d: number
         }[]
+      }
+      bounce_feedback_apply: {
+        Args: { p_complaint?: boolean; p_email: string }
+        Returns: Json
       }
       busqueda_global: {
         Args: { p_limit?: number; p_q: string }
@@ -12332,6 +12384,20 @@ export type Database = {
       revocar_certificado: {
         Args: { p_id: string; p_motivo: string }
         Returns: undefined
+      }
+      ses_feedback_ingest: {
+        Args: {
+          p_emails: string[]
+          p_es_permanente: boolean
+          p_event_at: string
+          p_feedback_id: string
+          p_payload: Json
+          p_provider_msg_id: string
+          p_sns_message_id: string
+          p_subtipo: string
+          p_tipo: string
+        }
+        Returns: Json
       }
       set_landing_cover: { Args: { p_enabled: boolean }; Returns: boolean }
       set_lexph_publico: { Args: { p_enabled: boolean }; Returns: boolean }
