@@ -10289,6 +10289,17 @@ export type Database = {
         Args: { t: Database["public"]["Tables"]["tramites"]["Row"] }
         Returns: boolean
       }
+      cold_list_dominios: {
+        Args: { p_origen?: string }
+        Returns: {
+          dom: string
+          n: number
+        }[]
+      }
+      cold_list_suprimir_dominios: {
+        Args: { p_doms: string[]; p_origen: string }
+        Returns: number
+      }
       comprobante_pendiente: {
         Args: { t: Database["public"]["Tables"]["tramites"]["Row"] }
         Returns: boolean

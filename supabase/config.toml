@@ -124,3 +124,8 @@ verify_jwt = false
 # explícito (DGG-268, al tocarlo por E-GG-298).
 [functions.email-bounce-harvester]
 verify_jwt = false
+
+# validar-lista-fria (DGG-268 F5 chunk 3): valida por DNS la lista fría y suprime dominios
+# muertos. verify_jwt=false A PROPÓSITO — auth por CRON_SECRET/service_role validado ADENTRO.
+[functions.validar-lista-fria]
+verify_jwt = false
