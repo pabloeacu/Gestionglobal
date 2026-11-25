@@ -605,6 +605,7 @@ Deno.serve(async (req) => {
       const res = await sendViaSes({
         region: SES_REGION, accessKeyId: sesAccessKey!, secretAccessKey: sesSecretKey!,
         rawBase64: base64Std(mime),
+        configSet: Deno.env.get('SES_CONFIG_SET') || undefined,
       });
       if (!res.ok) {
         await failJob(admin, job, `SES ${res.status}: ${res.error ?? ''}`.slice(0, 500));
@@ -1126,13 +1127,18 @@ async function sigV4SigningKey(secret: string, dateStamp: string, region: string
 }
 
 async function sendViaSes(o: {
-  region: string; accessKeyId: string; secretAccessKey: string; rawBase64: string;
+  region: string; accessKeyId: string; secretAccessKey: string; rawBase64: string; configSet?: string;
 }): Promise<{ ok: boolean; status: number; messageId?: string; error?: string }> {
   const service = 'ses';
   const host = `email.${o.region}.amazonaws.com`;
   const path = '/v2/email/outbound-emails';
   // Raw: SES toma From/To/Reply-To/List-Unsubscribe de los headers del MIME.
-  const body = JSON.stringify({ Content: { Raw: { Data: o.rawBase64 } } });
+  // DGG-268 F5: si hay Configuration Set (SES_CONFIG_SET), SES publica eventos de entrega/
+  // apertura/click a su SNS → webhook → ses_feedback_ingest. Sin config set (default), el envío
+  // sale igual pero sin tracking de apertura (equivalente al estado previo).
+  const bodyObj: Record<string, unknown> = { Content: { Raw: { Data: o.rawBase64 } } };
+  if (o.configSet) bodyObj.ConfigurationSetName = o.configSet;
+  const body = JSON.stringify(bodyObj);
   const amzDate = new Date().toISOString().replace(/[:-]|\.\d{3}/g, ''); // YYYYMMDDTHHMMSSZ
   const dateStamp = amzDate.slice(0, 8);
   const payloadHash = await sha256Hex(body);

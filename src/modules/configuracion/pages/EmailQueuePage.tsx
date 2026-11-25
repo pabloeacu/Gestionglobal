@@ -47,11 +47,21 @@ const OPCIONES_ESTADO: OpcionFiltro[] = [
   { value: 'fallido', label: 'Fallido' },
 ];
 
+// DGG-268 F5 · canal de salida (infra, informativo). El usuario NO distingue funcionalmente
+// por qué boca salió cada cosa; sólo es una etiqueta. @gestionglobal.ar = Workspace/Gmail;
+// @envios.gestionglobal.ar = Amazon SES (carril masivo).
+type CanalFilter = 'ses' | 'workspace' | 'todos';
+const OPCIONES_CANAL: OpcionFiltro[] = [
+  { value: 'workspace', label: 'Workspace (Gmail)' },
+  { value: 'ses', label: 'SES (envíos·)' },
+];
+
 export function EmailQueuePage() {
   const [rows, setRows] = useState<EnvioListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [estado, setEstado] = useState<EstadoFilter>('todos');
   const [casilla, setCasilla] = useState<CasillaFilter>('todas');
+  const [canal, setCanal] = useState<CanalFilter>('todos');
   const [search, setSearch] = useState('');
   const [plantillas, setPlantillas] = useState<string[]>([]);
   const [rango, setRango] = useState<RangoFechas>({ desde: null, hasta: null });
@@ -68,6 +78,7 @@ export function EmailQueuePage() {
     const res = await listEnvios({
       estado,
       casilla,
+      canal,
       search: search || undefined,
       plantillas: plantillas.length > 0 ? plantillas : undefined,
       desde: rango.desde ?? undefined,
@@ -88,7 +99,7 @@ export function EmailQueuePage() {
   }
 
   useEffect(() => { void refresh(); void refreshKpis(); /* eslint-disable-next-line */ },
-    [estado, casilla, search, plantillas, rango, orden, page, pageSize]);
+    [estado, casilla, canal, search, plantillas, rango, orden, page, pageSize]);
 
   // Opciones del filtro de encabezado "Plantilla" (catálogo chico, una vez).
   useEffect(() => {
@@ -225,6 +236,15 @@ export function EmailQueuePage() {
                 }}
               />
               <ThInteractivo
+                label="Canal"
+                filtroOpciones={OPCIONES_CANAL}
+                filtroValores={canal === 'todos' ? [] : [canal]}
+                onFiltroValores={(vs) => {
+                  const nuevo = vs.filter((v) => v !== canal)[0] as CanalFilter | undefined;
+                  conReset(setCanal)(nuevo ?? 'todos');
+                }}
+              />
+              <ThInteractivo
                 label="Intento"
                 align="right"
                 sortKey="intento"
@@ -237,12 +257,12 @@ export function EmailQueuePage() {
           </thead>
           <tbody>
             {loading && (
-              <tr><td colSpan={8} className="py-10 text-center text-brand-muted">
+              <tr><td colSpan={9} className="py-10 text-center text-brand-muted">
                 <Loader2 className="mx-auto animate-spin" size={18} />
               </td></tr>
             )}
             {!loading && rows.length === 0 && (
-              <tr><td colSpan={8} className="py-10 text-center text-brand-muted">
+              <tr><td colSpan={9} className="py-10 text-center text-brand-muted">
                 Sin envíos en este filtro.
               </td></tr>
             )}
@@ -276,6 +296,21 @@ export function EmailQueuePage() {
                 </td>
                 <td className="px-4 py-2 text-xs">
                   {r.casilla ? (CASILLAS.find(c => c.value === r.casilla)?.label ?? r.casilla) : '—'}
+                </td>
+                <td className="px-4 py-2 text-xs">
+                  {r.canal === 'ses' ? (
+                    <span
+                      className="inline-flex items-center rounded-md bg-brand-cyan/10 px-2 py-0.5 text-[11px] font-semibold text-brand-cyan"
+                      title={r.from_email ?? 'envios.gestionglobal.ar'}
+                    >SES</span>
+                  ) : r.canal === 'workspace' ? (
+                    <span
+                      className="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600"
+                      title={r.from_email ?? 'gestionglobal.ar'}
+                    >Workspace</span>
+                  ) : (
+                    <span className="text-brand-muted">—</span>
+                  )}
                 </td>
                 <td className="px-4 py-2 text-right tabular text-xs">
                   {/* REG · reintentos sólo aplican a la cola; los envíos directos van "—" */}

@@ -80,11 +80,24 @@ export interface EnvioListItem {
   /** D2-bis: estado post-envío (sent/bounced/complained/...) nativo de sent_emails. */
   delivery_estado: DeliveryEstado | null;
   delivery_error: string | null;
+  /** DGG-268 F5 · canal de salida (infra, informativo): 'ses' = subdominio dedicado
+   *  envios.gestionglobal.ar; 'workspace' = Gmail/Workspace. null en la cola (aún sin salir). */
+  canal: 'ses' | 'workspace' | null;
+  /** From real del envío (define el canal). null en la cola. */
+  from_email: string | null;
+  /** Tracking post-envío (SNS): SES da delivered/opened; Gmail no da apertura. */
+  webhook_status: string | null;
+  delivered_at: string | null;
+  opened_at: string | null;
+  bounced_at: string | null;
+  complained_at: string | null;
 }
 
 export interface ListEnviosFilters {
   estado?: EstadoEmail | 'todos';
   casilla?: FromCasilla | 'todas';
+  /** DGG-268 F5 · filtro por canal de salida. */
+  canal?: 'ses' | 'workspace' | 'todos';
   search?: string;
   /** DGG-124 · filtro multi por plantilla (slugs) desde el encabezado. */
   plantillas?: string[];
@@ -277,6 +290,13 @@ interface RawRegistro {
   casilla: FromCasilla | null;
   administracion_id: string | null;
   administracion_nombre: string | null;
+  canal: 'ses' | 'workspace' | null;
+  from_email: string | null;
+  webhook_status: string | null;
+  delivered_at: string | null;
+  opened_at: string | null;
+  bounced_at: string | null;
+  complained_at: string | null;
 }
 
 // REG (pedido Pablo · 2026-08-20) · El grid "Correos enviados" lee el REGISTRO
@@ -307,7 +327,7 @@ export async function listEnvios(
   let q = supabase
     .from('v_email_registro')
     .select(
-      'id, lane, template_slug, template_nombre, to_email, to_nombre, subject, enviado_at, programado_para, intento, max_intentos, ultimo_error, estado, delivery_estado, delivery_error, casilla, administracion_id, administracion_nombre',
+      'id, lane, template_slug, template_nombre, to_email, to_nombre, subject, enviado_at, programado_para, intento, max_intentos, ultimo_error, estado, delivery_estado, delivery_error, casilla, administracion_id, administracion_nombre, canal, from_email, webhook_status, delivered_at, opened_at, bounced_at, complained_at',
       { count: 'exact' },
     )
     .order(ordenCol, { ascending: (filters.dir ?? 'desc') === 'asc', nullsFirst: false })
@@ -315,6 +335,7 @@ export async function listEnvios(
 
   if (filters.estado && filters.estado !== 'todos') q = q.eq('estado', filters.estado);
   if (filters.casilla && filters.casilla !== 'todas') q = q.eq('casilla', filters.casilla);
+  if (filters.canal && filters.canal !== 'todos') q = q.eq('canal', filters.canal);
   if (filters.plantillas && filters.plantillas.length > 0) q = q.in('template_slug', filters.plantillas);
   // Rango de fechas (un solo calendario): días locales → ISO UTC, sobre `fecha`.
   if (filters.desde) q = q.gte('fecha', new Date(`${filters.desde}T00:00:00`).toISOString());
@@ -346,6 +367,13 @@ export async function listEnvios(
     administracion_nombre: r.administracion_nombre,
     delivery_estado: (r.delivery_estado as DeliveryEstado | null) ?? null,
     delivery_error: r.delivery_error,
+    canal: r.canal,
+    from_email: r.from_email,
+    webhook_status: r.webhook_status,
+    delivered_at: r.delivered_at,
+    opened_at: r.opened_at,
+    bounced_at: r.bounced_at,
+    complained_at: r.complained_at,
   }));
 
   // El estado ya se filtró server-side (paginado consistente); el count exacto

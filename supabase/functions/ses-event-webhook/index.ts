@@ -121,6 +121,19 @@ Deno.serve(async (req) => {
     tipo = 'delivery';
     emails = (d.recipients ?? []).map((x: any) => String(x ?? '')).filter(Boolean);
     eventAt = String(d.timestamp ?? mail.timestamp ?? nowIso);
+  } else if (kind === 'open') {
+    // Event publishing de un Configuration Set (open/click tracking). El destinatario
+    // viene en mail.destination (no hay lista por-evento como en bounce/complaint).
+    const o = (ev.open ?? {}) as Record<string, any>;
+    tipo = 'open';
+    emails = (mail.destination ?? []).map((x: any) => String(x ?? '')).filter(Boolean);
+    eventAt = String(o.timestamp ?? mail.timestamp ?? nowIso);
+  } else if (kind === 'click') {
+    const k = (ev.click ?? {}) as Record<string, any>;
+    tipo = 'click';
+    subtipo = k.link ?? null;
+    emails = (mail.destination ?? []).map((x: any) => String(x ?? '')).filter(Boolean);
+    eventAt = String(k.timestamp ?? mail.timestamp ?? nowIso);
   }
 
   const admin = createClient(

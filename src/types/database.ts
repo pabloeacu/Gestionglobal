@@ -9582,16 +9582,22 @@ export type Database = {
         Row: {
           administracion_id: string | null
           administracion_nombre: string | null
+          bounced_at: string | null
+          canal: string | null
           casilla: string | null
+          complained_at: string | null
+          delivered_at: string | null
           delivery_error: string | null
           delivery_estado: string | null
           enviado_at: string | null
           estado: string | null
           fecha: string | null
+          from_email: string | null
           id: string | null
           intento: number | null
           lane: string | null
           max_intentos: number | null
+          opened_at: string | null
           programado_para: string | null
           provider_msg_id: string | null
           subject: string | null
@@ -9600,6 +9606,7 @@ export type Database = {
           to_email: string | null
           to_nombre: string | null
           ultimo_error: string | null
+          webhook_status: string | null
         }
         Relationships: []
       }
