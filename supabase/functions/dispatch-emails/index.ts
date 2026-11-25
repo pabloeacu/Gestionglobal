@@ -201,14 +201,27 @@ Deno.serve(async (req) => {
     p_max_age_sec: Math.floor(CLAIM_WATCHDOG_MS / 1000),
   });
 
-  // 1) Throttle GLOBAL (ritmo entre mails de destinatarios distintos — DGG-113).
-  const { data: throttleRow } = await admin
-    .from('email_throttle').select('last_sent_at').eq('key', THROTTLE_KEY).maybeSingle();
-  if (throttleRow?.last_sent_at) {
-    const delta = Date.now() - new Date(throttleRow.last_sent_at).getTime();
-    if (delta < THROTTLE_MS) {
-      return json({ ok: true, throttled: true, wait_ms: THROTTLE_MS - delta });
-    }
+  // 1) Gobernanza del carril SES (DGG-268 F5) — leída UNA vez por corrida. El throttle GLOBAL
+  // de Gmail (DGG-113, ritmo entre destinatarios distintos) se evalúa MÁS ABAJO, sólo si el
+  // job elegido sale por Gmail (lo transaccional); el carril SES no lo usa (reputación aislada
+  // + rampa/freno propios). Lo leemos ya acá para decidir ruta antes del trabajo pesado.
+  const sesAccessKey = Deno.env.get('AWS_SES_ACCESS_KEY_ID');
+  const sesSecretKey = Deno.env.get('AWS_SES_SECRET_ACCESS_KEY');
+  let bulkViaSes = false;
+  try {
+    const { data: cfgRow } = await admin.from('config_global').select('bulk_via_ses').maybeSingle();
+    bulkViaSes = !!(cfgRow as { bulk_via_ses?: boolean } | null)?.bulk_via_ses;
+  } catch { bulkViaSes = false; }
+  let sesPausado = false;
+  let sesRestante = 0;
+  if (bulkViaSes) {
+    try {
+      const { data: est } = await admin.rpc('ses_lane_estado');
+      const e = (est ?? {}) as { pausado?: boolean; restante_hoy?: number };
+      sesPausado = !!e.pausado;
+      const rr = Number(e.restante_hoy);                 // fail-closed ante no-numérico (NaN<=0 es false)
+      sesRestante = Number.isFinite(rr) ? rr : 0;
+    } catch { sesPausado = true; sesRestante = 0; }  // fail-closed: sin estado legible, no se manda SES
   }
 
   // 2) Próximos jobs (candidatos en orden de prioridad).
@@ -261,6 +274,51 @@ Deno.serve(async (req) => {
   }
   if (!job) {
     return json({ ok: true, drained: 0, recipient_throttled: true });
+  }
+
+  // 2a) DGG-268 F5 · RUTA decidida ANTES del throttle y del trabajo pesado. El marketing
+  // (allow-list marketingUtmFor) sale por SES cuando el flag bulk_via_ses está ON; todo lo
+  // demás (transaccional) por Gmail. Según la ruta aplican gobernanzas distintas:
+  const mktEarly = marketingUtmFor(job.template_slug);
+  const jobUsesSes = bulkViaSes && !!mktEarly;
+  if (jobUsesSes) {
+    // Carril SES. Fail-closed (mandato Pablo): si falta algo, se DIFIERE — NUNCA cruza a Gmail.
+    if (!sesAccessKey || !sesSecretKey) {
+      await admin.from('email_queue').update({
+        status: 'pending', sending_started_at: null,
+        programado_para: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+        ultimo_error: 'SES es la ruta elegida pero faltan credenciales IAM — diferido (no se cruza a Gmail)',
+      }).eq('id', job.id);
+      return json({ ok: true, drained: 0, deferred: 'ses_sin_credenciales' });
+    }
+    // Auto-pausa reputacional (freno F5): difiere TODO el carril SES hasta reanudar a mano.
+    if (sesPausado) return json({ ok: true, drained: 0, ses_pausado: true });
+    // Cupo diario de la rampa de warm-up agotado: difiere hasta que el cupo del día lo permita.
+    if (sesRestante <= 0) return json({ ok: true, drained: 0, ses_cap_diario: true });
+  } else {
+    // DGG-268 F5 (auditoría §6 #1) · Candado del kill-switch para slugs SES-ONLY. `federal-*` es
+    // captación fría atada POR DISEÑO al carril SES (mig 0726 no encola sin bulk_via_ses). Si una
+    // fila federal quedó en cola y el flag se apagó a mitad del drenado, NO debe cruzar a Gmail (el
+    // canal de los comprobantes): se DIFIERE hasta reactivar SES. (La política de canal del
+    // newsletter/captación con flag OFF es decisión de producto pre-existente, flaggeada aparte.)
+    if (/^federal-/.test(job.template_slug ?? '')) {
+      await admin.from('email_queue').update({
+        status: 'pending', sending_started_at: null,
+        programado_para: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+        ultimo_error: 'federal-* es SES-only: carril SES apagado → diferido (no se cruza a Gmail)',
+      }).eq('id', job.id);
+      return json({ ok: true, drained: 0, deferred: 'federal_requiere_ses' });
+    }
+    // Carril Gmail (transaccional): throttle GLOBAL de 30s entre destinatarios distintos (DGG-113).
+    // El carril SES NO pasa por acá (ritmo propio: rampa + freno + encadenado).
+    const { data: throttleRow } = await admin
+      .from('email_throttle').select('last_sent_at').eq('key', THROTTLE_KEY).maybeSingle();
+    if (throttleRow?.last_sent_at) {
+      const delta = Date.now() - new Date(throttleRow.last_sent_at).getTime();
+      if (delta < THROTTLE_MS) {
+        return json({ ok: true, throttled: true, wait_ms: THROTTLE_MS - delta });
+      }
+    }
   }
 
   // 2b-bis) DGG-224 · Destinatario HARD-suprimido (casilla MUERTA: rebote/queja/
@@ -366,7 +424,8 @@ Deno.serve(async (req) => {
   const clientId = Deno.env.get('GOOGLE_OAUTH_CLIENT_ID');
   const clientSecret = Deno.env.get('GOOGLE_OAUTH_CLIENT_SECRET');
 
-  if (!clientId || !clientSecret || !refreshToken) {
+  // OAuth sólo es obligatorio para el carril Gmail; los jobs SES no lo necesitan (OAuth lazy, F5).
+  if (!jobUsesSes && (!clientId || !clientSecret || !refreshToken)) {
     await failJob(admin, job, `OAuth no configurado`);
     return jsonError(500, 'oauth missing');
   }
@@ -403,18 +462,22 @@ Deno.serve(async (req) => {
   // allow-list → queda byte-idéntico, sin UTM. addMarketingUtm nunca toca el link de
   // baja ni los <img src> (sólo href), y es idempotente. Corte por UTM requiere el
   // add-on "Web Analytics Plus" (activo desde 2026-11-23).
-  const mkt = marketingUtmFor(job.template_slug);
+  const mkt = mktEarly; // (auditoría §6 #4) reuso la decisión del paso 2a — función pura, mismo valor
   if (mkt) {
     html = addMarketingUtm(html, mkt.source, mkt.campaign);
   }
 
-  // 6) OAuth2 access token.
-  let accessToken: string;
-  try {
-    accessToken = await refreshAccessToken(clientId, clientSecret, refreshToken);
-  } catch (e) {
-    await failJob(admin, job, `OAuth refresh: ${(e as Error).message}`);
-    return jsonError(502, 'oauth refresh failed');
+  // 6) OAuth2 access token — LAZY (DGG-268 F5): sólo para el carril Gmail. Los jobs SES no tocan
+  // OAuth (corrige el acople cross-circuito que marcó el Ángulo 1 de la auditoría del gate: hoy
+  // el refresh corría aun para marketing que sale por SES). Creds garantizadas por el guard de arriba.
+  let accessToken = '';
+  if (!jobUsesSes) {
+    try {
+      accessToken = await refreshAccessToken(clientId!, clientSecret!, refreshToken!);
+    } catch (e) {
+      await failJob(admin, job, `OAuth refresh: ${(e as Error).message}`);
+      return jsonError(502, 'oauth refresh failed');
+    }
   }
 
   // 6-bis) CLAIM ATÓMICO (E-GG-261 [1]) · reservamos la fila ANTES del fetch a
@@ -504,33 +567,11 @@ Deno.serve(async (req) => {
     }
   }
 
-  // DGG-268 · Decisión de transporte. El marketing (mkt != null ⇔ allow-list de
-  // marketingUtmFor) sale por SES cuando el kill-switch config_global.bulk_via_ses está ON
-  // y hay credenciales IAM; el From usa el subdominio verificado (reputación aislada) y el
-  // Reply-To queda en la casilla real (@gestionglobal.ar) para que las respuestas lleguen.
-  // Fail-closed: si falta el flag o una credencial → Gmail API (byte-idéntico a antes). El
-  // transaccional (mkt == null) nunca entra acá: siempre Gmail.
-  const sesAccessKey = Deno.env.get('AWS_SES_ACCESS_KEY_ID');
-  const sesSecretKey = Deno.env.get('AWS_SES_SECRET_ACCESS_KEY');
-  let bulkViaSes = false;
-  try {
-    const { data: cfgRow } = await admin.from('config_global').select('bulk_via_ses').maybeSingle();
-    bulkViaSes = !!(cfgRow as { bulk_via_ses?: boolean } | null)?.bulk_via_ses;
-  } catch { bulkViaSes = false; }
-  // Decisión de RUTA. Con el kill-switch ON, el marketing (mkt != null ⇔ allow-list) DEBE salir
-  // por SES. Mandato fail-closed (Pablo): NUNCA cruzar marketing a Gmail cuando SES es la ruta
-  // elegida. Si el flag está ON pero faltan credenciales IAM (misconfig), se DIFIERE la fila
-  // (vuelve en 5') en vez de caer a Workspace. Con el flag OFF, el marketing usa Gmail (pre-SES).
-  const routeSes = bulkViaSes && !!mkt;
-  if (routeSes && (!sesAccessKey || !sesSecretKey)) {
-    await admin.from('email_queue').update({
-      status: 'pending', sending_started_at: null,
-      programado_para: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
-      ultimo_error: 'SES es la ruta elegida pero faltan credenciales IAM — diferido (no se cruza a Gmail)',
-    }).eq('id', job.id);
-    return json({ ok: true, drained: 0, deferred: 'ses_sin_credenciales' });
-  }
-  const useSes = routeSes; // credenciales garantizadas si routeSes
+  // DGG-268 · Transporte ya decidido arriba (jobUsesSes, paso 2a): marketing + flag ON ⇒ SES.
+  // Allí se chequearon credenciales (fail-closed: difiere, NUNCA cruza a Gmail), auto-pausa del
+  // freno y cupo de la rampa de warm-up (F5). El From usa el subdominio verificado (reputación
+  // aislada) y el Reply-To queda en la casilla real para que las respuestas lleguen.
+  const useSes = jobUsesSes; // credenciales SES garantizadas por el guard del paso 2a
   const fromEmail = useSes ? `${senderEmail.split('@')[0]}@${SES_FROM_DOMAIN}` : senderEmail;
   const effectiveReplyTo = useSes ? senderEmail : replyToEmail;
   const fromHeader = `${encodeRfc2047('Gestión Global')} <${fromEmail}>`;
@@ -636,13 +677,33 @@ Deno.serve(async (req) => {
     zip_attached: false,
   });
 
-  await admin.from('email_throttle').upsert({
-    key: THROTTLE_KEY,
-    last_sent_at: nowIso,
-    updated_at: nowIso,
-  });
+  // DGG-268 F5: el throttle global (ritmo de Gmail) lo actualiza SÓLO el carril Gmail. El carril
+  // SES no lo toca (reputación separada; su ritmo lo gobiernan la rampa + el freno + el encadenado).
+  if (!useSes) {
+    await admin.from('email_throttle').upsert({
+      key: THROTTLE_KEY,
+      last_sent_at: nowIso,
+      updated_at: nowIso,
+    });
+  }
 
-  return json({ ok: true, drained: 1, sent_id: job.id, provider_msg_id: providerMsgId });
+  // DGG-268 F5 · ENCADENADO del carril SES: tras un envío SES exitoso, si el carril sigue activo
+  // y con cupo, disparamos OTRA corrida en background (fetch a nosotros mismos, sin await) para
+  // drenar el lote sin esperar el próximo tick del cron (*/1). Cada eslabón RE-LEE la gobernanza
+  // (pausa + cupo), así que la cadena se auto-limita y honra freno/rampa; el claim atómico evita
+  // doble-envío si se solapa con el cron, que además reanuda la cadena si se corta. El carril
+  // Gmail NO encadena (1 por tick, sagrado).
+  if (useSes && !sesPausado && (sesRestante - 1) > 0) {
+    try {
+      const selfUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/dispatch-emails`;
+      // @ts-ignore EdgeRuntime es global en Supabase Edge
+      EdgeRuntime.waitUntil(
+        fetch(selfUrl, { method: 'POST', headers: { Authorization: `Bearer ${serviceKey}` } }).catch(() => {}),
+      );
+    } catch { /* si falla el encadenado, el cron lo reanuda */ }
+  }
+
+  return json({ ok: true, drained: 1, sent_id: job.id, provider_msg_id: providerMsgId, via: useSes ? 'ses' : 'gmail' });
 });
 
 // =========================================================================
