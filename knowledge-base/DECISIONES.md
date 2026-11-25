@@ -9357,3 +9357,47 @@ DO NOTHING) hace el alta set-based desde el staging.
 **§6 (3 agentes) + verificaciones inline:** counts = dry-run; 0 dobles (ningún import tenía la
 E3); motor captación y grillas filtran padron_pba (nacional aislado); supresión global cubre #4;
 smoke ROLLBACK OK. Ver DGG-267 / DGG-220 (captación) / DGG-244 (LexPH).
+
+## DGG-268 · Carril de envío masivo por Amazon SES (Opción B) — Fase 1+2 (2026-11-24)
+
+Para escalar el marketing (~2k→~10k/día) **sin abono fijo** y **sin cargar la reputación
+transaccional** de Gmail API. Evaluado y **descartado** el SMTP-relay de Workspace (Supabase Edge
+bloquea SMTP saliente; no mejora la entregabilidad —misma infra/IP/dominio—; y acopla la reputación
+del envío en frío a la casilla money-crítica). **Elegido SES** (API HTTPS, anda desde el edge;
+reputación **aislada en subdominio dedicado** `envios.gestionglobal.ar`; ~US$0,10/1.000 cubierto por
+créditos AWS). **Aditivo con kill-switch**, no una migración: lo transaccional sigue por Gmail API.
+Método con Pablo: yo manejo todo por su Chrome; él sólo los clicks indispensables (login, aceptación
+de costos, Save de DNS). Fase 1 (cuenta AWS + identidad SES verificada) y Fase 2 (DNS en Cloudflare,
+dig-verificado) **hechas**; producción solicitada (en review). Falta F3 (edge SES + ruteo híbrido).
+Ver `project_ses_bulk_lane_dgg268` en memoria.
+
+## DGG-269 · Captación Federal — superficie + campañas del segmento `import_nacional` (2026-11-24, migs 0716-0719)
+
+**Decisión 1 — Segmento propio, no "meterlo" en la Captación PBA.** Los 10.249 contactos de DGG-267
+(CABA 7.973 / PBA-no-padrón 2.259 / OTRO 17) estaban cargados pero **sin superficie** (sólo LexPH).
+La Captación PBA es un motor de **vencimientos de matrícula RPAC + enriquecimiento TRAMIX** que NO
+aplica a CABA/nacional. Por eso **superficie hermana**, segmentando por **jurisdicción** (no por
+vencimiento), con campañas **targeteadas y manuales** (no motor automático): curso RPA CABA,
+consultoría jurídica, webinars.
+
+**Decisión 2 — Reusar toda la mecánica de compliance.** Las RPCs `prospectos_federal_*` (mig 0716)
+encolan a `email_queue` prioridad 8 reusando la **supresión global** (`email_esta_suprimido`),
+**anti-fatiga** (30d gracia / 90d cooldown vía `prospecto_mails`), el dispatcher (goteo/List-Unsubscribe)
+y la baja/reactivar globales. Nombre de pila con `nombre_pila_federal` (formato "APELLIDO NOMBRES").
+
+**Decisión 3 — Envío GATEADO hasta SES.** Flag `config_global.federal_campanas_activo=OFF` por defecto
++ guard que sólo deja mandar slugs `federal-%`. Decisión: **no prenderlo hasta el carril SES** (DGG-268),
+para no cargar la reputación transaccional de Gmail con campañas de volumen a contactos semi-fríos.
+Y antes de prenderlo, aplicar los 2 fixes diferidos del dispatcher (UTM federal + footer de baja por
+origen). Hasta entonces el gerente puede **ver la audiencia y previsualizar**, nada se envía.
+
+**Decisión 4 — Plantillas como borrador editable + maqueta de webinar.** 3 plantillas `federal-*`
+manaxer-v1 (mig 0717): curso RPA CABA (copy aprobado por Pablo: modalidad mixta en vivo+asincrónicas,
+certificado habilitante, alianza **Gestar** —no Fundplata—, ebooks exclusivos; replies a cursos@),
+consultoría jurídica, y **webinar como MAQUETA parametrizada** (`activo=false`, variables
+flyer/fecha/hora/inscripción) para enrutar un evento real cuando se publique. CTA → formularios
+públicos reales.
+
+**§6 (3 agentes + e2e):** núcleo sólido; fixes in-situ (migs 0718/0719, ver E-GG-297): crítico del
+trigger de registro (ciego a `federal-%`), categoría 'federal' en el reporte, preview TZ, etc.
+Prueba en vivo (gerente, prod): página + lanzador + preview OK. Ver DGG-269 / DGG-267 / DGG-268.
