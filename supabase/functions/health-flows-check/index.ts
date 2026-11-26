@@ -162,13 +162,22 @@ async function check_cron_dispatchers_activos(admin: ReturnType<typeof createCli
 }
 
 async function check_cron_secret_alineado(): Promise<CheckResult> {
-  // Hacemos POST a las 3 fns con el bearer del env y validamos 2xx.
-  // Esto detecta el caso E-GG-27 donde el cron usaba un secret obsoleto.
+  // Hacemos POST a las 3 fns con el bearer del env y validamos la AUTH.
+  // Detecta el caso E-GG-27 donde el cron usaba un secret obsoleto.
+  //
+  // DGG-274 / E-GG-308 · NO confundir "secret desalineado" con "hipo de envío". Un 5xx del
+  // dispatcher significa que el bearer FUE ACEPTADO (si estuviera mal daría 401/403) y el error
+  // es downstream: dispatch-emails devuelve 502 ante un error TRANSITORIO del carril SES/Gmail/OAuth
+  // (jsonError '{ok:false,error:"ses ..."}'), que ya tiene su propia gobernanza (failJob + ses_freno_check).
+  // Antes, cualquier status>=500 se rotulaba 'critical: Secret desalineado' y pusheaba a toda la
+  // gerencia — un falso crítico por un rechazo de SES. Ahora: SÓLO 401/403 = secret (critical);
+  // 5xx/red = aviso aparte (warning), nunca bajo el banner del secret.
   if (!CRON_SECRET) {
     return { status: 'warning', detail: 'CRON_SECRET no está seteado en este env' };
   }
   const fns = ['dispatch-emails', 'dispatch-push', 'dispatch-arca-emission'];
-  const fallidos: string[] = [];
+  const desalineados: string[] = [];   // 401/403 → el secret REALMENTE no alinea (señal E-GG-27)
+  const noConcluyentes: string[] = []; // 5xx/red → el bearer pasó; el error es downstream (no es el secret)
   for (const fn of fns) {
     try {
       const res = await fetch(`${SUPABASE_URL}/functions/v1/${fn}`, {
@@ -179,24 +188,30 @@ async function check_cron_secret_alineado(): Promise<CheckResult> {
         },
         body: '{}',
       });
-      // 200 = OK, también 200 con throttled:true. 401 = secret desalineado.
-      if (res.status === 401) {
-        fallidos.push(`${fn} → 401`);
+      if (res.status === 401 || res.status === 403) {
+        desalineados.push(`${fn} → ${res.status}`);
       } else if (res.status >= 500) {
-        fallidos.push(`${fn} → ${res.status}`);
+        noConcluyentes.push(`${fn} → ${res.status}`);
       }
     } catch (e) {
-      fallidos.push(`${fn} → ${(e as Error).message}`);
+      noConcluyentes.push(`${fn} → ${(e as Error).message}`);
     }
   }
-  if (fallidos.length === 0) {
-    return { status: 'ok', detail: 'Los 3 dispatchers responden 2xx al bearer del cron', metric: 0 };
+  if (desalineados.length > 0) {
+    return {
+      status: 'critical',
+      detail: `Secret desalineado: ${desalineados.join('; ')}`,
+      metric: desalineados.length,
+    };
   }
-  return {
-    status: 'critical',
-    detail: `Secret desalineado: ${fallidos.join('; ')}`,
-    metric: fallidos.length,
-  };
+  if (noConcluyentes.length > 0) {
+    return {
+      status: 'warning',
+      detail: `El bearer pasó (el secret está bien) pero un dispatcher respondió 5xx — probable hipo transitorio de envío (SES/Gmail), que tiene su propia gobernanza: ${noConcluyentes.join('; ')}`,
+      metric: noConcluyentes.length,
+    };
+  }
+  return { status: 'ok', detail: 'Los 3 dispatchers responden 2xx al bearer del cron', metric: 0 };
 }
 
 async function check_trigger_captacion(admin: ReturnType<typeof createClient>): Promise<CheckResult> {
