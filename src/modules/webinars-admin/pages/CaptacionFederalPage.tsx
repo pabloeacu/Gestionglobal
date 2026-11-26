@@ -9,7 +9,7 @@ import { toast } from '@/lib/toast';
 import { cn } from '@/lib/cn';
 import { humanizeError } from '@/lib/errors';
 import {
-  FEDERAL_CAMPANAS_CATALOGO, JURISDICCIONES,
+  FEDERAL_CAMPANAS_CATALOGO, FEDERAL_CAMPANAS_LANZABLES, JURISDICCIONES,
   getFederalKpis, listProspectosFederal, previewFederalCampana, enviarFederalCampana,
   darBajaProspectoManual, reactivarProspectoManual,
   type FederalKpis, type ProspectoFederalRow, type FederalCampanaPreview,
@@ -239,6 +239,7 @@ export function CaptacionFederalPage() {
                   <Th>Contacto</Th>
                   <Th center>Jurisdicción</Th>
                   <Th>Estado</Th>
+                  <Th center>Campañas</Th>
                   <Th>Último mail</Th>
                   <Th right>Acción</Th>
                 </tr>
@@ -285,6 +286,9 @@ export function CaptacionFederalPage() {
                       ) : (
                         <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700">Nuevo</span>
                       )}
+                    </td>
+                    <td className="px-4 py-2">
+                      <FederalCampanasCoins enviadas={p.campanas_enviadas} />
                     </td>
                     <td className="px-4 py-2 text-xs text-brand-muted">
                       {p.ultimo_mail_at ? (
@@ -339,7 +343,7 @@ export function CaptacionFederalPage() {
 function FederalCampanaLauncher({ activo, onClose, onEnqueued }:
   { activo: boolean; onClose: () => void; onEnqueued: () => void }) {
   const confirmar = useConfirm();
-  const [slug, setSlug] = useState<string>(FEDERAL_CAMPANAS_CATALOGO[0]?.slug ?? '');
+  const [slug, setSlug] = useState<string>(FEDERAL_CAMPANAS_LANZABLES[0]?.slug ?? '');
   const [jur, setJur] = useState<JurFiltro>('');
   const [cap, setCap] = useState(1500);
   const [preview, setPreview] = useState<FederalCampanaPreview | null>(null);
@@ -361,7 +365,7 @@ function FederalCampanaLauncher({ activo, onClose, onEnqueued }:
     return () => { cancel = true; };
   }, [slug, jur]);
 
-  const camp = FEDERAL_CAMPANAS_CATALOGO.find((c) => c.slug === slug) ?? null;
+  const camp = FEDERAL_CAMPANAS_LANZABLES.find((c) => c.slug === slug) ?? null;
   const elegibles = preview?.elegibles ?? 0;
   const dias = cap > 0 ? Math.ceil(elegibles / cap) : 0;
 
@@ -413,7 +417,7 @@ function FederalCampanaLauncher({ activo, onClose, onEnqueued }:
         )}
         {/* Selección de campaña */}
         <div className="grid gap-2 sm:grid-cols-2">
-          {FEDERAL_CAMPANAS_CATALOGO.map((c) => (
+          {FEDERAL_CAMPANAS_LANZABLES.map((c) => (
             <button key={c.slug} type="button" onClick={() => setSlug(c.slug)}
               className={cn(
                 'rounded-xl border p-3 text-left transition',
@@ -469,7 +473,8 @@ function FederalCampanaLauncher({ activo, onClose, onEnqueued }:
               {elegibles > 0 && (
                 <p className="mt-2 text-xs text-brand-muted">
                   Se encolarían <strong className="text-brand-ink tabular-nums">{elegibles.toLocaleString('es-AR')}</strong> correos,
-                  con goteo de {cap.toLocaleString('es-AR')}/día → <strong className="text-brand-ink">{dias}</strong> día{dias === 1 ? '' : 's'}.
+                  escalonados de a {cap.toLocaleString('es-AR')}/día → <strong className="text-brand-ink">{dias}</strong> día{dias === 1 ? '' : 's'} de horizonte.
+                  <span className="mt-0.5 block text-[11px] text-slate-400">El ritmo real de salida lo gobierna la rampa del carril SES + el freno de reputación.</span>
                 </p>
               )}
             </>
@@ -488,6 +493,33 @@ function PrevStat({ label, value, muted, strong, hint }:
         {value.toLocaleString('es-AR')}
       </p>
       <p className="text-[10px] uppercase tracking-wider text-brand-muted">{label}</p>
+    </div>
+  );
+}
+
+// Chips de campañas federales enviadas (DGG-270): marca a qué prospecto ya se le mandó
+// cada campaña (RPA / Consultoría / Webinar), para no reiterarle. Espeja los "coins" de
+// la página PBA; relleno con el color de la campaña cuando fue enviada.
+function FederalCampanasCoins({ enviadas }: { enviadas: Record<string, string> | null }) {
+  const map = enviadas ?? {};
+  const algo = FEDERAL_CAMPANAS_CATALOGO.some((c) => !!map[c.slug]);
+  return (
+    <div className="mx-auto grid w-max grid-cols-3 gap-1" title={algo ? undefined : 'Sin campañas enviadas'}>
+      {FEDERAL_CAMPANAS_CATALOGO.map((c) => {
+        const sentAt = map[c.slug];
+        const enviada = !!sentAt;
+        const tip = c.label + (enviada ? ` · enviada ${fmtFecha(sentAt)}` : ' · aún no enviada');
+        return (
+          <span key={c.slug} title={tip} aria-label={tip}
+            className={cn(
+              'inline-flex h-[18px] w-[18px] cursor-default items-center justify-center rounded-full border text-[8px] font-bold leading-none',
+              enviada ? 'border-transparent text-white' : 'border-slate-300 bg-white text-slate-400',
+            )}
+            style={enviada ? { background: c.color, borderColor: c.color } : undefined}>
+            {c.inicial}
+          </span>
+        );
+      })}
     </div>
   );
 }

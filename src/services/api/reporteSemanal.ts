@@ -50,6 +50,8 @@ export interface ReporteCaptacion {
   en_cola: number;
   motor_activo: boolean;
 }
+/** DGG-270: gemelo federal del bloque de captación (origen='import_nacional'). */
+export type ReporteFederal = ReporteCaptacion;
 export interface ReporteSemanal {
   generado_at: string;
   dias: number;
@@ -64,6 +66,7 @@ export interface ReporteSemanal {
   dispositivos: Record<string, number>;
   paises: ReporteValor[];
   captacion: ReporteCaptacion;
+  federal: ReporteFederal;
 }
 
 export async function getReporteSemanal(dias = 7): Promise<ApiResponse<ReporteSemanal>> {

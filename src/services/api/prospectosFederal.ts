@@ -81,23 +81,34 @@ export interface FederalEnviarResult {
   gated?: boolean;
 }
 
-// Catálogo de campañas federales manuales (slugs 'federal-%' de la mig 0717). El
-// webinar (federal-webinar) es una maqueta que se enruta desde un evento, no desde
-// este lanzador manual, por eso NO está en el catálogo.
+// Catálogo de campañas federales (slugs 'federal-%' de la mig 0717). `lanzable` marca
+// cuáles se disparan desde el lanzador manual de esta página; el webinar (federal-webinar)
+// es una maqueta que se enruta desde un evento, por eso NO es lanzable — pero SÍ está en el
+// catálogo para pintar su "coin" en la grilla si al prospecto le llegó (DGG-270, pedido de Pablo:
+// "las campañas prototipo con sus íconos, de modo de que marque a quién ya se le envió una").
 export interface FederalCampanaItem {
   slug: string;
   label: string;
   descripcion: string;
   /** Hex del acento (coincide con color_acento del template). */
   color: string;
+  /** Inicial corta (2 letras) para la "moneda"/chip de la grilla. */
+  inicial: string;
+  /** true si se dispara desde el lanzador manual de esta página (el webinar no). */
+  lanzable: boolean;
 }
 
 export const FEDERAL_CAMPANAS_CATALOGO: FederalCampanaItem[] = [
-  { slug: 'federal-rpa-caba', label: 'Curso RPA (CABA)', color: '#009ECA',
+  { slug: 'federal-rpa-caba', label: 'Curso RPA (CABA)', color: '#009ECA', inicial: 'RP', lanzable: true,
     descripcion: 'Actualización RPA (CABA) — modalidad mixta, certificado habilitante. Ideal para jurisdicción CABA.' },
-  { slug: 'federal-consultoria', label: 'Consultoría jurídica', color: '#159AA6',
+  { slug: 'federal-consultoria', label: 'Consultoría jurídica', color: '#159AA6', inicial: 'CJ', lanzable: true,
     descripcion: 'Consultoría jurídica de propiedad horizontal, para todo el país.' },
+  { slug: 'federal-webinar', label: 'Webinar', color: '#2E6FB0', inicial: 'Wb', lanzable: false,
+    descripcion: 'Invitación a webinar (se enruta desde un evento, no desde el lanzador manual).' },
 ];
+
+// Sólo las lanzables desde el botón "Lanzar campaña" de esta página.
+export const FEDERAL_CAMPANAS_LANZABLES = FEDERAL_CAMPANAS_CATALOGO.filter((c) => c.lanzable);
 
 export async function getFederalKpis(): Promise<ApiResponse<FederalKpis>> {
   try {

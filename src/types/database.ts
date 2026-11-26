@@ -1797,6 +1797,8 @@ export type Database = {
           encuesta_cm_ultimo_envio_at: string | null
           engagement_onboarding_activo: boolean
           federal_campanas_activo: boolean
+          federal_consultoria_armada: boolean
+          federal_consultoria_cap_diario: number
           id: number
           landing_cover_enabled: boolean
           landing_opiniones_activa: boolean
@@ -1853,6 +1855,8 @@ export type Database = {
           encuesta_cm_ultimo_envio_at?: string | null
           engagement_onboarding_activo?: boolean
           federal_campanas_activo?: boolean
+          federal_consultoria_armada?: boolean
+          federal_consultoria_cap_diario?: number
           id?: number
           landing_cover_enabled?: boolean
           landing_opiniones_activa?: boolean
@@ -1909,6 +1913,8 @@ export type Database = {
           encuesta_cm_ultimo_envio_at?: string | null
           engagement_onboarding_activo?: boolean
           federal_campanas_activo?: boolean
+          federal_consultoria_armada?: boolean
+          federal_consultoria_cap_diario?: number
           id?: number
           landing_cover_enabled?: boolean
           landing_opiniones_activa?: boolean
@@ -11048,6 +11054,7 @@ export type Database = {
         }[]
       }
       errores_marcar_resuelto: { Args: { p_id: string }; Returns: boolean }
+      federal_consultoria_tick: { Args: never; Returns: Json }
       fusionar_administraciones: {
         Args: { p_destino: string; p_origen: string }
         Returns: Json

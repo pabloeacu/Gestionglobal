@@ -5,7 +5,7 @@
 // Fuente única: RPC reporte_semanal_data (la misma que consume el email semanal).
 import { useEffect, useState } from 'react';
 import {
-  Send, MousePointerClick, AlertTriangle, Users, Megaphone, Newspaper, Target,
+  Send, MousePointerClick, AlertTriangle, Megaphone, Newspaper, Target,
   Rocket, Bell, Wrench, Globe, Monitor, Loader2, Info,
 } from 'lucide-react';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
@@ -89,11 +89,12 @@ export function ReporteMarketingPage() {
               ))}
             </div>
           </div>
-          <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-5">
             <Kpi label="Correos enviados" value={t ? fmt(t.enviados) : '—'} icon={Send} tone="cyan" sub={`últimos ${dias} días`} />
             <Kpi label="Tasa de rebote" value={t ? pct(t.rebote_pct) : '—'} icon={AlertTriangle} tone={(t?.rebote_pct ?? 0) > 2 ? 'rose' : 'emerald'} sub={t ? `${fmt(t.rebotes)} rebotes` : undefined} />
             <Kpi label="Visitas desde emails" value={loading ? '—' : visitasEmail == null ? 'n/d' : fmt(visitasEmail)} icon={MousePointerClick} tone="amber" sub="engagement (UTM)" />
-            <Kpi label="Conversiones captación" value={rep ? fmt(rep.captacion.conversiones_semana) : '—'} icon={Users} tone="ink" sub={rep ? `${fmt(rep.captacion.conversiones_total)} en total` : undefined} />
+            <Kpi label="Conversiones PBA" value={rep ? fmt(rep.captacion.conversiones_semana) : '—'} icon={Target} tone="ink" sub={rep ? `${fmt(rep.captacion.conversiones_total)} en total` : undefined} />
+            <Kpi label="Conversiones federal" value={rep ? fmt(rep.federal.conversiones_semana) : '—'} icon={Globe} tone="ink" sub={rep ? `${fmt(rep.federal.conversiones_total)} en total` : undefined} />
           </div>
         </div>
       </header>
