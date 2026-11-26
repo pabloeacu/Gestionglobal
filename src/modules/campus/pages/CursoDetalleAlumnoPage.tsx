@@ -628,6 +628,20 @@ export function CursoDetalleAlumnoPage() {
             className="opacity-15"
           />
           <nav className="relative space-y-3">
+            {/* DGG-272 · Guía del alumno (tutorial del campus) — fija en TODOS los cursos. */}
+            <a
+              href="https://kaoyhkebnidzqjixvchh.supabase.co/storage/v1/object/public/campus-media/tutorial-alumno/guia-del-alumno.pdf"
+              target="_blank"
+              rel="noopener"
+              className="flex items-center gap-2 rounded-xl border border-brand-cyan/30 bg-brand-cyan/5 px-3 py-2.5 text-left transition hover:bg-brand-cyan/10"
+            >
+              <BookOpen size={15} className="shrink-0 text-brand-cyan" />
+              <span className="min-w-0 flex-1">
+                <span className="block text-xs font-semibold text-brand-ink">Guía del alumno</span>
+                <span className="block text-[11px] text-brand-muted">Aprovechá tu campus · PDF</span>
+              </span>
+              <Download size={13} className="shrink-0 text-brand-muted" />
+            </a>
             {/* DGG-81 · Recursos del curso ARRIBA DE TODO, solo si tienen contenido. */}
             {data.curso.programa_url && (
               <NavNodo
