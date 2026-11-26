@@ -9,8 +9,9 @@
 // correcto, que la fn correcta tenga el INSERT correcto.
 //
 // Checks implementados (ver array CHECKS abajo):
-//   email_queue_atascada    — SÓLO el carril transaccional (prioridad ≤5, Gmail)
-//                             atascado; el marketing SES (goteo) no alarma (E-GG-306)
+//   email_queue_atascada    — SÓLO el carril transaccional (Gmail, clasificado por
+//                             slug vía email_cola_carriles); el marketing SES (goteo)
+//                             no alarma (E-GG-306 + DGG-274)
 //   push_queue_atascada     — rows en push_notifications_queue >30min sin enviar
 //   cron_dispatchers_activos — los 3 jobs (emails/push/arca) están active=true
 //   cron_secret_alineado    — los 3 dispatchers responden 200 al bearer del env
@@ -51,55 +52,31 @@ function jsonResp(status: number, body: unknown): Response {
 // ----------------------------------------------------------------------------
 
 async function check_email_queue_atascada(admin: ReturnType<typeof createClient>): Promise<CheckResult> {
-  // DGG-274 / E-GG-306 · CHEQUEO CONSCIENTE DE CARRILES (split SES, DGG-268/270).
-  // Desde que el marketing migró a SES con goteo/topes diarios (captación 100/día,
-  // federal con rampa gradual, LexPH ≤1500/día), la cola tiene DOS carriles con
+  // DGG-274 / E-GG-306 · CHEQUEO CONSCIENTE DE CARRILES — CLASIFICADO POR SLUG (no por prioridad).
+  // Desde que el marketing migró a SES con goteo/topes diarios, la cola tiene DOS carriles con
   // semánticas opuestas:
-  //   · TRANSACCIONAL (prioridad ≤ 5, Gmail): confirmaciones/resets/matriculación.
-  //     DEBE drenar en minutos. Es el ÚNICO carril cuyo ritmo sella el throttle
-  //     global `last_sent_at` (dispatch-emails L681: "el throttle global lo
-  //     actualiza SÓLO el carril Gmail"). Backlog viejo acá + Gmail mudo = falla real.
-  //   · MARKETING (prioridad ≥ 6, SES): sale en goteo POR DISEÑO. Un backlog de
-  //     miles es el estado esperado; tiene su propia gobernanza (ses_lane_estado,
-  //     topes, freno ses_freno_check) y su propio reporte semanal.
-  // El chequeo viejo contaba TODA la cola topeada a 200: leía el goteo de marketing
-  // como "cola atascada" (falso crítico recurrente, E-GG-306) y confundía "cupo SES
-  // agotado" (Gmail mudo a propósito) con "cron caído". Ahora SÓLO vigila el
-  // transaccional; el marketing va como contexto informativo, nunca como alarma.
-  // `prioridad` es NOT NULL default 5 → el corte ≤5/>5 no deja ningún mail afuera.
-  const TX_MAX_PRIORIDAD = 5;
+  //   · TRANSACCIONAL (Gmail): confirmaciones/resets/matriculación. DEBE drenar en minutos. Es el
+  //     ÚNICO carril cuyo ritmo sella el throttle global `last_sent_at` (dispatch-emails L681:
+  //     "el throttle global lo actualiza SÓLO el carril Gmail"). Backlog viejo acá + Gmail mudo = falla.
+  //   · MARKETING (SES): sale en goteo POR DISEÑO. Un backlog de miles es el estado esperado; tiene
+  //     su propia gobernanza (ses_lane_estado, topes, freno) y su propio reporte semanal.
+  // IMPORTANTE (residuo de E-GG-306): el carril lo decide el dispatcher por SLUG (marketingUtmFor:
+  // prefijos lexph-newsletter/captacion-/federal-/ofrecimiento-/engagement-), NO por prioridad — un
+  // `ofrecimiento-rpac-renovacion` encolado en prioridad 2/5 igual va a SES. Por eso clasificamos con
+  // la MISMA fuente de verdad vía la RPC email_cola_carriles() (mig 0742), no con prioridad<=5.
   const STALE_MS = 20 * 60 * 1000; // holgura amplia (20 ventanas de 60s)
   const now = Date.now();
-  const nowIso = new Date().toISOString();
 
-  const { data, error } = await admin
-    .from('email_queue')
-    .select('id, intento, max_intentos, programado_para')
-    .lte('programado_para', nowIso)
-    .is('enviado_at', null)
-    .lte('prioridad', TX_MAX_PRIORIDAD)
-    .order('programado_para', { ascending: true })
-    .limit(500);
-
+  const { data, error } = await admin.rpc('email_cola_carriles' as never);
   if (error) {
-    return { status: 'critical', detail: `No se pudo consultar email_queue: ${error.message}` };
+    return { status: 'critical', detail: `No se pudo consultar la cola por carril: ${error.message}` };
   }
-
-  // Contexto de marketing (NO alarma): sólo para que Salud del sistema diga la
-  // verdad del otro carril sin pintar rojo. Head-count barato (sin traer filas).
-  const { count: mktCount } = await admin
-    .from('email_queue')
-    .select('id', { count: 'exact', head: true })
-    .lte('programado_para', nowIso)
-    .is('enviado_at', null)
-    .gt('prioridad', TX_MAX_PRIORIDAD);
-  const mkt = typeof mktCount === 'number' ? mktCount : 0;
+  const row = (Array.isArray(data) ? data[0] : data) as
+    { tx_backlog: number; tx_oldest_due: string | null; mkt_backlog: number } | null;
+  const backlog = Number(row?.tx_backlog ?? 0);
+  const mkt = Number(row?.mkt_backlog ?? 0);
   const mktNota = mkt > 0 ? ` · marketing en goteo por SES: ${mkt} en cola (no es alarma)` : '';
 
-  const retryable = (data ?? []).filter((r: { intento: number; max_intentos: number }) =>
-    r.intento < r.max_intentos
-  );
-  const backlog = retryable.length;
   if (backlog === 0) return { status: 'ok', detail: `Transaccional al día${mktNota}`, metric: 0 };
 
   // ¿El carril Gmail dio señales de vida? last_sent_at fresco = está drenando.
@@ -108,9 +85,7 @@ async function check_email_queue_atascada(admin: ReturnType<typeof createClient>
   const lastSentMs = thr?.last_sent_at
     ? now - new Date((thr as { last_sent_at: string }).last_sent_at).getTime()
     : Infinity;
-  const oldestDueMs = now - new Date(
-    (retryable[0] as { programado_para: string }).programado_para,
-  ).getTime();
+  const oldestDueMs = row?.tx_oldest_due ? now - new Date(row.tx_oldest_due).getTime() : 0;
 
   // Falla REAL: hay transaccional esperando hace rato Y el carril Gmail está mudo.
   if (oldestDueMs > STALE_MS && lastSentMs > STALE_MS) {
