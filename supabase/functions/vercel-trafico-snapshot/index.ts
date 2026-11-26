@@ -36,9 +36,13 @@ const WINDOWS: Record<string, number> = {
   '7d': 7 * 24 * 3600_000,
   '30d': 30 * 24 * 3600_000,
 };
-const SURFACES: Record<string, string> = {
-  landing: "requestPath eq '/'",
-  lexph: "startswith(requestPath, '/lexph')",
+// DGG-271: la card "Landing" cubre el sitio de marketing = home + formularios (los mails de
+// captación/federal caen en /formulario/*; Pablo: "los formularios desde el marketing"). LexPH
+// es el newsletter. Cada superficie es una lista de filtros requestPath que se SUMAN (evita la
+// sintaxis OR del filtro de Vercel, que el resto del código no usa).
+const SURFACES: Record<string, string[]> = {
+  landing: ["requestPath eq '/'", "startswith(requestPath, '/formulario')"],
+  lexph: ["startswith(requestPath, '/lexph')"],
 };
 // Dimensión interna → campo de Vercel. Las utm* requieren Web Analytics Plus.
 const DIMS: Record<string, string> = {
@@ -106,6 +110,32 @@ Deno.serve(async (req) => {
     return { vistas, visitantes };
   }
 
+  // DGG-271: atribución UTM de UNA superficie (pedido de Pablo: "identificado debajo de cada
+  // card, según corresponda" → landing ← desde el mail, lexph ← desde el newsletter). Cruza la
+  // dimensión UTM con el filtro de requestPath de la superficie, en vez de medir global y duplicar.
+  async function surfaceUtmPick(
+    sfilter: string, dimField: string, wantValue: string, since: string, tag: string,
+  ): Promise<{ value: number | null; estado: Estado }> {
+    try {
+      const res = await va('visits/aggregate', {
+        by: dimField, since, until,
+        filter: `${sfilter} and environment eq 'production'`, limit: '100',
+      });
+      if (res.__sinAddon) return { value: null, estado: 'sin_addon' };
+      if (res.__nodata) return { value: 0, estado: 'ok' };
+      const arr: any[] = Array.isArray(res?.data) ? res.data : [];
+      if (arr.length > 0 && !arr.some((r) => r?.[dimField] !== undefined)) {
+        errors.push(`${tag}: shape inesperado (sin campo ${dimField})`);
+        return { value: null, estado: 'error' };
+      }
+      const hit = arr.find((r) => String(r?.[dimField] ?? '') === wantValue);
+      return { value: hit ? vis(hit) : 0, estado: 'ok' };
+    } catch (e) {
+      errors.push(`${tag}: ${(e as Error).message}`);
+      return { value: null, estado: 'error' };
+    }
+  }
+
   // Breakdown COMPLETO de una dimensión (todos los buckets). Honesto: sin_addon/error no
   // inventan datos. B3: si vienen filas pero ninguna trae el campo de la dimensión →
   // shape inesperado → error (no un 0 'ok'). Métrica de visitantes NO cae a pageviews.
@@ -167,24 +197,35 @@ Deno.serve(async (req) => {
     if (error) errors.push(`clean ${dim}/${vkey}: ${error.message}`);
   }
 
-  // 3) vercel_trafico: totales por superficie + atribución derivada de los breakdowns.
-  const pick = (dim: string, vkey: string, wantValue: string): { value: number | null; estado: Estado } => {
-    const b = bd[dim]?.[vkey];
-    if (!b || b.estado !== 'ok') return { value: null, estado: b?.estado ?? 'error' };
-    const hit = b.buckets.find((x) => x.valor === wantValue);
-    return { value: hit ? hit.visitantes : 0, estado: 'ok' };
+  // 3) vercel_trafico: totales + atribución POR SUPERFICIE (DGG-271). Antes la atribución
+  //    se medía global y se duplicaba en landing y lexph (misma cifra en ambas); ahora cada
+  //    superficie trae su propia desde_email / desde_newsletter cruzando el UTM con su requestPath.
+  // Suma picks de varios filtros (home + formularios para landing). Si alguno es sin_addon/error,
+  // esa superficie queda sin_addon/error (no se inventa un parcial).
+  const sumPicks = (parts: { value: number | null; estado: Estado }[]): { value: number | null; estado: Estado } => {
+    if (parts.some((p) => p.estado === 'error')) return { value: null, estado: 'error' };
+    if (parts.some((p) => p.estado === 'sin_addon')) return { value: null, estado: 'sin_addon' };
+    return { value: parts.reduce((a, p) => a + (p.value ?? 0), 0), estado: 'ok' };
   };
   const rows: any[] = [];
   for (const vkey of Object.keys(WINDOWS)) {
-    const aNl = pick('source', vkey, 'newsletter');
-    const aEm = pick('medium', vkey, 'email');
-    const estado: Estado =
-      aNl.estado === 'ok' && aEm.estado === 'ok' ? 'ok'
-        : aNl.estado === 'sin_addon' || aEm.estado === 'sin_addon' ? 'sin_addon' : 'error';
-    for (const [skey, sfilter] of Object.entries(SURFACES)) {
-      const since = new Date(now - WINDOWS[vkey]).toISOString();
+    const since = new Date(now - WINDOWS[vkey]).toISOString();
+    for (const [skey, filters] of Object.entries(SURFACES)) {
       try {
-        const { vistas, visitantes } = await surfaceTotals(sfilter, since);
+        let vistas = 0, visitantes = 0;
+        const emailParts: { value: number | null; estado: Estado }[] = [];
+        const nlParts: { value: number | null; estado: Estado }[] = [];
+        for (const f of filters) {
+          const t = await surfaceTotals(f, since);
+          vistas += t.vistas; visitantes += t.visitantes;
+          emailParts.push(await surfaceUtmPick(f, 'utmMedium', 'email', since, `${skey}/${vkey} email`));
+          nlParts.push(await surfaceUtmPick(f, 'utmSource', 'newsletter', since, `${skey}/${vkey} newsletter`));
+        }
+        const aEm = sumPicks(emailParts);
+        const aNl = sumPicks(nlParts);
+        const estado: Estado =
+          aNl.estado === 'ok' && aEm.estado === 'ok' ? 'ok'
+            : aNl.estado === 'sin_addon' || aEm.estado === 'sin_addon' ? 'sin_addon' : 'error';
         rows.push({
           superficie: skey, ventana: vkey, visitantes, vistas,
           desde_newsletter: aNl.value, desde_email: aEm.value,
