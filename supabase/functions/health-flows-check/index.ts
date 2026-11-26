@@ -9,7 +9,8 @@
 // correcto, que la fn correcta tenga el INSERT correcto.
 //
 // Checks implementados (ver array CHECKS abajo):
-//   email_queue_atascada    — rows en email_queue >30min sin enviar
+//   email_queue_atascada    — SÓLO el carril transaccional (prioridad ≤5, Gmail)
+//                             atascado; el marketing SES (goteo) no alarma (E-GG-306)
 //   push_queue_atascada     — rows en push_notifications_queue >30min sin enviar
 //   cron_dispatchers_activos — los 3 jobs (emails/push/arca) están active=true
 //   cron_secret_alineado    — los 3 dispatchers responden 200 al bearer del env
@@ -50,61 +51,85 @@ function jsonResp(status: number, body: unknown): Response {
 // ----------------------------------------------------------------------------
 
 async function check_email_queue_atascada(admin: ReturnType<typeof createClient>): Promise<CheckResult> {
-  // E-GG-108: el dispatcher de emails envía CON throttle (DGG-113/DGG-264: 30s
-  // global entre destinatarios distintos + piso 5 min por destinatario, lección E42/
-  // D05). Por eso una cola de emails esperando NO es "cron caído": es el
-  // throttle drenando de a uno (un burst de N a destinatarios distintos tarda
-  // ~N minutos). La versión anterior gritaba "crítico" ante cualquier backlog
-  // de +30min y daba falsas alarmas constantes. Señal REAL de caída: hay cola
-  // due-sin-enviar Y (a) el más viejo lleva esperando > una ventana holgada Y
-  // (b) el dispatcher no marcó ningún envío en ese lapso (last_sent_at stale).
-  // Ambas condiciones evitan el falso positivo del período quieto (cola recién
-  // llegada con last_sent_at viejo) y el del throttle drenando (last_sent_at fresco).
+  // DGG-274 / E-GG-306 · CHEQUEO CONSCIENTE DE CARRILES (split SES, DGG-268/270).
+  // Desde que el marketing migró a SES con goteo/topes diarios (captación 100/día,
+  // federal con rampa gradual, LexPH ≤1500/día), la cola tiene DOS carriles con
+  // semánticas opuestas:
+  //   · TRANSACCIONAL (prioridad ≤ 5, Gmail): confirmaciones/resets/matriculación.
+  //     DEBE drenar en minutos. Es el ÚNICO carril cuyo ritmo sella el throttle
+  //     global `last_sent_at` (dispatch-emails L681: "el throttle global lo
+  //     actualiza SÓLO el carril Gmail"). Backlog viejo acá + Gmail mudo = falla real.
+  //   · MARKETING (prioridad ≥ 6, SES): sale en goteo POR DISEÑO. Un backlog de
+  //     miles es el estado esperado; tiene su propia gobernanza (ses_lane_estado,
+  //     topes, freno ses_freno_check) y su propio reporte semanal.
+  // El chequeo viejo contaba TODA la cola topeada a 200: leía el goteo de marketing
+  // como "cola atascada" (falso crítico recurrente, E-GG-306) y confundía "cupo SES
+  // agotado" (Gmail mudo a propósito) con "cron caído". Ahora SÓLO vigila el
+  // transaccional; el marketing va como contexto informativo, nunca como alarma.
+  // `prioridad` es NOT NULL default 5 → el corte ≤5/>5 no deja ningún mail afuera.
+  const TX_MAX_PRIORIDAD = 5;
   const STALE_MS = 20 * 60 * 1000; // holgura amplia (20 ventanas de 60s)
+  const now = Date.now();
+  const nowIso = new Date().toISOString();
+
   const { data, error } = await admin
     .from('email_queue')
     .select('id, intento, max_intentos, programado_para')
-    .lte('programado_para', new Date().toISOString())
+    .lte('programado_para', nowIso)
     .is('enviado_at', null)
+    .lte('prioridad', TX_MAX_PRIORIDAD)
     .order('programado_para', { ascending: true })
-    .limit(200);
+    .limit(500);
 
   if (error) {
     return { status: 'critical', detail: `No se pudo consultar email_queue: ${error.message}` };
   }
 
+  // Contexto de marketing (NO alarma): sólo para que Salud del sistema diga la
+  // verdad del otro carril sin pintar rojo. Head-count barato (sin traer filas).
+  const { count: mktCount } = await admin
+    .from('email_queue')
+    .select('id', { count: 'exact', head: true })
+    .lte('programado_para', nowIso)
+    .is('enviado_at', null)
+    .gt('prioridad', TX_MAX_PRIORIDAD);
+  const mkt = typeof mktCount === 'number' ? mktCount : 0;
+  const mktNota = mkt > 0 ? ` · marketing en goteo por SES: ${mkt} en cola (no es alarma)` : '';
+
   const retryable = (data ?? []).filter((r: { intento: number; max_intentos: number }) =>
     r.intento < r.max_intentos
   );
   const backlog = retryable.length;
-  if (backlog === 0) return { status: 'ok', detail: 'Cola de emails al día', metric: 0 };
+  if (backlog === 0) return { status: 'ok', detail: `Transaccional al día${mktNota}`, metric: 0 };
 
-  // ¿El dispatcher dio señales de vida? last_sent_at fresco = está drenando.
+  // ¿El carril Gmail dio señales de vida? last_sent_at fresco = está drenando.
   const { data: thr } = await admin
     .from('email_throttle').select('last_sent_at').eq('key', 'global').maybeSingle();
   const lastSentMs = thr?.last_sent_at
-    ? Date.now() - new Date((thr as { last_sent_at: string }).last_sent_at).getTime()
+    ? now - new Date((thr as { last_sent_at: string }).last_sent_at).getTime()
     : Infinity;
-  const oldestDueMs = Date.now() - new Date(
+  const oldestDueMs = now - new Date(
     (retryable[0] as { programado_para: string }).programado_para,
   ).getTime();
 
+  // Falla REAL: hay transaccional esperando hace rato Y el carril Gmail está mudo.
   if (oldestDueMs > STALE_MS && lastSentMs > STALE_MS) {
     const mins = Number.isFinite(lastSentMs) ? Math.round(lastSentMs / 60000) : null;
     return {
       status: 'critical',
-      detail: `${backlog} email(s) en cola y el dispatcher no envía hace ${mins ?? '∞'} min (cron caído?)`,
+      detail: `${backlog} transaccional(es) en cola y Gmail no envía hace ${mins ?? '∞'} min (cron caído?)${mktNota}`,
       metric: backlog,
     };
   }
-  if (backlog > 40) {
+  // Aviso suave: un transaccional lleva +20 min esperando aunque el dispatcher viva.
+  if (oldestDueMs > STALE_MS) {
     return {
       status: 'warning',
-      detail: `${backlog} emails en cola (throttle 30s ≈ 60/h; ~${Math.max(1, Math.round(backlog / 60))}h para drenar)`,
+      detail: `${backlog} transaccional(es) esperando +${Math.round(oldestDueMs / 60000)} min${mktNota}`,
       metric: backlog,
     };
   }
-  return { status: 'ok', detail: `${backlog} email(s) en cola, drenando con throttle`, metric: backlog };
+  return { status: 'ok', detail: `${backlog} transaccional(es) en cola, drenando${mktNota}`, metric: backlog };
 }
 
 async function check_push_queue_atascada(admin: ReturnType<typeof createClient>): Promise<CheckResult> {
