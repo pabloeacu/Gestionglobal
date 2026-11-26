@@ -9590,6 +9590,7 @@ export type Database = {
           administracion_nombre: string | null
           bounced_at: string | null
           canal: string | null
+          carril: string | null
           casilla: string | null
           complained_at: string | null
           delivered_at: string | null
@@ -10754,6 +10755,14 @@ export type Database = {
         }[]
       }
       email_bloqueado_total: { Args: { p_email: string }; Returns: boolean }
+      email_cola_carriles: {
+        Args: never
+        Returns: {
+          mkt_backlog: number
+          tx_backlog: number
+          tx_oldest_due: string
+        }[]
+      }
       email_descartar: { Args: { p_email: string }; Returns: Json }
       email_esta_suprimido: { Args: { p_email: string }; Returns: boolean }
       email_queue_watchdog_reclaim: {
@@ -11426,6 +11435,8 @@ export type Database = {
       gerencia_email_registro_kpis: {
         Args: never
         Returns: {
+          cancelados: number
+          en_goteo: number
           enviados: number
           fallidos: number
           pendientes: number

@@ -11,7 +11,7 @@
 import { useEffect, useState } from 'react';
 import {
   Mail, Clock, CheckCircle2, AlertCircle, Loader2,
-  RotateCcw, X, Layers, Eye,
+  RotateCcw, X, Layers, Eye, Send, Ban,
 } from 'lucide-react';
 import {
   AnimatedNumber, useConfirm,
@@ -38,13 +38,17 @@ import {
 } from '@/services/api/emails';
 import { humanizeError } from '@/lib/errors';
 
-type EstadoFilter = EstadoEmail | 'todos';
+// DGG-274/E-GG-307 · 'en_goteo' = pendiente del carril marketing SES (goteo por diseño);
+// 'pendiente' pasa a ser SÓLO transaccional. 'cancelado' deja de contar como 'fallido'.
+type EstadoFilter = EstadoEmail | 'en_goteo' | 'todos';
 type CasillaFilter = FromCasilla | 'todas';
 
 const OPCIONES_ESTADO: OpcionFiltro[] = [
-  { value: 'pendiente', label: 'Pendiente' },
+  { value: 'pendiente', label: 'Pendiente (transaccional)' },
+  { value: 'en_goteo', label: 'En goteo (SES)' },
   { value: 'enviado', label: 'Enviado' },
   { value: 'fallido', label: 'Fallido' },
+  { value: 'cancelado', label: 'Cancelado' },
 ];
 
 // DGG-268 F5 · canal de salida (infra, informativo). El usuario NO distingue funcionalmente
@@ -69,7 +73,7 @@ export function EmailQueuePage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(PAGE_SIZE_DEFAULT);
   const [total, setTotal] = useState(0);
-  const [kpis, setKpis] = useState({ total: 0, pendientes: 0, enviados: 0, fallidos: 0 });
+  const [kpis, setKpis] = useState({ total: 0, pendientes: 0, en_goteo: 0, enviados: 0, fallidos: 0, cancelados: 0 });
   const [opcionesPlantilla, setOpcionesPlantilla] = useState<OpcionFiltro[]>([]);
   const [previewId, setPreviewId] = useState<string | null>(null);
   const confirm = useConfirm();
@@ -165,9 +169,13 @@ export function EmailQueuePage() {
         </p>
       </header>
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      {/* DGG-274/E-GG-307 · KPIs carril-aware: "Pendientes" = SÓLO transaccional (lo que debe
+          drenar en minutos); "En goteo" = marketing SES por diseño (tono calmo, no alarma);
+          "Fallidos" = fallos reales (los cancelados ya NO se cuentan acá). */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5">
         <KpiCard label="Total" value={kpis.total} icon={Layers} tone="cyan" active={estado === 'todos'} onClick={() => conReset(setEstado)('todos')} />
         <KpiCard label="Pendientes" value={kpis.pendientes} icon={Clock} tone="amber" active={estado === 'pendiente'} onClick={() => conReset(setEstado)('pendiente')} />
+        <KpiCard label="En goteo · SES" value={kpis.en_goteo} icon={Send} tone="sky" active={estado === 'en_goteo'} onClick={() => conReset(setEstado)('en_goteo')} />
         <KpiCard label="Enviados" value={kpis.enviados} icon={CheckCircle2} tone="emerald" active={estado === 'enviado'} onClick={() => conReset(setEstado)('enviado')} />
         <KpiCard label="Fallidos" value={kpis.fallidos} icon={AlertCircle} tone="red" active={estado === 'fallido'} onClick={() => conReset(setEstado)('fallido')} />
       </div>
@@ -381,7 +389,7 @@ function KpiCard({
   label, value, icon: Icon, tone, active, onClick,
 }: {
   label: string; value: number; icon: typeof Mail;
-  tone: 'cyan' | 'amber' | 'emerald' | 'red';
+  tone: 'cyan' | 'amber' | 'emerald' | 'red' | 'sky';
   active: boolean; onClick: () => void;
 }) {
   const tones = {
@@ -389,6 +397,7 @@ function KpiCard({
     amber: 'border-amber-300/60 text-amber-600',
     emerald: 'border-emerald-300/60 text-emerald-600',
     red: 'border-red-300/60 text-red-600',
+    sky: 'border-sky-300/60 text-sky-600',
   }[tone];
   return (
     <button
@@ -415,6 +424,7 @@ function EstadoBadge({ estado }: { estado: EstadoEmail }) {
     pendiente: { label: 'Pendiente', cls: 'bg-amber-100 text-amber-700', icon: Clock },
     enviado:   { label: 'Enviado',   cls: 'bg-emerald-100 text-emerald-700', icon: CheckCircle2 },
     fallido:   { label: 'Fallido',   cls: 'bg-red-100 text-red-700', icon: AlertCircle },
+    cancelado: { label: 'Cancelado', cls: 'bg-slate-100 text-slate-600', icon: Ban },
   };
   const m = map[estado];
   const Icon = m.icon;

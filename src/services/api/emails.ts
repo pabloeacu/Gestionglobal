@@ -41,7 +41,14 @@ export interface EncolarEmailInput {
   prioridad?: number;
 }
 
-export type EstadoEmail = 'pendiente' | 'enviado' | 'fallido';
+// DGG-274/E-GG-307: 'cancelado' es un estado propio (antes se contaba como 'fallido',
+// inflando la tarjeta roja con el marketing dado de baja/purgado).
+export type EstadoEmail = 'pendiente' | 'enviado' | 'fallido' | 'cancelado';
+
+// Filtro de la grilla/KPIs: además de los estados reales, 'en_goteo' es un pseudo-estado
+// = pendiente del carril marketing SES (el goteo por diseño). Se traduce a (estado=pendiente
+// AND carril=marketing) en listEnvios. 'pendiente' pasa a significar SÓLO transaccional.
+export type EstadoFiltroEmail = EstadoEmail | 'en_goteo';
 
 // D2-bis · Status post-envío que viene de sent_emails (poblado por el
 // harvester de bounces). null = todavía no sabemos (recién enviado).
@@ -94,7 +101,7 @@ export interface EnvioListItem {
 }
 
 export interface ListEnviosFilters {
-  estado?: EstadoEmail | 'todos';
+  estado?: EstadoFiltroEmail | 'todos';
   casilla?: FromCasilla | 'todas';
   /** DGG-268 F5 · filtro por canal de salida. */
   canal?: 'ses' | 'workspace' | 'todos';
@@ -126,16 +133,18 @@ function sanearBusqueda(s: string): string {
  * que respeta la misma RLS que la vista (staff ve todo; administrador, lo suyo).
  */
 export async function contarEnviosKpis(): Promise<
-  ApiResponse<{ total: number; pendientes: number; enviados: number; fallidos: number }>
+  ApiResponse<{ total: number; pendientes: number; en_goteo: number; enviados: number; fallidos: number; cancelados: number }>
 > {
   const { data, error } = await supabase.rpc('gerencia_email_registro_kpis').single();
   if (error) return fail('ENVIOS_KPIS', error.message, error);
-  const r = (data ?? {}) as { total: number; pendientes: number; enviados: number; fallidos: number };
+  const r = (data ?? {}) as { total: number; pendientes: number; en_goteo: number; enviados: number; fallidos: number; cancelados: number };
   return ok({
     total: Number(r.total ?? 0),
-    pendientes: Number(r.pendientes ?? 0),
+    pendientes: Number(r.pendientes ?? 0),      // DGG-274: SÓLO transaccional en cola
+    en_goteo: Number(r.en_goteo ?? 0),          // marketing SES por diseño (informativo)
     enviados: Number(r.enviados ?? 0),
-    fallidos: Number(r.fallidos ?? 0),
+    fallidos: Number(r.fallidos ?? 0),          // fallos reales (sin cancelados)
+    cancelados: Number(r.cancelados ?? 0),
   });
 }
 
@@ -333,7 +342,17 @@ export async function listEnvios(
     .order(ordenCol, { ascending: (filters.dir ?? 'desc') === 'asc', nullsFirst: false })
     .range(offset, offset + limit - 1);
 
-  if (filters.estado && filters.estado !== 'todos') q = q.eq('estado', filters.estado);
+  // DGG-274/E-GG-307 · filtro de estado consciente de carril: 'pendiente' = SÓLO transaccional;
+  // 'en_goteo' = pendiente del carril marketing SES. El resto son estados reales de la vista.
+  if (filters.estado && filters.estado !== 'todos') {
+    if (filters.estado === 'en_goteo') {
+      q = q.eq('estado', 'pendiente').eq('carril', 'marketing');
+    } else if (filters.estado === 'pendiente') {
+      q = q.eq('estado', 'pendiente').eq('carril', 'transaccional');
+    } else {
+      q = q.eq('estado', filters.estado);
+    }
+  }
   if (filters.casilla && filters.casilla !== 'todas') q = q.eq('casilla', filters.casilla);
   if (filters.canal && filters.canal !== 'todos') q = q.eq('canal', filters.canal);
   if (filters.plantillas && filters.plantillas.length > 0) q = q.in('template_slug', filters.plantillas);
