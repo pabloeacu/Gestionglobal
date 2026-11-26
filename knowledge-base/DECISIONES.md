@@ -9401,3 +9401,36 @@ públicos reales.
 **§6 (3 agentes + e2e):** núcleo sólido; fixes in-situ (migs 0718/0719, ver E-GG-297): crítico del
 trigger de registro (ciego a `federal-%`), categoría 'federal' en el reporte, preview TZ, etc.
 Prueba en vivo (gerente, prod): página + lanzador + preview OK. Ver DGG-269 / DGG-267 / DGG-268.
+
+## DGG-273 · Purga automática del warmup SES — baja en TODO rebote + queja, y gate del monitor (2026-11-26, mig 0740)
+
+**Contexto.** Día 2 del warmup SES (DGG-268): 1.502 enviados, 97 bounces (6,46%). Pablo: purgar a
+toda marcha para una base pulida; "la idea no es bajar el caudal, sino limpiar". Explícito: **no
+frenar ni relentizar nada**.
+
+**Decisión 1 — Purga agresiva con un carve-out de contenido.** `ses_feedback_ingest` ahora da de baja
+(email_suppression global + `prospectos.estado_captacion='baja'` + `lexph_suscriptores.estado='baja'`)
+en **TODA queja y TODO bounce**, no sólo permanentes. **Único carve-out:** los transitorios de
+**contenido** (`ContentRejected`/`MessageTooLarge`/`AttachmentRejected`) NO suprimen al destinatario —
+rebotan por nuestro contenido, no por dirección mala; purgarlos sería purgar contactos válidos y tapar
+un problema propio. General/MailboxFull/Permanent sí purgan (dirección muerta/llena). Se respeta el
+carve-out de **cliente puro** (conserva transaccional). Backfill de 47 soft históricos. Ver E-GG-305.
+
+**Decisión 2 — Aviso a gerencia desacoplado de la purga.** El aviso campanita/push/email por cliente
+que rebota sigue disparándose **sólo** en permanente/queja (`v_alert_cliente`), no en soft bounces, para
+mantener fiel el copy "rebote permanente" y no floodear (coherencia aviso↔display, §6e). El edge
+`ses-event-webhook` **no cambió** (sólo la RPC que invoca → sin redeploy, respeta R7 de drift).
+
+**Decisión 3 — El monitor se calla al agotar el cupo del día.** Pablo: "cuando llegues al tope de
+envíos de la jornada, dejá de correr hasta el otro día; no tiene sentido revisar sin actividad". La
+tarea `ses-warmup-monitor-cada-20min` suma un **PASO 0 (gate)**: si el freno NO está disparado y no
+hubo envíos SES en los últimos 30 min y `ses_hoy >= cap_hoy`, sale en silencio (no reporta); se
+reactiva solo cuando rota el día AR y el cupo se reinicia. El freno (ses_pausado_reputacion) siempre
+se reporta aunque no haya envíos. El cron sigue tildando cada 20 min, pero post-cupo cada tilde es un
+único SELECT que se calla — no se puede matar el cron desde dentro del disparo; el gate es el mecanismo
+seguro (matar+re-habilitar arriesga que el monitor nunca despierte).
+
+**§6 + e2e:** smoke de la RPC en rollback (General→baja, ContentRejected→intacto, MailboxFull→baja),
+fan-out verificado (la audiencia del newsletter excluye `email_suppression` → purgadas no se re-envían),
+R16 (1 firma) y R18 (smoke) cumplidos. No se tocó TS/frontend (build inalterado); no hay superficie UI
+nueva que probar en vivo (efecto observable = estado de BD, verificado por e2e).
