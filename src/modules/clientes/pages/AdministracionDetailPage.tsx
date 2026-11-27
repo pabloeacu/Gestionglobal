@@ -26,6 +26,7 @@ import {
   Check,
   FileMinus,
   Undo2,
+  FileSpreadsheet,
 } from 'lucide-react';
 import {
   Button,
@@ -48,6 +49,7 @@ import { BrandLoader } from '@/components/brand/BrandLoader';
 import { TrianglesAccent } from '@/components/brand/TrianglesAccent';
 import { AdministracionFormDrawer } from '../components/AdministracionFormDrawer';
 import { ConsorcioFormDrawer } from '../components/ConsorcioFormDrawer';
+import { ConsorciosImportDrawer } from '../components/ConsorciosImportDrawer';
 import {
   getAdministracion,
   archiveAdministracion,
@@ -112,6 +114,7 @@ export function AdministracionDetailPage() {
   const [editOpen, setEditOpen] = useState(false);
   const [consorcioFormOpen, setConsorcioFormOpen] = useState(false);
   const [editingConsorcio, setEditingConsorcio] = useState<ConsorcioRow | null>(null);
+  const [importConsorciosOpen, setImportConsorciosOpen] = useState(false);
   const [creandoAcceso, setCreandoAcceso] = useState(false);
   // DGG-117: estado del acceso al portal (ícono 3 estados + botones).
   const [acceso, setAcceso] = useState<AccesoEstado | null>(null);
@@ -432,6 +435,7 @@ export function AdministracionDetailPage() {
           {tab === 'consorcios' && (
             <TabConsorcios
               consorcios={consorcios}
+              onImport={() => setImportConsorciosOpen(true)}
               onCreate={() => {
                 setEditingConsorcio(null);
                 setConsorcioFormOpen(true);
@@ -469,6 +473,12 @@ export function AdministracionDetailPage() {
         administracionId={admin.id}
         editing={editingConsorcio}
         onSaved={() => void load()}
+      />
+      <ConsorciosImportDrawer
+        open={importConsorciosOpen}
+        onClose={() => setImportConsorciosOpen(false)}
+        administracionId={admin.id}
+        onImported={() => void load()}
       />
     </div>
   );
@@ -1201,11 +1211,13 @@ function TabRegistral({ admin }: { admin: AdministracionRow }) {
 function TabConsorcios({
   consorcios,
   onCreate,
+  onImport,
   onEdit,
   onToggleActivo,
 }: {
   consorcios: ConsorcioRow[];
   onCreate: () => void;
+  onImport: () => void;
   onEdit: (c: ConsorcioRow) => void;
   onToggleActivo: (c: ConsorcioRow, activo: boolean) => void;
 }) {
@@ -1220,9 +1232,14 @@ function TabConsorcios({
           Cargá los consorcios que administra este cliente. Si no tienen CUIT
           propio, el sistema les asigna un DNI ficticio automáticamente.
         </p>
-        <Button onClick={onCreate}>
-          <Plus size={15} /> Nuevo consorcio
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button onClick={onCreate}>
+            <Plus size={15} /> Nuevo consorcio
+          </Button>
+          <Button variant="secondary" onClick={onImport}>
+            <FileSpreadsheet size={15} /> Importar Excel
+          </Button>
+        </div>
       </div>
     );
   }
@@ -1233,9 +1250,14 @@ function TabConsorcios({
           <span className="font-semibold text-brand-ink">{consorcios.length}</span>{' '}
           consorcios totales · {consorcios.filter((c) => c.activo).length} activos
         </p>
-        <Button onClick={onCreate}>
-          <Plus size={15} /> Nuevo
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="secondary" onClick={onImport}>
+            <FileSpreadsheet size={15} /> Importar
+          </Button>
+          <Button onClick={onCreate}>
+            <Plus size={15} /> Nuevo
+          </Button>
+        </div>
       </div>
       <div className="overflow-hidden rounded-xl border border-slate-200">
         <table className="w-full text-sm">

@@ -1951,6 +1951,63 @@ export type Database = {
         }
         Relationships: []
       }
+      consorcio_import_log: {
+        Row: {
+          actualizados: number
+          administracion_id: string
+          archivo: string | null
+          autor: string | null
+          creados: number
+          created_at: string
+          detalle: Json
+          errores: number
+          id: string
+          repunteados: number
+          total: number
+        }
+        Insert: {
+          actualizados?: number
+          administracion_id: string
+          archivo?: string | null
+          autor?: string | null
+          creados?: number
+          created_at?: string
+          detalle?: Json
+          errores?: number
+          id?: string
+          repunteados?: number
+          total?: number
+        }
+        Update: {
+          actualizados?: number
+          administracion_id?: string
+          archivo?: string | null
+          autor?: string | null
+          creados?: number
+          created_at?: string
+          detalle?: Json
+          errores?: number
+          id?: string
+          repunteados?: number
+          total?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "consorcio_import_log_administracion_id_fkey"
+            columns: ["administracion_id"]
+            isOneToOne: false
+            referencedRelation: "administraciones"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consorcio_import_log_autor_fkey"
+            columns: ["autor"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       consorcios: {
         Row: {
           activo: boolean
@@ -10371,6 +10428,10 @@ export type Database = {
           titulo: string
           visto_at: string
         }[]
+      }
+      consorcio_import_batch: {
+        Args: { p_administracion_id: string; p_archivo: string; p_filas: Json }
+        Returns: Json
       }
       constancia_registrar_pdf: {
         Args: { p_constancia_id: string; p_path: string }

@@ -9434,3 +9434,31 @@ seguro (matar+re-habilitar arriesga que el monitor nunca despierte).
 fan-out verificado (la audiencia del newsletter excluye `email_suppression` → purgadas no se re-envían),
 R16 (1 firma) y R18 (smoke) cumplidos. No se tocó TS/frontend (build inalterado); no hay superficie UI
 nueva que probar en vivo (efecto observable = estado de BD, verificado por e2e).
+
+---
+
+## DGG-275 · Declaraciones Juradas (DDJJ-RPAC vía ARCA) — plan maestro + F0 (2026-11-26)
+
+Pablo pidió implementar las particularidades del servicio DDJJ "explotando los recursos que ya
+tenemos". Relevamiento (9 agentes) + verificación de diseño (4 agentes). Plan completo en
+**`knowledge-base/DDJJ_PLAN.md`** (6 fases). Decisiones de producto lockeadas:
+
+1. **Un solo servicio = RPAC presentado vía ARCA** (no hay "DDJJ-ARCA" aparte; la clave ARCA la aporta
+   siempre el cliente y la usan GG + gestoría, no es dato de consulta del cliente → NO va al portal).
+2. **No emitir comprobante en $0.** El trámite DDJJ abre SIN comprobante (ya lo hace el wizard) y el
+   importe real se emite en el wizard de cierre (evita la trampa contable del $0 = "pagado").
+3. **Facturación por-consorcio con consorcios materializados** (manual + Excel + dedup). **Movilidad
+   del consorcio:** puede cambiar de administración; el comprobante **congela el administrador-deudor
+   del momento de creación** (snapshot nativo `comprobantes.administracion_id`; verificado: ningún
+   lector re-deriva por consorcio). Ver [[project_ddjj_consorcios_snapshot]].
+4. **Avisos a gerencia = campanita + push + MAIL** (siempre, vía `notify_all_gerentes`), cerrando el
+   GAP de la propuesta de credenciales DDJJ. **Aviso al cliente** queda armado en OFF (flag
+   `ddjj_avisos_habilitados`), lo prende Pablo. **Recordatorio persistente** en el dashboard de gerencia.
+5. **Mail "presentación realizada"** DDJJ premium con resumen escalar "X comprobantes por $Y total"
+   (el motor de plantillas no itera listas; el itemizado por consorcio queda como upgrade opcional).
+
+**F0 (importador de consorcios) — migs 0746→0747.** RPC `consorcio_import_batch` (dedup por CUIT
+global / (admin,código) explícito / nombre_normalizado; re-point con resolución de código libre;
+coalesce-preserve para no pisar la base de facturación) + servicio + drawer + enganche en la ficha.
+Doble auditoría §6: EJERCITAR e2e (rollback, 0 residuo) + 3 agentes REVISAR → 2 críticas + menores,
+todas fixeadas in-chunk (E-GG-310/311). Build + tsc verdes.
