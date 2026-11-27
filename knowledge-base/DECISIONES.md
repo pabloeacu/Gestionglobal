@@ -9498,3 +9498,37 @@ E-GG-314; revert del fix NC de 0703 E-GG-315) + varios menores (parse de precio 
 aislamiento) → TODOS fixeados in-chunk (mig 0751). Flags para Pablo: precio efectivo del tabulador
 ($18.000 base vs $20.000 catálogo — desajuste pre-existente a reconciliar); IVA por defecto 'exento'
 (coincide con el modal viejo de DDJJ) — ambos editables por línea/revisables.
+
+**F4 (wizard autónomo "Presentación de DDJJ externa") — migs 0752/0753.** Acción de gerencia que
+identifica/crea el cliente y abre el trámite DDJJ en un solo flujo, encadenando a la facturación F3.
+Decisiones:
+(1) **Helper compartido de identidad** `private.administracion_resolver_o_crear` (mig 0752): fuente
+ÚNICA del dup-check DGG-123 + alta de `administraciones`. Se extrajo de `solicitud_activar` (que se
+refactorizó para consumirlo — misma firma, R16) para no duplicar la lógica de identidad entre el alta
+por-solicitud y la de DDJJ externa. El refactor re-versionó al repo la definición VIVA de
+`solicitud_activar` (había driftado de 0398, R7) y preserva su comportamiento byte-a-byte (verificado
+e2e en las 3 ramas, incl. el sub-caso cliente NULL — E-GG-317).
+(2) **RPC `tramite_ddjj_externa_iniciar`** (mig 0753): staff-only (is_staff; NO alcanzable por rol
+`administrador` → no requiere `assert_administracion_access`, igual que `solicitud_activar`), abre el
+trámite `categoria='dj'` + `servicio_id=rpac_ddjj`, SIN comprobante (emisión diferida a F3), con línea
+semilla **interna** (visible_cliente=false; la comunicación al cliente es F5/F6). Devuelve
+`{tramite_id, administracion_id, cliente_creado, servicio_id, email_cliente, nombre_cliente}`.
+(3) **Alta de usuario de portal**: NO la hace el RPC (el usuario de auth se crea en el edge
+`alta-cliente-portal`). Para cliente NUEVO con email, la provisión + bienvenida la dispara el **trigger
+de BD** `trg_admin_provision_user` (AFTER INSERT) — el wizard NO llama `altaClientePortal` para no
+competir con el trigger (evita el race/falso-negativo). Para cliente EXISTENTE sin usuario, no hay
+trigger (no es un INSERT), así que el wizard lo crea explícito sólo si gerencia tilda el checkbox.
+(4) **Montaje** (3 entradas, sin ruta ni item de nav nuevos): botón "DDJJ externa" en el header de
+Trámites, comando ⌘K `cmdNuevaDdjj`, y botón en la ficha del cliente (tab Registral) con el cliente
+pre-resuelto. **Doble/triple auditoría §6 (3 agentes + EJERCITAR e2e)**: cazó 1 regresión real
+(E-GG-317), 1 pre-existente (Escape en drawers anidados, E-GG-318) y 1 UX con backstop server
+(re-facturación, E-GG-319) → TODOS fixeados in-chunk.
+**Flags/DUDAS de producto para Pablo (no bloquean):** (H1) el trámite de DDJJ externa se ve en el
+portal del cliente desde que se crea (el portal lista por `administracion_id`), con timeline vacío hasta
+que gerencia cargue avances — decidido dejarlo visible pero SIN aviso (coherente con F6 OFF); si se
+prefiere ocultarlo hasta comunicar, requiere un flag `comunicado_cliente`. (H2) el copy "en curso" de
+`PortalDdjjPage` habla de "preparando tu acceso/usuario y contraseña" — puede ser engañoso para una DDJJ
+externa sin credencial misgestiones (ajuste de copy pendiente de decisión). (H3) un cliente NUEVO con
+email recibe acceso al portal + bienvenida automática (comportamiento de plataforma vía trigger); si
+para DDJJ externa no se quiere, cargar el cliente sin email. R4: el acceso directo a supabase que tenía
+el wizard se movió a `getAdministracionContacto`.

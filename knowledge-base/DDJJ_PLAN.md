@@ -110,8 +110,9 @@ gerencia (§5)**, y **cerrar huecos de aviso**. No reinventar lo existente.
 - Por-consorcio: 1 línea/comprobante por consorcio (destinatario=consorcio, deudor=administración snapshot), **emisión masiva**. Cta cte refleja todo; recupero sobre el administrador; cierre evoluciona con la cobranza (gate ya existe).
 - Reusa `emitir_comprobante_manual` (soporta `consorcio_id` por ítem). R18: smoke e2e real de la emisión.
 
-### F4 · Wizard autónomo "Presentación de declaración jurada externa" (§5)
+### F4 · Wizard autónomo "Presentación de declaración jurada externa" (§5) — ✅ HECHO (migs 0752/0753)
 - Acción en gerencia: paso 1 identificar cliente existente (buscador `quickSearchAdministraciones`) vs **cliente histórico sin usuario** (alta ficha+usuario+pass provisoria in-wizard, vía helper de F0 + `alta-cliente-portal`). Luego: crear trámite, cargar docs, emitir (entra al wizard de cierre F3), cta cte, tracking, comunicar.
+- **Implementado:** helper compartido `private.administracion_resolver_o_crear` (dup-check DGG-123, extraído de `solicitud_activar` — una sola fuente de verdad, R16) + RPC `tramite_ddjj_externa_iniciar` (staff-only, abre trámite dj/rpac_ddjj sin comprobante, línea semilla interna) + wizard `WizardDdjjExterna` (Cliente→Presentación→done, docs opcionales, encadena a `WizardCierreDdjj`). Alta de usuario: trigger de BD para cliente nuevo c/email (sin race); opt-in para existente-sin-usuario. 3 entradas (Trámites header, ⌘K, ficha cliente). §6 adversarial (3 agentes + e2e) → E-GG-317/318/319 fixeados in-chunk. Flags de producto H1/H2/H3 en DECISIONES para Pablo.
 
 ### F5 · Email "presentación realizada" DDJJ
 - Plantilla `ddjj-presentacion-realizada` manaxer-v1 premium: "Tu DDJJ fue presentada ante el RPAC" + **"se generaron {{cantidad}} comprobantes por un total de {{importe_total}}"** (escalares, calculados en SQL al disparar). Opcional: detalle por consorcio (requiere slot fijo o path raw — ver §5).

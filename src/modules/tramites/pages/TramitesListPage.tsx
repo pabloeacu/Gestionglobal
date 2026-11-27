@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { toast } from '@/lib/toast';
-import { Plus, Briefcase, ChevronRight, KanbanSquare, Receipt, AlertTriangle, ArrowRight, Copy, Wallet, Clock, ListFilter, Search, X } from 'lucide-react';
+import { Plus, Briefcase, ChevronRight, KanbanSquare, Receipt, AlertTriangle, ArrowRight, Copy, Wallet, Clock, ListFilter, Search, X, FileText } from 'lucide-react';
 import {
   Button,
   RefreshIndicator,
@@ -15,6 +15,7 @@ import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
 import { formatDateTime, formatDateShort, parseLocalDate, hoyISO } from '@/lib/dates';
 import { cn } from '@/lib/cn';
 import { TramiteFormDrawer } from '../components/TramiteFormDrawer';
+import { WizardDdjjExterna } from '@/modules/trackings/components/WizardDdjjExterna';
 import { ProgramarVencimientoModal } from '@/modules/trackings/components/ProgramarVencimientoModal';
 import { ProgramarVencimientosRpacModal } from '@/modules/trackings/components/ProgramarVencimientosRpacModal';
 import { CerrarTramiteDialog } from '@/modules/trackings/components/CerrarTramiteDialog';
@@ -146,6 +147,7 @@ export function TramitesListPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [ddjjOpen, setDdjjOpen] = useState(false);
   const [f, setF] = useState<TramitesFilterState>(INITIAL_TRAMITES_FILTER);
   // Filtros propios de los encabezados (columna Cliente y SLA — Prioridad y
   // Estado reusan f.prioridades / f.estados: una sola fuente de verdad).
@@ -166,11 +168,18 @@ export function TramitesListPage() {
   }
 
   useEffect(() => {
+    let changed = false;
     if (searchParams.get('new') === '1') {
       setDrawerOpen(true);
       searchParams.delete('new');
-      setSearchParams(searchParams, { replace: true });
+      changed = true;
     }
+    if (searchParams.get('ddjj') === '1') {
+      setDdjjOpen(true);
+      searchParams.delete('ddjj');
+      changed = true;
+    }
+    if (changed) setSearchParams(searchParams, { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
@@ -355,6 +364,9 @@ export function TramitesListPage() {
           >
             <KanbanSquare size={15} /> Kanban
           </Link>
+          <Button variant="secondary" onClick={() => setDdjjOpen(true)} title="Presentación de declaración jurada externa">
+            <FileText size={15} /> DDJJ externa
+          </Button>
           <Button onClick={() => setDrawerOpen(true)}>
             <Plus size={16} /> Nuevo trámite
           </Button>
@@ -630,6 +642,7 @@ export function TramitesListPage() {
       </section>
 
       <TramiteFormDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} onCreated={() => void load()} />
+      <WizardDdjjExterna open={ddjjOpen} onClose={() => setDdjjOpen(false)} onCreado={() => void load()} />
 
       {/* DGG-142 E3 · ofrecimiento post-cierre (V3 botón → de la lista). */}
       {programarTramite && (

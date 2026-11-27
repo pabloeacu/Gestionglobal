@@ -90,6 +90,7 @@ import { cn } from '@/lib/cn';
 import { TabWebinars } from '../components/TabWebinars';
 import { PerfilRegulatorioPanel } from '../components/PerfilRegulatorioPanel';
 import { CredencialesDdjjCard } from '../components/CredencialesDdjjCard';
+import { WizardDdjjExterna } from '@/modules/trackings/components/WizardDdjjExterna';
 import { humanizeError } from '@/lib/errors';
 import { validarCuit, soloDigitosCuit, esCuitJuridico } from '@/lib/cuit';
 
@@ -1062,6 +1063,7 @@ function TabFiscal({
 }
 
 function TabRegistral({ admin }: { admin: AdministracionRow }) {
+  const [ddjjExternaOpen, setDdjjExternaOpen] = useState(false);
   const venceRpac = admin.matricula_rpac_vencimiento
     ? parseLocalDate(admin.matricula_rpac_vencimiento)
     : null;
@@ -1175,6 +1177,21 @@ function TabRegistral({ admin }: { admin: AdministracionRow }) {
           (estado vacío "Sin cargar") para poder cargarlas aun antes de que exista
           un trámite de DDJJ. */}
       <CredencialesDdjjCard administracionId={admin.id} />
+      {/* DGG-275 F4 · lanzar el wizard de presentación DDJJ externa con el cliente ya resuelto */}
+      <div className="flex items-center justify-between gap-3 rounded-xl border border-brand-cyan-pale/60 bg-brand-cyan-pale/10 p-4">
+        <div className="text-sm">
+          <div className="font-semibold text-brand-ink">Presentar una declaración jurada</div>
+          <div className="text-xs text-brand-muted">Abre el trámite DDJJ de este cliente y factura la presentación.</div>
+        </div>
+        <Button variant="secondary" onClick={() => setDdjjExternaOpen(true)}>
+          <FileSpreadsheet size={15} /> Nueva presentación DDJJ
+        </Button>
+      </div>
+      <WizardDdjjExterna
+        open={ddjjExternaOpen}
+        onClose={() => setDdjjExternaOpen(false)}
+        clientePreseleccionado={{ id: admin.id, nombre: admin.nombre, cuit: admin.cuit }}
+      />
       {/* DGG-234 F8 · matrícula de otra jurisdicción (CABA/Neuquén) desde matricula_extra.
           Sólo se muestra si el cliente tiene una (los PBA no ensucian con una card vacía). */}
       {extra && (

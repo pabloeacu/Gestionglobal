@@ -12799,6 +12799,15 @@ export type Database = {
         }
         Returns: Json
       }
+      tramite_ddjj_externa_iniciar: {
+        Args: {
+          p_cliente_id?: string
+          p_crear_cliente_input?: Json
+          p_fecha_inicio?: string
+          p_periodo?: string
+        }
+        Returns: Json
+      }
       tramite_docs_cliente: {
         Args: { p_tramite_id: string }
         Returns: {

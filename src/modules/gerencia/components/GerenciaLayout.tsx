@@ -228,6 +228,18 @@ export function GerenciaLayout() {
     [navigate],
   );
 
+  const cmdNuevaDdjj = useMemo(
+    () => ({
+      id: 'action.new-ddjj-externa',
+      label: 'Nueva presentación DDJJ externa',
+      description: 'Alta/identificación de cliente + trámite DDJJ + facturación',
+      group: 'acciones' as const,
+      icon: FileText,
+      action: () => navigate('/gerencia/tramites?ddjj=1'),
+    }),
+    [navigate],
+  );
+
   // P2-#12 · comando "Atajos de teclado" en el palette + shortcutHint "?"
   const cmdAtajos = useMemo(
     () => ({
@@ -247,6 +259,7 @@ export function GerenciaLayout() {
   useRegisterCommand(cmdFacturacion);
   useRegisterCommand(cmdNuevaAdmin);
   useRegisterCommand(cmdNuevoComprobante);
+  useRegisterCommand(cmdNuevaDdjj);
   useRegisterCommand(cmdAtajos);
 
   return (

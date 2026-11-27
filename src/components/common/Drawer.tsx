@@ -15,6 +15,12 @@ interface DrawerProps {
   width?: number;
 }
 
+// Stack de drawers abiertos (conciencia de anidamiento): con drawers anidados
+// (ej. wizard DDJJ externa → wizard de cierre), Escape debe cerrar SOLO el más
+// alto, no todos a la vez (E-GG-318). Cada drawer abierto registra su handler y
+// sólo el último del stack responde a Escape.
+const escapeStack: Array<() => void> = [];
+
 // Drawer para flujos largos (wizards, conciliación). Modal solo para
 // confirmaciones rápidas (doc 02 §6.1).
 export function Drawer({
@@ -40,9 +46,19 @@ export function Drawer({
 
   useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    const handler = () => onClose();
+    escapeStack.push(handler);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      // sólo el drawer más alto del stack responde
+      if (escapeStack[escapeStack.length - 1] === handler) onClose();
+    };
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    return () => {
+      const i = escapeStack.indexOf(handler);
+      if (i >= 0) escapeStack.splice(i, 1);
+      window.removeEventListener('keydown', onKey);
+    };
   }, [open, onClose]);
 
   if (!open) return null;

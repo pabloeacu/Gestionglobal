@@ -136,6 +136,23 @@ export async function getAdministracionNombre(
   return ok((data as { nombre: string | null } | null)?.nombre ?? null);
 }
 
+// DGG-275 F4 · contacto liviano (email + nombre) para el wizard de DDJJ externa
+// (decidir si crear acceso al portal de un cliente existente sin usuario). R4.
+export async function getAdministracionContacto(
+  id: string,
+): Promise<ApiResponse<{ email: string | null; nombre: string | null }>> {
+  const { data, error } = await supabase
+    .from('administraciones')
+    .select('email, nombre')
+    .eq('id', id)
+    .maybeSingle();
+  if (error) return fail('ADMIN_CONTACTO_GET', error.message, error);
+  return ok({
+    email: ((data?.email as string | null) ?? null),
+    nombre: ((data?.nombre as string | null) ?? null),
+  });
+}
+
 // DGG-243 F4a (pivote 0651) · la clave fiscal ARCA vive en el store cifrado deny-all
 // credenciales_regulatorias (plataforma='arca'), misma familia de RPCs que DDJJ — NO hay circuito
 // paralelo ni columna en administraciones. Gerencia (staff): revela on-demand (descifra + auditado),

@@ -7314,3 +7314,27 @@ El fix original de E-GG-306 clasificó el carril transaccional por `prioridad <=
 - **Fix:** pinnear el FK en el embed → `comprobante:comprobantes!tramites_comprobante_id_fkey(...)` en ambos. (Los otros embeds de comprobantes del repo son desde `arca_emision_queue`/`recupero_acciones`/`partner_atribuciones` = 1 sola relación → sanos; no hay embeds inversos tramites-desde-comprobantes.)
 - **Prevención:** agregar un FK entre dos tablas que YA tenían una relación vuelve ambiguo TODO embed PostgREST entre ellas (en ambas direcciones). Al sumar un FK, hacer `grep` de los embeds `tabla:otra(...)` en `src/services/api` y pinnear el FK (`!constraint_fkey`). Es un fan-out de runtime que la lectura estática de SQL no destapa — por eso la prueba en vivo es ineludible.
 - **Fecha / módulo:** 2026-11-27 · DGG-275 F3 · `trackings.ts` + `tramites.ts` (embeds).
+
+## E-GG-317 (2026-11-27) — DDJJ F4: al extraer el helper de alta, `solicitud_activar` regresionó la rama "c" con cliente NULL
+
+- **Contexto:** lo cazó la **auditoría §6 adversarial de backend** (agente dedicado) sobre el refactor de F4. Para tener una sola fuente del dup-check DGG-123 extraje `private.administracion_resolver_o_crear` (mig 0752) y reconecté `solicitud_activar` a él. La versión VIVA pre-refactor tenía 3 ramas de resolución de cliente; la rama (c) (`p_cliente_id` y `p_crear_cliente_input` ambos NULL) hacía `v_cliente := v_sol.cliente_id` y, si ese también era NULL, **abría el trámite con `administracion_id` NULL y activaba la solicitud sin error**.
+- **Causa raíz:** el refactor delegaba la rama (c) al helper con `(v_sol.cliente_id, NULL)`; cuando `v_sol.cliente_id` es NULL, el helper recibe `(NULL, NULL)` y **lanza** `22023 'administracion_resolver_o_crear: sin cliente ni datos para crear'` → regresión de comportamiento (antes no fallaba) + además filtraba el nombre interno del helper al gerente. Alcanzable: 13 solicitudes no-activadas con `cliente_id` NULL; el wizard en modo "existente" sin cliente elegido manda los 3 args NULL.
+- **Fix:** preservar EXACTO el comportamiento viejo — en la rama ELSE de `solicitud_activar`, manejar inline el caso `v_sol.cliente_id IS NULL` (setear `v_cliente := NULL` sin llamar al helper). Verificado e2e (BEGIN/ROLLBACK): solicitud con `cliente_id` NULL → trámite con admin NULL, solicitud activada, **sin error**; ramas (a)/(b) idénticas byte-a-byte.
+- **Prevención:** al extraer un helper de un hot-path, EJERCITAR las 3 ramas del original (incluyendo los sub-casos NULL) en e2e antes de cerrar; un helper nuevo con guards más estrictos que el código que reemplaza es una regresión silenciosa. El refactor además re-versionó al repo la definición VIVA de `solicitud_activar` (que había driftado de 0398 — R7).
+- **Fecha / módulo:** 2026-11-27 · DGG-275 F4 · `supabase/migrations/0752`.
+
+## E-GG-318 (2026-11-27) — Drawers anidados: Escape cerraba todos a la vez (no sólo el más alto)
+
+- **Contexto:** lo cazó la auditoría §6 de frontend. El wizard de DDJJ externa (F4) abre encima suyo el wizard de cierre/emisión (F3) — dos `Drawer` anidados. `Drawer` registraba un listener global de `window` para Escape por cada instancia abierta, sin conciencia de stack.
+- **Causa raíz:** con los dos drawers abiertos, un Escape disparaba el `onClose` de AMBOS → se cerraba el wizard externo entero (perdiendo `result`), no sólo el paso de facturación.
+- **Fix:** stack a nivel módulo en `Drawer.tsx` — cada drawer abierto empuja su handler; en Escape, sólo responde el último del stack (el más alto). Comportamiento de un solo drawer intacto. Beneficia a TODO drawer anidado de la app, no sólo DDJJ.
+- **Prevención:** cualquier overlay con listener global de teclado debe ser consciente del anidamiento (stack), no asumir que es el único abierto.
+- **Fecha / módulo:** 2026-11-27 · DGG-275 F4 · `src/components/common/Drawer.tsx`.
+
+## E-GG-319 (2026-11-27) — DDJJ F4: el botón "Facturar" quedaba habilitado tras emitir (riesgo de re-emisión)
+
+- **Contexto:** auditoría §6 de frontend. En el paso final del wizard de DDJJ externa, el CTA "Facturar la presentación" quedaba siempre activo; tras emitir y cerrar el wizard de cierre, un segundo click lo reabría y re-emitía otro lote.
+- **Causa raíz:** el wizard externo no trackeaba si ya se había facturado; el `onGenerado` del wizard de cierre sólo hacía `setCierreOpen(false)`.
+- **Mitigación server (ya existente):** el RPC `tramite_emitir_comprobantes_ddjj` (mig 0751) **ya bloquea** la re-emisión (`IF NOT p_forzar AND EXISTS comprobantes no-anulados → RAISE`), así que NO había corrupción de datos — el segundo intento devolvía un error, no comprobantes duplicados. Era un bug de UX (error confuso) + lista sin refrescar.
+- **Fix:** estado `facturado` que deshabilita el botón ("Presentación facturada") tras emitir, y `onGenerado` ahora refresca la lista (`onCreado`). Defensa en profundidad: UI + guard de idempotencia server.
+- **Fecha / módulo:** 2026-11-27 · DGG-275 F4 · `WizardDdjjExterna.tsx`.
