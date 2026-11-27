@@ -146,7 +146,7 @@ export function PortalDdjjPage() {
               ) : estado === 'asignada' && adminId ? (
                 <LauncherCredenciales adminId={adminId} usuario={cred?.usuario ?? null} tienePassword={cred?.tienePassword ?? false} />
               ) : estado === 'en_curso' ? (
-                <EnCurso />
+                <EnCurso credPendiente={credPendiente} />
               ) : (
                 <SinServicio />
               )}
@@ -389,14 +389,34 @@ async function writeClipboard(text: string, setCopied: (v: boolean) => void) {
 }
 
 // ───────────────────────── Estado: solicitud en curso ─────────────────────────
-function EnCurso() {
+// H2 (§6 F4): copy credential-aware. Sólo prometemos "usuario y contraseña" cuando
+// hay una credencial en camino (`credPendiente` = propuesta de gestoría pendiente).
+// Para una DDJJ que gestionamos/presentamos sin asignar credencial al cliente (ej.
+// presentación externa), el copy es neutral: la gestión avanza, sin prometer un
+// acceso que podría no venir. Ambos casos se disparan por el mismo estado 'en_curso'.
+function EnCurso({ credPendiente }: { credPendiente: boolean }) {
+  if (credPendiente) {
+    return (
+      <section className="rounded-2xl border border-brand-orange/40 bg-orange-50/50 p-5">
+        <p className="kicker inline-flex items-center gap-1.5 text-brand-orange"><Clock size={13} /> En preparación</p>
+        <h2 className="mt-1 font-display text-xl font-bold text-brand-ink">Estamos preparando tu acceso</h2>
+        <p className="mt-2 text-sm text-brand-ink/85">
+          Ya estamos trabajando en tu Declaración Jurada. En cuanto tengamos listo el acceso al Portal de DDJJ, te vas a
+          encontrar acá el usuario y la contraseña. Te avisamos ni bien esté.
+        </p>
+        <Link to="/portal/gestiones" className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-brand-cyan hover:underline">
+          Ver el estado de tu gestión <ArrowRight size={14} />
+        </Link>
+      </section>
+    );
+  }
   return (
-    <section className="rounded-2xl border border-brand-orange/40 bg-orange-50/50 p-5">
-      <p className="kicker inline-flex items-center gap-1.5 text-brand-orange"><Clock size={13} /> En preparación</p>
-      <h2 className="mt-1 font-display text-xl font-bold text-brand-ink">Estamos preparando tu acceso</h2>
+    <section className="rounded-2xl border border-brand-cyan/30 bg-brand-cyan-pale/20 p-5">
+      <p className="kicker inline-flex items-center gap-1.5 text-brand-cyan"><Clock size={13} /> En gestión</p>
+      <h2 className="mt-1 font-display text-xl font-bold text-brand-ink">Estamos gestionando tu Declaración Jurada</h2>
       <p className="mt-2 text-sm text-brand-ink/85">
-        Ya estamos trabajando en tu Declaración Jurada. En cuanto tengamos listo el acceso al Portal de DDJJ, te vas a
-        encontrar acá el usuario y la contraseña. Te avisamos ni bien esté.
+        Gestión Global está trabajando en tu DDJJ anual. Te vamos informando cada avance en tu portal; por ahora no
+        tenés que hacer nada de tu lado.
       </p>
       <Link to="/portal/gestiones" className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-brand-cyan hover:underline">
         Ver el estado de tu gestión <ArrowRight size={14} />

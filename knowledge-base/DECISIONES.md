@@ -9591,3 +9591,23 @@ el tabulador) → el motor cae a `precio_base`; (2) `precio_cliente = 20.000` (b
 Emulado antes en BEGIN/ROLLBACK ($18.000→$20.000) y verificado real: resolver=$20.000 (origen base),
 las 3 columnas = 20.000, 0 overrides vigentes. **No retroactivo:** los comprobantes ya emitidos a $18.000
 no se tocan; sólo cambia lo que se factura de acá en más. Alineado con [[feedback_consistencia_contable]].
+
+**Cierre de H1/H2 del portal del cliente (DUDAS §6 de F4, 2026-11-27, pedido Pablo "dale con H1/H2").**
+Relevamiento: **toda** línea de tracking visible al cliente (`visible_cliente=true`) dispara
+`private.tracking_notificar_avance_cliente` → mail `tracking-avance-cliente` + push + campanita. Por eso
+`solicitud_activar` (que pone su línea semilla VISIBLE) notifica al cliente al crear el trámite; **F4 DDJJ
+externa la pone INTERNA a propósito** (no notificar al crear — la comunicación es el botón explícito F5).
+**H1 (timeline vacío): sin cambio de código — ya es coherente.** El card de "Mis gestiones" muestra
+metadata (título/estado/actualizado); el detalle `/portal/gestiones/:id` ya tiene empty-state amable
+("Todavía no hay avances · cuando el equipo registre una novedad visible, aparecerá acá"). Hacer visible
+la línea semilla de F4 (para "llenar" el timeline) spamearía al cliente al crear el trámite → se descarta
+(rompería el diseño de comunicación explícita de F5). **H2 (copy "en curso" engañoso): FIXEADO.**
+`PortalDdjjPage > EnCurso` ahora es *credential-aware*: con credencial en camino (`credPendiente` =
+propuesta de gestoría pendiente) mantiene "preparando tu acceso… usuario y contraseña"; con sólo un
+trámite DDJJ abierto sin credencial (caso DDJJ externa) usa copy **neutral** ("Estamos gestionando tu
+Declaración Jurada… te vamos informando cada avance"), sin prometer un acceso que podría no venir. Esto
+además vuelve coherente el combo "en curso" + timeline vacío. Build+tsc OK. Nota QA: no hay hoy ningún
+cliente en prod en el estado exacto del copy nuevo (el único trámite DDJJ es de GG Cursos, que tiene
+credencial publicada → estado 'asignada'); verificado por build + revisión de lógica (no por captura en
+vivo, para no fabricar estado ni role-swappear la cuenta en vivo por un cambio de copy). H3 (bienvenida
+automática a cliente nuevo con email) queda como comportamiento de plataforma, sin cambio.
