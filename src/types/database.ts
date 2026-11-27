@@ -177,6 +177,7 @@ export type Database = {
           ofrecimientos_habilitados: boolean
           origen: string | null
           padre_apellido_nombre: string | null
+          portal_provision_alertado_at: string | null
           provincia: string | null
           responsable_apellido: string | null
           responsable_dni: string | null
@@ -226,6 +227,7 @@ export type Database = {
           ofrecimientos_habilitados?: boolean
           origen?: string | null
           padre_apellido_nombre?: string | null
+          portal_provision_alertado_at?: string | null
           provincia?: string | null
           responsable_apellido?: string | null
           responsable_dni?: string | null
@@ -275,6 +277,7 @@ export type Database = {
           ofrecimientos_habilitados?: boolean
           origen?: string | null
           padre_apellido_nombre?: string | null
+          portal_provision_alertado_at?: string | null
           provincia?: string | null
           responsable_apellido?: string | null
           responsable_dni?: string | null
@@ -1825,6 +1828,7 @@ export type Database = {
           pago_mp_cuit_cuil: string | null
           pago_mp_cvu: string | null
           pago_mp_titular: string | null
+          portal_provision_reconciliar_on: boolean
           prospectos_campanas_activo: boolean
           prospectos_cap_diario: number
           prospectos_pausado_motivo: string | null
@@ -1883,6 +1887,7 @@ export type Database = {
           pago_mp_cuit_cuil?: string | null
           pago_mp_cvu?: string | null
           pago_mp_titular?: string | null
+          portal_provision_reconciliar_on?: boolean
           prospectos_campanas_activo?: boolean
           prospectos_cap_diario?: number
           prospectos_pausado_motivo?: string | null
@@ -1941,6 +1946,7 @@ export type Database = {
           pago_mp_cuit_cuil?: string | null
           pago_mp_cvu?: string | null
           pago_mp_titular?: string | null
+          portal_provision_reconciliar_on?: boolean
           prospectos_campanas_activo?: boolean
           prospectos_cap_diario?: number
           prospectos_pausado_motivo?: string | null
