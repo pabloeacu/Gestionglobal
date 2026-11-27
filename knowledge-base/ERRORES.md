@@ -7338,3 +7338,11 @@ El fix original de E-GG-306 clasificó el carril transaccional por `prioridad <=
 - **Mitigación server (ya existente):** el RPC `tramite_emitir_comprobantes_ddjj` (mig 0751) **ya bloquea** la re-emisión (`IF NOT p_forzar AND EXISTS comprobantes no-anulados → RAISE`), así que NO había corrupción de datos — el segundo intento devolvía un error, no comprobantes duplicados. Era un bug de UX (error confuso) + lista sin refrescar.
 - **Fix:** estado `facturado` que deshabilita el botón ("Presentación facturada") tras emitir, y `onGenerado` ahora refresca la lista (`onCreado`). Defensa en profundidad: UI + guard de idempotencia server.
 - **Fecha / módulo:** 2026-11-27 · DGG-275 F4 · `WizardDdjjExterna.tsx`.
+
+## E-GG-320 (2026-11-27) — Mails SQL con dinero en formato US ("$54,000.00") en vez de AR ("$54.000,00") — DEUDA pre-existente
+
+- **Contexto:** al construir el helper de resumen escalar de F5 (`tramite_ddjj_resumen_comprobantes`), descubrí que el servidor corre en **locale C**: `to_char(54000, 'FM999G999G990D00')` (el patrón canónico que usan los mails SQL de la plataforma, p.ej. `0328:110`, reporte mensual `0711`) devuelve **"$54,000.00"** (miles con coma, decimal con punto = formato US), no el AR "$54.000,00". El frontend en cambio usa `toLocaleString('es-AR')` → AR. → el MISMO monto se muestra distinto según la superficie (front AR vs mails SQL US).
+- **Causa raíz:** `to_char` con `G`/`D` respeta `lc_numeric`, que en este servidor es C/US. Los mails que formatean dinero en SQL heredan el formato US.
+- **Fix (F5, acotado):** el helper de F5 formatea AR **locale-independiente** (`regexp_replace(to_char(floor(x),'FM999,999,999,990'), ',', '.', 'g') || ',' || lpad(decimales,2)`) → "$54.000,00" verificado (incl. $1.234.567,89 y $0,00). NO toqué los otros mails (fuera de scope de F5).
+- **Deuda flaggeada (DUDA para Pablo):** barrer los mails SQL legacy que usan `to_char(...,'...D00')` crudo y migrarlos al formato AR (o a un helper `formato_moneda_ar`) para consistencia total front↔mail. Alineado con [[feedback_consistencia_contable]] (el mismo número —y formato— en todas las superficies).
+- **Fecha / módulo:** 2026-11-27 · DGG-275 F5 · `supabase/migrations/0754` (helper) + deuda transversal en mails SQL.

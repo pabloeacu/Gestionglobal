@@ -9532,3 +9532,18 @@ externa sin credencial misgestiones (ajuste de copy pendiente de decisión). (H3
 email recibe acceso al portal + bienvenida automática (comportamiento de plataforma vía trigger); si
 para DDJJ externa no se quiere, cargar el cliente sin email. R4: el acceso directo a supabase que tenía
 el wizard se movió a `getAdministracionContacto`.
+
+**F5 (mail "presentación realizada" DDJJ) — mig 0754, BASE INERTE.** Construida la parte que no
+depende de una decisión de producto: (1) helper `tramite_ddjj_resumen_comprobantes(p_tramite_id)` →
+`{cantidad, importe_total, importe_total_fmt}` leyendo TODO el lote vía el vínculo N:1 de F3
+(`comprobantes.tramite_id` + el `comprobante_id` del trámite), excluyendo anulados; formato de dinero
+**AR locale-independiente** ("$54.000,00" — el servidor corre en locale C y `to_char` crudo da US; ver
+E-GG-320). (2) Plantilla premium `ddjj-presentacion-realizada` (manaxer-v1, kicker "DECLARACIÓN JURADA",
+box de resumen escalar "se generaron {{cantidad}} comprobantes por un total de {{importe_total}}", CTA al
+portal). Verificado e2e (BEGIN/ROLLBACK): 1 comp → $20.000,00; 2 comp → $35.000,00; 0 residuo.
+**PENDIENTE de decisión de Pablo (no wireado a propósito):** el genérico `tramite-resuelto` NO está
+wireado en prod (hoy el cliente se entera por líneas visibles → `tracking-recordatorio`), así que no hay
+envío que "reemplazar". Falta definir **(a) el disparo** del mail —botón de gerencia "Comunicar al
+cliente" (recomendado), automático al resolver, o automático al facturar— y **(b) el gateo** por el flag
+`ddjj_avisos_habilitados` (F6, hoy OFF) vs transaccional. La base queda lista para wirear en cuanto Pablo
+decida.

@@ -12808,6 +12808,10 @@ export type Database = {
         }
         Returns: Json
       }
+      tramite_ddjj_resumen_comprobantes: {
+        Args: { p_tramite_id: string }
+        Returns: Json
+      }
       tramite_docs_cliente: {
         Args: { p_tramite_id: string }
         Returns: {
