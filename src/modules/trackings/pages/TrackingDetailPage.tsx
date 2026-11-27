@@ -118,6 +118,7 @@ import { CerrarTramiteDialog } from '../components/CerrarTramiteDialog';
 import { useCancelarTramite } from '@/modules/tramites/lib/useAvanzarTramite';
 import { ReabrirTramiteDialog } from '../components/ReabrirTramiteDialog';
 import { GenerarComprobanteTramiteModal } from '../components/GenerarComprobanteTramiteModal';
+import { WizardCierreDdjj } from '../components/WizardCierreDdjj';
 import { ClientePanoramaCard } from '../components/ClientePanoramaCard';
 import { abrirArchivoProtegido } from '@/lib/storageUrls';
 import {
@@ -189,6 +190,7 @@ export function TrackingDetailPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   // JL 2 · obs 1 · atajo "Generar comprobante" del trámite (cuando comprobante_pendiente).
   const [genCompOpen, setGenCompOpen] = useState(false);
+  const [ddjjWizardOpen, setDdjjWizardOpen] = useState(false);
   const [programarOpen, setProgramarOpen] = useState(false);
   // DGG-159 · asistente de vencimientos RPAC (renovación + DDJJ + curso) para
   // inscripción/renovación; el genérico (programarOpen) queda para el resto.
@@ -306,6 +308,13 @@ export function TrackingDetailPage() {
   // JL-W8-1 · advertencia (sin bloquear) al usar el atajo "Generar comprobante"
   // cuando el circuito normal (wizard de activación) no corrió para este trámite.
   async function handleGenerarComprobanteClick() {
+    // DGG-275 F3 · DDJJ factura por el wizard de cierre (único a la admin o uno por
+    // consorcio con grilla editable), no por el atajo lump-sum. Predicado canónico
+    // (espeja el gate server/portal): servicio rpac_ddjj O categoría 'dj'.
+    if (data?.servicio?.codigo === 'rpac_ddjj' || data?.categoria === 'dj') {
+      setDdjjWizardOpen(true);
+      return;
+    }
     const solSinActivar =
       solicitudVinculada &&
       !['activada', 'derivada'].includes(solicitudVinculada.estado);
@@ -1807,6 +1816,22 @@ export function TrackingDetailPage() {
           void load();
         }}
       />
+
+      {/* DGG-275 F3 · wizard de facturación DDJJ (único a la admin o por consorcio). */}
+      {data.administracion_id && (
+        <WizardCierreDdjj
+          open={ddjjWizardOpen}
+          onClose={() => setDdjjWizardOpen(false)}
+          tramiteId={data.id}
+          administracionId={data.administracion_id}
+          servicioId={data.servicio_id}
+          servicioNombre={data.servicio?.nombre ?? data.titulo}
+          onGenerado={() => {
+            setDdjjWizardOpen(false);
+            void load();
+          }}
+        />
+      )}
 
       {/* J1 · Tour secundario Trámites (1 paso) — primer visit. */}
       <OnboardingTour

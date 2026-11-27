@@ -669,6 +669,9 @@ export interface TramiteCobroResumen {
   tiene_comprobante: boolean;
   tiene_anulable: boolean;
   tiene_cae: boolean;
+  /** DGG-275 F3: cantidad de comprobantes del trámite (lote DDJJ puede ser N). */
+  cantidad: number;
+  cantidad_anulable: number;
   pagado_anulable: number;
   saldo_pendiente: number;
 }
@@ -724,6 +727,8 @@ export async function tramiteCobroResumen(
     tiene_comprobante: d.tiene_comprobante ?? false,
     tiene_anulable: d.tiene_anulable ?? false,
     tiene_cae: d.tiene_cae ?? false,
+    cantidad: Number(d.cantidad ?? 0),
+    cantidad_anulable: Number(d.cantidad_anulable ?? 0),
     pagado_anulable: Number(d.pagado_anulable ?? 0),
     saldo_pendiente: Number(d.saldo_pendiente ?? 0),
   });

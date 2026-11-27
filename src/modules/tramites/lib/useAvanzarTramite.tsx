@@ -74,38 +74,42 @@ export function useCancelarTramite() {
         if (!ok) return null;
       } else if (resumen.tiene_anulable) {
         const pagado = resumen.pagado_anulable;
+        // DGG-275 F3: el lote DDJJ puede tener N comprobantes → pluralizar (coherencia §6e).
+        const nAnul = Math.max(1, resumen.cantidad_anulable || 1);
+        const comp = nAnul > 1 ? `${nAnul} comprobantes` : 'un comprobante';
+        const compEl = nAnul > 1 ? 'los comprobantes' : 'el comprobante';
         anular = await confirm({
           title: 'Cancelar trámite',
           message: (
             <div className="space-y-2">
               {pagado > 0 ? (
                 <p>
-                  Este trámite tiene un comprobante con <strong>{fmtARS(pagado)}</strong> ya
-                  cobrado.
+                  Este trámite tiene {comp} con <strong>{fmtARS(pagado)}</strong> ya
+                  cobrado{nAnul > 1 ? ' en total' : ''}.
                 </p>
               ) : (
-                <p>Este trámite tiene un comprobante impago vinculado.</p>
+                <p>Este trámite tiene {comp} {nAnul > 1 ? 'impagos vinculados' : 'impago vinculado'}.</p>
               )}
               <p>
-                ¿Anular el comprobante
+                ¿Anular {compEl}
                 {pagado > 0
                   ? ' y dejar lo pagado como saldo a favor del cliente'
                   : ' (borra la deuda)'}
                 ?
               </p>
               <p className="text-brand-muted">
-                Si elegís “No tocar”, el trámite se cancela pero el comprobante
-                {pagado > 0 ? ' y su saldo' : ''} quedan como están.
+                Si elegís “No tocar”, el trámite se cancela pero {compEl}
+                {pagado > 0 ? ' y su saldo' : ''} {nAnul > 1 ? 'quedan' : 'queda'} como {nAnul > 1 ? 'están' : 'está'}.
               </p>
               {resumen.tiene_cae && (
                 <p className="text-amber-700">
-                  Además hay un comprobante fiscal (CAE) que <strong>no</strong> se anulará
-                  (requiere nota de crédito).
+                  Además hay comprobante(s) fiscal(es) (CAE) que <strong>no</strong> se anularán
+                  (requieren nota de crédito).
                 </p>
               )}
             </div>
           ),
-          confirmLabel: pagado > 0 ? 'Anular → saldo a favor' : 'Anular comprobante',
+          confirmLabel: pagado > 0 ? 'Anular → saldo a favor' : nAnul > 1 ? 'Anular comprobantes' : 'Anular comprobante',
           cancelLabel: 'No tocar',
         });
       }
@@ -122,10 +126,12 @@ export function useCancelarTramite() {
     }
     if (res.data.anulados.length > 0) {
       const sf = res.data.saldo_a_favor;
+      const na = res.data.anulados.length;
+      const compTxt = na > 1 ? `${na} comprobantes anulados` : 'comprobante anulado';
       toast.success(
         sf > 0
-          ? `Trámite ${codigo} cancelado · comprobante anulado · ${fmtARS(sf)} quedó como saldo a favor`
-          : `Trámite ${codigo} cancelado · comprobante anulado`,
+          ? `Trámite ${codigo} cancelado · ${compTxt} · ${fmtARS(sf)} quedó como saldo a favor`
+          : `Trámite ${codigo} cancelado · ${compTxt}`,
       );
     } else {
       toast.success(`Trámite ${codigo || ''} cancelado`.trim());

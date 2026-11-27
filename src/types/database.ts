@@ -1474,6 +1474,7 @@ export type Database = {
           tipo: string
           total: number
           total_iva: number
+          tramite_id: string | null
           updated_at: string
           vencimiento: string | null
         }
@@ -1530,6 +1531,7 @@ export type Database = {
           tipo: string
           total?: number
           total_iva?: number
+          tramite_id?: string | null
           updated_at?: string
           vencimiento?: string | null
         }
@@ -1586,6 +1588,7 @@ export type Database = {
           tipo?: string
           total?: number
           total_iva?: number
+          tramite_id?: string | null
           updated_at?: string
           vencimiento?: string | null
         }
@@ -1644,6 +1647,13 @@ export type Database = {
             columns: ["servicio_id"]
             isOneToOne: false
             referencedRelation: "servicios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comprobantes_tramite_id_fkey"
+            columns: ["tramite_id"]
+            isOneToOne: false
+            referencedRelation: "tramites"
             referencedColumns: ["id"]
           },
         ]
@@ -12797,6 +12807,15 @@ export type Database = {
           origen: string
           path: string
         }[]
+      }
+      tramite_emitir_comprobantes_ddjj: {
+        Args: {
+          p_forzar?: boolean
+          p_lineas: Json
+          p_modo: string
+          p_tramite_id: string
+        }
+        Returns: Json
       }
       tramite_incrementar_vistas: {
         Args: { p_tramite_id: string }

@@ -9483,3 +9483,18 @@ reutiliza el carril probado, sin flujo paralelo (no se duplica la subida para no
 de huérfanos). Nota de dominio (Pablo): el Excel/remito trae sólo **nombre, domicilio y CUIT** → dedup
 por CUIT global (F0 ya lo hace); el resto se presume/deduce en la grilla de F3. Sin lógica/datos nuevos
 → verificación por build + prueba en vivo del panel (no amerita la doble auditoría multi-agente).
+
+**F3 (wizard de cierre/emisión) — migs 0749/0750/0751.** El chunk más contable. Decisiones:
+(1) **Vínculo N:1** `comprobantes.tramite_id` (la emisión por-consorcio produce N comprobantes; el
+gate de cierre y las 5 señales de cobranza + `tramite_cancelar` cuentan TODO el lote). Aditivo e inerte
+para datos históricos. (2) **Emisión masiva** `tramite_emitir_comprobantes_ddjj` (único a la admin o uno
+por consorcio, receptor=consorcio/deudor=admin). (3) **Grilla editable** (precio + alícuota por línea;
+Cond. IVA read-only = dato maestro, se edita en la ficha del consorcio; datos presumidos del Excel +
+default consumidor_final). (4) **Precio** = `resolver_precio_servicio` (editable). (5) **No cobra al
+emitir** (el cierre evoluciona con la cobranza; el gate bloquea mientras haya saldo). (6) **Fiscal
+por-línea** gateado por ARCA (dormido) → hoy todo tipo X; la grilla lo deja ready. **Doble/triple
+auditoría §6 adversarial (4 agentes)** cazó 2 críticos reales (deuda fantasma al cancelar un lote
+E-GG-314; revert del fix NC de 0703 E-GG-315) + varios menores (parse de precio AR, idempotencia,
+aislamiento) → TODOS fixeados in-chunk (mig 0751). Flags para Pablo: precio efectivo del tabulador
+($18.000 base vs $20.000 catálogo — desajuste pre-existente a reconciliar); IVA por defecto 'exento'
+(coincide con el modal viejo de DDJJ) — ambos editables por línea/revisables.
