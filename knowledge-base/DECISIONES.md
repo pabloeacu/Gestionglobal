@@ -9577,3 +9577,17 @@ el aviso; rolled back). Efecto going-forward: toda credencial DDJJ nueva publica
 **Lección (2 canales de sello):** suprimir un backlog de avisos de credenciales DDJJ requiere sellar
 `aviso_lista_enviado_at` (mail/push/campanita) **y** `aviso_banner_visto_at` (banner del portal) — el sello
 de uno no cubre el otro. **Con esto DGG-275 queda COMPLETO (F0–F6).**
+
+**Reconciliación del tabulador DDJJ $18k/$20k (2026-11-27, pedido Pablo).** Hallazgo: el precio EFECTIVO
+que cobraba el motor (`resolver_precio_servicio`) era **$18.000**, por un override GLOBAL en
+`tabulador_precios` (admin/consorcio/convenio NULL, origen='base', vigente desde 2026-05-20) que gana
+sobre `servicios.precio_base`. El $20.000 vivía sólo en `precio_base`/`precio_publico` (que el motor NO
+usa; sólo se muestran en la grilla de Servicios de gerencia + pre-fill referencial de modales de
+comprobante). `precio_cliente` ya era 18.000. Ningún landing/formulario público expone el precio (todo
+DB-driven; 0 hardcodeos de $18.000). **Decisión de Pablo: subir a $20.000** (no era sólo display: era
+decidir el precio). Operación (consistencia contable, fuente única como el resto del catálogo): (1)
+**cerré** el override de $18.000 (`vigente_hasta = current_date-1`, preservando la historia May–Nov 2026 en
+el tabulador) → el motor cae a `precio_base`; (2) `precio_cliente = 20.000` (base y público ya estaban).
+Emulado antes en BEGIN/ROLLBACK ($18.000→$20.000) y verificado real: resolver=$20.000 (origen base),
+las 3 columnas = 20.000, 0 overrides vigentes. **No retroactivo:** los comprobantes ya emitidos a $18.000
+no se tocan; sólo cambia lo que se factura de acá en más. Alineado con [[feedback_consistencia_contable]].
