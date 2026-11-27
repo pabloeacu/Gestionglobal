@@ -48,6 +48,30 @@ export interface DdjjExternaResult {
   nombre_cliente: string | null;
 }
 
+export interface DdjjComunicarResult {
+  enviado: boolean;
+  /** true cuando ya había un aviso sent/pending (idempotencia): el front ofrece reenvío. */
+  ya_comunicado?: boolean;
+  email: string;
+  cantidad: number;
+  importe_total_fmt: string;
+}
+
+/** Botón de gerencia "Comunicar al cliente" (F5): envía el mail premium
+ *  `ddjj-presentacion-realizada` con el resumen escalar. GATEADO server-side por
+ *  config_global.ddjj_avisos_habilitados; idempotente (sent/pending salvo forzar). */
+export async function comunicarPresentacionDdjj(
+  tramiteId: string,
+  forzar = false,
+): Promise<ApiResponse<DdjjComunicarResult>> {
+  const { data, error } = await supabase.rpc('tramite_ddjj_comunicar_presentacion', {
+    p_tramite_id: tramiteId,
+    p_forzar: forzar,
+  } as never);
+  if (error) return fail('DDJJ_COMUNICAR_RPC', error.message, error);
+  return ok(data as unknown as DdjjComunicarResult);
+}
+
 export async function iniciarDdjjExterna(
   input: DdjjExternaIniciarInput,
 ): Promise<ApiResponse<DdjjExternaResult>> {

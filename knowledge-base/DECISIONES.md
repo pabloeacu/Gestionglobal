@@ -9547,3 +9547,17 @@ envío que "reemplazar". Falta definir **(a) el disparo** del mail —botón de 
 cliente" (recomendado), automático al resolver, o automático al facturar— y **(b) el gateo** por el flag
 `ddjj_avisos_habilitados` (F6, hoy OFF) vs transaccional. La base queda lista para wirear en cuanto Pablo
 decida.
+
+**F5 (wiring) — mig 0755 · DECIDIDO (Pablo 2026-11-27): "botón de gerencia 'Comunicar al cliente',
+gateado por el flag".** RPC `tramite_ddjj_comunicar_presentacion(p_tramite_id, p_forzar)`: staff-only,
+GATEADO por `config_global.ddjj_avisos_habilitados` (con el flag OFF rechaza y no envía; defensa en
+profundidad: el front además deshabilita el botón + tooltip y es fail-closed si no puede leer el flag).
+Valida que sea DDJJ + que tenga comprobantes emitidos (cantidad>0) + email del cliente; encola el mail
+premium `ddjj-presentacion-realizada` por carril transaccional con el resumen escalar; registra una línea
+INTERNA (no dispara un 2º mail). Idempotente (devuelve `ya_comunicado=true` si ya hay un sent/pending; el
+front ofrece el reenvío explícito con `p_forzar`), con **advisory lock por trámite** anti doble-envío
+concurrente. Botón en el detalle del trámite (toolbar), para DDJJ ya facturadas, no en cancelados.
+**Auditoría §6 adversarial del wiring → 0 críticos** (gate del flag hermético; el número del mail coincide
+exacto con la cta cte); 6 menores fixeados in-chunk (E-GG-321). F6 (activar el flag) sigue siendo decisión
+de Pablo ("disparemos los avisos"); el botón F5 es explícito (no automático), así que no tiene el riesgo de
+backlog retroactivo del circuito de credenciales 0693 (DUDA A5, pre-flip, intacta).

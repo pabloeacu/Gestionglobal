@@ -11,7 +11,7 @@
 // recurrencia (trackings hermanos) + configuración custom de estados/categorías.
 // Regla 13: useConfirm en lugar de window.confirm.
 // ============================================================================
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useParams } from 'react-router-dom';
 import { useDropZone } from '@/lib/useDropZone';
@@ -119,6 +119,8 @@ import { useCancelarTramite } from '@/modules/tramites/lib/useAvanzarTramite';
 import { ReabrirTramiteDialog } from '../components/ReabrirTramiteDialog';
 import { GenerarComprobanteTramiteModal } from '../components/GenerarComprobanteTramiteModal';
 import { WizardCierreDdjj } from '../components/WizardCierreDdjj';
+import { comunicarPresentacionDdjj } from '@/services/api/ddjjExterna';
+import { getConfigGlobal } from '@/services/api/configGlobal';
 import { ClientePanoramaCard } from '../components/ClientePanoramaCard';
 import { abrirArchivoProtegido } from '@/lib/storageUrls';
 import {
@@ -198,6 +200,10 @@ export function TrackingDetailPage() {
   // DGG-161 · carga manual del otorgamiento + pre-fill del asistente de vencimientos.
   const [cargarOtorgOpen, setCargarOtorgOpen] = useState(false);
   const [cargarCredDdjjOpen, setCargarCredDdjjOpen] = useState(false);
+  // F5 · flag maestro de avisos DDJJ al cliente (gatea el botón "Comunicar al cliente").
+  const [avisosDdjjOn, setAvisosDdjjOn] = useState(false);
+  const [comunicandoDdjj, setComunicandoDdjj] = useState(false);
+  const comunicandoRef = useRef(false); // guard anti doble envío (cubre la ventana del confirm)
   const [otorgPrefill, setOtorgPrefill] = useState<{ matriculacion: string; vencimiento: string } | null>(null);
   // DGG-163 · C: el aviso abre el editor pre-cargado (JL edita). El "cerrar +
   // programar" se encadena tras cerrar el editor (flag), no antes.
@@ -338,6 +344,49 @@ export function TrackingDetailPage() {
       if (!okConfirm) return;
     }
     setGenCompOpen(true);
+  }
+
+  // F5 · botón "Comunicar al cliente" (mail presentación realizada). Leemos el
+  // flag maestro sólo cuando el trámite es DDJJ, para gatear el botón.
+  const esDdjjTramite = data?.servicio?.codigo === 'rpac_ddjj' || data?.categoria === 'dj';
+  useEffect(() => {
+    if (!isStaff || !esDdjjTramite) return;
+    let cancel = false;
+    void getConfigGlobal().then((r) => {
+      if (!cancel && r.ok) setAvisosDdjjOn(!!r.data.ddjj_avisos_habilitados);
+    });
+    return () => { cancel = true; };
+  }, [isStaff, esDdjjTramite]);
+
+  async function handleComunicarDdjj(forzar = false) {
+    if (!data || comunicandoRef.current) return; // guard antes del confirm (cubre doble-click)
+    const ok = await confirm({
+      title: 'Comunicar la presentación al cliente',
+      message: forzar
+        ? 'Ya se le comunicó la presentación a este cliente. ¿Reenviar el aviso de todas formas?'
+        : 'Le vamos a enviar al cliente el aviso de que su declaración jurada fue presentada, con el detalle de los comprobantes generados. ¿Confirmás?',
+      confirmLabel: forzar ? 'Reenviar' : 'Enviar aviso',
+      cancelLabel: 'Cancelar',
+    });
+    if (!ok) return;
+    comunicandoRef.current = true;
+    setComunicandoDdjj(true);
+    const res = await comunicarPresentacionDdjj(data.id, forzar);
+    comunicandoRef.current = false;
+    setComunicandoDdjj(false);
+    if (res.ok && res.data.enviado) {
+      toast.success(`Aviso enviado a ${res.data.email}`, {
+        description: `${res.data.cantidad} comprobante(s) · ${res.data.importe_total_fmt}`,
+      });
+      void load();
+      return;
+    }
+    // Idempotencia (retorno estructurado, no error) → ofrecer reenvío explícito.
+    if (res.ok && res.data.ya_comunicado && !forzar) {
+      void handleComunicarDdjj(true);
+      return;
+    }
+    if (!res.ok) toast.error('No se pudo comunicar', { description: humanizeError(res.error) });
   }
 
   // DGG-90 (JL #2) · reavisa a la gestoría externa que hay info nueva.
@@ -1210,6 +1259,23 @@ export function TrackingDetailPage() {
               && (data.servicio?.codigo === 'rpac_ddjj' || data.categoria === 'dj') && (
               <Button variant="secondary" onClick={() => setCargarCredDdjjOpen(true)}>
                 <KeyRound className="h-4 w-4" /> Cargar credenciales DDJJ
+              </Button>
+            )}
+            {/* DGG-275 F5 · comunicar al cliente la presentación realizada (mail con el
+                resumen escalar de comprobantes). Sólo DDJJ ya facturada; gateado por el
+                flag ddjj_avisos_habilitados (deshabilitado + tooltip cuando está OFF). */}
+            {isStaff && data.administracion_id && data.comprobante_id && data.estado !== 'cancelado'
+              && (data.servicio?.codigo === 'rpac_ddjj' || data.categoria === 'dj') && (
+              <Button
+                variant="tonal"
+                onClick={() => void handleComunicarDdjj()}
+                disabled={!avisosDdjjOn || comunicandoDdjj}
+                title={avisosDdjjOn
+                  ? 'Enviarle al cliente el aviso de presentación realizada con el detalle de los comprobantes'
+                  : 'Los avisos de DDJJ al cliente están desactivados (se activan en Configuración)'}
+              >
+                {comunicandoDdjj ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}{' '}
+                Comunicar al cliente
               </Button>
             )}
             {isStaff && data.estado !== 'cerrado' && (
