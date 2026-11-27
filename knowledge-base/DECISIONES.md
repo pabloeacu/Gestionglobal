@@ -9561,3 +9561,19 @@ concurrente. Botón en el detalle del trámite (toolbar), para DDJJ ya facturada
 exacto con la cta cte); 6 menores fixeados in-chunk (E-GG-321). F6 (activar el flag) sigue siendo decisión
 de Pablo ("disparemos los avisos"); el botón F5 es explícito (no automático), así que no tiene el riesgo de
 backlog retroactivo del circuito de credenciales 0693 (DUDA A5, pre-flip, intacta).
+
+**F6 (activar los avisos al cliente) — DECIDIDO + EJECUTADO (Pablo 2026-11-27: "prendé los avisos, opción
+a").** Operación de datos en prod (NO migración: toca el flag singleton + filas backlog prod-específicas).
+Secuencia segura ejecutada: **(1) sellar el backlog con el flag aún OFF** → `UPDATE credenciales_regulatorias
+SET aviso_lista_enviado_at = now()` para las 19 credenciales DDJJ publicadas-sin-avisar (el WHEN del trigger
+`credencial_ddjj_aviso` exige `aviso_lista_enviado_at IS NULL`, así que el propio UPDATE de sellado NO
+dispara el aviso). **(2) Sellar también el BANNER del backlog** → `UPDATE ... SET aviso_banner_visto_at =
+now()` (19): descubrí que el banner del portal se gatea por `aviso_banner_visto_at`, NO por el sello de
+mail; para honrar "opción a" (no aviso retroactivo por NINGÚN canal) hay que sellar los DOS. **(3) Prender el
+flag** `config_global.ddjj_avisos_habilitados = true`. **Verificado:** flag ON; backlog mail=0 y banner=0;
+sin burst (0 emails encolados); circuito LIVE e2e (des-sellar una credencial con flag ON → el trigger encola
+el aviso; rolled back). Efecto going-forward: toda credencial DDJJ nueva publicada avisa al cliente
+(mail+push+campanita+banner, one-time) y el botón F5 "Comunicar al cliente" queda habilitado.
+**Lección (2 canales de sello):** suprimir un backlog de avisos de credenciales DDJJ requiere sellar
+`aviso_lista_enviado_at` (mail/push/campanita) **y** `aviso_banner_visto_at` (banner del portal) — el sello
+de uno no cubre el otro. **Con esto DGG-275 queda COMPLETO (F0–F6).**

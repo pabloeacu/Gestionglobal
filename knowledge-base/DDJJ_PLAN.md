@@ -120,8 +120,9 @@ gerencia (§5)**, y **cerrar huecos de aviso**. No reinventar lo existente.
 - Plantilla `ddjj-presentacion-realizada` manaxer-v1 premium: "Tu DDJJ fue presentada ante el RPAC" + **"se generaron {{cantidad}} comprobantes por un total de {{importe_total}}"** (escalares, calculados en SQL al disparar). Opcional: detalle por consorcio (requiere slot fijo o path raw — ver §5).
 - Reemplaza el genérico `tramite-resuelto` para DDJJ.
 
-### F6 · Avisos al cliente (dejar listo, NO prender)
-- Verificar que el fan-out `credencial_ddjj_aviso_fanout` cubre el circuito; dejar todo enganchado con el flag `ddjj_avisos_habilitados` en OFF. Se prende cuando Pablo diga "disparemos los avisos de DDJJ".
+### F6 · Avisos al cliente — ✅ ACTIVADO (Pablo 2026-11-27 "prendé los avisos, opción a")
+- Operación de datos en prod (no migración): sellé el backlog (19 credenciales DDJJ) en los DOS canales —`aviso_lista_enviado_at` (mail/push/campanita) **y** `aviso_banner_visto_at` (banner del portal)— con el flag aún OFF, y prendí `config_global.ddjj_avisos_habilitados`. Verificado: flag ON, backlog 0+0, sin burst, circuito LIVE (e2e). El fan-out `credencial_ddjj_aviso_fanout` + el botón F5 "Comunicar al cliente" quedan activos. **DGG-275 COMPLETO.**
+- **Lección:** suprimir un backlog de avisos de credenciales DDJJ requiere sellar los 2 canales (el sello de mail NO cubre el banner del portal).
 
 ---
 
