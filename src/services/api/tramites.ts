@@ -481,7 +481,7 @@ export async function getTramite(id: string): Promise<ApiResponse<TramiteDetail>
        cobro_estado,
        administracion:administraciones(id,nombre),
        consorcio:consorcios(id,nombre),
-       comprobante:comprobantes(id,tipo,punto_venta,numero,total),
+       comprobante:comprobantes!tramites_comprobante_id_fkey(id,tipo,punto_venta,numero,total),
        submission:formulario_submissions(id,formulario_id,datos,created_at),
        asignado:profiles!tramites_asignado_a_fkey(id,full_name,avatar_url),
        creador:profiles!tramites_created_by_fkey(id,full_name),

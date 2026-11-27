@@ -7306,3 +7306,11 @@ El fix original de E-GG-306 clasificó el carril transaccional por `prioridad <=
 - **Fix (mig 0751):** reconstruido sobre el cuerpo de 0703 (`cobrado = SUM(mi.monto_imputado)`) + el 3er camino `tramite_id` + `cantidad`.
 - **Prevención:** al hacer `CREATE OR REPLACE` de una función para extenderla, **partir SIEMPRE de la versión viva (la última migración que la define), no de la primera que aparece en el grep**. Verificar con `pg_get_functiondef` en vivo antes de reescribir.
 - **Fecha / módulo:** 2026-11-27 · DGG-275 F3 · mig 0749→0751 · `tramite_cobro_resumen`.
+
+## E-GG-316 (2026-11-27) — DDJJ F3: el FK nuevo `comprobantes.tramite_id` rompió embeds PostgREST (detalle del trámite no cargaba)
+
+- **Contexto:** lo cazó la **prueba en vivo** (la auditoría estática §6 de 4 agentes NO lo vio — es una ambigüedad de schema-cache de PostgREST que sólo se manifiesta en runtime). El detalle de cualquier trámite y la lista de trámites fallaban con *"Could not embed because more than one relationship was found between 'tramites' and 'comprobantes'"*.
+- **Causa raíz:** antes había UNA relación tramites↔comprobantes (`tramites.comprobante_id → comprobantes`). La mig 0749 agregó `comprobantes.tramite_id → tramites` (vínculo N:1 del lote) → **DOS** relaciones. Los embeds `comprobante:comprobantes(...)` desde `tramites` (sin FK explícito) quedaron ambiguos y PostgREST los rechaza. Afectaba `fetchTrackingDetail` (`trackings.ts:218`) y la lista `fetchTramites` (`tramites.ts:484`).
+- **Fix:** pinnear el FK en el embed → `comprobante:comprobantes!tramites_comprobante_id_fkey(...)` en ambos. (Los otros embeds de comprobantes del repo son desde `arca_emision_queue`/`recupero_acciones`/`partner_atribuciones` = 1 sola relación → sanos; no hay embeds inversos tramites-desde-comprobantes.)
+- **Prevención:** agregar un FK entre dos tablas que YA tenían una relación vuelve ambiguo TODO embed PostgREST entre ellas (en ambas direcciones). Al sumar un FK, hacer `grep` de los embeds `tabla:otra(...)` en `src/services/api` y pinnear el FK (`!constraint_fkey`). Es un fan-out de runtime que la lectura estática de SQL no destapa — por eso la prueba en vivo es ineludible.
+- **Fecha / módulo:** 2026-11-27 · DGG-275 F3 · `trackings.ts` + `tramites.ts` (embeds).

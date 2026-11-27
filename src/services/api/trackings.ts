@@ -215,7 +215,7 @@ export async function getTracking(id: string): Promise<ApiResponse<TrackingDetai
        servicio:servicios(id,nombre,codigo,sla_dias,vigencia_meses,precio_base),
        administracion:administraciones(id,nombre,email,cuit,matricula_rpac,legajo_rpac,matricula_rpac_fecha,matricula_rpac_vencimiento),
        consorcio:consorcios(id,nombre),
-       comprobante:comprobantes(id,tipo,punto_venta,numero)`,
+       comprobante:comprobantes!tramites_comprobante_id_fkey(id,tipo,punto_venta,numero)`,
     )
     .eq('id', id)
     .single();
