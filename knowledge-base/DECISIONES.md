@@ -9462,3 +9462,11 @@ global / (admin,código) explícito / nombre_normalizado; re-point con resoluci�
 coalesce-preserve para no pisar la base de facturación) + servicio + drawer + enganche en la ficha.
 Doble auditoría §6: EJERCITAR e2e (rollback, 0 residuo) + 3 agentes REVISAR → 2 críticas + menores,
 todas fixeadas in-chunk (E-GG-310/311). Build + tsc verdes.
+
+**F1 (avisos a gerencia) — mig 0748.** `credencial_reg_proponer_gestor` ahora avisa a gerencia
+(campanita + push + **mail** transaccional, sin exponer el secreto) cuando la gestoría informa
+credenciales de DDJJ — cierra el GAP del pendiente invisible (E-GG-312). + widget PERSISTENTE
+`CredencialesModerarWidget` en el dashboard (no ocultable, mientras haya pendiente); las credenciales
+se sacaron del `AportesGestoriaWidget` (ocultable) para no duplicar. El aviso al CLIENTE sigue en OFF
+(flag `ddjj_avisos_habilitados`). §6: EJERCITAR e2e (campanita=2+mails=2, fuga_password=0) + 3 agentes
+REVISAR → 2 menores fixeados in-chunk. Flaggeada para el flip de F6 una DUDA heredada de 0693 (A5).

@@ -66,6 +66,7 @@ const TIPO_META: Record<string, TipoMeta> = {
   comunicado:          { icon: Megaphone,     chip: 'bg-cyan-50 text-cyan-700'      },
   lexph_suscriptor:    { icon: Mail,          chip: 'bg-cyan-50 text-cyan-700'      },
   ddjj_credencial_lista: { icon: KeyRound,    chip: 'bg-cyan-50 text-cyan-700'      },
+  credencial_ddjj_propuesta: { icon: KeyRound, chip: 'bg-cyan-50 text-cyan-700'     },
 };
 
 function metaFor(tipo: string): TipoMeta {

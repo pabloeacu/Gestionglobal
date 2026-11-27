@@ -8,33 +8,29 @@
 //   · Vacío  → no renderiza nada (NuevasSolicitudes ya muestra el "todo al día").
 //   · Activo → banner con el contador y la lista, cada uno linkea a su trámite;
 //     "Ver todos" va a la cola de Moderación.
+//
+// DGG-275 F1: las PROPUESTAS DE CREDENCIALES (DDJJ) se movieron a su propio
+// widget PERSISTENTE (CredencialesModerarWidget) — no deben ocultarse con la X
+// ni filtrarse por "nuevas", porque una credencial sin publicar deja al cliente
+// sin acceso. Acá quedan sólo los aportes de gestoría (tracking_lineas).
 // ============================================================================
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ClipboardCheck, ChevronRight, X, KeyRound } from 'lucide-react';
+import { ClipboardCheck, ChevronRight, X } from 'lucide-react';
 import { fetchModeracionPendientes, type ModeracionPendiente } from '@/services/api/trackings';
-import { fetchCredencialModeracionPendientes, type CredencialModeracionPendiente } from '@/services/api/ddjj';
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
 import { useCardDismiss } from '@/hooks/useCardDismiss';
 
 export function AportesGestoriaWidget({ limit = 5 }: { limit?: number }) {
   const [items, setItems] = useState<ModeracionPendiente[]>([]);
-  // DGG-243 F2b · las propuestas de credenciales de portales (DDJJ) también son
-  // "pendientes de moderación" → deben verse en el inicio (fan-out §6-a: que no
-  // quede un pendiente invisible).
-  const [creds, setCreds] = useState<CredencialModeracionPendiente[]>([]);
   const [loading, setLoading] = useState(true);
   const mountedRef = useRef(true);
 
   const load = useCallback(async () => {
-    const [res, resCred] = await Promise.all([
-      fetchModeracionPendientes(),
-      fetchCredencialModeracionPendientes(),
-    ]);
+    const res = await fetchModeracionPendientes();
     if (!mountedRef.current) return;
     setLoading(false);
     if (res.ok) setItems(res.data);
-    if (resCred.ok) setCreds(resCred.data);
   }, []);
 
   useEffect(() => {
@@ -45,10 +41,7 @@ export function AportesGestoriaWidget({ limit = 5 }: { limit?: number }) {
     };
   }, [load]);
 
-  // Tiempo real: cuando entra/cambia un aporte del gestor (tracking_lineas) se
-  // re-fetchea (y de paso re-trae las credenciales a moderar). Las propuestas de
-  // credenciales NO tienen realtime propio (store con RLS deny-all, fuera de la
-  // publicación) → se ven al cargar o cuando llega cualquier otra novedad de gestoría.
+  // Tiempo real: cuando entra/cambia un aporte del gestor (tracking_lineas) se re-fetchea.
   useRealtimeRefresh(['tracking_lineas'], load);
 
   // Vacío o cargando → no ocupa espacio (el widget de solicitudes ya da el
@@ -56,14 +49,11 @@ export function AportesGestoriaWidget({ limit = 5 }: { limit?: number }) {
   // E-GG-158 · la X oculta el card hasta que llegue un aporte NUEVO del gestor.
   const { dismissedAt, dismiss } = useCardDismiss('gg.dismiss.aportesGestoria');
   const nuevos = items.filter((a) => Date.parse(a.created_at) > dismissedAt);
-  const nuevosCreds = creds.filter((c) => !!c.propAt && Date.parse(c.propAt) > dismissedAt);
 
-  if (loading || (nuevos.length === 0 && nuevosCreds.length === 0)) return null;
+  if (loading || nuevos.length === 0) return null;
 
-  const total = nuevos.length + nuevosCreds.length;
-  // Las credenciales van primero (sensibles); los aportes completan hasta el límite.
-  const credsVisibles = nuevosCreds.slice(0, limit);
-  const visibles = nuevos.slice(0, Math.max(0, limit - credsVisibles.length));
+  const total = nuevos.length;
+  const visibles = nuevos.slice(0, limit);
 
   return (
     <section className="relative overflow-hidden rounded-2xl border-2 border-violet-300/70 bg-gradient-to-br from-violet-50 via-white to-violet-50/60 p-5 shadow-md animate-fade-in">
@@ -98,30 +88,6 @@ export function AportesGestoriaWidget({ limit = 5 }: { limit?: number }) {
       </header>
 
       <ul className="divide-y divide-violet-200/60">
-        {credsVisibles.map((c) => (
-          <li key={`cred:${c.administracionId}:${c.plataforma}`}>
-            <Link
-              to="/gerencia/moderacion"
-              className="group flex items-center justify-between gap-3 rounded px-1 py-2.5 transition hover:bg-white"
-            >
-              <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-brand-ink">
-                  <KeyRound size={12} className="mr-1 inline text-brand-cyan" />
-                  {c.adminNombre ?? 'Cliente'}
-                  <span className="text-brand-muted"> · Credenciales {c.plataforma === 'ddjj' ? 'DDJJ' : 'ARCA'}</span>
-                </p>
-                <p className="truncate text-xs text-brand-muted">
-                  {c.propPor ? `${c.propPor} · ` : ''}
-                  {c.actualUsuario || c.actualTienePassword ? 'Actualización propuesta' : 'Credenciales nuevas'}
-                </p>
-              </div>
-              <ChevronRight
-                size={16}
-                className="shrink-0 text-brand-muted transition group-hover:translate-x-0.5 group-hover:text-violet-600"
-              />
-            </Link>
-          </li>
-        ))}
         {visibles.map((a) => (
           <li key={a.linea_id}>
             <Link
@@ -151,7 +117,7 @@ export function AportesGestoriaWidget({ limit = 5 }: { limit?: number }) {
         to="/gerencia/moderacion"
         className="mt-3 inline-block text-xs font-medium text-violet-700 hover:underline"
       >
-        Ir a Moderación{total > credsVisibles.length + visibles.length ? ` (${total})` : ''} →
+        Ir a Moderación{total > visibles.length ? ` (${total})` : ''} →
       </Link>
     </section>
   );

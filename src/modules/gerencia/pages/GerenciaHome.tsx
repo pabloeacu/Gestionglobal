@@ -15,6 +15,7 @@ import { MorososWidget } from '@/modules/cta_cte';
 import { ProximosSeguimientosWidget } from '@/modules/gerencia/components/ProximosSeguimientosWidget';
 import { NuevasSolicitudesWidget } from '@/modules/gerencia/components/NuevasSolicitudesWidget';
 import { AportesGestoriaWidget } from '@/modules/gerencia/components/AportesGestoriaWidget';
+import { CredencialesModerarWidget } from '@/modules/gerencia/components/CredencialesModerarWidget';
 import { DocsClientePendientesWidget } from '@/modules/gerencia/components/DocsClientePendientesWidget';
 import { PagosInformadosWidget } from '@/modules/gerencia/components/PagosInformadosWidget';
 import { EmailsRebotadosWidget } from '@/modules/gerencia/components/EmailsRebotadosWidget';
@@ -102,6 +103,12 @@ export function GerenciaHome() {
       {/* F7 (Lista JL · DGG-62): banner de solicitudes nuevas EN TIEMPO REAL,
           arriba de todo para que el gerente no se lo pierda. Slim si no hay nada. */}
       <NuevasSolicitudesWidget />
+
+      {/* DGG-275 F1: recordatorio PERSISTENTE de credenciales de portales (DDJJ)
+          propuestas por la gestoría y pendientes de moderar — no se oculta
+          mientras haya pendientes (una credencial sin publicar deja al cliente
+          sin acceso). El push/mail/campanita lo dispara la propuesta (mig 0748). */}
+      <CredencialesModerarWidget />
 
       {/* E-GG-91 (reporte JL): aportes de la gestoría externa pendientes de
           moderación — antes sólo se veían en la campanita o dentro del trámite. */}
