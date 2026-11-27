@@ -229,23 +229,23 @@ export function WizardDdjjExterna({ open, onClose, clientePreseleccionado, onCre
     setResult(data);
     onCreado?.(data.tramite_id);
 
-    // Acceso al portal:
-    //  · cliente NUEVO con email → lo provisiona el trigger de BD
-    //    (trg_admin_provision_user, AFTER INSERT) que crea el user + bienvenida.
-    //    NO llamamos altaClientePortal acá para no competir con el trigger
-    //    (evita la carrera y el falso-negativo "no se pudo crear"). Idempotente.
-    //  · cliente EXISTENTE sin usuario → no hay INSERT, el trigger no corre, así
-    //    que lo creamos explícito sólo si gerencia tildó el checkbox.
+    // Acceso al portal (E-GG-322): el trigger de BD `trg_admin_provision_user`
+    // (AFTER INSERT) depende de la GUC `app.service_role_key`, que NO está
+    // seteada en prod → el trigger loguea un WARNING y NO provisiona nada. Por
+    // eso resolvemos el acceso SIEMPRE desde el front con el edge idempotente
+    // `alta-cliente-portal` (mismo patrón que la activación de solicitudes).
+    //  · cliente NUEVO con email → provisiona user + bienvenida con credenciales.
+    //  · cliente EXISTENTE sin usuario + checkbox → ídem, explícito.
+    // El edge es idempotente: si el user ya existe devuelve ok (password_set=false),
+    // así que no hay carrera ni falso-negativo aunque el trigger reviviera.
     const email = data.email_cliente ?? (modo === 'nuevo' ? nuevo.email.trim() : emailElegido) ?? '';
     const nombre = data.nombre_cliente ?? (modo === 'nuevo' ? nuevo.nombre.trim() : elegido?.nombre) ?? 'Cliente';
 
-    if (data.cliente_creado) {
-      setPortalMsg(
-        email.length > 0
-          ? `El acceso al portal y la bienvenida con credenciales se envían automáticamente a ${email}.`
-          : 'Cliente creado sin email: no se generó acceso al portal (podés agregarlo luego en la ficha).',
-      );
-    } else if (crearAccesoExistente && acceso?.tiene_user === false && email.length > 0) {
+    const debeCrearAcceso =
+      email.length > 0 &&
+      (data.cliente_creado || (crearAccesoExistente && acceso?.tiene_user === false));
+
+    if (debeCrearAcceso) {
       const alta = await altaClientePortal({ administracion_id: data.administracion_id, email, nombre });
       if (alta.ok) {
         const pwSet = (alta.data as { password_set?: boolean } | null)?.password_set;
@@ -255,8 +255,12 @@ export function WizardDdjjExterna({ open, onClose, clientePreseleccionado, onCre
             : `El cliente ya tenía acceso al portal (${email}).`,
         );
       } else {
-        setPortalMsg(`No se pudo crear el acceso al portal: ${humanizeError(alta.error)}`);
+        setPortalMsg(
+          `El trámite quedó abierto, pero no se pudo generar el acceso al portal: ${humanizeError(alta.error)}. Reintentá desde la ficha del cliente ("Crear acceso al portal").`,
+        );
       }
+    } else if (data.cliente_creado) {
+      setPortalMsg('Cliente creado sin email: no se generó acceso al portal (podés agregarlo luego en la ficha).');
     }
 
     setPaso('done');
