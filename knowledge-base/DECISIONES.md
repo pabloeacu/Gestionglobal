@@ -9470,3 +9470,16 @@ credenciales de DDJJ — cierra el GAP del pendiente invisible (E-GG-312). + wid
 se sacaron del `AportesGestoriaWidget` (ocultable) para no duplicar. El aviso al CLIENTE sigue en OFF
 (flag `ddjj_avisos_habilitados`). §6: EJERCITAR e2e (campanita=2+mails=2, fuga_password=0) + 3 agentes
 REVISAR → 2 menores fixeados in-chunk. Flaggeada para el flip de F6 una DUDA heredada de 0693 (A5).
+
+**F2 (2ª carga + re-aviva) — sin migración, "explotación de recursos que ya tenemos".** El circuito de
+la 2ª carga (gestor sube constancia RPAC + Excel de rendición) ya existe: el carril de **avance +
+adjuntos** del panel del gestor (`gestor_cargar_avance`, bucket `gestor-uploads`, `safeStorageKey`),
+con sus guards anti-huérfano (E-GG-177), que YA dispara aviso a gerencia (campanita+push+mail, rama
+`gestor_avance` del trigger `tracking_linea_on_insert`) y entra a moderación. El **re-aviva de 1 clic**
+también ya existe (DGG-138, `derivacion_reavisar_gestoria`: regenera el link si venció + adjuntos, botón
+"Avisar a la gestoría" en `TrackingDetailPage`). Delta de F2: una **guía dedicada** en el form de avance
+(sólo trámites DDJJ) que orienta al gestor a subir constancia + rendición, con texto sugerido —
+reutiliza el carril probado, sin flujo paralelo (no se duplica la subida para no reintroducir el riesgo
+de huérfanos). Nota de dominio (Pablo): el Excel/remito trae sólo **nombre, domicilio y CUIT** → dedup
+por CUIT global (F0 ya lo hace); el resto se presume/deduce en la grilla de F3. Sin lógica/datos nuevos
+→ verificación por build + prueba en vivo del panel (no amerita la doble auditoría multi-agente).

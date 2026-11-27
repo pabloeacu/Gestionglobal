@@ -1138,6 +1138,34 @@ function PanelGestor({ token }: { token: string }) {
           Tu aporte pasa por la revisión de la gerencia antes de publicarse al cliente.
         </p>
 
+        {/* DGG-275 F2 · Guía de la 2ª carga DDJJ (constancia RPAC + Excel de
+            rendición). Reutiliza este mismo carril de avance (adjuntos + revisión
+            + aviso a gerencia), sin flujo paralelo: sólo orienta al gestor. */}
+        {esTramiteDdjj && (
+          <div className="rounded-xl border border-brand-cyan/30 bg-brand-cyan-pale/20 p-3">
+            <p className="kicker mb-1 inline-flex items-center gap-1 text-brand-cyan">
+              <FileText size={12} /> Cuando presentes la DDJJ
+            </p>
+            <p className="text-xs leading-relaxed text-brand-ink/80">
+              Subí acá la <strong>constancia de presentación ante el RPAC</strong> y el{' '}
+              <strong>Excel de rendición</strong> (nombre, domicilio y CUIT por consorcio),
+              y describí brevemente. Queda en revisión de la gerencia.
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setDescripcion(
+                  'Presentación de DDJJ realizada ante el RPAC. Adjunto la constancia de presentación y el Excel de rendición.',
+                );
+                if (enviado) setEnviado(false);
+              }}
+              className="mt-2 text-xs font-medium text-brand-cyan hover:underline"
+            >
+              Usar texto sugerido
+            </button>
+          </div>
+        )}
+
         {/* #154 · Adjuntos ilimitados */}
         <div className="rounded-xl border border-dashed border-brand-cyan/30 bg-white p-3">
           <div className="flex items-center justify-between gap-2">
